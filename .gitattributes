@@ -1,0 +1,19 @@
+# Git LFS - 只追踪特定大文件 (>5MB)
+# 避免使用 *.png / *.ttf 等通配符,以免影响大量小文件
+
+# 大型演示文档 (87.48 MB)
+client/public/docs/enterprise-service/whitepaper.pptx filter=lfs diff=lfs merge=lfs -text
+
+# 大型 PDF 文档 (11.5 MB)
+client/public/docs/enterprise-service/ai-community-intro.pdf filter=lfs diff=lfs merge=lfs -text
+
+# 大型字体文件 (>5MB)
+client/miniapp/src/static/fonts/Bold.ttf filter=lfs diff=lfs merge=lfs -text
+client/miniapp/src/static/fonts/Alibaba_PuHuiTi_2.0_55_Regular_55_Regular.ttf filter=lfs diff=lfs merge=lfs -text
+client/miniapp/src/static/fonts/AlimamaFangYuanTiVF-Thin.ttf filter=lfs diff=lfs merge=lfs -text
+
+# 大型图片文件 (>5MB)
+client/miniapp/src/static/images/record_back.png filter=lfs diff=lfs merge=lfs -text
+
+# 大型生成代码文件 (5.88 MB)
+server/sdk/typescript-axios/api.ts filter=lfs diff=lfs merge=lfs -text
