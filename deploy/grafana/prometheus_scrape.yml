@@ -1,0 +1,21 @@
+# Prometheus 抓取 ZHS 后端 /metrics 端点
+# 部署到 k8s 时使用 ServiceMonitor 形式
+scrape_configs:
+  - job_name: "zhs-backend"
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ["zhs-backend.zhs.svc.cluster.local:8000"]
+        labels:
+          service: "zhs-backend"
+          env: "production"
+
+  - job_name: "zhs-backend-staging"
+    metrics_path: "/metrics"
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["zhs-backend-staging.zhs.svc.cluster.local:8000"]
+        labels:
+          service: "zhs-backend"
+          env: "staging"
