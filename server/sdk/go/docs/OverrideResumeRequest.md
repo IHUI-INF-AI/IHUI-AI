@@ -1,0 +1,82 @@
+# OverrideResumeRequest
+
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**Actor** | Pointer to **string** | 操作者 | [optional] [default to "api"]
+**Reason** | Pointer to **string** | 恢复原因 (审计可选) | [optional] [default to ""]
+
+## Methods
+
+### NewOverrideResumeRequest
+
+`func NewOverrideResumeRequest() *OverrideResumeRequest`
+
+NewOverrideResumeRequest instantiates a new OverrideResumeRequest object
+This constructor will assign default values to properties that have it defined,
+and makes sure properties required by API are set, but the set of arguments
+will change when the set of required properties is changed
+
+### NewOverrideResumeRequestWithDefaults
+
+`func NewOverrideResumeRequestWithDefaults() *OverrideResumeRequest`
+
+NewOverrideResumeRequestWithDefaults instantiates a new OverrideResumeRequest object
+This constructor will only assign default values to properties that have it defined,
+but it doesn't guarantee that properties required by API are set
+
+### GetActor
+
+`func (o *OverrideResumeRequest) GetActor() string`
+
+GetActor returns the Actor field if non-nil, zero value otherwise.
+
+### GetActorOk
+
+`func (o *OverrideResumeRequest) GetActorOk() (*string, bool)`
+
+GetActorOk returns a tuple with the Actor field if it's non-nil, zero value otherwise
+and a boolean to check if the value has been set.
+
+### SetActor
+
+`func (o *OverrideResumeRequest) SetActor(v string)`
+
+SetActor sets Actor field to given value.
+
+### HasActor
+
+`func (o *OverrideResumeRequest) HasActor() bool`
+
+HasActor returns a boolean if a field has been set.
+
+### GetReason
+
+`func (o *OverrideResumeRequest) GetReason() string`
+
+GetReason returns the Reason field if non-nil, zero value otherwise.
+
+### GetReasonOk
+
+`func (o *OverrideResumeRequest) GetReasonOk() (*string, bool)`
+
+GetReasonOk returns a tuple with the Reason field if it's non-nil, zero value otherwise
+and a boolean to check if the value has been set.
+
+### SetReason
+
+`func (o *OverrideResumeRequest) SetReason(v string)`
+
+SetReason sets Reason field to given value.
+
+### HasReason
+
+`func (o *OverrideResumeRequest) HasReason() bool`
+
+HasReason returns a boolean if a field has been set.
+
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
+

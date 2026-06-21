@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+# Pre-push 钩子：完整 TypeScript 类型检查 + 样式审计 + 高特异性检测
+# 防止有类型错误或样式问题的代码进入远端分支
+
+set -e
+
+echo "▶ Running vue-tsc type check (this may take a while)..."
+npm run typecheck --silent
+
+echo "▶ Running style audit (no-important / colors / font-size)..."
+CHECK_NO_IMPORTANT_BASELINE=1 CHECK_COLORS_BASELINE=1 CHECK_FONTSIZE_BASELINE=1 npm run style:audit --silent
+
+echo "▶ Running design tokens check..."
+npm run tokens:check --silent
+npm run tokens:naming --silent
+
+echo "▶ Running high specificity selector check..."
+HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent

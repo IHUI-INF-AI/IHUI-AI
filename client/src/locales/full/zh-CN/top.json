@@ -1,0 +1,56 @@
+{
+  "topUp": {
+    "title": "充值",
+    "subtitle": "为您的账户充值智汇值",
+    "selectAmount": "请选择充值金额",
+    "selectPaymentMethod": "请选择支付方式",
+    "customAmount": "自定义金额",
+    "paymentMethods": {
+      "wechat": {
+        "name": "微信支付",
+        "desc": "使用微信扫码支付"
+      },
+      "alipay": {
+        "name": "支付宝",
+        "desc": "使用支付宝扫码支付"
+      }
+    },
+    "cancel": "取消",
+    "submit": "立即充值",
+    "errors": {
+      "selectAmount": "请选择充值金额",
+      "createOrderFailed": "创建充值订单失败",
+      "createOrderRetry": "创建充值订单失败，请稍后重试",
+      "logger": {
+        "createOrderFailed": "[TopUp] 创建充值订单失败"
+      }
+    },
+    "loading": "加载中...",
+    "clickToTopUp": "点击此处充值",
+    "ratio": "充值比例",
+    "selectMethod": "请选择充值方式",
+    "moreMethods": "更多充值方式可使用官方",
+    "invalidAmount": "请输入正确的充值金额",
+    "submitted": "充值请求已提交",
+    "amountLabels": {
+      "coins": "金币"
+    },
+    "customPlaceholder": "自定义金额",
+    "notice1": "公告1",
+    "notice2": "公告2",
+    "notice3": "公告3",
+    "noticeTitle": "公告标题"
+  },
+  "topUpSuccess": {
+    "title": "充值成功",
+    "message": "您的账户已成功充值",
+    "backToHome": "返回首页",
+    "viewAccount": "查看账户"
+  },
+  "topUpFail": {
+    "title": "充值失败",
+    "defaultMessage": "充值过程中出现错误，请稍后重试",
+    "retry": "重新充值",
+    "backToHome": "返回首页"
+  }
+}

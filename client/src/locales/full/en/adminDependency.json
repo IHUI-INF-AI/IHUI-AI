@@ -1,0 +1,6 @@
+{
+  "adminDependencyManager": {
+    "enterTourId": "Please enter tour ID",
+    "confirmDeleteConfig": "Confirm delete this config?"
+  }
+}

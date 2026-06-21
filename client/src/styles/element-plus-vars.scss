@@ -1,0 +1,301 @@
+/**
+ * Element Plus CSS 变量后备值
+ * 圆角与色值来源：_global-tokens（全站唯一写死处），此处仅输出为 CSS 变量
+ */
+@use './variables.scss' as *;
+@use './_global-tokens' as gt;
+
+:root {
+  /* 全局间距系统 - 响应式设计 */
+  --spacing-xs: 4px;    /* 超小间距：移动端按钮间距 */
+  --spacing-sm: 8px;    /* 小间距：桌面端按钮间距 */
+  --spacing-md: 16px;   /* 中间距：卡片内边距 */
+  --spacing-lg: 24px;   /* 大间距：区块间距 */
+  --spacing-xl: 32px;   /* 超大间距：页面间距 */
+
+  /* 全局圆角 - 唯一设定 8px，全站仅此一种 */
+  --global-border-radius: #{$global-border-radius};
+  /* 全局容器/页面背景色 - 来自 variables.scss 全局设定，其余处仅使用 var(--color-neutral-f7f8fa) */
+  --color-neutral-f7f8fa: #{$color-neutral-f7f8fa};
+  --el-border-radius-base: var(--global-border-radius);
+  --el-border-radius-small: var(--global-border-radius);
+  --el-border-radius-round: var(--global-border-radius);
+  --el-border-radius-circle: var(--global-border-radius);
+  --el-input-border-radius: var(--global-border-radius);
+
+  /* 品牌强调色 */
+  --brand-cyan: var(--el-text-color-primary);
+  --brand-green: var(--el-text-color-primary);
+  --brand-blue: var(--el-text-color-primary);
+  --brand-purple: var(--el-text-color-primary);
+  --brand-pink: var(--el-text-color-primary);
+
+  /* 工具图标颜色 - 与第一行（仪表板/记忆/语音/画布）一致，统一用主色 */
+  --tool-color-purple: var(--el-text-color-primary);
+  --tool-color-amber: var(--el-text-color-primary);
+  --tool-color-blue: var(--el-text-color-primary);
+  --tool-color-green: var(--el-text-color-primary);
+  --tool-color-cyan: var(--el-text-color-primary);
+  --tool-color-violet: var(--el-text-color-primary);
+  --tool-color-indigo: var(--el-text-color-primary);
+  --tool-color-rose: var(--el-text-color-primary);
+  --tool-color-pink: var(--el-text-color-primary);
+  --tool-color-orange: var(--el-text-color-primary);
+  --tool-color-success: var(--el-text-color-primary);
+  --tool-color-voice: var(--el-text-color-primary);
+  --tool-color-voice-dark: var(--el-text-color-primary);
+
+  /* 编程语言颜色 */
+  --lang-python: var(--el-text-color-primary);
+  --lang-python-bg: color-mix(in srgb, var(--el-color-primary) 13%, transparent);
+  --lang-javascript: var(--el-text-color-primary);
+  --lang-javascript-bg: color-mix(in srgb, var(--el-color-primary) 13%, transparent);
+  --lang-bash: var(--el-text-color-primary);
+  --lang-bash-bg: color-mix(in srgb, var(--el-color-primary) 13%, transparent);
+
+  /* 社交平台品牌色 */
+  --social-wechat: var(--el-text-color-primary);
+  --social-weibo: var(--el-text-color-primary);
+  --social-qq: var(--el-text-color-primary);
+
+  /* 图表/状态颜色 */
+  --chart-success: var(--color-success);
+  --chart-danger: var(--color-danger-variant);
+  --chart-info: var(--color-blue-1890ff);
+  --chart-warning: var(--color-orange-fa8c16);
+
+  /* 灰阶色板 */
+  --gray-50: var(--color-gray-fafafa);
+  --gray-100: var(--color-neutral-100);
+  --gray-200: var(--color-neutral-200);
+  --gray-300: var(--color-neutral-300);
+  --gray-400: var(--color-neutral-400);
+  --gray-500: var(--color-neutral-500);
+  --gray-600: var(--color-neutral-600);
+  --gray-700: var(--color-neutral-700);
+  --gray-800: var(--color-dark-bg-5);
+  --gray-900: var(--color-neutral-800);
+
+  /* 深色背景层级 */
+  --dark-bg-1: var(--color-dark-bg-1);
+  --dark-bg-2: var(--el-text-color-primary);
+  --dark-bg-3: var(--color-dark-bg-3);
+  --dark-bg-4: var(--el-text-color-primary);
+  --dark-bg-5: var(--color-dark-bg-6);
+  --dark-bg-6: var(--el-text-color-primary);
+
+  /* 浅色背景层级 */
+  --light-bg-1: var(--el-bg-color);
+  --light-bg-2: var(--color-gray-fafafa);
+  --light-bg-3: var(--color-neutral-f7f8fa);
+  --light-bg-4: var(--color-neutral-100);
+  --light-bg-5: var(--color-gray-light);
+  --light-bg-6: var(--color-border-light);
+
+  /* 文字颜色扩展 */
+  --text-tertiary: var(--el-text-color-secondary);
+  --text-muted: var(--el-text-color-placeholder);
+  --text-light: var(--el-text-color-placeholder);
+  --text-dark-muted: var(--color-gray-a1a1a1);
+
+  /* 亮色主题核心背景变量 - 修复循环：原写法 var(--el-bg-color) 会自引用，改为具体颜色 */
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #ffffff;
+  --el-bg-color-hover: var(--el-text-color-primary);
+  --el-bg-color-overlay: #ffffff;
+
+  /* 亮色主题文字颜色变量 */
+  --el-text-color-primary: var(--color-gray-303133);
+  --el-text-color-regular: var(--color-gray-606266);
+  --el-text-color-secondary: var(--el-text-color-primary);
+  --el-text-color-placeholder: var(--color-gray-a8abb2);
+  --el-text-color-disabled: var(--color-gray-c0c4cc);
+
+  /* 描边 - 设计语言：极细描边 1px，亮色：浅灰（仅 _global-tokens 写死） */
+  --border-unified-color: #{gt.$border-unified-light};
+
+  /* hover/focus 描边：略深 */
+  --border-unified-color-hover: #{gt.$border-unified-light-hover};
+  --el-border-color-hover: var(--border-unified-color-hover);
+
+  /* 边框颜色变量 - 统一指向全局描边颜色 */
+  --el-border-color: var(--border-unified-color);
+  --el-border-color-light: var(--border-unified-color);
+  --el-border-color-lighter: var(--border-unified-color);
+  --el-border-color-extra-light: var(--border-unified-color);
+  --el-border-color-dark: var(--border-unified-color);
+  --el-border-color-darker: var(--border-unified-color);
+
+  /* 全站唯一描边设定：仅此一处定义 1px + 颜色，所有组件使用 var(--unified-border) */
+  --unified-border: 1px solid var(--border-unified-color);
+  --unified-border-bottom: 1px solid var(--border-unified-color);
+
+  /* 填充颜色变量 - 亮色：浅灰 */
+  --el-fill-color: var(--color-gray-f0f2f5);
+  --el-fill-color-light: var(--color-gray-fafafa);
+  --el-fill-color-lighter: var(--color-gray-fafafa);
+  --el-fill-color-extra-light: var(--el-text-color-primary);
+  --el-fill-color-dark: var(--el-text-color-primary);
+  --el-fill-color-darker: var(--el-text-color-primary);
+  --el-fill-color-blank: var(--el-bg-color);
+
+  /* 主色 - 亮色模式：纯黑 */
+  --el-color-primary: var(--el-text-color-primary);
+  --el-color-primary-light-3: var(--el-text-color-primary);
+  --el-color-primary-light-5: var(--el-text-color-secondary);
+  --el-color-primary-light-7: var(--el-text-color-placeholder);
+  --el-color-primary-light-8: var(--color-neutral-b3);
+  --el-color-primary-light-9: var(--el-text-color-placeholder);
+  --el-color-primary-dark-2: var(--color-dark-bg-3);
+
+  /* 按钮变量 - 亮色模式 */
+  --el-button-text-color: var(--el-bg-color);
+  --el-button-bg-color: var(--el-text-color-primary);
+  --el-button-hover-text-color: var(--el-bg-color);
+  --el-button-hover-bg-color: var(--el-text-color-primary);
+  --el-button-active-text-color: var(--el-bg-color);
+  --el-button-active-bg-color: var(--el-text-color-secondary);
+
+  /* 遮罩颜色：项目不需要遮罩，设为完全透明 */
+  --el-mask-color: transparent;
+  --el-mask-color-extra-light: transparent;
+
+  /* 突出按钮变量 - 用于重要/推荐按钮（黑白对比） */
+  --button-emphasized-bg: var(--el-text-color-primary);
+  --button-emphasized-text: var(--el-bg-color);
+  --button-emphasized-hover-bg: var(--color-dark-bg-3);
+  --button-emphasized-hover-text: var(--el-bg-color);
+
+  /* 按钮灰度级别变量 - 用于区分不同套餐 */
+
+  /* 基础版 - 浅灰色 */
+  --button-basic-bg: var(--color-text-muted);
+  --button-basic-text: var(--el-text-color-primary);
+  --button-basic-hover-bg: var(--ai-gray-1);
+  --button-basic-hover-text: var(--el-text-color-primary);
+
+  /* 企业版 - 中等灰色 */
+  --button-enterprise-bg: var(--el-text-color-secondary);
+  --button-enterprise-text: var(--el-bg-color);
+  --button-enterprise-hover-bg: var(--el-text-color-primary);
+  --button-enterprise-hover-text: var(--el-bg-color);
+
+  /* 旗舰版 - 深灰色 */
+  --button-flagship-bg: var(--el-text-color-primary);
+  --button-flagship-text: var(--el-bg-color);
+  --button-flagship-hover-bg: var(--color-dark-bg-6);
+  --button-flagship-hover-text: var(--el-bg-color);
+
+  /* 下拉菜单边框颜色 - 使用全局描边 */
+  --dropdown-border-color: var(--border-unified-color);
+
+  /* 滚动条 - 不占位悬浮（轨道透明，悬停时显示细条） */
+  --scrollbar-size: 6px;
+  --scrollbar-thumb: var(--el-border-color);
+  --scrollbar-thumb-hover: var(--el-border-color-hover);
+
+  /* 图标按钮尺寸 - 方形（与 _design-tokens 保持一致） */
+  --icon-btn-square-size: 36px;
+  --icon-link-btn-small-size: 28px;
+
+  /* 悬浮窗发送按钮 hover（仅 _global-tokens 写死，组件用 var 引用） */
+  --fcd-send-btn-hover-bg: #{gt.$fcd-send-btn-hover-light};
+}
+
+/* 暗色主题：背景必须用深色变量，不能引用 --el-text-color-primary（否则与下文文字色循环导致整页浅色） */
+/* 主文字色使用 _global-tokens 兜底，避免 --color-gray-e5eaf3 未定义导致黑字不可见 */
+html.dark {
+  --el-bg-color: var(--color-dark-bg-3);
+  --el-bg-color-page: var(--color-dark-bg-3);
+  --el-bg-color-hover: var(--color-dark-bg-5);
+  --el-bg-color-overlay: var(--color-dark-bg-3);
+  --el-text-color-primary: var(--color-gray-e5eaf3, #{gt.$color-dark-text-primary});
+  --el-text-color-regular: var(--color-gray-cfd3dc);
+  --el-text-color-secondary: var(--color-gray-a3a6ad);
+  --el-text-color-placeholder: var(--color-gray-8d9095);
+  --el-text-color-disabled: var(--el-text-color-primary);
+
+  /* 描边 - 设计语言：极细描边 1px，暗色：深灰（仅 _global-tokens 写死） */
+  --border-unified-color: #{gt.$border-unified-dark};
+
+  /* hover/focus 描边：略亮 */
+  --border-unified-color-hover: #{gt.$border-unified-dark-hover};
+  --el-border-color-hover: var(--border-unified-color-hover);
+  --el-border-color: var(--border-unified-color);
+  --el-border-color-light: var(--border-unified-color);
+  --el-border-color-lighter: var(--border-unified-color);
+  --el-border-color-extra-light: var(--border-unified-color);
+  --el-border-color-dark: var(--border-unified-color);
+  --el-border-color-darker: var(--border-unified-color);
+  /* 填充颜色变量 - 暗色：深灰 */
+  --el-fill-color: var(--color-dark-bg-7);
+  --el-fill-color-light: var(--color-dark-bg-5);
+  --el-fill-color-lighter: var(--color-dark-bg-4);
+  --el-fill-color-extra-light: var(--el-text-color-primary);
+  --el-fill-color-dark: var(--el-text-color-primary);
+  --el-fill-color-darker: var(--el-text-color-primary);
+  --el-fill-color-blank: transparent;
+
+  /* 圆角 - 唯一设定，与亮色一致 */
+  --el-border-radius-base: var(--global-border-radius);
+  --el-border-radius-small: var(--global-border-radius);
+  --el-border-radius-round: var(--global-border-radius);
+  --el-border-radius-circle: var(--global-border-radius);
+  --el-input-border-radius: var(--global-border-radius);
+
+  /* 主色 - 暗色模式：纯白（强调按钮/主按钮背景，仅 _global-tokens 写死） */
+  --el-color-primary: #{gt.$el-color-primary-dark};
+  --el-color-primary-light-3: var(--el-text-color-placeholder);
+  --el-color-primary-light-5: var(--el-text-color-placeholder);
+  --el-color-primary-light-7: var(--el-text-color-secondary);
+  --el-color-primary-light-8: var(--color-neutral-4d);
+  --el-color-primary-light-9: var(--el-text-color-primary);
+  --el-color-primary-dark-2: var(--color-neutral-e6);
+
+  /* 按钮变量 - 暗色模式（主按钮白底黑字，仅 _global-tokens 写死） */
+  --el-button-text-color: #{gt.$el-button-text-on-primary-dark};
+  --el-button-bg-color: var(--el-color-primary);
+  --el-button-hover-text-color: var(--el-text-color-primary);
+  --el-button-hover-bg-color: var(--color-text-muted);
+  --el-button-active-text-color: var(--el-text-color-primary);
+  --el-button-active-bg-color: var(--el-text-color-placeholder);
+  --el-mask-color: transparent;
+  --el-mask-color-extra-light: transparent;
+
+  /* 悬浮窗发送按钮 hover - 暗色（仅 _global-tokens 写死） */
+  --fcd-send-btn-hover-bg: #{gt.$fcd-send-btn-hover-dark};
+
+  /* 突出按钮变量 - 用于重要/推荐按钮（黑白对比）- 暗色模式 */
+  --button-emphasized-bg: var(--el-bg-color);
+  --button-emphasized-text: var(--el-text-color-primary);
+  --button-emphasized-hover-bg: var(--color-gray-light);
+  --button-emphasized-hover-text: var(--el-text-color-primary);
+
+  /* 按钮灰度级别变量 - 用于区分不同套餐 - 暗色模式 */
+
+  /* 基础版 - 白色背景，与卡片形成对比 */
+  --button-basic-bg: var(--el-bg-color);
+  --button-basic-text: var(--el-text-color-primary);
+  --button-basic-hover-bg: var(--color-gray-light);
+  --button-basic-hover-text: var(--el-text-color-primary);
+
+  /* 企业版 - 白色背景，与卡片形成对比 */
+  --button-enterprise-bg: var(--el-bg-color);
+  --button-enterprise-text: var(--el-text-color-primary);
+  --button-enterprise-hover-bg: var(--color-gray-light);
+  --button-enterprise-hover-text: var(--el-text-color-primary);
+
+  /* 旗舰版 - 白色背景，与卡片形成对比 */
+  --button-flagship-bg: var(--el-bg-color);
+  --button-flagship-text: var(--el-text-color-primary);
+  --button-flagship-hover-bg: var(--color-gray-light);
+  --button-flagship-hover-text: var(--el-text-color-primary);
+
+  /* 下拉菜单边框颜色 - 暗色模式：使用标准边框颜色 */
+  --dropdown-border-color: var(--el-border-color);
+
+  /* 滚动条 - 不占位悬浮（暗色） */
+  --scrollbar-thumb: var(--color-white-20);
+  --scrollbar-thumb-hover: var(--color-white-30);
+}
+

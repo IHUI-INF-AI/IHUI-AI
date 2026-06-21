@@ -1,0 +1,15 @@
+{
+  "errors": {
+    "pleaseLogin": "請先登錄",
+    "notLoggedIn": "未登錄",
+    "aiCallFailed": "aiCall失敗",
+    "cannotLoadSwaggerDocs": "是否可以无tLoadSwaggerDocs",
+    "navigateFail": "NavigateFail",
+    "loadDataFailed": "loadData失敗",
+    "routeNotFound": "RouteNotFound",
+    "userInfoEmpty": "User信息清空",
+    "xssDetected": "XssDetected",
+    "forbidden": "Forbidden",
+    "notFound": "未找到"
+  }
+}

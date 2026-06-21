@@ -1,0 +1,23 @@
+{
+  "order": {
+    "Status": {
+      "unsettled": "Unsettled",
+      "pending": "Pending",
+      "refunded": "Refunded",
+      "completed": "Completed"
+    },
+    "status": {
+      "completed": "Completed",
+      "pending": "Pending",
+      "refunded": "Refunded",
+      "unsettled": "未settled"
+    }
+  },
+  "orderList": {
+    "title": "Order List",
+    "searchPlaceholder": "Search by order number...",
+    "orderNo": "Order Number",
+    "orderTime": "Order Time",
+    "noOrders": "No orders found"
+  }
+}

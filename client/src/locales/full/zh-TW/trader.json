@@ -1,0 +1,51 @@
+{
+  "traderCommission": {
+    "title": "我的傭金",
+    "subtitle": "查看您的操盤手傭金詳情",
+    "totalCommission": "累計傭金",
+    "available": "可提現",
+    "withdrawn": "已提現",
+    "pendingCommission": "待結算傭金",
+    "todayCommission": "今日傭金",
+    "yuan": "元",
+    "withdraw": "提現",
+    "withdrawDetail": "提現明細",
+    "commission": "傭金",
+    "buyer": "下单人",
+    "copy": "複製",
+    "noCommission": "暫無傭金記錄",
+    "withdrawSuccess": "提現成功",
+    "withdrawDetailInfo": "查看提現明細",
+    "tabs": {
+      "all": "全部",
+      "pending": "待結算",
+      "settled": "已結算",
+      "cancelled": "取消結算"
+    },
+    "table": {
+      "buyer": "下单人",
+      "relatedOrder": "關聯訂單",
+      "commissionAmount": "傭金金額",
+      "status": "狀態",
+      "orderTime": "下单時間",
+      "actions": "操作",
+      "copyOrderId": "複製訂單號"
+    },
+    "status": {
+      "settled": "已結算",
+      "pending": "待結算",
+      "cancelled": "取消結算",
+      "unknown": "未知"
+    },
+    "noRecords": "暫無傭金記錄",
+    "errors": {
+      "loadFailed": "獲取傭金數據失敗",
+      "loadRetry": "獲取傭金數據失敗，請稍后重試",
+      "copySuccess": "訂單號已複製到剪貼板",
+      "copyFailed": "複製失敗，請手動複製"
+    },
+    "withdrawableCommission": "Withdrawable傭金",
+    "withdrawnCommission": "Withdrawn傭金",
+    "withdrawDetails": "Withdraw詳情"
+  }
+}

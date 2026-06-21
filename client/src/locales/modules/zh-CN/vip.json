@@ -1,0 +1,185 @@
+{
+  "vip": {
+    "title": "升级VIP会员",
+    "subtitle": "解锁全部AI工具，享受专属特权服务，仅需 ¥{amount}",
+    "featuresTitle": "VIP专属特权",
+    "buyButton": "立即开通",
+    "purchaseTitle": "确认购买",
+    "purchaseDesc": "确认您的VIP会员购买信息",
+    "confirmPayment": "确认支付",
+    "purchaseSuccess": "购买成功",
+    "purchaseFailed": "购买失败",
+    "paymentSuccess": "支付成功",
+    "useQrCode": "请使用扫码支付",
+    "stats": {
+      "activeUsers": "活跃用户",
+      "aiFeatures": "AI功能",
+      "satisfaction": "满意度"
+    },
+    "features": {
+      "ai_copywriting": {
+        "title": "AI营销文案",
+        "desc": "智能生成营销文案，提升转化率"
+      },
+      "ai_chat": {
+        "title": "AI智能对话",
+        "desc": "与AI进行自然流畅的对话"
+      },
+      "ai_analysis": {
+        "title": "AI数据分析",
+        "desc": "智能分析数据，提供洞察"
+      },
+      "ai_design": {
+        "title": "AI智能设计",
+        "desc": "AI辅助设计，提升创作效率"
+      }
+    },
+    "hero": {
+      "title": "升级VIP会员",
+      "subtitle": "解锁全部AI工具，享受专属特权服务",
+      "stats": {
+        "aiTools": "AI工具",
+        "customerService": "专属客服",
+        "unlimited": "无限使用"
+      }
+    },
+    "card": {
+      "vipMember": "VIP会员",
+      "memberName": "尊贵会员",
+      "diamondMember": "钻石会员",
+      "benefits": {
+        "unlimitedChat": "✓ 无限AI对话",
+        "exclusiveModel": "✓ 专属模型访问",
+        "prioritySupport": "✓ 优先技术支持"
+      }
+    },
+    "benefits": {
+      "title": "VIP专属特权",
+      "subtitle": "全方位提升您的AI使用体验"
+    },
+    "pricing": {
+      "title": "选择适合您的套餐",
+      "subtitle": "灵活的定价方案，满足不同需求",
+      "billing": {
+        "monthly": "按月付费",
+        "yearly": "按年付费",
+        "month": "月",
+        "year": "年"
+      },
+      "discount": {
+        "yearlyDiscount": "年付限时优惠",
+        "originalPrice": "原价 ¥{price}"
+      },
+      "plans": {
+        "vip": "会员",
+        "trader": "操盘手",
+        "upgrade": "升级套餐",
+        "subscribe": "立即开通",
+        "recommended": "推荐"
+      },
+      "loading": "加载套餐信息...",
+      "retry": "重新加载"
+    },
+    "testimonials": {
+      "title": "用户真实评价",
+      "subtitle": "看看其他用户怎么说"
+    },
+    "faq": {
+      "title": "常见问题",
+      "subtitle": "解答您关心的问题"
+    },
+    "cta": {
+      "title": "准备好体验VIP特权了吗？",
+      "subtitle": "立即升级，解锁全部AI工具和专属服务",
+      "upgrade": "立即升级VIP",
+      "viewPlans": "查看套餐详情",
+      "guarantee": "7天无理由退款保障"
+    },
+    "payment": {
+      "title": "支付",
+      "subtitle": "请选择支付方式完成订单",
+      "orderInfo": "订单信息",
+      "productName": "商品名称",
+      "orderNo": "订单号",
+      "amount": "金额",
+      "paymentMethods": "支付方式",
+      "platformCoins": {
+        "name": "平台币支付",
+        "desc": "使用账户余额支付"
+      },
+      "alipay": "alipay",
+      "wechat": {
+        "name": "微信支付",
+        "desc": "使用微信扫码支付"
+      },
+      "card": {
+        "name": "银行卡",
+        "desc": "使用银行卡支付"
+      },
+      "confirmPay": "确认支付 ¥{price}",
+      "cancel": "取消",
+      "underDevelopment": "功能开发中",
+      "confirmPayment": "确认支付",
+      "processing": "处理中...",
+      "invalidOrderInfo": "订单信息无效",
+      "cardNotSupported": "银行卡支付暂不支持，请选择其他支付方式",
+      "createOrderFailed": "创建支付订单失败",
+      "paymentDataError": "支付数据错误",
+      "paymentSuccess": "支付成功",
+      "paymentFailed": "支付失败",
+      "insufficientBalance": "平台币余额不足，请选择其他支付方式或先充值",
+      "orderAlreadyPaid": "订单已支付",
+      "qrCodeTitle": "扫码支付",
+      "generatingQRCode": "正在生成支付二维码...",
+      "qrCodeTip": "请使用手机扫描下方二维码完成支付",
+      "qrCodeFailed": "二维码生成失败",
+      "openPaymentPage": "打开支付页面",
+      "checkStatus": "检查支付状态",
+      "cancelPayment": "取消支付",
+      "paymentNotAvailable": "支付功能暂未开放",
+      "paymentRedirecting": "正在跳转到支付页面...",
+      "wechatPaymentRequiresJSAPI": "微信支付需要在微信环境中使用",
+      "pageTitleKeyword": "支付",
+      "pageTitle": "支付页面",
+      "defaultProductName": "未命名商品",
+      "qrCodeAlt": "支付二维码",
+      "unsupportedMethod": "不支持的支付方式",
+      "close": "关闭",
+      "confirmOrder": "确认订单",
+      "orderDetails": "订单详情",
+      "billingCycle": "计费周期：{cycle}",
+      "monthly": "按月",
+      "yearly": "按年",
+      "yearlyDiscount": "年付优惠",
+      "total": "总计",
+      "wechatPay": "微信支付",
+      "fetchVipPriceFailed": "获取VIP价格失败",
+      "purchaseVipFailed": "购买VIP失败",
+      "selectProduct": "选择产品",
+      "vipName": "AI智汇社 VIP会员",
+      "paymentOnetime": "一次性支付，终身使用",
+      "lifetimeMember": "永久会员",
+      "payNow": "立即支付 {amount} 元",
+      "benefits": {
+        "unlimitedCopy": "✓ 无限AI文案生成",
+        "premiumModel": "✓ 高级AI模型",
+        "referral": "✓ 分佣计划资格",
+        "support": "✓ 7*24小时技术支持",
+        "lifetime": "✓ 一次付费，永久使用"
+      }
+    },
+    "paymentFailed": "支付失败"
+  },
+  "vipLevelPopup": {
+    "benefitLevel1": "限时消费<b style=\"color: var(--color-red)\">588</b>开通会员,获赠<b style=\"color: var(--color-red)\">588</b>点成长值,达到<b style=\"color: var(--color-red)\">1级:算法萌芽</b>",
+    "benefitLevel2": "达到<b style=\"color: var(--color-red)\">1500</b>智汇力达到<b style=\"color: var(--color-red)\">2级:数智启源</b>，享受<b style=\"color: var(--color-red)\">9.8</b>折",
+    "benefitLevel3": "达到<b style=\"color: var(--color-red)\">3000</b>智汇力达到<b style=\"color: var(--color-red)\">3级:模型初阶</b>，享受<b style=\"color: var(--color-red)\">9.5</b>折",
+    "benefitLevel4": "达到<b style=\"color: var(--color-red)\">4500</b>智汇力达到<b style=\"color: var(--color-red)\">4级:智探先驱</b>，享受<b style=\"color: var(--color-red)\">9.2</b>折",
+    "benefitLevel5": "达到<b style=\"color: var(--color-red)\">6000</b>智汇力达到<b style=\"color: var(--color-red)\">5级:算构初阶</b>，享受<b style=\"color: var(--color-red)\">8.9</b>折",
+    "benefitLevel6": "达到<b style=\"color: var(--color-red)\">7500</b>智汇力达到<b style=\"color: var(--color-red)\">6级:数据专家</b>，享受<b style=\"color: var(--color-red)\">8.6</b>折",
+    "benefitLevel7": "达到<b style=\"color: var(--color-red)\">9000</b>智汇力达到<b style=\"color: var(--color-red)\">7级:智垒中枢</b>，享受<b style=\"color: var(--color-red)\">8.3</b>折",
+    "benefitLevel8": "达到<b style=\"color: var(--color-red)\">10500</b>智汇力达到<b style=\"color: var(--color-red)\">8级:智能领航</b>，享受<b style=\"color: var(--color-red)\">8</b>折",
+    "benefitLevel9": "达到<b style=\"color: var(--color-red)\">12000</b>智汇力达到<b style=\"color: var(--color-red)\">9级:量子智脑</b>，享受<b style=\"color: var(--color-red)\">7.7</b>折",
+    "benefitLevel10": "达到<b style=\"color: var(--color-red)\">18888</b>智汇力达到<b style=\"color: var(--color-red)\">10级:超维先知</b>，享受<b style=\"color: var(--color-red)\">7</b>折"
+  }
+}

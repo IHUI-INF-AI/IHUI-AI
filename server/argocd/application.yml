@@ -1,0 +1,56 @@
+# P24 DevOps: ArgoCD Application
+# ZHS Platform GitOps 部署应用
+# - 自动同步策略
+# - 回滚窗口
+# - 健康检查
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zhs-platform
+  namespace: argocd
+  labels:
+    app: zhs-platform
+    environment: production
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/zhs-platform/zhs-platform.git
+    targetRevision: main
+    path: server/k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: zhs-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+  history:
+    - id: 1
+      revision: initial
+      deployedAt: "2024-01-01T00:00:00Z"
+  syncWindows:
+    - kind: allow
+      name: allow-all
+      schedule: "* * * * *"
+      duration: 24h
+      applications:
+        - "*"
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

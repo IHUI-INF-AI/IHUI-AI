@@ -1,0 +1,141 @@
+// ============================================
+// 卡片样式（自定义 + Element Plus 适配）
+// 使用 :where() 降低特异性，使用 CSS 变量控制
+// ============================================
+
+@layer components {
+  // 中性卡片
+  .card-neutral {
+    background-color: var(--el-bg-color);
+    border: none;
+    border-radius: var(--global-border-radius);
+    padding: 20px;
+    color: var(--el-text-color-primary);
+    transition: background-color 0.3s ease;
+
+    &:hover {
+      background-color: var(--el-bg-color-hover);
+    }
+  }
+
+  :where(html.dark) .card-neutral {
+    background-color: var(--el-bg-color);
+
+    &:hover {
+      background-color: var(--el-bg-color-hover);
+    }
+  }
+
+  // 3D 卡片
+  .card-3d {
+    transform-style: preserve-3d;
+    transition: border-color 0.2s ease;
+    will-change: transform;
+    position: relative;
+    border: 1px solid var(--border-unified-color);
+    background: var(--el-bg-color);
+
+    &:hover {
+      border: var(--el-border-width-primary) solid var(--el-color-primary);
+    }
+  }
+
+  // 发光边框
+  .glow-border {
+    position: relative;
+
+    &:hover {
+      border: var(--el-border-width-primary) solid var(--el-color-primary);
+    }
+  }
+
+  // 服务卡片（透明背景）
+  .service-card {
+    background-color: transparent;
+    border: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .service-card .card-footer {
+    border-top: none;
+  }
+
+  // 中性按钮
+  .btn-neutral {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: var(--global-border-radius);
+    border: 1px solid var(--border-unified-color);
+    background-color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+    text-decoration: none;
+  }
+
+  // 避免卡片嵌套带来多层背景与边框
+  .card-neutral :where(.card-neutral, .el-card) {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  // 卡片入场动画
+  .ihui-ai-card-hover {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      background-color: var(--el-fill-color-light);
+    }
+  }
+
+  @keyframes ihui-ai-fade-in-left {
+    0% {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .ihui-ai-fade-in-left-animation {
+    animation: ihui-ai-fade-in-left 0.5s ease both;
+  }
+
+  @keyframes ihui-ai-fade-in-top {
+    0% {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .ihui-ai-fade-in-top-animation {
+    animation: ihui-ai-fade-in-top 0.5s ease both;
+  }
+
+  // 通用容器 hover 规则
+  :where(.el-card, .el-input__wrapper, .el-select, .el-textarea,
+    .card, .box, .panel,
+    .feature-card, .stat-card, .info-card, .content-card) {
+    background-color: var(--el-bg-color);
+    border: 1px solid var(--border-unified-color);
+    border-radius: var(--global-border-radius);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+
+    &:hover {
+      background-color: var(--el-bg-color-hover);
+    }
+  }
+
+  // 布局容器使用透明色
+  :where(.wrapper, .section) {
+    background-color: transparent;
+  }
+}

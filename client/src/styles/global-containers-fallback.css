@@ -1,0 +1,168 @@
+/**
+ * 全局容器与卡片兜底样式 - 使用 @layer 控制优先级，使用 CSS 变量控制
+ * 本层为低优先级兜底，组件/页面内样式（未放入本 layer）会自然覆盖
+ * 仅使用全局 CSS 变量，禁止硬编码颜色
+ */
+
+/* 变量由 element-plus-vars.scss / index.scss 等全局样式设定 */
+
+@layer fallback {
+  /* 0. 确保 body 使用全局背景变量 */
+  body {
+    background-color: var(--page-bg-color, var(--el-bg-color));
+  }
+
+  /* 1. 页面级容器（.agents-container 除外，由 Agents.vue 单独设定无描边/无背景/无圆角） */
+  .page-container:not(.agents-container),
+  .content-container,
+  .main-container {
+    background-color: var(--el-bg-color);
+    background: var(--el-bg-color);
+    border: 1px solid var(--border-unified-color);
+    border-radius: var(--global-border-radius);
+  }
+
+  :where(html.dark) .page-container:not(.agents-container),
+  :where(html.dark) .content-container,
+  :where(html.dark) .main-container {
+    background-color: var(--page-bg-color, var(--el-bg-color));
+    background: var(--page-bg-color, var(--el-bg-color));
+    border-color: var(--border-unified-color);
+  }
+
+  /* 2. 全站卡片与内容块 */
+  .el-card,
+  .glass-card,
+  .card,
+  .content-card,
+  .feature-card,
+  .stat-card,
+  .info-card {
+    background-color: var(--el-bg-color);
+    background: var(--el-bg-color);
+    border: 1px solid var(--border-unified-color);
+    border-radius: var(--global-border-radius);
+  }
+
+  :where(html.dark) .el-card,
+  :where(html.dark) .glass-card,
+  :where(html.dark) .card,
+  :where(html.dark) .content-card,
+  :where(html.dark) .feature-card,
+  :where(html.dark) .stat-card,
+  :where(html.dark) .info-card {
+    background-color: var(--el-fill-color, var(--el-bg-color));
+    background: var(--el-fill-color, var(--el-bg-color));
+    border-color: var(--border-unified-color);
+  }
+
+  /* 3. 卡片网格项 */
+  .card-grid .card-item {
+    background-color: var(--el-bg-color);
+    background: var(--el-bg-color);
+    border: 1px solid var(--border-unified-color);
+    border-radius: var(--global-border-radius);
+  }
+}
+
+/* 桌面端 header 右侧功能区间距 */
+@media (width >= 1024px) {
+  body .glass-header .header-right,
+  :where(body) .glass-header .header-right {
+    gap: var(--header-actions-gap, var(--spacing-sm, 8px));
+  }
+}
+
+/* 平板端 header 功能区间距 */
+@media (width >= 768px) and (width <= 1023px) {
+  body .glass-header .header-right,
+  :where(body) .glass-header .header-right {
+    gap: var(--header-actions-gap-tablet, var(--spacing-sm, 8px));
+  }
+}
+
+/* 移动端 header 与屏幕右侧间距 10px；强制右侧功能区显示（本文件最后加载，确保覆盖） */
+@media (width <= 767px) {
+  body .glass-header,
+  :where(body) .glass-header {
+    padding-right: calc(10px + env(safe-area-inset-right, 0));
+  }
+
+  body .glass-header .header-right,
+  :where(body) .glass-header .header-right {
+    display: flex;
+    visibility: visible;
+    opacity: 1;
+    flex-shrink: 0;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    gap: var(--spacing-xs, 4px); /* 移动端使用 4px 间距 */
+  }
+}
+
+/* 移动端菜单内仅显示 28x28 主题按钮，隐藏可能存在的 ThemeToggle（track/knob） */
+
+:where(#mobile-menu) .mobile-theme-toggle-wrapper .theme-toggle-container,
+:where(#mobile-menu) .mobile-theme-toggle-wrapper .el-dropdown,
+:where(#mobile-menu) .mobile-theme-toggle-wrapper label.theme-toggle,
+:where(#mobile-menu) .mobile-theme-toggle-wrapper .track {
+  display: none;
+}
+
+.mobile-theme-toggle-wrapper .theme-toggle-container,
+.mobile-theme-toggle-wrapper .track {
+  display: none;
+}
+
+:where(#mobile-menu) .mobile-theme-toggle-wrapper .theme-toggle-fallback,
+:where(#mobile-menu) .mobile-theme-toggle-wrapper .mobile-menu-theme-btn {
+  display: inline-flex;
+}
+
+/* 语言选择：顶部触发器与下拉选项均为图标 + 文字同一行（本文件最后加载，兜底生效） */
+:where(body) :where(.glass-header) .language-selector {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--header-action-height, 40px);
+  height: var(--header-action-height, 40px);
+  padding: 0 2px;
+}
+
+:where(body) :where(.glass-header) .language-selector .language-text {
+  line-height: 1;
+}
+
+:where(body) :where(.glass-header) .language-selector .flag-icon,
+:where(body) :where(.glass-header) .language-selector .flag-badge {
+  display: block;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+:where(body) :where(.language-dropdown-menu) .language-option,
+:where(body) :where(.language-dropdown-menu) .language-option .language-option-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+:where(body) :where(.language-dropdown-menu) .language-option .language-option-row .flag-icon,
+:where(body) :where(.language-dropdown-menu) .language-option .language-option-row .flag-badge,
+:where(body) :where(.mobile-language-dropdown) .language-option-row .flag-icon,
+:where(body) :where(.mobile-language-dropdown) .language-option-row .flag-badge {
+  display: block;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+:where(body) :where(.mobile-language-dropdown) .mobile-language-option,
+:where(body) :where(.mobile-language-dropdown) .mobile-language-option .language-option-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}

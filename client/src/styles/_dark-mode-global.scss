@@ -1,0 +1,134 @@
+// ============================================
+// 暗色模式全局变量与强制覆盖
+// 使用 :where() 降低特异性，使用 CSS 变量控制
+// ============================================
+
+@layer base {
+  // 暗色模式 CSS 变量覆盖
+  html.dark {
+    --el-text-color-primary: var(--color-gray-e5eaf3);
+    --el-bg-color: var(--color-dark-bg-3);
+    --el-bg-color-page: var(--el-text-color-primary);
+    --el-text-color-regular: var(--color-neutral-200);
+    --el-text-color-secondary: var(--color-neutral-400);
+    --page-bg-color: var(--el-text-color-primary);
+  }
+}
+
+@layer components {
+  // 暗色模式：强制覆盖 Element Plus 主题变量
+  :where(html.dark) {
+    --el-bg-color: var(--color-dark-bg-3, #0d0d0d);
+    --el-bg-color-page: var(--color-dark-bg-3, #0d0d0d);
+    --el-bg-color-overlay: var(--color-dark-bg-3, #0d0d0d);
+    --el-bg-color-hover: var(--color-dark-bg-5, #1a1a1a);
+    --page-bg-color: var(--color-dark-bg-3, #0d0d0d);
+  }
+
+  // 暗色模式：Element Plus 主题色覆盖
+  :where(html.dark) {
+    --el-color-primary: var(--el-bg-color);
+    --el-color-primary-light-3: var(--el-text-color-placeholder);
+    --el-color-primary-light-5: var(--el-text-color-placeholder);
+    --el-color-primary-light-7: var(--el-text-color-secondary);
+    --el-color-primary-light-8: var(--color-neutral-4d);
+    --el-color-primary-light-9: var(--color-dark-bg-3);
+    --el-color-primary-dark-2: var(--color-neutral-e6);
+  }
+
+  // 暗色模式：强制所有主要容器和页面元素使用暗色背景
+  :where(html.dark) body,
+  :where(html.dark) #app,
+  :where(html.dark) .app-container,
+  :where(html.dark) .main-content,
+  :where(html.dark) .page-container,
+  :where(html.dark) .home-container,
+  :where(html.dark) .page-section,
+  :where(html.dark) .page-content,
+  :where(html.dark) .fifth-page-content,
+  :where(html.dark) .fourth-page-content,
+  :where(html.dark) .footer-container,
+  :where(html.dark) .footer-main,
+  :where(html.dark) .footer-section,
+  :where(html.dark) .content-card,
+  :where(html.dark) .footer-container::before,
+  :where(html.dark) .footer-main::before,
+  :where(html.dark) .footer-section::before {
+    background-color: var(--el-bg-color);
+    background: var(--el-bg-color);
+  }
+
+  // body 暗色模式背景
+  :where(html.dark) body {
+    background-color: var(--el-bg-color);
+    background: var(--el-bg-color);
+  }
+
+  // 文档页暗色：右侧正文强制高对比度
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content,
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content p,
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content li,
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content td {
+    color: var(--el-text-color-primary);
+  }
+
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content h1,
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content h2,
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content h3,
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content h4 {
+    color: var(--el-text-color-primary);
+  }
+
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content code,
+  :where(html.dark) .edu-docs-root .docs-content .markdown-content pre code {
+    color: var(--el-text-color-primary);
+  }
+
+  // 暗色模式：Element Plus 组件适配
+  :where(html.dark) {
+    .el-dialog {
+      background-color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+    }
+
+    .el-dialog__header {
+      color: var(--el-text-color-primary);
+    }
+
+    .el-dialog__body {
+      color: var(--el-text-color-primary);
+    }
+
+    .el-message {
+      background-color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+      border-color: var(--dropdown-border-color);
+    }
+
+    .el-notification {
+      background-color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+      border-color: var(--dropdown-border-color);
+    }
+
+    .el-dropdown-menu {
+      background-color: var(--el-bg-color);
+      border: 1px solid var(--dropdown-border-color);
+      border-radius: var(--global-border-radius);
+      box-shadow: none;
+
+      &.model-selector-dropdown {
+        border-radius: var(--global-border-radius);
+      }
+    }
+
+    .el-dropdown-menu__item {
+      color: var(--el-text-color-primary);
+
+      &:hover {
+        background-color: var(--el-fill-color-light);
+        color: var(--el-text-color-primary);
+      }
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "plaza": {
+    "title": "AIニーズ広場",
+    "subtitle": "AI時代のニーズ統合ハブ、すべてのクリエイティブを実行者と繋げます",
+    "exit": "広場を退出",
+    "anonymous": "匿名ユーザー",
+    "publishNeed": "ニーズを投稿",
+    "publish": "投稿",
+    "back": "戻る",
+    "all": "すべて",
+    "type1": "開発",
+    "type2": "コンサルティング",
+    "type3": "トレーニング",
+    "ongoing": "進行中",
+    "completed": "完了",
+    "myNeeds": "自分のニーズ",
+    "searchPlaceholder": "ニーズを検索...",
+    "noData": "データがありません",
+    "publishFirst": "最初のニーズを投稿",
+    "loading": "読み込み中...",
+    "createNew": "新しいニーズを作成",
+    "selectType": "タイプを選択",
+    "selectCategory": "カテゴリを選択",
+    "submitting": "送信中...",
+    "submit": "投稿する",
+    "types": {
+      "development": "技術開発",
+      "design": "クリエイティブデザイン",
+      "business": "ビジネス提携"
+    },
+    "form": {
+      "title": "必要求タイトル",
+      "titlePlaceholder": "ご入力必要求タイトル",
+      "description": "必要求説明",
+      "descriptionPlaceholder": "ご详细説明您的必要求",
+      "budget": "预算",
+      "budgetPlaceholder": "ご入力预算金額",
+      "deadline": "截止日付",
+      "category": "カテゴリ",
+      "submit": "リリース",
+      "cancel": "キャンセル"
+    },
+    "need": {
+      "publisher": "リリース者",
+      "publishTime": "リリース時間",
+      "budget": "预算",
+      "status": "ステータス",
+      "comments": "コメント",
+      "likes": "いいね",
+      "viewDetails": "テーブル示詳細",
+      "comment": "コメント",
+      "like": "いいね",
+      "share": "共あり"
+    },
+    "aiNeedPlaza": "AI必要求广场",
+    "needTitle": "必要求タイトル",
+    "needType": "需求タイプ",
+    "needCategory": "需求カテゴリ",
+    "needDescription": "必要求説明",
+    "aiChat": "AI会話",
+    "aiDrawing": "AI绘画",
+    "aiVideo": "AI動画",
+    "aiWriting": "AI写作",
+    "aiCoding": "AIプログラミング"
+  },
+  "plazaCategoryTab": {
+    "all": "すべて",
+    "setCustomCategory": "カスタムカテゴリを設定してください"
+  },
+  "plazaCardContent": {
+    "relatedImages": "関連画像："
+  },
+  "plazaPlazaHead": {
+    "plazaPublish": "広場公開"
+  }
+}

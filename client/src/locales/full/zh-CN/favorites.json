@@ -1,0 +1,20 @@
+{
+  "favorites": {
+    "title": "我的收藏",
+    "subtitle": "查看和管理您收藏的内容",
+    "selectType": "选择类型",
+    "all": "全部",
+    "agent": "智能体",
+    "tool": "工具",
+    "knowledge": "知识库",
+    "conversation": "对话",
+    "noFavorites": "暂无收藏",
+    "removeFavorite": "取消收藏",
+    "removeFavoriteConfirm": "此收藏",
+    "removeFavoriteSuccess": "已取消收藏",
+    "removeFavoriteFailed": "取消收藏失败",
+    "retry": "重试",
+    "loadFailed": "加载收藏列表失败",
+    "resourceId": "资源ID"
+  }
+}

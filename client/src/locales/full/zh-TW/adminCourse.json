@@ -1,0 +1,106 @@
+{
+  "adminCoursePayLogManagement": {
+    "actions": {
+      "export": "導出"
+    },
+    "search": {},
+    "table": {},
+    "payMethod": {},
+    "payStatus": {
+      "failed": "支付失敗"
+    },
+    "refundStatus": {
+      "failed": "退款失敗"
+    },
+    "dialog": {},
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  },
+  "adminCourseManagement": {
+    "tabs": {},
+    "actions": {
+      "export": "導出"
+    },
+    "courseList": {
+      "status": "狀態"
+    },
+    "search": {},
+    "categoryList": {},
+    "coursePayLogForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "coursePayForm": {
+      "status": "狀態",
+      "statusEnabled": "啟用",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "請選擇狀態"
+      },
+      "messages": {}
+    },
+    "courseForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "courseAuditForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  },
+  "adminCoursePay": {
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  },
+  "adminCoursePayLog": {
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  },
+  "adminCoursePayManagement": {
+    "export": "導出",
+    "search": {
+      "status": "狀態",
+      "statusPlaceholder": "請選擇狀態"
+    },
+    "table": {
+      "status": "狀態"
+    },
+    "discountType": {},
+    "status": {
+      "enabled": "啟用",
+      "disabled": "禁用"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  },
+  "adminCourseAuditManagement": {
+    "search": {
+      "export": "導出"
+    },
+    "table": {},
+    "auditType": {},
+    "auditStatus": {
+      "approved": "通過",
+      "rejected": "拒絕"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  }
+}

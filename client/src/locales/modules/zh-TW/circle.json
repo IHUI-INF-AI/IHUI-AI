@@ -1,0 +1,15 @@
+{
+  "circle": {
+    "searchPlaceholder": {
+      "category": "搜尋分類",
+      "dynamic": "搜尋動態",
+      "list": "搜尋圈子",
+      "frontList": "搜尋圈子...",
+      "post": "說點什麼..."
+    },
+    "label": {
+      "categoryName": "分類名稱",
+      "actions": "操作"
+    }
+  }
+}

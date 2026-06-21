@@ -1,0 +1,12 @@
+{
+  "voiceInput": {
+    "listening": "正在聆听...",
+    "stop": "停止录音",
+    "notSupported": "您的浏览器不支持语音识别",
+    "noSpeech": "未检测到语音，请重试",
+    "noMicrophone": "未找到麦克风设备",
+    "permissionDenied": "麦克风权限被拒绝，请在浏览器设置中允许",
+    "alreadyStarted": "语音识别已启动，请先停止当前识别",
+    "error": "语音识别错误：{error}"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "viewerOfficeViewer": {
+    "title_Office_xx": "title || 'Office 文档'",
+    "loadingDoc": "正在載入文件...",
+    "largeDocHint": "大型文件可能需要較長時間",
+    "docLoadFailed": "文件載入失敗",
+    "tryDownload": "請嘗試下載後使用本地軟件打開",
+    "officeDoc": "Office 文件"
+  },
+  "viewerModel3DViewer": {
+    "model3dFile": "3D模型檔案",
+    "format": "格式",
+    "supportedFormat": "支援格式",
+    "useBlenderHint": "推薦使用 Blender 或線上檢視器打開"
+  },
+  "viewerCodeViewer": {
+    "loading": "載入中...",
+    "codeLoadFailed": "代碼載入失敗",
+    "loadFailed": "載入失敗"
+  },
+  "viewerMonacoViewer": {
+    "loading": "載入中...",
+    "codeLoadFailed": "代碼載入失敗",
+    "loadFailed": "載入失敗"
+  },
+  "viewerEnhancedPdfViewer": {
+    "loadingPdf": "正在載入PDF...",
+    "pdfLoadFailed": "PDF載入失敗"
+  },
+  "viewerImageViewer": {
+    "loading": "載入中...",
+    "imageLoadFailed": "圖片載入失敗"
+  },
+  "viewerMediaViewer": {
+    "mediaLoadFailed": "媒體載入失敗"
+  }
+}

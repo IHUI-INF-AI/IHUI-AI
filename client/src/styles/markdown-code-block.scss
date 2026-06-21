@@ -1,0 +1,117 @@
+/**
+ * Markdown代码块样式
+ * 包含右上角复制按钮
+ */
+
+.code-block-wrapper {
+  position: relative;
+  margin: 16px 0;
+  border-radius: var(--global-border-radius);
+  overflow: hidden;
+  background-color: var(--el-fill-color-darker);
+}
+
+/* 代码块右上角单独复制按钮 */
+.code-block-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: var(--z-base);
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--el-color-primary);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--global-border-radius);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+
+  &:hover {
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
+  }
+
+  &.is-copied {
+    color: var(--el-color-success);
+    border-color: var(--el-color-success-light-5);
+  }
+
+  .code-block-copy-btn-text {
+    white-space: nowrap;
+  }
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--border-unified-color);
+
+  .code-language {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .code-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    color: var(--el-color-primary);
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: var(--global-border-radius);
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: var(--el-fill-color-light);
+    }
+
+    .copy-text,
+    .copied-text {
+      font-size: 12px;
+    }
+
+    .copied-text {
+      color: var(--el-color-success);
+    }
+  }
+}
+
+.code-block-wrapper pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  background-color: var(--el-fill-color-darker);
+  border-radius: var(--global-border-radius);
+
+  code {
+    display: block;
+    padding: 0;
+    background: none;
+    font-family: var(--font-family-mono);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--el-text-color-primary);
+  }
+}
+
+// 暗色模式支持
+html.dark {
+  .code-block-wrapper {
+    background-color: var(--el-fill-color-darker);
+
+    pre {
+      background-color: var(--el-fill-color-darker);
+    }
+  }
+}
+

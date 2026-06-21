@@ -1,0 +1,22 @@
+{
+  "courseCenter": {
+    "tabs": {}
+  },
+  "courseDetail": {
+    "addToCart": "加入购物车",
+    "addedToCart": "已加入购物车",
+    "back": "返回",
+    "beginner": "入门",
+    "buyNow": "立即购买",
+    "courseIntro": "课程介绍",
+    "courseOutline": "课程大纲",
+    "fortyFiveMin": "45分钟",
+    "goCheckout": "去结算",
+    "learnShortVideoFromZero": "从零学短视频",
+    "ninetyMin": "90分钟",
+    "sixtyMin": "60分钟",
+    "teacherZhang": "张老师",
+    "title": "标题",
+    "twelveLessons": "12节课"
+  }
+}

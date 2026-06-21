@@ -1,0 +1,6 @@
+{
+  "uni-admin": {
+    "adminEnabled": true,
+    "enablePermission": true
+  }
+} 

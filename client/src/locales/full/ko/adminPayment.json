@@ -1,0 +1,18 @@
+{
+  "adminPaymentManagement": {
+    "핵심 장점": "결제관리",
+    "sub핵심 장점": "관리결제기이것은및소통쉬운",
+    "actions": {
+      "export": "내보내기"
+    },
+    "paymentList": {
+      "status": "상태"
+    },
+    "status": {
+      "pending": "결제 대기 중",
+      "completed": "완료",
+      "failed": "실패",
+      "refunded": "완료환불"
+    }
+  }
+}

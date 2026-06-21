@@ -1,0 +1,80 @@
+{
+  "register": {
+    "brand": "智汇AI",
+    "sidebar": {
+      "title": "欢迎加入智汇AI社区",
+      "subtitle": "创建账号，开启AI探索之旅",
+      "features": {
+        "community": "加入活跃社区",
+        "experience": "优质AI体验",
+        "secure": "安全可靠"
+      }
+    },
+    "tabs": {
+      "account": "账号密码注册",
+      "phone": "手机验证码注册"
+    },
+    "fields": {
+      "username": "用户名",
+      "phone": "手机号",
+      "code": "验证码",
+      "password": "密码",
+      "confirmPassword": "确认密码"
+    },
+    "placeholders": {
+      "username": "请输入用户名",
+      "phone": "请输入手机号",
+      "code": "请输入验证码",
+      "password": "请输入密码",
+      "confirmPassword": "请确认密码",
+      "email": "email"
+    },
+    "validation": {
+      "usernameRequired": "用户名不能为空",
+      "usernameLength": "用户名长度为5-20个字符",
+      "usernamePattern": "用户名只能包含字母、数字、下划线和中文",
+      "passwordRequired": "密码不能为空",
+      "passwordLength": "密码长度为6-20个字符",
+      "passwordPattern": "密码必须包含字母和数字"
+    },
+    "strength": {
+      "weak": "弱",
+      "medium": "中",
+      "strong": "强"
+    },
+    "agreement": {
+      "prefix": "我已阅读并同意",
+      "and": "和"
+    },
+    "submit": "注册",
+    "haveAccount": "已有账号？",
+    "loginNow": "立即登录",
+    "registerFailed": "注册失败",
+    "thirdParty": {
+      "or": "或者",
+      "wechat": "微信",
+      "alipay": "支付宝"
+    },
+    "messages": {
+      "phoneInvalid": "请输入有效的手机号",
+      "codeSent": "验证码已发送",
+      "codeSendFailed": "验证码发送失败",
+      "codeSendFailedRetry": "验证码发送失败，请重试",
+      "codeError": "验证码错误",
+      "verifyFailed": "验证失败，请重试",
+      "verifySuccess": "验证成功",
+      "resetPasswordFailed": "密码重置失败",
+      "resetPasswordFailedRetry": "密码重置失败，请重试",
+      "agreementRequired": "请同意服务条款和隐私政策",
+      "registerSuccess": "注册成功",
+      "registerFailed": "注册失败",
+      "oauthRedirect": "OauthRedirect",
+      "oauthFailed": "oauth失败"
+    },
+    "code": {
+      "countdown": "倒计时",
+      "send": "发送"
+    },
+    "agreementRequired": "agreement必填"
+  }
+}

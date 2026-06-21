@@ -1,0 +1,185 @@
+{
+  "vip": {
+    "title": "VIP 회원으로 업그레이드",
+    "subtitle": "모든 AI 도구를 잠금 해제하고 전용 특권 서비스를 즐기세요. 단 ¥{amount}",
+    "featuresTitle": "VIP 전용 특권",
+    "buyButton": "지금 개통",
+    "purchaseTitle": "구매 확인",
+    "purchaseDesc": "VIP 회원 구매 정보를 확인하세요",
+    "confirmPayment": "결제 확인",
+    "purchaseSuccess": "구매 성공",
+    "purchaseFailed": "구매 실패",
+    "paymentSuccess": "결제 성공",
+    "useQrCode": "스캔 코드로 결제해 주세요",
+    "stats": {
+      "activeUsers": "활성 사용자",
+      "aiFeatures": "AI 기능",
+      "satisfaction": "만족도"
+    },
+    "features": {
+      "ai_copywriting": {
+        "title": "AI 마케팅 카피",
+        "desc": "스마트하게 마케팅 카피를 생성하여 전환율 향상"
+      },
+      "ai_chat": {
+        "title": "AI 스마트 대화",
+        "desc": "AI와 자연스럽고 유창한 대화"
+      },
+      "ai_analysis": {
+        "title": "AI 데이터 분석",
+        "desc": "스마트하게 데이터를 분석하여 인사이트 제공"
+      },
+      "ai_design": {
+        "title": "AI 스마트 디자인",
+        "desc": "AI 지원 디자인, 창작 효율 향상"
+      }
+    },
+    "hero": {
+      "title": "VIP 회원으로 업그레이드",
+      "subtitle": "모든 AI 도구를 잠금 해제하고 전용 특권 서비스를 즐기세요",
+      "stats": {
+        "aiTools": "AI 도구",
+        "customerService": "전용 고객 서비스",
+        "unlimited": "무제한 사용"
+      }
+    },
+    "card": {
+      "vipMember": "VIP 회원",
+      "memberName": "프리미엄 회원",
+      "diamondMember": "다이아몬드 회원",
+      "benefits": {
+        "unlimitedChat": "✓ 무제한 AI 대화",
+        "exclusiveModel": "✓ 전용 모델 액세스",
+        "prioritySupport": "✓ 우선 기술 지원"
+      }
+    },
+    "benefits": {
+      "title": "VIP 전용 특권",
+      "subtitle": "귀하의 AI 사용 경험을 전방위로 향상"
+    },
+    "pricing": {
+      "title": "적합한 플랜 선택",
+      "subtitle": "유연한 가격 플랜, 다양한 니즈 충족",
+      "billing": {
+        "monthly": "월간 결제",
+        "yearly": "연간 결제",
+        "month": "월",
+        "year": "년"
+      },
+      "discount": {
+        "yearlyDiscount": "연간 결제 한정 할인",
+        "originalPrice": "정가 ¥{price}"
+      },
+      "plans": {
+        "vip": "회원",
+        "trader": "트레이더",
+        "upgrade": "플랜 업그레이드",
+        "subscribe": "지금 개통",
+        "recommended": "추천"
+      },
+      "loading": "플랜 정보 로딩 중...",
+      "retry": "다시 로딩"
+    },
+    "testimonials": {
+      "title": "사용자 실제 평가",
+      "subtitle": "다른 사용자의 이야기 들어보기"
+    },
+    "faq": {
+      "title": "자주 묻는 질문",
+      "subtitle": "궁금한 점을 답해드립니다"
+    },
+    "cta": {
+      "title": "VIP 특권을 경험할 준비가 되셨나요?",
+      "subtitle": "지금 업그레이드하여 모든 AI 도구와 전용 서비스를 잠금 해제",
+      "upgrade": "지금 VIP로 업그레이드",
+      "viewPlans": "플랜 상세 보기",
+      "guarantee": "7일 무조건 환불 보장"
+    },
+    "payment": {
+      "title": "결제",
+      "subtitle": "결제 방법을 선택하여 주문을 완료하세요",
+      "orderInfo": "주문 정보",
+      "productName": "상품명",
+      "orderNo": "주문번호",
+      "amount": "금액",
+      "paymentMethods": "결제 방법",
+      "platformCoins": {
+        "name": "플랫폼 코인 결제",
+        "desc": "계정 잔액으로 결제"
+      },
+      "alipay": "alipay",
+      "wechat": {
+        "name": "WeChat Pay",
+        "desc": "WeChat 스캔 코드로 결제"
+      },
+      "card": {
+        "name": "은행 카드",
+        "desc": "은행 카드로 결제"
+      },
+      "confirmPay": "결제 확인 ¥{price}",
+      "cancel": "취소",
+      "underDevelopment": "개발 중",
+      "confirmPayment": "결제 확인",
+      "processing": "처리 중...",
+      "invalidOrderInfo": "주문 정보가 무효",
+      "cardNotSupported": "은행 카드 결제는 일시적으로 지원되지 않습니다. 다른 결제 방법을 선택하세요",
+      "createOrderFailed": "결제 주문 생성 실패",
+      "paymentDataError": "결제 데이터 오류",
+      "paymentSuccess": "결제 성공",
+      "paymentFailed": "결제 실패",
+      "insufficientBalance": "플랫폼 코인 잔액 부족. 다른 결제 방법을 선택하거나 먼저 충전하세요",
+      "orderAlreadyPaid": "주문이 이미 결제됨",
+      "qrCodeTitle": "스캔 코드 결제",
+      "generatingQRCode": "결제 QR 코드 생성 중...",
+      "qrCodeTip": "휴대폰으로 아래 QR 코드를 스캔하여 결제를 완료하세요",
+      "qrCodeFailed": "QR 코드 생성 실패",
+      "openPaymentPage": "결제 페이지 열기",
+      "checkStatus": "결제 상태 확인",
+      "cancelPayment": "결제 취소",
+      "paymentNotAvailable": "결제 기능은 아직 이용 불가",
+      "paymentRedirecting": "결제 페이지로 이동 중...",
+      "wechatPaymentRequiresJSAPI": "WeChat Pay는 WeChat 환경에서 사용해야 합니다",
+      "pageTitleKeyword": "결제",
+      "pageTitle": "결제 페이지",
+      "defaultProductName": "이름 없는 상품",
+      "qrCodeAlt": "결제 QR 코드",
+      "unsupportedMethod": "지원되지 않는 결제 방법",
+      "close": "닫기",
+      "confirmOrder": "주문 확인",
+      "orderDetails": "주문 상세",
+      "billingCycle": "청구 주기: {cycle}",
+      "monthly": "월간",
+      "yearly": "연간",
+      "yearlyDiscount": "연간 할인",
+      "total": "총계",
+      "wechatPay": "WeChat Pay",
+      "fetchVipPriceFailed": "VIP 가격 조회 실패",
+      "purchaseVipFailed": "VIP 구매 실패",
+      "selectProduct": "제품 선택",
+      "vipName": "AI 지후이사 VIP 회원",
+      "paymentOnetime": "일회성 결제, 평생 사용",
+      "lifetimeMember": "영구 회원",
+      "payNow": "지금 결제 {amount} 위안",
+      "benefits": {
+        "unlimitedCopy": "✓ 무제한 AI 카피 생성",
+        "premiumModel": "✓ 고급 AI 모델",
+        "referral": "✓ 커미션 플랜 자격",
+        "support": "✓ 7*24시간 기술 지원",
+        "lifetime": "✓ 일회 결제, 평생 사용"
+      }
+    },
+    "paymentFailed": "결제 실패"
+  },
+  "vipLevelPopup": {
+    "benefitLevel1": "기간 한정 소비 <b style=\"color: var(--color-red)\">588</b>로 회원 개통, <b style=\"color: var(--color-red)\">588</b> 성장값 획득, <b style=\"color: var(--color-red)\">레벨 1:알고리즘 새싹</b> 도달",
+    "benefitLevel2": "<b style=\"color: var(--color-red)\">1500</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 2:디지털 기원</b> 도달, <b style=\"color: var(--color-red)\">9.8</b> 할인 혜택",
+    "benefitLevel3": "<b style=\"color: var(--color-red)\">3000</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 3:모델 초급</b> 도달, <b style=\"color: var(--color-red)\">9.5</b> 할인 혜택",
+    "benefitLevel4": "<b style=\"color: var(--color-red)\">4500</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 4:지탐 선구자</b> 도달, <b style=\"color: var(--color-red)\">9.2</b> 할인 혜택",
+    "benefitLevel5": "<b style=\"color: var(--color-red)\">6000</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 5:산구 초급</b> 도달, <b style=\"color: var(--color-red)\">8.9</b> 할인 혜택",
+    "benefitLevel6": "<b style=\"color: var(--color-red)\">7500</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 6:데이터 전문가</b> 도달, <b style=\"color: var(--color-red)\">8.6</b> 할인 혜택",
+    "benefitLevel7": "<b style=\"color: var(--color-red)\">9000</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 7:지루 중추</b> 도달, <b style=\"color: var(--color-red)\">8.3</b> 할인 혜택",
+    "benefitLevel8": "<b style=\"color: var(--color-red)\">10500</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 8:스마트 내비게이션</b> 도달, <b style=\"color: var(--color-red)\">8</b> 할인 혜택",
+    "benefitLevel9": "<b style=\"color: var(--color-red)\">12000</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 9:양자 지뇌</b> 도달, <b style=\"color: var(--color-red)\">7.7</b> 할인 혜택",
+    "benefitLevel10": "<b style=\"color: var(--color-red)\">18888</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 10:초차원 예언자</b> 도달, <b style=\"color: var(--color-red)\">7</b> 할인 혜택"
+  }
+}

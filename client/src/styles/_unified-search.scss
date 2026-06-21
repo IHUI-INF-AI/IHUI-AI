@@ -1,0 +1,229 @@
+// ============================================
+// 全局统一搜索框样式（参照最完整好看的样式）
+// 适用于：AI 社区、文档中心、帮助中心、浮动聊天搜索、Header 等所有 el-input 搜索
+// ============================================
+
+@use './variables.scss' as *;
+
+:root {
+  --unified-search-bg: var(--el-bg-color);
+  --unified-search-border: var(--border
+-unified-color);
+  --unified-search-shadow: var(--global-box-shadow);
+  --unified-search-focus-color: var(--el-text-color-primary);
+  --unified-search-btn-bg: var(--el-text-color-primary);
+  --unified-search-btn-color: var(--el-bg-color);
+  --unified-search-btn-hover-bg: var(--el-text-color-primary);
+  --unified-search-btn-shadow: var(--global-box-shadow);
+  --unified-search-btn-hover-shadow: var(--global-box-shadow);
+}
+
+html.dark {
+  --unified-search-bg: var(--el-bg-color);
+  --unified-search-border: var(--border-unified-color);
+  --unified-search-shadow: var(--global-box-shadow);
+  --unified-search-focus-color: var(--el-text-color-primary);
+  --unified-search-btn-bg: var(--el-text-color-primary);
+  --unified-search-btn-color: var(--el-bg-color);
+  --unified-search-btn-hover-bg: var(--el-text-color-primary);
+  --unified-search-btn-shadow: var(--global-box-shadow);
+  --unified-search-btn-hover-shadow: var(--global-box-shadow);
+}
+
+// 统一搜索栏容器（包裹 el-input，可选右侧搜索按钮）
+:where(.unified-search-bar) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--global-border-radius);
+  background: var(--unified-search-bg);
+  border: 1px solid var(--unified-search-border);
+  box-shadow: var(--unified-search-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: border-color $transition-base, box-shadow $transition-base;
+
+  &:focus-within {
+    border-width: 2px;
+    border-color: var(--unified-search-focus-color);
+    box-shadow: var(--unified-search-shadow);
+  }
+
+  html.dark & {
+    box-shadow: var(--unified-search-shadow);
+    &:focus-within {
+      border-width: 2px;
+      border-color: var(--unified-search-focus-color);
+      box-shadow: var(--unified-search-shadow);
+    }
+  }
+
+  // 内部 el-input 完全统一
+  .el-input {
+    flex: 1;
+    min-width: 0;
+
+    .el-input__wrapper {
+      background: transparent;
+      border: none;
+      border-radius: var(--global-border-radius);
+      box-shadow: none;
+      padding: 6px 16px;
+      height: 44px;
+      transition: all $transition-base ease;
+
+      &:hover {
+        background: var(--color-black-3);
+      }
+
+      :where(html.dark) & {
+        &:hover {
+          background: var(--color-white-5);
+        }
+      }
+
+      &.is-focus,
+      &:focus-within {
+        background: var(--color-black-04);
+
+        :where(html.dark) & {
+          background: var(--color-white-6);
+        }
+      }
+    }
+
+    .el-input__inner {
+      color: var(--el-text-color-primary);
+      font-size: 15px;
+      font-family: inherit;
+
+      &::placeholder {
+        color: var(--el-text-color-placeholder);
+      }
+    }
+
+    .el-input__prefix,
+    .el-input__suffix {
+      color: var(--el-text-color-placeholder);
+    }
+
+    .el-input__prefix {
+      margin-right: 8px;
+    }
+  }
+}
+
+// 仅 el-input 作为搜索框（无外层卡片时）— 给包裹层加此类即可
+// 注意：此类应用于 el-input 组件本身，样式通过后代选择器穿透到内部
+.unified-search-input-wrap {
+  // 直接选择 el-input 内部的 wrapper
+  .el-input__wrapper {
+    background: var(--unified-search-bg);
+    border: 1px solid var(--unified-search-border);
+    border-radius: var(--global-border-radius);
+    box-shadow: var(--unified-search-shadow);
+    padding: 6px 16px;
+    height: 44px;
+    transition: all $transition-base ease;
+
+    &:hover {
+      border: 2px solid var(--border-unified-color-hover);
+    }
+
+    &.is-focus,
+    &:focus-within {
+      border: 2px solid var(--unified-search-focus-color);
+    }
+  }
+
+  .el-input__inner {
+    color: var(--el-text-color-primary);
+    font-size: 15px;
+
+    &::placeholder {
+      color: var(--el-text-color-placeholder);
+    }
+  }
+
+  .el-input__prefix,
+  .el-input__suffix {
+    color: var(--el-text-color-placeholder);
+  }
+}
+
+// 原生 input 搜索框（如 SearchModal）— 与统一样式视觉一致
+.unified-search-native-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  border-radius: var(--global-border-radius);
+  background: var(--unified-search-bg);
+  border: 1px solid var(--unified-search-border);
+  box-shadow: var(--unified-search-shadow);
+  transition: border-color $transition-base, box-shadow $transition-base;
+
+  &:focus-within {
+    border-width: 2px;
+    border-color: var(--unified-search-focus-color);
+    box-shadow: var(--unified-search-shadow);
+  }
+
+  html.dark &:focus-within {
+    border-width: 2px;
+    border-color: var(--unified-search-focus-color);
+    box-shadow: var(--unified-search-shadow);
+  }
+
+  input,
+  .search-input {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    padding: 0 8px;
+    border: none;
+    background: transparent;
+    color: var(--el-text-color-primary);
+    font-size: 15px;
+    outline: none;
+    box-sizing: border-box;
+
+    &::placeholder {
+      color: var(--el-text-color-placeholder);
+    }
+  }
+}
+
+// 管理后台 / 列表页筛选栏中的搜索框（.search-bar 内首个 el-input）统一为同一套输入框视觉
+:where(.search-bar:has(.el-input)) {
+  .el-input:first-of-type {
+    .el-input__wrapper {
+      background: var(--unified-search-bg);
+      border: 1px solid var(--unified-search-border);
+      border-radius: var(--global-border-radius);
+      box-shadow: var(--unified-search-shadow);
+      padding: 6px 16px;
+      height: 44px;
+      transition: all $transition-base ease;
+
+      &:hover {
+        border: 2px solid var(--border-unified-color-hover);
+      }
+
+      &.is-focus,
+      &:focus-within {
+        border: 2px solid var(--unified-search-focus-color);
+      }
+    }
+
+    .el-input__inner {
+      color: var(--el-text-color-primary);
+      font-size: 15px;
+
+      &::placeholder {
+        color: var(--el-text-color-placeholder);
+      }
+    }
+  }
+}

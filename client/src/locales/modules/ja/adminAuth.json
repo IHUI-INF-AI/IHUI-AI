@@ -1,0 +1,16 @@
+{
+  "adminAuth": {
+    "searchPlaceholder": {
+      "authority": "権限を検索",
+      "role": "ロールを検索"
+    },
+    "label": {
+      "permissionName": "権限名",
+      "permissionCode": "権限コード",
+      "roleName": "ロール名",
+      "roleCode": "ロールコード",
+      "memberCount": "メンバー数",
+      "actions": "操作"
+    }
+  }
+}

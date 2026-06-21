@@ -1,0 +1,22 @@
+{
+  "member": {
+    "searchPlaceholder": {
+      "company": "Search companies",
+      "group": "Search groups",
+      "level": "Search levels",
+      "list": "Search members",
+      "post": "Search posts",
+      "tag": "Search tags",
+      "unaudited": "Search pending members"
+    },
+    "label": {
+      "companyName": "Company Name",
+      "type": "Type",
+      "scale": "Scale",
+      "groupName": "Group Name",
+      "memberCount": "Member Count",
+      "createTime": "Create Time",
+      "actions": "Actions"
+    }
+  }
+}

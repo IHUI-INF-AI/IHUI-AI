@@ -1,0 +1,43 @@
+{
+  "documentCenter": {
+    "title": "ドキュメントセンター",
+    "allDocs": "全ドキュメント",
+    "searchHint": "検索",
+    "noFeatures": "利用可できるできる性な機できるがありません",
+    "searchPlaceholder": "ドキュメントを検索...",
+    "quickStart": "クイックスタート",
+    "apiDocs": "API ドキュメント",
+    "guides": "ガイド",
+    "userDocs": "ユーザードキュメント",
+    "developerDocs": "開発者ドキュメント",
+    "support": "サポート",
+    "comingSoon": "近日公開",
+    "incentiveProgram": {
+      "label": "00 / 開発者インセンティブプログラム",
+      "overview": "プログラム概要",
+      "overviewDesc": "ZhiHui AI開発者インセンティブプログラムのコアコンテンツを学ぶ",
+      "publishGuide": "エージェント公開ガイド",
+      "publishGuideDesc": "エージェントを智匯AI（IHUI AI）に公開する手順ガイド",
+      "monetizationGuide": "開発者収益化ガイド",
+      "monetizationGuideDesc": "エージェントで収益を生む方法を学ぶ",
+      "platformIntro": "プラットフォーム機できる紹介",
+      "platformIntroDesc": "ワンストップAIイノベーションプラットフォームの全機できる解析"
+    },
+    "back": "戻る",
+    "backホーム": "ホームに戻る",
+    "breadcrumb": "ホーム / サービスとサポート / ドキュメントセンター",
+    "subtitle": "完全な技術ドキュメント、APIリファレンス、開発ガイド",
+    "faq": "よくある質問",
+    "quickNav": "クイックナビゲーション",
+    "backHome": "戻るホーム",
+    "files": "Files",
+    "linkCopied": "Link Copied",
+    "noShared": "No Shared",
+    "shareDeleted": "Share Deleted",
+    "shareLink": "Share Link",
+    "shared": "Shared",
+    "upload": "Upload",
+    "uploadError": "Upload Error",
+    "uploadSuccess": "Upload Success"
+  }
+}

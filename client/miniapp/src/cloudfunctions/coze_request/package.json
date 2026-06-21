@@ -1,0 +1,9 @@
+{
+  "name": "coze_request",
+  "version": "1.0.0",
+  "description": "Coze AI请求云函数",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

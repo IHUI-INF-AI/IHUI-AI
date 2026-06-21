@@ -1,0 +1,12 @@
+{
+  "article": {
+    "searchPlaceholder": {
+      "category": "搜尋分類",
+      "content": "搜尋文章"
+    },
+    "label": {
+      "categoryName": "分類名稱",
+      "actions": "操作"
+    }
+  }
+}

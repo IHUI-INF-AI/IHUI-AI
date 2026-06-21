@@ -1,0 +1,91 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    # 中心 Prometheus 的自身标识, 区分 federation 来源
+    cluster: 'zhs-center'
+    role: 'federate-target'
+
+# 中心 Prometheus 不直接评估告警, 只聚合
+# 告警评估下放到各子 Prometheus, 避免单点压力
+rule_files: []
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # ========================================================================
+  # Federation 抓取 - 按 region 分片
+  # honor_labels: true 保留子 Prometheus 的 instance/region 标签
+  #               (默认 false 会用 center Prometheus 自己的标签覆盖)
+  # ========================================================================
+
+  # Region 1: 华东 (cn-east-1)
+  - job_name: 'federate-cn-east-1'
+    honor_labels: true
+    metrics_path: /federate
+    params:
+      # 只拉 zhs_biz_* (业务) + zhs_canary_* (canary) + phase8 告警相关
+      'match[]':
+        - '{__name__=~"zhs_biz_.*"}'
+        - '{__name__=~"zhs_canary_.*"}'
+        - '{__name__=~"zhs_monitor_.*"}'
+        - 'up'
+    static_configs:
+      - targets: ['prometheus-cn-east-1:9090']
+        labels:
+          region: 'cn-east-1'
+          federation_role: 'edge'
+
+  # Region 2: 华北 (cn-north-1)
+  - job_name: 'federate-cn-north-1'
+    honor_labels: true
+    metrics_path: /federate
+    params:
+      'match[]':
+        - '{__name__=~"zhs_biz_.*"}'
+        - '{__name__=~"zhs_canary_.*"}'
+        - '{__name__=~"zhs_monitor_.*"}'
+        - 'up'
+    static_configs:
+      - targets: ['prometheus-cn-north-1:9090']
+        labels:
+          region: 'cn-north-1'
+          federation_role: 'edge'
+
+  # Region 3: 华南 (cn-south-1)
+  - job_name: 'federate-cn-south-1'
+    honor_labels: true
+    metrics_path: /federate
+    params:
+      'match[]':
+        - '{__name__=~"zhs_biz_.*"}'
+        - '{__name__=~"zhs_canary_.*"}'
+        - '{__name__=~"zhs_monitor_.*"}'
+        - 'up'
+    static_configs:
+      - targets: ['prometheus-cn-south-1:9090']
+        labels:
+          region: 'cn-south-1'
+          federation_role: 'edge'
+
+  # ========================================================================
+  # 中心自身指标 (control plane: scheduler / 抑制工单生成 / OIDC vault)
+  # ========================================================================
+  - job_name: 'zhs-center-self'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['zhs-center-app:8000']
+        labels:
+          service: 'zhs-center'
+          env: 'control-plane'
+          region: 'cn-center'
+
+  # ========================================================================
+  # 按租户分片 - 在中心侧按 tenant_id 重写实例标签
+  # 注意: 中心 Prometheus 的 relabel_configs 会影响 instance 标签
+  # tenant_id 在子 Prometheus 已经存在 (zhs_biz_*_tenant 指标的 label)
+  # 这里只做按 region 聚合, tenant 维度走 Grafana templating
+  # ========================================================================

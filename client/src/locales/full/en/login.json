@@ -1,0 +1,162 @@
+{
+  "loginPopup": {},
+  "login": {
+    "selectProject": "Select Project",
+    "switchProject": "Switch Project",
+    "title": "Login",
+    "subtitle": "Welcome back",
+    "project": {
+      "main": "Zhihui AI Main Platform",
+      "open": "Open Platform",
+      "admin": "Admin Portal",
+      "eduWeb": "Zhihui AI Education Platform",
+      "eduAdmin": "Education Admin Portal",
+      "user": "User Portal"
+    },
+    "crossProject": {
+      "loggingIn": "Logging in to {name}",
+      "user": "Switch to User Portal",
+      "admin": "Switch to Admin Portal",
+      "switchTo": "Switch To"
+    },
+    "ihuiLogo": "Zhihui AI Logo",
+    "worldFirst": "World's First",
+    "oneStopAI": "Everyone's One-Stop AI Integration Platform",
+    "aiModels": "AI Models",
+    "users500k": "500K+",
+    "users": "Users",
+    "availability": "Availability",
+    "brand": {
+      "title": "World's First AI App Store",
+      "subtitle": "Everyone's AI Integration Platform"
+    },
+    "form": {
+      "username": "Username",
+      "password": "Password",
+      "login": "Login",
+      "forgotPassword": "Forgot Password?",
+      "rememberMe": "Remember me"
+    },
+    "social": {
+      "wechat": "WeChat Login",
+      "qq": "QQ Login",
+      "phone": "Phone Login"
+    },
+    "register": {
+      "title": "Create Account",
+      "link": "Don't have an account? Register",
+      "username": "Username",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "phone": "Phone Number",
+      "code": "Verification Code",
+      "sendCode": "Send Code",
+      "submit": "Register"
+    },
+    "hidePassword": "Hide Password",
+    "showPassword": "Show Password",
+    "mode": {
+      "userRegister": "User Register",
+      "userLogin": "User Login",
+      "hasAccount": "Has Account",
+      "noAccount": "No Account"
+    },
+    "tabs": {
+      "account": "Account",
+      "accountRegister": "Account Register",
+      "phone": "Phone",
+      "phoneRegister": "Phone Register"
+    },
+    "thirdParty": {
+      "or": "Or",
+      "alipayLogin": "Alipay Login",
+      "feishuLogin": "Feishu Login",
+      "notice": "Notice",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms Of Service",
+      "wechatLogin": "WeChat Login",
+      "googleLogin": "GoogleLogin",
+      "appleLogin": "AppleLogin",
+      "wechatLogin Failed": "WeChat login Failed, please retry",
+      "alipayLogin Failed": "Alipay login Failed, please retry",
+      "googleLogin Failed": "GoogleLogin Failed, please retry",
+      "appleLogin Failed": "AppleLogin Failed, please retry",
+      "tooltip": {
+        "wechat": "WeChat Login",
+        "alipay": "AlipayLogin",
+        "google": "GoogleLogin",
+        "apple": "AppleLogin",
+        "feishu": "Feishu Login"
+      },
+      "accountLogin": "accountLogin",
+      "alipay": "alipay",
+      "comingSoon": "comingSoon",
+      "emailLogin": "emailLogin",
+      "feishu": "feishu",
+      "otherMethods": "otherMethods",
+      "phoneLogin": "phoneLogin",
+      "quickLogin": "quickLogin",
+      "securityNotice1": "securityNotice1",
+      "securityNotice2": "securityNotice2",
+      "securityNotice3": "securityNotice3",
+      "selectPreferred": "selectPreferred"
+    },
+    "agreement": {
+      "and": "And",
+      "prefix": "Prefix",
+      "userAgreement": "User Agreement",
+      "privacyPolicy": "Privacy Policy"
+    },
+    "placeholders": {
+      "username": "Username",
+      "usernameOrEmail": "Username Or Email",
+      "email": "Email",
+      "setPassword": "Set Password",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "phoneRegister": "Phone Register",
+      "phone": "Phone",
+      "smsCode": "Sms Code",
+      "setLoginPassword": "Set Login Password",
+      "confirmLoginPassword": "Confirm Login Password"
+    },
+    "password": {
+      "hide": "Hide",
+      "show": "Show"
+    },
+    "buttons": {
+      "register": "Register",
+      "login": "Login",
+      "submitRegister": "Submit Register",
+      "submitLogin": "Submit Login",
+      "sendCode": "Send Code",
+      "resend": "ReSend",
+      "resendIn": "Resend in {seconds}s"
+    },
+    "forgotPassword": "Forgot Password",
+    "error": {
+      "insecureConnection": "Insecure Connection",
+      "unknownError": "Unknown Error"
+    },
+    "welcomeTitle": "Welcome Title",
+    "rememberMe": "Remember Me",
+    "noAccount": "No account yet?？",
+    "registerNow": "Register Now",
+    "Login Successful": "Login Successful",
+    "loginFailed": "Login Failed",
+    "apple": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "google": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "switchPlatform": "switchPlatform",
+    "goLogin": "Go Login",
+    "goRegister": "Go Register",
+    "hasAccount": "Has Account"
+  }
+}

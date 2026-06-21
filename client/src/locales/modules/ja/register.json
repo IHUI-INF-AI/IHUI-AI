@@ -1,0 +1,80 @@
+{
+  "register": {
+    "brand": "スマートAI",
+    "sidebar": {
+      "title": "スマートAIコミュニティへようこそ",
+      "subtitle": "アカウントを作成し、AI探求の旅を始めましょう",
+      "features": {
+        "community": "活発なコミュニティに参加",
+        "experience": "高品質なAI体験",
+        "secure": "安全かつ信頼性"
+      }
+    },
+    "tabs": {
+      "account": "アカウントパスワード登録",
+      "phone": "携帯認証コード登録"
+    },
+    "fields": {
+      "username": "ユーザー名",
+      "phone": "電話番号",
+      "code": "認証コード",
+      "password": "パスワード",
+      "confirmPassword": "パスワード確認"
+    },
+    "placeholders": {
+      "username": "ユーザー名を入力",
+      "phone": "電話番号を入力",
+      "code": "認証コードを入力",
+      "password": "パスワードを入力",
+      "confirmPassword": "パスワードを再入力",
+      "email": "email"
+    },
+    "validation": {
+      "usernameRequired": "ユーザー名は必須です",
+      "usernameLength": "ユーザー名は5〜20文字にしてください",
+      "usernamePattern": "ユーザー名には英字、数字、アンダースコアのみ使用できます",
+      "passwordRequired": "パスワードは必須です",
+      "passwordLength": "パスワードは6〜20文字です",
+      "passwordPattern": "パスワードには英字と数字を含める必要があります"
+    },
+    "strength": {
+      "weak": "弱",
+      "medium": "中",
+      "strong": "強"
+    },
+    "agreement": {
+      "prefix": "読んで同意しました",
+      "and": "と"
+    },
+    "submit": "登録",
+    "haveAccount": "アカウントをお持ちですか？",
+    "loginNow": "今すぐログイン",
+    "registerFailed": "登録失敗",
+    "thirdParty": {
+      "or": "または",
+      "wechat": "WeChat",
+      "alipay": "Alipay"
+    },
+    "messages": {
+      "phoneInvalid": "有効な電話番号を入力してください",
+      "codeSent": "認証コードを送信しました",
+      "codeSendFailed": "認証コード送信失敗",
+      "codeSendFailedRetry": "認証コード送信失敗、再試行してください",
+      "codeError": "認証コードエラー",
+      "verifyFailed": "認証失敗、再試行してください",
+      "verifySuccess": "認証成功",
+      "resetPasswordFailed": "パスワードリセット失敗",
+      "resetPasswordFailedRetry": "パスワードリセット失敗、再試行してください",
+      "agreementRequired": "サービス利用規約とプライバシーポリシーに同意してください",
+      "registerSuccess": "登録成功",
+      "registerFailed": "登録失敗",
+      "oauthRedirect": "OauthRedirect",
+      "oauthFailed": "oauth失敗"
+    },
+    "code": {
+      "countdown": "カウントダウン",
+      "send": "送信"
+    },
+    "agreementRequired": "agreement必須"
+  }
+}

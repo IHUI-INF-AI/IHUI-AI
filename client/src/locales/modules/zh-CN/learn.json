@@ -1,0 +1,17 @@
+{
+  "learn": {
+    "searchPlaceholder": {
+      "category": "搜索分类",
+      "map": "搜索学习路径",
+      "topic": "搜索专题",
+      "topicCategory": "搜索专题分类",
+      "report": "搜索报告",
+      "orderInvoiceApplication": "搜索申请",
+      "orderInvoiceTitle": "搜索抬头",
+      "lessonTrash": "搜索回收站课程",
+      "signup": "搜索报名",
+      "order": "搜索订单",
+      "lesson": "搜索课程"
+    }
+  }
+}

@@ -1,0 +1,241 @@
+{
+  "aboutUs": {
+    "title": "About Us",
+    "subtitle": "Learn about ZhiHui AI's development history and team",
+    "backHome": "Back to Home",
+    "heroEyebrow": "ZhiHui AI",
+    "heroTitle": "About Us",
+    "heroSubtitle": "We turn LLMs and multimodal AI into reliable products and services. We give businesses and developers stable, easy-to-use AI capabilities and tools.",
+    "heroMission": "Empowering every organization with AI, and every idea with better execution.",
+    "stats": {
+      "users": "Registered Users",
+      "developers": "Developers",
+      "models": "AI Models"
+    },
+    "companyIntro": {
+      "tag": "Introduction",
+      "title": "Who We Are",
+      "subtitle": "Delivering AI capabilities into every application and every collaboration, through technology and product.",
+      "paragraph1": "ZhiHui AI focuses on productizing and scaling AI. We connect leading LLMs and multimodal providers and expose them through unified APIs, workflows, and an open platform—so teams can adopt and iterate on AI faster and at lower cost.",
+      "paragraph2": "Our team comes from the frontline of the internet and AI: we combine algorithm and engineering depth with real-world use cases. We believe AI creates value only when it is actually used. So we invest in reliability, usability, and scalability, and offer Ready-to-use solutions for collaboration, content creation, and agents.",
+      "visualSublabel": "AI-first product and architecture"
+    },
+    "coreValues": {
+      "tag": "Values",
+      "title": "Core Values",
+      "professional": {
+        "title": "Professional",
+        "description": "Deep in AI and engineering practice, delivering actionable solutions and best practices"
+      },
+      "efficient": {
+        "title": "Efficient",
+        "description": "Unified APIs and workflows to shorten the path from idea to production"
+      },
+      "reliable": {
+        "title": "Reliable",
+        "description": "High-availability architecture and operations to keep your business running"
+      },
+      "innovative": {
+        "title": "Innovative",
+        "description": "Evolving with models and use cases, continuously improving product and capabilities"
+      }
+    },
+    "developmentHistory": {
+      "tag": "Timeline",
+      "title": "Development History"
+    },
+    "team": {
+      "tag": "Team",
+      "title": "Core Team",
+      "subtitle": "Product, research, and engineering from big tech and AI—building scalable AI services together."
+    },
+    "contact": {
+      "title": "Contact Us",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "emailValue": "contact@zhihuiai.com",
+      "phoneValue": "400-888-8888",
+      "addressValue": "No. 1 Zhongguancun Street, Haidian District, Beijing"
+    },
+    "quickNav": {
+      "title": "Quick Navigation",
+      "newsCenter": "AI News",
+      "contactUs": "Contact Us",
+      "becomeSupplier": "Become a Supplier"
+    },
+    "milestones": {
+      "companyFounded": {
+        "date": "December 2024",
+        "title": "Company Founded",
+        "description": "ZhiHui AI officially established, focusing on AI technology R&D and product innovation"
+      },
+      "aiAppStore": {
+        "date": "January 2025",
+        "title": "World's First AI App Store",
+        "description": "Pioneered and created the world's first AI app store concept, leading the development of AI application ecosystem"
+      },
+      "platformLaunched": {
+        "date": "January 2025",
+        "title": "Platform Launched",
+        "description": "AI service platform officially launched, providing intelligent dialogue and text generation capabilities"
+      },
+      "angelFunding": {
+        "date": "February 2025",
+        "title": "Raised 20M Angel Funding",
+        "description": "Featured on 36Kr, completed 20 million yuan angel round funding, co-invested by multiple VC funds"
+      },
+      "firstUsers": {
+        "date": "March 2025",
+        "title": "First Users Milestone",
+        "description": "Platform's first batch of seed users exceeded 1,000, product gained early market validation"
+      },
+      "modelIntegration": {
+        "date": "June 2025",
+        "title": "Major LLM Integration",
+        "description": "Integrated GPT-4, Claude, DeepSeek, Wenxin Yiyan and other mainstream large model APIs, significantly enhancing service capabilities"
+      },
+      "usersMilestone": {
+        "date": "October 2025",
+        "title": "60K+ Users Milestone",
+        "description": "Platform registered users exceeded 60,000+, gaining widespread market recognition"
+      },
+      "developersMilestone": {
+        "date": "December 2025",
+        "title": "8K+ Developers Milestone",
+        "description": "Platform developer community exceeded 8,000+, building an active developer ecosystem"
+      }
+    },
+    "teamMembers": {
+      "founder": {
+        "name": "Mr. Li",
+        "role": "Founder & CTO & CEO",
+        "description": "AI algorithms and systems; patents and papers; leads technical strategy and platform architecture"
+      }
+    },
+    "footerTagline": "Empowering every creation and every decision with AI. We welcome partnership and conversation."
+  },
+  "about": {
+    "backHome": "Back to Home",
+    "title": "About Us",
+    "subtitle": "Zhihui AI Society - Your AI Intelligent Assistant Platform",
+    "ourMission": "Our Mission",
+    "missionDescription": "Zhihui AI Society is committed to providing users with the most advanced artificial intelligence tools and services, helping users improve work efficiency, stimulate creativity, and achieve more possibilities.",
+    "platformFeatures": "Platform Features",
+    "aiConversation": "Intelligent Conversation",
+    "aiConversationDesc": "Have natural and smooth conversations with AI to get intelligent suggestions and solutions",
+    "richToolkit": "Rich Toolkit",
+    "richToolkitDesc": "Provide various AI tools to meet different scenario needs",
+    "professionalCommunity": "Professional Community",
+    "professionalCommunityDesc": "Gather industry experts to share experiences and insights",
+    "continuousInnovation": "Continuous Innovation",
+    "continuousInnovationDesc": "Continuously update and optimize to provide the latest AI technology",
+    "coreTeam": "Core Team",
+    "teamMember1": "Zhang Ming",
+    "teamRole1": "Founder & CEO",
+    "teamDesc1": "10 years of AI industry experience, former technical director of a well-known technology company",
+    "teamMember2": "Li Ting",
+    "teamRole2": "Product Director",
+    "teamDesc2": "8 years of product design experience, focusing on user experience and product innovation",
+    "teamMember3": "Wang Qiang",
+    "teamRole3": "Technical Director",
+    "teamDesc3": "12 years of software development experience, proficient in multiple programming languages and architecture design",
+    "contactUs": "Contact Us",
+    "email": "Email",
+    "emailValue": "contact{'@'}ihui-agi-inf.com",
+    "address": "Address",
+    "addressValue": "Technology Park, Chaoyang District, Beijing",
+    "phone": "Phone",
+    "phoneValue": "400-123-4567",
+    "badge": "Zhihui AI",
+    "Building the Future of": "Building the ",
+    "AI Infrastructure": "AI Infrastructure",
+    "We are committed to building a world-leading AI application platform, enabling everyone to easily use artificial intelligence technology to drive social progress and innovation.": "We are committed to building a world-leading AI application platform, enabling everyone to use AI with ease and driving social progress and innovation.",
+    "BackHome": "Back to Home",
+    "Learn More": "Learn More",
+    "Active Users": "Active Users",
+    "AI Projects": "AI Projects",
+    "Service Availability": "Service Availability",
+    "Countries Covered": "Countries Covered",
+    "mission": {
+      "tag": "Mission"
+    },
+    "Making AI Accessible to Everyone": "Making AI Accessible",
+    "Mission & Vision": "Mission & Vision",
+    "Our mission is to lower the barrier to AI adoption, enabling everyone and every Enterprise to easily access AI capabilities. We believe AI technology should serve all of humanity.": "Our mission is to lower the barrier to AI adoption so that every person and every business can easily access AI capabilities. We believe AI should serve all of humanity.",
+    "features": {
+      "tag": "Features",
+      "aiDialogDesc": "Intelligent dialogue system based on large language models, supporting multi-turn conversations and context understanding",
+      "fastResponseDesc": "Millisecond response speed, global CDN acceleration, ensuring the best user experience",
+      "communityDesc": "Bringing together AI experts and enthusiasts to explore the frontier of artificial intelligence",
+      "globalDesc": "Services covering 50+ countries and regions, supporting multilingual localization"
+    },
+    "Platform Core Capabilities": "Platform Core Capabilities",
+    "journey": {
+      "tag": "Journey"
+    },
+    "Development History": "Development History",
+    "team": {
+      "tag": "Team",
+      "role1": "Founder & CEO",
+      "desc1": "Former Google AI researcher, focused on natural language processing",
+      "role2": "Chief Technology Officer",
+      "desc2": "Deep learning expert, led multiple large-scale AI projects",
+      "role3": "Product Lead",
+      "desc3": "Ten years of product experience, focused on AI product design and user experience"
+    },
+    "Core Team": "Core Team",
+    "contact": {
+      "tag": "Contact"
+    },
+    "Contact Us": "Contact Us",
+    "Email": "Email",
+    "Company Address": "Company Address",
+    "Zhangjiang Hi-Tech Park, Pudong New Area, Shanghai, China": "Zhangjiang Hi-Tech Park, Pudong New Area, Shanghai, China",
+    "Phone": "Phone",
+    "Building the Future": "Building the Future",
+    "We are dedicated to building the world's leading AI application platform, enabling everyone to easily use AI technology and drive social progress and innovation.": "We are dedicated to building the world's leading AI application platform, enabling everyone to easily use AI technology and drive social progress and innovation.",
+    "Back to Home": "Back to Home",
+    "ActiveUser": "ActiveUser",
+    "Making AI Accessible to All": "Making AI Accessible to All",
+    "Our mission is to lower the barrier to AI adoption, enabling everyone and every business to easily access AI capabilities. We believe AI technology should serve all humanity, not just a privileged few.": "Our mission is to lower the barrier to AI adoption, enabling everyone and every business to easily access AI capabilities. We believe AI technology should serve all humanity, not just a privileged few.",
+    "Contact Phone": "Contact Phone",
+    "AI基础设施": "AI Infrastructure",
+    "AI项目": "AI Projects",
+    "中国上海市浦东新区张": "中国上海市浦东新区张",
+    "了解更多": "Learn More",
+    "使命愿景": "Mission & Vision",
+    "公司地址": "Company Address",
+    "发展历程": "Development History",
+    "平台核心能力": "Platform Core Capabilities",
+    "我们致力于打造全球领": "我们致力于打造全球领",
+    "智汇AI的使命是降低": "智汇AI的使命是降低",
+    "服务可用性": "Service Availability",
+    "构建未来的": "Building the Future",
+    "核心团队": "Core Team",
+    "活跃用户": "Active Users",
+    "电子邮件": "Email",
+    "联系我们": "Contact Us",
+    "联系电话": "Contact Phone",
+    "覆盖国家": "Covered Countries",
+    "让AI触手可及": "Make AI Accessible",
+    "返回首页": "Back to Home",
+    "seo": {
+      "title": "About Us - Zhihui AI Community",
+      "description": "Learn about Zhihui AI Community, a professional AI tool integration platform",
+      "keywords": "About Zhihui AI,AI platform introduction,Zhihui AI",
+      "ogTitle": "About Us - Zhihui AI Community",
+      "ogDescription": "Learn about Zhihui AI Community, a professional AI tool integration platform"
+    },
+    "milestones": {
+      "event1": "Company Founded",
+      "desc1": "Zhihui AI officially established, starting AI platform R&D",
+      "event2": "Product Launched",
+      "desc2": "Zhihui AI Platform 1.0 officially launched, gaining first users",
+      "event3": "Series A Funding",
+      "desc3": "Completed Series A funding, valuation reaching 100 million USD",
+      "event4": "Global Expansion",
+      "desc4": "Services covering 50+ countries, users exceeding 100,000"
+    }
+  }
+}

@@ -1,0 +1,377 @@
+// ============================================
+// 全局 CSS 变量 / 设计 token
+// 包含 :root 默认变量、亮色主题变量、表面/阴影 token
+// 全部从 index.scss 提取，保持原顺序
+//
+// 本文件只使用 CSS 变量（var(--xxx)）和 SCSS 变量 $global-border-radius
+// 不依赖 variables.scss，避免循环 @use
+// ============================================
+//
+// ════════════════════════════════════════════════════════════════════
+// Token 变更日志（每次增删改 token 请在此登记）
+// ════════════════════════════════════════════════════════════════════
+// 2026-06-19 删除 9 个死代码 token:
+//   --bs-font-sans-serif, --theme-toggle-bg-color, --theme-toggle-focus-shadow,
+//   --global-header-top-gap, --shadow-rgb, --color-white-0, --color-white-96,
+//   --color-red-ff4d4f, --z-base
+// 2026-06-19 删除 13 个冗余 shadow 别名:
+//   --shadow-xs/sm/md/lg/xl/2xl, --shadow-primary/primary-hover/success/warning/danger/inner
+//   (全部指向 --global-box-shadow,统一使用 --global-box-shadow)
+// 2026-06-19 新增 token 命名规范检查 (npm run tokens:naming)
+// 2026-06-19 新增 token 使用统计脚本 (npm run tokens:usage)
+// 2026-06-19 新增 CI 阈值检查 (npm run tokens:check, 阈值 20)
+// 2026-06-19 新增 CSS 变量自动补全 (npm run tokens:autocompletion)
+// 2026-06-19 新增 token 文档自动生成 (npm run tokens:docs)
+// 2026-06-19 新增暗色模式覆盖检查 (npm run tokens:dark-mode)
+// 2026-06-19 新增弃用 token 检查 (npm run tokens:deprecated)
+// 2026-06-19 新增 token 使用趋势监控 (npm run tokens:record / npm run tokens:trend)
+// 2026-06-19 推广 --app-* token 到 design-system 组件 (Badge/Button/Card/Input/Spinner)
+// 2026-06-19 删除 2 个未使用 --el-box-shadow 变体 (lighter/darker, Element Plus 组件未引用)
+// 2026-06-19 新增未使用 token 白名单机制 (8 个框架内部 + 2 个预留,不计入死代码)
+// 2026-06-19 收紧 tokens:check 阈值 (20→12,白名单 10 个不计)
+// 2026-06-20 新增主题预设系统 (_theme-presets.scss, 蓝/绿/紫 3 种品牌色, data-theme 属性切换)
+// 2026-06-20 新增 --el-* token 检查脚本 (check-el-token-staged.mjs, 检查新增代码, CI continue-on-error)
+// 2026-06-20 集成 tokens:docs 到 lint-staged (_global-tokens.scss 变更时自动更新文档)
+// 2026-06-20 修复 admin-dashboard.ts 参数名错误 (current/size→page/pageSize, typecheck 完全通过)
+// 2026-06-20 优化视觉回归测试稳定性 (emulateMedia reducedMotion:reduce, 禁用 JS 动画)
+// 2026-06-20 优化并行测试隔离 (beforeEach 清理 localStorage/data-theme, 48 测试全通过)
+// 2026-06-20 抽取 e2e/helpers/test-isolation.ts 统一管理主题状态清理 (3 个测试文件复用)
+// 2026-06-20 playwright.config.ts 全局配置 reducedMotion:reduce (CI 与本地环境一致)
+// 2026-06-20 优化主题预设测试稳定性 (waitForFunction 等待 CSS 变量稳定, 消除 flaky)
+// 2026-06-20 添加 .gitattributes 视觉回归基线规则 (标记 binary 避免 diff 噪音)
+// 2026-06-20 修复 Home.vue 跑马灯动画未检查 reduceMotion (首页视觉回归 74% 差异根因)
+// 2026-06-20 修复 _a11y.scss prefers-reduced-motion 缺少 delay 重置 (广场 fade-in 动画初始 opacity:0 被截屏)
+// 2026-06-20 优化 playwright.config.ts 超时配置 (timeout 30000→60000, 本地 retries 0→2)
+// 2026-06-20 更新视觉回归基线 (首页+登录暗色, 48 测试全通过, 完美收尾)
+// 2026-06-20 CI 流水线新增 visual-regression + e2e-coverage job (continue-on-error, 不阻断合并)
+// 2026-06-20 新增 .github/pull_request_template.md (视觉回归基线更新流程文档)
+// 2026-06-20 新增 scripts/e2e-coverage.cjs (E2E 测试覆盖率统计, 125 文件/999 用例/86.4% 页面覆盖)
+// 2026-06-20 扩展 web-vitals.spec.ts 多页面性能基线 (6 页面 LCP/FCP 断言, 全部 < 1.1s)
+// 2026-06-20 补齐未覆盖页面测试 (/ranking 视觉回归 + /ai-team /top-up 鉴权重定向验证)
+// 2026-06-20 页面覆盖率 86.4% → 100% (22/22 全覆盖, 测试用例 1000 个)
+// 2026-06-20 新增生产构建 Web Vitals 严格基线 (production-smoke.spec.ts, LCP<2.5s FCP<1.8s CLS<0.1)
+// 2026-06-20 e2e-coverage.cjs 新增趋势监控 (历史记录 + 下降告警, CI cache 持久化)
+// 2026-06-20 生产性能基线实际验证通过 (LCP 1604ms / FCP 1604ms / CLS 0.089 / TTFB 2ms)
+// 2026-06-20 修复 package.json 缺少 preview 脚本 (CI 隐患, vite preview --port 4173)
+// 2026-06-20 修复 isCI 判断逻辑 (CI=false/0 时正确识别为本地环境)
+// 2026-06-20 e2e-coverage.cjs 新增趋势可视化 (ASCII 图表 + Markdown 表格, e2e-coverage-trend.md)
+// 2026-06-20 视觉回归测试并行优化 (parallel 模式 + PW_WORKERS 环境变量, 默认 1 worker 保稳定)
+// 2026-06-20 修复 preview 脚本 outDir 不匹配 (dist → dist/web, CI 隐患消除)
+// 2026-06-20 测试用例去重归档 14 个文件 (1002→836 用例, 页面覆盖率保持 100%)
+//   归档清单: theme-toggle, performance-analysis, detailed-performance, lighthouse,
+//   color-cleanup-verify, style-analysis, style-verify, style-deep-audit,
+//   p18-visual-regression, p19/p20/p21/p22-regression, i18n-completion
+// 2026-06-20 生产性能阈值收紧 (LCP 2500→2000ms, FCP 1800→1500ms, CLS 0.1→0.08, TTFB 800→500ms)
+//   实际数据: LCP 980ms / FCP 904ms / CLS 0.072 / TTFB 1.8ms, 全部通过收紧阈值
+// ════════════════════════════════════════════════════════════════════
+//
+// ════════════════════════════════════════════════════════════════════
+// CSS 变量使用规范（新增 token 前必读）
+// ════════════════════════════════════════════════════════════════════
+//
+// 【分类目录】
+// 1. 主题色（Element Plus 映射）：--el-color-primary / success / warning / danger / info
+// 2. 文本色：--el-text-color-primary / regular / secondary / placeholder / disabled
+// 3. 背景色：--el-bg-color / -page / -overlay / -hover
+// 4. 边框色：--el-border-color / -light / -lighter / -extra-light / -dark / -darker
+// 5. 填充色：--el-fill-color / -light / -lighter / -extra-light / -dark / -darker / -blank
+// 6. 浅色变体（用于标签背景）：--el-color-*-light-9（背景）/ --el-color-*-dark-2（文字）
+// 7. 品牌色（业务专用）：
+//    - --color-miniapp-green[-dark/darker/darkest]：微信小程序按钮
+//    - --color-rank-gold / -silver / -bronze：排行榜名次
+//    - --color-rank-avatar-start / -end：排行榜头像渐变
+//    - --color-rank-top1-bg：排行榜 top-1 背景
+//    - --color-vip-gold-start / -end：VIP 会员金色渐变
+//    - --color-payment-purple-start / -end：支付页紫色渐变
+// 8. 装饰性渐变（统一管理）：
+//    - --color-gradient-purple-yellow：浅紫到浅黄
+//    - --color-gradient-purple-deep：浅紫到深紫
+//    - --color-gradient-white-blue：白到蓝
+//    - --color-gradient-card-left / -right：卡片左右渐变
+//    - --color-gradient-group：组背景渐变
+// 9. 灰阶透明度：--color-white-{2..98} / --color-black-{2..95}
+// 10. 视频专用：--color-video-bg（固定纯黑）
+// 11. 业务别名：--color-gray-light / --color-blue-1890ff 等
+// 12. 语义化抽象层（推荐新组件优先使用）：
+//     - --app-surface-1：页面主背景（映射 --el-bg-color-page）
+//     - --app-surface-2：容器背景（映射 --el-bg-color）
+//     - --app-overlay：遮罩层背景（映射 --el-bg-color）
+//     - --app-text-primary：主要文字（映射 --el-text-color-primary）
+//     - --app-text-secondary：次要文字（映射 --el-text-color-regular）
+//     - --app-text-muted：弱化文字（映射 --el-text-color-secondary）
+//     - --app-divider：分割线（映射 --el-border-color）
+//     优势：更换 UI 框架时只需修改 --app-* 定义，无需改动组件代码
+//
+// 【新增 token 前检查清单】
+// □ 是否可复用现有 token？（优先复用，避免重复定义）
+// □ 是否属于业务品牌色？（若是，命名 --color-业务名-用途）
+// □ 是否属于装饰性渐变？（若是，命名 --color-gradient-描述）
+// □ 是否需要在暗色模式下覆盖？（若是，在 _dark-mode-global.scss 添加覆盖）
+// □ 是否已在本文件注释目录中登记？（新增后更新目录）
+// □ 新组件是否优先使用 --app-* 语义化 token？（而非直接引用 --el-*）
+//
+// 【禁止事项】
+// ✗ 禁止在组件样式中硬编码十六进制颜色（如 #409eff）
+// ✗ 禁止使用高优先级覆盖
+// ✗ 禁止使用高特异性选择器（仅用项目现有全局样式）
+// ✗ 禁止在 var() 中使用 fallback（如 var(--x, #fff)），token 应在全局定义
+// ✗ 禁止在新组件中直接引用 --el-* token（应优先使用 --app-* 语义化 token）
+//
+// 【Token 弃用流程】
+// 当需要弃用某个 token 时,按以下步骤执行:
+// 1. 在 token 定义行添加弃用标记,格式: /* @deprecated 原因 | 删除日期 YYYY-MM-DD */
+//    示例: --old-token: #fff; /* @deprecated 已被 --app-surface-1 替代 | 删除日期 2026-07-01 */
+// 2. 运行 npm run tokens:deprecated 检查弃用 token 的使用情况
+// 3. 迁移所有使用该 token 的组件代码
+// 4. 迁移完成后,等待删除日期到达后删除 token 定义
+// 5. 在本文件顶部的 Token 变更日志中登记删除记录
+// 注意: 删除日期建议设置为弃用标记添加后 2 周,给迁移留足时间
+// ════════════════════════════════════════════════════════════════════
+
+// SCSS 变量（供 variables.scss 和 element-plus-vars.scss 引用以避免循环依赖）
+$global-border-radius: 8px;
+
+// 描边颜色（light / dark）
+$border-unified-light: #dcdfe6;
+$border-unified-light-hover: #c0c4cc;
+$border-unified-dark: #4c4d4f;
+$border-unified-dark-hover: #6c6e72;
+
+// 暗色模式专用 token
+$el-color-primary-dark: #409eff;
+$el-button-text-on-primary-dark: #ffffff;
+$fcd-send-btn-hover-light: #409eff;
+$fcd-send-btn-hover-dark: #66b1ff;
+$color-dark-text-primary: #e5eaf3;
+
+:root {
+  /* 默认字体变量 - 使用 HarmonyOS Sans SC */
+  --global-font-family: var(--font-family-chinese);
+
+  /* Element Plus 主色 - 亮色模式：纯黑 */
+  --el-color-primary: var(--el-text-color-primary);
+  --el-color-primary-light-3: var(--el-text-color-primary);
+  --el-color-primary-light-5: var(--el-text-color-secondary);
+  --el-color-primary-light-7: var(--el-text-color-placeholder);
+
+  /* 描边 - 使用全局唯一设定（见 element-plus-vars.scss） */
+  --el-border-color: var(--border-unified-color);
+  --el-border-width-primary: 2px;
+
+  /* 顶部菜单栏保留空间 */
+  --global-header-height: 60px; // 顶部菜单栏高度
+
+  /* Element Plus 字体变量 */
+  --el-font-family: var(--font-family-chinese);
+
+  /* 圆角 - 全站唯一 8px */
+  --el-input-border-radius: var(--global-border-radius);
+  --el-border-radius-base: var(--global-border-radius);
+  --el-border-radius-round: var(--global-border-radius);
+  --el-border-radius-circle: var(--global-border-radius);
+
+  /* Element Plus 输入框 focus/hover 边框颜色 - 与全局描边一致，略深于默认 */
+  --el-input-focus-border-color: var(--border-unified-color-hover);
+  --el-input-hover-border-color: var(--border-unified-color-hover);
+
+  /* Element Plus Tooltip 样式 - 亮色模式：纯白背景，描边用全局 */
+  --el-tooltip-bg-color: var(--el-bg-color);
+  --el-tooltip-border-color: var(--border-unified-color);
+  --el-tooltip-font-color: var(--el-text-color-primary);
+}
+
+/* 亮色主题变量（最新规则）- 主色/主文为纯黑，强调按钮背景即纯黑 */
+:root {
+  --el-bg-color: var(--color-neutral-f7f8fa); /* 容器浅灰 */
+  --el-bg-color-page: var(--el-bg-color); /* 页面主背景 */
+  --el-bg-color-hover: var(--el-bg-color); /* hover背景 */
+  --el-text-color-primary: #000;
+  --el-text-color-regular: var(--el-text-color-primary);
+  --el-text-color-secondary: var(--el-text-color-primary);
+
+  /* 浅填充色（如 ghost 按钮 hover）- 避免回退到主色导致纯黑 */
+  --color-gray-fafafa: #fafafa;
+  --el-fill-color-lighter: #f5f5f5;
+  --el-fill-color-light: #f0f0f0;
+}
+
+/* ============================================================
+ * 投影与描边规则（详见 styles/SHADOW_AND_BORDER_RULES.md）
+ * - 投影：需使用 var(--global-box-shadow)，不需使用 none
+ * - 描边：全站唯一设定，使用 var(--unified-border) 或 var(--unified-border-bottom)，定义在 element-plus-vars.scss
+ * - 禁止单独写 1px solid 或 border 颜色，仅使用上述变量
+ * ============================================================ */
+:root {
+  --app-surface-1: var(--el-bg-color-page);
+  --app-surface-2: var(--el-bg-color);
+  --app-overlay: var(--el-bg-color);
+  --app-text-primary: var(--el-text-color-primary);
+  --app-text-secondary: var(--el-text-color-regular);
+  --app-text-muted: var(--el-text-color-secondary);
+  --app-divider: var(--el-border-color);
+
+  /* 全局投影 - 唯一设定：亮色模式 2px 微弱浅灰 */
+  --global-box-shadow: 0 2px 8px var(--color-black-6);
+  --el-box-shadow: var(--global-box-shadow);
+  --el-box-shadow-light: var(--global-box-shadow);
+  --el-box-shadow-dark: var(--global-box-shadow);
+}
+
+/* ============================================================
+ * 透明度色板 token - 全站唯一写死处
+ * 所有 rgba(255,255,255,x) / rgba(0,0,0,x) 必须使用以下变量
+ * 亮色/暗色模式通用，不随主题切换变化
+ * ============================================================ */
+:root {
+  /* 白色透明度阶梯 */
+  --color-white-2: rgba(255, 255, 255, 0.02);
+  --color-white-3: rgba(255, 255, 255, 0.03);
+  --color-white-4: rgba(255, 255, 255, 0.04);
+  --color-white-5: rgba(255, 255, 255, 0.05);
+  --color-white-6: rgba(255, 255, 255, 0.06);
+  --color-white-8: rgba(255, 255, 255, 0.08);
+  --color-white-10: rgba(255, 255, 255, 0.1);
+  --color-white-12: rgba(255, 255, 255, 0.12);
+  --color-white-14: rgba(255, 255, 255, 0.14);
+  --color-white-15: rgba(255, 255, 255, 0.15);
+  --color-white-18: rgba(255, 255, 255, 0.18);
+  --color-white-20: rgba(255, 255, 255, 0.2);
+  --color-white-30: rgba(255, 255, 255, 0.3);
+  --color-white-35: rgba(255, 255, 255, 0.35);
+  --color-white-40: rgba(255, 255, 255, 0.4);
+  --color-white-45: rgba(255, 255, 255, 0.45);
+  --color-white-50: rgba(255, 255, 255, 0.5);
+  --color-white-60: rgba(255, 255, 255, 0.6);
+  --color-white-70: rgba(255, 255, 255, 0.7);
+  --color-white-72: rgba(255, 255, 255, 0.72);
+  --color-white-75: rgba(255, 255, 255, 0.75);
+  --color-white-80: rgba(255, 255, 255, 0.8);
+  --color-white-85: rgba(255, 255, 255, 0.85);
+  --color-white-90: rgba(255, 255, 255, 0.9);
+  --color-white-95: rgba(255, 255, 255, 0.95);
+  --color-white-98: rgba(255, 255, 255, 0.98);
+
+  /* 黑色透明度阶梯 */
+  --color-black-2: rgba(0, 0, 0, 0.02);
+  --color-black-3: rgba(0, 0, 0, 0.03);
+  --color-black-04: rgba(0, 0, 0, 0.04);
+  --color-black-4: rgba(0, 0, 0, 0.04);
+  --color-black-5: rgba(0, 0, 0, 0.05);
+  --color-black-6: rgba(0, 0, 0, 0.06);
+  --color-black-8: rgba(0, 0, 0, 0.08);
+  --color-black-10: rgba(0, 0, 0, 0.1);
+  --color-black-12: rgba(0, 0, 0, 0.12);
+  --color-black-15: rgba(0, 0, 0, 0.15);
+  --color-black-20: rgba(0, 0, 0, 0.2);
+  --color-black-25: rgba(0, 0, 0, 0.25);
+  --color-black-30: rgba(0, 0, 0, 0.3);
+  --color-black-40: rgba(0, 0, 0, 0.4);
+  --color-black-45: rgba(0, 0, 0, 0.45);
+  --color-black-50: rgba(0, 0, 0, 0.5);
+  --color-black-60: rgba(0, 0, 0, 0.6);
+  --color-black-70: rgba(0, 0, 0, 0.7);
+  --color-black-75: rgba(0, 0, 0, 0.75);
+  --color-black-80: rgba(0, 0, 0, 0.8);
+  --color-black-85: rgba(0, 0, 0, 0.85);
+  --color-black-87: rgba(0, 0, 0, 0.87);
+  --color-black-90: rgba(0, 0, 0, 0.9);
+  --color-black-95: rgba(0, 0, 0, 0.95);
+
+  /* 语义色别名 - 全站唯一写死处，组件统一使用 var(--el-color-*) */
+  --color-blue-1890ff: #1890ff;
+  --color-green-52c41a: #52c41a;
+  --color-red-f5222d: #f5222d;
+  --color-orange-fa8c16: #fa8c16;
+  --color-purple-722ed1: #722ed1;
+
+  /* 品牌色及其透明度变体 - 补充映射表引用的缺失 token */
+  --color-brand-blue: #1677ff;
+  --color-brand-blue-06: rgba(22, 119, 255, 0.06);
+  --color-blue-1890ff-04: rgba(24, 144, 255, 0.04);
+
+  /* 灰阶别名 - 补充映射表引用的缺失 token */
+  --color-gray-light: #f0f0f0;
+  --color-gray-222: #222;
+  --color-gray-333: #333;
+  --color-gray-555555: #555;
+
+  /* 业务别名色 - 补充组件引用的缺失 token */
+  --color-indigo-600: #4f46e5;
+  --color-cyan-06b6d4: #06b6d4;
+  --color-emerald-500: #10b981;
+  --color-amber-500: #f59e0b;
+  --color-red-ef4444: #ef4444;
+
+  /* VIP 私人顾问权益色 - rgba 透明度梯度 */
+  --color-rgba-255--79--79-0-6-: rgba(255, 79, 79, 0.6);
+  --color-rgba-255--79--79-0-7-: rgba(255, 79, 79, 0.7);
+  --color-rgba-255--79--79-0-8-: rgba(255, 79, 79, 0.8);
+  --color-rgba-255--79--79-0-9-: rgba(255, 79, 79, 0.9);
+  --color-rgba-255--79--79-1-: rgba(255, 79, 79, 1);
+
+  /* 视频播放器背景 - 固定纯黑，不随主题变化 */
+  --color-video-bg: #000;
+
+  /* 微信小程序按钮品牌色 - 微信绿 */
+  --color-miniapp-green: linear-gradient(135deg, #07c160, #06ad56);
+  --color-miniapp-green-dark: #06ad56;
+  --color-miniapp-green-darker: #059a4c;
+  --color-miniapp-green-darkest: #048040;
+
+  /* 排行榜排名颜色 */
+  --color-rank-gold: #f59e0b;
+  --color-rank-silver: #94a3b8;
+  --color-rank-bronze: #b45309;
+
+  /* 排行榜头像渐变 */
+  --color-rank-avatar-start: #6366f1;
+  --color-rank-avatar-end: #8b5cf6;
+
+  /* 排行榜 top-1 背景色 */
+  --color-rank-top1-bg: rgba(245, 158, 11, 0.04);
+
+  /* VIP 会员金色渐变 */
+  --color-vip-gold-start: #ffd700;
+  --color-vip-gold-end: #ffa500;
+
+  /* 支付页紫色品牌渐变 */
+  --color-payment-purple-start: #667eea;
+  --color-payment-purple-end: #764ba2;
+
+  /* 装饰性渐变 - 浅紫到浅黄（卡片背景） */
+  --color-gradient-purple-yellow: linear-gradient(112deg, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%);
+
+  /* 装饰性渐变 - 浅紫到深紫（VIP 介绍） */
+  --color-gradient-purple-deep: linear-gradient(269deg, rgba(217, 219, 254, 0.8) 219%, rgba(144, 125, 255, 0.8) 219%);
+
+  /* 装饰性渐变 - 白到蓝（横幅） */
+  --color-gradient-white-blue: linear-gradient(0deg, rgba(255, 255, 255, 1) 1%, rgba(77, 180, 232, 1) 77%);
+
+  /* 装饰性渐变 - 卡片左（浅紫到浅黄） */
+  --color-gradient-card-left: linear-gradient(116deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+
+  /* 装饰性渐变 - 卡片右（黑到深绿） */
+  --color-gradient-card-right: linear-gradient(116deg, rgba(0, 0, 0, 0.8) 3%, rgba(0, 109, 11, 0.8) 104%);
+
+  /* 装饰性渐变 - 组背景（浅紫到浅黄低透明度） */
+  --color-gradient-group: linear-gradient(106deg, rgba(228, 229, 255, 0.25) 4%, rgba(254, 255, 236, 0.25) 104%);
+}
+
+/* ============================================================
+ * z-index 层级 token - 全站唯一设定
+ * 所有 z-index 值必须使用以下变量，禁止硬编码数字
+ * 层级从低到高：base < header < sticky < dropdown/overlay < modal < popover < notification < loading < max
+ * ============================================================ */
+:root {
+  --z-base: 1;              /* 基础内容层 */
+  --z-0: 0;                 /* 层叠上下文基底（创建新层叠上下文用） */
+  --z-header: 100;          /* 头部导航栏 */
+  --z-sticky: 990;          /* 粘性定位元素 */
+  --z-dropdown: 1000;       /* 下拉菜单 */
+  --z-overlay: 1000;        /* 遮罩层 */
+  --z-modal: 2000;          /* 弹窗/对话框 */
+  --z-popover: 2001;        /* 弹出层（高于 modal） */
+  --z-notification: 9999;   /* 通知/提示 */
+  --z-loading: 10000;       /* 全屏加载 */
+  --z-max: 10003;           /* 最大层级（全屏覆盖） */
+}

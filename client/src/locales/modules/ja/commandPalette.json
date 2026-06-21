@@ -1,0 +1,27 @@
+{
+  "commandPalette": {
+    "placeholder": "コマンドを検索...",
+    "escToAbort": "ESC で閉じる",
+    "enter": "Enter",
+    "navigate": "ナビゲーション",
+    "execute": "実行",
+    "systemReady": "システム準備完了",
+    "cpuOptimized": "パフォーマンス最適化",
+    "noResults": "一致するコマンドが見つかりません",
+    "systemInternal": "システム内部",
+    "commands": {
+      "home": "ホームに戻る",
+      "store": "AIアプリストア",
+      "plaza": "プラザ",
+      "learnAI": "学習AI",
+      "community": "AIクリエイティブコミュニティ",
+      "download": "ダウンロードセンター",
+      "docs": "技術ドキュメント",
+      "about": "会社概要",
+      "contact": "お問い合わせ",
+      "darkMode": "ダークモード切り替え",
+      "aiAssistant": "AIアシスタントを開く",
+      "backToTop": "トップへ戻る"
+    }
+  }
+}

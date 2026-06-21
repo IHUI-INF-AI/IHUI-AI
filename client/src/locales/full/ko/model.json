@@ -1,0 +1,34 @@
+{
+  "model3dGen": {
+    "핵심 장점": "Tencent 혼원 3D 생성",
+    "tag": "텍스트에서 3D / 수익에서 3D",
+    "tabs": {
+      "text": "텍스트에서 3D",
+      "image": "수익에서 3D"
+    },
+    "form": {
+      "prompt": "3D 설명석",
+      "promptPlaceholder": "원하는 3D 모델을 설명석하세요...",
+      "format": "출력 형식",
+      "uploadImage": "수익 업로드"
+    },
+    "buttons": {
+      "generate": "생성"
+    },
+    "messages": {
+      "promptRequired": "3D 설명석을 입력하세요",
+      "generateFailed": "생성 실패"
+    },
+    "title": "텐센트뉴스하이브리드튜플3D생성"
+  },
+  "modelConfig": {},
+  "model": {
+    "capabilities": {
+      "streaming": "스트림방식전송",
+      "streamingShort": "스트림방식전송Short",
+      "image": "수익",
+      "audio": "오디오",
+      "video": "동영상"
+    }
+  }
+}

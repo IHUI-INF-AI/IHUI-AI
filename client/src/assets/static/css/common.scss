@@ -1,0 +1,93 @@
+/**
+ * 通用样式文件
+ * 迁移自 Ai-WXMiniVue/src/static/css/common.scss
+ */
+
+// 基础变量
+$primary-color: var(--el-color-primary);
+$secondary-color: var(--el-text-color-primary);
+$price-color-primary: var(--el-text-color-primary);
+$price-color-secondary: var(--el-text-color-primary)80;
+$text-color: var(--el-text-color-primary);
+$text-color-light: var(--el-text-color-secondary);
+$text-color-lighter: var(--el-text-color-placeholder);
+$background-color: var(--el-bg-color-page);
+$border-color: var(--border-unified-color);
+$border-radius-base: 0.1rem;
+$spacing-base: 0.2rem;
+$spacing-large: 0.4rem;
+$spacing-xlarge: 0.8rem;
+$font-size-base: 0.28rem;
+$font-size-small: 0.24rem;
+$font-size-large: 0.32rem;
+
+// 状态栏和导航栏高度（Web 环境）
+$status-bar-height: 0px;
+$nav-bar-height: 44px;
+$top-bar-height: $status-bar-height + $nav-bar-height;
+
+// 通用类
+.container {
+  padding: 0 $spacing-base;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-column {
+  flex-direction: column;
+}
+
+.flex-center {
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-between {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mt-base {
+  margin-top: $spacing-base;
+}
+
+.mt-large {
+  margin-top: $spacing-large;
+}
+
+.mb-base {
+  margin-bottom: $spacing-base;
+}
+
+.mb-large {
+  margin-bottom: $spacing-large;
+}
+
+.p-base {
+  padding: $spacing-base;
+}
+
+.p-large {
+  padding: $spacing-large;
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .container {
+    padding: 0 $spacing-base;
+  }
+}

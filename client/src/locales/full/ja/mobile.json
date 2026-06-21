@@ -1,0 +1,61 @@
+{
+  "mobileNav": {
+    "title": "ナビゲーション",
+    "close": "閉じる",
+    "ariaLabel": "移动端ナビゲーション",
+    "bottomNavAriaLabel": "移动端底部ナビゲーション"
+  },
+  "mobileAdapter": {
+    "actions": "Actions",
+    "adaptationRules": "Adaptation Rules",
+    "applyTheme": "Apply Theme",
+    "backgroundColor": "Background Color",
+    "borderRadius": "Border Radius",
+    "breakpoint": "Breakpoint",
+    "browser": "Browser",
+    "cancel": "Cancel",
+    "compactMode": "Compact Mode",
+    "conditionField": "Condition Field",
+    "conditionFields": {
+      "orientation": "Orientation",
+      "pixelRatio": "Pixel Ratio",
+      "screenHeight": "Screen Height",
+      "screenWidth": "Screen Width"
+    },
+    "conditionOperator": "Condition Operator",
+    "conditionValue": "Condition Value",
+    "create": "Create",
+    "currentDevice": "Current Device",
+    "delete": "Delete",
+    "deviceType": "Device Type",
+    "edit": "Edit",
+    "guideContent": "Guide Content",
+    "guideTitle": "Guide Title",
+    "newRule": "New Rule",
+    "nextStep": "Next Step",
+    "no": "No",
+    "operatingSystem": "Operating System",
+    "operators": {
+      "between": "Between",
+      "eq": "Eq",
+      "gt": "Gt",
+      "lt": "Lt"
+    },
+    "orientation": "Orientation",
+    "pixelRatio": "Pixel Ratio",
+    "platform": "Platform",
+    "platformConfig": "Platform Config",
+    "platformName": "Platform Name",
+    "preview": "Preview",
+    "primaryColor": "Primary Color",
+    "priority": "Priority",
+    "refreshDevice": "Refresh Device",
+    "screenSize": "Screen Size",
+    "shadowEffect": "Shadow Effect",
+    "status": "Status",
+    "textColor": "Text Color",
+    "themeConfig": "Theme Config",
+    "touchSupport": "Touch Support",
+    "yes": "Yes"
+  }
+}

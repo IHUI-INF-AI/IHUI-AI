@@ -1,0 +1,30 @@
+{
+  "refundStatus": {
+    "timelineTitle": "處理時間線",
+    "operator": "操作人",
+    "evidenceTitle": "退款憑證",
+    "cancelRefund": "撤銷退款",
+    "statusPending": "退款審核中",
+    "descPending": "您的退款申請已提交, 預計 1-2 個工作日內完成審核",
+    "statusReviewing": "客服審核中",
+    "descReviewing": "客服正在審核您的退款申請, 請耐心等待",
+    "statusApproved": "退款已批准",
+    "descApproved": "退款已批准, 正在處理中",
+    "statusRejected": "退款已拒絕",
+    "descRejected": "退款申請被拒絕, 請聯繫客服了解詳情",
+    "statusProcessing": "退款處理中",
+    "descProcessing": "退款正在原路返回, 請注意查收",
+    "statusCompleted": "退款已完成",
+    "descCompleted": "退款已成功到賬, 請查收",
+    "statusFailed": "退款失敗",
+    "descFailed": "退款處理失敗, 系統將自動重試或聯繫客服",
+    "statusCancelled": "已撤銷",
+    "descCancelled": "您已撤銷該退款申請",
+    "statusUnknown": "未知狀態",
+    "actionCreate": "提交申請",
+    "actionEvidenceUpload": "上傳憑證",
+    "actionReview": "客服審核",
+    "actionCancel": "用戶撤銷",
+    "actionAutoRetry": "自動重試"
+  }
+}

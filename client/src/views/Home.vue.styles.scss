@@ -1,0 +1,2663 @@
+/* 网格背景移除：不再绘制格子，保持纯色背景 */
+.circuit-background {
+  display: none;
+}
+
+/* 首页容器 - CSS 变量，使用 CSS 变量控制 */
+.home-container {
+  // CSS 变量定义
+  --home-bg: var(--el-bg-color);
+  
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden auto;
+  scroll-snap-type: none;
+  scroll-behavior: smooth;
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  z-index: var(--z-base);
+  background: var(--home-bg);
+}
+
+/* 第三页特殊处? */
+.home-container.allow-third-page-overflow {
+  overflow-x: visible;
+}
+
+/* 暗色模式 - 通过 CSS 变量覆盖 */
+html.dark .home-container {
+  --home-bg: var(--el-bg-color);
+}
+
+.home-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* 首页五个分页(main)严格适配视口(100vh/100dvh) */
+
+/* 全局覆盖 - 使用 :global 与变量，禁止高特异性 */
+:global(html),
+:global(body),
+:global(#app),
+:global(.app-container),
+:global(.main-content) {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+/* 保留 header 空间,避免 fixed header 遮挡内容 */
+:global(.main-content) {
+  padding-top: 60px;
+}
+
+/* 暗色模式下背?- 使用 CSS 变量 */
+html.dark,
+html.dark body,
+html.dark #app,
+html.dark .app-container,
+html.dark .main-content {
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+/* 关闭伪元素?- 已移除高优先级覆盖 */
+.page-section::before,
+.page-section::after,
+#first-page::before,
+#first-page::after,
+#second-page::before,
+#second-page::after,
+#fifth-page::before,
+#fifth-page::after {
+  display: none;
+  content: none;
+}
+
+/* 页面背景 - 使用 CSS 变量 */
+#first-page,
+#second-page,
+#third-page,
+#fourth-page,
+:where(#fifth-page) {
+  // CSS 变量定义
+  --page-bg: var(--el-bg-color);
+  --page-color: var(--el-text-color-primary);
+  
+  background-color: var(--page-bg);
+  color: var(--page-color);
+}
+
+/* 暗色模式页面背景 */
+:where(html.dark) :where(#first-page),
+:where(html.dark) :where(#second-page),
+:where(html.dark) :where(#third-page),
+:where(html.dark) :where(#fourth-page),
+:where(html.dark) :where(#fifth-page),
+body.dark-background #first-page,
+body.dark-background #second-page,
+body.dark-background #third-page,
+body.dark-background #fourth-page,
+body.dark-background #fifth-page,
+html.dark-background #first-page,
+html.dark-background #second-page,
+html.dark-background #third-page,
+html.dark-background #fourth-page,
+html.dark-background #fifth-page,
+.dark-content #first-page,
+.dark-content #second-page,
+.dark-content #third-page,
+.dark-content #fourth-page,
+.dark-content #fifth-page {
+  --page-bg: var(--el-bg-color);
+}
+
+.page-section,
+.page-section::before,
+.page-section::after {
+  background-image: none;
+  box-shadow: none;
+}
+
+
+
+/* 暗色模式：每个分页容器自身绘制格子背? */
+:where(html.dark) :where(#first-page),
+:where(html.dark) :where(#second-page),
+:where(html.dark) :where(#third-page),
+:where(html.dark) :where(#fourth-page),
+:where(html.dark) :where(#fifth-page),
+body.dark-background #first-page,
+body.dark-background #second-page,
+body.dark-background #third-page,
+body.dark-background #fourth-page,
+body.dark-background #fifth-page,
+html.dark-background #first-page,
+html.dark-background #second-page,
+html.dark-background #third-page,
+html.dark-background #fourth-page,
+html.dark-background #fifth-page,
+.dark-content #first-page,
+.dark-content #second-page,
+.dark-content #third-page,
+.dark-content #fourth-page,
+.dark-content #fifth-page {
+  background-color: var(--el-bg-color); /* 暗色模式：纯黑背? */
+  background-image: none; /* 移除暗色网格/光点叠加 */
+  color: var(--el-color-white); /* 直接使用白色文字 */
+}
+
+
+/* 已删除分页过渡层 */
+
+.page-section {
+  /* 页面区块：向下平铺显示，自动适应网页尺寸 */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100vh; /* 最小高度为视口高度 */
+  min-height: 100dvh;
+  height: 100vh; /* 强制高度为视口高? */
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  padding: 0; /* 移除内边距，确保完全填充视口 */
+  margin: 0;
+  box-sizing: border-box;
+  overflow: hidden; /* 防止内容溢出 */
+  background-color: var(--el-bg-color-page); /* 亮色模式：纯白色背景（网页最底层背景色必须为纯白色） */
+  scroll-snap-align: none; /* 禁用 scroll-snap-align，避免自动对? */
+  scroll-snap-stop: normal; /* 禁用 scroll-snap-stop */
+}
+
+/* 第三页特殊处理：允许旋转的卡片超出边界显? */
+#third-page.page-section {
+  overflow: visible; /* 覆盖全局?overflow: hidden，允许旋转的卡片完整显示 */ /* 允许水平方向内容可见 */ /* 允许垂直方向内容可见 */
+}
+
+/* 第三页的 page-content 特殊处理 - 使用更高优先级的选择? */
+#third-page.page-section .page-content.third-page-content,
+:where(#third-page) .page-content.third-page-content,
+:where(#third-page) .third-page-content {
+  overflow: visible; /* 覆盖全局?overflow-x: hidden */
+}
+
+/* 第三页的 news-grid 特殊处理 - 确保内容可以穿透显? */
+:where(#third-page) .news-grid-wrapper,
+:where(#third-page) .news-grid,
+:where(#third-page) .news-container .news-grid-wrapper,
+:where(#third-page) .news-container .news-grid {
+  overflow: visible; /* 覆盖全局?overflow-x: hidden */
+}
+
+/* 暗色模式?.page-section 强制使用纯黑色背? */
+html.dark .page-section,
+body.dark-background .page-section,
+html.dark-background .page-section,
+.dark-content .page-section {
+  background-color: var(--el-bg-color);
+  background: var(--el-bg-color);
+}
+
+/* 第一?- 鼠标聚光灯效? */
+:where(#first-page) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0; /* 允许收缩，防止溢? */
+  position: relative;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  overflow: hidden; /* 防止水平滚动 */
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+
+/* 首页 Welcome 文字样式 - 使用 EDIX 字体 */
+
+/* 必须使用更具体的选择器，确保优先级最? */
+:where(#first-page) .first-page-content-overlay h1.brand-welcome-text.font-edix {
+  /* 宽度自动适应文字内容 */
+  width: auto;
+  max-width: none;
+  display: block;
+  margin: 0 auto clamp(16px, 2vh, 32px);
+  text-align: center;
+  font-size: clamp(32px, 5vw, 64px);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  color: var(--el-text-color-primary);
+
+  /* 强制使用 EDIX 字体，优先级最? */
+  font-family: EDIX, sans-serif;
+
+  /* 强制在一行显? */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  /* 不设置背景色、padding、border，让元素自然显示 */
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* 兼容没有 .font-edix 类的情况（不应该发生，但为了安全? */
+:where(#first-page) .first-page-content-overlay .brand-welcome-text:not(.font-edix) {
+  font-family: var(--font-family-chinese);
+}
+
+/* 暗色模式下的 Welcome 文字 */
+:where(html.dark) :where(#first-page) .first-page-content-overlay .brand-welcome-text,
+body.dark #first-page .first-page-content-overlay .brand-welcome-text {
+  color: var(--el-text-color-primary);
+}
+
+/* 第一页内容覆盖层 */
+:where(#first-page) .first-page-content-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  right: 0;
+  z-index: calc(var(--z-base) + 3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
+  padding: 16px; /* 减小内边? */
+  box-sizing: border-box;
+}
+
+:where(#first-page) .first-page-content-overlay p {
+  color: var(--el-text-color-primary);
+  cursor: default;
+  user-select: none;
+  white-space: nowrap; /* 单行显示，不换行 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block; /* 改为 block，移?-webkit-box */
+  width: auto; /* 自动宽度，适应单行内容 */
+  max-width: min(800px, 90vw); /* 增加最大宽度以适应单行 */
+  padding: 0;
+  margin: 0 auto clamp(8px, 1.5vh, 16px); /* 减小下边? */
+  font-size: clamp(32px, 4vw, 48px); /* 大幅增大字体大小 */
+  font-weight: 500;
+  line-height: 1.5;
+  position: static;
+  transform: none;
+  will-change: auto;
+}
+
+/* 打字机效果样式 */
+:where(#first-page) .first-page-content-overlay .typing-text {
+  color: inherit;
+}
+
+:where(#first-page) .first-page-content-overlay .cursor-blink {
+  color: var(--el-color-primary);
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+:where(#first-page) .hero-cta {
+  margin-top: clamp(132px, calc(4.5vh + 100px), 148px); /* 直接增加100px上边距，让按钮距离文本更? */
+  display: inline-flex;
+  gap: clamp(6px, 1vw, 10px); /* 减小间距 */
+  align-items: center;
+  justify-content: center;
+}
+
+:where(#first-page) .hero-cta .hero-cta-btn {
+  min-width: 120px; /* 减小最小宽? */
+  width: 120px; /* 减小宽度 */
+  height: 38px; /* 减小高度 */
+  font-weight: 600;
+  border-radius: var(--global-border-radius); /* 减小圆角 */
+  padding: 0 20px; /* 减小内边? */
+  border-width: 1px;
+  box-sizing: border-box;
+  font-size: 14px; /* 减小字体大小 */
+  line-height: 1;
+}
+
+/* 亮色模式：主按钮 - 使用全局主色（纯黑）与容器色（纯白文字） */
+:where(html:not(.dark)) :where(#first-page) .hero-cta .hero-cta-btn {
+  min-width: 140px;
+  height: 44px;
+  font-weight: 600;
+  border-radius: var(--global-border-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 24px;
+  background: var(--el-color-primary);
+  border: var(--unified-border);
+  color: var(--el-bg-color);
+  box-shadow: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+
+  :deep(.el-button__content) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  :deep(span),
+  :deep(.el-button__text),
+  :deep(.el-icon) {
+    color: var(--el-bg-color);
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  &:hover {
+    background: var(--el-text-color-primary);
+    border-color: var(--el-text-color-primary);
+    color: var(--el-bg-color);
+
+    :deep(.el-button__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    :deep(span),
+    :deep(.el-button__text),
+    :deep(.el-icon) {
+      color: var(--el-bg-color);
+    }
+  }
+
+  &:active {
+    background: var(--el-text-color-secondary);
+    border-color: var(--el-text-color-secondary);
+    color: var(--el-bg-color);
+
+    :deep(.el-button__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    :deep(span),
+    :deep(.el-button__text),
+    :deep(.el-icon) {
+      color: var(--el-bg-color);
+    }
+  }
+}
+
+:where(html:not(.dark)) :where(#first-page) .hero-cta .hero-cta-btn.ghost {
+  min-width: 140px;
+  height: 44px;
+  font-weight: 600;
+  border-radius: var(--global-border-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 24px;
+
+  // 亮色模式：透明背景 + 黑色描边 + 黑色文字
+  background: transparent;
+  border: var(--unified-border);
+  color: var(--el-text-color-primary);
+  box-shadow: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+
+  :deep(.el-button__content) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  :deep(span),
+  :deep(.el-button__text),
+  :deep(.el-icon) {
+    color: var(--el-text-color-primary);
+    line-height: 1;
+  }
+
+  &:hover {
+    background: var(--el-fill-color-lighter);
+    border-color: var(--el-text-color-primary);
+    color: var(--el-text-color-primary);
+
+    :deep(.el-button__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    :deep(span),
+    :deep(.el-button__text),
+    :deep(.el-icon) {
+      color: var(--el-text-color-primary);
+    }
+  }
+
+  &:active {
+    background: var(--el-fill-color-light);
+    border-color: var(--el-text-color-primary);
+    color: var(--el-text-color-primary);
+
+    :deep(.el-button__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    :deep(span),
+    :deep(.el-button__text),
+    :deep(.el-icon) {
+      color: var(--el-text-color-primary);
+    }
+  }
+}
+
+// 暗色模式：主按钮 - 纯白色背?+ 低对比色描边 + 纯黑色文?
+:where(html.dark) :where(#first-page) .hero-cta .hero-cta-btn:not(.ghost) {
+  min-width: 140px;
+  height: 44px;
+  font-weight: 600;
+  border-radius: var(--global-border-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 24px;
+
+  /* 使用全局主色（纯白）与按钮文字色（纯黑） */
+  background: var(--el-color-primary);
+  border: var(--unified-border);
+  color: var(--el-button-text-color);
+  box-shadow: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+
+  * {
+    color: var(--el-button-text-color);
+  }
+
+  :deep(.el-button__content) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--el-button-text-color);
+
+    * {
+      color: var(--el-button-text-color);
+    }
+  }
+
+  :deep(span),
+  :deep(.el-button__text),
+  :deep(.el-icon),
+  :deep(.el-button__content span),
+  :deep(.el-button__content .el-button__text) {
+    color: var(--el-button-text-color);
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  &:hover {
+    background: var(--color-neutral-100);
+    border-color: var(--ai-gray-1);
+    color: var(--el-button-text-color);
+
+    * {
+      color: var(--el-button-text-color);
+    }
+
+    :deep(.el-button__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: var(--el-button-text-color);
+
+      * {
+        color: var(--el-button-text-color);
+      }
+    }
+
+    :deep(span),
+    :deep(.el-button__text),
+    :deep(.el-icon),
+    :deep(.el-button__content span),
+    :deep(.el-button__content .el-button__text) {
+      color: var(--el-button-text-color);
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+
+  &:active {
+    background: var(--color-gray-e8e8e8);
+    border-color: var(--el-text-color-placeholder);
+    color: var(--el-button-text-color);
+
+    * {
+      color: var(--el-button-text-color);
+    }
+
+    :deep(.el-button__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: var(--el-button-text-color);
+
+      * {
+        color: var(--el-button-text-color);
+      }
+    }
+
+    :deep(span),
+    :deep(.el-button__text),
+    :deep(.el-icon),
+    :deep(.el-button__content span),
+    :deep(.el-button__content .el-button__text) {
+      color: var(--el-button-text-color);
+    }
+  }
+}
+
+// 暗色模式：Ghost按钮 - 透明背景 + 白色描边 + 白色文字
+:where(html.dark) :where(#first-page) .hero-cta .hero-cta-btn.ghost {
+  min-width: 140px;
+  height: 44px;
+  font-weight: 600;
+  border-radius: var(--global-border-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 24px;
+  background: transparent;
+  border: var(--unified-border);
+  color: var(--el-bg-color);
+  box-shadow: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+
+  :deep(.el-button__content) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  :deep(span),
+  :deep(.el-button__text),
+  :deep(.el-icon) {
+    color: var(--el-bg-color);
+    line-height: 1;
+  }
+
+  &:hover {
+    background: var(--color-white-10);
+    border-color: var(--el-bg-color);
+    color: var(--el-bg-color);
+
+    :deep(.el-button__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    :deep(span),
+    :deep(.el-button__text),
+    :deep(.el-icon) {
+      color: var(--el-bg-color);
+    }
+  }
+
+  &:active {
+    background: var(--color-white-20);
+    border-color: var(--el-bg-color);
+    color: var(--el-bg-color);
+
+    :deep(.el-button__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    :deep(span),
+    :deep(.el-button__text),
+    :deep(.el-icon) {
+      color: var(--el-bg-color);
+    }
+  }
+}
+
+/* 亮色模式：小程序按钮 - 微信绿主题 */
+:where(html:not(.dark)) :where(#first-page) .hero-cta .hero-cta-btn.miniapp-btn {
+  min-width: 140px;
+  height: 44px;
+  font-weight: 600;
+  border-radius: var(--global-border-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 24px;
+  background: var(--color-miniapp-green);
+  border: var(--unified-border);
+  color: var(--color-white);
+  box-shadow: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+
+  :deep(.el-button__content) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  :deep(span),
+  :deep(.el-button__text),
+  :deep(.el-icon) {
+    color: var(--color-white);
+    line-height: 1;
+  }
+
+  :deep(.el-icon) {
+    margin-right: 6px;
+  }
+
+  &:hover {
+    background: var(--color-miniapp-green-dark);
+    border-color: var(--color-miniapp-green-darker);
+    color: var(--color-white);
+  }
+
+  &:active {
+    background: var(--color-miniapp-green-darker);
+    border-color: var(--color-miniapp-green-darkest);
+    color: var(--color-white);
+  }
+}
+
+/* 暗色模式：小程序按钮 - 微信绿主题（保持一致） */
+:where(html.dark) :where(#first-page) .hero-cta .hero-cta-btn.miniapp-btn {
+  min-width: 140px;
+  height: 44px;
+  font-weight: 600;
+  border-radius: var(--global-border-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 24px;
+  background: var(--color-miniapp-green);
+  border: var(--unified-border);
+  color: var(--color-white);
+  box-shadow: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+
+  :deep(.el-button__content) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  :deep(span),
+  :deep(.el-button__text),
+  :deep(.el-icon) {
+    color: var(--color-white);
+    line-height: 1;
+  }
+
+  :deep(.el-icon) {
+    margin-right: 6px;
+  }
+
+  &:hover {
+    background: var(--color-miniapp-green-dark);
+    border-color: var(--color-miniapp-green-darker);
+    color: var(--color-white);
+  }
+
+  &:active {
+    background: var(--color-miniapp-green-darker);
+    border-color: var(--color-miniapp-green-darkest);
+    color: var(--color-white);
+  }
+}
+
+:where(#first-page) .page-content {
+  max-width: 100%;
+  width: 100%;
+  overflow: hidden visible;
+}
+
+/* 第一页网格过渡层 - 在颜色过渡时覆盖网格 */
+:where(#first-page) {
+  --grid-overlay-opacity: 0;
+
+  background-color: var(--el-bg-color); /* 暗色模式：纯黑背? */
+}
+
+:where(html:not(.dark)) :where(#first-page) {
+  background-color: var(--el-bg-color); /* 亮色模式：纯白色背景（网页最底层背景色必须为纯白色） */
+}
+
+#first-page::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: inherit;
+  opacity: var(--grid-overlay-opacity);
+  transition: opacity 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* 第一页不显示顶部和底部虚化遮罩，避免干扰聚光灯效? */
+#first-page::before {
+  display: none;
+}
+
+/* 第二页 - 适应内容高度 */
+:where(#second-page) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
+  box-sizing: border-box;
+  overflow: visible;
+  max-height: none;
+  min-height: auto;
+  height: auto;
+}
+
+/* 第二页网格过渡层 - 在颜色过渡时覆盖网格 */
+#second-page::after,
+#second-page::before {
+  display: none;
+}
+
+/* 第二页内容样?- 完全释放，向下平? */
+:where(#second-page) .second-page-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 clamp(20px, 3vw, 40px) 0;
+  min-height: auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+/* 强制第二至第五分页容器与子元素可点击（防止上层覆盖影响） */
+#second-page,
+:where(#fifth-page) {
+  pointer-events: auto;
+}
+
+:where(#second-page) *,
+:where(#fifth-page) * {
+  pointer-events: auto;
+}
+
+/* 第二页动画文字包装器 */
+:where(#second-page) .animated-blob-text-wrapper {
+  width: 100%;
+  max-width: 100%; /* 取消宽度限制 */
+  margin: 0 auto;
+  z-index: calc(var(--z-base) + 1);
+  position: relative;
+  color: var(--el-text-color-primary);
+}
+
+:where(#second-page) .second-page-title-wrapper {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0; /* 移除 gap，通过元素?margin 来控制间距，让中文和英文标题更紧? */
+  position: relative;
+  z-index: calc(var(--z-base) + 1);
+  margin: 0 auto;
+  text-align: center;
+  padding: 0 20px;
+  box-sizing: border-box;
+  order: 3;
+  margin-bottom: clamp(8px, 1vh, 12px);
+}
+
+:where(#second-page) .second-page-title {
+  margin: 0;
+  margin-bottom: clamp(2px, 0.3vh, 4px); /* 给中文标题底部添加小间距，与英文标题靠近 */
+  text-align: center;
+  font-size: clamp(32px, 4.5vw, 52px);
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--el-text-color-primary);
+  letter-spacing: -0.02em;
+}
+
+:where(html:not(.dark)) :where(#second-page) .second-page-title {
+  color: var(--el-text-color-primary);
+}
+
+:where(html.dark) :where(#second-page) .second-page-title {
+  color: var(--el-color-white);
+}
+
+:where(#second-page) .second-page-title + .animated-blob-text-wrapper {
+  margin-top: 6px;
+}
+
+/* 第二页英文标?- 使用 EDIX 字体，作为副标题，紧跟在中文标题后面 */
+
+/* 必须使用更具体的选择器，确保优先级最? */
+:where(#second-page) h3.second-page-title-english.font-edix {
+  margin: 0; /* 移除上边距，让它紧贴中文标题 */
+  margin-bottom: clamp(12px, 2vh, 20px); /* 给英文标题底部添加间距，与描述文字分开 */
+  text-align: center;
+  font-size: clamp(16px, 1.8vw, 22px); /* 明显小于中文标题?2-52px? */
+  line-height: 1.4;
+  font-weight: 300; /* 更轻的字体粗? */
+  letter-spacing: 0.03em;
+  font-family: EDIX, sans-serif;
+  opacity: 0.75; /* 降低不透明度，让它作为副标? */
+}
+
+/* 兼容没有 .font-edix 类的情况 */
+:where(#second-page) .second-page-title-english:not(.font-edix) {
+  font-family: var(--font-family-chinese);
+}
+
+:where(html:not(.dark)) :where(#second-page) .second-page-title-english {
+  color: var(--el-text-color-disabled); /* 浅灰色，明显弱于中文标题的黑? */
+}
+
+:where(html.dark) :where(#second-page) .second-page-title-english {
+  color: var(--el-text-color-regular); /* 半透明白色，弱于中文标题的白色 */
+}
+
+/* 非标题标签不应该使用 EDIX 字体 - 即使?.font-edix 类也强制使用 HarmonyOS Sans SC */
+*:not(h1, h2, h3, h4, h5, h6).font-edix {
+  font-family: var(--font-family-chinese);
+}
+
+/* 第二页描述文?- 高对比度 */
+:where(#second-page) .second-page-title-wrapper .second-page-description {
+  font-size: clamp(15px, 2vw, 19px);
+  color: var(--el-text-color-regular);
+  font-weight: 400;
+  margin: 0;
+  text-align: center;
+  z-index: calc(var(--z-base) + 1);
+  position: relative;
+  max-width: 800px;
+  width: 100%;
+  line-height: 1.6;
+  padding: 0;
+  box-sizing: border-box;
+  letter-spacing: 0.01em;
+}
+
+:where(html.dark) :where(#second-page) .second-page-title-wrapper .second-page-description {
+  color: var(--el-text-color-primary);
+}
+
+/* 深色背景下第二页描述文字 - 高对比度 */
+.dark-content #second-page .second-page-title-wrapper .second-page-description {
+  font-weight: 600;
+}
+
+
+
+:where(#fifth-page) {
+  align-items: stretch;
+}
+
+:where(#fifth-page) > :last-child {
+  /* Footer 固定在底部并拉伸满宽 */
+  margin-top: auto; /* 将footer推到底部 */
+  width: 100%;
+}
+
+:where(#fifth-page) > :not(:last-child) {
+  /* 其余内容在上方，自动占据剩余空间 */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+:where(#fifth-page) :deep(.dev-ui) {
+  position: static;
+  right: auto;
+  bottom: auto;
+}
+
+:where(#fifth-page) :deep(.dev-overlay) {
+  position: static;
+  right: auto;
+  bottom: auto;
+}
+
+:where(#fifth-page) :deep(.xiahua-wrapper-fixed) {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+}
+
+/* 强制?页中?Footer 满屏贴合左右，去除任何容器内边距影响 */
+:where(#fifth-page) :deep(.footer-container) {
+  width: 100%;
+  max-width: 100%;
+  left: 0;
+  transform: none;
+  margin: 0 auto;
+  padding: 0 12px 6px; /* 左右12px，底?px */
+  box-sizing: border-box;
+  overflow-x: hidden;
+  height: 100vh; /* 强制高度为视口高? */
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end; /* 内容底部对齐 */
+}
+
+:where(#fifth-page) :deep(.footer-main) {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  flex: 1; /* 占据剩余空间 */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end; /* 内容底部对齐 */
+}
+
+.page-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 20px 0;
+  max-width: none;
+  width: 100%;
+  min-height: auto; /* 允许内容自适应高度 */
+  height: auto; /* 使用auto让内容自然流? */
+  max-height: none; /* 取消内层高度限制，避免出现内层滚动条 */
+  overflow: hidden visible; /* 让内容参与外层滚? */
+  background-color: transparent; /* 透明背景 */
+  border-radius: var(--global-border-radius); /* 使用30px圆角 */
+  box-shadow: none; /* 移除阴影 */
+  transition: background-color 0.3s ease;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: auto;
+  margin: 0 auto; /* 垂直居中，左右居? */
+  position: relative;
+  z-index: calc(var(--z-base) + 1); /* 确保内容在虚化遮罩之? */
+}
+
+/* 第三页的 page-content 特殊处理：允许旋转的卡片超出边界 */
+:where(#third-page) .page-content,
+:where(#third-page) .third-page-content {
+  overflow: visible; /* 覆盖全局?overflow-x: hidden，允许旋转的卡片完整显示 */
+}
+
+/* 暗色模式?.page-content 强制使用纯黑色背? */
+html.dark .page-content,
+body.dark-background .page-content,
+html.dark-background .page-content,
+.dark-content .page-content {
+  background-color: var(--el-bg-color);
+  background: var(--el-bg-color);
+}
+
+/* 第四页已移除 page-content 容器，样式直接应用到 #fourth-page */
+
+/* 深色背景下内容容器保持透明 */
+.dark-content .page-content {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+h1 {
+  font-size: clamp(48px, 8vw, 80px); /* 进一步放大响应式字体大小 */
+  font-weight: 600;
+  margin: 0 auto 20px; /* 居中对齐 */
+  color: var(--el-text-color-primary);
+  box-shadow: none;
+  transition: color 0.3s ease;
+  width: 100%;
+  max-width: 100%;
+  font-family: var(--font-family-chinese);
+  z-index: calc(var(--z-base) + 9);
+
+  /* 不设置背景色，让元素使用默认/继承的背? */
+}
+
+/* 排除 .font-edix 类的 h1，让 EDIX 字体规则生效 */
+h1:not(.font-edix) {
+  font-family: var(--font-family-chinese);
+}
+
+/* 第一页的 Welcome 文字 - 覆盖全局 h1 样式，不设置背景? */
+:where(#first-page) .first-page-content-overlay h1.brand-welcome-text,
+:where(#first-page) .first-page-content-overlay h1.brand-welcome-text.font-edix {
+  /* 宽度自动适应文字内容，覆盖全局 h1 ?width: 100% */
+  width: auto;
+  max-width: none;
+
+  /* 覆盖全局 h1 ?padding、border-radius，但不设置背景色 */
+  padding: 0;
+  border-radius: var(--global-border-radius);
+  border: none;
+  box-shadow: none;
+
+  /* 强制在一行显? */
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* 移除第五页主标题的投?滤镜效果 */
+.fifth-page-heading {
+  box-shadow: none;
+  filter: none;
+  background-color: transparent; /* 确保标题容器透明 */
+  padding: 0;
+}
+
+h2 {
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 500;
+  margin: 0 auto 15px;
+  color: var(--el-text-color-primary);
+  box-shadow: none;
+  transition: color 0.3s ease;
+  width: 100%;
+  max-width: 100%;
+  font-family: var(--font-family-chinese);
+  z-index: calc(var(--z-base) + 9);
+}
+
+/* 排除 .font-edix 类的 h2，让 EDIX 字体规则生效 */
+h2:not(.font-edix) {
+  font-family: var(--font-family-chinese);
+}
+
+/* ========================================
+   EDIX 字体规则 - 最高优先级
+   必须在所有其他规则之后，确保优先级最?
+   ======================================== */
+
+/* 使用最具体的选择器，确保覆盖所有其他规? */
+:where(#first-page) .first-page-content-overlay h1.brand-welcome-text.font-edix,
+:where(#second-page) .second-page-title-wrapper h3.second-page-title-english.font-edix,
+:where(#second-page) :where(.advantages-section) .advantages-header h4.advantages-title-english.font-edix,
+:where(#third-page) :where(.news-header) .news-header-left h3.news-title-english.font-edix,
+:where(#fourth-page) .pricing-header h2.pricing-title-english.font-edix,
+:where(#fifth-page) .page-content h3.fifth-page-title-english.font-edix,
+:where(#first-page) h1.brand-welcome-text.font-edix,
+:where(#second-page) h3.second-page-title-english.font-edix,
+:where(#second-page) h4.advantages-title-english.font-edix,
+:where(#third-page) h3.news-title-english.font-edix,
+:where(#fourth-page) h2.pricing-title-english.font-edix,
+:where(#fifth-page) h3.fifth-page-title-english.font-edix,
+h1.font-edix,
+h2.font-edix,
+h3.font-edix,
+h4.font-edix,
+h5.font-edix,
+h6.font-edix,
+h1[class*="title-english"].font-edix,
+h2[class*="title-english"].font-edix,
+h3[class*="title-english"].font-edix,
+h4[class*="title-english"].font-edix,
+h5[class*="title-english"].font-edix,
+h6[class*="title-english"].font-edix,
+h1[class*="welcome"].font-edix,
+h1[class*="brand"].font-edix {
+  /* 强制使用 EDIX 字体，优先级最? */
+  font-family: EDIX, sans-serif;
+}
+
+p {
+  font-size: clamp(16px, 4vw, 16px); /* 进一步放大响应式字体大小 */
+  margin: 0 auto 30px; /* 居中对齐 */
+  line-height: 1.6;
+  color: var(--el-text-color-primary);
+  box-shadow: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+  width: 100%;
+  max-width: 100%;
+  font-family: var(--font-family-chinese);
+  z-index: calc(var(--z-base) + 9);
+}
+
+/* 深色背景下的文字颜色 - 确保清晰可见 */
+.dark-content h1,
+.dark-content h2,
+.dark-content h3,
+.dark-content h4,
+.dark-content h5,
+.dark-content h6,
+.dark-content p,
+.dark-content span,
+.dark-content .feature-card span {
+  color: var(--el-color-white);
+  font-weight: 500;
+}
+
+/* 用户信息卡片已移? */
+
+/* 登录提示 */
+.login-prompt {
+  background-color: var(--el-bg-color-page);
+  border: none;
+  border-radius: var(--global-border-radius);
+  padding: 20px;
+  margin: 30px auto;
+  width: 100%;
+}
+
+.login-prompt p {
+  margin-bottom: 15px;
+  color: var(--el-text-color-primary);
+}
+
+/* 深色背景下调整登录提示的样式 */
+.dark-content .login-prompt {
+  background-color: var(--el-color-warning-light-9);
+}
+
+.dark-content .login-prompt p {
+  color: var(--el-text-color-primary);
+}
+
+/* 功能模块展示 - 完全释放，向下平? */
+:where(#second-page) .features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(clamp(150px, 18vw, 240px), 1fr)); /* 减小最小宽? */
+  gap: clamp(8px, 1vw, 12px); /* 减小间距 */
+  margin: 0 auto;
+  width: 100%;
+  max-width: 1400px;
+  padding: 0 clamp(16px, 3vw, 32px); /* 减小内边? */
+  box-sizing: border-box;
+  place-items: stretch stretch;
+  order: 4;
+  flex-shrink: 0;
+  min-height: auto;
+  height: auto;
+  overflow: hidden; /* 防止内容溢出main? */
+}
+
+:where(#second-page) .features-grid .feature-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* 减小间距 */
+  padding: clamp(8px, 1vw, 12px); /* 减小内边距 */
+  background: var(--color-white-80);
+  border: var(--unified-border);
+  border-radius: var(--global-border-radius); /* 减小圆角 */
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 80px; /* 减小最小高度 */
+  min-width: 150px; /* 减小最小宽? */
+  color: var(--el-text-color-primary);
+  box-shadow: none;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+:where(#second-page) .features-grid .feature-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-black-3);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+:where(html:not(.dark)) :where(#second-page) .features-grid .feature-card {
+  background: var(--color-white-80);
+  border: var(--unified-border);
+  color: var(--el-text-color-primary);
+}
+
+:where(html.dark) :where(#second-page) .features-grid .feature-card {
+  background: var(--color-white-5);
+  border: var(--unified-border);
+  color: var(--el-color-white);
+  box-shadow: none;
+}
+
+:where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) {
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html:not(.dark)) :where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) {
+  background: color-mix(in srgb, var(--el-bg-color) 100%, transparent);
+  border-color: var(--el-fill-color-darker);
+}
+
+:where(html.dark) :where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) {
+  background: var(--color-white-8);
+  border-color: var(--el-fill-color-dark);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(#second-page) .features-grid .feature-card:hover:not(.is-navigating)::before {
+  opacity: 1;
+}
+
+:where(#second-page) .features-grid .feature-card.is-navigating {
+  opacity: 0.7;
+  cursor: wait;
+  pointer-events: none;
+  transform: scale(0.98);
+}
+
+:where(#second-page) .features-grid .feature-card .feature-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--global-border-radius);
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  box-shadow: var(--global-box-shadow);
+  pointer-events: auto;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: var(--z-base);
+}
+
+:where(html:not(.dark)) :where(#second-page) .features-grid .feature-card .feature-icon {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html.dark) :where(#second-page) .features-grid .feature-card .feature-icon {
+  background: var(--color-black-15);
+  color: var(--el-color-primary);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(#second-page) :where(.features-grid) .feature-card:hover:not(.is-navigating) .feature-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html.dark) :where(#second-page) :where(.features-grid) .feature-card:hover:not(.is-navigating) .feature-icon {
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html:not(.dark)) :where(#second-page) .features-grid .feature-card span {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+  font-size: clamp(15px, 1.8vw, 18px);
+  letter-spacing: 0.01em;
+  transition: color 0.4s ease;
+}
+
+:where(html.dark) :where(#second-page) .features-grid .feature-card span {
+  color: var(--el-color-white);
+  font-weight: 600;
+  font-size: clamp(15px, 1.8vw, 18px);
+  letter-spacing: 0.01em;
+  transition: color 0.4s ease;
+}
+
+:where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) span {
+  color: var(--el-color-primary);
+}
+
+/* 核心优势展示区域 */
+:where(#second-page) .advantages-section {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 3vw, 32px);
+  box-sizing: border-box;
+  order: 5;
+  flex-shrink: 0;
+}
+
+:where(#second-page) .advantages-header {
+  text-align: center;
+  margin-bottom: clamp(8px, 1vh, 12px);
+}
+
+:where(#second-page) .advantages-title {
+  font-size: clamp(28px, 3.5vw, 42px);
+  font-weight: 700;
+  margin: 0;
+  margin-bottom: clamp(2px, 0.3vh, 4px); /* 与英文标题靠? */
+  color: var(--el-text-color-primary);
+  letter-spacing: -0.01em;
+}
+
+:where(html.dark) :where(#second-page) .advantages-title {
+  color: var(--el-color-white);
+}
+
+/* 核心优势英文标题 - 使用 EDIX 字体 */
+
+/* 必须使用更具体的选择器，确保优先级最? */
+:where(#second-page) h4.advantages-title-english.font-edix {
+  margin: 0;
+  margin-bottom: clamp(12px, 1.5vh, 16px);
+  text-align: center;
+  font-size: clamp(14px, 1.5vw, 20px); /* 明显小于中文标题 */
+  line-height: 1.4;
+  font-weight: 300;
+  letter-spacing: 0.03em;
+  font-family: EDIX, sans-serif;
+  opacity: 0.75;
+}
+
+/* 兼容没有 .font-edix 类的情况 */
+:where(#second-page) .advantages-title-english:not(.font-edix) {
+  font-family: var(--font-family-chinese);
+}
+
+:where(html:not(.dark)) :where(#second-page) .advantages-title-english {
+  color: var(--el-text-color-disabled);
+}
+
+:where(html.dark) :where(#second-page) .advantages-title-english {
+  color: var(--el-text-color-regular);
+}
+
+/* 第三页英文标题颜?- 与第二页保持一? */
+:where(html:not(.dark)) :where(#third-page) .news-title-english,
+:where(html:not(.dark)) :where(#third-page) h3.news-title-english,
+:where(html:not(.dark)) :where(#third-page) h3.news-title-english.font-edix {
+  color: var(--el-text-color-disabled);
+}
+
+:where(html.dark) :where(#third-page) .news-title-english,
+:where(html.dark) :where(#third-page) h3.news-title-english,
+:where(html.dark) :where(#third-page) h3.news-title-english.font-edix {
+  color: var(--el-text-color-regular);
+}
+
+/* 第四页英文标题颜?- 与第二页保持一? */
+:where(html:not(.dark)) :where(#fourth-page) .pricing-title-english,
+:where(html:not(.dark)) :where(#fourth-page) h2.pricing-title-english,
+:where(html:not(.dark)) :where(#fourth-page) h2.pricing-title-english.font-edix {
+  color: var(--el-text-color-disabled);
+}
+
+:where(html.dark) :where(#fourth-page) .pricing-title-english,
+:where(html.dark) :where(#fourth-page) h2.pricing-title-english,
+:where(html.dark) :where(#fourth-page) h2.pricing-title-english.font-edix {
+  color: var(--el-text-color-regular);
+}
+
+:where(#second-page) .advantages-subtitle {
+  font-size: clamp(14px, 1.8vw, 18px);
+  color: var(--el-text-color-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+:where(html.dark) :where(#second-page) .advantages-subtitle {
+  color: var(--el-text-color-regular);
+}
+
+:where(#second-page) .advantages-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(20px, 2.5vw, 28px);
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+:where(#second-page) .advantage-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: clamp(20px, 2.5vw, 24px);
+  background: var(--color-white-85);
+  border: var(--unified-border);
+  border-radius: var(--global-border-radius);
+  cursor: default;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  min-height: 180px;
+  max-width: 100%;
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html:not(.dark)) :where(#second-page) .advantage-card {
+  background: var(--color-white-85);
+  border: var(--unified-border);
+  color: var(--el-text-color-primary);
+}
+
+:where(html.dark) :where(#second-page) .advantage-card {
+  background: var(--color-white-6);
+  border: var(--unified-border);
+  color: var(--el-color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(#second-page) .advantage-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-black-3);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+:where(#second-page) .advantage-card:hover:not(.is-navigating) {
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html:not(.dark)) :where(#second-page) .advantage-card:hover:not(.is-navigating) {
+  background: color-mix(in srgb, var(--el-bg-color) 100%, transparent);
+  border-color: var(--el-fill-color-darker);
+}
+
+:where(html.dark) :where(#second-page) .advantage-card:hover:not(.is-navigating) {
+  background: var(--color-white-10);
+  border-color: var(--el-fill-color-dark, color-mix(in srgb, var(--el-text-color-primary) 35%, transparent));
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(#second-page) .advantage-card:hover:not(.is-navigating)::before {
+  opacity: 1;
+}
+
+:where(#second-page) .advantage-icon {
+  display: grid;
+  place-items: center;
+  width: clamp(48px, 5vw, 56px);
+  height: clamp(48px, 5vw, 56px);
+  border-radius: var(--global-border-radius);
+  margin-bottom: clamp(12px, 1.5vh, 16px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: var(--z-base);
+}
+
+:where(#second-page) .advantage-icon svg {
+  width: clamp(24px, 3vw, 28px);
+  height: clamp(24px, 3vw, 28px);
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  color: inherit;
+}
+
+/* 专业图标 */
+:where(#second-page) .advantage-card:nth-child(1) .advantage-icon {
+  background: var(--el-color-primary-light-9);
+  color: var(--color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html.dark) :where(#second-page) .advantage-card:nth-child(1) .advantage-icon {
+  background: var(--el-color-primary);
+  color: var(--color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+/* 高效图标 */
+:where(#second-page) .advantage-card:nth-child(2) .advantage-icon {
+  background: var(--el-color-primary-light-9);
+  color: var(--color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html.dark) :where(#second-page) .advantage-card:nth-child(2) .advantage-icon {
+  background: var(--el-color-primary);
+  color: var(--color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+/* 可靠图标 */
+:where(#second-page) .advantage-card:nth-child(3) .advantage-icon {
+  background: var(--el-color-primary-light-9);
+  color: var(--color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html.dark) :where(#second-page) .advantage-card:nth-child(3) .advantage-icon {
+  background: var(--el-color-primary);
+  color: var(--color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+/* 创新图标 */
+:where(#second-page) .advantage-card:nth-child(4) .advantage-icon {
+  background: var(--el-color-primary-light-9);
+  color: var(--color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(html.dark) :where(#second-page) .advantage-card:nth-child(4) .advantage-icon {
+  background: var(--el-color-primary);
+  color: var(--color-white);
+  box-shadow: var(--global-box-shadow);
+}
+
+:where(#second-page) .advantage-card:hover:not(.is-navigating) .advantage-icon {
+  transform: scale(1.15) rotate(5deg);
+}
+
+:where(#second-page) .advantage-card-title {
+  font-size: clamp(16px, 1.8vw, 20px);
+  font-weight: 700;
+  margin: 0 0 clamp(10px, 1.2vh, 12px);
+  padding: 0;
+  border: none;
+  color: var(--el-text-color-primary);
+  letter-spacing: 0.01em;
+  position: relative;
+  z-index: var(--z-base);
+  background: transparent;
+}
+
+:where(html.dark) :where(#second-page) .advantage-card-title {
+  padding: 0;
+  border: none;
+  color: var(--el-color-white);
+  background: transparent;
+}
+
+:where(#second-page) .advantage-card-description {
+  font-size: clamp(13px, 1.4vw, 15px);
+  line-height: 1.5;
+  padding: 0;
+  border: none;
+  color: var(--el-text-color-secondary);
+  margin: 0;
+  position: relative;
+  z-index: var(--z-base);
+  background: transparent;
+}
+
+:where(#second-page) .advantage-card-description::selection {
+  background: transparent;
+}
+
+:where(html.dark) :where(#second-page) .advantage-card-description {
+  padding: 0;
+  border: none;
+  color: var(--el-text-color-regular);
+  background: transparent;
+}
+
+:where(html.dark) :where(#second-page) .advantage-card-description::selection {
+  background: transparent;
+}
+
+/* 响应式设? */
+@media (width <= 1200px) {
+  :where(#second-page) .advantages-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: clamp(20px, 2.5vw, 24px);
+    max-width: 800px;
+  }
+
+  :where(#second-page) .advantage-card {
+    min-height: 160px;
+    padding: clamp(18px, 2vw, 22px);
+  }
+}
+
+@media (width <= 991px) {
+  :where(#second-page) .advantages-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: clamp(16px, 2vw, 20px);
+    max-width: 100%;
+  }
+
+  :where(#second-page) .advantage-card {
+    min-height: 160px;
+    padding: clamp(16px, 2vw, 20px);
+  }
+}
+
+@media (width <= 767px) {
+  :where(#second-page) .advantages-section {
+    margin-top: clamp(32px, 5vh, 48px);
+    padding: 0 clamp(12px, 2.5vw, 20px);
+  }
+
+  :where(#second-page) .advantages-header {
+    margin-bottom: clamp(24px, 3vh, 36px);
+  }
+
+  :where(#second-page) .advantages-grid {
+    grid-template-columns: 1fr;
+    gap: clamp(24px, 3vw, 28px);
+  }
+
+  :where(#second-page) .advantage-card {
+    min-height: auto;
+    padding: clamp(20px, 2.5vw, 24px);
+  }
+
+  :where(#second-page) .advantage-icon {
+    width: 56px;
+    height: 56px;
+    margin-bottom: clamp(14px, 1.8vh, 18px);
+  }
+
+  :where(#second-page) .advantage-icon svg {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+:where(#second-page) :where(.features-grid) .feature-card .feature-icon .linear-icon {
+  width: 28px;
+  height: 28px;
+  display: block;
+  stroke: currentcolor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* 首页容器：确保与屏幕宽度一? */
+.home-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* 暗色模式?home-container 使用纯黑色背? */
+html.dark .home-container {
+  background-color: var(--el-bg-color);
+  background: var(--el-bg-color);
+}
+
+/* 首页兜底：所?SVG 保持可见、可交互 */
+.home-container svg {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.home-container .linear-icon {
+  width: 28px;
+  height: 28px;
+  stroke: currentcolor;
+  fill: none;
+}
+
+:where(#second-page) .features-grid .feature-card span {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  letter-spacing: 0.2px;
+}
+
+/* 深色背景下调整功能卡片的样式 */
+.dark-content .feature-card {
+  background: var(--color-white-4);
+  border: var(--unified-border);
+  box-shadow: none;
+}
+
+.dark-content .feature-card:hover {
+  background: var(--color-white-6);
+  box-shadow: none;
+}
+
+:where(.dark-content) .feature-card .feature-icon {
+  background: var(--color-white-5);
+  box-shadow: var(--global-box-shadow);
+}
+
+/* 超宽屏幕优化 */
+@media (width >= 1440px) {
+  .features-grid {
+    gap: clamp(20px, 2.5vw, 32px);
+    padding: 0 clamp(20px, 3vw, 40px);
+  }
+
+  .feature-card {
+    padding: clamp(20px, 2.5vw, 28px);
+    min-height: 130px;
+  }
+
+  .feature-card .feature-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  :where(.feature-card) :where(.feature-icon) .linear-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .feature-card span {
+    font-size: 16px;
+  }
+}
+
+/* 第五页样式已在上面定义，移除重复定义 */
+
+/* 第五页内容区? */
+.fifth-page-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: clamp(20px, 2.5vw, 40px) 0;
+  box-sizing: border-box;
+  min-height: 0;
+  position: relative;
+  z-index: calc(var(--z-base) + 1);
+  background-color: transparent;
+}
+
+/* Footer区域，放在第五页内部底部 */
+.footer-section {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  background-color: transparent;
+  flex-shrink: 0; /* 防止Footer被压? */
+}
+
+.fifth-page-heading,
+.fifth-page-paragraph {
+  color: var(--el-text-color-primary);
+  font-size: 2em;
+  margin: 20px 0;
+  display: block;
+  width: auto;
+  max-width: 80%;
+  text-align: center;
+  padding: 0 20px;
+}
+
+/* 为h1和p分别设置合适的字体大小 */
+.fifth-page-heading {
+  font-size: 2.5em;
+  filter: none;
+}
+
+.fifth-page-paragraph {
+  font-size: 1.5em;
+  color: var(--el-text-color-regular);
+}
+
+/* 移除footer-wrapper样式，Footer现在独立放置 */
+
+/* 中等屏幕响应? */
+@media (width <= 1024px) {
+  .features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(clamp(140px, 20vw, 200px), 1fr));
+    gap: clamp(16px, 2.5vw, 24px);
+    padding: 0 clamp(12px, 2.5vw, 20px);
+  }
+
+  .feature-card {
+    padding: clamp(14px, 2.5vw, 20px);
+    min-height: 110px;
+
+    .feature-icon {
+      width: 52px;
+      height: 52px;
+    }
+
+    .feature-icon .linear-icon {
+      width: 26px;
+      height: 26px;
+    }
+
+    span {
+      font-size: 14px;
+    }
+  }
+}
+
+/* 响应式设? */
+@media (width <= 768px) {
+  .home-container {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .home-content-container {
+    padding-top: 0;
+    background-color: transparent;
+  }
+
+  .page-section {
+    min-height: 100vh; /* 最小高度为视口高度 */
+    min-height: 100dvh;
+    padding: 40px 0; /* 移动端上下内边距 */
+  }
+
+  .page-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
+    margin: 0 auto; /* 垂直居中，左右居? */
+    width: calc(100% - 20px);
+    min-height: auto; /* 允许内容自适应高度 */
+    height: auto; /* 使用auto让内容自然流? */
+    max-height: none; /* 取消高度限制，让内容完整显示 */
+    background-color: transparent; /* 移动端也保持透明 */
+  }
+
+  :where(#fifth-page) {
+    min-height: 100vh; /* 最小高度为视口高度 */
+    min-height: 100dvh;
+  }
+
+  h1 {
+    font-size: clamp(36px, 8vw, 56px); /* 移动端进一步放大响应式字体大小 */
+    margin: 0 auto 15px;
+  }
+
+  p {
+    font-size: clamp(20px, 5vw, 32px); /* 移动端进一步放大响应式字体大小 */
+    margin: 0 auto 20px;
+  }
+
+  .fifth-page-content {
+    padding: clamp(15px, 2vw, 30px);
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  p {
+    font-size: 16px;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(clamp(130px, 25vw, 180px), 1fr));
+    gap: clamp(14px, 3vw, 20px);
+    padding: 0 12px;
+  }
+
+  .feature-card {
+    padding: clamp(14px, 4vw, 18px);
+    min-height: 110px;
+  }
+
+  .feature-card .feature-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  :where(.feature-card) :where(.feature-icon) .linear-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .feature-card span {
+    font-size: 14px;
+  }
+
+  /* 第二页移动端样式 */
+  :where(#second-page) .animated-blob-text-wrapper {
+    max-width: 95%;
+  }
+
+  :where(#second-page) .second-page-title-wrapper .second-page-description {
+    font-size: clamp(16px, 4vw, 24px);
+    padding: 0;
+  }
+
+  :where(#second-page) .second-page-content {
+    gap: 20px;
+  }
+
+  /* 第一页标题移动端样式 */
+  .first-page-title-wrapper {
+    max-width: calc(100vw - 40px); // 确保不超出屏?
+    width: 100%;
+    padding: 0 20px;
+    transform: translate(-50%, calc(-50% - 60px)); // 移动端调整位?
+  }
+
+  /* hero-cta 按钮移动端换行,避免 3 个按钮水平溢出 */
+  .hero-cta {
+    flex-wrap: wrap;
+    gap: clamp(6px, 2vw, 10px);
+  }
+
+  /* 打字机文字移动端换行,避免长文本水平溢出 */
+  :where(#first-page) .first-page-content-overlay p {
+    white-space: normal;
+    font-size: clamp(20px, 5vw, 28px);
+    max-width: 100%;
+  }
+}
+
+@media (width <= 480px) {
+  /* 第一页标题小屏幕样式 */
+  .first-page-title-wrapper {
+    max-width: calc(100vw - 30px); // 小屏幕减少边?
+    padding: 0 15px;
+    transform: translate(-50%, calc(-50% - 50px));
+  }
+}
+
+@media (width <= 480px) {
+  .features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(clamp(120px, 28vw, 160px), 1fr));
+    gap: clamp(12px, 3vw, 16px);
+    padding: 0;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  p {
+    font-size: 14px;
+  }
+
+  .feature-card {
+    padding: clamp(12px, 3vw, 16px);
+    min-height: 100px;
+    min-width: 120px;
+  }
+
+  .feature-card .feature-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  :where(.feature-card) :where(.feature-icon) .linear-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .feature-card span {
+    font-size: 13px;
+  }
+
+  /* 第二页小屏幕样式 */
+  :where(#second-page) .animated-blob-text-wrapper {
+    max-width: 98%;
+  }
+
+  :where(#second-page) .second-page-title-wrapper .second-page-description {
+    font-size: clamp(14px, 3.5vw, 20px);
+    padding: 0;
+  }
+
+
+  :where(#second-page) .second-page-content {
+    gap: 15px;
+  }
+}
+
+.learn-ai-entry {
+  display: inline-block;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-fill-color-lighter);
+  color: var(--el-text-color-primary);
+  margin-bottom: 12px;
+}
+
+.open-entry {
+  display: inline-block;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-fill-color-lighter);
+  color: var(--el-text-color-primary);
+  margin-left: 10px;
+}
+
+/* 第四?- 价格展示 */
+:where(#fourth-page) {
+  width: 100%;
+  max-width: 100vw;
+  min-width: 0;
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+
+  /* display, flex-direction, justify-content, align-items 由组件内样式控制 */
+}
+
+#fourth-page::after,
+#fourth-page::before {
+  display: none;
+}
+
+/* 第四页样式（保留，以防将来使用） */
+.fourth-page-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: clamp(20px, 4vh, 40px);
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  margin-top: 15vh;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: var(--z-base);
+  position: relative;
+}
+
+.fourth-page-title {
+  font-family: var(--font-family-chinese);
+  font-size: clamp(24px, 5vw, 48px);
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+  text-align: center;
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+.fourth-page-description {
+  font-size: clamp(14px, 2.5vw, 24px);
+  color: var(--el-text-color-regular);
+  text-align: center;
+  margin: 0;
+  padding: 0;
+  max-width: 800px;
+  line-height: 1.6;
+}
+
+/* 第五页内容区域样式（品牌跑马灯页面） */
+:where(#fifth-page) .fifth-page-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0; /* 移除 gap，通过元素?margin 来控制间距，让中文和英文标题更紧? */
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  margin-top: 15vh;
+  padding: 20px;
+  padding-bottom: 0;
+  box-sizing: border-box;
+  z-index: var(--z-base);
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+:where(#fifth-page) .fifth-page-title {
+  font-family: var(--font-family-chinese);
+  font-size: clamp(24px, 5vw, 48px);
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+  text-align: center;
+  margin: 0;
+  margin-bottom: clamp(2px, 0.3vh, 4px); /* 与英文标题靠? */
+  padding: 0;
+  line-height: 1.2;
+}
+
+/* 第五页英文标?- 使用 EDIX 字体 */
+:where(#fifth-page) .fifth-page-title-english {
+  margin: 0; /* 确保紧贴中文标题 */
+  margin-bottom: clamp(12px, 2vh, 20px); /* 给英文标题底部添加间距，与描述文字分开 */
+  text-align: center;
+  font-size: clamp(14px, 2vw, 22px); /* 明显小于中文标题 */
+  line-height: 1.4;
+  font-weight: 300;
+  letter-spacing: 0.03em;
+  font-family: EDIX, sans-serif;
+  opacity: 0.75;
+}
+
+:where(html:not(.dark)) :where(#fifth-page) .fifth-page-title-english {
+  color: var(--el-text-color-disabled);
+}
+
+:where(html.dark) :where(#fifth-page) .fifth-page-title-english {
+  color: var(--el-text-color-regular);
+}
+
+:where(#fifth-page) .fifth-page-description {
+  font-size: clamp(14px, 2.5vw, 24px);
+  color: var(--el-text-color-regular);
+  text-align: center;
+  margin: 0;
+  margin-top: clamp(20px, 3vh, 32px); /* 与英文标题分开 */
+  padding: 0;
+  max-width: 800px;
+  line-height: 1.6;
+}
+
+/* 品牌跑马灯样? */
+:where(#fifth-page) .brand-marquee {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* 从左侧开始，确保无缝循环 */
+  padding: 20px 0;
+  margin-top: clamp(20px, 3vh, 32px); /* 与描述文字分开 */
+  background-color: transparent;
+  cursor: grab;
+  user-select: none;
+  
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  padding: 16px 0;
+  width: max-content;
+  will-change: transform;
+
+  /* 使用JavaScript控制动画，不在这里设置CSS动画 */
+  
+  /* 拖拽时禁用动? */
+  &.dragging {
+    cursor: grabbing;
+  }
+}
+
+/* 品牌卡片样式已移至共享文?src/styles/brand-marquee.scss，确保首页和登录页同? */
+
+/* 首页桌面端图片尺?- 使用更高优先级的选择?- 缩小后的尺寸 */
+:where(#fifth-page) .marquee-image,
+:where(#fifth-page) .marquee-item .marquee-image,
+.brand-marquee .marquee-image,
+:where(.brand-marquee) :where(.marquee-item) .marquee-image {
+  width: 160px;
+  height: 80px;
+  max-width: 160px;
+  max-height: 80px;
+  min-width: 160px;
+  min-height: 80px;
+}
+
+.marquee-footer-text {
+  font-size: clamp(14px, 2vw, 18px);
+  color: var(--el-text-color-regular);
+  text-align: center;
+  margin: 20px 0 0;
+  margin-top: auto;
+  padding: 0;
+  padding-bottom: clamp(10px, 2vh, 20px);
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+/* 第四页响应式设计 */
+@media (width <= 768px) {
+  .fourth-page-content {
+    gap: 15px;
+    padding: 15px;
+  }
+
+  .fourth-page-title {
+    font-size: clamp(20px, 6vw, 32px);
+  }
+
+  .fourth-page-description {
+    font-size: clamp(12px, 3.5vw, 18px);
+    padding: 0 10px;
+  }
+
+  :where(#fifth-page) .brand-marquee {
+    padding: 12px 0;
+  }
+
+  :where(#fifth-page) .fifth-page-content {
+    margin-top: 10vh;
+    padding: 12px;
+  }
+
+  :where(#fifth-page) .fifth-page-title {
+    font-size: clamp(20px, 5vw, 28px);
+  }
+
+  :where(#fifth-page) .fifth-page-description {
+    font-size: clamp(12px, 3vw, 16px);
+    margin-top: 12px;
+  }
+
+  .marquee-track {
+    gap: 20px;
+  }
+
+  .marquee-item {
+    min-width: 160px;
+    min-height: 80px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .marquee-image {
+    width: 120px;
+    height: 60px;
+    max-width: 120px;
+    max-height: 60px;
+  }
+}
+
+@media (width <= 480px) {
+  .marquee-track {
+    gap: 16px;
+  }
+
+  .marquee-item {
+    padding: 0;
+    border-radius: var(--global-border-radius);
+    min-width: 80px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .marquee-image {
+    width: 80px;
+    height: 40px;
+  }
+}
+
+/* chat-dialog trigger 已移? */
+
+/* ============================================
+   暗色模式：第三页新闻卡片投影样式
+   确保在所有断点生效，覆盖所有scoped样式
+   ============================================ */
+
+/* 暗色模式：正常状?- 增强阴影强度和范围，让阴影在黑色背景上可? */
+
+/* 使用多层阴影和更大的模糊半径，确保在黑色背景上也能看到明显的投影 */
+:where(html.dark) :where(#third-page) .news-card-container .glass,
+:where(html.dark) :where(#third-page) .news-grid .news-card-container .glass,
+:where(html.dark) :where(#third-page) .third-page-content .news-card-container .glass,
+:where(html.dark) :where(#third-page) [class*="news-card"] .glass,
+html.dark main#third-page .news-card-container .glass,
+:where(html.dark) :where(#third-page) .news-container .news-card-container .glass {
+  box-shadow: var(--global-box-shadow);
+}
+
+/* 暗色模式：hover状? */
+:where(html.dark) :where(#third-page) .news-card-container .glass:hover,
+:where(html.dark) :where(#third-page) .news-grid .news-card-container .glass:hover,
+:where(html.dark) :where(#third-page) .third-page-content .news-card-container .glass:hover,
+:where(html.dark) :where(#third-page) [class*="news-card"] .glass:hover,
+html.dark main#third-page .news-card-container .glass:hover,
+:where(html.dark) :where(#third-page) .news-container .news-card-container .glass:hover {
+  box-shadow: var(--global-box-shadow);
+}
+
+/* 响应式断?- 1024px */
+@media (width <= 1024px) {
+  :where(html.dark) :where(#third-page) .news-card-container .glass,
+  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass {
+    box-shadow: var(--global-box-shadow);
+  }
+
+  :where(html.dark) :where(#third-page) .news-card-container .glass:hover,
+  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass:hover {
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+/* 响应式断?- 768px */
+@media (width <= 768px) {
+  :where(html.dark) :where(#third-page) .news-card-container .glass,
+  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass {
+    box-shadow: var(--global-box-shadow);
+  }
+
+  :where(html.dark) :where(#third-page) .news-card-container .glass:hover,
+  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass:hover {
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+/* 响应式断?- 480px */
+@media (width <= 480px) {
+  :where(html.dark) :where(#third-page) .news-card-container .glass,
+  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass {
+    box-shadow: var(--global-box-shadow);
+  }
+
+  :where(html.dark) :where(#third-page) .news-card-container .glass:hover,
+  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass:hover {
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+// ===== 极简科技风格增强 (Minimalist Tech Style Enhancement) =====
+// 基于企业服务页面设计系统，统一首页视觉风格
+
+// 设计令牌
+$accent-blue: var(--el-color-primary);
+$accent-purple: var(--el-color-primary-light-3);
+$transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+// 首页欢迎文字优化 - 更精密的字体效果
+.brand-welcome-text {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--el-text-color-primary);
+}
+
+html.dark .brand-welcome-text {
+  color: var(--el-color-white);
+}
+
+// Hero CTA 按钮极简?
+.hero-cta {
+  gap: 16px;
+
+  .hero-cta-btn {
+    padding: 14px 28px;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: var(--global-border-radius);
+    transition: all 0.2s ease;
+
+    &.el-button--primary {
+      background: var(--el-text-color-primary);
+      border-color: var(--el-text-color-primary);
+      color: var(--el-color-white);
+
+      &:hover {
+        background: var(--el-text-color-regular);
+        border-color: var(--el-text-color-regular);
+        box-shadow: var(--global-box-shadow);
+      }
+
+      &:active {
+        background: var(--el-text-color-secondary);
+        border-color: var(--el-text-color-secondary);
+      }
+    }
+    
+    &.ghost {
+      background: transparent;
+      border: var(--unified-border);
+      color: var(--el-text-color-primary);
+      
+      &:hover {
+        border-color: var(--el-text-color-primary);
+        background: var(--el-fill-color-lighter);
+      }
+    }
+  }
+}
+
+// 功能卡片极简优化
+.feature-card {
+  border-radius: var(--global-border-radius);
+  border: var(--unified-border);
+  background: var(--el-bg-color);
+  transition: all 0.25s $transition-smooth;
+
+  &:hover {
+    border-color: var(--el-border-color);
+    box-shadow: var(--global-box-shadow);
+
+    .feature-icon {
+      color: $accent-blue;
+      transform: scale(1.1);
+    }
+  }
+
+  .feature-icon {
+    transition: all 0.25s ease;
+  }
+}
+
+html.dark .feature-card {
+  background: var(--color-white-3);
+  border-color: var(--color-white-8);
+  
+  &:hover {
+    border-color: var(--color-white-15);
+    background: var(--color-white-6);
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+// 优势卡片极简优化
+.advantage-card {
+  border-radius: var(--global-border-radius);
+  border: var(--unified-border);
+  transition: all 0.25s $transition-smooth;
+  
+  &:hover {
+    border-color: var(--el-border-color);
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+html.dark .advantage-card {
+  background: var(--color-white-3);
+  border-color: var(--color-white-8);
+  
+  &:hover {
+    border-color: var(--color-white-15);
+    background: var(--color-white-6);
+  }
+}
+
+// 第二页标题优?- 极简字体层级
+.second-page-title-wrapper {
+  .second-page-title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-size: clamp(24px, 4vw, 36px);
+  }
+  
+  .second-page-title-english {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 0.6;
+    font-size: 11px;
+  }
+  
+  .second-page-description {
+    font-size: 15px;
+    line-height: 1.7;
+    max-width: 600px;
+    margin: 0 auto;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+// 优势区标题优?
+.advantages-header {
+  .advantages-title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  
+  .advantages-title-english {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 0.6;
+    font-size: 11px;
+  }
+  
+  .advantages-subtitle {
+    font-size: 14px;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+// 新闻卡片极简优化
+.news-card-container .glass {
+  border-radius: var(--global-border-radius);
+  border: var(--unified-border);
+  transition: all 0.3s $transition-smooth;
+
+  &:hover {
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+:where(html.dark) .news-card-container .glass {
+  border-color: var(--color-white-8);
+  
+  &:hover {
+    border-color: var(--color-white-15);
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+// 入场动画优化 - 更流?
+.ihui-ai-fade-in-left-animation,
+.ihui-ai-fade-in-right-animation,
+.ihui-ai-fade-in-top-animation,
+.ihui-ai-fade-in-bottom-animation {
+  animation-timing-function: $transition-smooth;
+  animation-duration: 0.6s;
+}
+
+// 焦点样式优化（无障碍?
+.feature-card:focus-visible,
+.advantage-card:focus-visible,
+.hero-cta-btn:focus-visible,
+.news-card-container .glass:focus-visible {
+  outline: 2px solid $accent-blue;
+  outline-offset: 2px;
+}
+
+// 减少动画（用户偏好）
+@media (prefers-reduced-motion: reduce) {
+  .feature-card,
+  .advantage-card,
+  .news-card-container .glass,
+  .hero-cta-btn {
+    transition-duration: 0.01ms;
+  }
+  
+  .ihui-ai-fade-in-left-animation,
+  .ihui-ai-fade-in-right-animation,
+  .ihui-ai-fade-in-top-animation,
+  .ihui-ai-fade-in-bottom-animation {
+    animation-duration: 0.01ms;
+  }
+}

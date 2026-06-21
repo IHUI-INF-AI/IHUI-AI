@@ -1,0 +1,149 @@
+{
+  "bsonType": "object",
+  "required": ["username", "password", "role"],
+  "permission": {
+    "read": "doc._id === auth.uid || 'administrator' === auth.role",
+    "create": "'administrator' === auth.role",
+    "update": "doc._id === auth.uid || 'administrator' === auth.role",
+    "delete": "'administrator' === auth.role"
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成"
+    },
+    "username": {
+      "bsonType": "string",
+      "title": "用户名",
+      "description": "管理员用户名",
+      "minLength": 4,
+      "maxLength": 32,
+      "component": {
+        "name": "uni-easyform-text"
+      }
+    },
+    "password": {
+      "bsonType": "string",
+      "title": "密码",
+      "description": "管理员密码，加密存储",
+      "minLength": 6,
+      "maxLength": 32,
+      "component": {
+        "name": "uni-easyform-password"
+      }
+    },
+    "name": {
+      "bsonType": "string",
+      "title": "姓名",
+      "description": "管理员姓名",
+      "component": {
+        "name": "uni-easyform-text"
+      }
+    },
+    "avatar": {
+      "bsonType": "string",
+      "title": "头像",
+      "description": "管理员头像URL",
+      "component": {
+        "name": "uni-easyform-image"
+      }
+    },
+    "role": {
+      "bsonType": "string",
+      "title": "角色",
+      "description": "管理员角色: administrator-超级管理员, operator-运营, editor-内容编辑",
+      "enum": [
+        {
+          "text": "超级管理员",
+          "value": "administrator"
+        },
+        {
+          "text": "运营人员",
+          "value": "operator"
+        },
+        {
+          "text": "内容编辑",
+          "value": "editor"
+        }
+      ],
+      "defaultValue": "operator",
+      "component": {
+        "name": "uni-easyform-select"
+      }
+    },
+    "email": {
+      "bsonType": "string",
+      "format": "email",
+      "title": "邮箱",
+      "description": "管理员邮箱地址",
+      "component": {
+        "name": "uni-easyform-text"
+      }
+    },
+    "mobile": {
+      "bsonType": "string",
+      "title": "手机号码",
+      "description": "管理员手机号码",
+      "pattern": "^1[3-9]\\d{9}$",
+      "component": {
+        "name": "uni-easyform-text"
+      }
+    },
+    "status": {
+      "bsonType": "int",
+      "title": "状态",
+      "description": "账号状态: 0-禁用, 1-正常",
+      "enum": [
+        {
+          "text": "禁用",
+          "value": 0
+        },
+        {
+          "text": "正常",
+          "value": 1
+        }
+      ],
+      "defaultValue": 1,
+      "component": {
+        "name": "uni-easyform-radio"
+      }
+    },
+    "permissions": {
+      "bsonType": "array",
+      "title": "权限列表",
+      "description": "管理员拥有的权限列表"
+    },
+    "lastLoginDate": {
+      "bsonType": "date",
+      "title": "最后登录时间",
+      "description": "最后一次登录时间"
+    },
+    "lastLoginIP": {
+      "bsonType": "string",
+      "title": "最后登录IP",
+      "description": "最后一次登录IP地址"
+    },
+    "creator": {
+      "bsonType": "string",
+      "description": "创建者ID",
+      "forceDefaultValue": {
+        "$env": "uid"
+      }
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间",
+      "description": "创建时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间",
+      "description": "更新时间",
+      "defaultValue": {
+        "$env": "now"
+      }
+    }
+  }
+} 

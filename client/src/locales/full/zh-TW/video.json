@@ -1,0 +1,153 @@
+{
+  "videoGen": {
+    "kling": {
+      "title": "可靈AI影片生成",
+      "lipSync": "口型同步",
+      "usageTitle": "使用說明",
+      "usageDescription": "先上傳影片進行人臉識別，然後選擇人臉並輸入提示詞生成影片",
+      "stepUploadVideo": "上傳影片",
+      "stepIdentifyFaces": "識別 faces",
+      "stepGenerateVideo": "生成影片",
+      "uploadVideo": "上傳影片",
+      "selectVideo": "選擇影片",
+      "identify": "識別",
+      "identifySuccess": "識別成功",
+      "identifyFailed": "識別失敗",
+      "selectFace": "選擇人臉",
+      "selectFaceId": "選擇人臉ID",
+      "faceIdLabel": "Face {id} ({start}-{end}s)",
+      "prompt": "提示詞",
+      "promptPlaceholder": "描述影片內容...",
+      "generate": "生成",
+      "generateFailed": "生成失敗",
+      "reset": "重置",
+      "taskInfo": "任務ID: {taskId}",
+      "checkStatus": "查詢狀態",
+      "uploadVideoFirst": "請先上傳影片",
+      "fillInfoComplete": "請填寫完整資訊",
+      "taskSubmitted": "任務已提交",
+      "checkStatusDeveloping": "查詢狀態功能開發中",
+      "tag": "口型同步",
+      "instructions": {
+        "title": "使用說明",
+        "description": "先上傳視頻進行人脸识別，然后選擇人脸并輸入提示詞生成視頻"
+      },
+      "steps": {
+        "upload": "上傳視頻",
+        "identify": "识別 faces",
+        "generate": "生成視頻"
+      },
+      "form": {
+        "uploadVideo": "上傳視頻",
+        "selectVideo": "選擇視頻",
+        "selectFace": "選擇人脸",
+        "selectFaceId": "選擇人脸ID",
+        "prompt": "提示詞",
+        "promptPlaceholder": "描述視頻內容..."
+      },
+      "buttons": {
+        "identify": "识別",
+        "generate": "生成",
+        "checkStatus": "查询狀態",
+        "checking": "查询中..."
+      },
+      "status": {
+        "completed": "completed",
+        "failed": "failed",
+        "pending": "pending",
+        "processing": "processing",
+        "title": "狀態"
+      },
+      "messages": {
+        "uploadFirst": "請先上傳視頻",
+        "identifySuccess": "识別成功",
+        "identifyFailed": "识別失敗",
+        "fillComplete": "請填寫完整信息",
+        "taskSubmitted": "任務已提交",
+        "generateFailed": "生成失敗",
+        "checkStatusDev": "查询狀態功能開發中",
+        "taskId": "任務ID: {taskId}",
+        "taskIdRequired": "請先提交生成任務",
+        "statusCompleted": "視頻生成完成",
+        "statusProcessing": "視頻生成中...",
+        "statusFailed": "視頻生成失敗",
+        "statusPending": "任務等待處理中...",
+        "statusUnknown": "任務狀態未知",
+        "checkStatusFailed": "查询狀態失敗",
+        "pollTimeout": "PollTimeout"
+      },
+      "startPolling": "自動轮询",
+      "stopPolling": "停止轮询",
+      "downloadVideo": "下載視頻",
+      "previewVideo": "預覽視頻",
+      "videoUrlEmpty": "視頻URL為空",
+      "downloadStarted": "開始下載視頻",
+      "message": "消息"
+    },
+    "qwen": {
+      "title": "通義萬相 - 影片合成",
+      "tag": "WebSocket流式",
+      "form": {
+        "prompt": "提示詞",
+        "promptPlaceholder": "描述您想要生成的影片...",
+        "images": "參考圖片(可選)",
+        "imagesPlaceholder": "圖片URL"
+      },
+      "buttons": {
+        "generate": "開始生成"
+      },
+      "progress": {
+        "connecting": "連接中...",
+        "generating": "生成中..."
+      },
+      "messages": {
+        "promptRequired": "請輸入提示詞",
+        "generateSuccess": "生成完成",
+        "generateFailed": "生成失敗"
+      }
+    },
+    "oneClick": {
+      "title": "一鍵影片生成",
+      "tag": "自動生成",
+      "form": {
+        "topic": "影片主題",
+        "topicPlaceholder": "例如：介紹我們的產品...",
+        "duration": "影片時長",
+        "ratio": "影片比例",
+        "audioStyle": "音訊風格(可選)",
+        "audioPlaceholder": "例如：輕鬆愉快的背景音樂"
+      },
+      "buttons": {
+        "generate": "開始生成",
+        "checkStatus": "查詢狀態"
+      },
+      "messages": {
+        "topicRequired": "請輸入影片主題",
+        "taskSubmitted": "任務已提交",
+        "generateFailed": "生成失敗",
+        "taskId": "任務ID: {taskId}",
+        "status": "狀態: {status}",
+        "checkFailed": "查詢失敗",
+        "pollTimeout": "PollTimeout"
+      },
+      "ratios": {
+        "r169": "16:9",
+        "r916": "9:16",
+        "r11": "1:1"
+      },
+      "durationUnit": "秒",
+      "status": {
+        "completed": "已完成",
+        "processing": "處理中",
+        "failed": "失敗",
+        "pending": "等待中"
+      },
+      "startPolling": "自動轮询",
+      "stopPolling": "停止轮询",
+      "downloadVideo": "下載視頻",
+      "previewVideo": "預覽視頻",
+      "videoUrlEmpty": "視頻URL為空",
+      "downloadStarted": "開始下載視頻"
+    }
+  }
+}

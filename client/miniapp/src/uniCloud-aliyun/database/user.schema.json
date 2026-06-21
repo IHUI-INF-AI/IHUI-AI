@@ -1,0 +1,67 @@
+{
+  "bsonType": "object",
+  "required": ["username"],
+  "permission": {
+    "read": true,
+    "create": true,
+    "update": "doc._id == auth.uid",
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成"
+    },
+    "username": {
+      "bsonType": "string",
+      "description": "用户名",
+      "trim": "both"
+    },
+    "nickname": {
+      "bsonType": "string",
+      "description": "昵称",
+      "trim": "both"
+    },                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+  
+    "avatar": {
+      "bsonType": "string",
+      "description": "头像地址"
+    },
+    "openid": {
+      "bsonType": "string",
+      "description": "微信openid"
+    },
+    "token": {
+      "bsonType": "string",
+      "description": "登录令牌"
+    },
+    "isVip": {
+      "bsonType": "bool",
+      "description": "是否是VIP会员",
+      "defaultValue": false
+    },
+    "vipLevel": {
+      "bsonType": "int",
+      "description": "VIP等级：1-月度会员，2-年度会员",
+      "defaultValue": 0
+    },
+    "vipExpireTime": {
+      "bsonType": "timestamp",
+      "description": "VIP到期时间"
+    },
+    "vipCardNumber": {
+      "bsonType": "string",
+      "description": "VIP卡号"
+    },
+    "create_date": {
+      "bsonType": "timestamp",
+      "description": "创建时间",
+      "defaultValue": {
+        "$env": "now"
+      }
+    },
+    "last_login_date": {
+      "bsonType": "timestamp",
+      "description": "最后登录时间"
+    }
+  }
+}

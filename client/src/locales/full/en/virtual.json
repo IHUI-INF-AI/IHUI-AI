@@ -1,0 +1,10 @@
+{
+  "virtualMessage List": {
+    "loadingMore": "Loading more messages......",
+    "aiThinking": "AI is thinking......",
+    "user": "User",
+    "ai": "AI",
+    "scrollToBottom": "Scroll to bottom",
+    "newMessages": "{count}New Message"
+  }
+}

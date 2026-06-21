@@ -1,0 +1,212 @@
+// ============================================
+// ElMessage 完整样式（亮色 + 暗色）
+// 使用 :where() 降低特异性，使用 CSS 变量控制
+// ============================================
+
+@layer components {
+  // 亮色模式
+  :where(.el-message) {
+    min-width: 300px;
+    border-radius: var(--global-border-radius);
+    padding: 14px 18px;
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    background: linear-gradient(
+      135deg,
+      var(--color-white-98) 0%,
+      var(--color-gradient-fafafc-95) 100%
+    );
+    border: 1px solid var(--border-unified-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    .el-message__content {
+      color: var(--el-text-color-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    .el-message__icon {
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin: 0;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .el-message__closeBtn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: auto;
+    }
+
+    // 错误类型
+    &.el-message--error {
+      background: linear-gradient(
+        135deg,
+        var(--color-white-98) 0%,
+        var(--color-gradient-fef2f2-95) 100%
+      );
+      border-color: var(--border-unified-color);
+
+      .el-message__icon {
+        color: var(--color-red-f56565);
+      }
+    }
+
+    // 警告类型
+    &.el-message--warning {
+      background: linear-gradient(
+        135deg,
+        var(--color-white-98) 0%,
+        var(--color-gradient-fffbf6-95) 100%
+      );
+      border-color: var(--border-unified-color);
+    }
+
+    // 成功类型
+    &.el-message--success {
+      background: linear-gradient(
+        135deg,
+        var(--color-white-98) 0%,
+        var(--color-gradient-f0fdf4-95) 100%
+      );
+      border-color: var(--color-green-4ade80-20);
+    }
+
+    // 信息类型
+    &.el-message--info {
+      background: linear-gradient(
+        135deg,
+        var(--color-white-98) 0%,
+        var(--color-gradient-f0f9ff-95) 100%
+      );
+      border-color: var(--border-unified-color);
+    }
+  }
+
+  // 暗色模式
+  :where(html.dark) :where(.el-message) {
+    background: linear-gradient(
+      135deg,
+      var(--color-dark-202228) 0%,
+      var(--color-dark-1d1e24-95) 100%
+    );
+    border: 1px solid var(--border-unified-color);
+    backdrop-filter: blur(16px) saturate(200%);
+    -webkit-backdrop-filter: blur(16px) saturate(200%);
+
+    .el-message__content {
+      color: var(--color-text-light);
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 500;
+      text-shadow: none;
+    }
+
+    .el-message__icon {
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin: 0;
+      padding: 0;
+      line-height: 1;
+    }
+
+    &.el-message--error {
+      background: linear-gradient(
+        135deg,
+        var(--color-dark-281414-98) 0%,
+        var(--color-dark-241212-95) 100%
+      );
+      border-color: var(--color-red-f56565-30);
+      border-top-color: var(--color-red-f56565-40);
+      border-left-color: var(--color-red-f56565-35);
+
+      .el-message__icon {
+        color: var(--color-red-ff6b6b);
+        filter: drop-shadow(0 0 4px var(--color-red-ff6b6b-50));
+      }
+
+      .el-message__content {
+        color: var(--el-text-color-primary);
+        text-shadow: none;
+      }
+    }
+
+    &.el-message--warning {
+      background: linear-gradient(
+        135deg,
+        var(--color-dark-282414-98) 0%,
+        var(--color-dark-242012-95) 100%
+      );
+      border-color: var(--color-amber-edb443-30);
+
+      .el-message__icon {
+        color: var(--color-yellow-ffd93d);
+        filter: drop-shadow(0 0 4px var(--color-yellow-ffd93d-50));
+      }
+
+      .el-message__content {
+        color: var(--color-yellow-fff4cc);
+      }
+    }
+
+    &.el-message--success {
+      background: linear-gradient(
+        135deg,
+        var(--color-dark-142818-98) 0%,
+        var(--color-dark-122414-95) 100%
+      );
+      border-color: var(--color-green-4ade80-30);
+
+      .el-message__icon {
+        color: var(--color-green-4ade80);
+        filter: drop-shadow(0 0 4px var(--color-green-4ade80-50));
+      }
+
+      .el-message__content {
+        color: var(--el-text-color-primary);
+      }
+    }
+
+    &.el-message--info {
+      background: linear-gradient(
+        135deg,
+        var(--color-dark-141c28-98) 0%,
+        var(--color-dark-121824-95) 100%
+      );
+      border-color: var(--color-blue-60a5fa-30);
+
+      .el-message__icon {
+        color: var(--el-text-color-primary);
+        filter: drop-shadow(0 0 4px var(--color-blue-60a5fa-50));
+      }
+
+      .el-message__content {
+        color: var(--color-blue-cce5ff);
+      }
+    }
+  }
+
+  // ElNotification 样式
+  :where(.el-notification) {
+    .el-notification__title {
+      font-weight: 600;
+    }
+  }
+}

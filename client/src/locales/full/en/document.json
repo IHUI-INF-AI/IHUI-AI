@@ -1,0 +1,42 @@
+{
+  "documentCenter": {
+    "title": "Document Center",
+    "allDocs": "All Documents",
+    "searchHint": "Search",
+    "noFeatures": "No features available",
+    "searchPlaceholder": "Search documents...",
+    "quickStart": "Quick Start",
+    "apiDocs": "API Docs",
+    "guides": "Guides",
+    "userDocs": "User Docs",
+    "developerDocs": "Developer Docs",
+    "support": "Support",
+    "comingSoon": "Coming soon",
+    "incentiveProgram": {
+      "label": "00 / Developer Incentive Program",
+      "overview": "Program Overview",
+      "overviewDesc": "Learn about the core content of ZhiHui AI Developer Incentive Program",
+      "publishGuide": "Agent Publishing Guide",
+      "publishGuideDesc": "Step-by-step guide to publish agents to ZhiHui AI (IHUI AI)",
+      "monetizationGuide": "Developer Monetization Guide",
+      "monetizationGuideDesc": "Learn how to generate passive income through agents",
+      "platformIntro": "Platform Features Introduction",
+      "platformIntroDesc": "Comprehensive analysis of the one-stop AI innovation ecosystem platform"
+    },
+    "back": "Back",
+    "backHome": "BackHome",
+    "breadcrumb": "Home / Services & Support / Documentation Center",
+    "subtitle": "Complete technical documentation, API references, and development guides",
+    "faq": "FAQ",
+    "quickNav": "Quick Navigation",
+    "files": "Files",
+    "linkCopied": "Link Copied",
+    "noShared": "No Shared",
+    "shareDeleted": "Share Deleted",
+    "shareLink": "Share Link",
+    "shared": "Shared",
+    "upload": "Upload",
+    "uploadError": "Upload Error",
+    "uploadSuccess": "Upload Success"
+  }
+}

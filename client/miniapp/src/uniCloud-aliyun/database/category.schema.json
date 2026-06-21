@@ -1,0 +1,117 @@
+{
+  "bsonType": "object",
+  "required": ["name"],
+  "permission": {
+    "read": true,
+    "create": "'administrator' === auth.role || 'editor' === auth.role",
+    "update": "'administrator' === auth.role || 'editor' === auth.role",
+    "delete": "'administrator' === auth.role"
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成"
+    },
+    "name": {
+      "bsonType": "string",
+      "title": "分类名称",
+      "description": "分类名称",
+      "minLength": 1,
+      "maxLength": 50,
+      "component": {
+        "name": "uni-easyform-text"
+      }
+    },
+    "icon": {
+      "bsonType": "string",
+      "title": "图标",
+      "description": "分类图标URL",
+      "component": {
+        "name": "uni-easyform-image"
+      }
+    },
+    "parent_id": {
+      "bsonType": "string",
+      "title": "父分类ID",
+      "description": "父分类ID，没有则为顶级分类",
+      "component": {
+        "name": "uni-easyform-select"
+      }
+    },
+    "sort": {
+      "bsonType": "int",
+      "title": "排序",
+      "description": "排序权重，数字越大越靠前",
+      "defaultValue": 0,
+      "component": {
+        "name": "uni-easyform-number"
+      }
+    },
+    "description": {
+      "bsonType": "string",
+      "title": "描述",
+      "description": "分类描述",
+      "component": {
+        "name": "uni-easyform-textarea"
+      }
+    },
+    "course_count": {
+      "bsonType": "int",
+      "title": "课程数量",
+      "description": "该分类下的课程数量",
+      "defaultValue": 0
+    },
+    "is_hot": {
+      "bsonType": "bool",
+      "title": "是否热门",
+      "description": "是否为热门分类",
+      "defaultValue": false,
+      "component": {
+        "name": "uni-easyform-switch"
+      }
+    },
+    "is_recommend": {
+      "bsonType": "bool",
+      "title": "是否推荐",
+      "description": "是否为推荐分类",
+      "defaultValue": false,
+      "component": {
+        "name": "uni-easyform-switch"
+      }
+    },
+    "status": {
+      "bsonType": "int",
+      "title": "状态",
+      "description": "分类状态: 0-禁用, 1-启用",
+      "enum": [
+        {
+          "text": "禁用",
+          "value": 0
+        },
+        {
+          "text": "启用",
+          "value": 1
+        }
+      ],
+      "defaultValue": 1,
+      "component": {
+        "name": "uni-easyform-radio"
+      }
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间",
+      "description": "创建时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间",
+      "description": "更新时间",
+      "defaultValue": {
+        "$env": "now"
+      }
+    }
+  }
+} 

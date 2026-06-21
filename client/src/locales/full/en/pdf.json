@@ -1,0 +1,28 @@
+{
+  "pdf": {
+    "signature": "Digital Signature",
+    "watermark": "Watermark Settings",
+    "fontSize": "Font Size",
+    "opacity": "Opacity",
+    "rotation": "Rotation",
+    "color": "Color",
+    "presetWatermark": "Preset Watermark",
+    "mergeSplit": "PDF Merge & Split",
+    "dropFileHere": "Click or drag PDF file here",
+    "splitOptions": "Split Options",
+    "printSettings": "Print Settings",
+    "paperSize": "Paper Size",
+    "orientation": "Orientation",
+    "scale": "Scale",
+    "fitPage": "Fit to Page",
+    "actualSize": "Actual Size",
+    "pageRange": "Page Range",
+    "allPages": "All Pages",
+    "currentPage": "Current Page",
+    "copies": "Copies",
+    "duplex": "Duplex Printing",
+    "header": "Header",
+    "footer": "Footer",
+    "showPageNumber": "Show Page Number"
+  }
+}

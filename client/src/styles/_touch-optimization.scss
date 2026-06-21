@@ -1,0 +1,538 @@
+/* ============================================
+   触摸目标优化
+   确保所有可点击元素最小尺寸为 44px (WCAG AA 标准)
+   原则：0 高特异性，使用 @layer utilities 天然覆盖 vendor 层
+   ============================================ */
+
+@use './breakpoints' as *;
+
+/* ============================================
+   全局触摸目标变量
+   ============================================ */
+:root {
+  --touch-target-min: 44px;
+  --touch-target-comfortable: 48px;
+  --touch-target-large: 56px;
+}
+
+/* ============================================
+   移动端触摸目标优化（< 768px）
+   所有覆盖 Element Plus 默认样式的规则统一放入 @layer utilities
+   ============================================ */
+@layer utilities {
+  @media (width <= 767px) {
+    // 按钮（弹窗关闭钮由组件自控，排除以免与组件样式冲突）
+    .el-button,
+    .btn,
+    button:not(.promotion-close-btn),
+    [role="button"] {
+      min-height: var(--touch-target-min);
+      min-width: var(--touch-target-min);
+      padding: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      // 对于有文本的按钮，使用等宽内边距
+      &:not(.is-circle, .el-button--icon) {
+        padding-left: 16px;
+        padding-right: 16px;
+        height: auto;
+        min-height: 48px;
+      }
+
+      &.el-button--small {
+        min-height: 40px;
+        min-width: 40px;
+        padding: 8px 12px;
+      }
+
+      &.el-button--large {
+        min-height: var(--touch-target-comfortable);
+        min-width: var(--touch-target-comfortable);
+        padding: 14px 20px;
+      }
+
+      // 图标按钮 - 强制正方形（含仅子元素为 svg 的原生 button、弹窗关闭钮等）
+      &.is-circle,
+      &.el-button--icon,
+      &.promotion-close-btn,
+      &:has(> .el-icon:only-child),
+      &:has(> svg:only-child) {
+        min-height: var(--touch-target-min);
+        min-width: var(--touch-target-min);
+        width: var(--touch-target-min);
+        height: var(--touch-target-min);
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+
+    // 关闭按钮
+    .el-dialog__headerbtn,
+    .close-btn,
+    .notification-close,
+    [aria-label*="close"],
+    [title*="关闭"] {
+      min-height: var(--touch-target-min);
+      min-width: var(--touch-target-min);
+      width: auto;
+      height: auto;
+      padding: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    // 错误操作按钮 - 正方形设计
+    .error-actions .el-button {
+      min-height: 48px;
+      min-width: 48px;
+      padding: 12px 20px;
+      height: auto;
+    }
+
+    // 通知组件按钮 - 正方形设计
+    .details-toggle-btn {
+      min-height: 48px;
+      min-width: 48px;
+      padding: 12px 16px;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    // 登录按钮 - 正方形设计
+    .login-button {
+      min-height: 48px;
+      padding: 12px 24px;
+      width: auto;
+    }
+
+    // 语言选择器 - 强制正方形
+    .language-selector {
+      min-width: 48px;
+      min-height: 48px;
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    // 操作按钮 - 正方形设计
+    .action-btn {
+      min-height: 48px;
+      padding: 12px 20px;
+      height: auto;
+    }
+
+    // 关闭按钮 - 强制正方形
+    .notification-close,
+    .close-btn {
+      min-width: 48px;
+      min-height: 48px;
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    // 长文本按钮 - 保持合适比例
+    .el-collapse-item__header,
+    [class*="collapse"] {
+      min-height: 48px;
+      height: auto;
+      padding: 12px 16px;
+    }
+
+    // 全宽按钮 - 保持合适高度
+    [style*="width: 100%"],
+    .full-width-button {
+      min-height: 48px;
+      height: auto;
+      padding: 12px 20px;
+    }
+
+    // 链接按钮 - 正方形设计
+    .el-link {
+      min-height: 48px;
+      min-width: 48px;
+      padding: 12px 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+}
+
+/* ============================================
+   移动端触摸目标优化（< 768px）- 非覆盖性规则
+   这些规则不与 Element Plus 默认样式冲突，放在默认层
+   ============================================ */
+@media (width <= 767px) {
+  // 链接
+  a,
+  .el-link {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    padding: 8px 12px;
+    display: inline-flex;
+    align-items: center;
+
+    &.is-icon {
+      padding: 10px;
+    }
+  }
+
+  // 输入框
+  .el-input__inner,
+  .el-textarea__inner,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  textarea {
+    min-height: var(--touch-target-min);
+    padding: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(14px, 3vw, 16px); // 防止 iOS 缩放
+  }
+
+  // 选择器
+  .el-select,
+  .el-cascader,
+  .el-date-picker,
+  .el-time-picker,
+  select {
+    min-height: var(--touch-target-min);
+
+    .el-input__inner {
+      min-height: var(--touch-target-min);
+    }
+  }
+
+  // 复选框和单选框
+  .el-checkbox,
+  .el-radio {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+
+    .el-checkbox__label,
+    .el-radio__label {
+      padding-left: 12px;
+    }
+
+    .el-checkbox__input,
+    .el-radio__input {
+      min-height: var(--touch-target-min);
+      min-width: var(--touch-target-min);
+    }
+  }
+
+  // 开关
+  .el-switch {
+    min-height: var(--touch-target-min);
+    min-width: calc(var(--touch-target-min) * 1.5);
+  }
+
+  // 下拉菜单
+  .el-dropdown {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+  }
+
+  // 标签页
+  .el-tabs__item {
+    min-height: var(--touch-target-min);
+    padding: 0 16px;
+  }
+
+  // 菜单项
+  .el-menu-item,
+  .el-sub-menu__title {
+    min-height: var(--touch-target-min);
+    padding: 0 16px;
+  }
+
+  // 列表项
+  .el-list-item,
+  .list-item {
+    min-height: var(--touch-target-min);
+    padding: clamp(12px, 2.5vw, 16px);
+  }
+
+  // 卡片
+  .el-card,
+  .card {
+    .el-card__header,
+    .card-header {
+      min-height: var(--touch-target-min);
+    }
+  }
+
+  // 表格操作按钮
+  .el-table .el-button {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    padding: 8px 12px;
+  }
+
+  .el-table__row {
+    min-height: var(--touch-target-min);
+  }
+
+  // 分页
+  .el-pagination {
+    .el-pager li,
+    .el-pagination__jump,
+    .el-select {
+      min-height: var(--touch-target-min);
+      min-width: var(--touch-target-min);
+    }
+
+    .btn-prev,
+    .btn-next {
+      min-height: var(--touch-target-min);
+      min-width: var(--touch-target-min);
+    }
+  }
+
+  // 表单操作区
+  .el-form-item {
+    .el-form-item__content {
+      > * {
+        min-height: var(--touch-target-min);
+      }
+    }
+  }
+
+  // 搜索框
+  .el-input__suffix,
+  .el-input__prefix {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  // 底部导航
+  .bottom-nav,
+  .tab-bar {
+    .nav-item,
+    .tab-item {
+      min-height: var(--touch-target-min);
+      min-width: var(--touch-target-min);
+      padding: 12px 16px;
+    }
+  }
+
+  // 侧滑菜单项
+  .swipe-menu-item {
+    min-height: var(--touch-target-min);
+  }
+
+  // 下拉刷新
+  .pull-refresh {
+    min-height: var(--touch-target-min);
+  }
+}
+
+/* ============================================
+   超小屏幕优化（< 480px）
+   ============================================ */
+@media (width <= 480px) {
+  :root {
+    --touch-target-min: 48px; // 更大的触摸目标
+  }
+
+  .el-button,
+  .btn,
+  button {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  .el-input__inner,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"] {
+    min-height: 48px;
+    font-size: 16px; // 确保不缩放
+  }
+}
+
+/* ============================================
+   触摸友好工具类
+   ============================================ */
+
+// 基础触摸目标
+.touch-target {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// 舒适触摸目标
+.touch-target-comfortable {
+  min-height: var(--touch-target-comfortable);
+  min-width: var(--touch-target-comfortable);
+}
+
+// 大触摸目标
+.touch-target-large {
+  min-height: var(--touch-target-large);
+  min-width: var(--touch-target-large);
+}
+
+// 全宽触摸按钮
+.touch-button-full {
+  min-height: var(--touch-target-min);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// 图标触摸按钮
+.touch-icon-button {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  width: auto;
+  height: auto;
+  padding: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// 触摸列表
+.touch-list {
+  .list-item {
+    min-height: var(--touch-target-min);
+    padding: 12px 16px;
+  }
+}
+
+// 触摸表单
+.touch-form {
+  .el-input__inner,
+  .el-textarea__inner,
+  .el-select,
+  .el-button {
+    min-height: var(--touch-target-min);
+  }
+
+  .el-checkbox,
+  .el-radio {
+    min-height: var(--touch-target-min);
+  }
+}
+
+// 触摸表格
+.touch-table {
+  .el-table__row {
+    min-height: var(--touch-target-min);
+  }
+
+  .el-button {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+  }
+}
+
+// 触摸导航
+.touch-nav {
+  .nav-item {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    padding: 12px 16px;
+  }
+}
+
+/* ============================================
+   Mixins
+   ============================================ */
+
+// 触摸目标 mixin
+@mixin touch-target($size: 'min') {
+  @if $size == 'min' {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+  } @else if $size == 'comfortable' {
+    min-height: var(--touch-target-comfortable);
+    min-width: var(--touch-target-comfortable);
+  } @else if $size == 'large' {
+    min-height: var(--touch-target-large);
+    min-width: var(--touch-target-large);
+  }
+}
+
+// 触摸友好按钮 mixin
+@mixin touch-friendly-button {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  padding: 10px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// 触摸友好输入框 mixin
+@mixin touch-friendly-input {
+  min-height: var(--touch-target-min);
+  padding: 12px;
+  font-size: 16px; // 防止 iOS 缩放
+}
+
+// 触摸友好列表项 mixin
+@mixin touch-friendly-list-item {
+  min-height: var(--touch-target-min);
+  padding: 12px 16px;
+}
+
+/* ============================================
+   辅助功能：焦点可见性
+   ============================================ */
+@media (width <= 767px) {
+  // 确保焦点状态可见
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: 2px;
+  }
+
+  // 移除默认焦点轮廓，使用自定义样式
+  .el-button:focus-visible,
+  .el-input__inner:focus-visible,
+  .el-select:focus-visible {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* ============================================
+   辅助功能：减少动画
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .el-button,
+  .el-link,
+  button,
+  a {
+    transition: none;
+  }
+}

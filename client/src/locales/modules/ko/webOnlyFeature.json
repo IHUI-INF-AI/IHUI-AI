@@ -1,0 +1,13 @@
+{
+  "webOnlyFeature": {
+    "핵심 장점": "Web 전사용 기능",
+    "description": "Web 플랫폼에서만 생각사용 가능",
+    "desktopOptimization": "데스크톱 최적화",
+    "desktopOptimizationDesc": "데스크톱 브라우저사용 인마음랙션",
+    "mouseInteraction": "마우스 조작",
+    "mouseInteractionDesc": "호버·핵심 지원",
+    "keyboardShortcuts": "키보드 단축키",
+    "keyboardShortcutsDesc": "단축키 지원",
+    "title": "Web전담기능"
+  }
+}

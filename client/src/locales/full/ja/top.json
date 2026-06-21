@@ -1,0 +1,58 @@
+{
+  "topUp": {
+    "title": "チャージ",
+    "subtitle": "为您的アカウントチャージ智汇値",
+    "selectAmount": "チャージ金額を選択",
+    "selectPaymentMethod": "请選択支払い方法",
+    "customAmount": "カスタム金額",
+    "paymentMethods": {
+      "wechat": {
+        "name": "WeChat支払い",
+        "desc": "使用WeChat扫码支払い"
+      },
+      "alipay": {
+        "name": "支払い宝",
+        "desc": "使用支払い宝扫码支払い"
+      }
+    },
+    "cancel": "キャンセル",
+    "submit": "立即チャージ",
+    "errors": {
+      "selectAmount": "ご選択チャージ金額",
+      "createOrderFailed": "作成チャージ注文失敗",
+      "createOrderRetry": "作成チャージ注文失敗，ご稍後再試行",
+      "logger": {
+        "createOrderFailed": "[TopUp] 作成チャージ注文失敗"
+      }
+    },
+    "loading": "読み込み中...",
+    "clickToTopUp": "クリックでチャージ",
+    "ratio": "チャージ比率",
+    "selectMethod": "チャージ方法を選択",
+    "moreMethods": "その他のチャージ方法は公式で利用可能",
+    "invalidAmount": "正しいチャージ金額を入力",
+    "submitted": "チャージリクエスト送信済み",
+    "amountLabels": {
+      "coins": "Coins"
+    },
+    "customPlaceholder": "Custom Placeholder",
+    "notice1": "Notice1",
+    "notice2": "Notice2",
+    "notice3": "Notice3",
+    "noticeTitle": "Notice Title"
+  },
+  "topUpSuccess": {
+    "title": "チャージ成功",
+    "message": "您的アカウント済み成功チャージ",
+    "backToホーム": "ホームに戻る",
+    "viewAccount": "表示アカウント",
+    "backToHome": "戻るホーム"
+  },
+  "topUpFail": {
+    "title": "チャージ失敗",
+    "defaultMessage": "チャージ過ぎ程中出现エラー，ご稍後再試行",
+    "retry": "再チャージ",
+    "backToホーム": "ホームに戻る",
+    "backToHome": "戻るホーム"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "apiTest": {
+    "title": "AI接口測試",
+    "allTestsPassed": "全部",
+    "testsPassed": "個測試通過！",
+    "testsFailed": "個測試失敗",
+    "executionError": "測試執行出錯",
+    "testing": "測試中...",
+    "runTests": "運行測試",
+    "testLog": "測試日誌",
+    "total": "總計",
+    "passed": "通過",
+    "failed": "失敗",
+    "duration": "耗時",
+    "clearResults": "清空結果",
+    "category": "分類",
+    "testItem": "測試項",
+    "status": "狀態",
+    "errorInfo": "錯誤資訊"
+  }
+}

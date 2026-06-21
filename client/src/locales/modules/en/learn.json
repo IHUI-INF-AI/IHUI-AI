@@ -1,0 +1,17 @@
+{
+  "learn": {
+    "searchPlaceholder": {
+      "category": "Search categories",
+      "map": "Search learning paths",
+      "topic": "Search topics",
+      "topicCategory": "Search topic categories",
+      "report": "Search reports",
+      "orderInvoiceApplication": "Search applications",
+      "orderInvoiceTitle": "Search titles",
+      "lessonTrash": "Search trashed lessons",
+      "signup": "Search signups",
+      "order": "Search orders",
+      "lesson": "Search lessons"
+    }
+  }
+}

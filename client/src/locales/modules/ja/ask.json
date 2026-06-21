@@ -1,0 +1,12 @@
+{
+  "ask": {
+    "searchPlaceholder": {
+      "category": "カテゴリを検索",
+      "question": "質問を検索"
+    },
+    "label": {
+      "categoryName": "カテゴリ名",
+      "actions": "操作"
+    }
+  }
+}

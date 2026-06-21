@@ -1,0 +1,13 @@
+{
+  "app": {
+    "skipToMain": "Skip to main content",
+    "offlineWarning": "Network connection lost. Please check your network settings",
+    "errorTitle": "An error occurred",
+    "showErrorDetails": "Show error details",
+    "reload": "Reload",
+    "goHome": "Back to home",
+    "unknownError": "Unknown error",
+    "loading": "Loading",
+    "loadingText": "Loading..."
+  }
+}

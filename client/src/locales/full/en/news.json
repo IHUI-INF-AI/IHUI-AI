@@ -1,0 +1,49 @@
+{
+  "newsCenter": {
+    "title": "AI News",
+    "subtitle": "Learn about our latest updates, product updates and industry news",
+    "disconnect": "DISCONNECT",
+    "liveFeedActive": "LIVE FEED ACTIVE",
+    "comingSoon": "News details will be available soon, stay tuned",
+    "pageInfo": "Page {page} of {total}",
+    "categories": {
+      "all": "All",
+      "company": "Company News",
+      "product": "Product Updates",
+      "industry": "Industry News",
+      "event": "Event Announcements"
+    },
+    "readMore": "Read More →",
+    "news": {
+      "platformMajorUpdate": {
+        "title": "Platform Major Update: New AI Models Launched",
+        "excerpt": "We are pleased to announce that the platform has integrated the latest GPT-4 and Claude 3 models, providing users with more powerful AI capabilities."
+      },
+      "award2024": {
+        "title": "ZhiHui AI Wins 2024 Best AI Platform Award",
+        "excerpt": "At the recently concluded AI Innovation Conference, ZhiHui AI platform won the Best AI Platform Award of the Year for its outstanding technical capabilities and user experience."
+      },
+      "industryTrends": {
+        "title": "AI Industry Development Trends Analysis Report",
+        "excerpt": "An in-depth analysis of AI industry development trends in 2024, including large models, multimodal AI, AI Agent and other hot technology directions."
+      },
+      "devConference2025": {
+        "title": "Developer Conference 2025 Coming Soon",
+        "excerpt": "We will host the annual Developer Conference in March, where we will release multiple major products and feature updates. Developers are welcome to register."
+      },
+      "workflowAutomation": {
+        "title": "New Feature Release: AI Workflow Automation",
+        "excerpt": "The new AI workflow feature is now live, allowing you to easily create complex AI automation processes through a visual interface."
+      },
+      "partnerProgram": {
+        "title": "Partner Program Officially Launched",
+        "excerpt": "We officially launched the Partner Program, welcoming all types of Enterprises and service providers to join and jointly promote the popularization and application of AI technology."
+      }
+    },
+    "quickNav": "Quick Navigation",
+    "fetchFailed": "Failed to fetch news",
+    "loadMore": "Load More",
+    "loadingMore": "Loading...",
+    "minRead": "分钟阅读"
+  }
+}

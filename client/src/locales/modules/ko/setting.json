@@ -1,0 +1,38 @@
+{
+  "setting": {
+    "placeholder": {
+      "siteName": "사이트 이름을 입력하세요",
+      "logo": "로고 URL을 입력하세요",
+      "icp": "예: 경ICP비12345678호",
+      "searchCarousel": "캐러셀 검색",
+      "userAgreement": "이용약관 내용을 입력하세요",
+      "privacyPolicy": "개인정보처리방침을 입력하세요",
+      "serviceTerms": "서비스 약관을 입력하세요"
+    },
+    "label": {
+      "baseSettings": "기본 설정",
+      "siteName": "사이트 이름",
+      "siteLogo": "사이트 로고",
+      "siteDescription": "사이트 설명",
+      "icp": "ICP 번호",
+      "contactEmail": "연락처 이메일",
+      "contactPhone": "연락처 전화",
+      "seoSettings": "SEO 설정",
+      "pageTitle": "페이지 제목",
+      "keywords": "키워드",
+      "pageDescription": "페이지 설명",
+      "paySettings": "결제 설정",
+      "wechatPay": "위챗페이",
+      "alipay": "알리페이",
+      "title": "제목",
+      "image": "이미지",
+      "link": "링크",
+      "sort": "정렬",
+      "status": "상태",
+      "actions": "작업",
+      "userAgreement": "이용약관",
+      "privacyPolicy": "개인정보처리방침",
+      "serviceTerms": "서비스 약관"
+    }
+  }
+}

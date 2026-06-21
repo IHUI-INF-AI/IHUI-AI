@@ -1,0 +1,43 @@
+{
+  "adminTopUpManagement": {
+    "actions": {
+      "export": "導出記錄"
+    },
+    "search": {
+      "status": "充值狀態",
+      "statusPlaceholder": "請選擇充值狀態",
+      "statusPending": "待支付",
+      "statusPaid": "已支付",
+      "statusFailed": "支付失敗",
+      "statusCancelled": "已取消"
+    },
+    "table": {
+      "status": "充值狀態"
+    },
+    "paymentMethod": {},
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "failed": "支付失敗",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    },
+    "detail": {
+      "status": "充值狀態"
+    },
+    "dialog": {},
+    "messages": {
+      "noExportData": "沒有可導出的數據",
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    },
+    "export": {
+      "filename": "filename",
+      "title": "匯出"
+    },
+    "exportFormatPrompt": "請選擇導出格式",
+    "exportCSV": "導出CSV",
+    "exportExcel": "導出Excel",
+    "exportPDF": "導出PDF"
+  }
+}

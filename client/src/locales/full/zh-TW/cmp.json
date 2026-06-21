@@ -1,0 +1,102 @@
+{
+  "cmpVipIntroducePopup": {},
+  "cmpEnhancedFileUpload": {
+    "folderMode": "文件夾模式",
+    "clickSelectFolder": "點擊選擇文件夾或拖拽到此處",
+    "clickSelectFile": "點擊選擇文件或拖拽到此處",
+    "xx_formatSizepropsmaxSize": "最大 ${formatSize(props.maxSize)}",
+    "uploadFailed": "上傳失敗",
+    "linkCopied": "連結已複製"
+  },
+  "cmpConfirmPurchasePopUp": {
+    "vipPurchase": "會員購買",
+    "agreementDeveloping": "協議頁面開發中",
+    "productNotExist": "商品信息不存在",
+    "paySuccess": "支付成功",
+    "paySuccess2": "支付成功"
+  },
+  "cmpFileDownload": {
+    "downloading": "下載中...",
+    "invalidDownloadLink": "下載連結無效",
+    "downloadFailed": "下載失敗",
+    "downloadComplete": "下載完成",
+    "downloadFailed2": "下載失敗"
+  },
+  "cmpPdfToolsPanel": {
+    "presetWatermark": "預設浮水印",
+    "splitOption": "拆分選項",
+    "allPages": "全部頁面",
+    "currentPage": "當前頁面",
+    "showPageNum": "顯示頁碼"
+  },
+  "cmpPdfCompare": {
+    "syncScroll": "同步滾動",
+    "syncZoom": "同步縮放",
+    "selectPdfA": "請選擇PDF檔案A",
+    "selectPdfB": "請選擇PDF檔案B"
+  },
+  "cmpVersionDiff": {
+    "selectVersionToCompare": "請選擇要對比的版本",
+    "selectDiffVersion": "請選擇不同的版本進行對比",
+    "getVersionFailed": "版本資訊獲取失敗",
+    "compareFailed": "版本對比失敗"
+  },
+  "cmpPromptTemplates": {
+    "fillAllFields": "請填寫完整資訊",
+    "templateAdded": "範本新增成功",
+    "templateDeleted": "範本已刪除"
+  },
+  "cmpVipIntroducePopupAlt": {
+    "benefitsCount": "............約 <b>20</b> 項權益, 且持續增加 ↑",
+    "paySuccess": "支付成功",
+    "payFailed": "支付失敗或已取消"
+  },
+  "cmpDocViewer": {
+    "loadingDoc": "正在載入文件...",
+    "pdfLoadFailed": "PDF載入失敗",
+    "pdfTools": "PDF工具",
+    "zoomIn": "放大",
+    "zoomOut": "縮小",
+    "reset": "重置",
+    "fullscreen": "全螢幕",
+    "download": "下載",
+    "prevPage": "上一頁",
+    "nextPage": "下一頁",
+    "defaultTitle": "文件",
+    "categoryPdf": "PDF文件",
+    "categoryDocument": "Word文件",
+    "categorySpreadsheet": "Excel表格",
+    "categoryPresentation": "PPT簡報",
+    "categoryImage": "圖片",
+    "categoryVideo": "影片",
+    "categoryAudio": "音訊",
+    "categoryCode": "程式碼檔案",
+    "categoryMarkdown": "Markdown",
+    "categoryText": "文字檔案",
+    "categoryArchive": "壓縮檔",
+    "categoryModel3d": "3D模型",
+    "categoryCad": "CAD圖紙",
+    "categoryUnknown": "檔案"
+  },
+  "cmpHeader": {},
+  "cmpToolbar": {
+    "imagessvgxxxsvg": "/images/svg/大模型.svg",
+    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
+  },
+  "cmpVipLevelPopup": {
+    "vipLevelMechanism": "會員等級升級機制",
+    "yuanToPoint": "1¥=1點成長值"
+  },
+  "cmpAuditLog": {
+    "loadLogFailed": "載入日誌失敗"
+  },
+  "cmpErrorBoundary": {
+    "pageError": "頁面出現錯誤"
+  },
+  "cmpFileManager": {
+    "batchDeleteSuccess": "批次刪除成功"
+  },
+  "cmpFileUpload": {
+    "uploadFailed": "上傳失敗"
+  }
+}

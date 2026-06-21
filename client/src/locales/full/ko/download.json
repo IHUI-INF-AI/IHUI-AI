@@ -1,0 +1,21 @@
+{
+  "downloadCenter": {
+    "홈으로": "홈으로 돌아가기",
+    "핵심 장점": "다운로드 센마음",
+    "sub핵심 장점": "애플사용, SDK, 문서 및 기타 리소스 다운로드",
+    "apps": {
+      "ios": {},
+      "android": {}
+    },
+    "sdkList": {
+      "javascript": {},
+      "python": {},
+      "java": {}
+    },
+    "docs": {
+      "api": {},
+      "guide": {},
+      "design": {}
+    }
+  }
+}

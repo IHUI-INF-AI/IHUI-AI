@@ -1,0 +1,266 @@
+{
+  "agentChat": {
+    "send": "送信",
+    "showReasoning": "思考プロセスをテーブル示",
+    "hideReasoning": "思考プロセスを非テーブル示",
+    "reject": "拒いいえ",
+    "approve": "承認",
+    "needManualReview": "手動レビューが必要",
+    "startChat": "エージェントとのチャットを開始",
+    "startChatHint": "エージェントは複雑なタスクや推論の実行をサポートします",
+    "inputMessagePlaceholder": "エージェントにメッセージを入力...",
+    "pleaseEnterContent": "メッセージコンテンツを入力してください",
+    "messageSent": "メッセージを送信しました",
+    "step": "ステップ",
+    "roles": {
+      "user": "ユーザー",
+      "assistant": "AIアシスタント"
+    },
+    "stages": {
+      "reasoning": "思考中",
+      "acting": "実行中",
+      "result": "完了"
+    },
+    "reasoningChain": {
+      "step1": "ユーザー要求を分析中...",
+      "step2": "タスク目標を理解中...",
+      "step3": "実行計画を作成中..."
+    },
+    "agentReply": "エージェント返信：ご要件「{message}」を理解しました。処理中...",
+    "errors": {
+      "switchModeFailed": "モードの切り替えに失敗しました",
+      "sendMessageFailed": "メッセージの送信に失敗しました",
+      "startVoiceRecognitionFailed": "音声認識の開始に失敗しました",
+      "stopVoiceRecognitionFailed": "音声認識の停止に失敗しました",
+      "loadModelsFailed": "モデルリストの読み込みに失敗しました",
+      "voiceRecognitionAlreadyStarted": "音声認識済み启动，请先停止現在認識",
+      "copyFailed": "コピー失敗",
+      "readFileFailed": "读取ファイル失敗"
+    },
+    "success": {
+      "copyToClipboard": "クリップボードにコピーしました",
+      "messageUpdated": "メッセージを更新しいしました",
+      "messageDeleted": "メッセージを削除しました",
+      "fileUploaded": "ファイルをアップロードしました"
+    },
+    "warnings": {
+      "maxFileUpload": "最大10個のファイルをアップロードできます",
+      "fileSizeExceeded": "ファイルサイズが制限を超えています",
+      "confirmDelete": "このメッセージを削除してもよろしいですか？"
+    },
+    "features": {
+      "regenerateDeveloping": "再生成機できるは開発中です",
+      "retryDeveloping": "再試行機できるは開発中です",
+      "exportDeveloping": "エクスポート機できるは開発中です"
+    },
+    "voiceRecognition": {
+      "stopped": "音声認識が停止しました"
+    },
+    "timeLabels": {
+      "justNow": "たった今",
+      "minutesAgo": "{minutes}分前",
+      "hoursAgo": "{hours}時間前",
+      "daysAgo": "{days}日前"
+    },
+    "audioRecording": "🎤 録音 {duration}秒"
+  },
+  "agentCard": {
+    "dashscopeModel": "百炼モデル"
+  },
+  "agentScenario": {
+    "heroTitle": "エージェントシナリオコンパス",
+    "heroSubtitle": "基于タスク実行复杂度与自主决策依頼度两件维度，支援企業認識和规划エージェントシーンを適用，找到最适合的AI落地パス。",
+    "overview": {
+      "title": "理解エージェントシナリオコンパス",
+      "description": "エージェントシナリオコンパス是一件支援企業認識和规划AIエージェントシーンを適用的分析框架。通過ぎタスク実行复杂度和自主决策依頼度两件维度，将エージェント適用分为四件象限，支援企業根据自身情况選択最适合的落地パス。",
+      "keyPoint": "コア洞察",
+      "keyPointText": "様々な象限的エージェント対技術機できる、デプロイコスト和风险管控的要求各不相同。企業应从左下象限（簡体字单决策+簡体字单実行）開始，逐步积累経験后再向その他象限扩展。"
+    },
+    "axes": {
+      "complexity": {
+        "title": "タスク実行复杂度",
+        "low": "低",
+        "high": "高"
+      },
+      "autonomy": {
+        "title": "自主决策依頼度",
+        "low": "低",
+        "high": "高"
+      }
+    },
+    "characteristics": {
+      "title": "特征"
+    },
+    "examples": {
+      "title": "典型適用"
+    },
+    "value": {
+      "title": "价値特定"
+    },
+    "quadrants": {
+      "simple": {
+        "title": "効率的助手 - 簡单决策兼簡单実行エージェント",
+        "fullDescription": "これ类エージェント处于シーンコンパス的左下象限，特点是自主决策依頼度低、タスク実行复杂度也低。ユーザー意图明确，エージェント只需完了相対簡单的タスク，通常関連少量ステップ和API调用。",
+        "chars": {
+          "steps": "ステップ少ない",
+          "calls": "呼び出し簡体字单",
+          "volume": "処理量高",
+          "dependency": "低依頼度"
+        },
+        "examples": {
+          "workflow": {
+            "name": "プロセス自動化助手",
+            "desc": "自動化処理重复性工作プロセス，如データ录入、报テーブル生成"
+          },
+          "qa": {
+            "desc": "Desc",
+            "name": "Name"
+          }
+        },
+        "value": "技術ハードル最低，デプロイ最速い，适合企業AI化的第一步。可以クイック产生价値，建立チーム対AI的信心。"
+      },
+      "decision": {
+        "title": "智慧顧问 - 复杂决策エージェント",
+        "fullDescription": "これ类エージェント处于シーンコンパス的左上象限，特点是自主决策依頼度高、但タスク実行复杂度低。ユーザー提出的是開放性問題，必要エージェント進行深度思考和分析，但最终的実行相対簡单（如生成レポート或提案）。",
+        "chars": {
+          "openEnded": "開放性問題",
+          "reasoning": "深度推理",
+          "output": "出力簡体字单",
+          "prediction": "予測分析"
+        },
+        "examples": {
+          "analysis": {
+            "name": "データ分析顧问",
+            "desc": "深度分析业务データ，発見洞察并提供可视化レポート"
+          },
+          "advisor": {
+            "name": "决策サポート顧问",
+            "desc": "综合多い方面情報，为管理层提供决策提案"
+          }
+        },
+        "value": "コア价値在于下げる决策コスト，提高决策品質。适合必要深度分析但実行簡单的シーン。"
+      },
+      "execution": {
+        "title": "実行専門家 - 复杂実行エージェント",
+        "fullDescription": "これ类エージェント处于シーンコンパス的右下象限，特点是自主决策依頼度低、但タスク実行复杂度高。ユーザー意图非常明确，但完了タスク必要协调多件系统、调用多件API、実行复杂的プロセス。",
+        "chars": {
+          "clearIntent": "意图明确",
+          "multiStep": "多いステッププロセス",
+          "multiAPI": "多いAPI调用",
+          "crossSystem": "跨システム協力"
+        },
+        "examples": {
+          "meeting": {
+            "name": "会议安排助手",
+            "desc": "协调多い方日程，预订会议室，送信邀ご，准备会议资料"
+          },
+          "approval": {
+            "name": "审批プロセス助手",
+            "desc": "自動化复杂的审批プロセス，跨部門协调，ドキュメント流转"
+          }
+        },
+        "value": "コア价値在于解放人力，処理跨系统的复杂タスク。必要良好的システム統合機できる。"
+      },
+      "complex": {
+        "title": "全できる専門家 - 复杂决策兼复杂実行エージェント",
+        "badge": "高级適用",
+        "fullDescription": "これ类エージェント处于シーンコンパス的右上象限，是最复杂的エージェントタイプ。它必要処理不確定性高的開放式タスク，自主進行规划和决策，同时実行過ぎ程也関連多系统協力和長週期管理。",
+        "chars": {
+          "autonomousPlanning": "自主规划",
+          "autonomousExecution": "自主実行",
+          "lifecycle": "生命週期管理",
+          "multiAgent": "多エージェント協力"
+        },
+        "examples": {
+          "marketing": {
+            "name": "营销アクティビティ自動化",
+            "desc": "从市场调研到アクティビティ策划、実行、効果追踪的全プロセス自動化"
+          },
+          "multiAgent": {
+            "name": "多エージェント協力系统",
+            "desc": "多件専門エージェント协同工作，共同完了复杂プロジェクト"
+          }
+        },
+        "value": "代テーブルAI適用的最高水平，必要强大的大モデル機できる和完善的基本インフラ。提案在积累足够経験后再尝试。"
+      }
+    },
+    "guide": {
+      "title": "企業落地提案",
+      "intro": "基于エージェントシナリオコンパス，私たち提案企業采用渐進式的AI落地策略，从簡单シーン開始，逐步积累経験和機できる。",
+      "steps": {
+        "identify": {
+          "title": "認識シーン",
+          "desc": "梳理业务プロセス，認識可できるできる性的AIシーンを適用，并用コンパス進行カテゴリ"
+        },
+        "evaluate": {
+          "title": "评估機できる",
+          "desc": "评估企業現在的技術機できる、データ基本和組織准备度"
+        },
+        "pilot": {
+          "title": "试点検証",
+          "desc": "選択1-2件簡体字单シーン進行试点，验证价値并积累経験"
+        },
+        "scale": {
+          "title": "规模拡張",
+          "desc": "基于试点経験，逐步扩展到もっとシーン和更复杂的象限"
+        }
+      }
+    },
+    "cta": {
+      "title": "開启您的AIエージェント之旅",
+      "description": "参加スマートAI社，与専門顧问一起规划最适合您企業的エージェント落地パス",
+      "learnMore": "詳しく企業サービス",
+      "contact": "連絡顧问"
+    },
+    "footer": {
+      "enterprise": "企業サービス",
+      "humanMachine": "人間と機械協力",
+      "contact": "お問い合わせ"
+    }
+  },
+  "agentManager": {
+    "title": "タイトル",
+    "createAgent": "作成Agent",
+    "name": "名前",
+    "type": "タイプ",
+    "model": "モデル",
+    "status": "ステータス",
+    "test": "Test",
+    "testAgent": "TestAgent",
+    "editAgent": "編集Agent",
+    "agentNamePlaceholder": "agentNameご入力",
+    "selectTypePlaceholder": "selectTypeご入力",
+    "typeReasoning": "Type推理",
+    "typeActing": "TypeActing",
+    "typeSpecialist": "TypeSpecialist",
+    "selectModelPlaceholder": "selectModelご入力",
+    "systemPrompt": "Systemヒント符",
+    "systemPromptPlaceholder": "systemPromptご入力",
+    "deleteConfirm": "確定要削除吗？",
+    "deleteTitle": "削除タイトル",
+    "statusActive": "ステータスアクティビティ",
+    "statusInactive": "ステータス非アクティビティ",
+    "statusDeprecated": "ステータス済み弃用",
+    "statusUnknown": "ステータスUnknown"
+  },
+  "agentSwarmMonitor": {
+    "status": "ステータス",
+    "task": "タスク",
+    "currentIteration": "現在迭代",
+    "agentStatus": "エージェントステータス",
+    "agentName": "Agent名前",
+    "type": "タイプ",
+    "currentStep": "現在ステップ",
+    "performanceMetrics": "テーブル现Metrics",
+    "successRate": "成功速率",
+    "averageExecutionTime": "平均値実行時間",
+    "averageTokens": "平均値Tokens",
+    "totalSteps": "合計Steps",
+    "completedSteps": "完了Steps",
+    "failedSteps": "FailedSteps",
+    "toolResults": "ツールResults",
+    "reflection": "Reflection",
+    "corrected": "Corrected",
+    "correctedResult": "Corrected結果"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "viewerOfficeViewer": {
+    "title_Office_xx": "title || 'Office 文档'",
+    "loadingDoc": "Loading document...",
+    "largeDocHint": "Large documents may take a while",
+    "docLoadFailed": "Document load failed",
+    "tryDownload": "Please try downloading and opening with local software",
+    "officeDoc": "Office Document"
+  },
+  "viewerModel3DViewer": {
+    "model3dFile": "3D Model File",
+    "format": "Format",
+    "supportedFormat": "Supported Format",
+    "useBlenderHint": "Use Blender or online viewer"
+  },
+  "viewerCodeViewer": {
+    "loading": "Loading...",
+    "codeLoadFailed": "Code load failed",
+    "loadFailed": "Load failed"
+  },
+  "viewerMonacoViewer": {
+    "loading": "Loading...",
+    "codeLoadFailed": "Code load failed",
+    "loadFailed": "Load failed"
+  },
+  "viewerEnhancedPdfViewer": {
+    "loadingPdf": "Loading PDF...",
+    "pdfLoadFailed": "PDF load failed"
+  },
+  "viewerImageViewer": {
+    "loading": "Loading...",
+    "imageLoadFailed": "Image load failed"
+  },
+  "viewerMediaViewer": {
+    "mediaLoadFailed": "Media load failed"
+  }
+}

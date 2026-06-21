@@ -1,0 +1,16 @@
+{
+  "adminAuth": {
+    "searchPlaceholder": {
+      "authority": "搜尋權限",
+      "role": "搜尋角色"
+    },
+    "label": {
+      "permissionName": "權限名稱",
+      "permissionCode": "權限代碼",
+      "roleName": "角色名稱",
+      "roleCode": "角色代碼",
+      "memberCount": "成員數",
+      "actions": "操作"
+    }
+  }
+}

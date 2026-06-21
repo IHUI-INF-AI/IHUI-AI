@@ -1,0 +1,82 @@
+# ZHS Platform Staging 演练环境 (建议 114)
+# 包含: PG 16 (多租户) + Loki (日志) + Promtail (日志收集)
+#
+# 用法:
+#   docker compose -f deploy/staging/docker-compose.staging.yml up -d
+#   # 等 30s 等 PG 启动
+#
+# 注意: 本 compose 仅用于 staging 演练, 不包含业务 app (业务 app 在 helm chart 里跑)
+
+version: "3.8"
+
+x-pg-env: &pg-env
+  POSTGRES_USER: zhs
+  POSTGRES_PASSWORD: zhs_pg_pass
+  POSTGRES_DB: zhs_platform
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 (多租户 schema 隔离 目标)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: zhs-staging-pg
+    restart: unless-stopped
+    environment:
+      <<: *pg-env
+      # 允许从本机/容器外连接
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # 启动时自动建 tenant_1 schema (用于多租户验证)
+      - ./init-pg-multitenant.sql:/docker-entrypoint-initdb.d/01-multitenant.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zhs -d zhs_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Loki (日志聚合)
+  # ---------------------------------------------------------------------------
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: zhs-staging-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Promtail (日志收集 agent)
+  # ---------------------------------------------------------------------------
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: zhs-staging-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      # 收集容器日志
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # 收集业务 app 日志 (宿主机路径, 建议 116)
+      - ../logs:/var/log/zhs:ro
+    environment:
+      LOKI_URL: http://loki:3100/loki/api/v1/push
+
+volumes:
+  pg_data:
+    name: zhs-staging-pg-data
+  loki_data:
+    name: zhs-staging-loki-data

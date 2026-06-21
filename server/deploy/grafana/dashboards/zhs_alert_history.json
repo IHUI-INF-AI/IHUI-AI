@@ -1,0 +1,223 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "ZHS 告警历史查询面板, 基于 alert_history_db.py 持久化数据",
+  "editable": true,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "总告警数 (近 7 天)",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "alert_history_total{period=\"7d\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 50},
+              {"color": "red", "value": 100}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      }
+    },
+    {
+      "title": "Critical 告警数",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "targets": [
+        {
+          "expr": "alert_history_by_level{level=\"critical\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Warning 告警数",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "targets": [
+        {
+          "expr": "alert_history_by_level{level=\"warning\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Info 告警数",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "alert_history_by_level{level=\"info\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "近 7 天告警趋势",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": {"h": 8, "w": 16, "x": 0, "y": 4},
+      "targets": [
+        {
+          "expr": "alert_history_by_day_total",
+          "legendFormat": "总告警",
+          "refId": "A"
+        },
+        {
+          "expr": "alert_history_by_day{level=\"critical\"}",
+          "legendFormat": "Critical",
+          "refId": "B"
+        },
+        {
+          "expr": "alert_history_by_day{level=\"warning\"}",
+          "legendFormat": "Warning",
+          "refId": "C"
+        },
+        {
+          "expr": "alert_history_by_day{level=\"info\"}",
+          "legendFormat": "Info",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20,
+            "showPoints": "always"
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
+      }
+    },
+    {
+      "title": "Top 10 告警源",
+      "type": "bargauge",
+      "datasource": "Prometheus",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 4},
+      "targets": [
+        {
+          "expr": "topk(10, alert_history_by_source)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient"
+      }
+    },
+    {
+      "title": "告警级别分布",
+      "type": "piechart",
+      "datasource": "Prometheus",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 12},
+      "targets": [
+        {
+          "expr": "alert_history_by_level",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {"displayMode": "list", "placement": "right"},
+        "pieType": "donut"
+      }
+    },
+    {
+      "title": "告警发送状态",
+      "type": "table",
+      "datasource": "Prometheus",
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 12},
+      "targets": [
+        {
+          "expr": "alert_history_by_status",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["zhs", "alert", "history"],
+  "templating": {
+    "list": [
+      {
+        "name": "level",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(alert_history_by_level, level)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      },
+      {
+        "name": "source",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(alert_history_by_source, source)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "time": {"from": "now-7d", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ZHS 告警历史查询",
+  "uid": "zhs-alert-history",
+  "version": 1,
+  "weekStart": ""
+}

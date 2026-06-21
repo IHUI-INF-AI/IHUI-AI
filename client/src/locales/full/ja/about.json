@@ -1,0 +1,234 @@
+{
+  "about": {
+    "badge": "スマートAI",
+    "futureAI": "未来の",
+    "AIインフラ": "AIインフラ",
+    "missionText": "私たちは世界最先端のAIアプリケーションプラットフォームの構築に取り組んでおり、誰もが気軽にAI技術を利用し、社会の進歩とイノベーションを推進できるようにします。",
+    "backToHome": "ホームに戻る",
+    "learnMore": "詳細を見る",
+    "activeUsers": "アクティブユーザー",
+    "aiProjects": "AIプロジェクト",
+    "serviceUptime": "サービス稼働率",
+    "supportedCountries": "対応国",
+    "mission": {
+      "tag": "ミッション"
+    },
+    "aiForEveryone": "AIを誰もが使えるように",
+    "missionVision": "ミッションとビジョン",
+    "missionDescriptionFull": "私たちのミッションは、AIの利用ハードルを下げ、すべての人と企業が簡単にAIを利用できるようにすることです。AI技術は人類全体に役立つべきです。",
+    "features": {
+      "tag": "特徴",
+      "aiDialogDesc": "大規模言語モデルに基づくインテリジェント対話システム、複数回対話とコンテキスト理解をサポート",
+      "fastResponseDesc": "ミリ秒レベルの応答速度、グローバルCDNアクセラレーション、最適なユーザー体験を保証",
+      "communityDesc": "AI分野の専門家と愛好家が集まり、人工知能の最前線を共に探索",
+      "globalDesc": "サービスは世界50以上の国と地域をカバー、多言語ローカライズをサポート"
+    },
+    "platformCoreCapabilities": "プラットフォームの中核機能",
+    "journey": {
+      "tag": "歩み"
+    },
+    "developmentHistory": "発展の軌跡",
+    "team": {
+      "tag": "チーム",
+      "role1": "創業者 & CEO",
+      "desc1": "元Google AI研究員、自然言語処理に専念",
+      "role2": "最高技術責任者",
+      "desc2": "ディープラーニング専門家、複数の大規模AIプロジェクトを主導",
+      "role3": "製品責任者",
+      "desc3": "10年の製品経験、AI製品デザインとユーザー体験に専念"
+    },
+    "coreTeamLabel": "コアチーム",
+    "contact": {
+      "tag": "連絡"
+    },
+    "contactUsLabel": "お問い合わせ",
+    "emailLabel": "メール",
+    "companyAddress": "会社住所",
+    "companyAddressValue": "中国上海市浦東新区張江ハイテクパーク",
+    "phoneLabel": "電話番号",
+    "backHomeAlt": "ホームに戻る",
+    "title": "会社概要",
+    "subtitle": "スマートAI - あなたのAIアシスタントプラットフォーム",
+    "ourMission": "私たちのミッション",
+    "missionDescription": "スマートAIは、ユーザーに最先端のAIツールとサービスを提供し、業務効率を向上させ、創造性を刺激し、より多くの可能性を実現することに専念しています。",
+    "platformFeatures": "プラットフォーム特徴",
+    "aiConversation": "AI会話",
+    "aiConversationDesc": "AIと自然な会話を行い、スマートな提案と解決策を取得",
+    "richToolkit": "豊富なツール",
+    "richToolkitDesc": "複数のAIツールを提供し、様々なシーンのニーズに対応",
+    "professionalCommunity": "専門コミュニティ",
+    "professionalCommunityDesc": "業界の専門家が集まり、経験と洞察を共有",
+    "continuousInnovation": "継続的なイノベーション",
+    "continuousInnovationDesc": "常に更新と最適化を行い、最新のAI技術を提供",
+    "coreTeam": "コアチーム",
+    "teamMember1": "張明",
+    "teamRole1": "創業者兼CEO",
+    "teamDesc1": "10年間のAI業界経験、前有名テクノロジー会社技術監督",
+    "teamMember2": "李婷",
+    "teamRole2": "製品監督",
+    "teamDesc2": "8年の製品デザイン経験、ユーザー体験と製品イノベーションを専門とする",
+    "teamMember3": "王強",
+    "teamRole3": "技術監督",
+    "teamDesc3": "12年間のソフトウェア開発経験、複数のプログラミング言語とアーキテクチャデザインに精通",
+    "contactUs": "お問い合わせ",
+    "email": "メール",
+    "emailValue": "contact{'@'}ihui-agi-inf.com",
+    "address": "住所",
+    "addressValue": "北京市朝陽区テクノロジー園",
+    "phone": "電話",
+    "phoneValue": "400-123-4567",
+    "backHome": "ホームに戻る",
+    "buildFuture": "未来を構築する",
+    "aiInfrastructure": "AIインフラ",
+    "buildFutureDesc": "私たちは世界をリードするAIアプリケーションプラットフォームの構築に取り組んでおり、誰もが簡単にAI技術を活用し、社会の進歩とイノベーションを推進できるようにします。",
+    "returnHome": "ホームに戻る",
+    "learnMoreAlt": "詳しく見る",
+    "aiProjectsLabel": "AIプロジェクト",
+    "serviceAvailability": "サービス可用性",
+    "coveredCountries": "対応国",
+    "aiAccessible": "AIを身近に",
+    "missionVisionLabel": "ミッションとビジョン",
+    "missionVisionDesc": "スマートAIのミッションは、AIの利用ハードルを下げ、すべての人と企業が簡単にAIを活用できるようにすることです。私たちは、AI技術が全人類に奉仕すべきだと信じています。",
+    "platformCorePower": "プラットフォームの中核能力",
+    "developmentJourney": "発展の歩み",
+    "contactUsAlt": "お問い合わせ",
+    "emailAddress": "メールアドレス",
+    "companyAddressAlt": "会社住所",
+    "companyAddressFull": "中国上海市浦東新区張江ハイテクパーク",
+    "contactPhone": "電話番号",
+    "seo": {
+      "title": "私たちについて - スマートAIコミュニティ",
+      "description": "スマートAIコミュニティについて、プロフェッショナルなAIツール統合プラットフォーム",
+      "keywords": "スマートAIについて,AIプラットフォーム紹介,スマートAI",
+      "ogTitle": "私たちについて - スマートAIコミュニティ",
+      "ogDescription": "スマートAIコミュニティについて、プロフェッショナルなAIツール統合プラットフォーム"
+    },
+    "milestones": {
+      "event1": "会社設立",
+      "desc1": "スマート AI が正式に設立され、AI プラットフォームの研究開発を開始",
+      "event2": "製品公開",
+      "desc2": "スマート AI プラットフォーム 1.0 が正式に公開され、最初のユーザーを獲得",
+      "event3": "A 輪資金調達",
+      "desc3": "A 輪資金調達を完了、評価額は 1 億米ドルに達する",
+      "event4": "グローバル展開",
+      "desc4": "サービスは世界 50+ 国をカバー、ユーザーは 10 万人を突破"
+    }
+  },
+  "aboutUs": {
+    "title": "私たちについて",
+    "subtitle": "ZhiHui AIの開発履歴とチームについて",
+    "backホーム": "ホームに戻る",
+    "heroEyebrow": "ZhiHui AI",
+    "heroTitle": "私たちについて",
+    "heroSubtitle": "大規模言語モデルとマルチモーダルAIを、安定した製品・サービスに落とし込み、企業と開発者に使いやすいAI機できるとツールを提供しています。",
+    "heroMission": "すべての組織にAIを、すべてのアイデアにより良い実行力を。",
+    "stats": {
+      "users": "登録ユーザー",
+      "developers": "開発者",
+      "models": "AIモデル"
+    },
+    "companyIntro": {
+      "tag": "紹介",
+      "title": "私たちについて",
+      "subtitle": "技術と製品で、AIをあらゆるアプリとコラボレーションに届ける。",
+      "paragraph1": "ZhiHui AIはAIの製品化とスケールに注力しています。主要なLLM・マルチモーダルプロバイダーと接続し、統一API・ワークフロー・オープンプラットフォームで提供。企業がより低コスト・高速度でAIを導入・改善できるようにします。",
+      "paragraph2": "チームはインターネットとAIの最前線出身。アルゴリズムとエンジニアリングの深さと、実業務の理解を兼ね備えています。AIの価値は「実際に使われること」にあると信じ、信頼性・使いやすさ・拡張性に投資し、コラボレーション・コンテンツ制作・エージェント向けの即用ソリューションを提供しています。",
+      "visualSublabel": "AIファーストの製品・アーキテクチャ"
+    },
+    "coreValues": {
+      "tag": "価値",
+      "title": "コアバリュー",
+      "professional": {
+        "title": "専門性",
+        "description": "AI分野に深く関わり、専門的な技術ソリューションを提供"
+      },
+      "efficient": {
+        "title": "効率性",
+        "description": "開発プロセスを簡素化し、AIアプリケーションを迅速にオンライン化"
+      },
+      "reliable": {
+        "title": "信頼性",
+        "description": "安定した信頼性の高いサービスで、ビジネスの継続性を保証"
+      },
+      "innovative": {
+        "title": "革新しい性",
+        "description": "継続的な革新により、AI技術の発展をリード"
+      }
+    },
+    "developmentHistory": {
+      "tag": "履歴",
+      "title": "開発履歴"
+    },
+    "team": {
+      "tag": "チーム",
+      "title": "コアチーム",
+      "subtitle": "ビッグテックとAIの最前線出身のプロダクト・研究・エンジニアリングチームが、スケーラブルなAIサービスを構築しています。"
+    },
+    "contact": {
+      "title": "お問い合わせ",
+      "email": "メール",
+      "phone": "電話",
+      "address": "住所",
+      "emailValue": "contact@zhihuiai.com",
+      "phoneValue": "400-888-8888",
+      "addressValue": "北京市海淀区中关村大街1号"
+    },
+    "quickNav": {
+      "title": "クイックナビゲーション",
+      "newsCenter": "AIニュース",
+      "contactUs": "お問い合わせ",
+      "becomeSupplier": "サプライヤーになる"
+    },
+    "milestones": {
+      "companyFounded": {
+        "date": "2024年12月",
+        "title": "会社設立",
+        "description": "ZhiHui AIが正式設立され、AI技術の研究開発と製品革新に注力"
+      },
+      "aiAppStore": {
+        "date": "2025年1月",
+        "title": "ワールド初のAIアプリストア",
+        "description": "ワールド初のAIアプリストア概念を先駆けて提案・創設し、AIアプリ生態系の発展をリード"
+      },
+      "platformLaunched": {
+        "date": "2025年1月",
+        "title": "プラットフォーム公開",
+        "description": "AIサービスプラットフォームが正式に公開され、インテリジェント対話やテキスト生成などの中核機できるを提供"
+      },
+      "angelFunding": {
+        "date": "2025年2月",
+        "title": "2000万元のエンジェル資金調達",
+        "description": "36Krに掲載され、2000万元のエンジェルラウンド資金調達を完了、複数のVCファンドが共同出資"
+      },
+      "firstUsers": {
+        "date": "2025年3月",
+        "title": "初期ユーザー数の突破",
+        "description": "プラットフォームの初期シードユーザーが1000人を突破し、製品が初期市場で検証を獲得"
+      },
+      "modelIntegration": {
+        "date": "2025年6月",
+        "title": "大規模モデルの全面統合",
+        "description": "GPT-4、Claude、DeepSeek、文心一言などの主流大規模モデルAPIを統合し、サービス機できるが大幅に向上"
+      },
+      "usersMilestone": {
+        "date": "2025年10月",
+        "title": "6万人ユーザーの突破",
+        "description": "プラットフォーム登録ユーザーが6万人以上を突破し、市場から広く認知される"
+      },
+      "developersMilestone": {
+        "date": "2025年12月",
+        "title": "8000人開発者の突破",
+        "description": "プラットフォーム開発者数が8000人以上を突破し、アクティブな開発者エコシステムを構築"
+      }
+    },
+    "teamMembers": {
+      "founder": {
+        "name": "李総",
+        "role": "創設者兼CTO兼CEO",
+        "description": "AIアルゴリズム専門家、複数の特許発明者"
+      }
+    },
+    "footerTagline": "AIで、あらゆる創作と意思決定を支える。パートナーシップと対話を歓迎します。",
+    "backHome": "戻るホーム"
+  }
+}

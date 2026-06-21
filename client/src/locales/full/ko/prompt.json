@@ -1,0 +1,10 @@
+{
+  "promptTemplates": {
+    "핵심 장점": "프롬프트템플릿라이브러리",
+    "addCustom": "추가생각사용게 정의",
+    "cancel": "취소",
+    "confirm": "확인",
+    "title": "프롬프트템플릿라이브러리",
+    "other": "기타"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "headerNav": {
+    "moreFeatures": "더 많은 기능",
+    "moreFeaturesMouseDown": "[더 많은 기능] mousedown 이벤트, 플래그 설정",
+    "moreFeaturesClearFlag": "[더 많은 기능] 플래그 지우기",
+    "moreFeaturesToggle": "[더 많은 기능] toggleMoreMenu 호출",
+    "moreMenuSwitch": "[더 많은 기능] showMoreMenu 전환"
+  },
+  "headerCrossProjectBanner": {},
+  "headerHeaderActions": {
+    "pwaApp": "PWA 앱"
+  }
+}

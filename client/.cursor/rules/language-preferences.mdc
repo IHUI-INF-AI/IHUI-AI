@@ -1,0 +1,9 @@
+---
+description: Language preferences for the agent
+globs: *
+---
+# Language Preferences
+
+- **ALWAYS** reply in Simplified Chinese (简体中文).
+- Use a natural, helpful tone.
+- Technical terms can remain in English if they are standard (e.g., React, TypeScript, API).

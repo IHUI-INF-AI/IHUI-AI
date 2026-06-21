@@ -1,0 +1,44 @@
+{
+  "open": {
+    "featureCenter": {
+      "title": "功能中心",
+      "subtitle": "探索智能AI平台的强大功能",
+      "cards": {
+        "dashboard": {
+          "title": "仪表板",
+          "desc": "查看平台统计数据和快速入口",
+          "action": "进入仪表板"
+        },
+        "sdks": {
+          "title": "SDK 中心",
+          "desc": "下载和管理各种语言的 SDK",
+          "action": "查看 SDK"
+        },
+        "models": {
+          "title": "模型中心",
+          "desc": "浏览和管理可用的 AI 模型",
+          "action": "查看模型"
+        },
+        "agents": {
+          "title": "智能体中心",
+          "desc": "发现和使用各种智能体",
+          "action": "查看智能体"
+        },
+        "apis": {
+          "title": "API 中心",
+          "desc": "查看 API 文档和接口说明",
+          "action": "查看 API"
+        },
+        "document": {
+          "title": "文档中心",
+          "desc": "查看详细的API文档和开发指南",
+          "action": "查看文档"
+        }
+      }
+    },
+    "documentCenter": {
+      "title": "文档中心",
+      "subtitle": "全面的开发文档和API参考"
+    }
+  }
+}

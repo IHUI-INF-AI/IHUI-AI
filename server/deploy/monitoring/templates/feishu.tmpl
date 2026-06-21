@@ -1,0 +1,42 @@
+{{ define "zhs.feishu" }}
+{
+  "msg_type": "interactive",
+  "card": {
+    "header": {
+      "title": {
+        "content": "{{ if eq .Status \"firing\" }}🔴 ZHS 告警{{ else }}✅ ZHS 恢复{{ end }}",
+        "tag": "plain_text"
+      },
+      "template": "{{ if eq .Status \"firing\" }}red{{ else }}green{{ end }}"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "fields": [
+          {"is_short": true, "text": {"content": "**告警名**\n{{ .CommonLabels.alertname }}"}},
+          {"is_short": true, "text": {"content": "**服务**\n{{ .CommonLabels.service }}"}},
+          {"is_short": true, "text": {"content": "**集群**\n{{ .CommonLabels.cluster }}"}},
+          {"is_short": true, "text": {"content": "**严重程度**\n{{ .CommonLabels.severity }}"}}
+        ]
+      },
+      {
+        "tag": "div",
+        "text": {
+          "content": "**开始时间**: {{ .StartsAt.Format \"2006-01-02 15:04:05\" }}\n**状态**: {{ .Status }}"
+        }
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {"content": "查看详情", "tag": "plain_text"},
+            "type": "primary",
+            "url": "{{ .ExternalURL }}"
+          }
+        ]
+      }
+    ]
+  }
+}
+{{ end }}

@@ -1,0 +1,17 @@
+{
+  "errorBoundary": {
+    "reload": "重新載入",
+    "go首頁": "返回首頁",
+    "pageLoadError": "頁面加載失敗",
+    "unknownError": "未知錯誤",
+    "loadTimeout": "加載超時，請稍後重試",
+    "retry": "重試",
+    "hideDetails": "隐藏詳情",
+    "showDetails": "顯示詳情",
+    "errorDetails": "錯誤詳情",
+    "title": "標題",
+    "message": "消息",
+    "componentError": "組件錯誤",
+    "goHome": "返回首頁"
+  }
+}

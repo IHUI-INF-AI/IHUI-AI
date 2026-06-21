@@ -1,0 +1,114 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # 每天凌晨 2 点跑全量 e2e
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  e2e-chromium:
+    name: E2E (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared packages
+        run: npm run build:shared
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start dev server
+        run: |
+          nohup npm run dev > /tmp/dev.log 2>&1 &
+          sleep 30
+          curl -f http://localhost:8888 || (cat /tmp/dev.log && exit 1)
+
+      - name: Run CSP consistency check
+        run: npx tsx scripts/check-csp.ts
+
+      - name: Run Playwright e2e (chromium)
+        run: npx playwright test --project=chromium --reporter=html,junit
+        env:
+          CI: true
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-chromium
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-chromium
+          path: test-results/
+          retention-days: 14
+
+      - name: Stop dev server
+        if: always()
+        run: pkill -f "vite" || true
+
+  e2e-mobile:
+    name: E2E (Mobile Chrome)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: e2e-chromium
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared packages
+        run: npm run build:shared
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start dev server
+        run: |
+          nohup npm run dev > /tmp/dev.log 2>&1 &
+          sleep 30
+          curl -f http://localhost:8888 || (cat /tmp/dev.log && exit 1)
+
+      - name: Run Playwright e2e (mobile)
+        run: npx playwright test --project="Mobile Chrome" --reporter=junit
+        env:
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-mobile
+          path: test-results/
+          retention-days: 14
+
+      - name: Stop dev server
+        if: always()
+        run: pkill -f "vite" || true

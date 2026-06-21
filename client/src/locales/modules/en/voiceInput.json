@@ -1,0 +1,12 @@
+{
+  "voiceInput": {
+    "listening": "Listening...",
+    "stop": "Stop Recording",
+    "notSupported": "Your browser does not support speech recognition",
+    "noSpeech": "No speech detected, please try again",
+    "noMicrophone": "No microphone device found",
+    "permissionDenied": "Microphone permission denied, please allow it in browser settings",
+    "alreadyStarted": "Speech recognition already started, please stop the current recognition first",
+    "error": "Speech recognition error: {error}"
+  }
+}

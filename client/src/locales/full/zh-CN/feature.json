@@ -1,0 +1,19 @@
+{
+  "featureAppleLogin": {
+    "useAppleLogin": "使用Apple账号登录",
+    "appleLoginFailed": "Apple登录失败",
+    "appleLoginProcessFailed": "Apple登录处理失败",
+    "appleLoginFailed2": "Apple登录失败",
+    "appleLoginRetry": "Apple登录失败，请重试",
+    "appleLoginFailed3": "Apple登录失败"
+  },
+  "featureCallback": {
+    "expired": "过期",
+    "verifyFailed": "验证失败",
+    "missing": "缺少",
+    "attack": "攻击"
+  },
+  "featureGoogleLogin": {
+    "googleLoginFailed": "Google登录失败"
+  }
+}

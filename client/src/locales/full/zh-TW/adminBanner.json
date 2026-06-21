@@ -1,0 +1,39 @@
+{
+  "adminBannerManagement": {
+    "tabs": {},
+    "actions": {},
+    "bannerList": {
+      "status": "狀態"
+    },
+    "search": {
+      "statusPlaceholder": "請選擇狀態",
+      "statusAll": "全部",
+      "statusEnabled": "啟用",
+      "statusDisabled": "禁用"
+    },
+    "dialogs": {},
+    "messages": {},
+    "carouselForm": {
+      "status": "狀態",
+      "statusEnabled": "啟用",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "請選擇狀態"
+      },
+      "messages": {}
+    },
+    "activityForm": {
+      "status": "狀態",
+      "statusPlaceholder": "請選擇狀態",
+      "statusEnabled": "啟用",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "請選擇狀態"
+      },
+      "upload": {
+        "failed": "上傳失敗"
+      },
+      "messages": {}
+    }
+  }
+}

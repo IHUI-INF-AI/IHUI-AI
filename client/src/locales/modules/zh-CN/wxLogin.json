@@ -1,0 +1,10 @@
+{
+  "wxLogin": {
+    "title": "微信登录",
+    "description": "微信小程序登录页面",
+    "authorizationTitle": "微信授权登录",
+    "authorizationDesc": "使用微信账号快速登录",
+    "loginButton": "微信登录",
+    "developmentInProgress": "微信登录功能开发中"
+  }
+}

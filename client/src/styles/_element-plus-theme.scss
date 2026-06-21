@@ -1,0 +1,283 @@
+// ============================================
+// Element Plus 主题配置
+// 使用 :where() 降低特异性，便于组件覆盖
+// 此文件应在 CSS Layers 的 vendor 层中使用
+// ============================================
+
+// 导入设计令牌
+@use './_design-tokens.scss' as tokens;
+
+// ============================================
+// 输入框主题
+// ============================================
+@layer vendor {
+  // 输入框基础样式 - 使用 :where() 降低特异性
+  :where(.el-input) {
+    --el-input-border-radius: var(--global-border-radius);
+  }
+
+  /* 默认 1px；hover/focus 时整条 border 一起设为 2px+主色，避免先出现 1px 主色再变 2px；仅对 border-color 做 transition */
+  :where(.el-input__wrapper) {
+    background-color: var(--el-fill-color-light);
+    border-radius: var(--el-input-border-radius);
+    border: 1px solid var(--border-unified-color);
+    box-shadow: none;
+    transition: border-color 0.2s ease;
+  }
+
+  :where(.el-input__wrapper:hover) {
+    border: var(--el-border-width-primary) solid var(--el-border-color-hover, var(--el-color-primary));
+  }
+
+  :where(.el-input__wrapper.is-focus) {
+    border: var(--el-border-width-primary) solid var(--el-color-primary);
+  }
+
+  :where(.el-input__inner) {
+    font-family: var(--font-family-chinese, inherit);
+    color: var(--el-text-color-primary);
+  }
+
+  :where(.el-input__inner::placeholder) {
+    color: var(--el-text-color-placeholder);
+  }
+
+  // 文本域
+  :where(.el-textarea__inner) {
+    font-family: var(--font-family-chinese, inherit);
+    border-radius: var(--el-input-border-radius);
+  }
+
+  // ============================================
+  // 按钮主题
+  // ============================================
+  :where(.el-button) {
+    font-family: var(--font-family-chinese, inherit);
+    border-radius: var(--global-border-radius);
+    transition: all 0.2s ease;
+  }
+
+  :where(.el-button--primary) {
+    background-color: var(--el-color-primary, var(--el-text-color-primary));
+    color: var(--el-bg-color-page, var(--el-bg-color));
+  }
+
+  // 文字按钮
+  :where(.el-button--text) {
+    color: var(--el-text-color-primary);
+  }
+
+  :where(.el-button--text:hover) {
+    color: var(--el-color-primary);
+    background-color: transparent;
+  }
+
+  // ============================================
+  // 表单主题
+  // ============================================
+  :where(.el-form-item__label) {
+    font-family: var(--font-family-chinese, inherit);
+    color: var(--el-text-color-regular);
+  }
+
+  :where(.el-form-item__error) {
+    font-size: 12px;
+  }
+
+  // ============================================
+  // 选择器主题
+  // ============================================
+  :where(.el-select) {
+    --el-select-border-color-hover: var(--el-color-primary);
+  }
+
+  :where(.el-select__wrapper) {
+    border-radius: var(--global-border-radius);
+  }
+
+  :where(.el-select-dropdown__item) {
+    font-family: var(--font-family-chinese, inherit);
+  }
+
+  // ============================================
+  // 对话框主题
+  // ============================================
+  :where(.el-dialog) {
+    --el-dialog-border-radius: var(--global-border-radius);
+
+    border-radius: var(--el-dialog-border-radius);
+  }
+
+  :where(.el-dialog__header) {
+    font-family: var(--font-family-chinese, inherit);
+    padding: 20px;
+  }
+
+  :where(.el-dialog__title) {
+    font-weight: 600;
+  }
+
+  :where(.el-dialog__body) {
+    padding: 20px;
+  }
+
+  :where(.el-dialog__footer) {
+    padding: 16px 20px;
+  }
+
+  // ============================================
+  // 卡片主题
+  // ============================================
+  :where(.el-card) {
+    --el-card-border-radius: var(--global-border-radius);
+
+    border-radius: var(--el-card-border-radius);
+    border: 1px solid var(--border-unified-color);
+  }
+
+  :where(.el-card__header) {
+    font-family: var(--font-family-chinese, inherit);
+    font-weight: 600;
+  }
+
+  // ============================================
+  // 表格主题
+  // ============================================
+  :where(.el-table) {
+    font-family: var(--font-family-chinese, inherit);
+  }
+
+  :where(.el-table th) {
+    font-weight: 600;
+    background-color: var(--el-fill-color-light);
+  }
+
+  :where(.el-table td) {
+    color: var(--el-text-color-regular);
+  }
+
+  // ============================================
+  // 消息提示主题
+  // ============================================
+  :where(.el-message) {
+    font-family: var(--font-family-chinese, inherit);
+    border-radius: var(--global-border-radius);
+  }
+
+  :where(.el-notification) {
+    font-family: var(--font-family-chinese, inherit);
+    border-radius: var(--global-border-radius);
+  }
+
+  // ============================================
+  // 标签页主题
+  // ============================================
+  :where(.el-tabs__item) {
+    font-family: var(--font-family-chinese, inherit);
+  }
+
+  :where(.el-tabs__item.is-active) {
+    color: var(--el-color-primary);
+  }
+
+  // ============================================
+  // 分页主题
+  // ============================================
+  :where(.el-pagination) {
+    font-family: var(--font-family-chinese, inherit);
+  }
+
+  :where(.el-pagination .el-pager li) {
+    border-radius: var(--global-border-radius);
+  }
+
+  :where(.el-pagination .el-pager li.is-active) {
+    background-color: var(--el-color-primary);
+    color: var(--el-bg-color);
+  }
+
+  // ============================================
+  // 菜单主题
+  // ============================================
+  :where(.el-menu) {
+    font-family: var(--font-family-chinese, inherit);
+  }
+
+  :where(.el-menu-item) {
+    font-family: var(--font-family-chinese, inherit);
+  }
+
+  :where(.el-menu-item.is-active) {
+    color: var(--el-color-primary);
+  }
+
+  // ============================================
+  // 下拉菜单主题
+  // ============================================
+  :where(.el-dropdown-menu) {
+    border-radius: var(--global-border-radius);
+    border: 1px solid var(--dropdown-border-color, var(--el-border-color-light));
+  }
+
+  :where(.el-dropdown-menu__item) {
+    font-family: var(--font-family-chinese, inherit);
+  }
+
+  // ============================================
+  // Tooltip 主题
+  // ============================================
+  :where(.el-tooltip__trigger) {
+    outline: none;
+  }
+
+  // ============================================
+  // 骨架屏主题
+  // ============================================
+  :where(.el-skeleton) {
+    --el-skeleton-color: var(--el-fill-color);
+    --el-skeleton-to-color: var(--el-fill-color-dark);
+  }
+
+  // ============================================
+  // 加载主题
+  // ============================================
+  :where(.el-loading-mask) {
+    background-color: var(--el-mask-color, var(--color-white-90));
+  }
+
+  // 暗色模式加载遮罩
+  html.dark :where(.el-loading-mask) {
+    background-color: var(--el-mask-color, var(--color-black-90));
+  }
+}
+
+// ============================================
+// 暗色模式特殊处理
+// 使用 :where() 降低特异性
+// ============================================
+@layer vendor {
+  html.dark {
+    :where(.el-input__wrapper) {
+      background-color: var(--el-fill-color-darker);
+      box-shadow: var(--global-box-shadow);
+    }
+
+    :where(.el-card) {
+      background-color: var(--el-bg-color);
+      border-color: var(--el-border-color-dark);
+    }
+
+    :where(.el-table th) {
+      background-color: var(--el-fill-color-dark);
+    }
+
+    :where(.el-dialog) {
+      background-color: var(--el-bg-color);
+    }
+
+    :where(.el-dropdown-menu) {
+      background-color: var(--el-bg-color);
+      border-color: var(--el-border-color-dark);
+    }
+  }
+}

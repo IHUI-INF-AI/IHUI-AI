@@ -1,0 +1,43 @@
+{
+  "documentCenter": {
+    "title": "文檔中心",
+    "allDocs": "全站文檔",
+    "searchHint": "搜索",
+    "noFeatures": "暫無可用功能",
+    "back": "返回",
+    "back首頁": "返回首頁",
+    "breadcrumb": "首頁 / 服務與支持 / 文檔中心",
+    "support": "聯繫支援",
+    "subtitle": "完整的技術文檔、API 參考和開發指南",
+    "searchPlaceholder": "搜索文檔...",
+    "quickStart": "快速開始",
+    "apiDocs": "API 文檔",
+    "guides": "開發指南",
+    "userDocs": "用戶文檔",
+    "developerDocs": "開發者文檔",
+    "faq": "常見問題",
+    "quickNav": "快速導航",
+    "comingSoon": "文檔詳情即將開放，敬請期待",
+    "incentiveProgram": {
+      "label": "00 / 開發者激勵計劃",
+      "overview": "計劃概述",
+      "overviewDesc": "了解智匯AI社區開發者激勵計劃的核心內容",
+      "publishGuide": "智能體發布指南",
+      "publishGuideDesc": "手把手教你將扣子智能體發布到智匯AI社區",
+      "monetizationGuide": "開發者變現指南",
+      "monetizationGuideDesc": "了解如何通過智能體實現「睡」後收入",
+      "platformIntro": "平台功能介紹",
+      "platformIntroDesc": "一站式AI創新生態平台全功能解析"
+    },
+    "backHome": "返回首頁",
+    "files": "Files",
+    "linkCopied": "Link Copied",
+    "noShared": "No Shared",
+    "shareDeleted": "Share Deleted",
+    "shareLink": "Share Link",
+    "shared": "Shared",
+    "upload": "Upload",
+    "uploadError": "Upload Error",
+    "uploadSuccess": "Upload Success"
+  }
+}

@@ -1,0 +1,296 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "P13 灰度发布实时看板: canary 阶段 (1%/10%/50%/100%) / v1 vs v2 错误率延迟对比 / 流量分摊 / 自动回滚指示",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "title": "ZHS v1→v2 Canary Release (P13)",
+  "tags": ["migration", "v2", "canary", "p13", "zhs"],
+  "timezone": "browser",
+  "time": { "from": "now-3h", "to": "now" },
+  "refresh": "15s",
+  "schemaVersion": 38,
+  "version": 1,
+  "links": [
+    { "title": "P10 迁移看板", "url": "/d/dashboard-p10-migration", "type": "link", "icon": "external link" },
+    { "title": "v2 OpenAPI", "url": "/openapi/v2.json", "type": "link", "icon": "external link" },
+    { "title": "迁移统计", "url": "/api/migration/stats", "type": "link", "icon": "external link" }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "stage",
+        "type": "custom",
+        "label": "灰度阶段",
+        "current": { "text": "10%", "value": "10" },
+        "options": [
+          { "text": "1% (灰度 1)", "value": "1" },
+          { "text": "10% (灰度 2)", "value": "10" },
+          { "text": "50% (灰度 3)", "value": "50" },
+          { "text": "100% (全量)", "value": "100" }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "当前灰度阶段",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "orange", "value": 50 },
+              { "color": "green", "value": 100 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "expr": "zhs_api_canary_stage_percent",
+          "legendFormat": "灰度 %",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "v1 错误率",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 2
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        {
+          "expr": "sum(rate(zhs_api_errors_total{version=\"v1\"}[5m])) / sum(rate(zhs_api_requests_total{version=\"v1\"}[5m])) * 100",
+          "legendFormat": "v1 错误率 %",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "v2 错误率",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 2
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "targets": [
+        {
+          "expr": "sum(rate(zhs_api_errors_total{version=\"v2\"}[5m])) / sum(rate(zhs_api_requests_total{version=\"v2\"}[5m])) * 100",
+          "legendFormat": "v2 错误率 %",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "自动回滚指示",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "expr": "zhs_api_canary_rollback_active",
+          "legendFormat": "回滚触发",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "v1 vs v2 请求量 (QPS)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "legend": { "displayMode": "table" } },
+      "targets": [
+        {
+          "expr": "sum(rate(zhs_api_requests_total{version=\"v1\"}[1m]))",
+          "legendFormat": "v1 QPS",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(zhs_api_requests_total{version=\"v2\"}[1m]))",
+          "legendFormat": "v2 QPS",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "v1 vs v2 错误率对比",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "legend": { "displayMode": "table" } },
+      "targets": [
+        {
+          "expr": "sum(rate(zhs_api_errors_total{version=\"v1\"}[5m])) / sum(rate(zhs_api_requests_total{version=\"v1\"}[5m])) * 100",
+          "legendFormat": "v1 %",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(zhs_api_errors_total{version=\"v2\"}[5m])) / sum(rate(zhs_api_requests_total{version=\"v2\"}[5m])) * 100",
+          "legendFormat": "v2 %",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "v1 vs v2 P95 延迟 (ms)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "legend": { "displayMode": "table" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(zhs_api_request_duration_seconds_bucket{version=\"v1\"}[5m])) by (le)) * 1000",
+          "legendFormat": "v1 p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(zhs_api_request_duration_seconds_bucket{version=\"v2\"}[5m])) by (le)) * 1000",
+          "legendFormat": "v2 p95",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "v1 弃用埋点 (BEACON + 中间件)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "legend": { "displayMode": "table" } },
+      "targets": [
+        {
+          "expr": "sum(rate(zhs_api_v1_legacy_requests_total{method=\"BEACON\"}[5m])) by (endpoint)",
+          "legendFormat": "BEACON {{endpoint}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(zhs_api_v1_legacy_requests_total{method!=\"BEACON\"}[5m]))",
+          "legendFormat": "中间件",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "灰度端点实时状态",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 20, "w": 24, "h": 8 },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "阶段", "desc": false }]
+      },
+      "targets": [
+        {
+          "expr": "zhs_api_canary_endpoint_stage",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

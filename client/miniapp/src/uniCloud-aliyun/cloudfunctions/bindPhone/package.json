@@ -1,0 +1,11 @@
+{
+  "name": "bindPhone",
+  "version": "1.0.0",
+  "description": "手机号绑定与会员卡生成云函数",
+  "main": "index.js",
+  "dependencies": {
+    "crypto": "^1.0.1"
+  },
+  "author": "",
+  "license": "ISC"
+} 

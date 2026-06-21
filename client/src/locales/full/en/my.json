@@ -1,0 +1,125 @@
+{
+  "myAppointments": {
+    "title": "My Appointments",
+    "subtitle": "View and manage your service appointments",
+    "noAppointments": "No appointments",
+    "loadFailed": "Failed to load, please try again later",
+    "filter": {
+      "serviceType": "Service Type",
+      "allServices": "All Services",
+      "Status": "Status",
+      "allStatus": "All Status",
+      "status": "Status"
+    },
+    "Status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "viewDetail": "View Detail",
+    "cancel": "Cancel Appointment",
+    "confirmCancel": "Are you sure you want to cancel this appointment?",
+    "confirmCancelTitle": "Confirm Cancel",
+    "cancelSuccess": "Appointment cancelled",
+    "cancelFailed": "Failed to cancel, please try again later",
+    "detailTitle": "Appointment Detail",
+    "detail": {
+      "serviceType": "Service Type",
+      "Status": "Status",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "preferredDate": "Preferred Date",
+      "preferredTime": "Preferred Time",
+      "description": "Description",
+      "createdAt": "Created At",
+      "confirmedAt": "Confirmed At",
+      "completedAt": "Completed At",
+      "cancelledAt": "Cancelled At",
+      "adminNotes": "Admin Notes",
+      "status": "Status"
+    },
+    "status": {
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "confirmed": "已确认",
+      "pending": "待确认"
+    }
+  },
+  "myCommission": {
+    "title": "My Commission",
+    "subtitle": "View your trader commission details",
+    "totalCommission": "Total Commission",
+    "available": "Available",
+    "withdrawn": "Withdrawn",
+    "pendingCommission": "Pending Commission",
+    "todayCommission": "Today's Commission",
+    "yuan": "Yuan",
+    "withdraw": "Withdraw",
+    "withdrawDetail": "Withdrawal Details",
+    "commission": "Commission",
+    "buyer": "Buyer",
+    "copy": "Copy",
+    "noCommission": "No commission records",
+    "withdrawSuccess": "Withdrawal successful",
+    "withdrawDetailInfo": "View withdrawal details",
+    "tabs": {
+      "all": "All",
+      "pending": "Pending",
+      "settled": "Settled",
+      "cancelled": "Cancelled"
+    },
+    "table": {
+      "buyer": "Buyer",
+      "relatedOrder": "Related Order",
+      "commissionAmount": "Commission Amount",
+      "Status": "Status",
+      "orderTime": "Order Time",
+      "actions": "Actions",
+      "copyOrderId": "Copy Order ID"
+    },
+    "Status": {
+      "settled": "Settled",
+      "pending": "Pending",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "noRecords": "No commission records",
+    "errors": {
+      "loadFailed": "Failed to load commission data",
+      "loadRetry": "Failed to load commission data, please try again later",
+      "copySuccess": "Order ID copied to clipboard",
+      "copyFailed": "Copy Failed, please copy manually"
+    },
+    "pending": "Pending",
+    "orderTime": "Order Time",
+    "relatedOrder": "Related Order",
+    "copySuccess": "Copy Success",
+    "copyFailed": "Copy Failed"
+  },
+  "memberMenu": {
+    "account": "Account",
+    "personal": "Personal Info",
+    "setting": "Account Settings",
+    "point": "My Points",
+    "certificate": "My Certificates",
+    "learn": "Learning",
+    "learnRecord": "Learning Records",
+    "homework": "My Homework",
+    "exam": "Exams",
+    "examSignUp": "Exam Registration",
+    "examRecord": "Answer Records",
+    "examWrong": "Wrong Questions",
+    "sns": "Social",
+    "follow": "My Following",
+    "fans": "My Fans",
+    "favorites": "My Favorites",
+    "comment": "My Comments",
+    "content": "Content",
+    "circle": "My Circles",
+    "ask": "My Q&A",
+    "article": "My Articles",
+    "resource": "My Resources"
+  }
+}

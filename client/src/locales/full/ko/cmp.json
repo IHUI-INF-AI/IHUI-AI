@@ -1,0 +1,102 @@
+{
+  "cmpVipIntroducePopup": {},
+  "cmpEnhancedFileUpload": {
+    "folderMode": "폴더 모드",
+    "clickSelectFolder": "폴더 선택 또는 드래그",
+    "clickSelectFile": "파일 선택 또는 드래그",
+    "xx_formatSizepropsmaxSize": "最大 ${formatSize(props.maxSize)}",
+    "uploadFailed": "업로드 실패",
+    "linkCopied": "링크 복사됨"
+  },
+  "cmpConfirmPurchasePopUp": {
+    "vipPurchase": "VIP 구매",
+    "agreementDeveloping": "계약 페이지 개발 중",
+    "productNotExist": "상품이 존재하지 않음",
+    "paySuccess": "결제 성공",
+    "paySuccess2": "支付成功"
+  },
+  "cmpFileDownload": {
+    "downloading": "다운로드 중...",
+    "invalidDownloadLink": "잘못된 다운로드 링크",
+    "downloadFailed": "다운로드 실패",
+    "downloadComplete": "다운로드 완료",
+    "downloadFailed2": "下载失败"
+  },
+  "cmpPdfToolsPanel": {
+    "presetWatermark": "프리셋 워터마크",
+    "splitOption": "분할 옵션",
+    "allPages": "모든 페이지",
+    "currentPage": "현재 페이지",
+    "showPageNum": "페이지 번호 표시"
+  },
+  "cmpPdfCompare": {
+    "syncScroll": "동기 스크롤",
+    "syncZoom": "동기 줌",
+    "selectPdfA": "PDF 파일 A 선택",
+    "selectPdfB": "PDF 파일 B 선택"
+  },
+  "cmpVersionDiff": {
+    "selectVersionToCompare": "비교할 버전 선택",
+    "selectDiffVersion": "다른 버전 선택",
+    "getVersionFailed": "버전 정보 가져오기 실패",
+    "compareFailed": "버전 비교 실패"
+  },
+  "cmpPromptTemplates": {
+    "fillAllFields": "모든 필드를 작성하세요",
+    "templateAdded": "템플릿 추가됨",
+    "templateDeleted": "템플릿 삭제됨"
+  },
+  "cmpVipIntroducePopupAlt": {
+    "benefitsCount": "약 <b>20</b> 가지 혜택, 계속 증가",
+    "paySuccess": "결제 성공",
+    "payFailed": "결제 실패 또는 취소"
+  },
+  "cmpDocViewer": {
+    "loadingDoc": "문서 로딩...",
+    "pdfLoadFailed": "PDF 로드 실패",
+    "pdfTools": "PDF 도구",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "reset": "재설정",
+    "fullscreen": "전체화면",
+    "download": "다운로드",
+    "prevPage": "이전 페이지",
+    "nextPage": "다음 페이지",
+    "defaultTitle": "문서",
+    "categoryPdf": "PDF 문서",
+    "categoryDocument": "Word 문서",
+    "categorySpreadsheet": "Excel 스프레드시트",
+    "categoryPresentation": "PPT 프레젠테이션",
+    "categoryImage": "이미지",
+    "categoryVideo": "비디오",
+    "categoryAudio": "오디오",
+    "categoryCode": "코드 파일",
+    "categoryMarkdown": "Markdown",
+    "categoryText": "텍스트 파일",
+    "categoryArchive": "압축 파일",
+    "categoryModel3d": "3D 모델",
+    "categoryCad": "CAD 도면",
+    "categoryUnknown": "파일"
+  },
+  "cmpHeader": {},
+  "cmpToolbar": {
+    "imagessvgxxxsvg": "/images/svg/大模型.svg",
+    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
+  },
+  "cmpVipLevelPopup": {
+    "vipLevelMechanism": "VIP 레벨 승급 메커니즘",
+    "yuanToPoint": "1¥=1 포인트"
+  },
+  "cmpAuditLog": {
+    "loadLogFailed": "로그 로드 실패"
+  },
+  "cmpErrorBoundary": {
+    "pageError": "페이지 오류 발생"
+  },
+  "cmpFileManager": {
+    "batchDeleteSuccess": "일괄 삭제 성공"
+  },
+  "cmpFileUpload": {
+    "uploadFailed": "업로드 실패"
+  }
+}

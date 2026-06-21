@@ -1,0 +1,81 @@
+// 显示工具?(Display Utilities)
+
+@use '../variables.scss' as *;
+
+.d-none { display: none; }
+.d-block { display: block; }
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+.d-flex { display: flex; }
+.d-grid { display: grid; }
+
+// 简化的显示类（兼容 Tailwind?.block { display: block; }
+.inline-block { display: inline-block; }
+.hidden { display: none; }
+
+// 简化的Flex?.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.flex-1 { flex: 1 1 0%; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+
+// Flexbox 工具?.flex-row { flex-direction: row; }
+.flex-column { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
+.justify-start { justify-content: flex-start; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+.justify-around { justify-content: space-around; }
+.align-start { align-items: flex-start; }
+.align-center { align-items: center; }
+.align-end { align-items: flex-end; }
+.align-stretch { align-items: stretch; }
+
+// 别名：兼?Tailwind 命名
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+
+// Flex shrink utilities
+.shrink-0 { flex-shrink: 0; }
+
+// Gap utilities
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+
+// Width and Height utilities
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.w-3 { width: 12px; }
+.h-3 { height: 12px; }
+.w-4 { width: 16px; }
+.h-4 { height: 16px; }
+.w-5 { width: 20px; }
+.h-5 { height: 20px; }
+
+// Position utilities
+.relative { position: relative; }
+.absolute { position: absolute; }
+.top-0 { top: 0; }
+.right-0 { right: 0; }
+.bottom-0 { bottom: 0; }
+.left-0 { left: 0; }
+
+// Z-index utilities（使用全局 z-index token）
+.z-10 { z-index: var(--z-base); }
+.z-20 { z-index: var(--z-base); }
+.z-50 { z-index: var(--z-base); }
+
+// Overflow utilities
+.overflow-hidden { overflow: hidden; }
+
+// Opacity utilities
+.opacity-50 { opacity: 0.5; }
+.opacity-70 { opacity: 0.7; }
+
+// Cursor utilities
+.cursor-pointer { cursor: pointer; }

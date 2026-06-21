@@ -1,0 +1,47 @@
+{
+  "name": "zhs - 智能助手",
+  "short_name": "zhs",
+  "description": "AI 智能助手 - 智能体 / 课程 / 广场",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "智能体",
+      "short_name": "Agents",
+      "url": "/agents",
+      "icons": [{"src": "/static/icons/agents.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "课程",
+      "short_name": "Courses",
+      "url": "/courses",
+      "icons": [{"src": "/static/icons/courses.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "钱包",
+      "short_name": "Wallet",
+      "url": "/wallet",
+      "icons": [{"src": "/static/icons/wallet.png", "sizes": "96x96"}]
+    }
+  ],
+  "categories": ["productivity", "education", "business"]
+}

@@ -1,0 +1,80 @@
+{
+  "adminUserManagement": {
+    "tabs": {},
+    "actions": {
+      "exportUsers": "导出用户"
+    },
+    "search": {
+      "statusPlaceholder": "状态",
+      "statusNormal": "正常",
+      "statusFrozen": "冻结",
+      "statusClosed": "关闭",
+      "statusActive": "状态活动",
+      "statusDisabled": "状态已禁用",
+      "status": "状态"
+    },
+    "userList": {
+      "status": "状态"
+    },
+    "marginList": {
+      "status": "状态"
+    },
+    "platformList": {},
+    "sysLinkList": {},
+    "authInfoList": {
+      "status": "状态",
+      "messages": {}
+    },
+    "authAccountList": {
+      "status": "状态"
+    },
+    "authInfoForm": {
+      "status": "状态",
+      "statusNormal": "正常",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "请选择状态"
+      },
+      "messages": {}
+    },
+    "userForm": {
+      "status": "用户状态",
+      "statusActive": "正常",
+      "statusDisabled": "禁用",
+      "validation": {},
+      "messages": {}
+    },
+    "userMarginForm": {
+      "status": "状态",
+      "statusNormal": "正常",
+      "statusFrozen": "冻结",
+      "statusClosed": "关闭",
+      "validation": {
+        "statusRequired": "请选择状态"
+      },
+      "messages": {}
+    },
+    "userSysLinkForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "userPlatformForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "authAccountForm": {
+      "status": "状态",
+      "statusNormal": "正常",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "请选择状态"
+      },
+      "messages": {}
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
+    }
+  }
+}

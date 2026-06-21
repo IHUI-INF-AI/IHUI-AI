@@ -1,0 +1,192 @@
+{
+  "bsonType": "object",
+  "required": ["name", "avatar", "title"],
+  "permission": {
+    "read": true,
+    "create": "'administrator' === auth.role || 'editor' === auth.role",
+    "update": "'administrator' === auth.role || 'editor' === auth.role",
+    "delete": "'administrator' === auth.role"
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成"
+    },
+    "name": {
+      "bsonType": "string",
+      "title": "讲师姓名",
+      "description": "讲师姓名",
+      "minLength": 2,
+      "maxLength": 50,
+      "component": {
+        "name": "uni-easyform-text"
+      }
+    },
+    "avatar": {
+      "bsonType": "string",
+      "title": "头像",
+      "description": "讲师头像URL",
+      "component": {
+        "name": "uni-easyform-image"
+      }
+    },
+    "title": {
+      "bsonType": "string",
+      "title": "职称",
+      "description": "讲师职称或职位",
+      "maxLength": 100,
+      "component": {
+        "name": "uni-easyform-text"
+      }
+    },
+    "bio": {
+      "bsonType": "string",
+      "title": "简介",
+      "description": "讲师个人简介",
+      "component": {
+        "name": "uni-easyform-richtext"
+      }
+    },
+    "tags": {
+      "bsonType": "array",
+      "title": "标签",
+      "description": "讲师专业领域标签",
+      "component": {
+        "name": "uni-easyform-tags"
+      }
+    },
+    "education": {
+      "bsonType": "string",
+      "title": "学历",
+      "description": "讲师最高学历",
+      "component": {
+        "name": "uni-easyform-text"
+      }
+    },
+    "experience": {
+      "bsonType": "array",
+      "title": "工作经历",
+      "description": "讲师工作经历",
+      "items": {
+        "bsonType": "object",
+        "properties": {
+          "company": {
+            "bsonType": "string",
+            "title": "公司名称",
+            "description": "公司名称"
+          },
+          "position": {
+            "bsonType": "string",
+            "title": "职位",
+            "description": "职位"
+          },
+          "startDate": {
+            "bsonType": "date",
+            "title": "开始时间",
+            "description": "开始时间"
+          },
+          "endDate": {
+            "bsonType": "date",
+            "title": "结束时间",
+            "description": "结束时间，null表示至今"
+          },
+          "description": {
+            "bsonType": "string",
+            "title": "工作描述",
+            "description": "工作内容描述"
+          }
+        }
+      }
+    },
+    "courseCount": {
+      "bsonType": "int",
+      "title": "课程数量",
+      "description": "讲师发布的课程数量",
+      "defaultValue": 0
+    },
+    "studentCount": {
+      "bsonType": "int",
+      "title": "学生数量",
+      "description": "讲师的学生数量",
+      "defaultValue": 0
+    },
+    "rating": {
+      "bsonType": "number",
+      "title": "评分",
+      "description": "讲师平均评分",
+      "minimum": 0,
+      "maximum": 5,
+      "defaultValue": 5
+    },
+    "isFeatured": {
+      "bsonType": "bool",
+      "title": "是否推荐",
+      "description": "是否为推荐讲师",
+      "defaultValue": false,
+      "component": {
+        "name": "uni-easyform-switch"
+      }
+    },
+    "socialMedia": {
+      "bsonType": "object",
+      "title": "社交媒体",
+      "description": "讲师社交媒体账号",
+      "properties": {
+        "website": {
+          "bsonType": "string",
+          "title": "个人网站",
+          "description": "个人网站URL"
+        },
+        "github": {
+          "bsonType": "string",
+          "title": "GitHub",
+          "description": "GitHub账号URL"
+        },
+        "weibo": {
+          "bsonType": "string",
+          "title": "微博",
+          "description": "微博账号URL"
+        },
+        "zhihu": {
+          "bsonType": "string",
+          "title": "知乎",
+          "description": "知乎账号URL"
+        }
+      }
+    },
+    "status": {
+      "bsonType": "int",
+      "title": "状态",
+      "description": "讲师状态: 0-禁用, 1-启用",
+      "enum": [
+        {
+          "text": "禁用",
+          "value": 0
+        },
+        {
+          "text": "启用",
+          "value": 1
+        }
+      ],
+      "defaultValue": 1,
+      "component": {
+        "name": "uni-easyform-radio"
+      }
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间",
+      "description": "创建时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间",
+      "description": "更新时间",
+      "defaultValue": {
+        "$env": "now"
+      }
+    }
+  }
+} 

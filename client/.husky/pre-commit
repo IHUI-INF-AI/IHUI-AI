@@ -1,0 +1,42 @@
+#!/usr/bin/env sh
+# Pre-commit 钩子：lint-staged + no-important 检查 + nul 残留扫描 + 工作区卫生检查 + markraw 规则检查 + 高特异性选择器检测
+# 1. 运行 lint-staged（eslint + stylelint 对暂存文件）
+# 2. 运行 no-important 检查（用户规则：禁止 !important）
+# 3. 扫描 nul 残留文件（Windows 终端重定向副作用，详见 .gitignore）
+# 4. P22: 工作区卫生检查 - 禁止暂存运行时产物/临时文件
+# 5. markraw-icon 规则检查（用户规则：响应式对象中组件 icon 必须用 markRaw 包装）
+# 6. 高特异性选择器检测（用户规则：禁止 4 类以上嵌套的选择器，只检查暂存文件）
+# 注意：本项目用 simple-git-hooks，把钩子放在 .husky/ 目录
+# 为跨平台兼容，nul/markraw/high-specificity 扫描用 Node 脚本而非 sh find（Windows 终端可能无 bash）
+
+set -e
+
+echo "▶ Running lint-staged..."
+npx lint-staged
+
+echo "▶ Running no-important check..."
+npm run check:no-important --silent
+
+echo "▶ Scanning for nul residue files..."
+# 跨平台扫描（用 Node 替代 sh find，避免 Windows IDE 终端无 bash 的问题）
+node scripts/check-nul.mjs
+
+echo "▶ Checking markraw-icon rule on staged files..."
+# 跨平台检查（用 Node 替代 sh+xargs，避免 Windows IDE 终端无 bash 的问题）
+node scripts/check-markraw-staged.mjs
+
+echo "▶ Checking high specificity selectors on staged files..."
+# 只检查暂存文件中的高特异性选择器（4 类以上嵌套）
+# 阈值 0：暂存文件中不允许有任何新的高特异性选择器
+HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs
+
+echo "▶ P22: 工作区卫生检查（禁止暂存运行时产物）..."
+# 检查暂存文件中是否包含禁止提交的运行时产物
+FORBIDDEN=$(git diff --cached --name-only | grep -E '(^|/)(pw-output|screenshots|test-results|storybook-static|audit|\.ruff_cache)/|\.env\.backup$|\.env\.bak$|eslint-report\.json$|e2e_failed_list\.txt$|e2e_full_log\.txt$|eslint-unused-vars\.txt$|test-output\.json$|temp_style\.scss$|dev-server\.log$|pytest_full\.txt$|pytest_result\.txt$|business-metrics\.txt$' || true)
+if [ -n "$FORBIDDEN" ]; then
+  echo "::error::暂存文件中包含禁止提交的运行时产物:"
+  echo "$FORBIDDEN"
+  echo "::error::请删除这些文件或加入 .gitignore 后重新提交"
+  exit 1
+fi
+echo "✓ 工作区卫生检查通过"

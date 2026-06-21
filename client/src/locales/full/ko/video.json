@@ -1,0 +1,158 @@
+{
+  "videoGen": {
+    "kling": {
+      "핵심 장점": "Kling AI 비디오 생성",
+      "lipSync": "립싱크",
+      "usageTitle": "생각사용 방법",
+      "usageDescription": "먼저 비디오를 업로드하여 얼굴 인식을 수행한 다음, 얼굴을 선택하고 프롬프트를 입력하여 비디오를 생성합니다",
+      "stepUploadVideo": "비디오 업로드",
+      "stepIdentifyFaces": "얼굴 식별",
+      "stepGenerateVideo": "비디오 생성",
+      "uploadVideo": "비디오 업로드",
+      "selectVideo": "비디오 선택",
+      "identify": "식별",
+      "identifySuccess": "식별 성공",
+      "identifyFailed": "식별 실패",
+      "selectFace": "얼굴 선택",
+      "selectFaceId": "얼굴 ID 선택",
+      "faceIdLabel": "Face {id} ({start}-{end}초)",
+      "prompt": "프롬프트",
+      "promptPlaceholder": "비디오 내사용 설명석...",
+      "generate": "생성",
+      "generateFailed": "생성 실패",
+      "reset": "재설정",
+      "taskInfo": "작업 ID: {taskId}",
+      "checkStatus": "상태 확인",
+      "uploadVideoFirst": "먼저 비디오를 업로드하세요",
+      "fillInfoComplete": "완전한 정보를 입력하세요",
+      "taskSubmitted": "작업이 제출되었습니다",
+      "checkStatusDeveloping": "상태 확인 기능 개발 중",
+      "tag": "인마음페이스형동기화",
+      "instructions": {
+        "핵심 장점": "생각사용설명석",
+        "description": "동영상 업로드 후 얼굴 인식, 얼굴 선택 후 프롬프트 입력으로 동영상 생성",
+        "title": "생각사용설명석"
+      },
+      "steps": {
+        "upload": "업로드동영상",
+        "identify": "인식 faces",
+        "generate": "생성동영상"
+      },
+      "form": {
+        "uploadVideo": "업로드동영상",
+        "selectVideo": "선택동영상",
+        "selectFace": "얼굴 선택",
+        "selectFaceId": "얼굴 선택ID",
+        "prompt": "프롬프트",
+        "promptPlaceholder": "설명석동영상콘텐츠..."
+      },
+      "buttons": {
+        "identify": "인식",
+        "generate": "생성",
+        "checkStatus": "쿼리상태",
+        "checking": "쿼리중간..."
+      },
+      "status": {
+        "completed": "completed",
+        "failed": "failed",
+        "pending": "pending",
+        "processing": "processing",
+        "핵심 장점": "상태",
+        "title": "상태"
+      },
+      "messages": {
+        "uploadFirst": "요청진업로드동영상",
+        "identifySuccess": "인식성공",
+        "identifyFailed": "인식실패",
+        "fillComplete": "요청입력완료정보",
+        "taskSubmitted": "작업완료제출",
+        "generateFailed": "생성실패",
+        "checkStatusDev": "쿼리상태기능개발중간",
+        "taskId": "작업ID: {taskId}",
+        "taskIdRequired": "요청진제출생성작업",
+        "statusCompleted": "동영상생성완료",
+        "statusProcessing": "동영상생성 중...",
+        "statusFailed": "동영상생성실패",
+        "statusPending": "작업등처리 대기 중중간...",
+        "statusUnknown": "작업상태알 수 없음",
+        "checkStatusFailed": "쿼리상태실패",
+        "pollTimeout": "PollTimeout"
+      },
+      "startPolling": "게동턴질의",
+      "stopPolling": "중지턴질의",
+      "downloadVideo": "다운로드동영상",
+      "previewVideo": "미리보기동영상",
+      "videoUrlEmpty": "동영상URL위한공간",
+      "downloadStarted": "시작다운로드동영상",
+      "message": "메시지",
+      "title": "가능유연한AI동영상생성"
+    },
+    "qwen": {
+      "핵심 장점": "통의만상 - 비디오 합성",
+      "tag": "WebSocket 스트리밍",
+      "form": {
+        "prompt": "프롬프트",
+        "promptPlaceholder": "생성하려는 비디오를 설명석하세요...",
+        "images": "참조 수익 (선택생각항)",
+        "imagesPlaceholder": "수익 URL"
+      },
+      "buttons": {
+        "generate": "생성 시작"
+      },
+      "progress": {
+        "connecting": "연결 중...",
+        "generating": "생성 중..."
+      },
+      "messages": {
+        "promptRequired": "프롬프트를 입력하세요",
+        "generateSuccess": "생성 완료",
+        "generateFailed": "생성 실패"
+      },
+      "title": "통해의미만관련 - 동영상합성숙"
+    },
+    "oneClick": {
+      "핵심 장점": "원핵심 비디오 생성",
+      "tag": "게동 생성",
+      "form": {
+        "topic": "비디오 주의제",
+        "topicPlaceholder": "예: 우리 제품 소개...",
+        "duration": "비디오 길이",
+        "ratio": "비디오 비율",
+        "audioStyle": "오디오 스타일 (선택생각항)",
+        "audioPlaceholder": "예: 가볍고 즐거운 배경 음악"
+      },
+      "buttons": {
+        "generate": "생성 시작",
+        "checkStatus": "상태 확인"
+      },
+      "messages": {
+        "topicRequired": "비디오 주의제를 입력하세요",
+        "taskSubmitted": "작업이 제출되었습니다",
+        "generateFailed": "생성 실패",
+        "taskId": "작업 ID: {taskId}",
+        "status": "상태: {status}",
+        "checkFailed": "확인 실패",
+        "pollTimeout": "PollTimeout"
+      },
+      "ratios": {
+        "r169": "16:9",
+        "r916": "9:16",
+        "r11": "1:1"
+      },
+      "durationUnit": "초",
+      "status": {
+        "completed": "완료",
+        "processing": "처리중간",
+        "failed": "실패",
+        "pending": "대기 중"
+      },
+      "startPolling": "게동턴질의",
+      "stopPolling": "중지턴질의",
+      "downloadVideo": "다운로드동영상",
+      "previewVideo": "미리보기동영상",
+      "videoUrlEmpty": "동영상URL위한공간",
+      "downloadStarted": "시작다운로드동영상",
+      "title": "원핵심 동영상 생성"
+    }
+  }
+}

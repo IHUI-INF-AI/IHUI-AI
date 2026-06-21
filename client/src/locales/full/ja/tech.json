@@ -1,0 +1,54 @@
+{
+  "techService": {
+    "title": "技術サービス专区",
+    "subtitle": "取得専門的技術サポート和支援",
+    "services": {
+      "support": {
+        "title": "オンラインカスタマーサービス",
+        "desc": "お問い合わせ的カスタマーサービスチーム取得支援"
+      },
+      "docs": {
+        "title": "技術ドキュメント",
+        "desc": "表示详细的技術ドキュメント和API説明"
+      },
+      "consultation": {
+        "title": "技術咨询",
+        "desc": "预约専門的技術咨询サービス"
+      },
+      "training": {
+        "title": "技術トレーニング",
+        "desc": "报名参加我们的技術トレーニングコース"
+      },
+      "custom": {
+        "title": "定制サービス",
+        "desc": "取得件性化的技術解決ソリューション"
+      },
+      "feedback": {
+        "title": "意见フィードバック",
+        "desc": "送信您的提案和フィードバック"
+      }
+    },
+    "underDevelopment": "機できる開発中",
+    "appointmentTitle": "サービス预约",
+    "appointmentSubmitted": "预约送信成功，我们会尽速い連絡您",
+    "submitAppointment": "送信预约",
+    "form": {
+      "name": "姓名",
+      "namePlaceholder": "ご入力您的姓名",
+      "email": "メール",
+      "emailPlaceholder": "ご入力您的メール",
+      "phone": "電話",
+      "phonePlaceholder": "ご入力您的電話",
+      "preferredDate": "設定日付",
+      "preferredTime": "設定時間",
+      "datePlaceholder": "選択日付",
+      "timePlaceholder": "選択時間",
+      "description": "必要求説明",
+      "descriptionPlaceholder": "ご详细説明您的必要求...",
+      "validationRequired": "ご入力必須項目",
+      "invalidEmail": "ご入力有効的メール住所",
+      "invalidPhone": "ご入力有効的電話番号码"
+    },
+    "appointmentFailed": "预约送信失敗，ご稍後再試行"
+  }
+}

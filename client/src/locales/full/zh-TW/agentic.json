@@ -1,0 +1,50 @@
+{
+  "agenticDashboard": {
+    "title": "Agentic AI 控制台",
+    "subtitle": "與 Agentic Orchestrator 深度集成的智能開發平台",
+    "activeSwarms": "活躍 Swarm",
+    "noActiveSwarms": "暫無活躍的 Swarm",
+    "status": {
+      "pending": "等待中",
+      "running": "運行中",
+      "completed": "已完成",
+      "failed": "失敗"
+    },
+    "coordination": "协调",
+    "iteration": "迭代",
+    "seoTitle": "Agentic AI 控制台 - AI智匯社",
+    "seoDescription": "Agentic AI 智能開發平台，與 Agentic Orchestrator 深度集成",
+    "seoKeywords": "Agentic AI, 智能開發, AI 調度, Swarm"
+  },
+  "agenticAI": {
+    "title": "AgenticAI",
+    "subtitle": "智能體協作平台 - 創建和管理您的Agent Swarm",
+    "createSwarm": "創建Agent Swarm",
+    "taskDescription": "任務描述",
+    "taskDescriptionPlaceholder": "請輸入任務描述",
+    "coordinationMode": "协调模式",
+    "coordinationHierarchical": "分层协调",
+    "coordinationPeerToPeer": "点對点",
+    "coordinationMarketBased": "市場机制",
+    "maxIterations": "最大迭代",
+    "autoOptimize": "自動優化（基於歷史經驗）",
+    "createAndExecute": "創建并执行",
+    "mySwarm": "我的Swarm",
+    "id": "ID",
+    "task": "任務",
+    "status": {
+      "completed": "completed",
+      "failed": "failed",
+      "pending": "pending",
+      "running": "running",
+      "title": "狀態"
+    },
+    "actions": "操作",
+    "view": "查看",
+    "selectSwarmHint": "請選擇一個Swarm查看詳情",
+    "enterTaskDescription": "請輸入任務描述",
+    "swarmCreated": "Swarm創建成功",
+    "createSwarmFailed": "創建Swarm失敗",
+    "loadSwarmListFailed": "加載Swarm列表失敗"
+  }
+}

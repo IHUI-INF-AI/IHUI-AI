@@ -1,0 +1,33 @@
+{
+  "eduAI": {
+    "applyCommercialLicense": "applyCommercialLicense",
+    "basedOnNacosDynamic": "basedOnNacosDynamic",
+    "basedOnSpringCloud": "basedOnSpringCloud",
+    "complexAlgorithms": "complexAlgorithms",
+    "coreInfraAuth": "coreInfraAuth",
+    "delivery": "delivery",
+    "deliveryAndSupport": "deliveryAndSupport",
+    "digitalTeachingEngine": "digitalTeachingEngine",
+    "distributedWeightAlgorithm": "distributedWeightAlgorithm",
+    "eduOsCore": "eduOsCore",
+    "enterprise": "enterprise",
+    "fullServiceComparisonMatrix": "fullServiceComparisonMatrix",
+    "getCommercialLicense": "getCommercialLicense",
+    "licenseCapabilityService": "licenseCapabilityService",
+    "liveDistSocialMatrix": "liveDistSocialMatrix",
+    "microservicesCoreText": "microservicesCoreText",
+    "millionDigitalAssets": "millionDigitalAssets",
+    "multiCloudStorageAdapter": "multiCloudStorageAdapter",
+    "notJustCrud": "notJustCrud",
+    "oneCodeCompatible": "oneCodeCompatible",
+    "penetrateBusinessLogic": "penetrateBusinessLogic",
+    "plans": {},
+    "preciseToSubservices": "preciseToSubservices",
+    "sections": {},
+    "solveDualChallenges": "solveDualChallenges",
+    "topAICourses": "topAICourses"
+  },
+  "eduDoc": {
+    "fileNotExist": "ドキュメントファイルが存在しません: {path}"
+  }
+}

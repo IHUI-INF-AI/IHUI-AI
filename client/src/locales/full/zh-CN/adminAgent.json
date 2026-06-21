@@ -1,0 +1,158 @@
+{
+  "adminAgentManagement": {
+    "tabs": {},
+    "actions": {},
+    "search": {
+      "status": "状态",
+      "statusPlaceholder": "请选择状态",
+      "statusActive": "启用",
+      "statusInactive": "禁用",
+      "statusDeprecated": "已废弃"
+    },
+    "table": {
+      "status": "状态"
+    },
+    "platform": {},
+    "status": {
+      "active": "启用",
+      "inactive": "禁用",
+      "deprecated": "已废弃",
+      "unknown": "未知"
+    },
+    "isPublic": {},
+    "agentList": {
+      "status": "状态"
+    },
+    "categoryList": {},
+    "dialog": {},
+    "test": {
+      "failed": "测试失败"
+    },
+    "messages": {},
+    "settlementForm": {
+      "status": "状态",
+      "statusPlaceholder": "请选择状态",
+      "statusPending": "待结算",
+      "statusSettled": "已结算",
+      "statusWithdrawn": "已提现",
+      "validation": {
+        "statusRequired": "请选择状态"
+      },
+      "messages": {}
+    },
+    "agentForm": {
+      "tabs": {},
+      "basic": {
+        "status": "状态",
+        "statusPlaceholder": "请选择状态",
+        "statusActive": "启用",
+        "statusInactive": "禁用",
+        "statusDeprecated": "已废弃"
+      },
+      "platform": {},
+      "advanced": {
+        "availableTags": {},
+        "availableQuestions": {}
+      },
+      "validation": {
+        "statusRequired": "请选择状态"
+      },
+      "messages": {
+        "avatarUploadSuccess": "头像上传成功"
+      }
+    },
+    "agentCategoryForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "agentBuyForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "advertiseForm": {
+      "status": "状态",
+      "statusPlaceholder": "请选择状态",
+      "statusEnabled": "启用",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "请选择状态"
+      },
+      "upload": {
+        "failed": "上传失败"
+      },
+      "messages": {}
+    },
+    "activityForm": {
+      "status": "状态",
+      "statusEnabled": "状态已启用",
+      "statusDisabled": "状态已禁用",
+      "validation": {
+        "statusRequired": "状态必填"
+      },
+      "upload": {
+        "failed": "失败"
+      },
+      "messages": {}
+    }
+  },
+  "adminAgentSettlement": {
+    "messages": {}
+  },
+  "adminAgentBuy": {
+    "messages": {}
+  },
+  "adminAgent": {
+    "messages": {}
+  },
+  "adminAgentBuyManagement": {
+    "actions": {},
+    "buyList": {
+      "status": "订单状态"
+    },
+    "search": {
+      "status": "订单状态",
+      "statusPlaceholder": "请选择订单状态"
+    },
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    },
+    "settlementStatus": {},
+    "dialogs": {},
+    "messages": {}
+  },
+  "adminAgentSettlementManagement": {
+    "actions": {},
+    "settlementList": {
+      "status": "状态"
+    },
+    "overview": {},
+    "search": {
+      "status": "状态",
+      "statusPlaceholder": "请选择状态"
+    },
+    "status": {
+      "pending": "待结算",
+      "settled": "已结算",
+      "withdrawn": "已提现",
+      "unknown": "未知"
+    },
+    "settlementStatus": {},
+    "withdrawalStatus": {},
+    "dialogs": {},
+    "messages": {}
+  },
+  "adminAgentCategoryManagement": {
+    "search": {},
+    "table": {},
+    "mainCategory": {},
+    "type": {},
+    "group": {},
+    "form": {},
+    "dialogs": {},
+    "messages": {},
+    "dialog": {}
+  }
+}

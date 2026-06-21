@@ -1,0 +1,1 @@
+"""Resource routes: home, context."""

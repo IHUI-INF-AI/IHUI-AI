@@ -1,0 +1,22 @@
+{
+  "member": {
+    "searchPlaceholder": {
+      "company": "搜尋企業",
+      "group": "搜尋分組",
+      "level": "搜尋等級",
+      "list": "搜尋會員",
+      "post": "搜尋崗位",
+      "tag": "搜尋標籤",
+      "unaudited": "搜尋待審核會員"
+    },
+    "label": {
+      "companyName": "企業名稱",
+      "type": "類型",
+      "scale": "規模",
+      "groupName": "分組名稱",
+      "memberCount": "成員數",
+      "createTime": "創建時間",
+      "actions": "操作"
+    }
+  }
+}

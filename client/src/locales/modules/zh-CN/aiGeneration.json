@@ -1,0 +1,35 @@
+{
+  "aiGeneration": {
+    "messages": {
+      "pleaseEnterContent": "请输入内容",
+      "pleaseUploadAudio": "请上传音频文件",
+      "pleaseUploadFirstFrame": "请上传首帧图片",
+      "pleaseUploadImage": "请先上传图片",
+      "modelNotSelected": "未选择模型",
+      "videoSingleImageOnly": "视频生成只支持上传一张图片",
+      "editSingleImageOnly": "该模型只支持修改一张图片",
+      "missingTaskId": "视频生成启动失败：缺少任务ID",
+      "videoStartFailed": "视频生成启动失败",
+      "videoResultFormatError": "视频生成结果格式错误",
+      "videoGenerationFailed": "视频生成失败",
+      "videoGetResultFailed": "获取视频生成结果失败",
+      "videoGenerationRetry": "视频生成失败，请重试",
+      "audioStartFailed": "音频生成启动失败",
+      "audioResultFormatError": "音频生成结果格式错误",
+      "audioGenerationFailed": "音频生成失败",
+      "audioGetResultFailed": "获取音频生成结果失败",
+      "audioSynthesisFailed": "音频合成失败",
+      "imageGenerationRetry": "图片生成失败，请重试",
+      "imageEditRetry": "图片编辑失败，请重试",
+      "generationRetry": "生成失败，请重试",
+      "imageUnderstandFailed": "图片理解失败，请重试",
+      "query3DFailed": "查询 3D 生成结果失败",
+      "3dStartFailed": "3D 生成启动失败",
+      "connectionError": "连接错误",
+      "connectionFailed": "连接失败",
+      "websocketNotConnected": "WebSocket 未连接",
+      "messageParseError": "消息解析失败",
+      "sendFailed": "发送失败，请重试"
+    }
+  }
+}

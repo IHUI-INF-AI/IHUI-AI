@@ -1,0 +1,163 @@
+// PWA 客户端 composable - Service Worker 注册 + 离线检测 + 推送订阅
+import { ref, onMounted } from 'vue'
+import { useCleanup } from '@/composables/useCleanup'
+import { logger } from '@/utils/logger'
+
+const isOnline = ref(navigator.onLine)
+const isInstalled = ref(false)
+const swRegistration = ref<ServiceWorkerRegistration | null>(null)
+const updateAvailable = ref(false)
+const pushSupported = ref(false)
+const pushSubscribed = ref(false)
+const isInstallable = ref(false)
+const deferredPrompt = ref<any>(null)
+
+export function usePwa() {
+  const cleanup = useCleanup()
+
+  const register = async () => {
+    if (!('serviceWorker' in navigator)) {
+      console.warn('[PWA] Service Worker 不支持')
+      return null
+    }
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
+      })
+      swRegistration.value = reg
+      logger.info('[PWA] Service Worker 注册成功')
+
+      // 检测更新
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing
+        if (!newWorker) return
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            updateAvailable.value = true
+            console.log('[PWA] 新版本可用')
+          }
+        })
+      })
+
+      return reg
+    } catch (err) {
+      console.error('[PWA] Service Worker 注册失败', err)
+      return null
+    }
+  }
+
+  const checkPushSupport = () => {
+    pushSupported.value = 'PushManager' in window && 'Notification' in window
+    return pushSupported.value
+  }
+
+  const requestPushPermission = async () => {
+    if (!checkPushSupport()) return 'unsupported'
+    const perm = await Notification.requestPermission()
+    if (perm === 'granted') {
+      await subscribePush()
+      return 'granted'
+    }
+    return perm
+  }
+
+  const subscribePush = async () => {
+    if (!swRegistration.value) {
+      await register()
+    }
+    if (!swRegistration.value) return null
+    try {
+      const sub = await swRegistration.value.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          (window as any).__VAPID_KEY__ || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+        ),
+      })
+      pushSubscribed.value = true
+      // 发送到后端
+      await fetch('/api/v1/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub),
+      })
+      return sub
+    } catch (err) {
+      console.error('[PWA] Push 订阅失败', err)
+      return null
+    }
+  }
+
+  const applyUpdate = () => {
+    if (!swRegistration.value?.waiting) return
+    swRegistration.value.waiting.postMessage({ type: 'SKIP_WAITING' })
+    updateAvailable.value = false
+    window.location.reload()
+  }
+
+  const checkInstalled = () => {
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      isInstalled.value = true
+    }
+  }
+
+  const onOnline = () => { isOnline.value = true }
+  const onOffline = () => { isOnline.value = false }
+
+  const onBeforeInstallPrompt = (e: Event) => {
+    e.preventDefault()
+    deferredPrompt.value = e
+    isInstallable.value = true
+  }
+
+  const onAppInstalled = () => {
+    isInstalled.value = true
+    isInstallable.value = false
+    deferredPrompt.value = null
+  }
+
+  const install = async (): Promise<boolean> => {
+    if (!deferredPrompt.value) return false
+    deferredPrompt.value.prompt()
+    const { outcome } = await deferredPrompt.value.userChoice
+    if (outcome === 'accepted') {
+      deferredPrompt.value = null
+      isInstallable.value = false
+      return true
+    }
+    return false
+  }
+
+  onMounted(() => {
+    void register()
+    checkInstalled()
+    checkPushSupport()
+    cleanup.addEventListener(window, 'online', onOnline as EventListener)
+    cleanup.addEventListener(window, 'offline', onOffline as EventListener)
+    cleanup.addEventListener(window, 'beforeinstallprompt', onBeforeInstallPrompt as EventListener)
+    cleanup.addEventListener(window, 'appinstalled', onAppInstalled as EventListener)
+  })
+
+  return {
+    isOnline,
+    isInstalled,
+    isInstallable,
+    updateAvailable,
+    pushSupported,
+    pushSubscribed,
+    register,
+    install,
+    applyUpdate,
+    requestPushPermission,
+  }
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}

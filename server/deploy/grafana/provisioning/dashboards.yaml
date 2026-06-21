@@ -1,0 +1,31 @@
+# Grafana provisioning 配置 - zhs-platform 业务仪表盘
+# 用法: kubectl apply -f deploy/grafana/provisioning/dashboards.yaml
+# 然后确保 Grafana Deployment 挂载了 dashboards 目录:
+#   - emptyDir: {}
+#   - name: dashboards
+#   - mountPath: /var/lib/grafana/dashboards/zhs-platform
+# 配套 sidecar (Grafana 8+): grafana/sidecar 监听 ConfigMap 变更并写入磁盘.
+#
+# 4 个 dashboard JSON 实际文件位于 deploy/grafana/dashboards/*.json,
+# 本文件仅做 provisioning 入口声明, 真实 JSON 由 CI (verify_grafana_dashboards.py) 校验.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning-zhs
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: zhs-platform
+    app.kubernetes.io/component: grafana-provisioning
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: zhs-platform
+        orgId: 1
+        folder: zhs-platform
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 60
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards/zhs-platform

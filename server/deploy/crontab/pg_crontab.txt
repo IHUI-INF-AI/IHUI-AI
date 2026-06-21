@@ -1,0 +1,41 @@
+# PostgreSQL 定时任务 crontab 配置
+# 包含: 慢查询治理、安全审计、密钥轮换、备份、PITR 演练
+# 部署: crontab /opt/server/deploy/crontab/pg_crontab.txt
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# 环境变量
+PG_HOST=127.0.0.1
+PG_PORT=5432
+PG_USER=zhs
+PG_PASSWORD=zhs_pg_pass
+VAULT_ADDR=http://127.0.0.1:8200
+
+# ========== 慢查询治理 (每小时) ==========
+# 每小时执行慢查询采集 + 索引优化建议
+0 * * * * /opt/server/scripts/cron_pg_slow_query.sh >> /opt/server/logs/cron_pg_slow_query.log 2>&1
+
+# ========== 安全审计 (每日 02:00) ==========
+# 每日 02:00 执行安全审计
+0 2 * * * /opt/server/scripts/cron_pg_security_audit.sh >> /opt/server/logs/cron_pg_security_audit.log 2>&1
+
+# ========== Vault 密钥轮换 (每日 03:00) ==========
+# 每日 03:00 执行密钥轮换
+0 3 * * * /opt/server/scripts/vault_key_rotation_cron.sh >> /opt/server/logs/vault_rotation_cron.log 2>&1
+
+# ========== Vault 密钥验证 (每周日 02:00) ==========
+# 每周日 02:00 执行密钥验证
+0 2 * * 0 /opt/server/scripts/pg_backup_key_manager.sh verify >> /opt/server/logs/vault_verify.log 2>&1
+
+# ========== PostgreSQL 备份 (每日 01:00) ==========
+# 每日 01:00 执行加密备份
+0 1 * * * /opt/server/scripts/backup_pg_encrypted.sh >> /opt/server/logs/backup_pg.log 2>&1
+
+# ========== PITR 演练 (每周六 04:00) ==========
+# 每周六 04:00 执行 PITR 演练
+0 4 * * 6 /opt/server/scripts/pitr_production_drill.sh >> /opt/server/logs/pitr_drill.log 2>&1
+
+# ========== 旧日志清理 (每周日 03:00) ==========
+# 每周日 03:00 清理 30 天前的日志
+0 3 * * 0 find /opt/server/logs -name "*.log" -mtime +30 -delete 2>/dev/null

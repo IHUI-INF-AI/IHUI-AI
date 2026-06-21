@@ -1,0 +1,47 @@
+{
+  "termsAndPolicies": {
+    "backToHome": "Back to Home",
+    "protocolExit": "PROTOCOL / EXIT",
+    "encryptedConnection": "ENCRYPTED CONNECTION",
+    "legalBadge": "Legal",
+    "readFullText": "READ FULL TEXT",
+    "navDocs": "DOCS",
+    "navSupport": "SUPPORT",
+    "title": "Terms and Policies",
+    "subtitle": "Learn about our terms of service, privacy policy, and other important policies",
+    "policies": {
+      "termsOfService": {
+        "title": "Terms of Service",
+        "description": "Learn about the terms and conditions for using our services",
+        "viewDetails": "View Details"
+      },
+      "privacyPolicy": {
+        "title": "Privacy Policy",
+        "description": "Learn how we collect, use, and protect your personal information",
+        "viewDetails": "View Details"
+      },
+      "userAgreement": {
+        "title": "User Agreement",
+        "description": "Basic agreement and norms for users using the platform",
+        "viewDetails": "View Details"
+      },
+      "paymentTerms": {
+        "title": "Payment Terms",
+        "description": "Learn about our payment policies and refund rules",
+        "viewDetails": "View Details"
+      }
+    },
+    "nodeIds": {
+      "1": "POL-001",
+      "2": "POL-002",
+      "3": "POL-003",
+      "4": "POL-004"
+    },
+    "quickNav": {
+      "title": "Quick Navigation",
+      "downloadCenter": "Download Center",
+      "documentCenter": "Document Center",
+      "customerService": "Customer Service"
+    }
+  }
+}

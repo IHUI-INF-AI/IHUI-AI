@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zhs-platform.fullname" . }}
+  labels:
+    {{- include "zhs-platform.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "zhs-platform.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # 触发 ConfigMap/Secret 变更后滚动重启
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "zhs-platform.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "zhs-platform.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: ENV
+              value: {{ .Values.app.env | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.app.logLevel | quote }}
+            - name: CORS_ORIGINS
+              value: {{ .Values.app.corsOrigins | quote }}
+            - name: DB1_URL
+              value: "postgresql+psycopg2://{{ .Values.database.ai.user }}:$(DB1_PASSWORD)@{{ .Values.database.ai.host }}:{{ .Values.database.ai.port }}/{{ .Values.database.ai.name }}"
+            - name: DB2_URL
+              value: "postgresql+psycopg2://{{ .Values.database.center.user }}:$(DB2_PASSWORD)@{{ .Values.database.center.host }}:{{ .Values.database.center.port }}/{{ .Values.database.center.name }}"
+            - name: DB3_URL
+              value: "postgresql+psycopg2://{{ .Values.database.course.user }}:$(DB3_PASSWORD)@{{ .Values.database.course.host }}:{{ .Values.database.course.port }}/{{ .Values.database.course.name }}"
+            - name: REDIS_HOST
+              value: {{ .Values.redis.host | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.redis.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.passwordSecret }}
+                  key: {{ .Values.redis.passwordKey }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.jwt.secretSecret }}
+                  key: {{ .Values.jwt.secretKey }}
+            - name: JWT_ALGORITHM
+              value: {{ .Values.jwt.algorithm | quote }}
+            - name: JWT_ACCESS_MINUTES
+              value: {{ .Values.jwt.accessMinutes | toString | quote }}
+            - name: JWT_REFRESH_DAYS
+              value: {{ .Values.jwt.refreshDays | toString | quote }}
+            - name: HLS_SEGMENT_TIME
+              value: {{ .Values.hls.segmentTime | toString | quote }}
+            - name: HLS_STORAGE_DIR
+              value: {{ .Values.hls.storageDir | quote }}
+            - name: WS_HEARTBEAT_SECONDS
+              value: {{ .Values.websocket.heartbeatSeconds | toString | quote }}
+            - name: WS_MAX_CONNECTIONS
+              value: {{ .Values.websocket.maxConnections | toString | quote }}
+            - name: METRICS_ENABLED
+              value: {{ .Values.metrics.enabled | toString | quote }}
+            - name: FRONTEND_STATIC_PATH
+              value: {{ .Values.frontend.staticPath | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "zhs-platform.fullname" . }}-db
+            - configMapRef:
+                name: {{ include "zhs-platform.fullname" . }}-config
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: hls-data
+              mountPath: {{ .Values.hls.storageDir }}
+            - name: static-data
+              mountPath: {{ .Values.frontend.staticPath }}
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        {{- if .Values.persistence.hls.enabled }}
+        - name: hls-data
+          persistentVolumeClaim:
+            claimName: {{ include "zhs-platform.fullname" . }}-hls
+        {{- else }}
+        - name: hls-data
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.persistence.static.enabled }}
+        - name: static-data
+          persistentVolumeClaim:
+            claimName: {{ include "zhs-platform.fullname" . }}-static
+        {{- else }}
+        - name: static-data
+          emptyDir: {}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}

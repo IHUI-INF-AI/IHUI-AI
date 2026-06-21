@@ -1,0 +1,166 @@
+{
+  "getList": {
+    "params": {
+      "status": {
+        "title": "订单状态",
+        "type": "string",
+        "enum": [
+          {
+            "text": "全部",
+            "value": ""
+          },
+          {
+            "text": "待支付",
+            "value": "pending"
+          },
+          {
+            "text": "已支付",
+            "value": "paid"
+          },
+          {
+            "text": "已取消",
+            "value": "cancelled"
+          },
+          {
+            "text": "已退款",
+            "value": "refunded"
+          }
+        ],
+        "defaultValue": ""
+      },
+      "productType": {
+        "title": "商品类型",
+        "type": "string",
+        "enum": [
+          {
+            "text": "全部",
+            "value": ""
+          },
+          {
+            "text": "会员",
+            "value": "vip"
+          },
+          {
+            "text": "课程",
+            "value": "course"
+          },
+          {
+            "text": "工具",
+            "value": "tool"
+          },
+          {
+            "text": "其他",
+            "value": "other"
+          }
+        ],
+        "defaultValue": ""
+      },
+      "dateRange": {
+        "title": "日期范围",
+        "type": "string",
+        "enum": [
+          {
+            "text": "全部",
+            "value": ""
+          },
+          {
+            "text": "今天",
+            "value": "today"
+          },
+          {
+            "text": "昨天",
+            "value": "yesterday"
+          },
+          {
+            "text": "最近7天",
+            "value": "last7days"
+          },
+          {
+            "text": "最近30天",
+            "value": "last30days"
+          }
+        ],
+        "defaultValue": ""
+      },
+      "startDate": {
+        "title": "开始日期",
+        "type": "timestamp",
+        "defaultValue": ""
+      },
+      "endDate": {
+        "title": "结束日期",
+        "type": "timestamp",
+        "defaultValue": ""
+      },
+      "userIdFilter": {
+        "title": "用户ID",
+        "type": "string",
+        "defaultValue": ""
+      },
+      "orderNo": {
+        "title": "订单号",
+        "type": "string",
+        "defaultValue": ""
+      }
+    },
+    "query": "const $ = db.command.aggregate\nconst db = uniCloud.database()\nlet query = {}\n\n// 设置查询条件\nif (params.status) {\n  query.status = params.status\n}\n\nif (params.productType) {\n  query.productType = params.productType\n}\n\n// 日期范围查询\nif (params.dateRange || (params.startDate && params.endDate)) {\n  let startDate, endDate\n  \n  if (params.dateRange) {\n    const now = new Date()\n    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())\n    \n    switch(params.dateRange) {\n      case 'today':\n        startDate = today\n        endDate = new Date(today.getTime() + 24 * 60 * 60 * 1000)\n        break\n      case 'yesterday':\n        startDate = new Date(today.getTime() - 24 * 60 * 60 * 1000)\n        endDate = today\n        break\n      case 'last7days':\n        startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)\n        endDate = new Date(today.getTime() + 24 * 60 * 60 * 1000)\n        break\n      case 'last30days':\n        startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)\n        endDate = new Date(today.getTime() + 24 * 60 * 60 * 1000)\n        break\n    }\n  } else {\n    startDate = new Date(params.startDate)\n    endDate = new Date(params.endDate)\n    endDate.setHours(23, 59, 59, 999) // 设置为当天结束时间\n  }\n  \n  if (startDate && endDate) {\n    query.createdAt = db.command.and([\n      db.command.gte(startDate),\n      db.command.lte(endDate)\n    ])\n  }\n}\n\n// 用户ID搜索\nif (params.userIdFilter) {\n  query.userId = params.userIdFilter\n}\n\n// 订单号搜索\nif (params.orderNo) {\n  query.orderNo = params.orderNo\n}\n\n// 获取总数\nconst countResult = await db.collection('order').where(query).count()\nconst total = countResult.total\n\n// 构建分页查询\nconst list = await db.collection('order')\n  .where(query)\n  .orderBy('createdAt', 'desc')\n  .skip((params.page - 1) * params.pageSize)\n  .limit(params.pageSize)\n  .get()\n\nreturn {\n  code: 0,\n  msg: '获取成功',\n  data: {\n    list: list.data,\n    pagination: {\n      page: params.page,\n      pageSize: params.pageSize,\n      total\n    }\n  }\n}"
+  },
+  "add": {
+    "params": {
+      "orderData": {
+        "title": "订单数据",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "title": "用户ID",
+            "type": "string"
+          },
+          "nickname": {
+            "title": "用户昵称",
+            "type": "string"
+          },
+          "productId": {
+            "title": "商品ID",
+            "type": "string"
+          },
+          "productName": {
+            "title": "商品名称",
+            "type": "string"
+          },
+          "amount": {
+            "title": "金额",
+            "type": "number"
+          },
+          "productType": {
+            "title": "商品类型",
+            "type": "string",
+            "defaultValue": "vip"
+          },
+          "planType": {
+            "title": "会员类型",
+            "type": "string",
+            "defaultValue": "monthly"
+          }
+        }
+      }
+    },
+    "query": "const db = uniCloud.database()\nconst orderNo = generateOrderNo()\n\n// 构建订单数据\nconst orderData = Object.assign({}, params.orderData, {\n  orderNo,\n  status: 'paid', // 直接设为已支付状态\n  paidAt: new Date(),\n  createdAt: new Date(),\n  updatedAt: new Date()\n})\n\n// 将订单插入数据库\nconst result = await db.collection('order').add(orderData)\n\nreturn {\n  code: 0,\n  msg: '创建成功',\n  data: {\n    orderId: result.id,\n    orderNo\n  }\n}\n\n// 生成订单号\nfunction generateOrderNo() {\n  const date = new Date()\n  const year = date.getFullYear()\n  const month = String(date.getMonth() + 1).padStart(2, '0')\n  const day = String(date.getDate()).padStart(2, '0')\n  const random = Math.floor(Math.random() * 1000000).toString().padStart(6, '0')\n  return `${year}${month}${day}${random}`\n}"
+  },
+  "updateVipStatus": {
+    "params": {
+      "userId": {
+        "title": "用户ID",
+        "type": "string"
+      },
+      "status": {
+        "title": "VIP状态",
+        "type": "boolean"
+      },
+      "expireTime": {
+        "title": "到期时间",
+        "type": "string"
+      }
+    },
+    "query": "const db = uniCloud.database()\n\n// 构建更新数据\nconst updateData = {\n  isVip: params.status,\n  updatedAt: new Date()\n}\n\n// 如果有过期时间，则更新\nif (params.expireTime) {\n  updateData.vipExpireTime = params.expireTime\n}\n\n// 更新用户VIP状态\nconst result = await db.collection('user').where({\n  _id: params.userId\n}).update(updateData)\n\nreturn {\n  code: result.updated > 0 ? 0 : 1,\n  msg: result.updated > 0 ? '更新成功' : '更新失败'\n}"
+  }
+} 

@@ -1,0 +1,360 @@
+/**
+ * 键盘导航组件样式
+ */
+
+// 模态框
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--color-black-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-dropdown);
+  animation: fadeIn 0.2s ease;
+
+  .modal-container {
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 40px var(--color-black-20);
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.3s ease;
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+
+      .modal-title {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .modal-close {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        line-height: 1;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        transition: all 0.2s ease;
+
+        &:hover {
+          background-color: var(--bg-hover);
+          color: var(--text-primary);
+        }
+
+        &:focus {
+          outline: 3px solid var(--color-primary);
+          outline-offset: 2px;
+        }
+      }
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-footer {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+    }
+  }
+}
+
+// 下拉菜单
+.dropdown {
+  position: relative;
+  display: inline-block;
+
+  .dropdown-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--color-primary);
+    color: var(--color-white);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background-color: var(--color-primary-dark);
+    }
+
+    &:focus {
+      outline: 3px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 200px;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px var(--color-black-15);
+    z-index: var(--z-header);
+    padding: 0.5rem 0;
+    animation: slideDown 0.2s ease;
+
+    &--bottom {
+      top: 100%;
+      left: 0;
+    }
+
+    &--top {
+      bottom: 100%;
+      top: auto;
+    }
+
+    &--left {
+      left: 0;
+      right: auto;
+    }
+
+    &--right {
+      left: auto;
+      right: 0;
+    }
+  }
+}
+
+// 导航菜单
+.nav-menu {
+  .nav-menu-list {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 0.5rem;
+
+    .nav-menu-item {
+      .nav-menu-link,
+      .nav-menu-button {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.75rem 1.25rem;
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        text-decoration: none;
+        font-size: 1rem;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background-color: var(--bg-hover);
+        }
+
+        &:focus {
+          outline: 3px solid var(--color-primary);
+          outline-offset: 2px;
+        }
+
+        &.is-disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          pointer-events: none;
+        }
+      }
+    }
+  }
+
+  // 垂直布局
+  &.vertical {
+    .nav-menu-list {
+      flex-direction: column;
+    }
+  }
+}
+
+// 手风琴
+.accordion {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  .accordion-item {
+    border-bottom: 1px solid var(--border-color);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .accordion-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: var(--bg-hover);
+      }
+
+      &:focus {
+        outline: 3px solid var(--color-primary);
+        outline-offset: -3px;
+      }
+
+      .accordion-title {
+        flex: 1;
+      }
+
+      .accordion-icon {
+        font-size: 1.5rem;
+        font-weight: 300;
+        margin-left: 1rem;
+        color: var(--text-secondary);
+      }
+    }
+
+    .accordion-content {
+      display: none;
+      padding: 0 1.5rem;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+
+      &.is-open {
+        display: block;
+        padding: 1.5rem;
+        max-height: 1000px;
+
+        .accordion-content-inner {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    }
+  }
+}
+
+// 动画
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 减少动画支持
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-container,
+  .dropdown-menu,
+  .accordion-content {
+    animation: none;
+    transition: none;
+  }
+}
+
+// 高对比度模式
+@media (prefers-contrast: high) {
+  .modal-container {
+    border: 3px solid var(--text-primary);
+  }
+
+  .dropdown-menu {
+    border-width: 3px;
+  }
+
+  .accordion {
+    border-width: 3px;
+  }
+
+  .nav-menu-link,
+  .nav-menu-button {
+    border: 2px solid transparent;
+
+    &:focus {
+      border-color: var(--text-primary);
+    }
+  }
+}
+
+// 暗色模式
+@media (prefers-color-scheme: dark) {
+  .modal-overlay {
+    background-color: var(--color-black-70);
+  }
+
+  .modal-container {
+    box-shadow: 0 10px 40px var(--color-black-50);
+  }
+
+  .dropdown-menu {
+    box-shadow: 0 4px 12px var(--color-black-30);
+  }
+}
+
+// 打印样式 - 放入 @layer utilities 天然覆盖，用层顺序控制
+@layer utilities {
+  @media print {
+    .modal-overlay,
+    .dropdown-menu,
+    .nav-menu {
+      display: none;
+    }
+  }
+}

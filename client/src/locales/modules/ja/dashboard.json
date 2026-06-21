@@ -1,0 +1,33 @@
+{
+  "dashboard": {
+    "title": "ダッシュボード",
+    "totalUsers": "合計ユーザー数",
+    "totalAgents": "エージェント合計数",
+    "totalExamines": "審査記録",
+    "totalRevenue": "合計収益",
+    "examineStats": "審査統計",
+    "totalExaminesCount": "合計審査数",
+    "pendingExamine": "審査待ち",
+    "approvedExamine": "承認済み",
+    "rejectedExamine": "却下済み",
+    "categoryStats": "カテゴリ統計",
+    "freeCount": "無料",
+    "limitFreeCount": "期間限定無料",
+    "paidCount": "有料",
+    "quickActions": "クイック操作",
+    "modelManagement": "モデル管理",
+    "feeConfig": "料金設定",
+    "examineManagement": "審査管理",
+    "userCenter": "ユーザーセンター",
+    "settlementManagement": "決済管理",
+    "noData": "データがありません",
+    "loadStatsFailed": "統計データの読み込み失敗、ページを更新して再試行してください",
+    "navigationFailed": "ナビゲーション失敗、しばらくしてから再試行してください",
+    "analytics": "analytics",
+    "badge": "badge",
+    "realTime": "realTime",
+    "refresh": "refresh",
+    "shortcuts": "shortcuts",
+    "subtitle": "subtitle"
+  }
+}

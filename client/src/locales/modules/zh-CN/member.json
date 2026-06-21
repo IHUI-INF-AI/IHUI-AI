@@ -1,0 +1,22 @@
+{
+  "member": {
+    "searchPlaceholder": {
+      "company": "搜索企业",
+      "group": "搜索分组",
+      "level": "搜索等级",
+      "list": "搜索会员",
+      "post": "搜索岗位",
+      "tag": "搜索标签",
+      "unaudited": "搜索待审核会员"
+    },
+    "label": {
+      "companyName": "企业名称",
+      "type": "类型",
+      "scale": "规模",
+      "groupName": "分组名称",
+      "memberCount": "成员数",
+      "createTime": "创建时间",
+      "actions": "操作"
+    }
+  }
+}

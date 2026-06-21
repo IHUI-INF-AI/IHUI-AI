@@ -1,0 +1,6 @@
+{
+  "adminGrayRelease": {
+    "confirmRollback": "Confirm Rollback",
+    "enterRollbackReason": "Please enter rollback reason"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "Feedback": {
+    "feedbackRecords": "反饋記錄",
+    "submitFeedback": "提交反饋",
+    "loading": "載入中...",
+    "submitFailed": "提交失敗，請重試"
+  }
+}

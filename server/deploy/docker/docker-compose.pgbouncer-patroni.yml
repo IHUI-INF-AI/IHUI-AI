@@ -1,0 +1,84 @@
+# pgBouncer + Patroni 集成部署
+#
+# 架构: app → pgBouncer (6432) → HAProxy (5000/5001) → Patroni 集群
+# 用途: 连接池 + 读写分离 + 高可用
+#
+# 使用: docker compose -f deploy/docker/docker-compose.pgbouncer-patroni.yml up -d
+version: "3.8"
+
+services:
+  # pgBouncer 写连接池 (端口 6432 → HAProxy 5000)
+  pgbouncer-write:
+    image: edoburu/pgbouncer:1.22.0
+    restart: always
+    environment:
+      DB_USER: ${PG_USER:-zhs}
+      DB_PASSWORD: ${PG_PASSWORD:-zhs_pg_pass}
+      DB_HOST: haproxy
+      DB_PORT: 5000
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      DEFAULT_POOL_SIZE: 50
+      AUTH_TYPE: trust
+      TZ: Asia/Shanghai
+    volumes:
+      - ../../docker/pgbouncer/pgbouncer_patroni.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ../../docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "6432:6432"
+    depends_on:
+      - haproxy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U ${PG_USER:-zhs}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - patroni-net
+
+  # pgBouncer 读连接池 (端口 6433 → HAProxy 5001)
+  pgbouncer-read:
+    image: edoburu/pgbouncer:1.22.0
+    restart: always
+    environment:
+      DB_USER: ${PG_USER:-zhs}
+      DB_PASSWORD: ${PG_PASSWORD:-zhs_pg_pass}
+      DB_HOST: haproxy
+      DB_PORT: 5001
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      DEFAULT_POOL_SIZE: 50
+      AUTH_TYPE: trust
+      TZ: Asia/Shanghai
+    volumes:
+      - ../../docker/pgbouncer/pgbouncer_patroni.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ../../docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "6433:6432"
+    depends_on:
+      - haproxy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U ${PG_USER:-zhs}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - patroni-net
+
+  # HAProxy 读写路由 (引用 patroni-ha 的 haproxy 配置)
+  haproxy:
+    image: haproxy:2.8-alpine
+    restart: always
+    volumes:
+      - ../../docker/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+      - "7000:7000"
+    networks:
+      - patroni-net
+
+networks:
+  patroni-net:
+    external: true
+    name: server_patroni-net

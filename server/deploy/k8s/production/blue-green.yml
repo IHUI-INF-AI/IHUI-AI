@@ -1,0 +1,169 @@
+# P29-5 K8s 真实集群演练: 蓝绿发布配置
+# ZHS 生产环境蓝绿部署
+# - 双 Deployment (blue / green)
+# - Service selector 切换实现流量切换
+#
+# 工作流:
+#   1. 初始: blue 接收流量 (slot: blue)
+#   2. 发布: 部署 green, 健康检查通过后切换 service selector -> green
+#   3. 回滚: 切换 service selector -> blue
+---
+# Blue Deployment (当前活跃)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zhs-platform-api-blue
+  namespace: zhs-platform
+  labels:
+    app: zhs-platform
+    component: api
+    slot: blue
+    environment: production
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: zhs-platform
+      component: api
+      slot: blue
+  template:
+    metadata:
+      labels:
+        app: zhs-platform
+        component: api
+        slot: blue
+        environment: production
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: api
+          image: zhs-platform:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: zhs-platform-config
+            - secretRef:
+                name: zhs-platform-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 40
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+# Green Deployment (待切换/备用)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zhs-platform-api-green
+  namespace: zhs-platform
+  labels:
+    app: zhs-platform
+    component: api
+    slot: green
+    environment: production
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: zhs-platform
+      component: api
+      slot: green
+  template:
+    metadata:
+      labels:
+        app: zhs-platform
+        component: api
+        slot: green
+        environment: production
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: api
+          image: zhs-platform:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: zhs-platform-config
+            - secretRef:
+                name: zhs-platform-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 40
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+# Blue-Green Service (selector 切换: slot=blue 或 slot=green)
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service-bluegreen
+  namespace: zhs-platform
+  labels:
+    app: zhs-platform
+    component: api
+    environment: production
+spec:
+  type: ClusterIP
+  selector:
+    app: zhs-platform
+    component: api
+    slot: blue
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP

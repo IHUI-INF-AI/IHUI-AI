@@ -1,0 +1,14 @@
+{
+  "adminAppointmentManagement": {
+    "stats": {},
+    "filter": {
+      "status": "状态"
+    },
+    "table": {
+      "status": "状态"
+    },
+    "detail": {
+      "status": "状态"
+    }
+  }
+}

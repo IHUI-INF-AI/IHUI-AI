@@ -1,0 +1,22 @@
+{
+  "member": {
+    "searchPlaceholder": {
+      "company": "企業を検索",
+      "group": "グループを検索",
+      "level": "レベルを検索",
+      "list": "会員を検索",
+      "post": "役職を検索",
+      "tag": "タグを検索",
+      "unaudited": "審査中会員を検索"
+    },
+    "label": {
+      "companyName": "企業名",
+      "type": "タイプ",
+      "scale": "規模",
+      "groupName": "グループ名",
+      "memberCount": "メンバー数",
+      "createTime": "作成時間",
+      "actions": "操作"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "errorBoundary": {
+    "reload": "再読み込み",
+    "goホーム": "ホームに戻る",
+    "pageLoadError": "ページの読み込みに失敗しました",
+    "unknownError": "不明なエラー",
+    "loadTimeout": "読み込みがタイムアウトしました。しばらくしてから再試行してください",
+    "retry": "再試行",
+    "hideDetails": "詳細を非表示",
+    "showDetails": "詳細を表示",
+    "errorDetails": "エラー詳細",
+    "title": "タイトル",
+    "message": "メッセージ",
+    "componentError": "コンポーネントエラー",
+    "goHome": "ホームに戻る"
+  }
+}

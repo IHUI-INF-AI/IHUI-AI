@@ -1,0 +1,18 @@
+{
+  "downloadCenter": {
+    "apps": {
+      "ios": {},
+      "android": {}
+    },
+    "sdkList": {
+      "javascript": {},
+      "python": {},
+      "java": {}
+    },
+    "docs": {
+      "api": {},
+      "guide": {},
+      "design": {}
+    }
+  }
+}

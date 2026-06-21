@@ -1,0 +1,14 @@
+/**
+ * Element Plus Tooltip 样式修复
+ * 专门修复用户信息按钮和其他组件中tooltip的样式冲突问题
+ */
+
+// 暗色模式下的tooltip修复
+html.dark {
+  body .button-message.el-tooltip__trigger,
+  body .user-info-button.el-tooltip__trigger {
+    &:hover {
+      background-color: var(--color-white-8);
+    }
+  }
+}

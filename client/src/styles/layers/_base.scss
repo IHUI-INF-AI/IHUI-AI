@@ -1,0 +1,64 @@
+// Base ?- 基础设计令牌
+@layer base {
+  :root {
+    --font-family-chinese: 'HarmonyOS Sans SC', -apple-system, blinkmacsystemfont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    --font-family-english: 'HarmonyOS Sans SC', -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, sans-serif;
+  }
+
+  html {
+    font-family: var(--font-family-chinese);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--el-text-color-primary);
+    background-color: var(--el-bg-color-page);
+  }
+
+  body {
+    font-family: inherit;
+    min-height: 100vh;
+    color: inherit;
+    background-color: inherit;
+  }
+
+  a {
+    color: var(--el-color-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--el-color-primary-light-3);
+    }
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--el-text-color-primary);
+  }
+
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  h4 { font-size: 1.125rem; }
+  h5 { font-size: 1rem; }
+  h6 { font-size: 0.875rem; }
+
+  p {
+    margin-bottom: 1rem;
+  }
+
+  code, pre {
+    font-family: var(--font-family-mono);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms;
+      animation-iteration-count: 1;
+      transition-duration: 0.01ms;
+      scroll-behavior: auto;
+    }
+  }
+}

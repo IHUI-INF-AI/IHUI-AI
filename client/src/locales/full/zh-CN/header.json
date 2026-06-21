@@ -1,0 +1,13 @@
+{
+  "headerNav": {
+    "moreFeatures": "更多功能",
+    "moreFeaturesMouseDown": "[更多功能] mousedown 事件，设置标志",
+    "moreFeaturesClearFlag": "[更多功能] 清除标志",
+    "moreFeaturesToggle": "[更多功能] toggleMoreMenu 被调用",
+    "moreMenuSwitch": "[更多功能] showMoreMenu 切换为"
+  },
+  "headerCrossProjectBanner": {},
+  "headerHeaderActions": {
+    "pwaApp": "PWA 应用"
+  }
+}

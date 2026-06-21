@@ -1,0 +1,212 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.pyc
+
+# Virtual Environment
+venv/
+.venv/
+env/
+.ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.production
+.env.development
+.env.production.template
+.env.vapid
+config/observability.prod.env
+config/staging.env
+
+# Backup files
+*.bak
+*.bak.*
+
+# Temp test results
+p17-*.json
+p18-*.json
+noise-v2-inhibit.yml
+
+# Database
+*.db
+*.sqlite3
+*.sqlite
+
+# Snapshots / storage / temp test outputs
+snapshots/
+storage/
+pytest-full.txt
+pytest-results.txt
+test_full.txt
+test_output.txt
+
+# Temp probe scripts
+_add_*.py
+_create_*.py
+_probe_*.py
+_quick_probe.py
+/test_*.py
+create_zhs_dictionary_table.py
+verify_endpoints.py
+
+# Local data
+local_data/
+local_uploads/
+local_videos/
+uploads/
+
+# Certificates
+*.pem
+*.key
+*.crt
+certs/
+
+# Logs
+*.log
+logs/
+
+# Docker
+*.pid
+
+# Build
+build_linux.sh
+*.exe
+
+# OpenAPI snapshots
+openapi*.json
+openapi*.json.bak
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Alembic
+alembic/versions/*.pyc
+
+# Migration state
+.migrate_tenants_state.json
+
+# Debug/temp scripts
+_check_*.py
+_debug_*.py
+_gen_*.py
+_test*.py
+check_schema.py
+launch_local_server.py
+run_local.py
+test_integration.py
+_fix_*.py
+audit_files.py
+batch_fix_all.py
+brute_force_fix.py
+check_syntax.py
+_token.txt
+check_v2.py
+count_dbclose.py
+debug_login.py
+debug_login2.py
+debug_regex.py
+debug_v2.py
+direct_test.py
+err3.py
+err4.py
+final_restore.py
+find_stubs.py
+fix_all_*.py
+fix_bearer_*.py
+fix_broken_db.py
+fix_buy.py
+fix_by_error_line.py
+fix_db_session.py
+fix_empty_*.py
+fix_except_body.py
+fix_indent.py
+fix_indent_v2.py
+fix_login.py
+fix_orphan_*.py
+fix_orphaned_except.py
+fix_router_files.py
+fix_specific_patterns.py
+fix_vip.py
+git_show.py
+iterative_fix.py
+iterative_startup_fix.py
+list_broken.py
+migrate_get_session.py
+migrate_stub_files.py
+migrate_v2.py
+migrate_v3.py
+migrate_v4.py
+migrate_v5.py
+minimal_fix.py
+nuclear_restore.py
+precise_fix.py
+reconstruct_try_body.py
+remove_blank_lines.py
+restore_*.py
+revert_*.py
+rewrite_*.py
+show_200.py
+show_buy.py
+show_err.py
+show_err2.py
+show_lines.py
+spot_check.py
+strip_blanks.py
+test_imports.py
+test_mysql.py
+tmp_*.py
+try_login.py
+ultimate_fix.py
+universal_fix.py
+write_login.py
+
+# Egg info
+zhs_platform.egg-info/
+
+# Helm chart dashboard copies (generated)
+deploy/helm/zhs-platform/dashboards/
+
+# Windows reserved device name file（PowerShell/IDE 终端偶发把 `>nul` 重定向当作文件名写入）
+nul
+con
+prn
+aux
+
+# 本地开发工具 (不提交)
+start-backend-guard.bat
+
+# 运行时产物 (脚本生成的报告/日志)
+drill_report.md
+noise-v2-report.md
+.migration_log

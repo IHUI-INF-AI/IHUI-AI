@@ -1,0 +1,118 @@
+{
+  "orders": {
+    "title": "订单管理",
+    "subtitle": "查看和管理您的订单",
+    "searchPlaceholder": "搜索订单...",
+    "clearSearch": "清空搜索",
+    "tabs": {
+      "all": "全部订单",
+      "pending": "待付款",
+      "processing": "处理中",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "shipping": "配送中",
+      "refunded": "已退款"
+    },
+    "order": {
+      "orderId": "订单ID",
+      "productName": "商品名称",
+      "amount": "金额",
+      "status": "状态",
+      "createTime": "创建时间",
+      "payTime": "支付时间",
+      "actions": "操作"
+    },
+    "status": {
+      "pending": "待付款",
+      "processing": "处理中",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款",
+      "paid": "已付款"
+    },
+    "actions": {
+      "viewDetails": "查看详情",
+      "cancel": "取消订单",
+      "pay": "立即支付",
+      "refund": "退款",
+      "goShop": "前往商店",
+      "confirmReceived": "确认收货",
+      "viewProduct": "查看产品",
+      "detail": "详情",
+      "copyOrderId": "复制订单ID",
+      "copyProductId": "复制产品ID",
+      "copyOrderInfo": "复制订单信息",
+      "retry": "重试"
+    },
+    "labels": {
+      "orderId": "订单ID",
+      "orderType": "订单类型",
+      "amount": "金额",
+      "status": "状态",
+      "createTime": "创建时间",
+      "actions": "操作",
+      "payTime": "支付时间",
+      "productName": "商品名称",
+      "productType": "产品类型",
+      "paymentMethod": "支付方式",
+      "expireTime": "到期时间"
+    },
+    "empty": {
+      "title": "暂无订单",
+      "noSearchResult": "无搜索结果",
+      "noOrders": "暂无订单"
+    },
+    "noMore": "没有更多订单",
+    "detail": {
+      "title": "订单详情",
+      "orderInfo": "订单信息",
+      "productInfo": "商品信息",
+      "paymentInfo": "支付信息",
+      "shippingInfo": "配送信息"
+    },
+    "productType": {
+      "vip": "VIP",
+      "tokens": "Tokens",
+      "tool": "工具",
+      "agent": "智能体",
+      "unknown": "未知"
+    },
+    "paymentMethod": {
+      "wechat": "微信",
+      "alipay": "支付宝",
+      "balance": "余额",
+      "unknown": "未知"
+    },
+    "dialogs": {
+      "cancel": {
+        "confirm": "确认要取消此订单吗？",
+        "title": "取消订单"
+      },
+      "received": {
+        "confirm": "确认已收到商品吗？",
+        "title": "确认收货"
+      }
+    },
+    "messages": {
+      "cancelled": "订单已取消",
+      "cancelFailed": "取消订单失败",
+      "received": "已确认收货",
+      "receiveFailed": "确认收货失败",
+      "refundNotAvailable": "当前不可退款",
+      "refundApplied": "退款申请已提交",
+      "refundApplyFailed": "退款申请失败",
+      "navigateNotSupported": "不支持跳转",
+      "copyOrderIdSuccess": "订单ID已复制",
+      "copyProductIdSuccess": "产品ID已复制",
+      "copyOrderInfoSuccess": "订单信息已复制",
+      "loadFailed": "订单加载失败，请稍后重试"
+    },
+    "error": {
+      "title": "加载失败"
+    },
+    "refundReasonPlaceholder": "请输入退款原因",
+    "applyRefund": "申请退款",
+    "refundReasonRequired": "请输入退款原因",
+    "refundReasonMinLength": "退款原因长度不足"
+  }
+}

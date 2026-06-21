@@ -1,0 +1,81 @@
+# 告警失败率监控规则
+# 用于 Prometheus 抓取 alertmanager_notifications_failed_total 计算失败率
+# 触发条件:
+#   - 5min 失败率 > 10% -> critical (P1)
+#   - 5min 失败率 > 5%  -> warning  (P2)
+#   - 持续 1min 无通知      -> warning (告警链路断了)
+
+groups:
+  - name: alertmanager_failure
+    interval: 30s
+    rules:
+      - alert: AlertmanagerHighFailureRate
+        expr: |
+          (
+            sum(rate(alertmanager_notifications_failed_total[5m]))
+            /
+            sum(rate(alertmanager_notifications_total[5m]))
+          ) > 0.10
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+          category: alerting
+        annotations:
+          summary: "Alertmanager 5min 失败率 > 10%"
+          description: |
+            当前 5min 失败率 {{ $value | humanizePercentage }}, 已超阈值 (10%).
+            自动动作: 关闭非核心通道, 钉钉群发 P1 告警, 触发值班 oncall.
+          runbook: https://wiki/runbooks/alert-failure
+
+      - alert: AlertmanagerModerateFailureRate
+        expr: |
+          (
+            sum(rate(alertmanager_notifications_failed_total[5m]))
+            /
+            sum(rate(alertmanager_notifications_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+          category: alerting
+        annotations:
+          summary: "Alertmanager 5min 失败率 > 5%"
+          description: |
+            当前 5min 失败率 {{ $value | humanizePercentage }}.
+            建议动作: 邮件抄送运维, 检查 webhook 端点健康.
+
+      - alert: AlertmanagerNoNotifications
+        expr: sum(rate(alertmanager_notifications_total[5m])) == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+          category: alerting
+        annotations:
+          summary: "Alertmanager 5min 内无通知发送"
+          description: |
+            5min 内 alertmanager 通知流量为 0, 可能是:
+            1. 告警源未触发 (正常)
+            2. alertmanager 接收链路断了 (异常)
+            请确认上游 alert rule 是否正常触发.
+
+  - name: alert_history_metrics
+    interval: 60s
+    rules:
+      # 从 alert_history exporter 抓取 (应用层主动暴露)
+      - record: alert:history:failure_rate_5m
+        expr: sum by (channel) (rate(alert_history_failed_total[5m]))
+
+      - record: alert:history:total_5m
+        expr: sum by (channel) (rate(alert_history_total_total[5m]))
+
+      - record: alert:history:failure_ratio_5m
+        expr: |
+          (
+            alert:history:failure_rate_5m
+            /
+            ignoring(rate) group_left
+            alert:history:total_5m
+          )

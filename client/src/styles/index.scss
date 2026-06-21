@@ -1,0 +1,381 @@
+// Tailwind CSS 4 入口 (新语法: @import "tailwindcss" 替代 v3 的 @tailwind base/components/utilities)
+@use "tailwindcss";
+@use './variables.scss' as *;
+@use './_global-tokens.scss' as *;
+@use './_global-ui.scss' as *;
+@use './_app-shell.scss';
+@use './animations.scss' as *;
+@use './responsive.scss' as *;
+@use './_safe-area.scss' as *;
+@use './_responsive-typography-spacing.scss' as *;
+@use './_table-responsive.scss' as *;
+@use './_touch-optimization.scss' as *;
+@use './desktop-layout.scss' as *;
+@use './fonts.scss' as *;
+@use './dialog.scss' as *;
+@use './utilities.scss' as *;
+@use './brand-marquee.scss' as *;
+@use './runtime-overrides.scss' as *;
+@use './tooltip-fixes.scss' as *;
+@use './theme-transition-optimization.scss' as *;
+@use './_unified-search';
+@use './_search-bar-append';
+@use './_openclaw-panels';
+@use './_floating-chat-dialog-glowing';
+@use './_element-plus-overrides';
+@use './_layout-containers';
+@use './_feedback-states';
+@use './_typography-nav';
+@use './_cards-global';
+@use './_el-message-global';
+@use './_dark-mode-global';
+@use './_admin-dark-mode';
+@use './_chat-input-global';
+@use './_avatar-icon';
+@use './_profile-form';
+@use './_header-actions';
+@use './_a11y';
+@use './_theme-presets';
+
+// 全局样式入口 / CSS Layers 架构
+// CSS Layers 声明（优先级从低到高）
+@layer reset, base, vendor, components, utilities;
+
+// 全局样式重置
+html {
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: inherit;
+}
+
+@layer utilities {
+  *, *::before, *::after {
+    text-shadow: none;
+  }
+}
+
+// Header 中的 logo 不受全局样式影响（仅桌面端），并保持原色
+.glass-header .logo-container .logo,
+.login-header .login-logo {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+  filter: none;
+}
+
+// 语言选择器中的国旗图标保持原色
+.glass-header .flag-icon,
+.glass-header .language-selector .flag-icon {
+  filter: none;
+  opacity: 1;
+}
+
+// 「更多功能」下拉 Teleport 到 body
+body [data-more-menu="true"] {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+
+// 移动端隐藏 logo
+@layer components {
+  @media (width <= 767px) {
+    .glass-header .logo-container .logo {
+      display: none;
+    }
+  }
+}
+
+html {
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  font-family: var(--font-family-chinese);
+  opacity: 1;
+  visibility: visible;
+  display: block;
+  background-color: var(--page-bg-color, var(--el-bg-color));
+}
+
+@layer base {
+  // 文案徽标
+  :where(.text-bold) {
+    font-weight: 700;
+  }
+
+  :where(.badge-text) {
+    font-size: 12px;
+  }
+
+  :where(.nav-badge-text) {
+    font-size: 11px;
+  }
+
+  :where(.header-badge) :where(.badge-text),
+  :where(.nav-header) :where(.nav-badge-text) {
+    font-weight: 600;
+  }
+}
+
+@layer base {
+  // 暗色模式 html 元素使用纯黑背景
+  :where(html.dark) {
+    background-color: var(--page-bg-color);
+  }
+}
+
+@layer components {
+  // #app 根容器
+  #app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 1;
+    visibility: visible;
+    background-color: var(--el-bg-color);
+    font-family: var(--font-family-chinese);
+  }
+
+  :where(html.dark) #app {
+    background-color: var(--page-bg-color);
+    color: var(--el-text-color-primary);
+    position: relative;
+    z-index: var(--z-base);
+    overflow: visible;
+  }
+
+  // 统一容器类（包含 container 关键字）的满宽与动态内边距
+  [class*="container"]:not(.app-container, .home-container, .ai-world-page__container, .logo-container, .form-container, .account-form-container, .phone-form-container, .icon-container, .chat-input-container, .prompt-templates-container) {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: clamp(12px, 3vw, 24px);
+    padding-right: clamp(12px, 3vw, 24px);
+  }
+}
+
+@layer base {
+  // CSS 变量：间距、栅格尺寸
+  :root {
+    --space-v: clamp(12px, 2vh, 24px);
+    --space-h: clamp(12px, 3vw, 24px);
+    --grid-gap: clamp(10px, 2vw, 15px);
+    --grid-size: 55px;
+    --grid-overlay-opacity: 0;
+  }
+
+  // 智能圆角系统
+  :root {
+    --smart-radius-small: var(--global-border-radius);
+    --smart-radius-medium: var(--global-border-radius);
+    --smart-radius-large: var(--global-border-radius);
+    --smart-radius-xl: var(--global-border-radius);
+  }
+
+  // 主题色与 AI 主题色映射
+  :root {
+    --ai-primary-color: var(--el-color-primary);
+    --ai-primary-light: var(--el-color-primary-light-3);
+    --ai-primary-dark: var(--el-color-primary);
+    --ai-success-color: var(--el-color-primary);
+    --ai-warning-color: var(--el-color-primary);
+    --ai-danger-color: var(--el-color-primary);
+    --ai-info-color: var(--el-color-primary);
+  }
+
+  // 强制覆盖 Element Plus 主题色 - 亮色模式：纯黑
+  :root {
+    --el-color-primary: var(--el-text-color-primary);
+    --el-color-primary-light-3: var(--el-text-color-primary);
+    --el-color-primary-light-5: var(--el-text-color-secondary);
+    --el-color-primary-light-7: var(--el-text-color-placeholder);
+    --el-color-primary-light-8: var(--color-neutral-b3);
+    --el-color-primary-light-9: var(--el-text-color-placeholder);
+    --el-color-primary-dark-2: var(--color-dark-bg-3);
+  }
+
+  // 定价卡片 hover/active 状态描边色
+  :root {
+    --pricing-card-border-hover-color: var(--el-text-color-primary);
+    --pricing-card-border-active-color: var(--el-text-color-primary);
+  }
+
+  :where(html.dark) {
+    --pricing-card-border-hover-color: var(--el-bg-color);
+    --pricing-card-border-active-color: var(--el-bg-color);
+  }
+
+  // 高亮透明
+  :root, html.dark {
+    --highlight-background: transparent;
+    --highlight-border: transparent;
+    --inspector-highlight-background: transparent;
+    --inspector-highlight-border: transparent;
+    --devtools-highlight-background: transparent;
+    --devtools-highlight-border: transparent;
+    --webkit-inspector-highlight-background: transparent;
+    --webkit-inspector-highlight-border: transparent;
+    --highlighter-background: transparent;
+    --highlighter-border: transparent;
+    --element-highlight-background: transparent;
+    --element-highlight-border: transparent;
+  }
+}
+
+@layer base {
+  // 文本选中颜色
+  ::selection,
+  ::-webkit-selection {
+    background-color: var(--el-bg-color);
+    color: inherit;
+  }
+
+  html.dark ::selection,
+  html.dark ::-webkit-selection {
+    background-color: var(--el-bg-color);
+    color: inherit;
+  }
+
+  // 用户可选择
+  * {
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+}
+
+@layer components {
+  // 全局栅格（多用途）
+  .tools-grid,
+  .courses-grid,
+  .agents-grid,
+  .features-grid,
+  .actions-grid,
+  .rules-grid,
+  .header-stats {
+    gap: var(--grid-gap);
+  }
+
+  .page-header,
+  .section-header,
+  .generation-content,
+  .store-filters,
+  .courses-filters,
+  .detail-content,
+  .settings-content,
+  .feedback-container {
+    padding: var(--space-v);
+  }
+
+  // 自适应高度
+  @media (height <= 700px) {
+    :root {
+      --space-v: clamp(8px, 2vh, 16px);
+    }
+  }
+
+  @media (height >= 900px) {
+    :root {
+      --space-v: clamp(16px, 3vh, 28px);
+    }
+  }
+
+  // 亮色模式 .page-container 背景
+  html:not(.dark) .page-container {
+    background-color: var(--el-bg-color);
+  }
+
+  // 页面栅格背景
+  :where(html.dark) .page-grid {
+    background-color: var(--el-bg-color-page);
+  }
+}
+
+@layer components {
+  // 输入区域特殊圆角：确?input-area 容器的底部圆角不被全局样式覆盖
+  :where(.floating-chat-dialog-wrapper) :where(.input-area),
+  .input-area[data-v-c9cec757],
+  div[class*="input-area"] {
+    border-bottom-left-radius: var(--global-border-radius);
+    border-bottom-right-radius: var(--global-border-radius);
+    -webkit-border-bottom-left-radius: var(--global-border-radius);
+    -webkit-border-bottom-right-radius: var(--global-border-radius);
+  }
+
+  // 输入包装容器圆角
+  :where(.floating-chat-dialog-wrapper) :where(.input-wrapper),
+  .input-wrapper[data-v-c9cec757],
+  :where(div[class*="input-wrapper"]):not(.username-input-wrapper, .phone-input-wrapper, [class*="login"]) {
+    border-radius: var(--global-border-radius);
+    -webkit-border-radius: var(--global-border-radius);
+    -moz-border-radius: var(--global-border-radius);
+    overflow: hidden;
+  }
+
+  // chat-input 圆角
+  :where(.floating-chat-dialog-wrapper) :where(.chat-input),
+  .chat-input[data-v-c9cec757],
+  div[class*="chat-input"] {
+    border-radius: var(--global-border-radius);
+    -webkit-border-radius: var(--global-border-radius);
+    -moz-border-radius: var(--global-border-radius);
+
+    &,
+    &:focus,
+    &:hover,
+    &:active,
+    &:focus-visible,
+    &:focus-within {
+      border-radius: var(--global-border-radius);
+      -webkit-border-radius: var(--global-border-radius);
+      -moz-border-radius: var(--global-border-radius);
+    }
+  }
+}
+
+@layer components {
+  // 全局 mixin，供组件使用
+  @mixin pricing-card-border-hover {
+    html:not(.dark) & {
+      border: 2.5px solid var(--border-unified-color);
+    }
+
+    html.dark & {
+      border: 2.5px solid var(--border-unified-color);
+    }
+  }
+
+  @mixin pricing-card-border-active {
+    html:not(.dark) & {
+      border: 2.5px solid var(--border-unified-color);
+    }
+
+    html.dark & {
+      border: 2.5px solid var(--border-unified-color);
+    }
+  }
+
+  // 全局类
+  .pricing-card-border-hover {
+    @include pricing-card-border-hover;
+  }
+
+  .pricing-card-border-active {
+    @include pricing-card-border-active;
+  }
+}

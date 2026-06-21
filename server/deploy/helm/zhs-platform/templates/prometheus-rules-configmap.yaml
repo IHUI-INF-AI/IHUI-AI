@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zhs-platform.fullname" . }}-prometheus-rules
+  labels:
+    {{- include "zhs-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+data:
+  # Prometheus alerting rules (建议 86)
+  # 由运维 kubectl apply 后, 挂到外部 prometheus 的 rule_files 路径
+  zhs-platform.rules.yml: |
+{{ .Files.Get "prometheus/rules.yml" | indent 4 }}

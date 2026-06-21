@@ -1,0 +1,7 @@
+{
+  "AgenticAIPage": {
+    "swarmCreated": "Swarm created",
+    "createSwarmFailed": "Failed to create swarm",
+    "createSwarmFailed2": "创建Swarm失败"
+  }
+}

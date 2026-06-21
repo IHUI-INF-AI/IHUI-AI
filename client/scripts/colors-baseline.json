@@ -1,0 +1,931 @@
+{
+  "generatedAt": "2026-06-19T12:33:37.420Z",
+  "count": 185,
+  "violations": [
+    {
+      "file": "src/views/admin/index.vue",
+      "line": 309,
+      "color": "#234"
+    },
+    {
+      "file": "src/views/AskDetail.vue",
+      "line": 221,
+      "color": "#fef3c7"
+    },
+    {
+      "file": "src/views/AskDetail.vue",
+      "line": 222,
+      "color": "#92400e"
+    },
+    {
+      "file": "src/views/AskDetail.vue",
+      "line": 226,
+      "color": "#ede9fe"
+    },
+    {
+      "file": "src/views/AskDetail.vue",
+      "line": 227,
+      "color": "#5b21b6"
+    },
+    {
+      "file": "src/views/AskDetail.vue",
+      "line": 233,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/AskDetail.vue",
+      "line": 307,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/AskDetail.vue",
+      "line": 334,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/AskDetail.vue",
+      "line": 352,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/AskList.vue",
+      "line": 268,
+      "color": "#fef3c7"
+    },
+    {
+      "file": "src/views/AskList.vue",
+      "line": 269,
+      "color": "#92400e"
+    },
+    {
+      "file": "src/views/AskList.vue",
+      "line": 273,
+      "color": "#ede9fe"
+    },
+    {
+      "file": "src/views/AskList.vue",
+      "line": 274,
+      "color": "#5b21b6"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 280,
+      "color": "#0a0e1a"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 282,
+      "color": "#e8eaf2"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 287,
+      "color": "#111827"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 288,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 297,
+      "color": "#1a2332"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 298,
+      "color": "#2d3748"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 309,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 309,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 313,
+      "color": "#cbd5e0"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 316,
+      "color": "#93c5fd"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 317,
+      "color": "#1e3a8a"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 323,
+      "color": "#0f172a"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 324,
+      "color": "#334155"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 325,
+      "color": "#e8eaf2"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 348,
+      "color": "#1e40af"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 357,
+      "color": "#047857"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 361,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 368,
+      "color": "#1e40af"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 372,
+      "color": "#94a3b8"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 385,
+      "color": "#4b5563"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 387,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 389,
+      "color": "#0f172a"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 393,
+      "color": "#1a2332"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 394,
+      "color": "#334155"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 396,
+      "color": "#e8eaf2"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 419,
+      "color": "#475569"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 421,
+      "color": "#475569"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 421,
+      "color": "#e8eaf2"
+    },
+    {
+      "file": "src/views/Chat.vue",
+      "line": 422,
+      "color": "#64748b"
+    },
+    {
+      "file": "src/views/CircleDetail.vue",
+      "line": 304,
+      "color": "#fef3c7"
+    },
+    {
+      "file": "src/views/CircleDetail.vue",
+      "line": 305,
+      "color": "#92400e"
+    },
+    {
+      "file": "src/views/CircleDetail.vue",
+      "line": 310,
+      "color": "#ede9fe"
+    },
+    {
+      "file": "src/views/CircleDetail.vue",
+      "line": 311,
+      "color": "#5b21b6"
+    },
+    {
+      "file": "src/views/CircleDetail.vue",
+      "line": 354,
+      "color": "#ef4444"
+    },
+    {
+      "file": "src/views/CircleList.vue",
+      "line": 211,
+      "color": "rgba(245, 158, 11, 0.9)"
+    },
+    {
+      "file": "src/views/CircleList.vue",
+      "line": 216,
+      "color": "rgba(239, 68, 68, 0.9)"
+    },
+    {
+      "file": "src/views/ExamDo.vue",
+      "line": 294,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/ExamDo.vue",
+      "line": 371,
+      "color": "#ef4444"
+    },
+    {
+      "file": "src/views/ExamDo.vue",
+      "line": 376,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 311,
+      "color": "#dcfce7"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 312,
+      "color": "#166534"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 315,
+      "color": "#fef3c7"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 316,
+      "color": "#92400e"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 319,
+      "color": "#fee2e2"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 320,
+      "color": "#991b1b"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 383,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 403,
+      "color": "#fee2e2"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 404,
+      "color": "#991b1b"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 408,
+      "color": "#dcfce7"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 409,
+      "color": "#166534"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 438,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 455,
+      "color": "#ef4444"
+    },
+    {
+      "file": "src/views/ExamList.vue",
+      "line": 456,
+      "color": "#ef4444"
+    },
+    {
+      "file": "src/views/Home.vue.styles.scss",
+      "line": 692,
+      "color": "#06ad56"
+    },
+    {
+      "file": "src/views/Home.vue.styles.scss",
+      "line": 718,
+      "color": "#059a4c"
+    },
+    {
+      "file": "src/views/Home.vue.styles.scss",
+      "line": 724,
+      "color": "#048040"
+    },
+    {
+      "file": "src/views/Home.vue.styles.scss",
+      "line": 741,
+      "color": "#06ad56"
+    },
+    {
+      "file": "src/views/Home.vue.styles.scss",
+      "line": 767,
+      "color": "#059a4c"
+    },
+    {
+      "file": "src/views/Home.vue.styles.scss",
+      "line": 773,
+      "color": "#048040"
+    },
+    {
+      "file": "src/views/I18nDashboard.vue",
+      "line": 885,
+      "color": "#303133"
+    },
+    {
+      "file": "src/views/index/Index.vue",
+      "line": 215,
+      "color": "rgba(0,0,0,0.08)"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 271,
+      "color": "#fafafa"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 276,
+      "color": "#f59e0b"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 290,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 295,
+      "color": "#dbeafe"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 296,
+      "color": "#1e40af"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 300,
+      "color": "#fce7f3"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 301,
+      "color": "#9d174d"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 306,
+      "color": "#f59e0b"
+    },
+    {
+      "file": "src/views/MessageCenter.vue",
+      "line": 353,
+      "color": "#dc2626"
+    },
+    {
+      "file": "src/views/MobileDashboard.vue",
+      "line": 32,
+      "color": "#000"
+    },
+    {
+      "file": "src/views/MobileDashboard.vue",
+      "line": 33,
+      "color": "#000"
+    },
+    {
+      "file": "src/views/MobileDashboard.vue",
+      "line": 480,
+      "color": "rgba(0, 0, 0, 0.02)"
+    },
+    {
+      "file": "src/views/MobileDashboard.vue",
+      "line": 579,
+      "color": "rgba(0, 0, 0, 0.03)"
+    },
+    {
+      "file": "src/views/news/List.vue",
+      "line": 80,
+      "color": "rgba(0,0,0,0.08)"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 278,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 285,
+      "color": "#dbeafe"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 286,
+      "color": "#1e40af"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 289,
+      "color": "#dcfce7"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 290,
+      "color": "#166534"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 293,
+      "color": "#fef3c7"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 294,
+      "color": "#92400e"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 297,
+      "color": "#ede9fe"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 298,
+      "color": "#5b21b6"
+    },
+    {
+      "file": "src/views/NotificationCenter.vue",
+      "line": 340,
+      "color": "#dc2626"
+    },
+    {
+      "file": "src/views/p19/P19AdminDashboard.vue",
+      "line": 69,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/p19/P19AdminDashboard.vue",
+      "line": 75,
+      "color": "#111827"
+    },
+    {
+      "file": "src/views/p19/P19AgentsList.vue",
+      "line": 96,
+      "color": "#4b5563"
+    },
+    {
+      "file": "src/views/p19/P19AgentsList.vue",
+      "line": 104,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/p19/P19CoursesList.vue",
+      "line": 78,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/p19/P19CoursesList.vue",
+      "line": 83,
+      "color": "#4b5563"
+    },
+    {
+      "file": "src/views/p19/P19CoursesList.vue",
+      "line": 95,
+      "color": "#ef4444"
+    },
+    {
+      "file": "src/views/p19/P19PaymentMethods.vue",
+      "line": 70,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/p19/P19PaymentMethods.vue",
+      "line": 79,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/p20/P20DashboardEcharts.vue",
+      "line": 108,
+      "color": "#409eff"
+    },
+    {
+      "file": "src/views/p20/P20DashboardEcharts.vue",
+      "line": 152,
+      "color": "#67c23a"
+    },
+    {
+      "file": "src/views/p20/P20DashboardEcharts.vue",
+      "line": 228,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/p20/P20DashboardEcharts.vue",
+      "line": 232,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/p20/P20DashboardEcharts.vue",
+      "line": 238,
+      "color": "#111827"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 292,
+      "color": "#6366f1"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 302,
+      "color": "rgba(255, 255, 255, 0.5)"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 351,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 380,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 384,
+      "color": "#ef4444"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 407,
+      "color": "#fafafa"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 454,
+      "color": "#d4d4d8"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 462,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 485,
+      "color": "#fef3c7"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 486,
+      "color": "#92400e"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 489,
+      "color": "#dbeafe"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 490,
+      "color": "#1e40af"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 493,
+      "color": "#dcfce7"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 494,
+      "color": "#166534"
+    },
+    {
+      "file": "src/views/PointCenter.vue",
+      "line": 497,
+      "color": "#f0f0f0"
+    },
+    {
+      "file": "src/views/Ranking.vue",
+      "line": 201,
+      "color": "#f59e0b"
+    },
+    {
+      "file": "src/views/Ranking.vue",
+      "line": 206,
+      "color": "#94a3b8"
+    },
+    {
+      "file": "src/views/Ranking.vue",
+      "line": 210,
+      "color": "#b45309"
+    },
+    {
+      "file": "src/views/Ranking.vue",
+      "line": 222,
+      "color": "#f59e0b"
+    },
+    {
+      "file": "src/views/Ranking.vue",
+      "line": 226,
+      "color": "#94a3b8"
+    },
+    {
+      "file": "src/views/Ranking.vue",
+      "line": 230,
+      "color": "#b45309"
+    },
+    {
+      "file": "src/views/resource/List.vue",
+      "line": 96,
+      "color": "rgba(0,0,0,0.08)"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 254,
+      "color": "#0a0e1a"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 256,
+      "color": "#e8eaf2"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 267,
+      "color": "#111827"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 268,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 279,
+      "color": "#f3f4f6"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 281,
+      "color": "#0f172a"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 282,
+      "color": "#334155"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 283,
+      "color": "#e8eaf2"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 290,
+      "color": "#3b82f6"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 300,
+      "color": "#cbd5e0"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 303,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 305,
+      "color": "#1e40af"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 312,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 313,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 317,
+      "color": "rgba(255, 255, 255, 0.2)"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 325,
+      "color": "#94a3b8"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 327,
+      "color": "#f3f4f6"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 330,
+      "color": "#10b981"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 332,
+      "color": "#064e3b"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 337,
+      "color": "#fbbf24"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 338,
+      "color": "#78350f"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 341,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 342,
+      "color": "#334155"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 343,
+      "color": "#e8eaf2"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 352,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 361,
+      "color": "#111827"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 362,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 372,
+      "color": "#3b82f6"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 374,
+      "color": "rgba(59, 130, 246, 0.15)"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 390,
+      "color": "#f3f4f6"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 393,
+      "color": "#94a3b8"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 403,
+      "color": "#1f2937"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 407,
+      "color": "#93c5fd"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 408,
+      "color": "#1e3a8a"
+    },
+    {
+      "file": "src/views/Tools.vue",
+      "line": 412,
+      "color": "#6b7280"
+    },
+    {
+      "file": "src/views/Wallet.vue",
+      "line": 85,
+      "color": "#000"
+    },
+    {
+      "file": "src/views/Wallet.vue",
+      "line": 86,
+      "color": "#000"
+    },
+    {
+      "file": "src/views/Wallet.vue",
+      "line": 674,
+      "color": "rgba(0, 0, 0, 0.04)"
+    },
+    {
+      "file": "src/views/Wallet.vue",
+      "line": 755,
+      "color": "rgba(255, 255, 255, 0.4)"
+    },
+    {
+      "file": "src/views/Wallet.vue",
+      "line": 758,
+      "color": "rgba(255, 255, 255, 0.1)"
+    },
+    {
+      "file": "src/views/Wallet.vue",
+      "line": 785,
+      "color": "rgba(0, 0, 0, 0.05)"
+    },
+    {
+      "file": "src/views/Wallet.vue",
+      "line": 1075,
+      "color": "rgba(0, 0, 0, 0.02)"
+    },
+    {
+      "file": "src/views/Wallet.vue",
+      "line": 1091,
+      "color": "rgba(0, 0, 0, 0.05)"
+    },
+    {
+      "file": "e2e/p15-dark-mode.spec.ts",
+      "line": 64,
+      "color": "#ffffff"
+    },
+    {
+      "file": "e2e/p15-dark-mode.spec.ts",
+      "line": 64,
+      "color": "rgb(255, 255, 255)"
+    },
+    {
+      "file": "e2e/p15-dark-mode.spec.ts",
+      "line": 138,
+      "color": "rgb(255, 255, 255)"
+    },
+    {
+      "file": "e2e/p15-dark-mode.spec.ts",
+      "line": 172,
+      "color": "rgb(255, 255, 255)"
+    },
+    {
+      "file": "e2e/p15-dark-mode.spec.ts",
+      "line": 206,
+      "color": "rgb(255, 255, 255)"
+    },
+    {
+      "file": "e2e/p15-dark-mode.spec.ts",
+      "line": 217,
+      "color": "rgb(255, 255, 255)"
+    },
+    {
+      "file": "e2e/p16-dark-mode-mobile.spec.ts",
+      "line": 142,
+      "color": "rgb(255, 255, 255)"
+    },
+    {
+      "file": "e2e/style-deep-audit.spec.ts",
+      "line": 106,
+      "color": "rgba(0, 0, 0, 0)"
+    }
+  ]
+}

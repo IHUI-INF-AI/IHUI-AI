@@ -1,0 +1,40 @@
+# P29 minikube 演练: HorizontalPodAutoscaler
+# ZHS staging 环境自动扩缩容
+# - CPU > 70% 扩容
+# - min 3, max 10 副本
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: zhs-staging-api-hpa
+  namespace: zhs-staging
+  labels:
+    app: zhs-staging
+    component: api
+    environment: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: zhs-staging-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60

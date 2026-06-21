@@ -1,0 +1,58 @@
+{
+  "agenticDashboard": {
+    "title": "Agentic AI Console",
+    "subtitle": "Intelligent development platform deeply integrated with Agentic Orchestrator",
+    "activeSwarms": "Active Swarms",
+    "noActiveSwarms": "No active swarms",
+    "Status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "Failed": "Failed"
+    },
+    "coordination": "Coordination",
+    "iteration": "Iteration",
+    "seoTitle": "Agentic AI Console - AI Zhihui Society",
+    "seoDescription": "Agentic AI intelligent development platform, deeply integrated with Agentic Orchestrator",
+    "seoKeywords": "Agentic AI, Intelligent Development, AI Scheduling, Swarm"
+  },
+  "agenticAI": {
+    "title": "Agentic AI",
+    "subtitle": "Agent collaboration platform - Create and manage your Agent Swarm",
+    "createSwarm": "Create Agent Swarm",
+    "taskDescription": "Task Description",
+    "taskDescriptionPlaceholder": "Please enter task description",
+    "coordinationMode": "Coordination Mode",
+    "coordinationHierarchical": "Hierarchical",
+    "coordinationPeerToPeer": "Peer-to-Peer",
+    "coordinationMarketBased": "Market-based",
+    "maxIterations": "Max Iterations",
+    "autoOptimize": "Auto Optimize (based on historical experience)",
+    "createAndExecute": "Create and Execute",
+    "mySwarm": "My Swarm",
+    "id": "ID",
+    "task": "Task",
+    "Status": {
+      "completed": "completed",
+      "Failed": "Failed",
+      "pending": "pending",
+      "running": "running",
+      "title": "Status"
+    },
+    "actions": "Actions",
+    "view": "View",
+    "selectSwarmHint": "Please select a swarm to view details",
+    "enterTask Description": "Please enter task description",
+    "swarmCreated": "Swarm created successfully",
+    "createSwarmFailed": "Failed to create swarm",
+    "loadSwarmListFailed": "Failed to load swarm list",
+    "enterTaskDescription": "Please enterTaskDescribe",
+    "status": {
+      "completed": "completed",
+      "failed": "failed",
+      "pending": "pending",
+      "running": "running",
+      "title": "Status"
+    }
+  }
+}

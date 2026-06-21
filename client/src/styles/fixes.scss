@@ -1,0 +1,286 @@
+/**
+ * 前端样式Bug修复
+ * 修复常见的样式问题：溢出、按钮尺寸、文本溢出等
+ */
+
+/* ==================== 全局修复 ==================== */
+
+/* 隐藏所有 Element Plus 弹出框的三角箭头 - 使用 utilities 层 */
+@layer utilities {
+  .el-popper__arrow {
+    display: none;
+  }
+}
+
+/* 防止页面水平滚动 */
+html,
+body,
+#app {
+  overflow-x: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ==================== 按钮尺寸修复 ==================== */
+
+/* 确保所有按钮在移动端至少有44x44px（Apple HIG推荐） */
+
+/* 排除：header-btn, action-btn、方形图标按钮、session-list-close/icon-link-btn-square-sm、chat-input-agent-tag__close 使用自定义正方形尺寸 */
+:where(button):not(.hero-cta-btn, .glass-header button, .glass-header .el-button, .glass-header [role='button']
+  , .switch-btn, .project-btn, .mode-tab, .icon-btn, .send-icon-btn, .header-btn, .action-btn, .send-btn, .quick-tool-item, .btn-tab, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square, .session-list-close, .icon-link-btn-square-sm, .chat-input-agent-tag__close),
+:where(.el-button):not(.hero-cta-btn, .glass-header .el-button, .switch-btn, .project-btn, .mode-tab, .icon-btn, .send-icon-btn, .header-btn, .action-btn, .send-btn, .quick-tool-item, .btn-tab, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square, .session-list-close, .icon-link-btn-square-sm),
+:where([role='button']):not(.hero-cta-btn, .glass-header [role='button'], .mode-tab, .icon-btn, .send-icon-btn, .header-btn, .action-btn, .send-btn, .quick-tool-item, .btn-tab, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square, .session-list-close, .icon-link-btn-square-sm),
+:where(.btn):not(.hero-cta-btn, .glass-header .btn, .switch-btn, .project-btn, .mode-tab, .icon-btn, .send-icon-btn, .header-btn, .action-btn, .send-btn, .quick-tool-item, .btn-tab, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square, .session-list-close, .icon-link-btn-square-sm) {
+  min-width: 44px;
+  min-height: auto;
+
+  /* 移动端特殊处理 */
+  @media (width <= 768px) {
+    min-width: 44px;
+    min-height: auto;
+    padding: 8px 12px;
+  }
+}
+
+/* 小按钮（如图标按钮）在移动端也要保证可点击性 */
+
+/* 排除：header-btn, action-btn、session-list-close、icon-link-btn-square-sm、chat-input-agent-tag__close 使用自定义尺寸 */
+:where(.el-button--small):not(.hero-cta-btn, .glass-header .el-button--small, .switch-btn, .project-btn, .header-btn, .action-btn, .send-btn, .session-list-close, .icon-link-btn-square-sm, .chat-input-agent-tag__close),
+:where(button[class*='small']):not(.glass-header button[class*='small'], .switch-btn, .project-btn, .header-btn, .action-btn, .send-btn, .session-list-close, .icon-link-btn-square-sm, .chat-input-agent-tag__close),
+:where(.btn-small):not(.glass-header .btn-small, .switch-btn, .project-btn, .header-btn, .action-btn, .send-btn, .session-list-close, .icon-link-btn-square-sm) {
+  @media (width <= 768px) {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px;
+  }
+}
+
+/* ==================== 文本溢出修复 ==================== */
+
+/* 防止文本溢出容器 */
+p,
+span,
+div,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 单行文本溢出处理 */
+.text-ellipsis,
+[class*='ellipsis'] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 多行文本溢出处理 */
+.text-ellipsis-2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
+.text-ellipsis-3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  line-clamp: 3;
+}
+
+/* ==================== 容器溢出修复 ==================== */
+
+/* 防止flex容器溢出 */
+.flex-container,
+[class*='flex'],
+[style*='display: flex'] {
+  min-width: 0;
+  min-height: 0;
+
+  > * {
+    min-width: 0;
+    flex-shrink: 1;
+  }
+}
+
+/* 防止grid容器溢出 */
+.grid-container,
+[class*='grid'],
+[style*='display: grid'] {
+  min-width: 0;
+  min-height: 0;
+
+  > * {
+    min-width: 0;
+  }
+}
+
+/* ==================== 响应式修复 ==================== */
+
+/* 确保所有容器在移动端不溢出 */
+@media (width <= 768px) {
+  * {
+    max-width: 100%;
+  }
+
+  /* 防止固定宽度元素溢出 */
+  [style*='width'],
+  [class*='width'] {
+    max-width: 100%;
+  }
+
+  /* 确保图片响应式 */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* ==================== 定位元素修复 ==================== */
+
+/* 确保绝对定位元素不溢出 */
+[style*='position: absolute'],
+[style*='position: fixed'],
+.position-absolute,
+.position-fixed {
+  max-width: 100vw;
+  max-height: 100vh;
+
+  /* 确保有定位属性 */
+  &[style*='position: absolute']:not([style*='top'], [style*='bottom'], [style*='left'], [style*='right']) {
+    top: 0;
+    left: 0;
+  }
+}
+
+/* ==================== 动画层修复 ==================== */
+
+/* 修复动画层拦截点击事件的问题 */
+.voice-recording-animation,
+.xiahua-wrapper-fixed,
+.ihui-ai-effects-layer,
+.ihui-ai-animations-layer {
+  pointer-events: none;
+
+  /* 但允许子元素交互（仅对需要交互的元素） */
+  > * {
+    pointer-events: none;
+  }
+
+  /* 文本元素不拦截点击 */
+  .text-fixed,
+  .xiahua-container-fixed,
+  .ihui-ai-bg-feature,
+  img {
+    pointer-events: none;
+  }
+}
+
+/* ==================== z-index修复 ==================== */
+
+/* 限制过高的z-index值 */
+[style*='z-index'] {
+  /* 检查并警告过高的z-index */
+}
+
+/* ==================== 图片加载修复 ==================== */
+
+/* 图片加载失败时的占位符 */
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+
+  &[src=''],
+  &:not([src]) {
+    opacity: 0.3;
+    background: var(--el-fill-color-light);
+  }
+
+  /* 加载失败时的样式 */
+  &[onerror] {
+    opacity: 0.5;
+  }
+}
+
+/* ==================== admin 移动端适配 ==================== */
+
+@media (max-width: 768px) {
+  :where(.el-dialog) {
+    margin-top: 5vh;
+    margin-bottom: 5vh;
+  }
+  :where(.el-form-item) {
+    flex-direction: column;
+    align-items: stretch;
+    :where(.el-form-item__label) {
+      text-align: left;
+      padding-bottom: 4px;
+    }
+    :where(.el-form-item__content) {
+      margin-left: 0;
+    }
+  }
+}
+
+/* ==================== CSS变量检查 ==================== */
+
+/* 关键 CSS 变量已在 element-plus-vars.scss 中统一定义，此处仅做备用检查 */
+
+/* ==================== 滚动条 ==================== */
+
+/* 不占位、悬浮样式由 styles/_scrollbar-overlay.scss 统一管理 */
+
+/* ==================== 触摸优化 ==================== */
+
+/* 移动端触摸优化 */
+@media (width <= 768px) {
+  /* 提高触摸目标大小（排除方形图标按钮，保持其自定义尺寸） */
+  :where(button):not(.switch-btn, .project-btn, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square),
+  :where(a),
+  :where([role='button']),
+  :where(.clickable):not(.switch-btn, .project-btn) {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px;
+  }
+
+  /* 防止双击缩放 */
+  * {
+    touch-action: manipulation;
+  }
+
+  /* 优化滚动性能 */
+  .scrollable {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ==================== 打印样式修复 ==================== */
+
+@media print {
+  * {
+    overflow: visible;
+    max-width: 100%;
+  }
+
+  .no-print {
+    display: none;
+  }
+}

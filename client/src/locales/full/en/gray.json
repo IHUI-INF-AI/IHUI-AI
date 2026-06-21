@@ -1,0 +1,33 @@
+{
+  "grayRelease": {
+    "ongoing": "Ongoing Release",
+    "completed": "Completed Release",
+    "exposedUsers": "Exposed Users",
+    "avgCompletion": "Avg Completion Rate",
+    "releaseList": "Release List",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "promote": "Promote",
+    "rollback": "Rollback",
+    "phaseProgress": "Phase Progress",
+    "metricsData": "Metrics Data",
+    "alertRecords": "Alert Records",
+    "enterGuidId": "Please enter guide ID",
+    "createSuccess": "Create successful",
+    "releaseStarted": "Release started",
+    "releasePaused": "Release paused",
+    "releaseResumed": "Release resumed",
+    "nextPhase": "Entered next phase",
+    "notReachedThreshold": "Promotion threshold not reached",
+    "confirmRollback": "Confirm Rollback",
+    "enterRollbackReason": "Please enter rollback reason",
+    "releaseRolledBack": "Release rolled back",
+    "exposed": "Exposed Users",
+    "metrics": "Metrics Data",
+    "alerts": "Alert Records",
+    "enterTourId": "Please enter tour ID",
+    "rollbackReason": "Please enter rollback reason",
+    "detail": "Detail"
+  }
+}

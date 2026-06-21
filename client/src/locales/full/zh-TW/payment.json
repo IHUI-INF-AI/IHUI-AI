@@ -1,0 +1,9 @@
+{
+  "Payment": {
+    "alreadyVip": "您已是VIP會員",
+    "notLogged": "用戶未登錄",
+    "incompleteProduct": "商品信息不完整",
+    "selectPayMethod": "請選擇支付方式",
+    "notLoggedOrNoOpenId": "用戶未登錄或openid不存在"
+  }
+}

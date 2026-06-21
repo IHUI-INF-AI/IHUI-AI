@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-06-19T12:33:38.429Z",
+  "count": 4,
+  "violations": [
+    {
+      "file": "src/styles/_touch-optimization.scss",
+      "line": 4,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/Agents.vue",
+      "line": 1405,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/Agents.vue",
+      "line": 1406,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/Login.vue.styles.scss",
+      "line": 1685,
+      "type": "!important"
+    }
+  ]
+}

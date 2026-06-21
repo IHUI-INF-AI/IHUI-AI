@@ -1,0 +1,1481 @@
+// 设计系统工具类
+// 基于 Google Agentic AI IDE 理念，提供可复用的工具类
+
+@use './variables.scss' as *;
+
+// ============================================
+// 间距工具类 (Spacing Utilities)
+// ============================================
+
+// Padding
+.p-xs { padding: $spacing-xs; }
+.p-sm { padding: $spacing-sm; }
+.p-md { padding: $spacing-md; }
+.p-lg { padding: $spacing-lg; }
+.p-xl { padding: $spacing-xl; }
+.p-2xl { padding: $spacing-2xl; }
+
+// Padding Top
+.pt-xs { padding-top: $spacing-xs; }
+.pt-sm { padding-top: $spacing-sm; }
+.pt-md { padding-top: $spacing-md; }
+.pt-lg { padding-top: $spacing-lg; }
+.pt-xl { padding-top: $spacing-xl; }
+.pt-2xl { padding-top: $spacing-2xl; }
+
+// Padding Bottom
+.pb-xs { padding-bottom: $spacing-xs; }
+.pb-sm { padding-bottom: $spacing-sm; }
+.pb-md { padding-bottom: $spacing-md; }
+.pb-lg { padding-bottom: $spacing-lg; }
+.pb-xl { padding-bottom: $spacing-xl; }
+.pb-2xl { padding-bottom: $spacing-2xl; }
+
+// Padding Left
+.pl-xs { padding-left: $spacing-xs; }
+.pl-sm { padding-left: $spacing-sm; }
+.pl-md { padding-left: $spacing-md; }
+.pl-lg { padding-left: $spacing-lg; }
+.pl-xl { padding-left: $spacing-xl; }
+.pl-2xl { padding-left: $spacing-2xl; }
+
+// Padding Right
+.pr-xs { padding-right: $spacing-xs; }
+.pr-sm { padding-right: $spacing-sm; }
+.pr-md { padding-right: $spacing-md; }
+.pr-lg { padding-right: $spacing-lg; }
+.pr-xl { padding-right: $spacing-xl; }
+.pr-2xl { padding-right: $spacing-xl; }
+
+// Padding X (Horizontal)
+.px-xs { padding-left: $spacing-xs; padding-right: $spacing-xs; }
+.px-sm { padding-left: $spacing-sm; padding-right: $spacing-sm; }
+.px-md { padding-left: $spacing-md; padding-right: $spacing-md; }
+.px-lg { padding-left: $spacing-lg; padding-right: $spacing-lg; }
+.px-xl { padding-left: $spacing-xl; padding-right: $spacing-xl; }
+.px-2xl { padding-left: $spacing-2xl; padding-right: $spacing-2xl; }
+
+// 额外的 Padding 工具类（兼容 Tailwind）
+.p-0 { padding: 0; }
+.p-1 { padding: 4px; }
+.p-2 { padding: 8px; }
+.p-3 { padding: 12px; }
+.p-4 { padding: 16px; }
+.p-6 { padding: 24px; }
+
+// Padding Y (Vertical)
+.py-xs { padding-top: $spacing-xs; padding-bottom: $spacing-xs; }
+.py-sm { padding-top: $spacing-sm; padding-bottom: $spacing-sm; }
+.py-md { padding-top: $spacing-md; padding-bottom: $spacing-md; }
+.py-lg { padding-top: $spacing-lg; padding-bottom: $spacing-lg; }
+.py-xl { padding-top: $spacing-xl; padding-bottom: $spacing-xl; }
+.py-2xl { padding-top: $spacing-2xl; padding-bottom: $spacing-2xl; }
+
+// 额外的 Padding Y 工具类（兼容 Tailwind）
+.py-1 { padding-top: 4px; padding-bottom: 4px; }
+.py-2 { padding-top: 8px; padding-bottom: 8px; }
+.py-3 { padding-top: 12px; padding-bottom: 12px; }
+.py-6 { padding-top: 24px; padding-bottom: 24px; }
+
+// 额外的 Padding X 工具类（兼容 Tailwind）
+.px-2 { padding-left: 8px; padding-right: 8px; }
+.px-3 { padding-left: 12px; padding-right: 12px; }
+.px-4 { padding-left: 16px; padding-right: 16px; }
+.px-2p5 { padding-left: 10px; padding-right: 10px; }
+
+// 额外的 Padding Left/Right 工具类（兼容 Tailwind）
+.pl-2 { padding-left: 8px; }
+.pl-2p5 { padding-left: 10px; }
+.pr-2 { padding-right: 8px; }
+.pr-2p5 { padding-right: 10px; }
+
+// Margin
+.m-xs { margin: $spacing-xs; }
+.m-sm { margin: $spacing-sm; }
+.m-md { margin: $spacing-md; }
+.m-lg { margin: $spacing-lg; }
+.m-xl { margin: $spacing-xl; }
+.m-2xl { margin: $spacing-2xl; }
+
+// Margin Top
+.mt-xs { margin-top: $spacing-xs; }
+.mt-sm { margin-top: $spacing-sm; }
+.mt-md { margin-top: $spacing-md; }
+.mt-lg { margin-top: $spacing-lg; }
+.mt-xl { margin-top: $spacing-xl; }
+.mt-2xl { margin-top: $spacing-2xl; }
+
+// Margin Bottom
+.mb-xs { margin-bottom: $spacing-xs; }
+.mb-sm { margin-bottom: $spacing-sm; }
+.mb-md { margin-bottom: $spacing-md; }
+.mb-lg { margin-bottom: $spacing-lg; }
+.mb-xl { margin-bottom: $spacing-xl; }
+.mb-2xl { margin-bottom: $spacing-2xl; }
+
+// Margin Left
+.ml-xs { margin-left: $spacing-xs; }
+.ml-sm { margin-left: $spacing-sm; }
+.ml-md { margin-left: $spacing-md; }
+.ml-lg { margin-left: $spacing-lg; }
+.ml-xl { margin-left: $spacing-xl; }
+.ml-2xl { margin-left: $spacing-2xl; }
+
+// Margin Right
+.mr-xs { margin-right: $spacing-xs; }
+.mr-sm { margin-right: $spacing-sm; }
+.mr-md { margin-right: $spacing-md; }
+.mr-lg { margin-right: $spacing-lg; }
+.mr-xl { margin-right: $spacing-xl; }
+.mr-2xl { margin-right: $spacing-2xl; }
+
+// Margin X (Horizontal)
+.mx-xs { margin-left: $spacing-xs; margin-right: $spacing-xs; }
+.mx-sm { margin-left: $spacing-sm; margin-right: $spacing-sm; }
+.mx-md { margin-left: $spacing-md; margin-right: $spacing-md; }
+.mx-lg { margin-left: $spacing-lg; margin-right: $spacing-lg; }
+.mx-xl { margin-left: $spacing-xl; margin-right: $spacing-xl; }
+.mx-2xl { margin-left: $spacing-2xl; margin-right: $spacing-2xl; }
+
+// Margin Y (Vertical)
+.my-xs { margin-top: $spacing-xs; margin-bottom: $spacing-xs; }
+.my-sm { margin-top: $spacing-sm; margin-bottom: $spacing-sm; }
+.my-md { margin-top: $spacing-md; margin-bottom: $spacing-md; }
+.my-lg { margin-top: $spacing-lg; margin-bottom: $spacing-lg; }
+.my-xl { margin-top: $spacing-xl; margin-bottom: $spacing-xl; }
+.my-2xl { margin-top: $spacing-2xl; margin-bottom: $spacing-2xl; }
+
+// 额外的 Margin 工具类（兼容 Tailwind）
+.m-0 { margin: 0; }
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
+.mt-4 { margin-top: 16px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-4 { margin-bottom: 16px; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.mx-2 { margin-left: 8px; margin-right: 8px; }
+.mr-2 { margin-right: 8px; }
+.ml-2 { margin-left: 8px; }
+
+// ============================================
+// 圆角工具类 (Border Radius Utilities)
+// ============================================
+
+.rounded-2, .rounded-3, .rounded-4, .rounded-6, .rounded-8,
+.rounded-15, .rounded-30, .rounded-60, .rounded-120 { border-radius: var(--global-border-radius); }
+.rounded-full { border-radius: var(--global-border-radius); }
+
+// ============================================
+// 字体工具类 (Typography Utilities)
+// ============================================
+
+.text-xs { font-size: $font-size-xs; }
+.text-sm { font-size: $font-size-sm; }
+.text-base { font-size: $font-size-base; }
+.text-lg { font-size: $font-size-lg; }
+.text-xl { font-size: $font-size-xl; }
+.text-2xl { font-size: $font-size-2xl; }
+.text-3xl { font-size: $font-size-3xl; }
+.text-4xl { font-size: $font-size-4xl; }
+
+.font-normal { font-weight: $font-weight-normal; }
+.font-medium { font-weight: $font-weight-medium; }
+.font-semibold { font-weight: $font-weight-semibold; }
+.font-bold { font-weight: $font-weight-bold; }
+
+// ============================================
+// 颜色工具类 (Color Utilities)
+// ============================================
+
+.text-primary { color: $text-primary; }
+.text-secondary { color: $text-secondary; }
+.text-placeholder { color: $text-placeholder; }
+
+// 额外的文本颜色工具类（兼容 Tailwind 和 Element Plus）
+.text-regular { color: var(--el-text-color-regular); }
+.text-muted-foreground { color: var(--el-text-color-secondary); }
+.text-danger { color: var(--el-color-danger); }
+
+.bg-primary { background-color: $bg-primary; }
+.bg-secondary { background-color: $bg-secondary; }
+.bg-tertiary { background-color: $bg-tertiary; }
+.bg-hover { background-color: $bg-hover; }
+
+// 额外的背景颜色工具类（兼容 Tailwind 和 Element Plus）
+.bg-white, .bg-background { background-color: var(--el-bg-color); }
+.bg-muted { background-color: var(--el-fill-color-light); }
+
+// 边框工具类（全站统一描边变量）
+.border { border: var(--unified-border); }
+.border-b { border-bottom: var(--unified-border-bottom); }
+.border-t { border-top: var(--unified-border-bottom); }
+
+// 圆角工具类（兼容 Tailwind 和 Element Plus）
+.rounded, .rounded-md, .rounded-sm { border-radius: var(--global-border-radius); }
+
+// ============================================
+// 过渡工具类 (Transition Utilities)
+// ============================================
+
+.transition-fast { transition: $transition-fast; }
+.transition-base { transition: $transition-base; }
+.transition-slow { transition: $transition-slow; }
+
+// 额外的过渡工具类（兼容 Tailwind）
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+// ============================================
+// 显示工具类 (Display Utilities)
+// ============================================
+
+.d-none { display: none; }
+.d-block { display: block; }
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+.d-flex { display: flex; }
+.d-grid { display: grid; }
+
+// 简化的显示类（兼容 Tailwind）
+.block { display: block; }
+.inline-block { display: inline-block; }
+.hidden { display: none; }
+
+// 简化的Flex类
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.flex-1 { flex: 1 1 0%; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+
+// Flexbox 工具类
+.flex-row { flex-direction: row; }
+.flex-column { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
+.justify-start { justify-content: flex-start; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+.justify-around { justify-content: space-around; }
+.align-start { align-items: flex-start; }
+.align-center { align-items: center; }
+.align-end { align-items: flex-end; }
+.align-stretch { align-items: stretch; }
+
+// 别名：兼容 Tailwind 命名
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+
+// Flex shrink utilities
+.shrink-0 { flex-shrink: 0; }
+
+// ============================================
+// 响应式工具类 (Responsive Utilities)
+// ============================================
+
+@media (max-width: $breakpoint-sm) {
+  .d-sm-none { display: none; }
+  .d-sm-block { display: block; }
+}
+
+@media (min-width: $breakpoint-md) {
+  .d-md-block { display: block; }
+  .d-md-flex { display: flex; }
+}
+
+@media (min-width: $breakpoint-lg) {
+  .d-lg-block { display: block; }
+  .d-lg-flex { display: flex; }
+}
+
+@media (min-width: $breakpoint-xl) {
+  .d-xl-block { display: block; }
+  .d-xl-flex { display: flex; }
+}
+
+// 额外的响应式工具类（兼容 Tailwind）
+@media (min-width: 640px) {
+  .sm\:block { display: block; }
+  .sm\:inline-block { display: inline-block; }
+  .sm\:hidden { display: none; }
+}
+
+// ============================================
+// 其他工具类 (Other Utilities)
+// ============================================
+
+// Gap utilities
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+
+// Width and Height utilities
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.w-3 { width: 12px; }
+.h-3 { height: 12px; }
+.w-4 { width: 16px; }
+.h-4 { height: 16px; }
+.w-5 { width: 20px; }
+.h-5 { height: 20px; }
+
+// Text utilities
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+
+// Cursor utilities
+.cursor-pointer { cursor: pointer; }
+
+// Position utilities
+.relative { position: relative; }
+.absolute { position: absolute; }
+.top-0 { top: 0; }
+.right-0 { right: 0; }
+.bottom-0 { bottom: 0; }
+.left-0 { left: 0; }
+
+// Z-index utilities（使用全局 z-index token）
+.z-10 { z-index: var(--z-base); }
+.z-20 { z-index: var(--z-base); }
+.z-50 { z-index: var(--z-base); }
+
+// Overflow utilities
+.overflow-hidden { overflow: hidden; }
+
+// Opacity utilities
+.opacity-50 { opacity: 0.5; }
+.opacity-70 { opacity: 0.7; }
+
+// ============================================
+// 微动画工具类 (Micro-animation Utilities)
+// ============================================
+
+// 悬停提升效果
+.hover-lift {
+  transition: transform $transition-base;
+  
+  &:hover {
+    transform: translateY(-4px);
+  }
+}
+
+// 悬停缩放效果
+.hover-scale {
+  transition: transform $transition-base;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+// 悬停透明度效果
+.hover-fade {
+  transition: opacity $transition-base;
+  
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+// 点击反馈效果
+.click-feedback {
+  transition: transform $transition-fast;
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// ============================================
+// 统一描边样式类 (Unified Border Utilities)
+// ============================================
+
+// 描边颜色唯一来源：element-plus-vars.scss 的 --border-unified-color，此处不覆盖
+
+// 基础描边类 - 1px solid 低对比度描边，无阴影
+.border-unified {
+  border: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+// 顶部描边
+.border-t-unified {
+  border-top: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+// 底部描边
+.border-b-unified {
+  border-bottom: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+// 左侧描边
+.border-l-unified {
+  border-left: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+// 右侧描边
+.border-r-unified {
+  border-right: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+// 下拉菜单专用描边样式
+.border-dropdown {
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  box-shadow: none;
+}
+
+// 卡片描边样式
+.border-card {
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  box-shadow: none;
+}
+
+// 输入框描边样式
+.border-input {
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  box-shadow: none;
+}
+
+// ============================================
+// 全站统一设计系统组件 (Unified Design System)
+// iHui AI 平台 - Premium 设计语言
+// ============================================
+
+// ------------------------------------------
+// 1. 统一页面头部 (Page Header)
+// ------------------------------------------
+
+.unified-page-header {
+  text-align: center;
+  margin-bottom: clamp(32px, 5vw, 64px);
+  padding: clamp(24px, 4vw, 48px) 0;
+
+  .page-title {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--el-text-color-primary);
+    margin-bottom: clamp(8px, 1.5vw, 16px);
+  }
+
+  .page-title-en {
+    font-size: clamp(14px, 2vw, 20px);
+    font-weight: 500;
+    color: var(--el-text-color-secondary);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: clamp(12px, 2vw, 24px);
+    opacity: 0.7;
+  }
+
+  .page-subtitle {
+    font-size: clamp(14px, 2vw, 18px);
+    color: var(--el-text-color-secondary);
+    line-height: 1.6;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  // 左对齐变体
+  &.text-left {
+    text-align: left;
+
+    .page-subtitle {
+      margin: 0;
+    }
+  }
+}
+
+// ------------------------------------------
+// 2. 统一卡片组件 (Unified Cards)
+// ------------------------------------------
+
+// 基础卡片
+.unified-card {
+  background: var(--el-bg-color);
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  padding: clamp(20px, 3vw, 32px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    border: 2px solid var(--border-unified-color-hover);
+    transform: translateY(-4px);
+    box-shadow: var(--global-box-shadow);
+  }
+
+  // 暗色模式
+  html.dark & {
+    &:hover {
+      box-shadow: var(--global-box-shadow);
+    }
+  }
+}
+
+// 功能卡片 - 带图标
+.unified-feature-card {
+  background: var(--el-bg-color);
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  padding: clamp(24px, 3vw, 36px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 2vw, 20px);
+
+  .feature-icon-box {
+    width: clamp(48px, 6vw, 64px);
+    height: clamp(48px, 6vw, 64px);
+    border-radius: var(--global-border-radius);
+    background: var(--el-fill-color-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+
+    .el-icon, svg {
+      font-size: clamp(24px, 3vw, 32px);
+      color: var(--el-text-color-primary);
+    }
+  }
+
+  .feature-title {
+    font-size: clamp(16px, 2vw, 20px);
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    margin: 0;
+  }
+
+  .feature-desc {
+    font-size: clamp(13px, 1.5vw, 15px);
+    color: var(--el-text-color-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .feature-action {
+    margin-top: auto;
+    padding-top: clamp(12px, 2vw, 20px);
+  }
+
+  &:hover {
+    border-color: var(--el-text-color-primary);
+    transform: translateY(-6px);
+    box-shadow: var(--global-box-shadow);
+
+    .feature-icon-box {
+      background: var(--el-text-color-primary);
+
+      .el-icon, svg {
+        color: var(--el-bg-color-page);
+      }
+    }
+  }
+
+  // 暗色模式
+  html.dark & {
+    &:hover {
+      box-shadow: var(--global-box-shadow);
+    }
+  }
+}
+
+// 玻璃态卡片
+.unified-glass-card {
+  background: var(--color-white-70);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  padding: clamp(24px, 3vw, 36px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  html.dark & {
+    background: var(--color-black-50);
+    border: 1px solid var(--border-unified-color);
+  }
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+// 统计卡片
+.unified-stat-card {
+  background: var(--el-bg-color);
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  padding: clamp(20px, 3vw, 28px);
+  text-align: center;
+  transition: all 0.3s ease;
+
+  .stat-value {
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 700;
+    color: var(--el-text-color-primary);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+
+  .stat-label {
+    font-size: clamp(12px, 1.5vw, 14px);
+    color: var(--el-text-color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  &:hover {
+    border: 2px solid var(--border-unified-color-hover);
+    transform: translateY(-2px);
+  }
+}
+
+// ------------------------------------------
+// 3. 统一按钮组件 (Unified Buttons)
+// ------------------------------------------
+
+.unified-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: clamp(10px, 1.5vw, 14px) clamp(20px, 3vw, 28px);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: 600;
+  border-radius: var(--global-border-radius);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+
+  // 主要按钮
+  &.primary {
+    background: var(--el-text-color-primary);
+    color: var(--el-bg-color-page);
+
+    &:hover {
+      opacity: 0.85;
+      transform: translateY(-2px);
+      box-shadow: var(--global-box-shadow);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  // 次要按钮
+  &.secondary {
+    background: transparent;
+    color: var(--el-text-color-primary);
+    border: 1px solid var(--border-unified-color);
+
+    &:hover {
+      border-color: var(--el-text-color-primary);
+      background: var(--el-fill-color-light);
+    }
+  }
+
+  // 幽灵按钮
+  &.ghost {
+    background: transparent;
+    color: var(--el-text-color-secondary);
+    padding: clamp(8px, 1.2vw, 12px) clamp(16px, 2vw, 20px);
+
+    &:hover {
+      color: var(--el-text-color-primary);
+      background: var(--el-fill-color-light);
+    }
+  }
+
+  // 大尺寸
+  &.large {
+    padding: clamp(14px, 2vw, 18px) clamp(28px, 4vw, 40px);
+    font-size: clamp(16px, 1.8vw, 18px);
+    border-radius: var(--global-border-radius);
+  }
+
+  // 小尺寸
+  &.small {
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: var(--global-border-radius);
+  }
+}
+
+// ------------------------------------------
+// 4. 统一区域容器 (Unified Sections)
+// ------------------------------------------
+
+.unified-section {
+  padding: clamp(48px, 8vw, 96px) clamp(16px, 4vw, 32px);
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+
+  &.full-width {
+    max-width: 100%;
+  }
+
+  &.compact {
+    padding: clamp(32px, 5vw, 64px) clamp(16px, 4vw, 32px);
+  }
+}
+
+// ------------------------------------------
+// 5. 统一网格布局 (Unified Grids)
+// ------------------------------------------
+
+.unified-grid {
+  display: grid;
+  gap: clamp(16px, 2.5vw, 24px);
+
+  // 2列
+  &.cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // 3列
+  &.cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+
+    @media (max-width: 1024px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // 4列
+  &.cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // 自适应
+  &.auto-fit {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+
+  // 间距变体
+  &.gap-sm {
+    gap: clamp(12px, 1.5vw, 16px);
+  }
+
+  &.gap-lg {
+    gap: clamp(24px, 3vw, 40px);
+  }
+}
+
+// Bento 网格布局
+.unified-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: minmax(180px, auto);
+  gap: clamp(16px, 2vw, 24px);
+
+  .bento-item {
+    &.span-2 {
+      grid-column: span 2;
+    }
+
+    &.span-3 {
+      grid-column: span 3;
+    }
+
+    &.row-span-2 {
+      grid-row: span 2;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+
+    .bento-item.span-3 {
+      grid-column: span 2;
+    }
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+
+    .bento-item.span-2,
+    .bento-item.span-3 {
+      grid-column: span 1;
+    }
+  }
+}
+
+// ------------------------------------------
+// 6. 统一图标容器 (Icon Boxes)
+// ------------------------------------------
+
+.unified-icon-box {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--global-border-radius);
+  background: var(--el-fill-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+
+  .el-icon, svg {
+    font-size: 24px;
+    color: var(--el-text-color-primary);
+  }
+
+  // 尺寸变体
+  &.small {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--global-border-radius);
+
+    .el-icon, svg {
+      font-size: 18px;
+    }
+  }
+
+  &.large {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--global-border-radius);
+
+    .el-icon, svg {
+      font-size: 32px;
+    }
+  }
+
+  // 圆形变体
+  &.rounded-full {
+    border-radius: var(--global-border-radius);
+  }
+
+  // 带边框变体
+  &.bordered {
+    background: transparent;
+    border: 1px solid var(--border-unified-color);
+  }
+}
+
+// ------------------------------------------
+// 7. 统一标签组件 (Tags & Badges)
+// ------------------------------------------
+
+.unified-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--global-border-radius);
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+
+  &.success {
+    background: var(--color-green-16a34a-10);
+    color: var(--color-green-16a34a);
+  }
+
+  &.warning {
+    background: var(--color-yellow-eab308-10);
+    color: var(--color-yellow-ca8a04);
+  }
+
+  &.danger {
+    background: var(--color-red-transparent-10);
+    color: var(--color-danger-dark);
+  }
+
+  &.info {
+    background: var(--color-blue-3b82f6-10);
+    color: var(--el-text-color-primary);
+  }
+}
+
+// 脉冲点
+.unified-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--global-border-radius);
+  background: var(--color-green-16a34a);
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: var(--global-border-radius);
+    background: inherit;
+    opacity: 0.4;
+    animation: unified-pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes unified-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+// ------------------------------------------
+// 8. 统一分隔线 (Dividers)
+// ------------------------------------------
+
+.unified-divider {
+  height: 1px;
+  background: var(--border-unified-color);
+  margin: clamp(24px, 3vw, 40px) 0;
+  border: none;
+
+  &.vertical {
+    width: 1px;
+    height: 100%;
+    margin: 0 clamp(16px, 2vw, 24px);
+  }
+
+  &.gradient {
+    background: var(--border-unified-color);
+  }
+}
+
+// ------------------------------------------
+// 9. 统一过渡动画 (Transitions)
+// ------------------------------------------
+
+.unified-fade-in {
+  opacity: 0;
+  animation: unifiedFadeIn 0.5s ease forwards;
+}
+
+.unified-slide-up {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: unifiedSlideUp 0.5s ease forwards;
+}
+
+.unified-slide-left {
+  opacity: 0;
+  transform: translateX(-20px);
+  animation: unifiedSlideLeft 0.5s ease forwards;
+}
+
+.unified-slide-right {
+  opacity: 0;
+  transform: translateX(20px);
+  animation: unifiedSlideRight 0.5s ease forwards;
+}
+
+@keyframes unifiedFadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes unifiedSlideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes unifiedSlideLeft {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes unifiedSlideRight {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// 动画延迟工具类
+@for $i from 1 through 10 {
+  .animation-delay-#{$i} {
+    animation-delay: #{$i * 0.1}s;
+  }
+}
+
+// ------------------------------------------
+// 10. 统一悬停效果 (Hover Effects)
+// ------------------------------------------
+
+.unified-hover-lift {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--global-box-shadow);
+  }
+
+  html.dark & {
+    &:hover {
+      box-shadow: var(--global-box-shadow);
+    }
+  }
+}
+
+.unified-hover-glow {
+  transition: box-shadow 0.3s ease;
+
+  &:hover {
+    box-shadow: var(--global-box-shadow);
+  }
+
+  html.dark & {
+    &:hover {
+      box-shadow: var(--global-box-shadow);
+    }
+  }
+}
+
+.unified-hover-border {
+  transition: border-color 0.3s ease;
+
+  &:hover {
+    border-color: var(--el-text-color-primary);
+  }
+}
+
+// ------------------------------------------
+// 11. 排版系统 (Typography System)
+// 基于 8px 基准的统一排版
+// ------------------------------------------
+
+// 标题层级系统
+.heading-1 {
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--el-text-color-primary);
+}
+
+.heading-2 {
+  font-size: clamp(24px, 3.5vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--el-text-color-primary);
+}
+
+.heading-3 {
+  font-size: clamp(18px, 2.5vw, 28px);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--el-text-color-primary);
+}
+
+.heading-4 {
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--el-text-color-primary);
+}
+
+// 英文副标题（字间距增大）
+.heading-subtitle-en {
+  font-size: clamp(12px, 1.5vw, 16px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--el-text-color-secondary);
+  opacity: 0.8;
+}
+
+// 正文文字
+.body-text {
+  font-size: clamp(14px, 1.5vw, 16px);
+  line-height: 1.7;
+  color: var(--el-text-color-regular);
+}
+
+.body-text-sm {
+  font-size: clamp(12px, 1.2vw, 14px);
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+}
+
+// ------------------------------------------
+// 12. 区域间距系统 (Section Spacing)
+// ------------------------------------------
+
+// 区域垂直间距
+.section-spacing {
+  padding-top: clamp(48px, 8vw, 96px);
+  padding-bottom: clamp(48px, 8vw, 96px);
+}
+
+.section-spacing-sm {
+  padding-top: clamp(32px, 5vw, 64px);
+  padding-bottom: clamp(32px, 5vw, 64px);
+}
+
+.section-spacing-lg {
+  padding-top: clamp(64px, 10vw, 128px);
+  padding-bottom: clamp(64px, 10vw, 128px);
+}
+
+// 卡片内间距
+.card-spacing {
+  padding: clamp(16px, 2.5vw, 24px);
+}
+
+.card-spacing-sm {
+  padding: clamp(12px, 2vw, 16px);
+}
+
+.card-spacing-lg {
+  padding: clamp(24px, 4vw, 40px);
+}
+
+// 标题与内容间距
+.title-spacing {
+  margin-bottom: clamp(8px, 1.5vw, 16px);
+}
+
+.title-spacing-sm {
+  margin-bottom: clamp(4px, 1vw, 8px);
+}
+
+.title-spacing-lg {
+  margin-bottom: clamp(16px, 2.5vw, 32px);
+}
+
+// 网格间距
+.grid-gap {
+  gap: clamp(16px, 2.5vw, 24px);
+}
+
+.grid-gap-sm {
+  gap: clamp(8px, 1.5vw, 16px);
+}
+
+.grid-gap-lg {
+  gap: clamp(24px, 4vw, 40px);
+}
+
+// 元素间距（通用）
+.space-y-section > * + * {
+  margin-top: clamp(24px, 4vw, 48px);
+}
+
+.space-y-content > * + * {
+  margin-top: clamp(12px, 2vw, 20px);
+}
+
+.space-y-tight > * + * {
+  margin-top: clamp(8px, 1vw, 12px);
+}
+
+// ------------------------------------------
+// 13. 按钮组样式 (Button Groups)
+// ------------------------------------------
+
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(12px, 2vw, 16px);
+  align-items: center;
+
+  &.centered {
+    justify-content: center;
+  }
+
+  &.stacked {
+    flex-direction: column;
+    
+    @media (min-width: 640px) {
+      flex-direction: row;
+    }
+  }
+
+  // 响应式：小屏幕变为纵向堆叠
+  @media (max-width: 480px) {
+    flex-direction: column;
+    width: 100%;
+
+    > * {
+      width: 100%;
+    }
+  }
+}
+
+// ------------------------------------------
+// 14. 增强卡片效果 (Enhanced Cards)
+// ------------------------------------------
+
+// 推荐卡片高亮
+.card-featured {
+  position: relative;
+  border: 2px solid var(--el-text-color-primary);
+  
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    background: var(--el-text-color-primary);
+    opacity: 0.05;
+    z-index: -1;
+  }
+}
+
+// 卡片推荐标签
+.card-badge {
+  position: absolute;
+  top: -12px;
+  right: 16px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-bg-color);
+  background: var(--el-text-color-primary);
+  border-radius: var(--global-border-radius);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: var(--z-base);
+
+  html.dark & {
+    background: var(--el-bg-color-page);
+    color: var(--el-text-color-primary);
+  }
+}
+
+// 动态光晕卡片
+.card-glow {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    background: rgba(var(--el-color-primary-rgb), 0.08);
+    pointer-events: none;
+  }
+
+  &:hover::after {
+    opacity: 1;
+  }
+}
+
+// ------------------------------------------
+// 15. 响应式容器 (Responsive Containers)
+// ------------------------------------------
+
+.container-narrow {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding-left: clamp(16px, 4vw, 24px);
+  padding-right: clamp(16px, 4vw, 24px);
+}
+
+.container-medium {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding-left: clamp(16px, 4vw, 24px);
+  padding-right: clamp(16px, 4vw, 24px);
+}
+
+.container-wide {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding-left: clamp(16px, 4vw, 32px);
+  padding-right: clamp(16px, 4vw, 32px);
+}
+
+.container-full {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding-left: clamp(16px, 4vw, 48px);
+  padding-right: clamp(16px, 4vw, 48px);
+}
+
+// ------------------------------------------
+// 16. 渐变文字 (Gradient Text)
+// ------------------------------------------
+
+.text-gradient {
+  color: var(--el-text-color-primary);
+}
+
+.text-gradient-primary {
+  color: var(--el-color-primary);
+}
+
+// ------------------------------------------
+// 17. 统计数字高亮 (Stat Numbers)
+// ------------------------------------------
+
+.stat-number-highlight {
+  font-size: clamp(36px, 6vw, 56px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--el-text-color-primary);
+}
+
+// ------------------------------------------
+// 18. 消息气泡间距 (Chat Message Spacing)
+// ------------------------------------------
+
+.message-spacing {
+  margin-bottom: 12px;
+  
+  // 同侧连续消息间距缩小
+  & + &.same-side {
+    margin-top: -8px;
+    margin-bottom: 4px;
+  }
+}
+
+.message-spacing-tight {
+  margin-bottom: 8px;
+}
+
+// ------------------------------------------
+// 19. 列表项间距 (List Item Spacing)
+// ------------------------------------------
+
+.list-spacing > * + * {
+  margin-top: 12px;
+}
+
+.list-spacing-sm > * + * {
+  margin-top: 8px;
+}
+
+.list-spacing-lg > * + * {
+  margin-top: 16px;
+}
+
+// 带分隔线的列表
+.list-divided > * {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-unified-color);
+  
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+}
+
+// ------------------------------------------
+// 20. 输入组件统一尺寸 (Input Sizing)
+// ------------------------------------------
+
+.input-unified {
+  height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
+  border-radius: var(--global-border-radius);
+  border: 1px solid var(--border-unified-color);
+  background: var(--el-bg-color);
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: var(--el-text-color-primary);
+    outline: none;
+  }
+
+  &.input-sm {
+    height: 36px;
+    padding: 0 12px;
+    font-size: 13px;
+    border-radius: var(--global-border-radius);
+  }
+
+  &.input-lg {
+    height: 52px;
+    padding: 0 20px;
+    font-size: 16px;
+    border-radius: var(--global-border-radius);
+  }
+}
+
+// 图标按钮统一尺寸
+.icon-btn-unified {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--global-border-radius);
+  border: 1px solid var(--border-unified-color);
+  background: var(--el-bg-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--el-text-color-primary);
+    background: var(--el-fill-color-light);
+  }
+
+  &.icon-btn-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--global-border-radius);
+  }
+
+  &.icon-btn-lg {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--global-border-radius);
+  }
+}
+
+
+

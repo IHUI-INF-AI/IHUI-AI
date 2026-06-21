@@ -1,0 +1,15 @@
+{
+  "circle": {
+    "searchPlaceholder": {
+      "category": "Search categories",
+      "dynamic": "Search dynamics",
+      "list": "Search circles",
+      "frontList": "Search circles...",
+      "post": "Say something..."
+    },
+    "label": {
+      "categoryName": "Category Name",
+      "actions": "Actions"
+    }
+  }
+}

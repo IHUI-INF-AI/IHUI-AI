@@ -1,0 +1,279 @@
+{
+  "agentChat": {
+    "send": "Send",
+    "showReasoning": "Show Reasoning Process",
+    "hideReasoning": "Hide Reasoning Process",
+    "Reject": "Reject",
+    "Approve": "Approve",
+    "needManualReview": "Requires Manual Review",
+    "startChat": "Start chatting with the agent",
+    "startChatHint": "Agents can help you perform complex tasks and reasoning",
+    "inputMessagePlaceholder": "Enter a message for the agent...",
+    "pleaseEnterContent": "Please enter message content",
+    "messageSent": "Message sent",
+    "step": "Step",
+    "roles": {
+      "user": "User",
+      "assistant": "AI Assistant"
+    },
+    "stages": {
+      "reasoning": "Thinking",
+      "acting": "Executing",
+      "result": "Complete"
+    },
+    "reasoningChain": {
+      "step1": "Analyzing user request...",
+      "step2": "Understanding task objectives...",
+      "step3": "Creating execution plan..."
+    },
+    "agentReply": "Agent reply: I understand your requirement \"{message}\", processing...",
+    "errors": {
+      "switchModeFailed": "Failed to switch mode",
+      "sendMessageFailed": "Failed to send message",
+      "startVoiceRecognitionFailed": "Failed to start Voice recognition",
+      "stopVoiceRecognitionFailed": "Failed to stop Voice recognition",
+      "VoiceRecognitionAlReadyStarted": "Voice recognition has alReady started, please stop the current recognition first",
+      "loadModelsFailed": "Failed to load model list",
+      "copyFailed": "Copy Failed",
+      "readFileFailed": "Failed to read file"
+    },
+    "success": {
+      "copyToClipboard": "Copied to clipboard",
+      "messageUpdated": "Message updated",
+      "messageDeleted": "Message deleted",
+      "fileUploaded": "File uploaded successfully"
+    },
+    "warnings": {
+      "maxFile Upload": "Maximum 10 files can be uploaded",
+      "fileSizeExceeded": "File size exceeds limit",
+      "confirmDelete": "Are you sure you want to delete this message?",
+      "maxFileUpload": "最多上传10个文件"
+    },
+    "features": {
+      "regenerateDeveloping": "Regenerate feature is under development",
+      "retryDeveloping": "Retry feature is under development",
+      "ExportDeveloping": "Export feature is under development"
+    },
+    "VoiceRecognition": {
+      "stopped": "Voice recognition stopped"
+    },
+    "audioRecording": "🎤 Recording {duration}s",
+    "timeLabels": {
+      "justNow": "Just now",
+      "minutesAgo": "{minutes} minutes ago",
+      "hoursAgo": "{hours} hours ago",
+      "daysAgo": "{days} days ago"
+    },
+    "voiceRecognition": {
+      "stopped": "Voice RecognitionStopped"
+    }
+  },
+  "agentScenario": {
+    "heroTitle": "Agent Scenario Compass",
+    "heroSubtitle": "Based on task execution complexity and autonomous decision-making dependence, helping Enterprises identify and plan agent application scenarios to find the most suitable AI implementation path.",
+    "overview": {
+      "title": "Understanding the Agent Scenario Compass",
+      "description": "The Agent Scenario Compass is an analytical framework to help Enterprises identify and plan AI agent application scenarios. Through two dimensions - task execution complexity and autonomous decision-making dependence - agent applications are divided into four quadrants to help Enterprises choose the most suitable implementation path.",
+      "keyPoint": "Key Insight",
+      "keyPointText": "Different quadrants have varying requirements for technical capabilities, deployment costs, and risk management. Enterprises should start from the bottom-left quadrant (simple decision + simple execution) and gradually expand to other quadrants after accumulating experience."
+    },
+    "axes": {
+      "complexity": {
+        "title": "Task Execution Complexity",
+        "low": "Low",
+        "high": "High"
+      },
+      "autonomy": {
+        "title": "Autonomous Decision Dependence",
+        "low": "Low",
+        "high": "High"
+      }
+    },
+    "characteristics": {
+      "title": "Characteristics"
+    },
+    "examples": {
+      "title": "Typical Applications"
+    },
+    "value": {
+      "title": "Value Proposition"
+    },
+    "quadrants": {
+      "simple": {
+        "title": "Efficient Assistant - Simple Decision & Simple Execution Agent",
+        "fullDescription": "These agents are in the bottom-left quadrant of the compass, characterized by low autonomous decision dependence and low task execution complexity. User intent is clear, and the agent only needs to complete relatively simple tasks, typically involving few steps and API calls.",
+        "chars": {
+          "steps": "Few Steps",
+          "calls": "Simple Calls",
+          "Volume": "High Volume",
+          "dependency": "Low Dependency",
+          "volume": "处理量高"
+        },
+        "examples": {
+          "workflow": {
+            "name": "Workflow Automation Assistant",
+            "desc": "Automate repetitive workflows like data entry and report generation"
+          },
+          "qa": {
+            "desc": "Desc",
+            "name": "Name"
+          }
+        },
+        "value": "Lowest technical barrier, fastest deployment, suitable for the first step of Enterprise AI. Can quickly generate value and build team confidence in AI."
+      },
+      "decision": {
+        "title": "Wise Advisor - Complex Decision Agent",
+        "fullDescription": "These agents are in the top-left quadrant, characterized by high autonomous decision dependence but low task execution complexity. Users ask open-ended questions requiring deep thinking and analysis, but final execution is relatively simple (like generating reports or suggestions).",
+        "chars": {
+          "openEnded": "Open Questions",
+          "reasoning": "Deep Reasoning",
+          "output": "Simple Output",
+          "prediction": "Predictive Analysis"
+        },
+        "examples": {
+          "analysis": {
+            "name": "Data Analysis Advisor",
+            "desc": "Deep analysis of business data, discovering insights and providing visualization reports"
+          },
+          "advisor": {
+            "name": "Decision Support Advisor",
+            "desc": "Integrating multi-dimensional information to provide decision suggestions for management"
+          }
+        },
+        "value": "Core value lies in reducing decision costs and improving decision quality. Suitable for scenarios requiring deep analysis but simple execution."
+      },
+      "execution": {
+        "title": "Execution Expert - Complex Execution Agent",
+        "fullDescription": "These agents are in the bottom-right quadrant, characterized by low autonomous decision dependence but high task execution complexity. User intent is very clear, but completing the task requires coordinating multiple systems, calling multiple APIs, and executing complex processes.",
+        "chars": {
+          "clearIntent": "Clear Intent",
+          "multiStep": "Multi-step Process",
+          "multiAPI": "Multi-API Calls",
+          "crossSystem": "Cross-system Collaboration"
+        },
+        "examples": {
+          "meeting": {
+            "name": "Meeting Scheduling Assistant",
+            "desc": "Coordinating multi-party schedules, booking meeting rooms, sending invitations, preparing materials"
+          },
+          "approval": {
+            "name": "Approval Process Assistant",
+            "desc": "Automating complex approval processes, cross-department coordination, document circulation"
+          }
+        },
+        "value": "Core value lies in liberating human resources and handling complex cross-system tasks. Requires good system integration capabilities."
+      },
+      "complex": {
+        "title": "Omnipotent Expert - Complex Decision & Complex Execution Agent",
+        "badge": "Advanced Application",
+        "fullDescription": "These agents are in the top-right quadrant, the most complex type. They need to handle open-ended tasks with high uncertainty, autonomously plan and make decisions, while the execution process also involves multi-system collaboration and long-cycle management.",
+        "chars": {
+          "autonomousPlanning": "Autonomous Planning",
+          "autonomousExecution": "Autonomous Execution",
+          "lifecycle": "Lifecycle Management",
+          "multiAgent": "Multi-Agent Collaboration"
+        },
+        "examples": {
+          "marketing": {
+            "name": "Marketing Campaign Automation",
+            "desc": "Full-process automation from market research to campaign planning, execution, and performance tracking"
+          },
+          "multiAgent": {
+            "name": "Multi-Agent Collaboration System",
+            "desc": "Multiple specialized agents working together to complete complex projects"
+          }
+        },
+        "value": "Represents the highest level of AI application, requiring powerful large model capabilities and comprehensive infrastructure. Recommended to attempt after accumulating sufficient experience."
+      }
+    },
+    "guide": {
+      "title": "Enterprise Implementation Suggestions",
+      "intro": "Based on the Agent Scenario Compass, we recommend Enterprises adopt a progressive AI implementation strategy, starting from simple scenarios and gradually accumulating experience and capabilities.",
+      "steps": {
+        "identify": {
+          "title": "Identify Scenarios",
+          "desc": "Review business processes, identify potential AI application scenarios, and classify them using the compass"
+        },
+        "evaluate": {
+          "title": "Evaluate Capabilities",
+          "desc": "Assess the Enterprise's current technical capabilities, data foundation, and organizational readiness"
+        },
+        "pilot": {
+          "title": "Pilot Validation",
+          "desc": "Select 1-2 simple scenarios for pilot, validate value and accumulate experience"
+        },
+        "scale": {
+          "title": "Scale Expansion",
+          "desc": "Based on pilot experience, gradually expand to more scenarios and more complex quadrants"
+        }
+      }
+    },
+    "cta": {
+      "title": "Start Your AI Agent Journey",
+      "description": "Join ZHIHUI AI Community and work with professional consultants to plan the most suitable agent implementation path for your Enterprise",
+      "learnMore": "Learn About Enterprise Service",
+      "contact": "Contact Consultant"
+    },
+    "footer": {
+      "Enterprise": "Enterprise Service",
+      "humanMachine": "Human-Machine",
+      "contact": "Contact Us",
+      "enterprise": "企业服务"
+    }
+  },
+  "agentManager": {
+    "title": "Title",
+    "createAgent": "Create Agent",
+    "name": "Name",
+    "type": "Type",
+    "model": "Model",
+    "Status": "Status",
+    "test": "Test",
+    "testAgent": "Test Agent",
+    "editAgent": "Edit Agent",
+    "agentNamePlaceholder": "Agent Name Placeholder",
+    "selectTypePlaceholder": "Select Type Placeholder",
+    "typeReasoning": "Type Reasoning",
+    "typeActing": "Type Acting",
+    "typeSpecialist": "Type Specialist",
+    "selectModelPlaceholder": "Select Model Placeholder",
+    "systemPrompt": "System Prompt",
+    "systemPromptPlaceholder": "System Prompt Placeholder",
+    "deleteConfirm": "Delete Confirm",
+    "deleteTitle": "Delete Title",
+    "StatusActive": "Status Active",
+    "StatusInactive": "Status Inactive",
+    "StatusDeprecated": "Status Deprecated",
+    "StatusUnknown": "Status Unknown",
+    "status": "Status",
+    "statusActive": "StatusActivity",
+    "statusDeprecated": "StatusDeprecated",
+    "statusInactive": "StatusInactive",
+    "statusUnknown": "StatusUnknown"
+  },
+  "agentSwarmMonitor": {
+    "Status": "Status",
+    "task": "Task",
+    "currentIteration": "Current Iteration",
+    "agentStatus": "Agent Status",
+    "agentName": "Agent Name",
+    "type": "Type",
+    "currentStep": "Current Step",
+    "performanceMetrics": "Performance Metrics",
+    "successRate": "Success Rate",
+    "averageExecutionTime": "Average Execution Time",
+    "averageTokens": "Average Tokens",
+    "totalSteps": "Total Steps",
+    "completedSteps": "Completed Steps",
+    "FailedSteps": "Failed Steps",
+    "toolResults": "Tool Results",
+    "reflection": "Reflection",
+    "corrected": "Corrected",
+    "correctedResult": "Corrected Result",
+    "failedSteps": "FailedSteps",
+    "status": "Status"
+  },
+  "agentCard": {
+    "dashscopeModel": "Dashscope Model"
+  }
+}

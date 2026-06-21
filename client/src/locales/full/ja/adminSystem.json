@@ -1,0 +1,16 @@
+{
+  "adminSystemStatistics": {
+    "refresh": "データを更新しい",
+    "users": {},
+    "orders": {},
+    "chat": {
+      "totalMessages": "合計メッセージ数"
+    },
+    "agents": {
+      "approvedAgents": "済み通過ぎ",
+      "rejectedAgents": "済み拒绝"
+    },
+    "files": {},
+    "messages": {}
+  }
+}

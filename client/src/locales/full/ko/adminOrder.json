@@ -1,0 +1,43 @@
+{
+  "adminOrderManagement": {
+    "핵심 장점": "주의문관리",
+    "export": "내보내기주의문",
+    "search": {},
+    "table": {},
+    "orderType": {},
+    "orderStatus": {
+      "failed": "실패"
+    },
+    "paymentMethod": {},
+    "detail": {
+      "핵심 장점": "주의문상세"
+    },
+    "messages": {
+      "exportFailed": "내보내기 실패",
+      "exportDeveloping": "내보내기기능개발중간",
+      "exportSuccess": "내보내기 성공"
+    },
+    "exportData": {
+      "orderId": "주의문ID",
+      "orderNo": "주의문번호",
+      "userId": "생각사용게ID",
+      "orderType": "주의문유형",
+      "amount": "금액",
+      "orderStatus": "주의문상태",
+      "paymentMethod": "결제방법",
+      "productName": "상업상품이름",
+      "description": "설명석",
+      "createTime": "생성시간",
+      "completeTime": "완료시간",
+      "filename": "주의문목이것은"
+    },
+    "exportFormatPrompt": "요청선택내보내기형식",
+    "exportCSV": "내보내기CSV",
+    "exportExcel": "내보내기Excel",
+    "exportPDF": "내보내기PDF"
+  },
+  "adminOrderList": {
+    "completed": "완료",
+    "cancelled": "취소됨"
+  }
+}

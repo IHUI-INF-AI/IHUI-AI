@@ -1,0 +1,16 @@
+{
+  "adminAuth": {
+    "searchPlaceholder": {
+      "authority": "권한 검색",
+      "role": "역할 검색"
+    },
+    "label": {
+      "permissionName": "권한명",
+      "permissionCode": "권한 코드",
+      "roleName": "역할명",
+      "roleCode": "역할 코드",
+      "memberCount": "멤버 수",
+      "actions": "작업"
+    }
+  }
+}

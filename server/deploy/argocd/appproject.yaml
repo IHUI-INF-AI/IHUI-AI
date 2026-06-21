@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: zhs
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: 智护数平台 - 业务服务
+  sourceRepos:
+    - "https://github.com/zhs-platform/*"
+    - "https://github.com/zhs/*"
+    - "harbor.zhs.local/charts/*"
+  destinations:
+    - namespace: zhs
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
+  orphanedResources:
+    warn: true
+  roles:
+    - name: deployer
+      policies:
+        - p, proj:zhs:deployer, applications, get, zhs/*, allow
+        - p, proj:zhs:deployer, applications, sync, zhs/*, allow
+    - name: viewer
+      policies:
+        - p, proj:zhs:viewer, applications, get, zhs/*, allow

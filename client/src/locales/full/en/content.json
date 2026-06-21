@@ -1,0 +1,27 @@
+{
+  "content": {
+    "prompt_templates": {
+      "请将以下内容进行10": "Please summarize the content below, keep key information, present in bullet points, ensure easy quick reading.",
+      "你是一位精通中英11": "You are a master Chinese-English translator. Please translate the content below into natural, smooth Chinese that fits the context, keeping original technical terms and tone.",
+      "请详细分析以下代12": "Please analyze the code logic below in detail, find potential bugs, memory leaks or security issues, and provide optimization and readability improvement suggestions.",
+      "请根据我提供的本13": "Please organize this week's work items into a logical, focused weekly report including: this week's progress, issues encountered, next week's plan.",
+      "请根据以下主题和14": "Please write a well-structured, logical article based on the theme and keywords. Requirements: engaging opening, in-depth discussion, elevated conclusion. Theme: [Please fill], Keywords: [Please fill], Style: [Professional/Casual/Creative]",
+      "请根据以下产品服15": "Please generate 5 marketing copies in different styles based on the product/service: 1 professional, 1 casual, 1 creative, 1 emotional, 1 concise. Product/Service: [Please describe]",
+      "请为以下内容生成16": "Please generate social media copies for different platforms: WeChat (in-depth, valuable), Xiaohongshu (engaging, attractive), Weibo (short, topical), Douyin (colloquial, rhythmic). Theme: [Please fill]",
+      "请为以下内容生成17": "Please generate 10 eye-catching titles including: suspense, numerical, question, comparison, emotional types. Content Theme: [Please fill]",
+      "请围绕以下主题提18": "Please provide 5 creative ideas or solutions around the theme, with novel angles, practical feasibility, and brief recommendation reasons.",
+      "请对以下观点或事19": "Please deeply analyze the viewpoint or event, analyzing root causes, influencing factors, stakeholder dynamics, and possible future trends."
+    },
+    "introduce_popup": {
+      "Upgrade system to increase computing power, recharge/course activation/service activation discount": "Upgrade system to increase computing power, recharge/course activation/service activation discount"
+    },
+    "introduce_popup_operator": {
+      "Company headquarters settlement and offline learning opportunities": "Company headquarters settlement and offline learning opportunities"
+    },
+    "learn_a_i": {
+      "AI question generation feature is so powerful, what used to take 3 days to complete now takes 10 minutes, and the question quality is high.50": "AI question generation feature is so powerful, what used to take 3 days to complete now takes 10 minutes, and the question quality is high.",
+      "Enterprise training system's smart Q&A feature solved our major pain points, employees can ask AI anytime, no need to wait for human replies.51": "Enterprise training system's smart Q&A feature solved our major pain points, employees can ask AI anytime, no need to wait for human replies.",
+      "Knowledge graph feature makes learning paths clearer, students can see their knowledge gaps, learning effectiveness improved significantly.52": "Knowledge graph feature makes learning paths clearer, students can see their knowledge gaps, learning effectiveness improved significantly."
+    }
+  }
+}

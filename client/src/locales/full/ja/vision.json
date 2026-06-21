@@ -1,0 +1,26 @@
+{
+  "visionAnalysis": {
+    "title": "通義千問 - 視覚分析",
+    "tag": "視覚理解",
+    "form": {
+      "upload": "画像をアップロード",
+      "selectImage": "画像を選択",
+      "prompt": "分析質問",
+      "promptPlaceholder": "例：この画像には何がありますか？詳しく説明してください..."
+    },
+    "buttons": {
+      "analyze": "分析を開始"
+    },
+    "result": {
+      "title": "分析結果",
+      "reasoning": "推論プロセス：",
+      "answer": "回答："
+    },
+    "messages": {
+      "uploadFailed": "画像のアップロードに失敗しました",
+      "uploadAndPromptRequired": "画像をアップロードして質問を入力してください",
+      "analyzeSuccess": "分析完了",
+      "analyzeFailed": "分析失敗"
+    }
+  }
+}

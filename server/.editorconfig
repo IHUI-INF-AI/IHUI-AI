@@ -1,0 +1,20 @@
+# EditorConfig - https://editorconfig.org
+root = true
+
+# 所有文件强制 UTF-8 编码，禁止 GBK
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Windows 批处理文件保持 CRLF 换行
+[*.{bat,cmd}]
+end_of_line = crlf
+
+# 二进制文件不检查
+[*.{png,jpg,gif,ico,woff,woff2,ttf,eot,jar,war,ear,class,zip,tar,gz,7z,exe,dll,so,dylib}]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset

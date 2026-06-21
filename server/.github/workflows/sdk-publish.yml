@@ -1,0 +1,287 @@
+# SDK 自动发布流水线
+# 触发: push 修改 server/app/api/* 或 scripts/gen_openapi_sdk.py 时自动重新生成并发布 SDK
+# 流程:
+#   1. 检测 openapi.json 变化
+#   2. 重新生成 5 语言 SDK (Python/TypeScript-fetch/TypeScript-axios/Go/Java)
+#   3. 验证 SDK 静态资产 (sdk_publish_audit.py)
+#   4. 发布 Python SDK 到 PyPI
+#   5. 发布 TypeScript SDK 到 NPM
+#   6. 推送 Go SDK 到 zhs-platform-go-sdk 仓库 (git_push.sh)
+#   7. 推送 Java SDK 到 zhs-platform-java-sdk 仓库
+# 手动: workflow_dispatch + version 输入
+
+name: SDK Auto Publish
+
+on:
+  push:
+    paths:
+      - "server/app/api/**"
+      - "server/app/main.py"
+      - "server/scripts/gen_openapi_sdk.py"
+      - ".github/workflows/sdk-publish.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SDK 版本号 (如 1.0.0)"
+        required: true
+        default: "1.0.0"
+      dry_run:
+        description: "Dry-run 模式 (不实际推送)"
+        type: boolean
+        default: false
+
+env:
+  PYPI_REPO: https://upload.pypi.org/legacy/
+  NPM_REGISTRY: https://registry.npmjs.org/
+  GO_SDK_REPO: ${{ github.repository_owner }}/zhs-platform-go-sdk
+  JAVA_SDK_REPO: ${{ github.repository_owner }}/zhs-platform-java-sdk
+
+jobs:
+  # ---------- 1. 检测 + 生成 SDK ----------
+  detect-and-generate:
+    name: Detect OpenAPI Changes & Generate SDK
+    runs-on: ubuntu-latest
+    outputs:
+      sdk-changed: ${{ steps.detect.outputs.changed }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install OpenAPI Generator
+        run: |
+          npm install -g @openapitools/openapi-generator-cli
+          pip install openapi-spec-validator
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            # 从 pyproject.toml 当前版本 + commit 短哈希
+            VERSION="0.1.${{ github.run_number }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using SDK version: $VERSION"
+
+      - name: Detect OpenAPI change
+        id: detect
+        run: |
+          # 比较与上一次 commit 的 openapi.json 差异
+          if git diff HEAD~1 -- server/app/main.py server/app/api/ 2>/dev/null | grep -qE '^\+'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ OpenAPI 相关文件已变更, 触发 SDK 重新生成"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  OpenAPI 未变更, 跳过 SDK 重新生成"
+          fi
+
+      - name: Start backend (for openapi.json)
+        if: steps.detect.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          cd server
+          pip install -e . || true
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          BACKEND_PID=$!
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:8000/healthz > /dev/null 2>&1; then
+              echo "✅ Backend ready"
+              break
+            fi
+            sleep 2
+          done
+          curl -s http://127.0.0.1:8000/openapi.json > server/openapi.json
+          kill $BACKEND_PID 2>/dev/null || true
+
+      - name: Generate 5-language SDK
+        if: steps.detect.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          cd server
+          python scripts/gen_openapi_sdk.py --lang all --output ./sdk --spec ./openapi.json
+          echo "✅ SDK generated"
+          ls -la sdk/
+
+      - name: Upload SDK artifacts
+        if: steps.detect.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-${{ steps.version.outputs.version }}
+          path: server/sdk/
+          retention-days: 30
+
+  # ---------- 2. 静态资产验证 ----------
+  verify-assets:
+    name: Verify SDK Static Assets
+    runs-on: ubuntu-latest
+    needs: detect-and-generate
+    if: needs.detect-and-generate.outputs.sdk-changed == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-${{ needs.detect-and-generate.outputs.version }}
+          path: server/sdk/
+
+      - name: Run SDK static asset audit
+        run: |
+          cd server
+          python scripts/sdk_publish_audit.py
+          if [ $? -ne 0 ]; then
+            echo "❌ SDK 静态资产验证失败"
+            exit 1
+          fi
+          echo "✅ SDK 静态资产全部就绪"
+
+  # ---------- 3. 发布 Python SDK ----------
+  publish-python:
+    name: Publish Python SDK to PyPI
+    runs-on: ubuntu-latest
+    needs: [detect-and-generate, verify-assets]
+    if: needs.detect-and-generate.outputs.sdk-changed == 'true' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: pypi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install twine
+        run: pip install twine build
+
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-${{ needs.detect-and-generate.outputs.version }}
+          path: server/sdk/
+
+      - name: Build & publish Python SDK
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          cd server/sdk/python
+          if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
+            echo "🔍 Dry-run: 仅构建, 不推送"
+            python -m build
+            echo "✅ Python SDK 构建成功 (dry-run)"
+          else
+            python scripts/publish_sdk.py --lang python --version ${{ needs.detect-and-generate.outputs.version }}
+          fi
+
+  # ---------- 4. 发布 TypeScript SDK ----------
+  publish-typescript:
+    name: Publish TypeScript SDKs to NPM
+    runs-on: ubuntu-latest
+    needs: [detect-and-generate, verify-assets]
+    if: needs.detect-and-generate.outputs.sdk-changed == 'true' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: npm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: ${{ env.NPM_REGISTRY }}
+
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-${{ needs.detect-and-generate.outputs.version }}
+          path: server/sdk/
+
+      - name: Publish TypeScript SDKs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for variant in typescript-fetch typescript-axios; do
+            cd server/sdk/$variant
+            if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
+              echo "🔍 Dry-run: $variant"
+              npm pack
+            else
+              python scripts/publish_sdk.py --lang $variant --version ${{ needs.detect-and-generate.outputs.version }} || \
+                echo "⚠️ $variant publish failed"
+            fi
+            cd -
+          done
+
+  # ---------- 5. 推送 Go SDK ----------
+  publish-go:
+    name: Push Go SDK to GitHub
+    runs-on: ubuntu-latest
+    needs: [detect-and-generate, verify-assets]
+    if: needs.detect-and-generate.outputs.sdk-changed == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-${{ needs.detect-and-generate.outputs.version }}
+          path: server/sdk/
+
+      - name: Push Go SDK
+        env:
+          GH_TOKEN: ${{ secrets.GH_PUSH_TOKEN }}
+        run: |
+          cd server/sdk/go
+          if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
+            echo "🔍 Dry-run: Go SDK"
+            ls -la
+          else
+            bash git_push.sh
+          fi
+
+  # ---------- 6. 推送 Java SDK ----------
+  publish-java:
+    name: Push Java SDK to GitHub
+    runs-on: ubuntu-latest
+    needs: [detect-and-generate, verify-assets]
+    if: needs.detect-and-generate.outputs.sdk-changed == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-${{ needs.detect-and-generate.outputs.version }}
+          path: server/sdk/
+
+      - name: Push Java SDK
+        env:
+          GH_TOKEN: ${{ secrets.GH_PUSH_TOKEN }}
+        run: |
+          cd server/sdk/java
+          if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
+            echo "🔍 Dry-run: Java SDK"
+            ls -la
+          else
+            bash git_push.sh
+          fi

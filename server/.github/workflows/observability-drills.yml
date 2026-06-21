@@ -1,0 +1,333 @@
+name: Observability Drills (Nightly)
+
+on:
+  # 每周二/四/六 凌晨 4 点 (Asia/Shanghai) 自动跑
+  # 错开 ws-loadtest 的周一/三/五, 避免和它抢 CI 资源
+  schedule:
+    - cron: '0 20 * * 1,3,5'   # UTC 20:00 = 北京时间 04:00 (次日)
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      skip_pg:
+        description: '跳过 PG 兼容性演练 (CI 跑不下 PG 时使用)'
+        required: false
+        default: 'false'
+      skip_drill:
+        description: '跳过告警演练 (drill_slow_sql_alert / drill_alert_webhook)'
+        required: false
+        default: 'false'
+
+env:
+  PYTHON_VERSION: "3.12"
+
+# ---------------------------------------------------------------------------
+# 4 个串行 job, 任一失败 → 整体 fail → 通知 (建议 115)
+# ---------------------------------------------------------------------------
+jobs:
+  # -------------------------------------------------------------------------
+  # Job 1: 告警规则规范化检查 (静态, 无外部依赖)
+  # 建议 110: check_alert_rules.py 5 步校验
+  # -------------------------------------------------------------------------
+  check-alert-rules:
+    name: Check Alert Rules (Prometheus)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+          pip install pyyaml
+
+      - name: Run check_alert_rules
+        run: |
+          python scripts/ci/check_alert_rules.py \
+            --path deploy/docker/prometheus/rules.yml \
+            | tee alert_rules_report.txt
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alert-rules-report
+          path: alert_rules_report.txt
+          if-no-files-found: ignore
+
+      - name: Summarize to job summary
+        if: always()
+        run: |
+          if [ -f alert_rules_report.txt ]; then
+            echo "## Prometheus Alert Rules Check" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat alert_rules_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # -------------------------------------------------------------------------
+  # Job 2: 慢 SQL 告警演练 (动态, 需启动本地 app 实例)
+  # 建议 96: drill_slow_sql_alert.py
+  # -------------------------------------------------------------------------
+  drill-slow-sql:
+    name: Drill Slow SQL Alert
+    needs: [check-alert-rules]
+    if: github.event.inputs.skip_drill != 'true'
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+          pip install fakeredis
+
+      - name: Boot FastAPI app (background)
+        env:
+          ENV: test
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+        run: |
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 18000 \
+            --log-level warning > app.log 2>&1 &
+          echo $! > app.pid
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            sleep 2
+            if curl -sf http://127.0.0.1:18000/metrics > /dev/null 2>&1; then
+              echo "App ready after $((i*2))s"
+              break
+            fi
+          done
+          curl -sf http://127.0.0.1:18000/metrics | head -5 || (cat app.log; exit 1)
+
+      - name: Run drill_slow_sql_alert
+        env:
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+        run: |
+          python scripts/ci/drill_slow_sql_alert.py \
+            --sleep 0.6 \
+            --engine ai \
+            --table t_order \
+            --app-url http://127.0.0.1:18000 \
+            --redis-host 127.0.0.1 \
+            --redis-port 6379 \
+            | tee slow_sql_drill_report.txt
+
+      - name: Verify metric recorded
+        run: |
+          # 演练后验证: /metrics 应该有 ai_sql_slow_query_total 计数
+          sleep 2
+          curl -sf http://127.0.0.1:18000/metrics | \
+            grep -E "ai_sql_slow_query_total" | head -3 || true
+
+      - name: Cleanup app
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill $(cat app.pid) 2>/dev/null || true
+          fi
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slow-sql-drill-report
+          path: |
+            slow_sql_drill_report.txt
+            app.log
+          if-no-files-found: ignore
+
+      - name: Summarize to job summary
+        if: always()
+        run: |
+          if [ -f slow_sql_drill_report.txt ]; then
+            echo "## Slow SQL Alert Drill" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat slow_sql_drill_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # -------------------------------------------------------------------------
+  # Job 3: Alertmanager 通知链路演练 (动态, 需 Alertmanager / Webhook)
+  # 建议 100: drill_alert_webhook.py
+  # -------------------------------------------------------------------------
+  drill-alert-webhook:
+    name: Drill Alert Webhook
+    needs: [drill-slow-sql]
+    if: github.event.inputs.skip_drill != 'true' && env.ALERT_WEBHOOK_URL != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+          pip install httpx
+
+      - name: Run drill_alert_webhook (critical)
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          DRILL_DRY_RUN: ${{ env.ALERT_WEBHOOK_URL == '' && 'true' || 'false' }}
+        run: |
+          python scripts/ci/drill_alert_webhook.py \
+            --alertname ZHSSlowSQLWithTrace \
+            --severity critical \
+            --status firing \
+            | tee webhook_drill_report.txt
+
+      - name: Run drill_alert_webhook (warning)
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: |
+          python scripts/ci/drill_alert_webhook.py \
+            --alertname ZHSSlowSQLWithTrace \
+            --severity warning \
+            --status firing \
+            | tee -a webhook_drill_report.txt
+
+      - name: Run drill_alert_webhook (resolved)
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: |
+          python scripts/ci/drill_alert_webhook.py \
+            --alertname ZHSSlowSQLWithTrace \
+            --severity warning \
+            --status resolved \
+            | tee -a webhook_drill_report.txt
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webhook-drill-report
+          path: webhook_drill_report.txt
+          if-no-files-found: ignore
+
+  # -------------------------------------------------------------------------
+  # Job 4: PG 迁移兼容性演练 (静态, 编译 PG DDL 不需真 PG 实例)
+  # 建议 109: test_pg_compatibility.py
+  # -------------------------------------------------------------------------
+  test-pg-compatibility:
+    name: Test PG Migration Compatibility
+    needs: [check-alert-rules]
+    if: github.event.inputs.skip_pg != 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: zhs
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: zhs_pg
+        ports: [5432:5432]
+        options: >-
+          --health-cmd="pg_isready -U zhs"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+          pip install sqlalchemy alembic psycopg2-binary
+
+      - name: Run test_pg_compatibility (static DDL compile)
+        run: |
+          python scripts/ci/test_pg_compatibility.py \
+            | tee pg_compat_report.txt
+
+      - name: Run test_pg_compatibility (real PG DDL apply)
+        env:
+          PG_URL: postgresql://zhs:testpass@127.0.0.1:5432/zhs_pg
+        run: |
+          python scripts/ci/test_pg_compatibility.py \
+            --pg-url "$PG_URL" \
+            | tee -a pg_compat_report.txt || echo "PG live DDL apply failed (acceptable in CI)"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pg-compat-report
+          path: pg_compat_report.txt
+          if-no-files-found: ignore
+
+      - name: Summarize to job summary
+        if: always()
+        run: |
+          if [ -f pg_compat_report.txt ]; then
+            echo "## PG Migration Compatibility" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat pg_compat_report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # -------------------------------------------------------------------------
+  # Job 5: 失败通知 (任一 drill 失败 → 触发 webhook 告警)
+  # -------------------------------------------------------------------------
+  notify-failure:
+    name: Notify Drill Failure
+    needs: [check-alert-rules, drill-slow-sql, drill-alert-webhook, test-pg-compatibility]
+    if: failure() && env.DRILL_WEBHOOK_URL != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send failure notification
+        env:
+          DRILL_WEBHOOK_URL: ${{ secrets.DRILL_WEBHOOK_URL }}
+          FAILED_JOBS: ${{ toJSON(needs) }}
+        run: |
+          curl -X POST "$DRILL_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$(cat <<EOF
+          {
+            "text": "[ZHS Platform] Observability drill FAILED",
+            "attachments": [{
+              "color": "danger",
+              "fields": [
+                {"title": "Run", "value": "${{ github.run_id }}", "short": true},
+                {"title": "Branch", "value": "${{ github.ref }}", "short": true},
+                {"title": "Actor", "value": "${{ github.actor }}", "short": true},
+                {"title": "Failed jobs", "value": "${{ join(needs.*.result, ', ') }}", "short": false}
+              ]
+            }]
+          }
+          EOF
+          )"

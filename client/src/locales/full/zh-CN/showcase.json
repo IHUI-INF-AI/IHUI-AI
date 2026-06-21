@@ -1,0 +1,76 @@
+{
+  "showcase": {
+    "title": "组件展示",
+    "subtitle": "Element Plus 全局组件实时预览与交互演示",
+    "tab": {
+      "buttons": "按钮",
+      "forms": "表单",
+      "feedback": "反馈",
+      "data": "数据",
+      "navigation": "导航"
+    },
+    "buttons": {
+      "title": "按钮组件",
+      "primary": "主要按钮",
+      "success": "成功按钮",
+      "warning": "警告按钮",
+      "danger": "危险按钮",
+      "info": "信息按钮",
+      "loading": "加载中",
+      "disabled": "已禁用",
+      "round": "圆角按钮"
+    },
+    "forms": {
+      "title": "表单组件",
+      "input": "输入框",
+      "inputPlaceholder": "请输入内容",
+      "textarea": "文本域",
+      "select": "选择器",
+      "selectPlaceholder": "请选择",
+      "switch": "开关",
+      "checkbox": "复选框",
+      "radio": "单选",
+      "date": "日期",
+      "datePlaceholder": "选择日期",
+      "optionA": "选项A",
+      "optionB": "选项B",
+      "optionC": "选项C",
+      "vue": "Vue.js",
+      "react": "React",
+      "ai": "AI",
+      "male": "男",
+      "female": "女"
+    },
+    "feedback": {
+      "title": "反馈组件",
+      "successAlert": "操作成功提示",
+      "warningAlert": "警告提示信息",
+      "errorAlert": "错误提示信息",
+      "tagSuccess": "成功",
+      "tagInfo": "信息",
+      "tagWarning": "警告",
+      "tagDanger": "危险"
+    },
+    "data": {
+      "title": "数据展示",
+      "columnName": "名称",
+      "columnCategory": "分类",
+      "columnStatus": "状态"
+    },
+    "navigation": {
+      "title": "导航组件",
+      "menuHome": "首页",
+      "menuAgents": "智能体",
+      "menuDocs": "文档",
+      "menuAbout": "关于",
+      "breadcrumbHome": "首页",
+      "breadcrumbDocs": "文档中心",
+      "breadcrumbCurrent": "组件展示",
+      "step1": "选择智能体",
+      "step2": "配置参数",
+      "step3": "发布上线",
+      "prev": "上一步",
+      "next": "下一步"
+    }
+  }
+}

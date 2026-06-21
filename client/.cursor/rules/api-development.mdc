@@ -1,0 +1,79 @@
+---
+description: API 接口开发自动规则
+globs: ["**/api/**/*.ts", "**/services/**/*.ts"]
+alwaysApply: false
+---
+
+# API 开发规则
+
+当编辑 API 相关文件时，我会自动遵循以下规则：
+
+## API 函数结构（强制）
+
+```typescript
+import request from '@/utils/request'
+
+// 1. 类型定义
+interface GetUserListParams {
+  page?: number
+  pageSize?: number
+  keyword?: string
+}
+
+interface User {
+  id: number
+  name: string
+  email: string
+}
+
+interface PaginatedResponse<T> {
+  list: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+// 2. API 函数
+/**
+ * 获取用户列表
+ * @param params 查询参数
+ * @returns 分页用户数据
+ */
+export const getUserList = (params?: GetUserListParams) => {
+  return request<PaginatedResponse<User>>({
+    url: '/api/users',
+    method: 'GET',
+    params,
+  })
+}
+
+/**
+ * 创建用户
+ * @param data 用户数据
+ * @returns 创建的用户
+ */
+export const createUser = (data: Omit<User, 'id'>) => {
+  return request<User>({
+    url: '/api/users',
+    method: 'POST',
+    data,
+  })
+}
+```
+
+## 自动执行
+
+1. **类型定义** - 为所有 API 添加请求/响应类型
+2. **JSDoc 注释** - 添加函数说明、参数说明、返回值说明
+3. **错误处理** - 确保使用统一的 request 封装
+4. **命名规范** - get/create/update/delete + 资源名
+
+## RESTful 规范
+
+| 操作 | 方法 | 路径 | 函数名 |
+|------|------|------|--------|
+| 查询列表 | GET | /api/users | getUserList |
+| 查询详情 | GET | /api/users/:id | getUserById |
+| 创建 | POST | /api/users | createUser |
+| 更新 | PUT | /api/users/:id | updateUser |
+| 删除 | DELETE | /api/users/:id | deleteUser |

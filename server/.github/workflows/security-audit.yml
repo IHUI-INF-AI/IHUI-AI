@@ -1,0 +1,54 @@
+# 依赖漏洞扫描 (pip-audit) GitHub Action
+# 每周一 09:00 (北京时间) 自动扫描 + PR 触发即时扫描
+
+name: Security Audit
+
+on:
+  schedule:
+    - cron: "0 1 * * 1" # UTC 01:00 = 北京时间 09:00 周一
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "requirements.txt"
+      - "requirements.lock.txt"
+      - ".github/workflows/security-audit.yml"
+  workflow_dispatch:
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-audit-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-audit-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+          pip install -r requirements.txt
+
+      - name: Run pip-audit
+        run: |
+          echo "## 依赖漏洞扫描报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          pip-audit --strict --format=columns >> $GITHUB_STEP_SUMMARY 2>&1 || echo "发现漏洞, 请检查下方输出"
+
+      - name: Upload audit JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit.json
+          if-no-files-found: ignore

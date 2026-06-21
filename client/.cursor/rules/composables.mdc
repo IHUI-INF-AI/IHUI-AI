@@ -1,0 +1,116 @@
+---
+description: Composables 开发自动规则
+globs: ["**/composables/**/*.ts", "**/hooks/**/*.ts"]
+alwaysApply: false
+---
+
+# Composables 开发规则
+
+当编辑组合式函数文件时，我会自动遵循以下规则：
+
+## Composable 结构（强制）
+
+```typescript
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import type { Ref, MaybeRef } from 'vue'
+
+/**
+ * useXxx - 功能描述
+ * @param options 配置选项
+ * @returns 返回值说明
+ * @example
+ * ```ts
+ * const { data, loading, execute } = useXxx({ immediate: true })
+ * ```
+ */
+export function useXxx(options: UseXxxOptions = {}) {
+  // ============ 配置解构 ============
+  const {
+    immediate = true,
+    onSuccess,
+    onError,
+  } = options
+
+  // ============ 响应式状态 ============
+  const data = ref<DataType | null>(null)
+  const loading = ref(false)
+  const error = ref<Error | null>(null)
+
+  // ============ 计算属性 ============
+  const isReady = computed(() => data.value !== null && !loading.value)
+  const hasError = computed(() => error.value !== null)
+
+  // ============ 核心方法 ============
+  const execute = async () => {
+    loading.value = true
+    error.value = null
+    
+    try {
+      const result = await fetchData()
+      data.value = result
+      onSuccess?.(result)
+      return result
+    } catch (e) {
+      const err = e as Error
+      error.value = err
+      onError?.(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const reset = () => {
+    data.value = null
+    loading.value = false
+    error.value = null
+  }
+
+  // ============ 生命周期 ============
+  onMounted(() => {
+    if (immediate) {
+      execute()
+    }
+  })
+
+  onUnmounted(() => {
+    // 清理逻辑（取消请求、清除定时器等）
+  })
+
+  // ============ 返回 ============
+  return {
+    // 状态
+    data,
+    loading,
+    error,
+    // 计算属性
+    isReady,
+    hasError,
+    // 方法
+    execute,
+    reset,
+  }
+}
+
+// ============ 类型定义 ============
+export interface UseXxxOptions {
+  /** 是否立即执行 */
+  immediate?: boolean
+  /** 成功回调 */
+  onSuccess?: (data: DataType) => void
+  /** 错误回调 */
+  onError?: (error: Error) => void
+}
+
+export type UseXxxReturn = ReturnType<typeof useXxx>
+```
+
+## 自动执行
+
+1. **命名规范** - 函数名以 `use` 开头
+2. **参数类型** - 使用 Options 对象模式
+3. **返回类型** - 返回对象包含状态和方法
+4. **生命周期** - 正确处理 mounted/unmounted
+5. **清理逻辑** - 在 unmounted 中清理副作用
+6. **JSDoc** - 提供完整的文档注释
+7. **导出类型** - 导出 Options 和 Return 类型

@@ -1,0 +1,10 @@
+{
+  "projectId": "Project:ihui-ai-officialsite",
+  "projectToken": "",
+  "buildScriptName": "build:storybook",
+  "storybookBaseDir": ".storybook",
+  "storybookConfigDir": ".storybook",
+  "exitZeroOnChanges": true,
+  "onlyChanged": true,
+  "zip": true
+}

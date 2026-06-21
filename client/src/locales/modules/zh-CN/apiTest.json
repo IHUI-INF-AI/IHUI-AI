@@ -1,0 +1,21 @@
+{
+  "apiTest": {
+    "title": "AI接口测试",
+    "allTestsPassed": "全部",
+    "testsPassed": "个测试通过！",
+    "testsFailed": "个测试失败",
+    "executionError": "测试执行出错",
+    "testing": "测试中...",
+    "runTests": "运行测试",
+    "testLog": "测试日志",
+    "total": "总计",
+    "passed": "通过",
+    "failed": "失败",
+    "duration": "耗时",
+    "clearResults": "清空结果",
+    "category": "分类",
+    "testItem": "测试项",
+    "status": "状态",
+    "errorInfo": "错误信息"
+  }
+}

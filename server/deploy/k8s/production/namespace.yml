@@ -1,0 +1,9 @@
+# P29-5 K8s 真实集群演练: 命名空间
+# ZHS 生产环境命名空间
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zhs-platform
+  labels:
+    app: zhs-platform
+    environment: production

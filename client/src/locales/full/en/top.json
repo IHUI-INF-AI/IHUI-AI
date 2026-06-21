@@ -1,0 +1,56 @@
+{
+  "topUp": {
+    "title": "Top Up",
+    "subtitle": "Recharge Zhihui value to your account",
+    "selectAmount": "Please select top up amount",
+    "selectPaymentMethod": "Please select payment method",
+    "customAmount": "Custom Amount",
+    "paymentMethods": {
+      "wechat": {
+        "name": "WeChat Pay",
+        "desc": "Scan QR code with WeChat to pay"
+      },
+      "alipay": {
+        "name": "Alipay",
+        "desc": "Scan QR code with Alipay to pay"
+      }
+    },
+    "cancel": "Cancel",
+    "submit": "Recharge Now",
+    "errors": {
+      "selectAmount": "Please select recharge amount",
+      "createOrderFailed": "Failed to create recharge order",
+      "createOrderRetry": "Failed to create recharge order, please try again later",
+      "logger": {
+        "createOrderFailed": "Create Order Failed"
+      }
+    },
+    "loading": "Loading...",
+    "clickToTopUp": "Click here to top up",
+    "ratio": "Top up Ratio",
+    "selectMethod": "Please select top up method",
+    "moreMethods": "More top up methods available via official",
+    "invalidAmount": "Please enter correct top up amount",
+    "submitted": "Top up request submitted",
+    "amountLabels": {
+      "coins": "Coins"
+    },
+    "customPlaceholder": "Custom Placeholder",
+    "notice1": "Notice1",
+    "notice2": "Notice2",
+    "notice3": "Notice3",
+    "noticeTitle": "Notice Title"
+  },
+  "topUpSuccess": {
+    "title": "Recharge Successful",
+    "message": "Your account has been successfully recharged",
+    "backToHome": "Back to Home",
+    "viewAccount": "View Account"
+  },
+  "topUpFail": {
+    "title": "Recharge Failed",
+    "defaultMessage": "An error occurred during recharge, please try again later",
+    "retry": "Retry Recharge",
+    "backToHome": "Back to Home"
+  }
+}

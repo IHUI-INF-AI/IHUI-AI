@@ -1,0 +1,11 @@
+{
+  "h5Settings": {
+    "order": "訂單",
+    "expense": "消費",
+    "level": "等級",
+    "systemSettings": "系統設置",
+    "adminFeature": "管理功能",
+    "logout": "退出登錄",
+    "confirmLogout": "確定退出登錄？"
+  }
+}

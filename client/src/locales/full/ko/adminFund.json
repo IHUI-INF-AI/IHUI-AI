@@ -1,0 +1,18 @@
+{
+  "adminFundManagement": {
+    "핵심 장점": "게금계정관리",
+    "sub핵심 장점": "관리생각사용게 게금 계정및잔액",
+    "actions": {
+      "export": "내보내기"
+    },
+    "fundList": {}
+  },
+  "adminFundStatistics": {
+    "핵심 장점": "게금통계",
+    "refresh": "데이마음 새로고침",
+    "failedOrders": "실패주의문",
+    "period": {},
+    "messages": {},
+    "chart": {}
+  }
+}

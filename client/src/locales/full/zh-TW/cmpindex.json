@@ -1,0 +1,16 @@
+{
+  "cmpindex": {
+    "timeExpr": "時間表達式",
+    "cronExpr": "Cron 表達式",
+    "minute": "分鐘",
+    "hour": "小時",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "day": "Day",
+    "month": "Month",
+    "reset": "Reset",
+    "second": "Second",
+    "week": "Week",
+    "year": "Year"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "inputs": {},
+  "ref": "refs/heads/main",
+  "repository": {
+    "default_branch": "main",
+    "name": "zhs-platform",
+    "owner": "zhs-team",
+    "full_name": "zhs-team/zhs-platform"
+  },
+  "pull_request": null,
+  "sender": {
+    "login": "local-dev",
+    "id": 0,
+    "type": "User"
+  },
+  "action": "push",
+  "event_name": "push",
+  "head_commit": {
+    "id": "0000000000000000000000000000000000000000",
+    "message": "local act dry-run"
+  }
+}

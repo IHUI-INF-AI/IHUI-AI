@@ -1,0 +1,597 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  schedule:
+    # 每周一 02:00 (北京时间) 跑 strict 模式, 监控 major 升级
+    - cron: '0 18 * * 0'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 0: 前端依赖过期监控 (PR 触发, 仅 warning)
+  # ---------------------------------------------------------------------------
+  outdated-check:
+    name: Outdated Dependency Check (warning)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run check:outdated (non-strict, warning)
+        # PR 阶段仅 warning 不阻断, 让开发者知道有包过期
+        run: |
+          echo "::group::📦 主项目 client/ 过期检测"
+          npm run check:outdated --silent || true
+          echo "::endgroup::"
+          echo "::group::📦 miniapp/ 过期检测"
+          npm run check:outdated:miniapp --silent || true
+          echo "::endgroup::"
+
+      - name: Annotate as PR comment (suggest)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "## 📦 依赖过期检测结果"
+          echo ""
+          echo "如需详细报告, 在本地运行: \`npm run check:outdated\`"
+          echo "周级别 strict 监控: CI 周一自动跑, 会阻断合并"
+
+  # ---------------------------------------------------------------------------
+  # Job 0.5: 周级别 strict 监控 (仅 schedule 触发, major 升级会阻断)
+  # ---------------------------------------------------------------------------
+  outdated-strict-weekly:
+    name: Outdated Strict Weekly (major blocks)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run check:outdated --fail-on-major
+        run: |
+          echo "🔍 周级别 strict 监控: 任何 major 升级都会阻断"
+          npm run check:outdated:strict
+          if [ $? -ne 0 ]; then
+            echo "::error::检测到 major 升级, 需评估后处理"
+            exit 1
+          fi
+          echo "✅ 无 major 升级"
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared packages
+        run: npm run build:shared
+
+      - name: Run type check
+        run: npm run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: true
+
+  style-audit:
+    name: Style Audit (no-important / no-hardcoded-colors / no-high-specificity)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Check no !important in styles
+        # 用户规则：禁止使用 !important，保证后续样式可控
+        run: npm run check:no-important
+
+      - name: Check no hardcoded colors
+        # 配色应统一通过 CSS 变量管理，禁止硬编码颜色值
+        run: npm run check:colors
+        continue-on-error: true
+
+      - name: Check high specificity selectors
+        # 用户规则：禁止使用高特异性选择器（4 类以上嵌套），项目代码中不得存在
+        # 阈值 0：项目代码中不允许有任何高特异性选择器
+        run: |
+          npm run dev > /tmp/dev-server.log 2>&1 &
+          npx wait-on http://127.0.0.1:8888 -t 180000
+          HIGH_SPECIFICITY_THRESHOLD=0 npx playwright test e2e/analyze-high-specificity.spec.ts --project=chromium --reporter=list
+          kill %1 2>/dev/null || true
+
+      - name: Token usage check (unused threshold)
+        # 检查未使用 token 数量是否超过阈值（白名单 10 个不计，阈值 12）
+        run: npm run tokens:check
+
+      - name: Token naming convention check
+        # 检查 token 命名是否符合规范（--color-*/--el-*/--app-*/--z-*/--global-* 等）
+        run: npm run tokens:naming
+
+      - name: Token dark mode coverage check
+        # 检查 --app-* token 的映射目标在暗色模式下是否有覆盖
+        run: npm run tokens:dark-mode
+
+      - name: Token deprecated check
+        # 检查弃用 token 是否已过删除日期但仍被使用
+        run: npm run tokens:deprecated
+
+      - name: --el-* token usage check (new components)
+        # 检查新组件是否直接使用 --el-* token（应优先使用 --app-* 语义化 token）
+        run: node scripts/check-el-token-staged.mjs
+        continue-on-error: true
+
+  nul-residue-scan:
+    # 拦截 Windows 终端残留 nul 文件（PowerShell `>nul` 副作用，硬限制无法删除，仅做拦截不阻断提交）
+    name: Nul Residue Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan nul residue files (strict)
+        run: |
+          node scripts/check-nul.mjs --strict
+
+      - name: Scan >nul redirect in scripts
+        # 检查项目脚本里是否使用小写 `>nul`（Windows cmd 兼容性问题，建议大写 >NUL）
+        run: |
+          bad=$(grep -rnE '>[ ]?nul\b' --include='*.bat' --include='*.cmd' --include='*.sh' . 2>/dev/null || true)
+          if [ -n "$bad" ]; then
+            echo "::warning::发现 >nul 重定向（建议大写 >NUL，更明确且与 PowerShell 行为一致）："
+            echo "$bad"
+          else
+            echo "OK: 无 >nul 重定向"
+          fi
+
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm run test -- --coverage --run
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build:web
+
+      - name: Record token usage trend
+        # 记录本次构建的 token 使用数据到 .token-history/（不提交，仅本机记录）
+        run: npm run tokens:record
+        continue-on-error: true
+
+      - name: Check performance budget
+        # P28-3: 性能预算硬门禁 - 超限则阻断合并
+        # 预算基于当前构建体积 + 缓冲, 后续逐步收紧
+        run: npm run check:perf
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  miniapp-build:
+    name: Miniapp Build
+    runs-on: ubuntu-latest
+    needs: [typecheck]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            miniapp/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install miniapp dependencies
+        run: npm ci --prefix miniapp
+
+      - name: Build WeChat miniapp
+        run: npm run build:mp-weixin
+
+      - name: Upload miniapp artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniapp-mp-weixin
+          path: miniapp/dist/build/mp-weixin/
+          retention-days: 7
+
+  responsive-test:
+    name: Responsive Tests
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Build
+        run: npm run build:web
+
+      - name: Start server and run responsive tests
+        run: |
+          npm run preview &
+          npx wait-on http://localhost:4173 -t 60000
+          npx playwright test e2e/responsive-test.spec.ts --project=chromium --workers=2
+
+      - name: Upload test screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-screenshots
+          path: screenshots/
+          retention-days: 7
+
+  component-e2e-test:
+    name: Component E2E Tests
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Build
+        run: npm run build:web
+
+      - name: Start server and run component tests
+        run: |
+          npm run preview &
+          npx wait-on http://localhost:4173 -t 60000
+          npx playwright test e2e/header-overflow.spec.ts --project=chromium
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: component-test-results
+          path: test-results/
+          retention-days: 7
+
+  prod-smoke-test:
+    # P3 新增：生产构建 smoke + Web Vitals 基线（替代手动 Lighthouse）
+    name: Prod Smoke + Web Vitals
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, build]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Build
+        run: npm run build:web
+
+      - name: Run prod smoke + web vitals
+        run: |
+          npm run preview &
+          npx wait-on http://127.0.0.1:4173 -t 60000
+          npx playwright test e2e/production-smoke.spec.ts e2e/web-vitals.spec.ts --project=chromium
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prod-smoke-results
+          path: test-results/
+          retention-days: 7
+
+  i18n-completeness:
+    # P28-2: i18n 翻译完整性检测 (5 语言对比 + 硬编码中文 + 缺失/冗余键)
+    # PR 触发: --strict 模式, 缺失翻译键阻断合并
+    # 周级别 schedule: 同样 strict, 监控语言文件漂移
+    name: i18n Completeness (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run i18n completeness check (strict-en)
+        # --strict-en: 只对纯英文 key 缺失阻断合并 (中文 key 缺失视为技术债, 仅 warn)
+        # 冗余键和硬编码中文仅 warn, 不阻断 (逐步清理)
+        # P29-2: 已补齐 admin.eventBus.* 等缺失翻译, 启用硬阻断
+        run: |
+          echo "::group::i18n 翻译完整性检测 (5 语言: zh-CN/zh-TW/en/ja/ko)"
+          npm run check:i18n:strict-en
+          echo "::endgroup::"
+
+      - name: Upload i18n report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-completeness-report
+          path: |
+            src/locales/*.json
+          retention-days: 7
+
+  i18n-chinese-residue:
+    # i18n 中文残留检测: en/en-US/ko 不允许任何中文字符, ja 仅检测中文残留词汇
+    # 仅 warning 不阻断 (逐步清理, 让 PR 作者知道但不影响合并)
+    name: i18n Chinese Residue (warning)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run i18n chinese residue check
+        # en/en-US/ko: 不允许任何中文字符
+        # ja: 只检测中文残留词汇 (日语汉字正常)
+        # 品牌名检测: 智汇/智匯/Zhihuishe
+        run: |
+          echo "::group::i18n 中文残留检测 (en/en-US/ko/ja)"
+          npm run check:i18n:chinese
+          echo "::endgroup::"
+
+  visual-regression:
+    # 视觉回归测试: 7 页面 × 2 主题 = 14 基线比对 + 6 交互验证 + 2 鉴权重定向
+    # continue-on-error: CI 环境渲染差异不阻断合并, 仅作监控
+    # 基线更新流程见 .github/pull_request_template.md
+    name: Visual Regression
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, build]
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Build
+        run: npm run build:web
+
+      - name: Start preview server and run visual regression
+        run: |
+          npm run preview &
+          npx wait-on http://127.0.0.1:4173 -t 60000
+          PW_BASE_URL=http://127.0.0.1:4173 npx playwright test e2e/visual-regression.spec.ts --project=chromium --reporter=line
+
+      - name: Upload visual regression results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-regression-results
+          path: test-results/
+          retention-days: 7
+
+  e2e-coverage:
+    # E2E 测试覆盖率监控: 统计测试覆盖的页面/交互数 + 趋势对比
+    # 覆盖率下降超过 5% 时告警(continue-on-error, 不阻断合并)
+    # 无 needs: 仅扫描 e2e/ 目录统计测试文件, 不依赖 typecheck/lint/build, 可完全并行
+    name: E2E Coverage
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore coverage history
+        uses: actions/cache@v4
+        with:
+          path: .e2e-coverage-history
+          key: e2e-coverage-history-${{ github.sha }}
+          restore-keys: |
+            e2e-coverage-history-
+
+      - name: Run e2e coverage analysis
+        run: npm run e2e:coverage
+
+      - name: Save coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-coverage-report
+          path: |
+            e2e-coverage-report.json
+            .e2e-coverage-history/
+          retention-days: 30

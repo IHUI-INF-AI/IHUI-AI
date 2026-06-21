@@ -1,0 +1,66 @@
+{
+  "techService": {
+    "핵심 장점": "기술서비스발전구",
+    "sub핵심 장점": "획득전문의기술지원및도움",
+    "services": {
+      "support": {
+        "핵심 장점": "온라인고객 서비스",
+        "desc": "문의하기의고객 서비스팀획득도움",
+        "title": "온라인고객 서비스"
+      },
+      "docs": {
+        "핵심 장점": "기술문서",
+        "desc": "보기상세세부의기술문서및API설명석",
+        "title": "기술문서"
+      },
+      "consultation": {
+        "핵심 장점": "기술상담질의",
+        "desc": "프리셋약속전문의기술상담질의서비스",
+        "title": "기술상담질의"
+      },
+      "training": {
+        "핵심 장점": "기술교육",
+        "desc": "보고이름참조에우리의기술교육이익",
+        "title": "기술교육"
+      },
+      "custom": {
+        "핵심 장점": "맞춤 서비스",
+        "desc": "획득개성변환의기술해결솔루션",
+        "title": "맞춤 서비스"
+      },
+      "feedback": {
+        "핵심 장점": "피드백 보내기",
+        "desc": "제출귀하의제안및피드백",
+        "title": "의견피드백"
+      }
+    },
+    "underDevelopment": "기능개발중간",
+    "appointmentTitle": "서비스프리셋약속",
+    "appointmentSubmitted": "프리셋약속제출성공，우리있도말씀빠름연락귀하의",
+    "submitAppointment": "제출프리셋약속",
+    "form": {
+      "name": "성이름",
+      "namePlaceholder": "요청입력귀하의성이름",
+      "이메일": "이메일",
+      "이메일Placeholder": "요청입력귀하의이메일",
+      "전화": "전화",
+      "전화Placeholder": "요청입력귀하의전화",
+      "preferredDate": "환경설정날짜",
+      "preferredTime": "환경설정시간",
+      "datePlaceholder": "선택날짜",
+      "timePlaceholder": "선택시간",
+      "description": "요구설명석",
+      "descriptionPlaceholder": "요청상세세부설명석귀하의요구...",
+      "validationRequired": "요청입력필수항목",
+      "invalidEmail": "요청입력유효의이메일주의소",
+      "invalidPhone": "요청입력유효의전화번호코드",
+      "email": "이메일",
+      "emailPlaceholder": "요청입력귀하의이메일",
+      "phone": "전화",
+      "phonePlaceholder": "요청입력귀하의전화"
+    },
+    "appointmentFailed": "프리셋약속제출실패，요청잠시백엔드재시도",
+    "title": "기술서비스발전구",
+    "subtitle": "획득전문의기술지원및돕는"
+  }
+}

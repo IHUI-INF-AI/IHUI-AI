@@ -1,0 +1,19 @@
+apiVersion: v2
+name: zhs-platform
+description: 智护数 - 一体化平台 Helm Chart (FastAPI + Vue 3 + WebSocket)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - fastapi
+  - vue
+  - ai
+  - education
+  - hls
+home: https://zhs.example.com
+sources:
+  - https://github.com/zhs-platform
+maintainers:
+  - name: zhs-team
+    email: ops@zhs.local
+icon: https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=zhs%20platform%20logo&image_size=square_hd

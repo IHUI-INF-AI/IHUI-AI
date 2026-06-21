@@ -1,0 +1,9 @@
+{
+  "googleLogin": {
+    "useGoogle": "使用Google账号登录",
+    "failed": "Google登录失败",
+    "verifyFailed": "Google登录验证失败，请重试",
+    "handleFailed": "Google登录处理失败",
+    "retry": "Google登录失败，请重试"
+  }
+}

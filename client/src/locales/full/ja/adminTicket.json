@@ -1,0 +1,35 @@
+{
+  "adminTicketManagement": {
+    "export": "エクスポートチケット",
+    "search": {
+      "status": "ステータス",
+      "statusPlaceholder": "请選択ステータス"
+    },
+    "table": {
+      "status": "ステータス",
+      "approve": "承認",
+      "reject": "拒いいえ"
+    },
+    "status": {
+      "pending": "待処理",
+      "processing": "処理中",
+      "resolved": "解決済み",
+      "closed": "済み閉じる"
+    },
+    "category": {},
+    "priority": {},
+    "detail": {
+      "status": "ステータス"
+    },
+    "audit": {
+      "approveTitle": "審査承認",
+      "rejectTitle": "審査拒いいえ"
+    },
+    "assign": {},
+    "messages": {
+      "approveSuccess": "チケット审核通過ぎ",
+      "rejectSuccess": "チケット済み拒绝",
+      "exportInDevelopment": "エクスポート機できる開発中"
+    }
+  }
+}

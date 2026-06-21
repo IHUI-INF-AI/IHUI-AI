@@ -1,0 +1,36 @@
+{
+  "functions": [
+    {
+      "name": "coze_worker",
+      "config": {
+        "timeout": 60,
+        "envVariables": {},
+        "runtime": "Nodejs12.16",
+        "memorySize": 128
+      },
+      "path": "src/cloudfunctions/coze_worker"
+    },
+    {
+      "name": "coze_request",
+      "config": {
+        "timeout": 60,
+        "envVariables": {},
+        "runtime": "Nodejs12.16",
+        "memorySize": 128
+      },
+      "path": "src/cloudfunctions/coze_request"
+    },
+    {
+      "name": "ping",
+      "config": {
+        "timeout": 10,
+        "envVariables": {
+          "ENV_ID": "cloud1-5gszljn762dc4719"
+        },
+        "runtime": "Nodejs12.16",
+        "memorySize": 128
+      },
+      "path": "src/cloudfunctions/ping"
+    }
+  ]
+} 

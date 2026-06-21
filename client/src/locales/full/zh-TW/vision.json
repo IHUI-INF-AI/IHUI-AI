@@ -1,0 +1,26 @@
+{
+  "visionAnalysis": {
+    "title": "通義千問 - 視覺分析",
+    "tag": "視覺理解",
+    "form": {
+      "upload": "上傳圖片",
+      "selectImage": "選擇圖片",
+      "prompt": "分析問題",
+      "promptPlaceholder": "例如：這張圖片裡有什麼？請詳細描述..."
+    },
+    "buttons": {
+      "analyze": "開始分析"
+    },
+    "result": {
+      "title": "分析結果",
+      "reasoning": "推理過程：",
+      "answer": "回答："
+    },
+    "messages": {
+      "uploadFailed": "圖片上傳失敗",
+      "uploadAndPromptRequired": "請上傳圖片並輸入問題",
+      "analyzeSuccess": "分析完成",
+      "analyzeFailed": "分析失敗"
+    }
+  }
+}

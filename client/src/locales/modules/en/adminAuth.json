@@ -1,0 +1,16 @@
+{
+  "adminAuth": {
+    "searchPlaceholder": {
+      "authority": "Search permissions",
+      "role": "Search roles"
+    },
+    "label": {
+      "permissionName": "Permission Name",
+      "permissionCode": "Permission Code",
+      "roleName": "Role Name",
+      "roleCode": "Role Code",
+      "memberCount": "Member Count",
+      "actions": "Actions"
+    }
+  }
+}

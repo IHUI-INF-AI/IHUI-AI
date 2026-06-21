@@ -1,0 +1,12 @@
+{
+  "systemTray": {
+    "title": "システムトレイ",
+    "description": "システムトレイ設定ページ",
+    "autoStart": "自動起動",
+    "autoStartDesc": "システム起動時に自動でアプリを実行",
+    "minimizeToTray": "トレイに最小化",
+    "minimizeToTrayDesc": "ウィンドウを閉じる時にシステムトレイに最小化",
+    "showNotifications": "通知を表示",
+    "showNotificationsDesc": "システムトレイに通知を表示"
+  }
+}

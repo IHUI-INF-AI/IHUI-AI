@@ -1,0 +1,25 @@
+{
+  "name": "@zhs-platform/fetch",
+  "version": "1.0.0",
+  "description": "ZHS Platform API SDK (typescript-fetch, auto-generated)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "keywords": ["zhs", "fastapi", "openapi", "sdk", "typescript-fetch"],
+  "license": "MIT",
+  "author": "ZHS Team <ops@zhs.local>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhs-platform/zhs-platform.git"
+  },
+  "homepage": "https://github.com/zhs-platform/zhs-platform",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

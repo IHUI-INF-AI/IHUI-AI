@@ -1,0 +1,102 @@
+{
+  "cmpVipIntroducePopup": {},
+  "cmpEnhancedFileUpload": {
+    "folderMode": "Folder Mode",
+    "clickSelectFolder": "Click to select folder or drag here",
+    "clickSelectFile": "Click to select file or drag here",
+    "xx_formatSizepropsmaxSize": "最大 ${formatSize(props.maxSize)}",
+    "uploadFailed": "Upload Failed",
+    "linkCopied": "Link Copied"
+  },
+  "cmpConfirmPurchasePopUp": {
+    "vipPurchase": "VIP Purchase",
+    "agreementDeveloping": "Agreement page in development",
+    "productNotExist": "Product not found",
+    "paySuccess": "Payment Successful",
+    "paySuccess2": "支付成功"
+  },
+  "cmpFileDownload": {
+    "downloading": "Downloading...",
+    "invalidDownloadLink": "Invalid download link",
+    "downloadFailed": "Download Failed",
+    "downloadComplete": "Download Complete",
+    "downloadFailed2": "下载失败"
+  },
+  "cmpPdfToolsPanel": {
+    "presetWatermark": "Preset Watermark",
+    "splitOption": "Split Options",
+    "allPages": "All Pages",
+    "currentPage": "Current Page",
+    "showPageNum": "Show Page Number"
+  },
+  "cmpPdfCompare": {
+    "syncScroll": "Sync Scroll",
+    "syncZoom": "Sync Zoom",
+    "selectPdfA": "Please select PDF file A",
+    "selectPdfB": "Please select PDF file B"
+  },
+  "cmpVersionDiff": {
+    "selectVersionToCompare": "Please select version to compare",
+    "selectDiffVersion": "Please select different versions",
+    "getVersionFailed": "Failed to get version info",
+    "compareFailed": "Version compare failed"
+  },
+  "cmpPromptTemplates": {
+    "fillAllFields": "Please fill in all fields",
+    "templateAdded": "Template added",
+    "templateDeleted": "Template deleted"
+  },
+  "cmpVipIntroducePopupAlt": {
+    "benefitsCount": "About <b>20</b> benefits and growing",
+    "paySuccess": "Payment Successful",
+    "payFailed": "Payment failed or cancelled"
+  },
+  "cmpDocViewer": {
+    "loadingDoc": "Loading document...",
+    "pdfLoadFailed": "PDF load failed",
+    "pdfTools": "PDF Tools",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "reset": "Reset",
+    "fullscreen": "Fullscreen",
+    "download": "Download",
+    "prevPage": "Previous Page",
+    "nextPage": "Next Page",
+    "defaultTitle": "Document",
+    "categoryPdf": "PDF Document",
+    "categoryDocument": "Word Document",
+    "categorySpreadsheet": "Excel Spreadsheet",
+    "categoryPresentation": "PPT Presentation",
+    "categoryImage": "Image",
+    "categoryVideo": "Video",
+    "categoryAudio": "Audio",
+    "categoryCode": "Code File",
+    "categoryMarkdown": "Markdown",
+    "categoryText": "Text File",
+    "categoryArchive": "Archive",
+    "categoryModel3d": "3D Model",
+    "categoryCad": "CAD Drawing",
+    "categoryUnknown": "File"
+  },
+  "cmpHeader": {},
+  "cmpToolbar": {
+    "imagessvgxxxsvg": "/images/svg/大模型.svg",
+    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
+  },
+  "cmpVipLevelPopup": {
+    "vipLevelMechanism": "VIP Level Upgrade Mechanism",
+    "yuanToPoint": "1¥ = 1 Point"
+  },
+  "cmpAuditLog": {
+    "loadLogFailed": "Failed to load log"
+  },
+  "cmpErrorBoundary": {
+    "pageError": "Page error occurred"
+  },
+  "cmpFileManager": {
+    "batchDeleteSuccess": "Batch delete success"
+  },
+  "cmpFileUpload": {
+    "uploadFailed": "Upload Failed"
+  }
+}

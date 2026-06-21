@@ -1,0 +1,95 @@
+# Docker Compose 编排 — P29-4 生产中间件 (Vault + ClickHouse + Consul)
+#
+# 用法:
+#   docker compose -f docker/docker-compose.middleware.yml up -d
+#   python scripts/p29_start_middleware.py
+#
+# 包含服务:
+#   - Vault:    HashiCorp 密钥管理 (dev 模式, root token = dev-root-token)
+#   - ClickHouse: OLAP 列式数仓 (HTTP 8123 / Native 9000)
+#   - Consul:   HashiCorp 服务注册中心 (dev 模式, UI 8500)
+#
+# 注意: dev 模式仅用于开发/测试环境, 生产环境请使用正式集群部署.
+version: "3.9"
+
+services:
+  # ---------- Vault 密钥管理 (dev 模式) ----------
+  # 提供密钥轮换 / 版本管理 / 审计能力
+  # 适配层: app/security/vault_adapter.py (USE_REAL_VAULT=true)
+  vault:
+    image: hashicorp/vault:latest
+    container_name: zhs-vault
+    restart: unless-stopped
+    environment:
+      # dev 模式 root token (仅开发环境, 生产请用正式初始化流程)
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-dev-root-token}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_ADDR: http://0.0.0.0:8200
+      TZ: Asia/Shanghai
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    volumes:
+      - vault_data:/vault/data
+
+  # ---------- ClickHouse OLAP 数仓 ----------
+  # 提供事件聚合 / 物化视图 / 维度查询能力
+  # 适配层: app/services/clickhouse_adapter.py (USE_REAL_CLICKHOUSE=true)
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: zhs-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-zhs_analytics}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      TZ: Asia/Shanghai
+    ports:
+      # HTTP 接口 (适配层 / 查询工具)
+      - "8123:8123"
+      # Native 协议 (clickhouse-driver)
+      - "9000:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  # ---------- Consul 服务注册中心 (dev 模式) ----------
+  # 提供服务注册 / 发现 / 健康检查能力
+  # 适配层: app/architecture/service_registry_adapter.py (SERVICE_REGISTRY_BACKEND=consul)
+  consul:
+    image: hashicorp/consul:latest
+    container_name: zhs-consul
+    restart: unless-stopped
+    environment:
+      CONSUL_BIND_INTERFACE: eth0
+      CONSUL_CLIENT_INTERFACE: 0.0.0.0
+      TZ: Asia/Shanghai
+    command: agent -dev -client=0.0.0.0 -ui
+    ports:
+      # HTTP API + Web UI
+      - "8500:8500"
+      # DNS (服务发现)
+      - "8600:8600/udp"
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  vault_data:
+  clickhouse_data:

@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zhs-platform
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: zhs-platform
+    app.kubernetes.io/part-of: zhs-platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # 项目 + 目标集群
+  project: zhs
+  source:
+    # OCI registry 模式 (推荐) - 镜像 chart 推到 harbor 后 ArgoCD 自动同步
+    repoURL: harbor.zhs.local/charts/zhs-platform
+    chart: zhs-platform
+    targetRevision: 1.0.0  # 版本号 = Chart version
+    helm:
+      # 线上 values 覆盖
+      valueFiles:
+        - values.prod.yaml
+      # 或者直接覆盖 value
+      parameters:
+        - name: image.tag
+          value: "1.0.0-prod"
+        - name: ingress.hosts[0].host
+          value: api.zhs.example.com
+    # Git 模式 (备选) - 直接从 git 拉取
+    # repoURL: https://github.com/zhs-platform/zhs-platform.git
+    # targetRevision: HEAD
+    # path: deploy/helm/zhs-platform
+    # helm:
+    #   valueFiles:
+    #     - $values/deploy/helm/zhs-platform/values.prod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: zhs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  revisionHistoryLimit: 10
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # HPA 管理 replicas

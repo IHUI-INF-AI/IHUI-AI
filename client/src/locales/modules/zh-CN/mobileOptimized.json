@@ -1,0 +1,12 @@
+{
+  "mobileOptimized": {
+    "title": "移动端优化",
+    "description": "专为移动设备优化的体验",
+    "responsiveDesign": "响应式设计",
+    "responsiveDesignDesc": "完美适配各种屏幕尺寸",
+    "touchOptimization": "触摸优化",
+    "touchOptimizationDesc": "优化的触摸交互体验",
+    "fastLoading": "快速加载",
+    "fastLoadingDesc": "优化的移动端性能"
+  }
+}

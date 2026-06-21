@@ -1,0 +1,14 @@
+{
+  "second": "초",
+  "minute": "분",
+  "hour": "시",
+  "day": "일",
+  "month": "월",
+  "week": "주",
+  "year": "년",
+  "timeExpr": "시간 표현식",
+  "cronExpr": "Cron 표현식",
+  "confirm": "확인",
+  "reset": "재설정",
+  "cancel": "취소"
+}

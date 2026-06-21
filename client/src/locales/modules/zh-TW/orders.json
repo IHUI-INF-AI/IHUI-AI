@@ -1,0 +1,118 @@
+{
+  "orders": {
+    "title": "訂單管理",
+    "subtitle": "查看和管理您的訂單",
+    "searchPlaceholder": "搜尋訂單...",
+    "clearSearch": "清空搜尋",
+    "tabs": {
+      "all": "全部訂單",
+      "pending": "待付款",
+      "processing": "處理中",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "shipping": "配送中",
+      "refunded": "已退款"
+    },
+    "order": {
+      "orderId": "訂單ID",
+      "productName": "商品名稱",
+      "amount": "金額",
+      "status": "狀態",
+      "createTime": "創建時間",
+      "payTime": "支付時間",
+      "actions": "操作"
+    },
+    "status": {
+      "pending": "待付款",
+      "processing": "處理中",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款",
+      "paid": "已付款"
+    },
+    "actions": {
+      "viewDetails": "查看詳情",
+      "cancel": "取消訂單",
+      "pay": "立即支付",
+      "refund": "退款",
+      "goShop": "前往商店",
+      "confirmReceived": "確認收貨",
+      "viewProduct": "查看產品",
+      "detail": "詳情",
+      "copyOrderId": "複製訂單ID",
+      "copyProductId": "複製產品ID",
+      "copyOrderInfo": "複製訂單資訊",
+      "retry": "重試"
+    },
+    "labels": {
+      "orderId": "訂單ID",
+      "orderType": "訂單類型",
+      "amount": "金額",
+      "status": "狀態",
+      "createTime": "創建時間",
+      "actions": "操作",
+      "payTime": "支付時間",
+      "productName": "商品名稱",
+      "productType": "產品類型",
+      "paymentMethod": "支付方式",
+      "expireTime": "到期時間"
+    },
+    "empty": {
+      "title": "暫無訂單",
+      "noSearchResult": "無搜尋結果",
+      "noOrders": "暫無訂單"
+    },
+    "noMore": "沒有更多訂單",
+    "detail": {
+      "title": "訂單詳情",
+      "orderInfo": "訂單資訊",
+      "productInfo": "商品資訊",
+      "paymentInfo": "支付資訊",
+      "shippingInfo": "配送資訊"
+    },
+    "productType": {
+      "vip": "VIP",
+      "tokens": "Tokens",
+      "tool": "工具",
+      "agent": "智能體",
+      "unknown": "未知"
+    },
+    "paymentMethod": {
+      "wechat": "微信",
+      "alipay": "支付寶",
+      "balance": "餘額",
+      "unknown": "未知"
+    },
+    "dialogs": {
+      "cancel": {
+        "confirm": "確認要取消此訂單嗎？",
+        "title": "取消訂單"
+      },
+      "received": {
+        "confirm": "確認已收到商品嗎？",
+        "title": "確認收貨"
+      }
+    },
+    "messages": {
+      "cancelled": "訂單已取消",
+      "cancelFailed": "取消訂單失敗",
+      "received": "已確認收貨",
+      "receiveFailed": "確認收貨失敗",
+      "refundNotAvailable": "目前無法退款",
+      "refundApplied": "退款申請已提交",
+      "refundApplyFailed": "退款申請失敗",
+      "navigateNotSupported": "不支援跳轉",
+      "copyOrderIdSuccess": "訂單ID已複製",
+      "copyProductIdSuccess": "產品ID已複製",
+      "copyOrderInfoSuccess": "訂單資訊已複製",
+      "loadFailed": "訂單載入失敗，請稍後重試"
+    },
+    "error": {
+      "title": "載入失敗"
+    },
+    "refundReasonPlaceholder": "請輸入退款原因",
+    "applyRefund": "申請退款",
+    "refundReasonRequired": "請輸入退款原因",
+    "refundReasonMinLength": "退款原因長度不足"
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "adminUserManagement": {
+    "핵심 장점": "생각사용게관리",
+    "sub핵심 장점": "관리시스템생각사용게、게금계정및플랫폼닫기시리즈",
+    "tabs": {},
+    "actions": {
+      "exportUsers": "내보내기생각사용게"
+    },
+    "search": {
+      "statusPlaceholder": "상태",
+      "statusNormal": "정상",
+      "statusFrozen": "동결",
+      "statusClosed": "닫기",
+      "statusActive": "상태활동",
+      "statusDisabled": "상태완료비활성화",
+      "status": "상태"
+    },
+    "userList": {
+      "이메일": "이메일",
+      "전화": "전화번호",
+      "status": "상태"
+    },
+    "marginList": {
+      "status": "상태"
+    },
+    "platformList": {},
+    "sysLinkList": {},
+    "authInfoList": {
+      "status": "상태",
+      "messages": {}
+    },
+    "authAccountList": {
+      "status": "상태"
+    },
+    "authInfoForm": {
+      "status": "상태",
+      "statusNormal": "정상",
+      "statusDisabled": "비활성화",
+      "validation": {
+        "statusRequired": "요청선택상태"
+      },
+      "messages": {}
+    },
+    "userForm": {
+      "이메일": "이메일",
+      "이메일Placeholder": "요청입력이메일",
+      "전화": "전화번호",
+      "전화Placeholder": "요청입력전화번호",
+      "status": "생각사용게상태",
+      "statusActive": "정상",
+      "statusDisabled": "비활성화",
+      "validation": {
+        "이메일Required": "요청입력이메일",
+        "이메일Invalid": "요청입력공식확인의이메일형식",
+        "전화Required": "요청입력전화번호",
+        "전화Invalid": "올바른 전화번호를 입력하세요"
+      },
+      "messages": {}
+    },
+    "userMarginForm": {
+      "status": "상태",
+      "statusNormal": "정상",
+      "statusFrozen": "동결",
+      "statusClosed": "닫기",
+      "validation": {
+        "statusRequired": "요청선택상태"
+      },
+      "messages": {}
+    },
+    "userSysLinkForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "userPlatformForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "authAccountForm": {
+      "status": "상태",
+      "statusNormal": "정상",
+      "statusDisabled": "비활성화",
+      "validation": {
+        "statusRequired": "요청선택상태"
+      },
+      "messages": {}
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "내보내기 성공",
+      "exportFailed": "내보내기 실패"
+    }
+  }
+}

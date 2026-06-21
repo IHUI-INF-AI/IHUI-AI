@@ -1,0 +1,76 @@
+{
+  "showcase": {
+    "buttons": {
+      "danger": "Danger",
+      "disabled": "Disabled",
+      "info": "Info",
+      "loading": "Loading",
+      "primary": "Primary",
+      "round": "Round",
+      "success": "Success",
+      "title": "Button Component",
+      "warning": "Warning"
+    },
+    "data": {
+      "columnCategory": "Category",
+      "columnName": "Name",
+      "columnStatus": "Status",
+      "title": "Data Display"
+    },
+    "feedback": {
+      "errorAlert": "Error alert message",
+      "successAlert": "Operation success alert",
+      "tagDanger": "Danger",
+      "tagInfo": "Info",
+      "tagSuccess": "Success",
+      "tagWarning": "Warning",
+      "title": "Feedback Components",
+      "warningAlert": "Warning alert message"
+    },
+    "forms": {
+      "ai": "AI",
+      "checkbox": "Checkbox",
+      "date": "Date",
+      "datePlaceholder": "Pick a date",
+      "female": "Female",
+      "input": "Input",
+      "inputPlaceholder": "Please enter content",
+      "male": "Male",
+      "optionA": "Option A",
+      "optionB": "Option B",
+      "optionC": "Option C",
+      "radio": "Radio",
+      "react": "React",
+      "select": "Select",
+      "selectPlaceholder": "Please select",
+      "switch": "Switch",
+      "textarea": "Textarea",
+      "title": "Form Components",
+      "vue": "Vue.js"
+    },
+    "navigation": {
+      "breadcrumbCurrent": "Component Showcase",
+      "breadcrumbDocs": "Docs Center",
+      "breadcrumbHome": "Home",
+      "menuAbout": "About",
+      "menuAgents": "Agents",
+      "menuDocs": "Docs",
+      "menuHome": "Home",
+      "next": "Next",
+      "prev": "Previous",
+      "step1": "Pick Agent",
+      "step2": "Configure",
+      "step3": "Publish",
+      "title": "Navigation Components"
+    },
+    "subtitle": "Element Plus global components live preview and interaction demo",
+    "tab": {
+      "buttons": "Buttons",
+      "data": "Data",
+      "feedback": "Feedback",
+      "forms": "Forms",
+      "navigation": "Navigation"
+    },
+    "title": "Component Showcase"
+  }
+}

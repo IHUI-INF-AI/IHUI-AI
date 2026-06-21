@@ -1,0 +1,33 @@
+{
+  "notification": {
+    "title": "通知",
+    "center": "消息中心",
+    "messages": "消息",
+    "viewUserCenter": "查看用户中心",
+    "empty": "暂无通知",
+    "allRead": "全部已读",
+    "viewAll": "查看全部",
+    "markAllReadSuccess": "全部标记为已读",
+    "markAllReadFailed": "标记失败",
+    "markReadFailed": "标记已读失败",
+    "operationFailed": "操作失败",
+    "loadAbnormal": "加载异常"
+  },
+  "notificationCenter": {
+    "title": "安全通知",
+    "description": "查看安全相关通知",
+    "markAllRead": "全部已读",
+    "all": "全部",
+    "unread": "未读",
+    "critical": "重要",
+    "high": "高优先级",
+    "noNotifications": "暂无通知",
+    "settings": "通知设置",
+    "enableNotifications": "启用通知",
+    "desktopNotifications": "桌面通知",
+    "soundNotifications": "声音提醒",
+    "justNow": "刚刚",
+    "minutesAgo": "{count}分钟前",
+    "hoursAgo": "{count}小时前"
+  }
+}

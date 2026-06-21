@@ -1,0 +1,282 @@
+{
+  "enterpriseService": {
+    "badge": "エンタープライズサービス",
+    "heroTitle": "スマートAIコミュニティ",
+    "heroSubtitle": "AI時代の企業向け合理的効率サービスと相互扶助コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協調のスーパー組織を構築することを支援します。",
+    "stats": {
+      "priceLabel": "円/人/年 標準価格",
+      "earlyBirdLabel": "円/人/年 早期割引",
+      "seatsLabel": "名様限定"
+    },
+    "positioning": {
+      "title": "AI時代の企業向け合理的効率サービスと相互扶助コミュニティ",
+      "description": "スマートAIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解し、体系的なコース、実践的な探索、コミュニティの相互扶助を通じて、人機協調のスーパー組織を構築し、企業の合理的効率の向上を実現することに専念しています。"
+    },
+    "modules": {
+      "localCommunity": {
+        "title": "地域コミュニティ",
+        "description": "オフラインコース、探索活動、相互扶助コミュニティ、志を同じくする意思決定者との深いつながり",
+        "features": {
+          "courses": "体系的コース",
+          "exploration": "実践探索",
+          "mutualAid": "相互扶助"
+        }
+      },
+      "onlineCommunity": {
+        "title": "オンラインコミュニティ",
+        "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
+        "features": {
+          "platform": "交流プラットフォーム",
+          "exchange": "経験共あり",
+          "resources": "リソース連携"
+        }
+      },
+      "aiService": {
+        "title": "AI専門サービス",
+        "description": "専門的な大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
+        "features": {
+          "model": "専門大規模モデル",
+          "agent": "エージェントサービス",
+          "consulting": "コンサルティング"
+        }
+      },
+      "module01": "module01",
+      "module02": "module02",
+      "module03": "module03"
+    },
+    "architecture": {
+      "title": "企業AI化サービスパスとアーキテクチャ原理",
+      "description": "物理ワールドから情報ワールドへ、人機協調のスーパー企業を構築",
+      "physicalWorld": {
+        "title": "物理ワールド",
+        "structure": {
+          "title": "組織構造",
+          "description": "企業の組織構造を整理し、デジタル従業員のポジションを定義"
+        },
+        "process": {
+          "title": "プロセス整理",
+          "description": "順方向・逆方向プロセス分析、業務運営効率の最適化"
+        },
+        "culture": {
+          "title": "人本価値",
+          "description": "企業文化、ミッション・ビジョン、批判的思考と謙虚な姿勢"
+        }
+      },
+      "infoWorld": {
+        "title": "情報ワールド",
+        "basic": {
+          "label": "初級情報ワールド",
+          "items": {
+            "informatization": "情報化",
+            "iot": "IoT",
+            "automation": "自動化"
+          }
+        },
+        "advanced": {
+          "label": "高級情報ワールド",
+          "items": {
+            "perception": "知覚AI",
+            "generative": "生成AI",
+            "agent": "エージェントAI",
+            "physical": "物理AI"
+          }
+        }
+      },
+      "aiEffect": {
+        "title": "AI化効果",
+        "superEmployee": "スーパー従業員",
+        "superTeam": "スーパーチーム",
+        "superProduct": "スーパー製品/サービス",
+        "metrics": {
+          "cost": "コスト最適化",
+          "efficiency": "効率向上",
+          "experience": "体験向上"
+        }
+      }
+    },
+    "compass": {
+      "title": "エージェントシナリオコンパス",
+      "description": "タスク実行の複雑さと自律的意思決定への依存度の2つの回元に基づいて、企業がエージェント適用シナリオを特定し計画するのを支援",
+      "axes": {
+        "complexity": {
+          "title": "タスク実行复杂度",
+          "low": "簡体字单",
+          "high": "复杂"
+        },
+        "autonomy": {
+          "title": "自主决策依頼度",
+          "low": "低",
+          "high": "高"
+        }
+      },
+      "quadrants": {
+        "simple": {
+          "title": "効率的助手",
+          "description": "簡单决策 + 簡单実行，クイックデプロイ高频適用",
+          "examples": {
+            "qa": "知识问答",
+            "workflow": "プロセス自動化"
+          }
+        },
+        "decision": {
+          "title": "智慧顧问",
+          "description": "复杂决策 + 簡体字单実行，提供深度分析と提案",
+          "examples": {
+            "analysis": "データ分析",
+            "advisor": "决策サポート"
+          }
+        },
+        "execution": {
+          "title": "実行専門家",
+          "description": "簡体字单决策 + 复杂実行，処理跨システム复杂タスク",
+          "examples": {
+            "meeting": "会议安排",
+            "approval": "审批プロセス"
+          }
+        },
+        "complex": {
+          "title": "全できる専門家",
+          "description": "复杂决策 + 复杂実行，自主规划与多エージェント協力",
+          "examples": {
+            "marketing": "营销自動化",
+            "multiAgent": "多エージェント协同"
+          }
+        }
+      },
+      "cta": "深入詳しくエージェントシーン"
+    },
+    "courses": {
+      "title": "コースシステム",
+      "description": "体系的なAI認知と実践コース、企業の意思決定者がAI時代の機会と課題を包括的に理解するのを支援",
+      "aiTools": {
+        "title": "AI新ツールコース",
+        "items": {
+          "development": "AI技術発展の軌跡概述",
+          "productivity": "AI生产力ツール的使用方法",
+          "toolsIntro": "主流AIツール与プラットフォーム介绍",
+          "agentBuilding": "低/无コードエージェント適用搭建",
+          "structureAnalysis": "企業AI化構造化分析メソッド",
+          "aiLiteracy": "AI时代素养——批判性思维"
+        },
+        "description": "description"
+      },
+      "thinking": {
+        "title": "思维类コース",
+        "items": {
+          "problemSolving": "構造化問題解決と引导",
+          "innovationBarriers": "イノベーション障碍突破",
+          "creativeLearning": "创意学習メソッド",
+          "orgChange": "組織变革心理"
+        },
+        "description": "description"
+      },
+      "culture": {
+        "title": "文化コース",
+        "items": {
+          "cultureManagement": "企業文化管理",
+          "missionVision": "ミッション、ビジョン与价値观",
+          "easternPhilosophy": "中國传统哲学系列",
+          "westernPhilosophy": "西方哲学系列"
+        },
+        "description": "description"
+      }
+    },
+    "tools": {
+      "title": "企業AIツール一覧",
+      "description": "汎用AIツールから業界専用エージェントまで、企業AI化ニーズを全方位でサポート",
+      "general": {
+        "title": "通用AIツール",
+        "text": "テキスト生成",
+        "image": "画像生成",
+        "voice": "音声処理",
+        "video": "動画生成"
+      },
+      "industry": {
+        "title": "業界エージェント",
+        "manufacturing": "制造业",
+        "education": "教育業界",
+        "healthcare": "医疗健康",
+        "government": "政务サービス"
+      },
+      "function": {
+        "title": "职能エージェント",
+        "sales": "营销カスタマーサービス",
+        "production": "生产制造",
+        "rd": "研发イノベーション",
+        "office": "办公協力"
+      },
+      "partners": {
+        "title": "生态合作伙伴"
+      }
+    },
+    "join": {
+      "title": "スマートAIコミュニティに参加",
+      "description": "志を同じくする企業の意思決定者と共に、AI時代の無限の可能性性を探索",
+      "originalPrice": "原价",
+      "earlyBird": "早鳥优惠",
+      "currentPrice": "现价",
+      "perYear": "/人/年",
+      "seatsNote": "仅限前18位メンバー",
+      "benefits": {
+        "title": "メンバー权益",
+        "allCourses": "全年すべてコース免费参加",
+        "exploration": "探索アクティビティ优先参と",
+        "mutualAid": "社群互助なし限回",
+        "onlineCommunity": "线上社群专属アクセス",
+        "aiAssistant": "AI助手优先体验",
+        "refund": "不满意全额返金"
+      },
+      "cta": "立即参加",
+      "hint": "扫码咨询或直接お問い合わせ"
+    },
+    "footer": {
+      "company": "スマートAI社",
+      "location": "中國 · 北京",
+      "agentScenario": "エージェントシーン",
+      "humanMachine": "人間と機械協力",
+      "contact": "お問い合わせ"
+    },
+    "badgeNew": "badgeNew",
+    "communityLabel": "communityLabel",
+    "coreService": "coreService",
+    "exit": "exit",
+    "jumpToSection": "jumpToSection",
+    "layers": {
+      "layer01": "layer01",
+      "layer02": "layer02",
+      "layer03": "layer03"
+    },
+    "learnMore": "learnMore",
+    "phases": {
+      "phase01": "phase01",
+      "phase02": "phase02",
+      "phase03": "phase03"
+    },
+    "scrollProgress": "scrollProgress",
+    "sectionNavigation": "sectionNavigation",
+    "sections": {
+      "agentCompass": "agentCompass",
+      "architecture": "architecture",
+      "courseSystem": "courseSystem",
+      "joinUs": "joinUs",
+      "positioning": "positioning",
+      "serviceModules": "serviceModules",
+      "toolsOverview": "toolsOverview"
+    },
+    "skipToMain": "skipToMain",
+    "typingPhrases": {
+      "intelligentTransformation": "スマート変革",
+      "humanMachineCollaboration": "人機協働",
+      "rationalEfficiency": "合理的効率"
+    },
+    "courseDuration": {
+      "oneLesson": "1コマ",
+      "series": "シリーズ"
+    }
+  },
+  "enterprise": {
+    "keywords": "企業AI化,エージェント,人間機械協働,AI研修,企業デジタル変革,AIソリューション,智匯AI社",
+    "title": "智匯AI社 - 企業AI化サービス",
+    "description": "AI時代の企業理性効率サービスと互助コミュニティ、意思決定者が人間機械協働のスーパー組織構築を支援"
+  }
+}

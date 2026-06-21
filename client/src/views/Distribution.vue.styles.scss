@@ -1,0 +1,626 @@
+.distribution-page {
+  background: var(--el-bg-color-page);
+  position: relative;
+}
+
+.back-navigation {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: var(--z-header);
+
+  .back-button {
+    color: var(--el-text-color-primary);
+
+    &:hover {
+      color: var(--el-text-color-secondary);
+    }
+  }
+}
+
+.page-header .header-content,
+.quick-actions .actions-grid,
+.main-content .distribution-tabs {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+// 页面头部
+.page-header {
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  padding: 40px 0;
+
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 40px;
+
+    .header-info {
+      .page-title {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        .title-icon {
+          font-size: 32px;
+          color: var(--el-text-color-primary);
+        }
+      }
+
+      .page-subtitle {
+        font-size: 16px;
+        opacity: 0.9;
+      }
+    }
+
+    .header-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+
+      .stat-card {
+        background: var(--el-bg-color);
+        padding: 20px;
+        border-radius: var(--global-border-radius);
+        text-align: center;
+        backdrop-filter: blur(10px);
+
+        .stat-value {
+          font-size: 24px;
+          font-weight: bold;
+          margin-bottom: 8px;
+        }
+
+        .stat-label {
+          font-size: 14px;
+          opacity: 0.8;
+        }
+      }
+    }
+  }
+}
+
+// 快速操作
+.quick-actions {
+  padding: 40px 0;
+  background: var(--el-bg-color);
+
+  .actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+
+    .action-card {
+      padding: 32px 24px;
+      border-radius: var(--global-border-radius);
+      background: var(--el-bg-color);
+      box-shadow: none;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: none;
+
+      &:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--global-box-shadow);
+      }
+
+      .action-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: var(--global-border-radius);
+        background: var(--el-bg-color);
+        color: var(--el-text-color-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 24px;
+      }
+
+      h3 {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: var(--el-text-color-primary);
+      }
+
+      p {
+        color: var(--el-text-color-regular);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+    }
+  }
+}
+
+// 主要内容
+.main-content {
+  padding: 40px 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+
+  .distribution-tabs {
+    background: var(--el-bg-color);
+    border-radius: var(--global-border-radius);
+    padding: 24px;
+    box-shadow: var(--global-box-shadow);
+  }
+}
+
+// 概览内容
+.overview-content {
+  display: grid;
+  gap: 15px;
+
+  .earnings-chart {
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+
+      h3 {
+        font-size: 18px;
+        font-weight: bold;
+        color: var(--el-text-color-primary);
+      }
+    }
+
+    .chart-container {
+      height: 300px;
+      border: none;
+      border-radius: var(--global-border-radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .chart-placeholder {
+        text-align: center;
+        color: var(--el-text-color-secondary);
+
+        .chart-icon {
+          font-size: 48px;
+          margin-bottom: 16px;
+        }
+      }
+    }
+  }
+
+  .invite-ranking {
+    .ranking-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+
+      h3 {
+        font-size: 18px;
+        font-weight: bold;
+        color: var(--el-text-color-primary);
+      }
+    }
+
+    .ranking-list {
+      .ranking-item {
+        display: flex;
+        align-items: center;
+        padding: 16px;
+        border-radius: var(--global-border-radius);
+        margin-bottom: 12px;
+        background: var(--el-fill-color-extra-light);
+        transition: all 0.3s ease;
+
+        &:hover {
+          background: var(--el-bg-color-page);
+        }
+
+        &.top-three {
+          background: var(--el-bg-color);
+        }
+
+        .rank-number {
+          width: 40px;
+          text-align: center;
+          font-weight: bold;
+
+          .medal {
+            font-size: 20px;
+          }
+
+          .number {
+            font-size: 18px;
+            color: var(--el-text-color-secondary);
+          }
+        }
+
+        .user-info {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-left: 16px;
+
+          .user-details {
+            .username {
+              font-weight: bold;
+              color: var(--el-text-color-primary);
+            }
+
+            .invite-count {
+              font-size: 12px;
+              color: var(--el-text-color-secondary);
+            }
+          }
+        }
+
+        .earnings {
+          font-size: 16px;
+          font-weight: bold;
+          color: var(--el-text-color-primary);
+        }
+      }
+    }
+  }
+
+  .recent-invites {
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+
+      h3 {
+        font-size: 18px;
+        font-weight: bold;
+        color: var(--el-text-color-primary);
+      }
+    }
+
+    .invites-list {
+      .invite-item {
+        display: flex;
+        align-items: center;
+        padding: 16px;
+        border-radius: var(--global-border-radius);
+        margin-bottom: 12px;
+        background: var(--el-fill-color-extra-light);
+        transition: all 0.3s ease;
+
+        &:hover {
+          background: var(--el-bg-color-page);
+        }
+
+        .invite-info {
+          flex: 1;
+          margin-left: 12px;
+
+          .invite-name {
+            font-weight: bold;
+            color: var(--el-text-color-primary);
+          }
+
+          .invite-time {
+            font-size: 12px;
+            color: var(--el-text-color-secondary);
+          }
+        }
+
+        .invite-status {
+          margin-right: 16px;
+        }
+
+        .invite-commission {
+          font-weight: bold;
+          color: var(--el-text-color-primary);
+
+          .pending {
+            color: var(--el-text-color-primary);
+          }
+        }
+      }
+    }
+  }
+}
+
+// 表格样式
+.invites-header,
+.records-header,
+.withdrawals-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  .search-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .invite-summary,
+  .records-summary {
+    display: flex;
+    gap: 24px;
+    font-size: 14px;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.commission-amount {
+  color: var(--el-text-color-primary);
+  font-weight: bold;
+}
+
+.amount-positive {
+  color: var(--el-text-color-primary);
+  font-weight: bold;
+}
+
+.amount-negative {
+  color: var(--el-text-color-primary);
+  font-weight: bold;
+}
+
+.pagination-wrapper {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+// 分销规则
+.rules-content {
+  .rules-section {
+    margin-bottom: 48px;
+
+    h3 {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 24px;
+      color: var(--el-text-color-primary);
+    }
+
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+
+      .rule-card {
+        padding: 24px;
+        border-radius: var(--global-border-radius);
+        background: var(--el-fill-color-extra-light);
+        text-align: center;
+        transition: all 0.3s ease;
+
+        &:hover {
+          transform: translateY(-4px);
+          box-shadow: var(--global-box-shadow);
+        }
+
+        .rule-icon {
+          width: 60px;
+          height: 60px;
+          border-radius: var(--global-border-radius);
+          background: var(--el-bg-color);
+          color: var(--el-text-color-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 16px;
+          font-size: 24px;
+        }
+
+        h4 {
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 8px;
+          color: var(--el-text-color-primary);
+        }
+
+        .rule-amount {
+          font-size: 24px;
+          font-weight: bold;
+          color: var(--el-text-color-primary);
+          margin-bottom: 12px;
+        }
+
+        p {
+          color: var(--el-text-color-secondary);
+          font-size: 14px;
+          line-height: 1.5;
+        }
+      }
+    }
+
+    .withdraw-rules {
+      .rule-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 20px;
+        border-radius: var(--global-border-radius);
+        background: var(--el-fill-color-extra-light);
+        margin-bottom: 16px;
+
+        .rule-icon {
+          font-size: 24px;
+          color: var(--el-text-color-primary);
+          margin-top: 4px;
+        }
+
+        .rule-content {
+          flex: 1;
+
+          h4 {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--el-text-color-primary);
+          }
+
+          p {
+            color: var(--el-text-color-regular);
+            line-height: 1.5;
+          }
+        }
+      }
+    }
+
+    .faq-collapse {
+      border: none;
+      border-radius: var(--global-border-radius);
+      overflow: hidden;
+    }
+  }
+}
+
+// 对话框样式
+.invite-dialog,
+.withdraw-dialog {
+  .invite-content {
+    .invite-info {
+      text-align: center;
+      margin-bottom: 32px;
+
+      h3 {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: var(--el-text-color-primary);
+      }
+
+      p {
+        color: var(--el-text-color-regular);
+        line-height: 1.5;
+      }
+    }
+
+    .invite-link-section {
+      margin-bottom: 32px;
+
+      .link-input {
+        margin-bottom: 16px;
+      }
+    }
+
+    .invite-qr {
+      text-align: center;
+      margin-bottom: 32px;
+
+      h4 {
+        margin-bottom: 16px;
+        color: var(--el-text-color-primary);
+      }
+
+      .qr-code {
+        width: 150px;
+        height: 150px;
+        border: none;
+        border-radius: var(--global-border-radius);
+        margin: 0 auto 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .qr-placeholder {
+          text-align: center;
+          color: var(--el-text-color-secondary);
+
+          .qr-icon {
+            font-size: 48px;
+            margin-bottom: 8px;
+          }
+        }
+      }
+    }
+
+    .share-buttons {
+      text-align: center;
+
+      h4 {
+        margin-bottom: 16px;
+        color: var(--el-text-color-primary);
+      }
+
+      .share-options {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+
+        .share-icon {
+          margin-right: 8px;
+          font-size: 16px;
+        }
+      }
+    }
+  }
+
+  .form-tip {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    margin-top: 8px;
+  }
+}
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+// 响应式设计
+@media (max-width: 768px) {
+  .page-header {
+    .header-content {
+      flex-direction: column;
+      text-align: center;
+
+      .header-stats {
+        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
+      }
+    }
+  }
+
+  .quick-actions .actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  :where(.rules-content) :where(.rules-section) .rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .invites-header,
+  .records-header,
+  .withdrawals-header {
+    flex-direction: column;
+    align-items: stretch;
+
+    .search-filters {
+      justify-content: center;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .quick-actions .actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.page-header) :where(.header-content) .header-stats {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,40 @@
+# P29-5 K8s 真实集群演练: HorizontalPodAutoscaler
+# ZHS 生产环境 API 自动扩缩容
+# - CPU > 70% 扩容
+# - min 3, max 10 副本
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: zhs-platform-api-hpa
+  namespace: zhs-platform
+  labels:
+    app: zhs-platform
+    component: api
+    environment: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: zhs-platform-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60

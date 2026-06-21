@@ -1,0 +1,31 @@
+# P29-5 K8s 真实集群演练: ConfigMap
+# ZHS 生产环境非敏感配置 (DB_HOST, REDIS_HOST 等)
+# 敏感配置请使用 secret.yml 或 Vault
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zhs-platform-config
+  namespace: zhs-platform
+  labels:
+    app: zhs-platform
+    environment: production
+data:
+  # 数据库主机
+  DB_HOST: "postgres.zhs-platform.svc.cluster.local"
+  # 数据库端口
+  DB_PORT: "5432"
+  # 数据库名称
+  DB_NAME: "zhs_prod"
+  # Redis 主机
+  REDIS_HOST: "redis.zhs-platform.svc.cluster.local"
+  # Redis 端口
+  REDIS_PORT: "6379"
+  # 运行环境
+  ENV: "production"
+  # Gunicorn 工作进程数
+  GUNICORN_WORKERS: "8"
+  # Gunicorn 超时时间
+  GUNICORN_TIMEOUT: "120"
+  # 日志级别
+  LOG_LEVEL: "info"

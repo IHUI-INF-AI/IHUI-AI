@@ -1,0 +1,32 @@
+{
+  "bsonType": "object",
+  "required": ["userId", "role", "content"],
+  "permission": {
+    "read": "doc.userId == auth.uid",
+    "create": "doc.userId == auth.uid",
+    "update": "doc.userId == auth.uid",
+    "delete": "doc.userId == auth.uid"
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成"
+    },
+    "userId": {
+      "bsonType": "string",
+      "description": "用户ID"
+    },
+    "role": {
+      "bsonType": "string",
+      "description": "消息角色：user-用户消息，assistant-AI回复",
+      "enum": ["user", "assistant"]
+    },
+    "content": {
+      "bsonType": "string",
+      "description": "消息内容"
+    },
+    "timestamp": {
+      "bsonType": "timestamp",
+      "description": "消息时间戳"
+    }
+  }
+} 

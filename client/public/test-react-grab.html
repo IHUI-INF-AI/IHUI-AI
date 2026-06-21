@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React Grab 测试</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .test-button {
+      background: #4CAF50;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    .test-button:hover {
+      background: #45a049;
+    }
+    .test-card {
+      border: 1px solid #ddd;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+      background: #fafafa;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      background: #e7f3ff;
+      border-left: 4px solid #2196F3;
+      border-radius: 4px;
+    }
+    .status h3 {
+      margin: 0 0 10px 0;
+      color: #1976D2;
+    }
+    .status p {
+      margin: 5px 0;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>React Grab 功能测试</h1>
+    
+    <div class="status">
+      <h3>测试说明：</h3>
+      <p>1. 鼠标悬停在下面的按钮或卡片上</p>
+      <p>2. 按下 <strong>Ctrl + C</strong> (Windows) 或 <strong>Cmd + C</strong> (Mac)</p>
+      <p>3. 查看是否复制了组件信息到剪贴板</p>
+      <p>4. 打开浏览器控制台 (F12) 查看 React Grab 加载状态</p>
+    </div>
+
+    <button class="test-button">测试按钮 1</button>
+    <button class="test-button">测试按钮 2</button>
+
+    <div class="test-card">
+      <h3>测试卡片</h3>
+      <p>这是一个测试卡片组件，用于验证 React Grab 是否能正确识别 Vue 组件。</p>
+    </div>
+
+    <div class="test-card">
+      <h3>另一个卡片</h3>
+      <p>试试悬停在这个卡片上并按下 Ctrl+C</p>
+    </div>
+  </div>
+
+  <script type="module">
+    console.log('[React Grab 测试页面] 开始加载...')
+    
+    // 检查是否在开发环境
+    const isDev = true // 测试页面总是加载
+    
+    if (isDev) {
+      console.log('[React Grab] 开始加载...')
+      import('react-grab').then(() => {
+        console.log('[React Grab] ✅ 加载成功！')
+        console.log('[React Grab] 提示：悬停元素并按 Ctrl/Cmd + C 来复制组件信息')
+      }).catch((err) => {
+        console.error('[React Grab] ❌ 加载失败:', err)
+      })
+    }
+
+    // 监听键盘事件，显示按下的键
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        console.log('[React Grab 测试] 检测到 Ctrl/Cmd + C 按键')
+      }
+    })
+  </script>
+</body>
+</html>

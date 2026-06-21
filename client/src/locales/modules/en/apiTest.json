@@ -1,0 +1,23 @@
+{
+  "apiTest": {
+    "title": "API Test",
+    "allTestsPassed": "All",
+    "testsPassed": "tests passed!",
+    "testsFailed": "tests Failed",
+    "executionError": "Test execution error",
+    "testing": "Testing...",
+    "runTests": "Run Tests",
+    "testLog": "Test Log",
+    "total": "Total",
+    "passed": "Passed",
+    "Failed": "Failed",
+    "duration": "Duration",
+    "clearResults": "Clear Results",
+    "category": "Category",
+    "testItem": "Test Item",
+    "Status": "Status",
+    "errorInfo": "Error Info",
+    "failed": "Failed",
+    "status": "Status"
+  }
+}

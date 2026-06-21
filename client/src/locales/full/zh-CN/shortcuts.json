@@ -1,0 +1,14 @@
+{
+  "shortcuts": {
+    "title": "标题",
+    "search": "搜索",
+    "noResults": "无Results",
+    "toggleTip": "toggle提示",
+    "scopes": {
+      "chat": "对话",
+      "drama": "剧本",
+      "editor": "编辑器",
+      "input": "输入"
+    }
+  }
+}

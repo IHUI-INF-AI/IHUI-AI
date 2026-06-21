@@ -1,0 +1,27 @@
+{
+  "commandPalette": {
+    "placeholder": "輸入命令搜尋...",
+    "escToAbort": "按 ESC 關閉",
+    "enter": "回車",
+    "navigate": "導航",
+    "execute": "執行",
+    "systemReady": "系統就緒",
+    "cpuOptimized": "性能優化",
+    "noResults": "未找到匹配的命令",
+    "systemInternal": "系統內部",
+    "commands": {
+      "home": "返回首頁",
+      "store": "AI應用商店",
+      "plaza": "需求廣場",
+      "learnAI": "學習AI",
+      "community": "AI創作社區",
+      "download": "下載中心",
+      "docs": "技術文檔",
+      "about": "關於我們",
+      "contact": "聯繫我們",
+      "darkMode": "切換暗色模式",
+      "aiAssistant": "打開AI助手",
+      "backToTop": "返回頂部"
+    }
+  }
+}

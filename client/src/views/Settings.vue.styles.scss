@@ -1,0 +1,402 @@
+.settings-container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px; /* 顶部间距由App.vue的main-content处理 */
+  background: transparent; /* 布局容器使用透明色 */
+  min-height: calc(100vh - 100px); /* 减去Header占用的空间(80px) + 间距(20px) */
+}
+
+/* 键盘焦点可见性增强 */
+:deep(.el-button:focus) {
+  outline: 2px solid var(--el-text-color-primary);
+  outline-offset: 2px;
+}
+
+/* 页面头部由 Settings.vue 内 scoped 样式定义，此处仅保留布局相关 fallback */
+.page-header {
+  background: transparent;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: transparent; /* 布局容器使用透明色 */
+}
+
+.settings-section {
+  background: var(--el-bg-color); /* 统一浅灰色 */
+  border-radius: var(--global-border-radius); /* 统一6px圆角 */
+  overflow: hidden;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background: var(--el-bg-color-hover); /* hover时纯白色 */
+  }
+}
+
+.section-header {
+  padding: 20px 24px;
+  border-bottom: none;
+  background: transparent; /* 布局容器使用透明色 */
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+}
+
+.section-title {
+  font-size: clamp(1.1rem, 2vw, 1.3rem);
+  font-weight: 700;
+  font-family: var(--font-family-chinese) ;
+  margin: 0 0 5px;
+}
+
+.section-description {
+  font-size: 0.9rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.settings-card {
+  padding: 0;
+}
+
+.settings-card.danger-zone {
+  border: none;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: none;
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-info {
+  flex: 1;
+}
+
+.setting-label {
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font-family-chinese) ;
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+  margin-bottom: 4px;
+}
+
+.setting-description {
+  font-size: 0.85rem;
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+  line-height: 1.4;
+}
+
+.setting-control {
+  flex-shrink: 0;
+  margin-left: 20px;
+}
+
+.setting-input {
+  width: 200px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--global-border-radius);
+  font-size: 0.9rem;
+}
+
+.setting-input:focus {
+  outline: none;
+}
+
+.setting-select {
+  width: 150px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--global-border-radius);
+  font-size: 0.9rem;
+  background: var(--el-bg-color);
+}
+
+.setting-select:focus {
+  outline: none;
+}
+
+.action-btn {
+  padding: 8px 16px;
+  background: var(--el-text-color-primary);
+  color: var(--el-bg-color-page);
+  border: none;
+  border-radius: var(--global-border-radius);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.action-btn:hover {
+  background: var(--el-bg-color);
+}
+
+.danger-btn {
+  padding: 8px 16px;
+  background: var(--el-text-color-primary);
+  color: var(--el-bg-color-page);
+  border: none;
+  border-radius: var(--global-border-radius);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.danger-btn:hover {
+  background: var(--el-bg-color);
+}
+
+/* 开关样式 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--el-bg-color);
+  transition: 0.3s;
+  border-radius: var(--global-border-radius);
+}
+
+.slider::before {
+  position: absolute;
+  content: '';
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--el-bg-color);
+  transition: 0.3s;
+  border-radius: var(--global-border-radius);
+}
+
+input:checked + .slider {
+  background-color: var(--el-bg-color);
+}
+
+input:checked + .slider::before {
+  transform: translateX(26px);
+}
+
+/* 头像上传 */
+.avatar-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar-preview {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--global-border-radius);
+  object-fit: cover;
+  border: none;
+}
+
+.upload-btn {
+  padding: 6px 12px;
+  background: var(--el-bg-color);
+  border: none;
+  border-radius: var(--global-border-radius);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upload-btn:hover {
+  background: var(--el-bg-color);
+}
+
+/* 对话框样式 */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--el-bg-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-dropdown);
+}
+
+.dialog {
+  background: var(--el-bg-color);
+  border-radius: var(--global-border-radius);
+  width: 90%;
+  max-width: 100% ;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: none;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--el-text-color-secondary);
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+}
+
+.dialog-content {
+  padding: 20px 24px;
+}
+
+.dialog-content p {
+  margin: 0 0 15px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+}
+
+.dialog-content ul {
+  margin: 15px 0;
+  padding-left: 20px;
+}
+
+.dialog-content li {
+  margin: 5px 0;
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--global-border-radius);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: none;
+  background: var(--el-bg-color);
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background: var(--el-bg-color);
+  border: none;
+  border-radius: var(--global-border-radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: var(--el-bg-color);
+}
+
+.confirm-btn {
+  padding: 10px 20px;
+  background: var(--el-text-color-primary);
+  color: var(--el-bg-color-page);
+  border: none;
+  border-radius: var(--global-border-radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.confirm-btn:hover {
+  background: var(--el-bg-color);
+}
+
+/* 响应式设计 */
+@media (width <= 768px) {
+  .settings-container {
+    padding: 15px;
+  }
+
+  .page-title {
+    font-size: 2rem;
+  }
+
+  .setting-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .setting-control {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .setting-input,
+  .setting-select {
+    width: 100%;
+  }
+
+  .avatar-upload {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dialog {
+    width: 95%;
+    margin: 20px;
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "devEnterModel": {},
+  "devNbn": {},
+  "devEdit": {},
+  "devCSSVariablesCheatsheet": {
+    "textColor": "文字顏色",
+    "bgColor": "背景顏色",
+    "borderColor": "邊框顏色",
+    "globalSpacing": "全局間距",
+    "globalRadius": "全局圓角",
+    "globalShadow": "全局陰影"
+  },
+  "devEnterCashDetail": {
+    "withdraw": "提現"
+  },
+  "devEnterPayCard": {
+    "purchased": "已購買"
+  },
+  "devEnterStateCard": {
+    "confirmOffline": "是否確定下架此智能體"
+  },
+  "devStateCard": {
+    "settings": "設置",
+    "reviewing": "審核中",
+    "unpublish": "下架",
+    "category": "分類",
+    "sellType": "售賣類型",
+    "targetGroup": "目標群體",
+    "member": "會員",
+    "allUsers": "所有用戶",
+    "price": "價格",
+    "yuan": "元",
+    "month": "月",
+    "limitFreeNote": "限時免費",
+    "discount": "折扣",
+    "none": "無",
+    "publishTime": "發布時間",
+    "limitFreeTime": "限時免費時間",
+    "confirmOffline": "確認下架",
+    "free": "免費",
+    "limitedFree": "限時免費",
+    "paid": "收費",
+    "text": "文字",
+    "image": "圖片",
+    "video": "視頻",
+    "discount6m80": "6個月後8折",
+    "discount9m70": "9個月後7折",
+    "discount1y50": "1年後5折",
+    "year": "年",
+    "permanent": "永久"
+  }
+}

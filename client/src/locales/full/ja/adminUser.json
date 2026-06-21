@@ -1,0 +1,80 @@
+{
+  "adminUserManagement": {
+    "tabs": {},
+    "actions": {
+      "exportUsers": "エクスポートユーザー"
+    },
+    "search": {
+      "statusPlaceholder": "ステータス",
+      "statusNormal": "正常",
+      "statusFrozen": "凍結",
+      "statusClosed": "閉じる",
+      "statusActive": "ステータスアクティビティ",
+      "statusDisabled": "ステータス済み無効",
+      "status": "ステータス"
+    },
+    "userList": {
+      "status": "ステータス"
+    },
+    "marginList": {
+      "status": "ステータス"
+    },
+    "platformList": {},
+    "sysLinkList": {},
+    "authInfoList": {
+      "status": "ステータス",
+      "messages": {}
+    },
+    "authAccountList": {
+      "status": "ステータス"
+    },
+    "authInfoForm": {
+      "status": "ステータス",
+      "statusNormal": "正常",
+      "statusDisabled": "無効",
+      "validation": {
+        "statusRequired": "请選択ステータス"
+      },
+      "messages": {}
+    },
+    "userForm": {
+      "status": "ユーザーステータス",
+      "statusActive": "正常",
+      "statusDisabled": "無効",
+      "validation": {},
+      "messages": {}
+    },
+    "userMarginForm": {
+      "status": "ステータス",
+      "statusNormal": "正常",
+      "statusFrozen": "凍結",
+      "statusClosed": "閉じる",
+      "validation": {
+        "statusRequired": "请選択ステータス"
+      },
+      "messages": {}
+    },
+    "userSysLinkForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "userPlatformForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "authAccountForm": {
+      "status": "ステータス",
+      "statusNormal": "正常",
+      "statusDisabled": "無効",
+      "validation": {
+        "statusRequired": "请選択ステータス"
+      },
+      "messages": {}
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "エクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    }
+  }
+}

@@ -1,0 +1,210 @@
+{
+    "name" : "AI丨智汇社",
+    "appid" : "__UNI__3C03560",
+    "description" : "服务于中小实体商家与营销新手，提供轻量化的全域营销工具与学习资源",
+    "versionName" : "1.0.2",
+    "versionCode" : 102,
+    "transformPx" : false,
+    "sassImplementationName" : "sass",
+    "app-plus" : {
+        "usingComponents" : true,
+        "nvueStyleCompiler" : "uni-app",
+        "compilerVersion" : 3,
+        "compatible" : {
+            "runtimeVersion" : "4.87",
+            "compilerVersion" : "4.84"
+        },
+        "ignoreVersion" : false,
+        "splashscreen" : {
+            "alwaysShowBeforeRender" : true,
+            "waiting" : true,
+            "autoclose" : true,
+            "delay" : 0
+        },
+        "modules" : {
+            "OAuth" : {},
+            "Payment" : {},
+            "Share" : {},
+            "Camera" : {},
+            "VideoPlayer" : {},
+            "Push" : {}
+        },
+        "softinput" : {},
+        "urls" : {
+            "schemes" : [ "aizhs" ]
+        },
+        "distribute" : {
+            "android" : {
+                "targetSdkVersion" : 30,
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.MOUNT_UNMOUNT_FILESYSTEMS\"/>",
+                    "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_LOGS\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
+                    "<uses-feature android:name=\"android.hardware.camera.autofocus\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>"
+                ]
+            },
+            "ios" : {
+                "dSYMs" : false,
+                "privacyDescription" : {
+                    "NSPhotoLibraryAddUsageDescription" : "用于保存图片到相册",
+                    "NSPhotoLibraryUsageDescription" : "用于访问相册以保存图片"
+                }
+            },
+            "sdkConfigs" : {
+                "oauth" : {
+                    "weixin" : {
+                        "appid" : "wx85fa429a9331b5c8",
+                        "UniversalLinks" : "https://file.aizhs.top/"
+                    },
+                    "alipay" : {
+                        "appid" : "2021005181618474"
+                    },
+                    "google" : {
+                        "appid" : "1036829146789-lmopr644tdvhc31bmcnofj3ptcl2qno3.apps.googleusercontent.com"
+                    }
+                },
+                "payment" : {
+                    "weixin" : {
+                        "__platform__" : [ "ios", "android" ],
+                        "appid" : "wx85fa429a9331b5c8",
+                        "UniversalLinks" : "https://file.aizhs.top/"
+                    },
+                    "alipay" : {
+                        "__platform__" : [ "ios", "android" ]
+                    }
+                },
+                "share" : {
+                    "weixin" : {
+                        "appid" : "wx85fa429a9331b5c8",
+                        "UniversalLinks" : "https://file.aizhs.top/"
+                    }
+                },
+                "speech" : {},
+                "push" : {
+                    "unipush" : {
+                        "version" : "2",
+                        "offline" : true,
+                        "icons" : {
+                            "small" : {
+                                "xxhdpi" : "static/icons/push-72.png",
+                                "xhdpi" : "static/icons/push-72.png",
+                                "hdpi" : "static/icons/push-72.png",
+                                "mdpi" : "static/icons/push-72.png",
+                                "ldpi" : "static/icons/push-72.png"
+                            }
+                        }
+                    }
+                }
+            },
+            "icons" : {
+                "android" : {
+                    "hdpi" : "static/icons/android-72.png",
+                    "xhdpi" : "static/icons/android-96.png",
+                    "xxhdpi" : "static/icons/android-144.png",
+                    "xxxhdpi" : "static/icons/android-192.png"
+                }
+            }
+        },
+        "headers" : {
+            "Cross-Origin-Opener-Policy" : "same-origin",
+            "Cross-Origin-Embedder-Policy" : "require-corp"
+        },
+        "nativePlugins" : {
+            "Hyy-Alipay" : {
+                "__plugin_info__" : {
+                    "name" : "【免费开源】支付宝，授权，授权登录",
+                    "description" : "用过支付宝原生sdk，原生授权登录，更安全，有问题请联系作者",
+                    "platforms" : "Android",
+                    "url" : "https://ext.dcloud.net.cn/plugin?id=11931",
+                    "android_package_name" : "zh.ai.sq",
+                    "ios_bundle_id" : "",
+                    "isCloud" : true,
+                    "bought" : 1,
+                    "pid" : "11931",
+                    "parameters" : {}
+                }
+            }
+        }
+    },
+    "quickapp" : {},
+    "mp-weixin" : {
+        "cloudfunctionRoot" : "cloudfunctions/",
+        "appid" : "wx27028e276ffdbc5d",
+        "setting" : {
+            "urlCheck" : false,
+            "es6" : true,
+            "postcss" : true,
+            "minified" : true
+        },
+        "usingComponents" : true,
+        "permission" : {},
+        "plugins" : {
+            "WechatSI" : {
+                "version" : "0.3.6",
+                "provider" : "wx069ba97219f66d99"
+            },
+            "materialPlugin" : {
+                "version" : "1.0.12",
+                "provider" : "wx4d2deeab3aed6e5a"
+            }
+        },
+        "cloud" : true,
+        "requiredPrivateInfos" : [],
+        "optimization" : {
+            "subPackages" : true
+        },
+        "lazyCodeLoading" : "requiredComponents",
+        "networkTimeout" : {
+            "request" : 60000,
+            "connectSocket" : 60000,
+            "uploadFile" : 60000,
+            "downloadFile" : 60000
+        },
+        "webViewDomain" : [
+            "https://coze.cn",
+            "https://*.coze.cn",
+            "https://*.bytegoofy.com",
+            "https://*.byted-static.com",
+            "https://api.deepseek.com"
+        ],
+        "securityPolicy" : {
+            "enableSha256" : true,
+            "enableSharedArrayBuffer" : true
+        },
+        "softinput" : {}
+    },
+    "mp-alipay" : {
+        "usingComponents" : true
+    },
+    "mp-baidu" : {
+        "usingComponents" : true
+    },
+    "mp-toutiao" : {
+        "usingComponents" : true,
+        "appid" : "tt9035e6880f3d48ce01"
+    },
+    "uniStatistics" : {
+        "enable" : false
+    },
+    "vueVersion" : "3",
+    "h5" : {
+        "router" : {
+            "mode" : "hash",
+            "base" : "/"
+        },
+        "headers" : {
+            "Cross-Origin-Opener-Policy" : "same-origin",
+            "Cross-Origin-Embedder-Policy" : "require-corp"
+        }
+    },
+    "mp-xhs" : {
+        "appid" : "68b7e354a6ff880001445d83"
+    }
+}

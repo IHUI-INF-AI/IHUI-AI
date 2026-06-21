@@ -1,0 +1,73 @@
+// 布局工具类 (Layout Utilities)
+
+@use '../variables.scss' as *;
+
+// 圆角工具类 (Border Radius Utilities)
+.rounded-2, .rounded-3, .rounded-4, .rounded-6, .rounded-8,
+.rounded-15, .rounded-30, .rounded-60, .rounded-120 { border-radius: var(--global-border-radius); }
+.rounded-full { border-radius: var(--global-border-radius); }
+.rounded, .rounded-md, .rounded-sm { border-radius: var(--global-border-radius); }
+
+// 过渡工具类 (Transition Utilities)
+.transition-fast { transition: $transition-fast; }
+.transition-base { transition: $transition-base; }
+.transition-slow { transition: $transition-slow; }
+
+// 额外的过渡工具类（兼容 Tailwind）
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+// 统一描边样式类 (Unified Border Utilities)
+.border-unified {
+  border: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+.border-t-unified {
+  border-top: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+.border-b-unified {
+  border-bottom: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+.border-l-unified {
+  border-left: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+.border-r-unified {
+  border-right: 1px solid var(--border-unified-color);
+  box-shadow: none;
+}
+
+// 边框工具类（兼容 Tailwind 和 Element Plus）
+.border { border: 1px solid var(--border-unified-color); }
+.border-b { border-bottom: 1px solid var(--border-unified-color); }
+.border-t { border-top: 1px solid var(--border-unified-color); }
+
+// 下拉菜单专用描边样式
+.border-dropdown {
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  box-shadow: none;
+}
+
+// 卡片描边样式
+.border-card {
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  box-shadow: none;
+}
+
+// 输入框描边样式
+.border-input {
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  box-shadow: none;
+}

@@ -1,0 +1,19 @@
+{
+  "dialogBottom": {
+    "slogan": "30萬AI開發者聚集地,好技術.好項目",
+    "findExpert": "找大佬開發",
+    "iAmDeveloper": "我是開發者",
+    "developerNotice": "開發者須知",
+    "responsibilityTitle": "1. 開發者責任",
+    "responsibilityContent": "開發者應當確保所提供的技術服務符合相關法律法規，不得提供違法違規的技術支持。",
+    "ipTitle": "2. 知識產權",
+    "ipContent": "開發者應當尊重知識產權，不得侵犯他人的專利權、著作權、商標權等合法權益。",
+    "tradeTitle": "3. 交易規範",
+    "tradeContent": "開發者與需求方的交易應當遵循公平、公正、誠信的原則，確保交易過程的透明化。",
+    "privacyTitle": "4. 隱私保護",
+    "privacyContent": "開發者應當嚴格保護用戶隱私，不得洩露、出售或非法使用用戶個人信息。",
+    "standardTitle": "5. 技術標準",
+    "standardContent": "開發者應當提供符合行業標準的技術服務，確保技術方案的可行性和可靠性。",
+    "agree": "我已閱讀並同意"
+  }
+}

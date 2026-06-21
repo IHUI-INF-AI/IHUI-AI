@@ -1,0 +1,9 @@
+# P29 minikube 演练: 命名空间
+# ZHS staging 环境命名空间
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zhs-staging
+  labels:
+    app: zhs-staging
+    environment: staging

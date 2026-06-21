@@ -1,0 +1,49 @@
+{
+  "adminVipManagement": {
+    "export": "导出记录",
+    "search": {
+      "status": "VIP状态",
+      "statusPlaceholder": "请选择VIP状态"
+    },
+    "table": {
+      "status": "VIP状态"
+    },
+    "vipType": {},
+    "status": {
+      "active": "生效中",
+      "expired": "已过期",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    },
+    "detail": {
+      "status": "VIP状态"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportDeveloping": "导出功能开发中",
+      "exportFailed": "导出失败",
+      "exportSuccess": "导出成功"
+    },
+    "exportData": {
+      "id": "VIPID",
+      "userId": "用户ID",
+      "vipType": "VIP类型",
+      "status": "状态",
+      "price": "价格",
+      "originalPrice": "原价",
+      "discount": "折扣",
+      "orderId": "订单ID",
+      "startTime": "开始时间",
+      "endTime": "结束时间",
+      "createTime": "创建时间",
+      "updateTime": "更新时间",
+      "cancelTime": "取消时间",
+      "remark": "备注",
+      "filename": "VIP列表"
+    },
+    "exportFormatPrompt": "请选择导出格式",
+    "exportCSV": "导出CSV",
+    "exportExcel": "导出Excel",
+    "exportPDF": "导出PDF"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "dependency": {
+    "addDependency": "종속성 추가",
+    "packageName": "패키지 이름",
+    "version": "버전",
+    "type": "유형",
+    "actions": "작업",
+    "delete": "삭제",
+    "addSuccess": "추가 성공",
+    "deleteSuccess": "삭제 성공",
+    "loadFailed": "로드 실패",
+    "enterPackageName": "패키지 이름 입력",
+    "enterVersion": "버전 입력",
+    "selectType": "유형 선택",
+    "confirmDelete": "삭제 확인",
+    "confirmDeleteDeps": "이 종속성을 삭제하시겠습니까?",
+    "configuredTours": "설정된 투어",
+    "activeSessions": "활성 세션",
+    "avgCompletionRate": "평균 완료율",
+    "dependencyConfig": "종속성 설정",
+    "stepDependencies": "단계 종속성",
+    "executionStatus": "실행 상태",
+    "failedSteps": "실패 단계",
+    "enterTourId": "투어 ID 입력",
+    "addStep": "최소 1개 단계 추가",
+    "saveSuccess": "저장 성공",
+    "confirmDeleteConfig": "이 설정을 삭제하시겠습니까?",
+    "confirmDeleteAction": "삭제 확인",
+    "cleared": "지워짐",
+    "editConfig": "Edit Config",
+    "newConfig": "New Config"
+  }
+}

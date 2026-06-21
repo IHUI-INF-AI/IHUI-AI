@@ -1,0 +1,128 @@
+{
+  "videoGen": {
+    "kling": {
+      "title": "可灵AI视频生成",
+      "tag": "口型同步",
+      "instructions": {
+        "title": "使用说明",
+        "description": "先上传视频进行人脸识别，然后选择人脸并输入提示词生成视频"
+      },
+      "steps": {
+        "upload": "上传视频",
+        "identify": "识别 faces",
+        "generate": "生成视频"
+      },
+      "form": {
+        "uploadVideo": "上传视频",
+        "selectVideo": "选择视频",
+        "selectFace": "选择人脸",
+        "selectFaceId": "选择人脸ID",
+        "prompt": "提示词",
+        "promptPlaceholder": "描述视频内容..."
+      },
+      "buttons": {
+        "identify": "识别",
+        "generate": "生成",
+        "checkStatus": "查询状态",
+        "checking": "查询中..."
+      },
+      "status": {
+        "completed": "已完成",
+        "failed": "失败",
+        "pending": "待处理",
+        "processing": "处理中",
+        "title": "状态"
+      },
+      "messages": {
+        "uploadFirst": "请先上传视频",
+        "identifySuccess": "识别成功",
+        "identifyFailed": "识别失败",
+        "fillComplete": "请填写完整信息",
+        "taskSubmitted": "任务已提交",
+        "generateFailed": "生成失败",
+        "checkStatusDev": "查询状态功能开发中",
+        "taskId": "任务ID: {taskId}",
+        "taskIdRequired": "请先提交生成任务",
+        "statusCompleted": "视频生成完成",
+        "statusProcessing": "视频生成中...",
+        "statusFailed": "视频生成失败",
+        "statusPending": "任务等待处理中...",
+        "statusUnknown": "任务状态未知",
+        "checkStatusFailed": "查询状态失败",
+        "pollTimeout": "轮询超时"
+      },
+      "startPolling": "自动轮询",
+      "stopPolling": "停止轮询",
+      "downloadVideo": "下载视频",
+      "previewVideo": "预览视频",
+      "videoUrlEmpty": "视频URL为空",
+      "downloadStarted": "开始下载视频",
+      "message": "消息"
+    },
+    "qwen": {
+      "title": "通义万相 - 视频合成",
+      "tag": "WebSocket流式",
+      "form": {
+        "prompt": "提示词",
+        "promptPlaceholder": "描述你想要生成的视频...",
+        "images": "参考图片(可选)",
+        "imagesPlaceholder": "图片URL"
+      },
+      "buttons": {
+        "generate": "开始生成"
+      },
+      "progress": {
+        "connecting": "连接中...",
+        "generating": "生成中..."
+      },
+      "messages": {
+        "promptRequired": "请输入提示词",
+        "generateSuccess": "生成完成",
+        "generateFailed": "生成失败"
+      }
+    },
+    "oneClick": {
+      "title": "一键视频生成",
+      "tag": "自动生成",
+      "form": {
+        "topic": "视频主题",
+        "topicPlaceholder": "例如：介绍我们的产品...",
+        "duration": "视频时长",
+        "ratio": "视频比例",
+        "audioStyle": "音频风格(可选)",
+        "audioPlaceholder": "例如：轻松愉快的背景音乐"
+      },
+      "buttons": {
+        "generate": "开始生成",
+        "checkStatus": "查询状态"
+      },
+      "messages": {
+        "topicRequired": "请输入视频主题",
+        "taskSubmitted": "任务已提交",
+        "generateFailed": "生成失败",
+        "taskId": "任务ID: {taskId}",
+        "status": "状态: {status}",
+        "checkFailed": "查询失败",
+        "pollTimeout": "轮询超时"
+      },
+      "status": {
+        "completed": "已完成",
+        "processing": "处理中",
+        "failed": "失败",
+        "pending": "等待中"
+      },
+      "startPolling": "自动轮询",
+      "stopPolling": "停止轮询",
+      "downloadVideo": "下载视频",
+      "previewVideo": "预览视频",
+      "videoUrlEmpty": "视频URL为空",
+      "downloadStarted": "开始下载视频",
+      "ratios": {
+        "r169": "16:9",
+        "r916": "9:16",
+        "r11": "1:1"
+      },
+      "durationUnit": "秒"
+    }
+  }
+}

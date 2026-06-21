@@ -1,0 +1,87 @@
+{
+  "register": {
+    "brand": "스마트 AI",
+    "sidebar": {
+      "핵심 장점": "환영참여스마트 AI커뮤니티",
+      "sub핵심 장점": "생성계정，열계몽AI탐색의여정",
+      "features": {
+        "community": "참여활성커뮤니티",
+        "experience": "우아품질AI체험",
+        "secure": "보안신뢰할 수 있는"
+      },
+      "title": "스마트 AI 커뮤니티 참여를 환영합니다",
+      "subtitle": "생성계정，열계몽AI탐색의여정"
+    },
+    "tabs": {
+      "account": "계정비밀번호가입",
+      "전화": "휴대전화인증 코드가입",
+      "phone": "휴대전화인증 코드가입"
+    },
+    "fields": {
+      "username": "생각사용게이름",
+      "전화": "전화번호",
+      "code": "인증 코드",
+      "password": "비밀번호",
+      "confirmPassword": "확인비밀번호",
+      "phone": "휴대전화번호"
+    },
+    "placeholders": {
+      "username": "사사용자 이름을 입력하세요",
+      "전화": "요청입력전화번호",
+      "code": "인증 코드를 입력하세요",
+      "password": "요청입력비밀번호",
+      "confirmPassword": "요청확인비밀번호",
+      "이메일": "이메일",
+      "phone": "요청입력휴대전화번호",
+      "email": "email"
+    },
+    "validation": {
+      "usernameRequired": "사사용자 이름 필수",
+      "usernameLength": "생각사용게이름길이위한5-20개글게일치",
+      "usernamePattern": "사용자 이름은 문자, 숫자, 밑줄 및 중국어만 포함",
+      "passwordRequired": "비밀번호필수",
+      "passwordLength": "비밀번호길이위한6-20개글게일치",
+      "passwordPattern": "비밀번호는 문자와 숫자를 포함해야 합니다"
+    },
+    "strength": {
+      "weak": "약함",
+      "medium": "중간",
+      "strong": "강력한"
+    },
+    "agreement": {
+      "prefix": "내완료채점읽음동시함께의",
+      "and": "및"
+    },
+    "submit": "가입",
+    "haveAccount": "완료유계정？",
+    "loginNow": "설정즉시로그인",
+    "registerFailed": "가입실패",
+    "thirdParty": {
+      "or": "또는게",
+      "wechat": "위챗",
+      "alipay": "알리페이"
+    },
+    "messages": {
+      "전화Invalid": "요청입력유효의전화번호",
+      "codeSent": "인증 코드완료전송",
+      "codeSendFailed": "인증 코드전송실패",
+      "codeSendFailedRetry": "인증 코드전송실패，요청재시도",
+      "codeError": "인증 코드오류",
+      "verifyFailed": "인증증명실패，요청재시도",
+      "verifySuccess": "인증증명성공",
+      "resetPasswordFailed": "비밀번호초기화실패",
+      "resetPasswordFailedRetry": "비밀번호초기화실패，요청재시도",
+      "agreementRequired": "요청함께의서비스약관및개인정보이기정책",
+      "registerSuccess": "가입성공",
+      "registerFailed": "가입실패",
+      "oauthRedirect": "OauthRedirect",
+      "oauthFailed": "oauth실패",
+      "phoneInvalid": "요청입력유효의휴대전화번호"
+    },
+    "code": {
+      "countdown": "카운트다운",
+      "send": "전송"
+    },
+    "agreementRequired": "agreement필수"
+  }
+}

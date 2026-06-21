@@ -1,0 +1,11 @@
+{
+  "h5Settings": {
+    "order": "订单",
+    "expense": "消费",
+    "level": "等级",
+    "systemSettings": "系统设置",
+    "adminFeature": "管理功能",
+    "logout": "退出登录",
+    "confirmLogout": "确定退出登录？"
+  }
+}

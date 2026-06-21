@@ -1,0 +1,9 @@
+{
+  "name": "coze_chatv3_request",
+  "version": "1.0.0",
+  "description": "Coze API请求函数",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

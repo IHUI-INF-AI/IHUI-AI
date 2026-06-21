@@ -1,0 +1,180 @@
+{
+  "humanMachine": {
+    "heroTitle": "人机协作组织",
+    "heroSubtitle": "从物理世界到信息世界，构建人机协同的超级企业。帮助企业理解AI时代的组织架构、流程优化与人本价值。",
+    "architecture": {
+      "physicalWorld": {
+        "title": "物理世界",
+        "description": "组织架构、流程、文化"
+      },
+      "infoWorld": {
+        "title": "信息世界",
+        "description": "数字化、AI化、智能化"
+      },
+      "superEnterprise": {
+        "title": "超级企业",
+        "description": "人机协同的终极形态"
+      }
+    },
+    "physicalWorld": {
+      "title": "企业物理世界",
+      "intro": "帮助企业梳理组织结构和业务流程，为数字员工定义清晰的岗位和职责，同时保持对人本价值的关注。",
+      "structure": {
+        "title": "组织架构",
+        "description": "梳理企业组织结构，定义人类与AI的协作关系",
+        "features": {
+          "mapping": "岗位能力映射",
+          "digital": "数字员工定位",
+          "hybrid": "混合团队设计"
+        }
+      },
+      "process": {
+        "title": "流程梳理",
+        "description": "正向与逆向流程分析，找到AI可以赋能的关键节点",
+        "forward": {
+          "label": "正向分析",
+          "goal": "目标",
+          "process": "流程",
+          "role": "角色"
+        },
+        "reverse": {
+          "label": "逆向分析",
+          "role": "角色",
+          "process": "流程"
+        }
+      },
+      "humanValue": {
+        "title": "人本价值",
+        "description": "在AI时代保持对人的尊重和价值的关注",
+        "values": {
+          "culture": "企业文化",
+          "mission": "使命愿景",
+          "critical": "批判性思维",
+          "humility": "谦卑态度"
+        }
+      }
+    },
+    "infoWorld": {
+      "title": "企业信息世界",
+      "intro": "引导企业从初级信息化逐步演进到高级AI化，构建完整的数字化能力体系。",
+      "evolution": "能力演进",
+      "basic": {
+        "title": "初级信息世界",
+        "description": "构建数字化基础设施，实现业务流程的信息化和自动化",
+        "items": {
+          "informatization": {
+            "name": "信息化",
+            "desc": "业务数据的数字化存储和管理"
+          },
+          "iot": {
+            "name": "物联网",
+            "desc": "物理世界与数字世界的连接"
+          },
+          "automation": {
+            "name": "自动化",
+            "desc": "规则驱动的流程自动化"
+          }
+        }
+      },
+      "advanced": {
+        "title": "高级信息世界",
+        "description": "引入AI能力，实现从感知到决策到行动的智能化升级",
+        "items": {
+          "perception": {
+            "name": "感知AI",
+            "desc": "视觉、语音、文本的智能识别"
+          },
+          "generative": {
+            "name": "生成式AI",
+            "desc": "内容创作、代码生成、设计辅助"
+          },
+          "agent": {
+            "name": "智能体AI",
+            "desc": "自主决策、任务执行、多智能体协作"
+          },
+          "physical": {
+            "name": "物理AI",
+            "desc": "机器人、自动驾驶、智能制造"
+          }
+        }
+      }
+    },
+    "superEnterprise": {
+      "title": "人机协同的超级企业",
+      "intro": "通过人与AI的深度协作，打造超级员工、超级团队和超级产品/服务。",
+      "superEmployee": {
+        "title": "超级员工/超级个体",
+        "description": "AI赋能下的个人生产力革命，每个员工都能发挥超越常规的能力",
+        "features": {
+          "productivity": "10倍生产力",
+          "decision": "智能决策",
+          "creativity": "创意增强"
+        }
+      },
+      "superTeam": {
+        "title": "超级团队/超级组织",
+        "description": "人机混合团队实现更高效的协作和更强大的集体智慧",
+        "features": {
+          "collaboration": "无缝协作",
+          "intelligence": "集体智慧",
+          "agility": "组织敏捷"
+        }
+      },
+      "superProduct": {
+        "title": "超级产品/服务",
+        "description": "AI驱动的产品和服务具备前所未有的智能化和个性化能力",
+        "features": {
+          "personalized": "极致个性化",
+          "intelligent": "智能自适应",
+          "iterative": "快速迭代"
+        }
+      },
+      "metrics": {
+        "title": "效果衡量维度",
+        "cost": "成本优化",
+        "costDesc": "降低运营成本，提高资源利用率",
+        "efficiency": "效率提升",
+        "efficiencyDesc": "缩短流程周期，提高产出质量",
+        "experience": "体验升级",
+        "experienceDesc": "提升客户和员工体验满意度"
+      }
+    },
+    "implementation": {
+      "title": "实施路径",
+      "intro": "从现状评估到持续优化，帮助企业稳步实现AI化转型",
+      "steps": {
+        "assessment": {
+          "title": "现状评估",
+          "desc": "评估企业当前的数字化水平、AI应用现状和组织准备度"
+        },
+        "planning": {
+          "title": "战略规划",
+          "desc": "制定AI化转型路线图，明确目标、里程碑和资源需求"
+        },
+        "pilot": {
+          "title": "试点验证",
+          "desc": "选择重点场景进行试点，验证方案可行性并积累经验"
+        },
+        "scale": {
+          "title": "规模推广",
+          "desc": "基于试点经验，逐步扩展到更多业务领域和场景"
+        },
+        "optimize": {
+          "title": "持续优化",
+          "desc": "建立持续改进机制，不断优化AI应用效果和组织能力"
+        }
+      }
+    },
+    "cta": {
+      "title": "构建您的超级企业",
+      "description": "加入智汇AI社，与专业顾问一起规划企业的AI化转型之路",
+      "learnMore": "了解企业服务",
+      "contact": "联系顾问"
+    },
+    "footer": {
+      "enterprise": "企业服务",
+      "agentScenario": "智能体场景",
+      "contact": "联系我们"
+    }
+  }
+}

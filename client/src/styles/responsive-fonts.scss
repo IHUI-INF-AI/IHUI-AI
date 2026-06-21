@@ -1,0 +1,350 @@
+/* 
+ * 全局响应式字体系?
+ * 使用 clamp() 函数实现流畅的字体自适应
+ * 基于移动端优先的设计理念
+ */
+
+// ============================================
+// 响应式字体大小定?
+// ============================================
+
+:root {
+  /* 基础字体大小 - 使用 rem 单位，基?16px */
+  --font-size-base: 16px;
+  
+  /* 响应式字体大?- 使用 clamp(min, preferred, max) */
+  /* 格式: clamp(最小尺? 首选尺?基于视口), 最大尺? */
+  
+  /* 超小字体 (xs) - 用于辅助文字、标?*/
+  --font-size-xs: clamp(10px, 2vw, 12px);
+  
+  /* 小字?(sm) - 用于次要文字、说?*/
+  --font-size-sm: clamp(12px, 2.5vw, 14px);
+  
+  /* 基础字体 (base) - 用于正文、段?*/
+  --font-size-base-responsive: clamp(14px, 3vw, 16px);
+  
+  /* 大字?(lg) - 用于强调文字 */
+  --font-size-lg: clamp(16px, 3.5vw, 18px);
+  
+  /* 超大字体 (xl) - 用于小标?*/
+  --font-size-xl: clamp(18px, 4vw, 20px);
+  
+  /* 2XL 字体 - 用于中标?*/
+  --font-size-2xl: clamp(20px, 4.5vw, 24px);
+  
+  /* 3XL 字体 - 用于大标?*/
+  --font-size-3xl: clamp(24px, 5.5vw, 30px);
+  
+  /* 4XL 字体 - 用于超大标题 */
+  --font-size-4xl: clamp(28px, 6.5vw, 36px);
+  
+  /* 5XL 字体 - 用于页面主标?*/
+  --font-size-5xl: clamp(32px, 7.5vw, 48px);
+  
+  /* 6XL 字体 - 用于英雄区域标题 */
+  --font-size-6xl: clamp(40px, 9vw, 64px);
+  
+  /* 7XL 字体 - 用于超大英雄标题 */
+  --font-size-7xl: clamp(48px, 10vw, 80px);
+  
+  /* 行高变量 - 响应式行?*/
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+  --line-height-loose: 1.8;
+}
+
+// ============================================
+// 全局字体应用规则
+// ============================================
+
+/* 基础文本元素 - 使用响应式基础字体 */
+body,
+p,
+span,
+div,
+a,
+label,
+input,
+textarea,
+select,
+button {
+  font-size: var(--font-size-base-responsive);
+  line-height: var(--line-height-normal);
+}
+
+/* 标题字体 - 响应式大?*/
+h1 {
+  font-size: var(--font-size-5xl);
+  line-height: var(--line-height-tight);
+  font-weight: 700;
+}
+
+h2 {
+  font-size: var(--font-size-4xl);
+  line-height: var(--line-height-tight);
+  font-weight: 700;
+}
+
+h3 {
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-tight);
+  font-weight: 700;
+}
+
+h4 {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-normal);
+  font-weight: 700;
+}
+
+h5 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-normal);
+  font-weight: 700;
+}
+
+h6 {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-normal);
+  font-weight: 700;
+}
+
+/* 小文本元?*/
+small,
+.small-text {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+/* 超小文本元素 */
+.tiny-text,
+.caption {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+// ============================================
+// 响应式字体工具类
+// ============================================
+
+.text-xs {
+  font-size: var(--font-size-xs) ;
+}
+
+.text-sm {
+  font-size: var(--font-size-sm) ;
+}
+
+.text-base {
+  font-size: var(--font-size-base-responsive) ;
+}
+
+.text-lg {
+  font-size: var(--font-size-lg) ;
+}
+
+.text-xl {
+  font-size: var(--font-size-xl) ;
+}
+
+.text-2xl {
+  font-size: var(--font-size-2xl) ;
+}
+
+.text-3xl {
+  font-size: var(--font-size-3xl) ;
+}
+
+.text-4xl {
+  font-size: var(--font-size-4xl) ;
+}
+
+.text-5xl {
+  font-size: var(--font-size-5xl) ;
+}
+
+.text-6xl {
+  font-size: var(--font-size-6xl) ;
+}
+
+.text-7xl {
+  font-size: var(--font-size-7xl) ;
+}
+
+// ============================================
+// Element Plus 组件响应式字?
+// 使用 :where() 降低特异性，便于覆盖
+// ============================================
+
+/* Element Plus 输入?*/
+:where(.el-input__inner),
+:where(.el-textarea__inner) {
+  font-size: var(--font-size-base-responsive);
+}
+
+:where(.el-input__inner)::placeholder,
+:where(.el-textarea__inner)::placeholder {
+  font-size: var(--font-size-base-responsive);
+}
+
+/* Element Plus 按钮 */
+:where(.el-button) {
+  font-size: var(--font-size-base-responsive);
+}
+
+:where(.el-button--small) {
+  font-size: var(--font-size-sm);
+}
+
+:where(.el-button--large) {
+  font-size: var(--font-size-lg);
+}
+
+/* Element Plus 表格 */
+:where(.el-table th),
+:where(.el-table td) {
+  font-size: var(--font-size-base-responsive);
+}
+
+/* Element Plus 标签 */
+:where(.el-tag) {
+  font-size: var(--font-size-sm);
+}
+
+/* Element Plus 分页 */
+:where(.el-pagination) {
+  font-size: var(--font-size-base-responsive);
+}
+
+/* Element Plus 表单标签 */
+:where(.el-form-item__label) {
+  font-size: var(--font-size-base-responsive);
+}
+
+/* Element Plus 消息提示 */
+:where(.el-message__content) {
+  font-size: var(--font-size-base-responsive);
+}
+
+:where(.el-notification__title) {
+  font-size: var(--font-size-lg);
+}
+
+:where(.el-notification__content) {
+  font-size: var(--font-size-base-responsive);
+}
+
+/* Element Plus 对话?*/
+:where(.el-dialog__title) {
+  font-size: var(--font-size-xl);
+}
+
+:where(.el-dialog__body) {
+  font-size: var(--font-size-base-responsive);
+}
+
+/* Element Plus 菜单 */
+:where(.el-menu-item) {
+  font-size: var(--font-size-base-responsive);
+}
+
+/* Element Plus 标签?*/
+:where(.el-tabs__item) {
+  font-size: var(--font-size-base-responsive);
+}
+
+// ============================================
+// 移动端特殊优?
+// ============================================
+
+@media (max-width: 480px) {
+  :root {
+    /* 移动端进一步缩小最小字体，确保可读?*/
+    --font-size-xs: 10px;
+    --font-size-sm: 12px;
+    --font-size-base-responsive: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 18px;
+    --font-size-2xl: 20px;
+    --font-size-3xl: 24px;
+    --font-size-4xl: 28px;
+    --font-size-5xl: 32px;
+    --font-size-6xl: 40px;
+    --font-size-7xl: 48px;
+  }
+  
+  /* 移动端标题行高调?*/
+  h1, h2, h3 {
+    line-height: 1.3;
+  }
+}
+
+// ============================================
+// 平板端优?
+// ============================================
+
+@media (min-width: 481px) and (max-width: 768px) {
+  :root {
+    --font-size-base-responsive: clamp(15px, 3vw, 16px);
+  }
+}
+
+// ============================================
+// 桌面端优?
+// ============================================
+
+@media (min-width: 769px) {
+  :root {
+    /* 桌面端使用更大的基础字体 */
+    --font-size-base-responsive: clamp(16px, 1.2vw, 18px);
+  }
+}
+
+// ============================================
+// 超大屏幕优化
+// ============================================
+
+@media (min-width: 1920px) {
+  :root {
+    /* 超大屏幕限制最大字体，避免过度放大 */
+    --font-size-5xl: clamp(40px, 4vw, 56px);
+    --font-size-6xl: clamp(56px, 5vw, 72px);
+    --font-size-7xl: clamp(64px, 6vw, 96px);
+  }
+}
+
+// ============================================
+// 特殊场景字体覆盖
+// ============================================
+
+/* 卡片标题 */
+.card-title,
+.section-title,
+.page-title {
+  font-size: var(--font-size-2xl) ;
+  line-height: var(--line-height-tight);
+}
+
+/* 副标?*/
+.subtitle,
+.section-subtitle {
+  font-size: var(--font-size-lg) ;
+  line-height: var(--line-height-normal);
+}
+
+/* 按钮文字 */
+.btn-text {
+  font-size: var(--font-size-base-responsive) ;
+}
+
+/* 导航链接 */
+.nav-link {
+  font-size: var(--font-size-base-responsive) ;
+}
+
+/* 页脚文字 */
+.footer-text {
+  font-size: var(--font-size-sm) ;
+}

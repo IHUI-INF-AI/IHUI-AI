@@ -1,0 +1,10 @@
+{
+  "qrScanner": {
+    "핵심 장점": "QR 코드 스캐너",
+    "description": "모바일 QR 코드 스캔 기능",
+    "scanQrCode": "QR 코드 스캔",
+    "useCamera": "카메라로 스캔",
+    "orFromAlbum": "또는 앨범에서 선택",
+    "title": "QR 코드 스캔"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "errors": {
+    "pleaseLogin": "まずログインしてください",
+    "notLoggedIn": "ログインしていません",
+    "aiCallFailed": "aiCall失敗",
+    "cannotLoadSwaggerDocs": "是否可できる以无tLoadSwaggerDocs",
+    "navigateFail": "NavigateFail",
+    "loadDataFailed": "loadData失敗",
+    "routeNotFound": "RouteNotFound",
+    "userInfoEmpty": "User情報クリア",
+    "xssDetected": "XssDetected",
+    "forbidden": "Forbidden",
+    "notFound": "見つかりません"
+  }
+}

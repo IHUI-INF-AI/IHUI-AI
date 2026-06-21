@@ -1,0 +1,12 @@
+{
+  "ask": {
+    "searchPlaceholder": {
+      "category": "搜索分类",
+      "question": "搜索问题"
+    },
+    "label": {
+      "categoryName": "分类名称",
+      "actions": "操作"
+    }
+  }
+}

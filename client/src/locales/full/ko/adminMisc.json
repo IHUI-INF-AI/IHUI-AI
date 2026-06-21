@@ -1,0 +1,34 @@
+{
+  "adminFAQManagement": {
+    "핵심 장점": "FAQ관리",
+    "search": {},
+    "table": {},
+    "category": {},
+    "form": {},
+    "formRules": {},
+    "detail": {
+      "핵심 장점": "FAQ상세"
+    },
+    "dialogs": {},
+    "messages": {}
+  },
+  "adminFAQ": {
+    "핵심 장점": "FAQ관리",
+    "messages": {}
+  },
+  "adminFAQList": {
+    "pinned": "고정됨",
+    "unpinned": "고정 해제됨",
+    "deleted": "삭제됨"
+  },
+  "admin": {
+    "eventBus": {
+      "allSubscriptionsCleared": "All Subscriptions Cleared",
+      "confirmClearAll": "Confirm Clear All",
+      "confirmClearHistory": "Confirm Clear History",
+      "eventSent": "Event Sent",
+      "historyCleared": "History Cleared",
+      "subscriptionDeleted": "Subscription Deleted"
+    }
+  }
+}

@@ -1,0 +1,607 @@
+import { defineStore } from 'pinia'
+import { computed } from 'vue'
+import { t } from '@/utils/i18n'
+import { getI18nGlobal } from '@/locales'
+import {
+  login as apiLogin,
+  register as apiRegister,
+  phoneLogin,
+  completePhoneLogin,
+} from '@/api/user'
+import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { logger } from '@/utils/logger'
+import type { LoginDuration } from '@/utils/login-duration'
+import type { LoginParams, RegisterParams } from '@/types'
+import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
+import type { LoginResponseData } from './types'
+import { buildUserFromLoginResponse } from './utils'
+import { useTokenStore } from './token'
+import { useUserStore } from './user'
+import { useWalletStore } from './wallet'
+import { useVipStore } from './vip'
+import { usePermissionsStore } from './permissions'
+import { useThirdPartyStore } from './thirdParty'
+
+export const useAuthStore = defineStore('auth', () => {
+  const tokenStore = useTokenStore()
+  const userStore = useUserStore()
+  const walletStore = useWalletStore()
+  const vipStore = useVipStore()
+  const permissionsStore = usePermissionsStore()
+  const thirdPartyStore = useThirdPartyStore()
+
+  const isLoggedIn = computed(() => permissionsStore.isLoggedIn)
+  const isVip = computed(() => userStore.isVip)
+  const userUuid = computed(() => userStore.userUuid)
+  const nickname = computed(() => userStore.nickname)
+  const avatar = computed(() => userStore.avatar)
+  const userStatus = computed(() => userStore.userStatus)
+  const inviteCode = computed(() => userStore.inviteCode)
+  const balance = computed(() => walletStore.balance)
+  const frozenAmount = computed(() => walletStore.frozenAmount)
+  const totalRecharge = computed(() => walletStore.totalRecharge)
+  const totalConsumption = computed(() => walletStore.totalConsumption)
+  const vipLevel = computed(() => vipStore.vipLevel)
+  const isVipActive = computed(() => vipStore.isVipActive)
+  const vipEndTime = computed(() => vipStore.vipEndTime)
+  const isInitialized = computed(() => tokenStore.isInitialized)
+  const isTokenExpired = computed(() => tokenStore.isTokenExpired)
+  const hasPermission = computed(() => permissionsStore.hasPermission)
+  const hasRole = computed(() => permissionsStore.hasRole)
+  const canUseFeature = computed(() => permissionsStore.canUseFeature)
+  const isLoading = computed(() => userStore.isLoading || thirdPartyStore.isLoading)
+  const initCompleted = computed(() => tokenStore.initCompleted)
+
+  const initAuth = async () => {
+    logger.debug('[AuthStore] Initializing auth state...')
+
+    if (tokenStore.checkExpiryAndClear()) {
+      return
+    }
+
+    if (!tokenStore.restoreToken()) {
+      logger.debug('[AuthStore] No stored token found, remaining logged out')
+      return
+    }
+
+    const storedUserData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
+
+    if (storedUserData) {
+      userStore.restoreUserFromStorage()
+      walletStore.restoreFundInfo()
+      vipStore.restoreVipInfo()
+
+      if (storedUserData.loginTime) {
+        tokenStore.loginTime = storedUserData.loginTime as string
+      }
+      if (storedUserData.lastActiveTime) {
+        tokenStore.lastActiveTime = storedUserData.lastActiveTime as string
+      }
+
+      logger.info('[AuthStore] Restored user state from storage:', userStore.user?.username || userStore.user?.nickname)
+
+      userStore.fetchUserInfo().catch((error: any) => {
+        logger.warn('[AuthStore] Background refresh user info failed (using cached data):', error)
+      })
+    } else {
+      logger.debug('[AuthStore] Has token but no user data, attempting to fetch user info')
+      try {
+        await userStore.fetchUserInfo()
+        logger.info('[AuthStore] Successfully fetched user info')
+      } catch (error: any) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        const status = error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined
+        const isNotLoggedInError = !status && (
+          errorMessage.includes('未登录') ||
+          errorMessage.includes('请先登录') ||
+          errorMessage.includes('not logged in')
+        )
+
+        if (isNotLoggedInError) {
+          logger.debug('[AuthStore] User not logged in, clearing token')
+        } else {
+          logger.error('[AuthStore] Failed to fetch user info, clearing invalid token:', error)
+        }
+        clearAuthState()
+      }
+    }
+
+    tokenStore.setInitCompleted(true)
+    logger.debug('[AuthStore] Initialization complete')
+  }
+
+  const clearAuthState = () => {
+    tokenStore.clearTokens()
+    userStore.clearUser()
+    walletStore.clearFundInfo()
+    vipStore.clearVipInfo()
+  }
+
+  const register = async (registerData: RegisterParams) => {
+    userStore.isLoading = true
+    try {
+      if (registerData.type === 'phone') {
+        if (!registerData.phone || !registerData.code || !registerData.password) {
+          throw new Error(t('error.auth.手机号验证码和密'))
+        }
+      } else {
+        if (!registerData.username || !registerData.password) {
+          throw new Error(t('error.auth.用户名和密码不能1'))
+        }
+      }
+
+      const requestData: {
+        username?: string
+        password: string
+        email?: string
+        phone?: string
+        code?: string
+        captcha?: string
+        inviteCode?: string
+      } = { password: registerData.password }
+
+      if (registerData.type === 'phone') {
+        requestData.phone = registerData.phone
+        requestData.code = registerData.code
+        requestData.username = registerData.username || registerData.phone
+        requestData.email = registerData.email || `${registerData.phone}@example.com`
+      } else {
+        requestData.username = registerData.username || ''
+        requestData.email = registerData.email || `${registerData.username || 'user'}@example.com`
+        if (registerData.phone && registerData.code) {
+          requestData.phone = registerData.phone
+          requestData.code = registerData.code
+        }
+        if (registerData.code && !registerData.phone) {
+          requestData.captcha = registerData.code
+        }
+      }
+
+      if (registerData.inviteCode) {
+        requestData.inviteCode = registerData.inviteCode
+      }
+
+      const response = await apiRegister({
+        username: requestData.username || '',
+        password: requestData.password,
+        email: requestData.email || '',
+        phone: requestData.phone,
+        code: requestData.code,
+        captcha: requestData.captcha,
+        inviteCode: requestData.inviteCode,
+      })
+
+      const responseData = response.data
+
+      let tokenValue: string
+      let refreshTokenValue: string
+      let userInfo: UserInfoData | null = null
+
+      if (typeof responseData === 'object' && responseData !== null) {
+        if ('token' in responseData) {
+          tokenValue = responseData.token || ''
+          refreshTokenValue = responseData.refreshToken || ''
+          userInfo = (responseData as { user?: UserInfoData }).user || null
+        } else if ('tokenType' in responseData) {
+          tokenValue = (responseData as { token?: string }).token || ''
+          refreshTokenValue = (responseData as { refreshToken?: string }).refreshToken || ''
+        } else {
+          throw new Error(t('error.auth.无效的响应数据格2'))
+        }
+      } else {
+        throw new Error(t('error.auth.无效的响应数据格3'))
+      }
+
+      tokenStore.setToken(tokenValue, refreshTokenValue)
+
+      if (userInfo) {
+        userStore.user = {
+          id: userInfo.id || userInfo.uuid || '',
+          uuid: userInfo.uuid || userInfo.id || '',
+          username: userInfo.username || registerData.username || registerData.phone || '',
+          email: userInfo.email || registerData.email || '',
+          phone: userInfo.phone || registerData.phone || '',
+          nickname: userInfo.nickname || userInfo.username || registerData.username || registerData.phone || '',
+          avatar: userInfo.avatar || '',
+          gender: userInfo.gender || 0,
+          birthday: userInfo.birthday || '',
+          signature: userInfo.signature || '',
+          status: userInfo.status || 1,
+          isVip: userInfo.isVip || false,
+          inviteCode: userInfo.inviteCode || registerData.inviteCode || '',
+          createTime: userInfo.createTime || new Date().toISOString(),
+          updateTime: userInfo.updateTime || new Date().toISOString(),
+        } as UserInfoData
+      }
+
+      const userData = {
+        thirdPartyAccounts: { accessToken: tokenValue, refreshToken: refreshTokenValue },
+        username: registerData.username || registerData.phone || '',
+        email: registerData.email || '',
+        phone: registerData.phone || '',
+        loginTime: tokenStore.loginTime,
+        lastActiveTime: tokenStore.lastActiveTime,
+        ...(userStore.user || {}),
+      }
+
+      StorageManager.setItem(STORAGE_KEYS.USER_DATA, userData)
+
+      await userStore.fetchUserInfo()
+
+      return response
+    } catch (error) {
+      logger.error('Registration failed:', error)
+      throw error
+    } finally {
+      userStore.isLoading = false
+    }
+  }
+
+  const login = async (loginData: LoginParams) => {
+    userStore.isLoading = true
+    try {
+      let response
+
+      if (loginData.type === 'phone' && loginData.phone && loginData.code) {
+        const verifyResponse = await phoneLogin({ phone: loginData.phone, code: loginData.code })
+        const tempKey = verifyResponse.data
+        response = await completePhoneLogin({ phone: loginData.phone, tempKey: tempKey || '' })
+      } else if (loginData.username && loginData.password) {
+        response = await apiLogin({ username: loginData.username, password: loginData.password })
+      } else {
+        throw new Error(t('error.auth.登录信息不完整4'))
+      }
+
+      const tokenData = response.data as LoginResponseData
+
+      const tokenValue =
+        tokenData?.token ||
+        tokenData?.accessToken ||
+        tokenData?.userToken ||
+        tokenData?.thirdPartyAccounts?.accessToken ||
+        ''
+      const refreshTokenValue = tokenData?.refreshToken || tokenData?.thirdPartyAccounts?.refreshToken || ''
+
+      tokenStore.setToken(tokenValue, refreshTokenValue)
+      tokenStore.setLoginExpiry()
+
+      const { user, fundInfo, vipInfo } = buildUserFromLoginResponse(tokenData, loginData)
+      userStore.user = user
+
+      if (fundInfo) {
+        walletStore.setFundInfo(fundInfo)
+      }
+      if (vipInfo) {
+        vipStore.setVipInfo(vipInfo)
+      }
+
+      const completeUserData = {
+        ...user,
+        thirdPartyAccounts: {
+          accessToken: tokenValue,
+          refreshToken: refreshTokenValue,
+          expiresAt: tokenData?.thirdPartyAccounts?.expiresAt,
+          refreshExpiresAt: tokenData?.thirdPartyAccounts?.refreshExpiresAt,
+        },
+        authInfo: tokenData?.authInfo,
+        fundInfo,
+        vipInfo,
+        developerLink: tokenData?.developerLinks,
+        loginTime: tokenStore.loginTime,
+        lastActiveTime: tokenStore.lastActiveTime,
+        id: user?.id || user?.uuid || '',
+        uuid: user?.uuid || '',
+        phone: user?.phone || '',
+        email: user?.email || '',
+        nickname: user?.nickname || '',
+      }
+
+      StorageManager.setItem(STORAGE_KEYS.USER_DATA, completeUserData)
+
+      logger.debug('[AuthStore] Login successful, user info saved:', {
+        uuid: user?.uuid,
+        nickname: user?.nickname,
+        phone: user?.phone,
+        email: user?.email,
+        isVip: user?.isVip,
+        vipLevel: tokenData?.vipLevelVO?.title,
+        balance: fundInfo?.balance,
+      })
+
+      try {
+        const { MultiDeviceService } = await import('@/utils/multiDeviceService')
+        await MultiDeviceService.registerCurrentDevice()
+      } catch (e) {
+        logger.warn('[AuthStore] Device registration failed', e)
+      }
+
+      try {
+        const { SecurityLogService } = await import('@/utils/securityLogService')
+        await SecurityLogService.logLogin(true)
+      } catch (e) {
+        logger.warn('[AuthStore] Failed to record login log', e)
+      }
+
+      let currentLocation: { country?: string; city?: string; ip?: string } | null = null
+      let checkResult: { isSuspicious: boolean; reason?: string } = { isSuspicious: false }
+
+      try {
+        const { LocationService } = await import('@/utils/locationService')
+        currentLocation = await LocationService.fetchCurrentLocation()
+        checkResult = LocationService.checkSuspiciousLogin(currentLocation)
+
+        if (checkResult.isSuspicious) {
+          const { SecurityLogService } = await import('@/utils/securityLogService')
+          await SecurityLogService.logSuspiciousLogin(checkResult.reason || '异地登录')
+          logger.warn('[AuthStore] Suspicious login detected', checkResult)
+        }
+
+        LocationService.saveLoginLocation({
+          ...currentLocation,
+          loginTime: Date.now(),
+        } as import('@/utils/locationService').LoginLocation)
+      } catch (e) {
+        logger.warn('[AuthStore] Location detection failed', e)
+      }
+
+      try {
+        const { LoginBehaviorService } = await import('@/utils/loginBehaviorService')
+        const { DeviceService } = await import('@/utils/deviceService')
+        const deviceId = DeviceService.getDeviceId() || 'unknown'
+        const deviceName = navigator.userAgent.includes('Windows') ? 'Windows' :
+                          navigator.userAgent.includes('Mac') ? 'Mac' :
+                          navigator.userAgent.includes('Linux') ? 'Linux' : 'Unknown Device'
+        LoginBehaviorService.recordLogin(deviceId, deviceName, currentLocation || undefined)
+      } catch (e) {
+        logger.warn('[AuthStore] Failed to record login behavior', e)
+      }
+
+      try {
+        const { SecurityNotificationService } = await import('@/utils/securityNotificationService')
+        if (checkResult.isSuspicious) {
+          SecurityNotificationService.notifySuspiciousLogin(checkResult.reason || '异地登录')
+        }
+      } catch (e) {
+        logger.warn('[AuthStore] Failed to send security notification', e)
+      }
+
+      userStore.fetchUserInfo().catch((error: any) => {
+        logger.warn('[AuthStore] Background refresh user info failed (using data from login response):', error)
+      })
+
+      try {
+        const { websocketService } = await import('@/utils/websocket')
+        await websocketService.connect(tokenValue)
+      } catch (error) {
+        logger.warn('WebSocket connection failed', error)
+      }
+
+      return response
+    } catch (error) {
+      logger.error(getI18nGlobal().t('logs.loginFailed'), error)
+      throw error
+    } finally {
+      userStore.isLoading = false
+    }
+  }
+
+  const logout = async () => {
+    try {
+      const { websocketService } = await import('@/utils/websocket')
+      websocketService.disconnect()
+    } catch (_error) {
+      // 静默失败
+    }
+    // 已移除 auth/logout 接口，不再调用后端，仅做本地登出
+    try {
+      // 原：await apiLogout() 已移除
+    } finally {
+      sessionStorage.setItem('__logout_flag__', Date.now().toString())
+      try {
+        const { SecurityLogService } = await import('@/utils/securityLogService')
+        await SecurityLogService.logLogout()
+      } catch {
+        // 静默处理
+      }
+      clearAuthState()
+      try {
+        const { RememberMeService } = await import('@/utils/rememberMeService')
+        RememberMeService.clearCredentials()
+      } catch {
+        // 静默处理
+      }
+    }
+  }
+
+  const thirdPartyLogin = async (loginData: { token: string; refreshToken?: string; user: UserInfoData | Record<string, unknown>; loginType: string }) => {
+    return thirdPartyStore.thirdPartyLogin(loginData)
+  }
+
+  const refreshTokens = async () => {
+    try {
+      const savedRefreshToken = tokenStore.refreshToken
+      if (!savedRefreshToken) {
+        await userStore.fetchUserInfo()
+        return { success: true }
+      }
+      const success = await refreshTokenAction(savedRefreshToken)
+      if (!success) {
+        await logout()
+      }
+      return { success }
+    } catch (error) {
+      logger.error(getI18nGlobal().t('logs.refreshTokenFailed'), error)
+      await logout()
+      throw error
+    }
+  }
+
+  const refreshTokenAction = async (savedRefreshToken: string): Promise<boolean> => {
+    try {
+      userStore.isLoading = true
+      logger.info('[AuthStore] Attempting to auto-login with refreshToken')
+
+      const { refreshToken: refreshTokenApi } = await import('@/api/user')
+      const response = await refreshTokenApi(savedRefreshToken)
+
+      if (response.success && response.data) {
+        const tokenData = response.data
+        const newToken = tokenData.token || ''
+        const newRefreshToken = tokenData.refreshToken || savedRefreshToken
+
+        if (!newToken) {
+          logger.warn('[AuthStore] Refresh response missing token')
+          const { RememberMeService } = await import('@/utils/rememberMeService')
+          RememberMeService.recordAutoLoginFailure('刷新响应缺少 token')
+          return false
+        }
+
+        tokenStore.setToken(newToken, newRefreshToken)
+        await userStore.fetchUserInfo()
+
+        const { RememberMeService } = await import('@/utils/rememberMeService')
+        RememberMeService.updateRefreshToken(newRefreshToken)
+        RememberMeService.resetAutoLoginRecord()
+
+        logger.info('[AuthStore] Auto-login with refreshToken succeeded')
+        return true
+      }
+
+      logger.warn('[AuthStore] Refresh token response invalid', response)
+      const { RememberMeService } = await import('@/utils/rememberMeService')
+      RememberMeService.recordAutoLoginFailure('刷新响应无效')
+      return false
+    } catch (error) {
+      logger.error('[AuthStore] Auto-login with refreshToken failed', error)
+      const { RememberMeService } = await import('@/utils/rememberMeService')
+      RememberMeService.recordAutoLoginFailure(error instanceof Error ? error.message : '未知错误')
+      return false
+    } finally {
+      userStore.isLoading = false
+    }
+  }
+
+  /** 拉取用户信息并同步余额、VIP 到各 store，确保页面显示与后端一致 */
+  const fetchUserInfo = async () => {
+    const result = await userStore.fetchUserInfo()
+    if (result && typeof result === 'object') {
+      if (result.fundInfo) walletStore.setFundInfo(result.fundInfo)
+      if (result.vipInfo) vipStore.setVipInfo(result.vipInfo)
+    }
+  }
+  const updateUserInfo = (userInfo: Partial<UserInfoData>) => userStore.updateUserInfo(userInfo)
+  const setAuthInfo = (info: UserInfoData) => userStore.setAuthInfo(info)
+  const setFundInfo = (info: UserFundInfo) => walletStore.setFundInfo(info)
+  const setVipInfo = (info: UserVipInfo) => vipStore.setVipInfo(info)
+  const setUser = (userData: { uuid?: string; nickname?: string; avatar?: string; isVip?: boolean; phone?: string }) => userStore.setUser(userData)
+
+  const setAuthState = (
+    newToken: string,
+    newRefreshToken: string,
+    userData: UserInfoData | null,
+    options?: { loginDuration?: LoginDuration; skipStorage?: boolean }
+  ) => {
+    const currentTime = new Date().toISOString()
+
+    tokenStore.setToken(newToken, newRefreshToken)
+    userStore.user = userData
+
+    if (userData?.id) {
+      userStore.authInfo = userData
+    }
+
+    if (options?.skipStorage) {
+      return
+    }
+
+    tokenStore.setLoginExpiry(options?.loginDuration)
+
+    if (userData) {
+      const existingData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA) || {}
+      StorageManager.setItem(STORAGE_KEYS.USER_DATA, {
+        ...existingData,
+        ...userData,
+        thirdPartyAccounts: { accessToken: newToken, refreshToken: newRefreshToken || '' },
+        loginTime: currentTime,
+        lastActiveTime: currentTime,
+      })
+    }
+
+    logger.debug('[AuthStore] setAuthState: Auth state updated atomically')
+  }
+
+  const updateLastActiveTime = () => tokenStore.updateLastActiveTime()
+  const checkTokenExpiry = () => tokenStore.checkTokenExpiry(() => refreshTokens().catch(error => logger.error('Token refresh failed:', error)))
+  const checkPermission = (permission: string): boolean => permissionsStore.checkPermission(permission)
+  const checkFeatureAccess = (feature: string): boolean => permissionsStore.checkFeatureAccess(feature)
+  const updateBalance = (newBalance: number) => walletStore.updateBalance(newBalance)
+  const consumeBalance = (amount: number): boolean => walletStore.consumeBalance(amount)
+  const rechargeBalance = (amount: number) => walletStore.rechargeBalance(amount)
+
+  return {
+    token: computed(() => tokenStore.token),
+    refreshToken: computed(() => tokenStore.refreshToken),
+    user: computed(() => userStore.user),
+    authInfo: computed(() => userStore.authInfo),
+    fundInfo: computed(() => walletStore.fundInfo),
+    vipInfo: computed(() => vipStore.vipInfo),
+    isLoading,
+    loginTime: computed(() => tokenStore.loginTime),
+    lastActiveTime: computed(() => tokenStore.lastActiveTime),
+    isDemoMode: computed(() => userStore.isDemoMode),
+    isFetchingUserInfo: computed(() => userStore.isFetchingUserInfo),
+
+    isLoggedIn,
+    isVip,
+    userUuid,
+    nickname,
+    avatar,
+    userStatus,
+    inviteCode,
+    balance,
+    frozenAmount,
+    totalRecharge,
+    totalConsumption,
+    vipLevel,
+    isVipActive,
+    vipEndTime,
+    isInitialized,
+    isTokenExpired,
+    hasPermission,
+    hasRole,
+    canUseFeature,
+    initCompleted,
+
+    initAuth,
+    login,
+    register,
+    logout,
+    thirdPartyLogin,
+    refreshTokens,
+    refreshTokenAction,
+    fetchUserInfo,
+    updateUserInfo,
+    setAuthInfo,
+    setFundInfo,
+    setVipInfo,
+    setUser,
+    setAuthState,
+    updateLastActiveTime,
+    checkTokenExpiry,
+    checkPermission,
+    checkFeatureAccess,
+    updateBalance,
+    consumeBalance,
+    rechargeBalance,
+  }
+})
+
+export { useTokenStore } from './token'
+export { useUserStore } from './user'
+export { useWalletStore } from './wallet'
+export { useVipStore } from './vip'
+export { usePermissionsStore } from './permissions'
+export { useThirdPartyStore } from './thirdParty'
+export * from './types'

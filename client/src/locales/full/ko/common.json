@@ -1,0 +1,44 @@
+{
+  "commonText": {
+    "view": "보기",
+    "edit": "편집",
+    "delete": "삭제",
+    "cancel": "취소",
+    "confirm": "확인",
+    "save": "저장",
+    "search": "검색",
+    "reset": "초기화",
+    "add": "추가",
+    "remove": "제거",
+    "download": "다운로드",
+    "upload": "업로드",
+    "copy": "복생각",
+    "print": "인쇄",
+    "share": "공유",
+    "back": "백엔드로",
+    "next": "다음",
+    "previous": "이전",
+    "submit": "제출",
+    "close": "닫기",
+    "loading": "로딩 중...",
+    "noData": "데이마음 없음",
+    "noRecords": "기이것은 없음",
+    "success": "성공",
+    "failed": "실패",
+    "enabled": "활성화",
+    "disabled": "비활성화",
+    "status": {
+      "completed": "완료",
+      "pending": "대기 중",
+      "processing": "처리 중",
+      "failed": "실패",
+      "cancelled": "취소됨",
+      "refunded": "환불됨"
+    },
+    "fileTypes": {
+      "audio": "Audio",
+      "image": "Image",
+      "video": "Video"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "purchase": {
+    "title": "购买记录",
+    "myRecords": "我的购买记录",
+    "searchPlaceholder": "搜索智能体名称或订单号",
+    "agentName": "智能体名称",
+    "orderNo": "订单号",
+    "purchasePrice": "购买价格",
+    "discountUnit": "折",
+    "purchaseDuration": "购买时长",
+    "months": "个月",
+    "purchaseTime": "购买时间",
+    "expiryTime": "到期时间",
+    "orderStatus": "订单状态",
+    "settlementStatus": "结算状态",
+    "settled": "已结算",
+    "unsettled": "未结算"
+  }
+}

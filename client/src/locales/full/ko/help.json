@@ -1,0 +1,96 @@
+{
+  "help": {
+    "핵심 장점": "도움센마음",
+    "sub핵심 장점": "자주 묻는 질문의 답변을 찾고 도움을 받으세요",
+    "searchPlaceholder": "검색도움콘텐츠...",
+    "neuralQueryResolver": "신경망 쿼리 리졸버",
+    "typeAndEnter": "입력하고 Enter 키를 누르세요",
+    "loadError": "불러오기실패",
+    "wasThisHelpful": "이 답변이 도움이 되었나요?",
+    "yes": "이것은",
+    "no": "여부",
+    "empty": "없음관련닫기콘텐츠",
+    "needMoreHelp": "필요더 많은도움？",
+    "supportTip": "문제 해결을 못하셨다면 아래 방법으로 문의하세요",
+    "submitFeedback": "제출피드백",
+    "onlineService": "온라인고객 서비스",
+    "devRulesTitle": "개발규모모범",
+    "devRulesDesc": "보기프로젝트개발규모모범및최최상사례",
+    "viewDevRules": "보기규모모범",
+    "devRulesDialogTitle": "개발규모모범문서",
+    "feedbackSubmitted": "피드백완료제출",
+    "feedbackFailed": "제출실패",
+    "categories": {
+      "all": "모든",
+      "account": "계정",
+      "security": "보안",
+      "payment": "결제",
+      "usage": "생각사용",
+      "settings": "설정"
+    },
+    "searchTitle": "유무엇인가요가능돕다귀하의？",
+    "quickLinks": {
+      "accountSecurity": "계정보안",
+      "billing": "할당량 계산",
+      "guide": "신규근가이드"
+    },
+    "stats": {
+      "knowledgeNodes": "지식 노드",
+      "autoFixRate": "게동 수정률",
+      "coverage": "글로벌벌 실시간 지원"
+    },
+    "tags": {
+      "register": "가입",
+      "billing": "계산",
+      "security": "보안",
+      "prompt": "프롬프트"
+    },
+    "channels": {
+      "feedback": {
+        "핵심 장점": "피드백",
+        "desc": "버그 신고 또는 새 기능 제안",
+        "status": "빠른 응답",
+        "title": "의견피드백"
+      },
+      "liveUplink": {
+        "핵심 장점": "온라인 지원",
+        "desc": "인간 또는 AI 지원에 직접 연결",
+        "status": "온라인",
+        "title": "온라인고객 서비스"
+      },
+      "coreDocs": {
+        "핵심 장점": "개발 문서",
+        "desc": "기술 생각양 및 통합 가이드",
+        "status": "V4.2 안정판",
+        "title": "개발문서"
+      }
+    },
+    "sectionLabels": {
+      "knowledgeNodes": "지식 노드",
+      "uplinkChannels": "연락 채널"
+    },
+    "faqs": {
+      "register": {
+        "question": "스마트 AI 계정을 등이것은하려면 어떻게 해야 하나요?",
+        "answer": "전화번호, WeChat 또는 이메일로 등이것은할 수 있습니다. 신규 생각사용게는 등이것은 시 50,000스마트값을 받습니다."
+      },
+      "credits": {
+        "question": "스마트값이란 무엇인가요?",
+        "answer": "스마트값은 플랫폼의 가상화폐로 API 호출 비사용을 지불하는 데 생각사용됩니다. 1위안 = 100스마트값입니다."
+      },
+      "apiKeyLeak": {
+        "question": "API Key가 유출되면 어떻게 해야 하나요?",
+        "answer": "콘솔에서 즉시 삭제하고 재생성하며, 계정 생각사용 기이것은이 정상인지 확인하세요."
+      },
+      "quality": {
+        "question": "생성 콘텐츠의 품질을 어떻게 향상시킬 수 있나요?",
+        "answer": "더 구체적인 프롬프트를 제공하고 명석확한 역할 배경을 설정하면 효과를 크게 향상시킬 수 있습니다."
+      },
+      "beginner": "초보게",
+      "recharge": "충전",
+      "optimize": "최적화"
+    },
+    "title": "돕는중간마음",
+    "subtitle": "자주 묻는 질문의 답변을 찾고 도움을 받으세요"
+  }
+}

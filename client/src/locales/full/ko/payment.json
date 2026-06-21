@@ -1,0 +1,9 @@
+{
+  "Payment": {
+    "alreadyVip": "이미 VIP입니다",
+    "notLogged": "로그인하지 않음",
+    "incompleteProduct": "불완전한 상품 정보",
+    "selectPayMethod": "결제 방법을 선택하세요",
+    "notLoggedOrNoOpenId": "로그인하지 않았거나 openid 없음"
+  }
+}

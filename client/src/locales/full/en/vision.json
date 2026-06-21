@@ -1,0 +1,26 @@
+{
+  "visionAnalysis": {
+    "title": "Tongyi Qianwen - Vision Analysis",
+    "tag": "Vision Understanding",
+    "form": {
+      "upload": "Upload Image",
+      "selectImage": "Select Image",
+      "prompt": "Analysis Question",
+      "promptPlaceholder": "e.g., What's in this image? Please describe in detail..."
+    },
+    "buttons": {
+      "analyze": "Start Analysis"
+    },
+    "result": {
+      "title": "Analysis Result",
+      "reasoning": "Reasoning Process:",
+      "answer": "Answer:"
+    },
+    "messages": {
+      "uploadFailed": "Image upload Failed",
+      "uploadAndPromptRequired": "Please upload an image and enter a question",
+      "analyzeSuccess": "Analysis Complete",
+      "analyzeFailed": "Analysis Failed"
+    }
+  }
+}

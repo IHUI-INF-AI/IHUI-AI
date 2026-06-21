@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+
+  <head>
+
+    <!-- 防止某些缓存中的vendor chunk访问未定义的 __DEFINES__ -->
+
+    <!-- 必须在所有脚本之前定义，确保 Vite 构建时的 define 替换正常工作 -->
+
+    <script>
+
+      // 立即定义 __DEFINES__，防止vendor chunk访问未定义变量
+
+      (function() {
+
+        'use strict';
+
+        if (typeof window !== 'undefined') {
+
+          // 确保 __DEFINES__ 在所有脚本加载前就存在
+
+          if (!window.__DEFINES__) {
+
+            window.__DEFINES__ = {};
+
+          }
+
+          // 定义全局变量以满足部分vendor代码对全局标识符的直接访问
+
+          // eslint-disable-next-line no-var
+
+          var __DEFINES__ = window.__DEFINES__;
+
+          if (!window.__HMR_CONFIG_NAME__) {
+
+            window.__HMR_CONFIG_NAME__ = 'vite-hmr';
+
+          }
+
+          // eslint-disable-next-line no-var
+
+          var __HMR_CONFIG_NAME__ = window.__HMR_CONFIG_NAME__;
+
+          if (!window.__BASE__) {
+
+            window.__BASE__ = '/';
+
+          }
+
+          // eslint-disable-next-line no-var
+
+          var __BASE__ = window.__BASE__;
+
+          // 防止后续代码覆盖 __DEFINES__
+
+          Object.defineProperty(window, '__DEFINES__', {
+
+            value: window.__DEFINES__,
+
+            writable: true,
+
+            configurable: true
+
+          });
+
+        }
+
+      })();
+
+    </script>
+
+    <!-- 移除不必要的 APP.jpg 预加载链接，避免预加载警告-->
+
+    <script>
+
+      (function() {
+
+        'use strict';
+
+        // 在DOM加载后移除可能存在的 APP.jpg 预加载链接
+
+        if (document.readyState === 'loading') {
+
+          document.addEventListener('DOMContentLoaded', removeAppPreload);
+
+        } else {
+
+          removeAppPreload();
+
+        }
+
+        function removeAppPreload() {
+
+          const preloadLinks = document.querySelectorAll('link[rel="preload"][href*="APP.jpg"]');
+
+          preloadLinks.forEach(link => {
+
+            // 只移除预加载链接，保留favicon链接
+
+            if (link.getAttribute('as') === 'image' && link.href.includes('APP.jpg')) {
+
+              link.remove();
+
+            }
+
+          });
+
+        }
+
+      })();
+
+    </script>
+
+    <!-- 必须在最前面设置错误处理，在任何其他脚本之前 -->
+
+    <script>
+
+      // 立即执行函数，在页面加载前拦截所有错误
+
+      (function() {
+
+        'use strict';
+
+        var EXTENSION_ERRORS = ['Unchecked runtime.lastError', 'can not use with devtools', 'runtime.lastError'];
+
+        var originalError = window.onerror;
+
+        window.onerror = function(msg, src, line, col, err) {
+
+          var msgStr = String(msg || '');
+
+          if (EXTENSION_ERRORS.some(function(p) { return msgStr.indexOf(p) !== -1; })) {
+
+            return true;
+
+          }
+
+          if (originalError) return originalError.apply(this, arguments);
+
+          return false;
+
+        };
+
+        if (console && console.error) {
+
+          var origConsoleError = console.error;
+
+          console.error = function() {
+
+            var msg = Array.prototype.slice.call(arguments).join(' ');
+
+            if (!EXTENSION_ERRORS.some(function(p) { return msg.indexOf(p) !== -1; })) {
+
+              origConsoleError.apply(console, arguments);
+
+            }
+
+          };
+
+        }
+
+      })();
+
+    </script>
+
+    <meta charset="UTF-8" />
+
+    <!-- 网站图标 - 统一使用站点内资源-->
+
+    <!-- 注意：避免使用preload，favicon由浏览器自动处理，预加载可能导致警告 -->
+
+    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" />
+
+    <link rel="shortcut icon" type="image/jpeg" href="/images/APP.jpg" />
+
+    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" sizes="32x32" />
+
+    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" sizes="16x16" />
+
+    <!-- Apple设备图标 -->
+
+    <link rel="apple-touch-icon" href="/images/APP.jpg" />
+
+    <!-- Android设备图标 -->
+
+    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" sizes="192x192" />
+
+    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" sizes="512x512" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta name="description" content="智汇AI社区 (iHui AI) - 专业的AI工具集成平台，提供AI对话、图像生成、视频制作等多种AI服务" />
+
+    <meta name="keywords" content="AI工具,人工智能,AI对话,图像生成,视频制作,智汇AI社区,iHui AI" />
+
+    <meta name="author" content="智汇AI社区" />
+    <meta name="robots" content="index, follow" />
+
+    <meta name="theme-color" content="#ffffff" />
+
+
+
+    <!-- 主题预加载脚本 - 在页面渲染前应用主题，避免闪烁 -->
+
+    <script>
+
+      (function() {
+
+        'use strict';
+
+        try {
+
+          var root = document.documentElement;
+
+          var THEME_KEY = 'darkMode';
+
+          var saved = null;
+
+          
+
+          try {
+
+            saved = localStorage.getItem(THEME_KEY);
+
+          } catch (e) {
+
+            // localStorage 不可用时静默失败
+
+          }
+
+          
+
+          var themeClass = '';
+
+          var isDark = false;
+
+          
+
+          if (saved === 'dark') {
+
+            themeClass = 'dark';
+
+            isDark = true;
+
+          } else if (saved === 'light') {
+
+            themeClass = '';
+
+            isDark = false;
+
+          } else if (saved === 'auto' || saved === null) {
+
+            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            themeClass = isDark ? 'dark' : '';
+
+          } else if (saved === 'high-contrast-light') {
+
+            themeClass = 'high-contrast-light';
+
+            isDark = false;
+
+          } else if (saved === 'high-contrast-dark') {
+
+            themeClass = 'dark high-contrast-dark';
+
+            isDark = true;
+
+          } else if (saved === 'true') {
+
+            themeClass = 'dark';
+
+            isDark = true;
+
+          } else if (saved === 'false') {
+
+            themeClass = '';
+
+            isDark = false;
+
+          }
+
+          
+
+          // 应用主题类
+
+          if (themeClass) {
+
+            var classes = themeClass.split(' ');
+
+            classes.forEach(function(cls) {
+
+              if (cls) root.classList.add(cls);
+
+            });
+
+          }
+
+          
+
+          // 预设 CSS 变量，避免闪烁
+
+          var bgColor = isDark ? '#000000' : '#ffffff';
+
+          var textColor = isDark ? '#ffffff' : '#303133';
+
+          var style = document.createElement('style');
+
+          style.id = 'theme-preload-variables';
+
+          style.textContent = ':root{--el-bg-color:' + bgColor + ';--el-bg-color-page:' + bgColor + ';--el-bg-color-overlay:' + bgColor + ';--el-text-color-primary:' + textColor + ';}';
+
+          document.head.appendChild(style);
+
+          
+
+          // 更新 theme-color meta 标签
+
+          var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+
+          if (themeColorMeta) {
+
+            themeColorMeta.setAttribute('content', isDark ? '#000000' : '#ffffff');
+
+          }
+
+        } catch (e) {
+
+          // 静默处理错误
+
+        }
+
+      })();
+
+    </script>
+
+    <!-- P14.2 admin 主题预加载:在 Vue 启动前根据 localStorage 应用 admin-dark 类与 data-theme -->
+    <script>
+
+      (function() {
+
+        'use strict';
+
+        try {
+
+          var adminRoot = document.documentElement;
+
+          var adminTheme = null;
+
+          try { adminTheme = localStorage.getItem('admin-theme-mode'); } catch (e) { adminTheme = null; }
+
+          if (adminTheme === 'dark') {
+
+            adminRoot.classList.add('admin-dark');
+
+            adminRoot.setAttribute('data-theme', 'dark');
+
+          } else {
+
+            adminRoot.setAttribute('data-theme', 'light');
+
+          }
+
+        } catch (e) { /* 静默 */ }
+
+      })();
+
+    </script>
+
+
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="智汇AI社区" />
+    <meta property="og:title" content="智汇AI社区 - 专业AI工具平台" />
+    <meta property="og:description" content="专业的AI工具集成平台，提供AI对话、图像生成、视频制作等多种AI服务" />
+    <meta property="og:url" content="https://www.zhihui-ai.com/" />
+    <meta property="og:image" content="https://www.zhihui-ai.com/images/APP.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="zh_CN" />
+    <link rel="canonical" href="https://www.zhihui-ai.com/" />
+
+
+
+    <!-- Twitter Card -->
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@zhihui_ai" />
+    <meta name="twitter:creator" content="@zhihui_ai" />
+
+    <meta name="twitter:title" content="智汇AI社区 - 专业AI工具平台" />
+
+    <meta name="twitter:description" content="专业的AI工具集成平台，提供AI对话、图像生成、视频制作等多种AI服务" />
+
+    <meta name="twitter:image" content="https://www.zhihui-ai.com/images/APP.jpg" />
+
+
+
+    <!-- 安全配置 -->
+
+    <!-- CSP: 生产环境通过 nginx 响应头设置更严格的 CSP，此 meta 标签作为后备 -->
+
+    <!-- 生产环境构建时会通过 Vite 插件自动移除 localhost 和 127.0.0.1 引用 -->
+
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://fonts.googleapis.com https://fonts.gstatic.com https://pv.sohu.com https://imgcache.qq.com https://res.wx.qq.com https://open.weixin.qq.com http://res.wx.qq.com http://open.weixin.qq.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https: blob: https://images.unsplash.com https://images.weserv.nl https://wsrv.nl; media-src 'self' blob: data: https:; font-src 'self' data: https:; connect-src 'self' ws: wss: https: https://api.aizhihui.com https://bsm.aizhs.top https://zca.aizhs.top https://res.wx.qq.com https://open.weixin.qq.com http://res.wx.qq.com http://open.weixin.qq.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://fonts.googleapis.com https://fonts.gstatic.com; frame-src 'self' https://bsm.aizhs.top https://res.wx.qq.com https://open.weixin.qq.com http://res.wx.qq.com http://open.weixin.qq.com; worker-src 'self' blob: https://cdnjs.cloudflare.com https://unpkg.com; child-src 'self' blob:">
+
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+
+    <!-- X-Frame-Options 应该在服务器响应头中设置，不是通过meta标签 -->
+
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+
+
+    <!-- 移动端优化-->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="智汇AI社区" />
+
+    <!-- PWA Manifest + Theme Color -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#1a73e8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- P6-4 PWA：Service Worker 注册（仅生产环境） -->
+    <script>
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function (e) { console.warn('[sw] register failed', e) })
+        })
+      }
+    </script>
+
+
+
+    <!-- 预连接优化-->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+
+
+    <!-- Schema.org 结构化数据-->
+
+    <script type="application/ld+json">
+
+    {
+
+      "@context": "https://schema.org",
+
+      "@type": "SoftwareApplication",
+
+      "name": "智汇AI社区",
+
+      "applicationCategory": "AI开发平台",
+
+      "description": "零代码发布AI智能体的微信生态枢纽",
+
+      "offers": {
+
+        "@type": "Offer",
+
+        "priceCurrency": "CNY",
+
+        "price": "0",
+
+        "availability": "InStock"
+
+      },
+
+      "sameAs": ["https://www.aizhs.top"]
+
+    }
+
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "智汇AI社区",
+      "url": "https://www.zhihui-ai.com/",
+      "description": "专业的AI工具集成平台，提供AI对话、图像生成、视频制作等多种AI服务",
+      "inLanguage": "zh-CN"
+    }
+    </script>
+
+
+
+    <!-- 字体预加载?- 确保字体优先加载（注释掉可能导致连接错误的硬编码路径）?-->
+
+
+
+    <!-- 字体样式（注释掉可能导致连接错误的硬编码路径，由应用动态加载） -->
+
+    <!-- <link rel="stylesheet" href="/fonts/font-styles.css"> -->
+
+
+
+    <!-- React Grab 调试工具已移除：原内联模块会在 dev 环境请求 https://www.react-grab.com/api/version，
+
+         当外网不可达或被 CSP 拦截时会输出 ERR_SSL_PROTOCOL_ERROR 噪音。如需启用，使用 vite.config.ts 中
+
+         dev-only transformIndexHtml 钩子按需注入，并自行处理 import 失败。 -->
+
+
+
+    <title>智汇AI社区 - 专业AI工具平台</title>
+
+
+
+
+
+    <!-- 在页面加载前设置全局错误处理，彻底解决浏览器扩展错误 -->
+
+    <script>
+
+      (function() {
+
+        'use strict';
+
+
+
+        // 定义需要过滤的错误关键词?
+
+        const EXTENSION_ERROR_PATTERNS = [
+
+          'Unchecked runtime.lastError',
+
+          'can not use with devtools',
+
+          'runtime.lastError',
+
+          'Extension context invalidated',
+
+          'Could not establish connection',
+
+          'Receiving end does not exist',
+
+          'disconnected port object',
+
+          'Attempting to use a disconnected port',
+
+          'Failed to connect to MetaMask',
+
+          'MetaMask',
+
+          'chrome-extension://',
+
+          'moz-extension://',
+
+          'safari-extension://',
+
+          'extension://',
+
+          'contentscript.js',
+
+          'contentScript.js',
+
+          'inpage.js',
+
+          'Cannot destructure property',
+
+          'rate',
+
+          'waitForSuccessfulPing',
+
+          'ERR_CONNECTION_REFUSED',
+
+          'localhost:6666',
+
+          'net::ERR_CONNECTION_REFUSED',
+
+          'apiMonitor.ts' // 已删除的文件，忽?404 错误
+
+        ];
+
+
+
+        // 检查错误消息是否来自浏览器扩展
+
+        function isExtensionError(message, source, error) {
+
+          if (!message) return false;
+
+
+
+          const messageStr = String(message || '');
+
+          const sourceStr = String(source || '');
+
+          const errorMessage = error && error.message ? String(error.message) : '';
+
+          const errorStack = error && error.stack ? String(error.stack) : '';
+
+
+
+          const combinedText = messageStr + ' ' + sourceStr + ' ' + errorMessage + ' ' + errorStack;
+
+
+
+          // 检查是否是 localhost:6666 连接错误（通常是浏览器扩展或开发工具）
+
+          if (messageStr.includes('localhost:6666') ||
+
+              sourceStr.includes('localhost:6666') ||
+
+              errorMessage.includes('localhost:6666') ||
+
+              errorStack.includes('localhost:6666')) {
+
+            return true;
+
+          }
+
+
+
+          // 检查是否是 contentScript.js 相关的错误?
+
+          if (sourceStr.includes('contentScript.js') ||
+
+              errorStack.includes('contentScript.js') ||
+
+              (messageStr.includes('Cannot destructure property') &&
+
+               (sourceStr.includes('contentScript') || errorStack.includes('contentScript')))) {
+
+            return true;
+
+          }
+
+
+
+          return EXTENSION_ERROR_PATTERNS.some(pattern => {
+
+            return messageStr.includes(pattern) ||
+
+                   sourceStr.includes(pattern) ||
+
+                   errorMessage.includes(pattern) ||
+
+                   errorStack.includes(pattern) ||
+
+                   combinedText.includes(pattern);
+
+          });
+
+        }
+
+
+
+        // 拦截 console.error，防止扩展错误输出到控制台?
+
+        if (typeof console !== 'undefined' && console.error) {
+
+          const originalConsoleError = console.error.bind(console);
+
+          console.error = function(...args) {
+
+            const message = args.map(arg => {
+
+              try {
+
+                if (typeof arg === 'string') return arg;
+
+                if (arg instanceof Error) return arg.message + ' ' + (arg.stack || '');
+
+                if (arg && typeof arg === 'object') {
+
+                  const objMsg = arg.message || arg.stack || JSON.stringify(arg);
+
+                  return String(objMsg);
+
+                }
+
+                return String(arg);
+
+              } catch {
+
+                return String(arg);
+
+              }
+
+            }).join(' ');
+
+
+
+            // 如果是扩展错误，完全静默
+
+            if (EXTENSION_ERROR_PATTERNS.some(pattern => message.includes(pattern))) {
+
+              return;
+
+            }
+
+
+
+            // 其他错误正常输出
+
+            originalConsoleError.apply(console, args);
+
+          };
+
+        }
+
+
+
+        // 拦截 console.warn，防止扩展警告输出到控制台?
+
+        if (typeof console !== 'undefined' && console.warn) {
+
+          const originalConsoleWarn = console.warn.bind(console);
+
+          console.warn = function(...args) {
+
+            const message = args.map(arg => {
+
+              try {
+
+                if (typeof arg === 'string') return arg;
+
+                if (arg instanceof Error) return arg.message + ' ' + (arg.stack || '');
+
+                if (arg && typeof arg === 'object') {
+
+                  const objMsg = arg.message || arg.stack || JSON.stringify(arg);
+
+                  return String(objMsg);
+
+                }
+
+                return String(arg);
+
+              } catch {
+
+                return String(arg);
+
+              }
+
+            }).join(' ');
+
+
+
+            // 如果是扩展错误，完全静默
+
+            if (EXTENSION_ERROR_PATTERNS.some(pattern => message.includes(pattern))) {
+
+              return;
+
+            }
+
+
+
+            // 其他警告正常输出
+
+            originalConsoleWarn.apply(console, args);
+
+          };
+
+        }
+
+
+
+        // 设置全局错误处理（在页面加载前）
+
+        const originalOnError = window.onerror;
+
+        window.onerror = function(message, source, lineno, colno, error) {
+
+          // 检查是否是浏览器扩展错误?
+
+          if (isExtensionError(message, source, error)) {
+
+            // 完全阻止错误传播，不输出到控制台
+
+            return true;
+
+          }
+
+
+
+          // 其他错误调用原始处理器?
+
+          if (originalOnError) {
+
+            return originalOnError.call(this, message, source, lineno, colno, error);
+
+          }
+
+
+
+          return false;
+
+        };
+
+
+
+        // 设置错误事件监听器（捕获阶段）?
+
+        window.addEventListener('error', function(event) {
+
+          if (isExtensionError(event.message, event.filename, event.error)) {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+            event.stopImmediatePropagation();
+
+            return false;
+
+          }
+
+        }, true); // 使用捕获阶段，确保最早捕获?
+
+
+
+        // 设置未处理的 Promise 拒绝监听器?
+
+        window.addEventListener('unhandledrejection', function(event) {
+
+          const reason = event.reason;
+
+          const reasonString = reason ? String(reason) : '';
+
+          const reasonMessage = reason && reason.message ? String(reason.message) : '';
+
+          const reasonStack = reason && reason.stack ? String(reason.stack) : '';
+
+
+
+          const combinedText = reasonString + ' ' + reasonMessage + ' ' + reasonStack;
+
+
+
+          // 检查是否是 localhost:6666 连接错误
+
+          if (reasonString.includes('localhost:6666') ||
+
+              reasonMessage.includes('localhost:6666') ||
+
+              reasonStack.includes('localhost:6666')) {
+
+            event.preventDefault();
+
+            return false;
+
+          }
+
+
+
+          // 检查是否是 contentScript.js 相关的错误?
+
+          if (reasonMessage.includes('Cannot destructure property') &&
+
+              (reasonStack.includes('contentScript') || reasonString.includes('contentScript'))) {
+
+            event.preventDefault();
+
+            return false;
+
+          }
+
+
+
+          // 检查是否是浏览器扩展错误?
+
+          if (EXTENSION_ERROR_PATTERNS.some(pattern => {
+
+            return reasonString.includes(pattern) ||
+
+                   reasonMessage.includes(pattern) ||
+
+                   reasonStack.includes(pattern) ||
+
+                   combinedText.includes(pattern);
+
+          })) {
+
+            event.preventDefault();
+
+            return false;
+
+          }
+
+        }, true); // 使用捕获阶段
+
+
+
+        // 拦截所有可能的扩展 API 调用，防止错误发送?
+
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+
+          try {
+
+            // 包装 chrome.runtime 相关方法，添加错误处理?
+
+            const originalSendMessage = chrome.runtime.sendMessage;
+
+            if (originalSendMessage) {
+
+              chrome.runtime.sendMessage = function(...args) {
+
+                try {
+
+                  return originalSendMessage.apply(this, args);
+
+                } catch (error) {
+
+                  // 如果?devtools 相关错误，静默处理?
+
+                  if (error && error.message && error.message.includes('devtools')) {
+
+                    return;
+
+                  }
+
+                  throw error;
+
+                }
+
+              };
+
+            }
+
+          } catch (e) {
+
+            // 静默处理
+
+          }
+
+        }
+
+
+
+        // 同样处理 browser API（Firefox）?
+
+        if (typeof browser !== 'undefined' && browser.runtime) {
+
+          try {
+
+            const originalSendMessage = browser.runtime.sendMessage;
+
+            if (originalSendMessage) {
+
+              browser.runtime.sendMessage = function(...args) {
+
+                try {
+
+                  return originalSendMessage.apply(this, args);
+
+                } catch (error) {
+
+                  if (error && error.message && error.message.includes('devtools')) {
+
+                    return;
+
+                  }
+
+                  throw error;
+
+                }
+
+              };
+
+            }
+
+          } catch (e) {
+
+            // 静默处理
+
+          }
+
+        }
+
+
+
+        // 拦截所有?iframe 的错误?
+
+        // 使用 MutationObserver 监听新创建的 iframe
+
+        if (typeof MutationObserver !== 'undefined') {
+
+          const observer = new MutationObserver(function(mutations) {
+
+            mutations.forEach(function(mutation) {
+
+              mutation.addedNodes.forEach(function(node) {
+
+                if (node.nodeName === 'IFRAME' || (node.nodeName === 'DIV' && node.querySelector && node.querySelector('iframe'))) {
+
+                  var iframe = node.nodeName === 'IFRAME' ? node : node.querySelector('iframe');
+
+                  if (iframe) {
+
+                    // ?iframe 添加错误处理
+
+                    try {
+
+                      iframe.onerror = function() {
+
+                        return false; // 阻止错误传播
+
+                      };
+
+
+
+                      // 拦截 iframe 内部的?postMessage 错误
+
+                      if (iframe.contentWindow) {
+
+                        try {
+
+                          // 包装 postMessage 方法
+
+                          var originalPostMessage = iframe.contentWindow.postMessage;
+
+                          if (originalPostMessage) {
+
+                            iframe.contentWindow.postMessage = function(...args) {
+
+                              try {
+
+                                return originalPostMessage.apply(this, args);
+
+                              } catch (err) {
+
+                                // 静默处理 postMessage 错误（可能来自浏览器扩展的?
+
+                                return;
+
+                              }
+
+                            };
+
+                          }
+
+                        } catch (e) {
+
+                          // 静默处理
+
+                        }
+
+                      }
+
+                    } catch (e) {
+
+                      // 静默处理
+
+                    }
+
+                  }
+
+                }
+
+              });
+
+            });
+
+          });
+
+
+
+          // 开始观察?body 的变化?
+
+          if (document.body) {
+
+            observer.observe(document.body, {
+
+              childList: true,
+
+              subtree: true
+
+            });
+
+          } else {
+
+            // 如果 body 还没加载，等待?DOMContentLoaded
+
+            document.addEventListener('DOMContentLoaded', function() {
+
+              if (document.body) {
+
+                observer.observe(document.body, {
+
+                  childList: true,
+
+                  subtree: true
+
+                });
+
+              }
+
+            });
+
+          }
+
+        }
+
+
+
+        // 拦截所有?postMessage 调用，防止扩展错误?
+
+        var originalPostMessage = window.postMessage;
+
+        if (originalPostMessage) {
+
+          window.postMessage = function(...args) {
+
+            try {
+
+              return originalPostMessage.apply(this, args);
+
+            } catch (err) {
+
+              // 如果是扩展相关错误，静默处理
+
+              var errMsg = err && err.message ? String(err.message) : String(err);
+
+              if (EXTENSION_ERROR_PATTERNS.some(pattern => errMsg.includes(pattern))) {
+
+                return;
+
+              }
+
+              throw err;
+
+            }
+
+          };
+
+        }
+
+
+
+        // 拦截所有?addEventListener('message') 调用，防止扩展错误?
+
+        // 注意：暂时完全移除覆盖，避免影响其他功能
+
+        // 如果需要拦截?message 事件，可以在具体?message 监听器中添加错误处理
+
+
+
+        // 拦截网络请求错误（针对?localhost:6666 等扩展连接和已删除的文件）?
+
+        if (typeof window !== 'undefined' && window.fetch) {
+
+          const originalFetch = window.fetch;
+
+          window.fetch = function(...args) {
+
+            const url = args[0];
+
+            const urlStr = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+
+
+
+            // 如果?localhost:6666 的请求，静默失败
+
+            if (urlStr && urlStr.includes('localhost:6666')) {
+
+              return Promise.reject(new Error('Connection refused (filtered)')).catch(() => {
+
+                // 静默处理，不输出错误
+
+                return Promise.resolve(new Response(null, { status: 0 }));
+
+              });
+
+            }
+
+
+
+            // 如果是已删除）?apiMonitor.ts 文件，静默失败（避免 404 错误）?
+
+            if (urlStr && urlStr.includes('apiMonitor.ts')) {
+
+              return Promise.reject(new Error('File not found (filtered)')).catch(() => {
+
+                // 静默处理，不输出错误
+
+                return Promise.resolve(new Response(null, { status: 404 }));
+
+              });
+
+            }
+
+
+
+            return originalFetch.apply(this, args).catch(error => {
+
+              // 检查是否是 localhost:6666 连接错误
+
+              const errorStr = String(error);
+
+              if (errorStr.includes('localhost:6666') ||
+
+                  errorStr.includes('ERR_CONNECTION_REFUSED') && urlStr && urlStr.includes('localhost:6666')) {
+
+                // 静默处理，不抛出错误
+
+                return Promise.resolve(new Response(null, { status: 0 }));
+
+              }
+
+              // 检查是否是 apiMonitor.ts 404 错误
+
+              if (urlStr && urlStr.includes('apiMonitor.ts')) {
+
+                // 静默处理，不抛出错误
+
+                return Promise.resolve(new Response(null, { status: 404 }));
+
+              }
+
+              throw error;
+
+            });
+
+          };
+
+        }
+
+
+
+        // 拦截资源加载错误（针对已删除的文件）
+
+        window.addEventListener('error', function(event) {
+
+          // 检查是否是 apiMonitor.ts 404 错误
+
+          if (event.target && event.target.src && event.target.src.includes('apiMonitor.ts')) {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+            return false;
+
+          }
+
+          // 检查错误消息中是否包含 apiMonitor.ts
+
+          if (event.message && event.message.includes('apiMonitor.ts')) {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+            return false;
+
+          }
+
+        }, true);
+
+      })();
+
+    </script>
+
+  </head>
+
+  <body>
+
+    <div id="app"></div>
+
+    <!-- Vue应用脚本 -->
+
+    <script type="module" src="/src/main.ts"></script>
+
+  </body>
+
+</html>
+

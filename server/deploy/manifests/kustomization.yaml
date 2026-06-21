@@ -1,0 +1,23 @@
+# 智护数平台 - K8s 部署 kustomization
+# 用于 CI/CD 在没有 helm 时的兜底部署
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: zhs
+
+commonLabels:
+  app.kubernetes.io/name: zhs-platform
+  app.kubernetes.io/part-of: zhs-platform
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - configmap.yaml
+  - secret.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - pvc.yaml

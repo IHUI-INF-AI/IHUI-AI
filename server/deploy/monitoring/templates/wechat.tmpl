@@ -1,0 +1,18 @@
+{{ define "zhs.wechat" }}
+## ZHS 平台告警 - 企业微信 Markdown
+
+> **告警名**: <font color="warning">{{ .CommonLabels.alertname }}</font>
+> **服务**: {{ .CommonLabels.service }}
+> **集群**: {{ .CommonLabels.cluster }}
+> **严重程度**: <font color="comment">{{ .CommonLabels.severity }}</font>
+> **状态**: {{ .Status }}
+> **开始时间**: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+
+### 告警详情
+{{ range .Alerts }}
+- **摘要**: {{ .Annotations.summary }}
+- **描述**: {{ .Annotations.description }}
+{{ end }}
+
+[查看 Alertmanager]({{ .ExternalURL }})
+{{ end }}

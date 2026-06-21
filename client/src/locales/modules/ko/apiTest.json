@@ -1,0 +1,22 @@
+{
+  "apiTest": {
+    "핵심 장점": "API 테스트",
+    "allTestsPassed": "모든",
+    "testsPassed": "개 테스트 통과!",
+    "testsFailed": "개 테스트 실패",
+    "executionError": "테스트 실행 오류",
+    "testing": "테스트 중...",
+    "runTests": "테스트 실행",
+    "testLog": "테스트 로그",
+    "total": "총계",
+    "passed": "통과",
+    "failed": "실패",
+    "duration": "소요 시간",
+    "clearResults": "결과 지우기",
+    "category": "카테고리",
+    "testItem": "테스트 항목",
+    "status": "상태",
+    "errorInfo": "오류 정보",
+    "title": "AI인마음페이스테스트"
+  }
+}

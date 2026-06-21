@@ -1,0 +1,11 @@
+{
+  "ranking": {
+    "title": "排行榜",
+    "subtitle": "积分 · 学习 · 智能体",
+    "dayRank": "日榜",
+    "weekRank": "周榜",
+    "monthRank": "月榜",
+    "totalRank": "总榜",
+    "noData": "暂无排行数据"
+  }
+}

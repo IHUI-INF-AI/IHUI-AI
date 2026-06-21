@@ -1,0 +1,19 @@
+// 颜色工具?(Color Utilities)
+
+@use '../variables.scss' as *;
+
+.text-primary { color: $text-primary; }
+.text-secondary { color: $text-secondary; }
+.text-placeholder { color: $text-placeholder; }
+
+// 额外的文本颜色工具类（兼?Tailwind ?Element Plus?.text-regular { color: var(--el-text-color-regular); }
+.text-muted-foreground { color: var(--el-text-color-secondary); }
+.text-danger { color: var(--el-color-danger); }
+
+.bg-primary { background-color: $bg-primary; }
+.bg-secondary { background-color: $bg-secondary; }
+.bg-tertiary { background-color: $bg-tertiary; }
+.bg-hover { background-color: $bg-hover; }
+
+// 额外的背景颜色工具类（兼?Tailwind ?Element Plus?.bg-white, .bg-background { background-color: var(--el-bg-color); }
+.bg-muted { background-color: var(--el-fill-color-light); }

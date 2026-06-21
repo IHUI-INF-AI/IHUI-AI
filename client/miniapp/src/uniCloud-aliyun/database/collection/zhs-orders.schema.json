@@ -1,0 +1,90 @@
+{
+  "bsonType": "object",
+  "required": ["order_no", "user_id", "product_id", "total_amount", "status", "created_at"],
+  "permission": {
+    "read": true,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "存储文档 ID，系统自动生成"
+    },
+    "order_no": {
+      "bsonType": "string",
+      "description": "订单编号",
+      "title": "订单编号",
+      "trim": "both"
+    },
+    "user_id": {
+      "bsonType": "string",
+      "description": "用户ID",
+      "title": "用户ID",
+      "foreignKey": "zhs-users._id"
+    },
+    "product_id": {
+      "bsonType": "string",
+      "description": "商品ID",
+      "title": "商品ID",
+      "enum": ["vip_monthly", "vip_yearly"]
+    },
+    "product_name": {
+      "bsonType": "string",
+      "description": "商品名称",
+      "title": "商品名称"
+    },
+    "product_duration": {
+      "bsonType": "int",
+      "description": "商品有效期(天)",
+      "title": "有效期"
+    },
+    "total_amount": {
+      "bsonType": "number",
+      "description": "订单总金额",
+      "title": "金额"
+    },
+    "status": {
+      "bsonType": "string",
+      "description": "订单状态",
+      "title": "订单状态",
+      "enum": ["unpaid", "paid", "refunded", "cancelled"],
+      "enumDescription": {
+        "unpaid": "未支付",
+        "paid": "已支付",
+        "refunded": "已退款",
+        "cancelled": "已取消"
+      }
+    },
+    "pay_method": {
+      "bsonType": "string",
+      "description": "支付方式",
+      "title": "支付方式",
+      "enum": ["wxpay", "alipay"],
+      "enumDescription": {
+        "wxpay": "微信支付",
+        "alipay": "支付宝"
+      }
+    },
+    "transaction_id": {
+      "bsonType": "string",
+      "description": "支付平台交易ID",
+      "title": "交易ID"
+    },
+    "paid_at": {
+      "bsonType": "timestamp",
+      "description": "支付时间",
+      "title": "支付时间"
+    },
+    "created_at": {
+      "bsonType": "timestamp",
+      "description": "创建时间",
+      "title": "创建时间"
+    },
+    "updated_at": {
+      "bsonType": "timestamp",
+      "description": "更新时间",
+      "title": "更新时间"
+    }
+  }
+} 

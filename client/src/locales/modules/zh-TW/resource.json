@@ -1,0 +1,14 @@
+{
+  "resource": {
+    "searchPlaceholder": {
+      "category": "搜尋分類",
+      "list": "搜尋資源",
+      "tag": "搜尋標籤"
+    },
+    "label": {
+      "categoryName": "分類名稱",
+      "tagName": "標籤名稱",
+      "actions": "操作"
+    }
+  }
+}

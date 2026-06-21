@@ -1,0 +1,14 @@
+{
+  "adminAiworldSite": {
+    "preview": "预览"
+  },
+  "adminSettingCarousel": {
+    "preview": "预览"
+  },
+  "adminEditDialog": {
+    "saveAndContinue": "保存并继续编辑"
+  },
+  "adminBatchEditDialog": {
+    "selectedTip": "已选择 {count} 条数据，请勾选要修改的字段并填写新值"
+  }
+}

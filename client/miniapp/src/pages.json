@@ -1,0 +1,713 @@
+{
+  "pages": [
+    {
+      "path": "pages/login-app/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationBarBackgroundColor": "#fff",
+        "navigationBarTextStyle": "black",
+        "navigationStyle": "custom",
+        "app-plus": {
+          "titleNView": false
+        }
+      }
+    },
+    {
+      "path": "pages/table/aiIndex/ai_index",
+      "style": {
+        "navigationBarTitleText": "智汇社区",
+        "navigationStyle": "custom",
+        "mp-weixin": {
+          "usingComponents": {
+            "cell": "plugin://materialPlugin/cell"
+          }
+        },
+        "app-plus": {
+          "softinputMode": "adjustPan"
+        }
+      }
+    },
+    {
+      "path": "pages/table/tools/index",
+      "style": {
+        "navigationBarTitleText": "AI agent",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/table/tools/category-detail",
+      "style": {
+        "navigationBarTitleText": "分类详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+        "path": "pages/table/square/index",
+        "style": {
+          "navigationBarTitleText": "开发者详情",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+    },
+    {
+        "path": "pages/table/user/index",
+        "style": {
+          "navigationBarTitleText": "我的",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+    },
+    {
+      "path": "pages/table/share/index",
+      "style": {
+        "navigationBarTitleText": "分享星球",
+        "navigationStyle": "custom",
+        "backgroundColor": "#ffffff",
+        "backgroundColorTop": "#ffffff",
+        "backgroundColorBottom": "#ffffff",
+        "app-plus": {
+          "bounce": "none",
+          "softinputNavBar": "none",
+          "titleNView": false,
+          "background": "#ffffff"
+        }
+      }
+    }
+  ],
+  "subPackages": [{
+    "root": "pages/tools",
+    "pages": [
+      {
+        "path": "ai_index2",
+        "style": {
+          "navigationBarTitleText": "智汇社区",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "softinputMode": "adjustPan"
+          }
+        }
+      },
+      {
+        "path": "ai_index3",
+        "style": {
+          "navigationBarTitleText": "智汇社区",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "softinputMode": "adjustPan"
+          }
+        }
+      },
+      {
+        "path": "token_value",
+        "style": {
+          "navigationBarTitleText": "我的智汇值",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "ai_group/index",
+        "style": {
+          "navigationBarTitleText": "AI团队",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "ai_assistant",
+        "style": {
+          "navigationBarTitleText": "AI生成助手",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "softinputMode": "adjustPan"
+          }
+        }
+      },
+      {
+        "path": "ai_assistant_n8n",
+        "style": {
+          "navigationBarTitleText": "N8N助手",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "softinputMode": "adjustPan"
+          }
+        }
+      },
+      {
+        "path": "ranking-detail",
+        "style": {
+          "navigationBarTitleText": "详情页",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "aigc/index",
+        "style": {
+          "navigationBarTitleText": "灵感",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "aigc/publish",
+        "style": {
+          "navigationBarTitleText": "发布作品",
+          "navigationStyle": "custom"
+        }
+      }
+    ]
+  },
+  {
+    "root": "pages/income",
+    "pages": [
+      {
+        "path": "index",
+        "style": {
+          "navigationBarTitleText": "我的佣金",
+          "backgroundColor": "#121318",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "withdraw/index",
+        "style": {
+          "navigationBarTitleText": "提现明细",
+          "backgroundColor": "#121318",
+          "navigationStyle": "custom"
+        }
+      }
+    ]
+  },
+  {
+    "root": "pages/distribution_personnel_list",
+    "pages": [
+      {
+        "path": "index",
+        "style": {
+          "navigationBarTitleText": "我邀请的团队",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "detail",
+        "style": {
+          "navigationBarTitleText": "我团队邀请的下级成员",
+          "navigationStyle": "custom"
+        }
+      }
+    ]
+  },
+  {
+    "root": "pages/distribution_order_list",
+    "pages": [
+      {
+        "path": "index",
+        "style": {
+          "navigationBarTitleText": "分销订单列表",
+          "navigationStyle": "custom"
+        }
+      }
+    ]
+  },
+  {
+    "root": "pages/user_order_list",
+    "pages": [
+      {
+        "path": "index",
+        "style": {
+          "navigationBarTitleText": "订单列表",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      }
+    ]
+  },
+  {
+    "root": "pagesA",
+    "pages": [
+      {
+        "path": "vip_info/index",
+        "style": {
+          "navigationBarTitleText": "会员",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "distribution/index",
+        "style": {
+          "navigationBarTitleText": "我的公司",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "plaza/developer",
+        "style": {
+          "navigationBarTitleText": "开发者详情",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "fankui/index",
+        "style": {
+          "navigationBarTitleText": "反 馈",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "earn_commission/index",
+        "style": {
+          "navigationBarTitleText": "分佣计划",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black"
+        }
+      },
+      {
+        "path": "business-card/index",
+        "style": {
+          "navigationBarTitleText": "个人名片",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "recruitment/index",
+        "style": {
+          "navigationBarTitleText": "操盘手计划"
+        }
+      },
+      {
+        "path": "topup-success/index",
+        "style": {
+          "navigationBarTitleText": "充值成功"
+        }
+      },
+      {
+        "path": "topup-fail/index",
+        "style": {
+          "navigationBarTitleText": "充值失败"
+        }
+      },
+      {
+        "path": "withdrawal/index",
+        "style": {
+          "navigationBarTitleText": "提现",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "webview/index"
+      },{
+        "path": "vip/details",
+        "style": {
+          "navigationStyle": "custom",
+          "navigationBarTitleText": "会员详情"
+        }
+      },
+      {
+        "path": "vip/index",
+        "style": {
+          "navigationBarTitleText": "VIP会员",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black"
+        }
+      },
+      {
+        "path": "vip/trader",
+        "style": {
+          "navigationBarTitleText": "成为操盘手",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black"
+        }
+      },{
+        "path": "top-up/index",
+        "style": {
+          "navigationBarTitleText": "充值",
+          "navigationStyle": "custom"
+        }
+      },{
+        "path": "agreement/user-agreement",
+        "style": {
+          "navigationBarTitleText": "用户服务协议",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black"
+        }
+      },
+      {
+        "path": "agreement/privacy-policy",
+        "style": {
+          "navigationBarTitleText": "隐私政策",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black"
+        }
+      },
+      {
+        "path": "plaza/index",
+        "style": {
+          "navigationBarTitleText": "",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "dev_enter/index",
+        "style": {
+          "navigationBarTitleText": "我的智能体",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "dev_enter/nbn_model",
+        "style": {
+          "navigationBarTitleText": "n8n智能体",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "dev_enter/model_income",
+        "style": {
+          "navigationBarTitleText": "智能体收入",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "my_ai_model/index",
+        "style": {
+          "navigationBarTitleText": "我的AI模型",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "ai_career/index",
+        "style": {
+          "navigationBarTitleText": "AI生涯指导",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "message/index",
+        "style": {
+          "navigationBarTitleText": "消息",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "assistant/index",
+        "style": {
+          "navigationBarTitleText": "AI助手",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "softinputMode": "adjustPan"
+          }
+        }
+      },
+      {
+        "path": "settings/index",
+        "style": {
+          "navigationBarTitleText": "设置",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/edit-profile",
+        "style": {
+          "navigationBarTitleText": "编辑资料",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "settings/account",
+        "style": {
+          "navigationBarTitleText": "账号管理",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/about",
+        "style": {
+          "navigationBarTitleText": "关于我们",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/account-cancel",
+        "style": {
+          "navigationBarTitleText": "账号注销/注销说明",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/change-phone",
+        "style": {
+          "navigationBarTitleText": "更换手机号",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/privacy",
+        "style": {
+          "navigationBarTitleText": "隐私与权限",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/business-license",
+        "style": {
+          "navigationBarTitleText": "营业执照",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/icp-record",
+        "style": {
+          "navigationBarTitleText": "ICP备案",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/model-record",
+        "style": {
+          "navigationBarTitleText": "模型备案",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/usage-rules",
+        "style": {
+          "navigationBarTitleText": "使用规范",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "settings/app-permission",
+        "style": {
+          "navigationBarTitleText": "应用权限",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "disableScroll": true
+        }
+      },
+      {
+        "path": "studyindex/index",
+        "style": {
+          "navigationBarTitleText": "AI视频",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "study/video_detail",
+        "style": {
+          "navigationBarTitleText": "Cousor智能流的搭建",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "study/publish",
+        "style": {
+          "navigationBarTitleText": "发布",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "softinputMode": "adjustPan"
+          }
+        }
+      },
+      {
+        "path": "commission-plan/index",
+        "style": {
+          "navigationBarTitleText": "分佣计划",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "withdraw-records/index",
+        "style": {
+          "navigationBarTitleText": "提现记录",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "chat-history/index",
+        "style": {
+          "navigationBarTitleText": "聊天记录",
+          "navigationStyle": "custom"
+        }
+      },
+      {
+        "path": "statistics/index",
+        "style": {
+          "navigationBarTitleText": "数据统计",
+          "navigationStyle": "custom"
+        }
+      }
+    ]
+  },
+  {
+    "root": "pages/login-app-other",
+    "pages": [
+      {
+        "path": "register",
+        "style": {
+          "navigationBarTitleText": "注册",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "titleNView": false
+          }
+        }
+      },
+      {
+        "path": "changePwd",
+        "style": {
+          "navigationBarTitleText": "修改密码",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "titleNView": false
+          }
+        }
+      },
+      {
+        "path": "changePhone",
+        "style": {
+          "navigationBarTitleText": "更换手机号",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom",
+          "app-plus": {
+            "titleNView": false
+          }
+        }
+      }
+    ]
+  }
+],
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#4a82ff",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/table/tools/index",
+        "text": "AI应用商店",
+        "iconPath": "static/tabbar/tabbar_1.png",
+        "selectedIconPath": "static/tabbar/tabbar_1_act.png"
+      },
+      {
+        "pagePath": "pages/table/square/index",
+        "text": "广场",
+        "iconPath": "static/tabbar/tabbar_2.png",
+        "selectedIconPath": "static/tabbar/tabbar_2_act.png"
+      },
+      {
+        "pagePath": "pages/table/aiIndex/ai_index",
+        "text": "智汇AI",
+        "iconPath": "static/tabbar/tabbar_3.png",
+        "selectedIconPath": "static/tabbar/tabbar_3_act.png"
+      },
+      {
+        "pagePath": "pages/table/share/index",
+        "text": "动态",
+        "iconPath": "static/tabbar/tabbar_4.png",
+        "selectedIconPath": "static/tabbar/tabbar_4_act.png"
+      },
+      {
+        "pagePath": "pages/table/user/index",
+        "text": "我的",
+        "iconPath": "static/tabbar/tabbar_5.png",
+        "selectedIconPath": "static/tabbar/tabbar_5_act.png"
+      }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTitleText": "AI智汇社",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTextStyle": "black"
+  },
+  "condition": {
+    "current": 0,
+    "list": [
+      {
+        "name": "登录页",
+        "path": "pages/login-app/login"
+      },
+      {
+        "name": "智汇社区",
+        "path": "pages/table/aiIndex/ai_index"
+      },
+      {
+        "name": "首页",
+        "path": "pages/table/tools/index"
+      },
+      {
+        "name": "VIP会员",
+        "path": "pagesA/vip_info/index"
+      },
+      {
+        "name": "AI图片创作",
+        "path": "pages/tools/aigc/index"
+      }
+    ]
+  }
+}

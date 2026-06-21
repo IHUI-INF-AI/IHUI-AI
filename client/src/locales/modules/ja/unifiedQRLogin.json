@@ -1,0 +1,30 @@
+{
+  "unifiedQRLogin": {
+    "generatingQrCode": "QRコード生成中...",
+    "qrCodeExpired": "QRコード期限切れ",
+    "refreshQrCode": "QRコードを更新",
+    "scanToLogin": "{provider}でQRコードをスキャンしてログイン",
+    "scannedConfirm": "スキャン成功、携帯で確認してください",
+    "confirmingOnPhone": "携帯でログインを確認",
+    "loginFailed": "ログイン失敗",
+    "retry": "再試行",
+    "otherLoginMethods": "その他のログイン方法",
+    "noProvider": "{provider}なし？",
+    "useAccountPasswordLogin": "アカウントパスワードでログイン",
+    "qrCodeAlt": "{providerName}QRコード",
+    "scanned": "スキャン済み",
+    "scanning": "スキャン成功、携帯で確認",
+    "expireAfter": "後に期限切れ",
+    "qrCodeLoadFailed": "QRコードの読み込み失敗",
+    "qrCodeGenerated": "{provider}QRコード生成済み、スキャンしてください",
+    "autoRefreshing": "QRコード期限切れ、自動更新中 ({current}/{max})",
+    "manualRefresh": "QRコード期限切れ、手動で更新してください",
+    "wechat": "WeChat",
+    "alipay": "Alipay",
+    "logger": {
+      "generateWechatQrCodeFailed": "WeChatQRコード画像の生成失敗",
+      "generateProviderQrCodeFailed": "{provider}QRコードの生成失敗",
+      "checkProviderLoginStatusFailed": "{provider}ログインステータスの確認失敗"
+    }
+  }
+}

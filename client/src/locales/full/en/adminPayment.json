@@ -1,0 +1,16 @@
+{
+  "adminPaymentManagement": {
+    "actions": {
+      "Export": "Export"
+    },
+    "paymentList": {
+      "Status": "Status"
+    },
+    "Status": {
+      "pending": "Pending",
+      "completed": "Completed",
+      "Failed": "Failed",
+      "refunded": "Refunded"
+    }
+  }
+}

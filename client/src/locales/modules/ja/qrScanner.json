@@ -1,0 +1,9 @@
+{
+  "qrScanner": {
+    "title": "QRコードスキャナー",
+    "description": "モバイルQRコードスキャン機能",
+    "scanQrCode": "QRコードをスキャン",
+    "useCamera": "カメラでスキャン",
+    "orFromAlbum": "またはアルバムから選択"
+  }
+}

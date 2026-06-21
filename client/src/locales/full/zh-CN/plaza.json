@@ -1,0 +1,76 @@
+{
+  "plaza": {
+    "title": "AI需求广场",
+    "subtitle": "AI时代的需求对接枢纽，让每一个创意找到执行者",
+    "exit": "退出广场",
+    "anonymous": "匿名用户",
+    "publishNeed": "发布需求",
+    "publish": "发布",
+    "back": "返回",
+    "all": "全部",
+    "type1": "开发",
+    "type2": "咨询",
+    "type3": "培训",
+    "ongoing": "进行中",
+    "completed": "已完成",
+    "myNeeds": "我的需求",
+    "searchPlaceholder": "搜索需求...",
+    "noData": "当前暂无数据",
+    "publishFirst": "发布第一个需求",
+    "loading": "同步中...",
+    "createNew": "创建新需求",
+    "selectType": "请选择类型",
+    "selectCategory": "请选择分类",
+    "submitting": "提交中...",
+    "submit": "提交发布",
+    "types": {
+      "development": "技术开发",
+      "design": "创意设计",
+      "business": "商务合作"
+    },
+    "form": {
+      "title": "需求标题",
+      "titlePlaceholder": "请输入需求标题",
+      "description": "需求描述",
+      "descriptionPlaceholder": "请详细描述您的需求",
+      "budget": "预算",
+      "budgetPlaceholder": "请输入预算金额",
+      "deadline": "截止日期",
+      "category": "分类",
+      "submit": "发布",
+      "cancel": "取消"
+    },
+    "need": {
+      "publisher": "发布者",
+      "publishTime": "发布时间",
+      "budget": "预算",
+      "status": "状态",
+      "comments": "评论",
+      "likes": "点赞",
+      "viewDetails": "查看详情",
+      "comment": "评论",
+      "like": "点赞",
+      "share": "分享"
+    },
+    "aiNeedPlaza": "AI需求广场",
+    "needTitle": "需求标题",
+    "needType": "需求类型",
+    "needCategory": "需求分类",
+    "needDescription": "需求描述",
+    "aiChat": "AI对话",
+    "aiDrawing": "AI绘画",
+    "aiVideo": "AI视频",
+    "aiWriting": "AI写作",
+    "aiCoding": "AI编程"
+  },
+  "plazaCategoryTab": {
+    "all": "全部",
+    "setCustomCategory": "请设置自定义种类"
+  },
+  "plazaCardContent": {
+    "relatedImages": "相关图片："
+  },
+  "plazaPlazaHead": {
+    "plazaPublish": "发布广场"
+  }
+}

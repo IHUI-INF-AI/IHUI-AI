@@ -1,0 +1,10 @@
+{
+  "name": "@aizhs/shared-logic",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "peerDependencies": {
+    "vue": "^3.0.0"
+  }
+}

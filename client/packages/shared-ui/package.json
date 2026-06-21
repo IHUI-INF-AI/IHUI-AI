@@ -1,0 +1,16 @@
+{
+  "name": "@aizhs/shared-ui",
+  "version": "1.0.0",
+  "description": "共享 UI 组件 - 无 Element Plus 依赖的展示组件",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "echo 'Build shared-ui'"
+  },
+  "peerDependencies": {
+    "vue": "^3.0.0"
+  }
+}

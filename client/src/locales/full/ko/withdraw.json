@@ -1,0 +1,47 @@
+{
+  "withdrawRecords": {
+    "핵심 장점": "출금 기이것은",
+    "sub핵심 장점": "출금 기이것은 보기",
+    "filter": {
+      "status": "상태",
+      "all": "모든",
+      "pending": "검토 대기",
+      "approved": "승인됨",
+      "rejected": "거부됨",
+      "completed": "완료",
+      "search": "검색",
+      "reset": "재설정"
+    },
+    "table": {
+      "withdrawalNo": "출금 주의문 번호",
+      "amount": "출금 금액",
+      "method": "출금 방법",
+      "account": "출금 계정",
+      "status": "상태",
+      "createTime": "신청 시간",
+      "actions": "작업",
+      "viewDetail": "세부 정보 보기"
+    },
+    "methods": {
+      "wechat": "WeChat",
+      "alipay": "Alipay",
+      "bank": "은행 카드"
+    },
+    "status": {
+      "pending": "검토 대기",
+      "approved": "승인됨",
+      "rejected": "거부됨",
+      "completed": "완료",
+      "unknown": "알 수 없음"
+    },
+    "empty": {
+      "noRecords": "출금 기이것은이 없습니다"
+    },
+    "error": {
+      "loadFailed": "출금 기이것은 로드 실패",
+      "loadFailedRetry": "출금 기이것은 로드 실패, 나중에 다시 시도하세요"
+    },
+    "title": "출금현재명석세부",
+    "subtitle": "보기귀하의출금현재기이것은"
+  }
+}

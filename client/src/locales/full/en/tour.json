@@ -1,0 +1,30 @@
+{
+  "tourAnalytics": {},
+  "tourStep": {},
+  "tourFeedback": {
+    "commentLabel": "Comment Label",
+    "commentPlaceholder": "Comment Placeholder",
+    "pleaseRate": "Please Rate",
+    "rating": {
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5"
+    },
+    "ratingLabel": "Rating Label",
+    "skip": "Skip",
+    "submit": "Submit",
+    "tags": {
+      "clear": "Clear",
+      "confusing": "Confusing",
+      "easy": "Easy",
+      "fast": "Fast",
+      "helpful": "Helpful",
+      "long": "Long"
+    },
+    "tagsLabel": "Tags Label",
+    "thankYou": "Thank You",
+    "title": "Title"
+  }
+}

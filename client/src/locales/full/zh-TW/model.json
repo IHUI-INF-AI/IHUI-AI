@@ -1,0 +1,33 @@
+{
+  "model3dGen": {
+    "title": "騰訊混元3D生成",
+    "tag": "文生3D / 圖生3D",
+    "tabs": {
+      "text": "文生3D",
+      "image": "圖生3D"
+    },
+    "form": {
+      "prompt": "3D描述",
+      "promptPlaceholder": "描述您想要的3D模型...",
+      "format": "輸出格式",
+      "uploadImage": "上傳圖片"
+    },
+    "buttons": {
+      "generate": "生成"
+    },
+    "messages": {
+      "promptRequired": "請輸入3D描述",
+      "generateFailed": "生成失敗"
+    }
+  },
+  "modelConfig": {},
+  "model": {
+    "capabilities": {
+      "streaming": "流式傳输",
+      "streamingShort": "流式傳输Short",
+      "image": "圖片",
+      "audio": "音頻",
+      "video": "視頻"
+    }
+  }
+}

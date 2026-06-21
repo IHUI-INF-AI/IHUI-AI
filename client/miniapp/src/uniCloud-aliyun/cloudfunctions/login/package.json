@@ -1,0 +1,9 @@
+{
+  "name": "login",
+  "version": "1.0.0",
+  "description": "用户登录云函数",
+  "main": "index.js",
+  "dependencies": {},
+  "author": "",
+  "license": "ISC"
+} 

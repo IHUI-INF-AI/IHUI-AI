@@ -1,0 +1,78 @@
+{
+  "return": {
+    "dashboard_panel": {
+      "Health": "Health",
+      "Can decline1": "Can decline",
+      "Abnormal2": "Abnormal",
+      "Unknown3": "Unknown",
+      "Just4": "Just",
+      "Performance decline1": "Performance decline",
+      "Just Now4": "Just Now"
+    },
+    "devices_panel": {
+      "AlReady Authorized": "AlReady Authorized",
+      "Rejected1": "Rejected",
+      "Not Authorized2": "Not Authorized",
+      "AlReady Rejected1": "AlReady Rejected"
+    },
+    "open_claw_toolbar": {
+      "SystemCan decline": "SystemCan decline",
+      "System Abnormal1": "System Abnormal",
+      "System Normal Running2": "System Normal Running",
+      "SystemPerformance decline": "SystemPerformance decline"
+    },
+    "settings_panel": {
+      "Cannot Get": "Cannot Get"
+    },
+    "skills_panel": {
+      "Just": "Just",
+      "Just Now": "Just Now"
+    },
+    "Voice_panel": {
+      "Speaking...": "Speaking...",
+      "Listening...1": "Listening...",
+      "Chat Mode AlReady Enabled2": "Chat Mode AlReady Enabled",
+      "Voice Assistant Ready3": "Voice Assistant Ready",
+      "Voice Assistant Disabled4": "Voice Assistant Disabled",
+      "Speaking": "Speaking...",
+      "Listening1": "Listening..."
+    },
+    "home_page3": {
+      "UnknownTime": "UnknownTime",
+      "Today1": "Today",
+      "Yesterday2": "Yesterday",
+      "今天1": "Today",
+      "昨天2": "Yesterday",
+      "未知时间": "未知时间"
+    },
+    "universal_login": {
+      "Button Icon": "Button Icon",
+      "Toolbox Logo1": "Toolbox Logo",
+      "Brand Icon2": "Brand Icon",
+      "Zhipu Qingyan3": "Zhipu Qingyan",
+      "Brand 84": "Brand 8",
+      "品牌84": "品牌",
+      "品牌图标2": "品牌图标",
+      "扣子图标": "扣子图标",
+      "智谱清言3": "智谱清言",
+      "百宝箱logo1": "百宝箱logo"
+    },
+    "api_test_page": {
+      "Approved": "Approved ✅",
+      "Failed1": "Failed ❌",
+      "Skip ⏭️2": "Skip ⏭️",
+      "Wait3": "Wait ⏳",
+      "失败1": "Failed",
+      "等待3": "等待",
+      "跳过2": "跳过",
+      "通过": "Pass"
+    },
+    "home": {
+      "Button Icon": "Button Icon",
+      "Toolbox Logo1": "Toolbox Logo",
+      "Brand Icon2": "Brand Icon",
+      "Zhipu Qingyan3": "Zhipu Qingyan",
+      "Brand 84": "Brand 8"
+    }
+  }
+}

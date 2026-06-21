@@ -1,0 +1,55 @@
+{
+  "agenticDashboard": {
+    "핵심 장점": "Agentic AI 콘솔",
+    "sub핵심 장점": "및 Agentic Orchestrator 깊은도통합의스마트개발플랫폼",
+    "activeSwarms": "활성 Swarm",
+    "noActiveSwarms": "없음활성의 Swarm",
+    "status": {
+      "pending": "대기 중",
+      "running": "실행중간",
+      "completed": "완료",
+      "failed": "실패"
+    },
+    "coordination": "협업 호출",
+    "iteration": "반복",
+    "seoTitle": "Agentic AI 콘솔 - AI스마트생각",
+    "seoDescription": "Agentic AI 스마트개발플랫폼，및 Agentic Orchestrator 깊은도통합",
+    "seoKeywords": "Agentic AI, 스마트개발, AI 호출도, Swarm",
+    "title": "Agentic AI 제어",
+    "subtitle": "및 Agentic Orchestrator 깊은도통합의스마트개발플랫폼"
+  },
+  "agenticAI": {
+    "핵심 장점": "AgenticAI",
+    "sub핵심 장점": "에이전트협업플랫폼 - 생성및관리귀하의Agent Swarm",
+    "createSwarm": "생성Agent Swarm",
+    "taskDescription": "작업설명석",
+    "taskDescriptionPlaceholder": "요청입력작업설명석",
+    "coordinationMode": "협업 호출템플릿방식",
+    "coordinationHierarchical": "분할계층협업 호출",
+    "coordinationPeerToPeer": "여기통합여기",
+    "coordinationMarketBased": "시장면기계제어",
+    "maxIterations": "최대반복",
+    "autoOptimize": "게동최적화（인하여기이것은체험）",
+    "createAndExecute": "생성동시실행",
+    "mySwarm": "내Swarm",
+    "id": "ID",
+    "task": "작업",
+    "status": {
+      "completed": "completed",
+      "failed": "failed",
+      "pending": "pending",
+      "running": "running",
+      "핵심 장점": "상태",
+      "title": "상태"
+    },
+    "actions": "작업",
+    "view": "보기",
+    "selectSwarmHint": "요청선택목이것은개Swarm보기상세",
+    "enterTaskDescription": "요청입력작업설명석",
+    "swarmCreated": "Swarm생성성공",
+    "createSwarmFailed": "생성Swarm실패",
+    "loadSwarmListFailed": "불러오기Swarm목이것은실패",
+    "title": "AgenticAI",
+    "subtitle": "에이전트협업플랫폼 - 생성및관리귀하의Agent Swarm"
+  }
+}

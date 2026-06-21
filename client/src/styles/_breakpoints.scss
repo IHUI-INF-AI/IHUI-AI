@@ -1,0 +1,442 @@
+// ============================================
+// 断点系统 - 从设计令牌导入
+// ============================================
+// 
+// 本文件从 _design-tokens.scss 导入断点变量和混合宏
+// 并提供额外的设备专用混合宏
+// ============================================
+
+@use "sass:map";
+@use "sass:meta";
+@use "sass:math";
+
+// 从设计令牌系统导入所有断点变量和混合宏
+@forward './_design-tokens.scss' show
+  $breakpoint-xs,
+  $breakpoint-sm,
+  $breakpoint-md,
+  $breakpoint-lg,
+  $breakpoint-tablet,
+  $breakpoint-tablet-lg,
+  $breakpoint-laptop,
+  $breakpoint-desktop,
+  $breakpoint-xl,
+  $breakpoint-2xl,
+  $breakpoints,
+  $screen-xs,
+  $screen-sm,
+  $screen-md,
+  $screen-lg,
+  $screen-xl,
+  $screen-xxl,
+  min-width,
+  max-width,
+  mobile-only,
+  tablet-only,
+  tablet-up,
+  laptop-up,
+  desktop-up,
+  dark-mode,
+  reduced-motion,
+  get-breakpoint,
+  strip-unit;
+
+@use './_design-tokens.scss' as tokens;
+
+// ============================================
+// 额外的设备专用混合宏
+// ============================================
+
+// 手机设备 (<768px) - 别名
+@mixin phone-down {
+  @include tokens.mobile-only {
+    @content;
+  }
+}
+
+// 仅小手机 (<576px)
+@mixin small-mobile-only {
+  @media (max-width: #{tokens.$breakpoint-lg - 1px}) {
+    @content;
+  }
+}
+
+// 超小手机 (<375px)
+@mixin tiny-mobile-only {
+  @media (max-width: #{tokens.$breakpoint-sm - 1px}) {
+    @content;
+  }
+}
+
+// 平板及以下 (<1280px)
+@mixin tablet-down {
+  @media (max-width: #{tokens.$breakpoint-laptop - 1px}) {
+    @content;
+  }
+}
+
+// 仅大平板/小笔记本 (1024px - 1279px)
+@mixin tablet-lg-only {
+  @media (min-width: tokens.$breakpoint-tablet-lg) and (max-width: #{tokens.$breakpoint-laptop - 1px}) {
+    @content;
+  }
+}
+
+// 仅桌面 (1440px - 1919px)
+@mixin desktop-only {
+  @media (min-width: tokens.$breakpoint-desktop) and (max-width: #{tokens.$breakpoint-xl - 1px}) {
+    @content;
+  }
+}
+
+// 大屏及以上 (>=1920px)
+@mixin xl-up {
+  @media (min-width: tokens.$breakpoint-xl) {
+    @content;
+  }
+}
+
+// 超大屏 (>=2560px)
+@mixin xxl-up {
+  @media (min-width: tokens.$breakpoint-2xl) {
+    @content;
+  }
+}
+
+// ============================================
+// 特殊设备适配
+// ============================================
+
+// iPhone SE 专用 (320px)
+@mixin iphone-se {
+  @media (max-width: 320px) {
+    @content;
+  }
+}
+
+// iPhone 标准尺寸 (375px - 389px)
+@mixin iphone-standard {
+  @media (min-width: 375px) and (max-width: 389px) {
+    @content;
+  }
+}
+
+// iPhone Plus/Max 尺寸 (390px - 430px)
+@mixin iphone-plus {
+  @media (min-width: 390px) and (max-width: 430px) {
+    @content;
+  }
+}
+
+// iPad Mini/标准 (768px - 833px)
+@mixin ipad {
+  @media (min-width: 768px) and (max-width: 833px) {
+    @content;
+  }
+}
+
+// iPad Pro 11" (834px - 1023px)
+@mixin ipad-pro-11 {
+  @media (min-width: 834px) and (max-width: 1023px) {
+    @content;
+  }
+}
+
+// iPad Pro 12.9" (1024px - 1279px)
+@mixin ipad-pro-12 {
+  @media (min-width: 1024px) and (max-width: 1279px) {
+    @content;
+  }
+}
+
+// 折叠屏展开状态 (约 717px - 884px)
+@mixin foldable-open {
+  @media (min-width: 717px) and (max-width: 884px) {
+    @content;
+  }
+}
+
+// ============================================
+// 方向检测
+// ============================================
+
+// 竖屏
+@mixin portrait {
+  @media (orientation: portrait) {
+    @content;
+  }
+}
+
+// 横屏
+@mixin landscape {
+  @media (orientation: landscape) {
+    @content;
+  }
+}
+
+// 平板竖屏
+@mixin tablet-portrait {
+  @media (min-width: tokens.$breakpoint-tablet) and (max-width: #{tokens.$breakpoint-tablet-lg - 1px}) and (orientation: portrait) {
+    @content;
+  }
+}
+
+// 平板横屏
+@mixin tablet-landscape {
+  @media (min-width: tokens.$breakpoint-tablet) and (orientation: landscape) {
+    @content;
+  }
+}
+
+// ============================================
+// 高分辨率屏幕 (Retina)
+// ============================================
+
+@mixin retina {
+  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    @content;
+  }
+}
+
+@mixin retina-3x {
+  @media (-webkit-min-device-pixel-ratio: 3), (min-resolution: 350dpi) {
+    @content;
+  }
+}
+
+// ============================================
+// 触摸设备检测
+// ============================================
+
+@mixin touch-device {
+  @media (hover: none) and (pointer: coarse) {
+    @content;
+  }
+}
+
+@mixin non-touch-device {
+  @media (hover: hover) and (pointer: fine) {
+    @content;
+  }
+}
+
+// ============================================
+// 亮/暗色模式
+// ============================================
+
+@mixin light-mode {
+  @media (prefers-color-scheme: light) {
+    @content;
+  }
+}
+
+// ============================================
+// 安全区域 (刘海屏/圆角屏)
+// ============================================
+
+@mixin safe-area-inset($property, $value, $position) {
+  #{$property}: $value;
+  #{$property}: calc(#{$value} + env(safe-area-inset-#{$position}));
+}
+
+// 顶部安全区域
+@mixin safe-top($value: 0) {
+  padding-top: $value;
+  padding-top: calc(#{$value} + env(safe-area-inset-top));
+}
+
+// 底部安全区域
+@mixin safe-bottom($value: 0) {
+  padding-bottom: $value;
+  padding-bottom: calc(#{$value} + env(safe-area-inset-bottom));
+}
+
+// 左侧安全区域
+@mixin safe-left($value: 0) {
+  padding-left: $value;
+  padding-left: calc(#{$value} + env(safe-area-inset-left));
+}
+
+// 右侧安全区域
+@mixin safe-right($value: 0) {
+  padding-right: $value;
+  padding-right: calc(#{$value} + env(safe-area-inset-right));
+}
+
+// 全部安全区域
+@mixin safe-area($top: 0, $right: 0, $bottom: 0, $left: 0) {
+  padding-top: calc(#{$top} + env(safe-area-inset-top));
+  padding-right: calc(#{$right} + env(safe-area-inset-right));
+  padding-bottom: calc(#{$bottom} + env(safe-area-inset-bottom));
+  padding-left: calc(#{$left} + env(safe-area-inset-left));
+}
+
+// ============================================
+// 响应式容器宽度
+// ============================================
+
+@mixin container-responsive {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 16px;
+  padding-right: 16px;
+  
+  @include tokens.min-width('tablet') {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  
+  @include tokens.min-width('laptop') {
+    max-width: 1200px;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+  
+  @include tokens.min-width('desktop') {
+    max-width: 1400px;
+  }
+  
+  @include tokens.min-width('xl') {
+    max-width: 1600px;
+  }
+}
+
+// ============================================
+// 响应式字体大小
+// ============================================
+
+@mixin responsive-font($min-size, $max-size, $min-vw: 320px, $max-vw: 1920px) {
+  font-size: $min-size;
+  
+  @media (min-width: $min-vw) {
+    font-size: calc(#{$min-size} + #{tokens.strip-unit($max-size - $min-size)} * ((100vw - #{$min-vw}) / #{tokens.strip-unit($max-vw - $min-vw)}));
+  }
+  
+  @media (min-width: $max-vw) {
+    font-size: $max-size;
+  }
+}
+
+// 使用 clamp 的响应式字体
+@mixin fluid-font($min-size, $preferred-size, $max-size) {
+  font-size: clamp(#{$min-size}, #{$preferred-size}, #{$max-size});
+}
+
+// ============================================
+// 响应式间距
+// ============================================
+
+@mixin responsive-spacing($property, $mobile, $tablet: null, $desktop: null) {
+  #{$property}: $mobile;
+  
+  @if $tablet {
+    @include tokens.min-width('tablet') {
+      #{$property}: $tablet;
+    }
+  }
+  
+  @if $desktop {
+    @include tokens.min-width('laptop') {
+      #{$property}: $desktop;
+    }
+  }
+}
+
+// ============================================
+// 隐藏/显示工具混合宏
+// ============================================
+
+@mixin hide-on-mobile {
+  @include tokens.mobile-only {
+    display: none;
+  }
+}
+
+@mixin show-on-mobile {
+  display: none;
+  
+  @include tokens.mobile-only {
+    display: block;
+  }
+}
+
+@mixin hide-on-tablet {
+  @include tablet-only {
+    display: none;
+  }
+}
+
+@mixin show-on-tablet {
+  display: none;
+  
+  @include tablet-only {
+    display: block;
+  }
+}
+
+@mixin hide-on-desktop {
+  @include tokens.laptop-up {
+    display: none;
+  }
+}
+
+@mixin show-on-desktop {
+  display: none;
+  
+  @include tokens.laptop-up {
+    display: block;
+  }
+}
+
+// ============================================
+// 网格布局响应式
+// ============================================
+
+@mixin responsive-grid($mobile-cols: 1, $tablet-cols: 2, $desktop-cols: 3, $gap: 16px) {
+  display: grid;
+  gap: $gap;
+  grid-template-columns: repeat($mobile-cols, 1fr);
+  
+  @include tokens.min-width('tablet') {
+    grid-template-columns: repeat($tablet-cols, 1fr);
+  }
+  
+  @include tokens.min-width('laptop') {
+    grid-template-columns: repeat($desktop-cols, 1fr);
+  }
+}
+
+// ============================================
+// Flex 布局响应式
+// ============================================
+
+@mixin flex-responsive($direction-mobile: column, $direction-desktop: row) {
+  display: flex;
+  flex-direction: $direction-mobile;
+  
+  @include tokens.min-width('tablet') {
+    flex-direction: $direction-desktop;
+  }
+}
+
+// ============================================
+// 范围查询（特定范围）
+// ============================================
+
+@mixin between($min, $max) {
+  $min-val: $min;
+  $max-val: $max;
+  
+  @if map.has-key(tokens.$breakpoints, $min) {
+    $min-val: map.get(tokens.$breakpoints, $min);
+  }
+  
+  @if map.has-key(tokens.$breakpoints, $max) {
+    $max-val: map.get(tokens.$breakpoints, $max);
+  }
+  
+  @media (min-width: $min-val) and (max-width: $max-val - 1px) {
+    @content;
+  }
+}

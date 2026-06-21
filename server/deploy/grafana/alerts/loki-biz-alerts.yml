@@ -1,0 +1,203 @@
+# =====================================================================
+# ZHS Platform Loki 告警规则 (建议 119)
+# =====================================================================
+# 覆盖:
+#   - 业务 ERROR 日志同 tenant 1 分钟 > 50 条 → warning
+#   - 跨租户访问异常 (同一 request_id 命中多 tenant) → critical
+#   - 未授权租户访问尝试 → critical
+#   - 慢 SQL 日志 (含 trace_id) 同 tenant 1 分钟 > 20 条 → warning
+#   - 日志解析失败 (非 JSON) 比例突增 → warning (Loki 抓取配置异常)
+#
+# 部署位置: deploy/grafana/alerts/loki-biz-alerts.yml
+# 由 Loki ruler 加载, 与 Prometheus rules 并行
+#
+# Loki ruler 启用需在 loki-config.yml 加:
+#   ruler:
+#     storage:
+#       type: local
+#       local:
+#         directory: /etc/loki/rules
+#     rule_path: /etc/loki/rules-tmp
+#     alertmanager_url: http://alertmanager:9093
+#     enable_api: true
+# =====================================================================
+
+groups:
+  # -----------------------------------------------------------------
+  # Group 1: 业务 ERROR 日志频率
+  # -----------------------------------------------------------------
+  - name: zhs-biz-error-logs.rules
+    interval: 30s
+    rules:
+      # ---------- 业务 ERROR 日志同 tenant 1 分钟 > 50 条 ----------
+      - alert: ZHSBizErrorLogBurst
+        expr: |
+          sum by (tenant_id) (
+            rate({job="zhs-app-files"} |= "level=ERROR" or json_format=true | json | level="ERROR" [1m])
+          ) * 60 > 50
+        for: 1m
+        labels:
+          severity: warning
+          service: zhs-platform
+          category: log-burst
+        annotations:
+          summary: "tenant={{ $labels.tenant_id }} ERROR 日志 1 分钟 > 50 条"
+          description: "近 1 分钟该租户产生 {{ $value }} 条 ERROR 日志, 查 Grafana Explore / LogQL 定位根因."
+
+      # ---------- 单 endpoint 错误率突增 ----------
+      - alert: ZHSBizErrorLogByEndpoint
+        expr: |
+          sum by (endpoint, tenant_id) (
+            rate({job="zhs-app-files"} |= "level=ERROR" or json_format=true | json | level="ERROR" [5m])
+          ) * 300 > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+          category: log-burst
+        annotations:
+          summary: "endpoint={{ $labels.endpoint }} tenant={{ $labels.tenant_id }} 5 分钟 > 100 ERROR"
+          description: "近 5 分钟该 endpoint 产生 {{ $value }} 条 ERROR, 业务层异常激增."
+
+      # ---------- 异常堆栈类型聚合 ----------
+      - alert: ZHSBizExceptionBurst
+        expr: |
+          sum by (exception_type) (
+            rate({job="zhs-app-files"} |~ "exception_type=" [5m])
+          ) * 300 > 20
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+          category: log-burst
+        annotations:
+          summary: "异常类型 {{ $labels.exception_type }} 5 分钟 > 20 次"
+          description: "可能未捕获异常, 查 Loki 看具体堆栈."
+
+      # -----------------------------------------------------------------
+      # Group 2: 跨租户 / 安全告警
+      # -----------------------------------------------------------------
+  - name: zhs-biz-security-logs.rules
+    interval: 30s
+    rules:
+      # ---------- 跨租户访问异常 ----------
+      # 用 LogQL aggregation: 同一 request_id 出现不同 tenant_id
+      - alert: ZHSCrossTenantAccessLog
+        expr: |
+          (
+            sum by (request_id) (
+              count by (request_id, tenant_id) (
+                {job="zhs-app-files"} | json | request_id!="" | tenant_id!=""
+              )
+            )
+          ) > 1
+        for: 2m
+        labels:
+          severity: critical
+          service: zhs-platform
+          category: cross-tenant
+        annotations:
+          summary: "request_id={{ $labels.request_id }} 跨多 tenant"
+          description: "同一 request_id 出现 {{ $value }} 个 tenant_id, 极可能是隔离 bug 或攻击, 立即停服排查."
+
+      # ---------- 未授权租户访问尝试 ----------
+      - alert: ZHSUnauthorizedTenantAttempt
+        expr: |
+          sum(
+            rate({job="zhs-app-files"} |~ "TENANT_NOT_FOUND|TENANT_DISABLED|TENANT_INVALID" [1m])
+          ) * 60 > 10
+        for: 1m
+        labels:
+          severity: critical
+          service: zhs-platform
+          category: security
+        annotations:
+          summary: "近 1 分钟 {{ $value }} 次未授权租户访问"
+          description: "客户端在尝试访问非法 / 停用 / 无效 tenant, 可能配置错误或恶意探测."
+
+      # ---------- tenant 路由 400 错误突增 ----------
+      - alert: ZHSTenantRouting4xx
+        expr: |
+          sum(
+            rate({job="zhs-app-files"} |~ "TENANT_REQUIRED" [1m])
+          ) * 60 > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+          category: config
+        annotations:
+          summary: "近 5 分钟 {{ $value }} 次缺 X-Tenant-Id 头请求"
+          description: "客户端 SDK 可能没正确传租户头, 或 API 网关没注入."
+
+      # -----------------------------------------------------------------
+      # Group 3: 慢 SQL 日志关联 trace
+      # -----------------------------------------------------------------
+  - name: zhs-biz-slow-sql-logs.rules
+    interval: 30s
+    rules:
+      # ---------- 慢 SQL 日志 (含 trace_id) 同 tenant 1 分钟 > 20 条 ----------
+      - alert: ZHSSlowSQLLogBurst
+        expr: |
+          sum by (tenant_id) (
+            rate({job="zhs-app-files"} |~ "slow_sql|elapsed_ms=[0-9]{3,}" [1m])
+          ) * 60 > 20
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+          category: slow-sql
+        annotations:
+          summary: "tenant={{ $labels.tenant_id }} 慢 SQL 日志 1 分钟 > 20 条"
+          description: "近 5 分钟该租户累计 {{ $value }} 条慢 SQL 日志, 建议在 Grafana Trace 视图按 trace_id 串联."
+
+      # ---------- 同一 trace_id 多次慢 SQL (典型 N+1 查询) ----------
+      - alert: ZHSSQLNPlusOne
+        expr: |
+          sum by (trace_id) (
+            count_over_time({job="zhs-app-files"} |~ "slow_sql" | json | trace_id!="" [5m])
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+          category: slow-sql
+        annotations:
+          summary: "trace_id={{ $labels.trace_id }} 5 分钟内 {{ $value }} 次慢 SQL"
+          description: "典型 N+1 查询 / 循环查询, 查业务代码 join 优化."
+
+      # -----------------------------------------------------------------
+      # Group 4: Loki 抓取健康
+      # -----------------------------------------------------------------
+  - name: zhs-biz-log-pipeline.rules
+    interval: 60s
+    rules:
+      # ---------- 非 JSON 日志比例 (Loki 解析失败) ----------
+      # Promtail pipeline 解析失败的日志会带 __parse_error__="true" label
+      - alert: ZHSLogParseFailure
+        expr: |
+          sum(rate({job="zhs-app-files", __parse_error__="true"}[5m]))
+            / sum(rate({job="zhs-app-files"}[5m])) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          service: zhs-platform
+          category: log-pipeline
+        annotations:
+          summary: "Loki JSON 解析失败率 > 10%"
+          description: "近 5 分钟 {{ $value | humanizePercentage }} 日志解析失败, 可能是 ZHS_LOG_FORMAT 配置不一致或 Promtail pipeline 漏配."
+
+      # ---------- 容器 stdout/stderr 日志断流 (Promtail 失联) ----------
+      - alert: ZHSPromtailScrapeStalled
+        expr: |
+          (
+            absent_over_time({job="zhs-docker"}[10m])
+          )
+        for: 10m
+        labels:
+          severity: warning
+          service: zhs-platform
+          category: log-pipeline
+        annotations:
+          summary: "zhs-docker 容器日志 10 分钟无新数据"
+          description: "Promtail 抓取停滞, 检查 docker.sock 挂载 / Promtail 进程."

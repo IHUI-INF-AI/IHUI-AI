@@ -1,0 +1,82 @@
+/**
+ * RTL 适配样式 (P10 阶段).
+ * 使用 logical properties (margin-inline-start / padding-inline-end 等) 自动适配 LTR / RTL.
+ * 使用 [dir="rtl"] 顶层属性匹配 (避免高特异性, 不使用 :where, 使用属性匹配, 不使用 :where).
+ * 仅使用项目全局 CSS 变量, 不引入新的硬编码颜色.
+ */
+
+@layer fallback {
+  /* 1. 文档方向切换平滑过渡 (无障碍) */
+  html[dir="rtl"] {
+    direction: rtl;
+  }
+
+  html[dir="ltr"] {
+    direction: ltr;
+  }
+
+  /* 2. RTL 专属 - 镜像图标 */
+  html[dir="rtl"] .icon-flip-rtl,
+  html[dir="rtl"] [data-flip-rtl] {
+    transform: scaleX(-1);
+  }
+
+  /* 3. RTL - 内联方向元素的微调 */
+  html[dir="rtl"] .inline-start-anchor {
+    inset-inline-start: 0;
+  }
+
+  html[dir="rtl"] .inline-end-anchor {
+    inset-inline-end: 0;
+  }
+
+  /* 4. RTL - 文本对齐偏好 */
+  html[dir="rtl"] .text-start-default {
+    text-align: right;
+  }
+
+  html[dir="ltr"] .text-start-default {
+    text-align: left;
+  }
+
+  /* 5. RTL - 列表/网格的反向 */
+  html[dir="rtl"] .reverse-rtl {
+    flex-direction: row-reverse;
+  }
+
+  /* 6. RTL - 浮窗方向 (Element Plus dropdown / popper 在 RTL 下通常自动适配, 仅做兜底) */
+  html[dir="rtl"] .el-popper.is-light {
+    text-align: right;
+  }
+
+  /* 7. RTL - 表格/输入框文字方向 */
+  html[dir="rtl"] input[dir="auto"],
+  html[dir="rtl"] textarea[dir="auto"] {
+    text-align: right;
+  }
+
+  /* 8. RTL - 代码块保持 LTR (不强制, 仅提示) */
+  html[dir="rtl"] pre,
+  html[dir="rtl"] code {
+    direction: ltr;
+    text-align: left;
+    unicode-bidi: embed;
+  }
+
+  /* 9. RTL - 数字 (Intl 输出保持视觉顺序, 数字本身不镜像) */
+  html[dir="rtl"] .num,
+  html[dir="rtl"] [data-num] {
+    direction: ltr;
+    unicode-bidi: embed;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 10. 双向文本容器 (混合中英文/阿拉伯文) */
+  html[dir="rtl"] .bidi-content {
+    unicode-bidi: plaintext;
+  }
+
+  html[dir="ltr"] .bidi-content {
+    unicode-bidi: plaintext;
+  }
+}

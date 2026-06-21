@@ -1,0 +1,23 @@
+{
+  "adminTokenValueManagement": {
+    "actions": {
+      "export": "エクスポート記録"
+    },
+    "search": {},
+    "table": {},
+    "statistics": {},
+    "export": {
+      "filename": "filename",
+      "title": "エクスポート"
+    },
+    "messages": {
+      "exportNoData": "なし可エクスポート的データ",
+      "exportSuccess": "智汇値リストエクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    },
+    "exportFormatPrompt": "请選択エクスポート形式",
+    "exportCSV": "エクスポートCSV",
+    "exportExcel": "エクスポートExcel",
+    "exportPDF": "エクスポートPDF"
+  }
+}

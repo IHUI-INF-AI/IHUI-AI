@@ -1,0 +1,128 @@
+{
+	"bsonType": "object",
+	"required": ["userId", "productId", "productName", "amount", "status"],
+	"permission": {
+		"read": "doc.userId == auth.uid",
+		"create": true,
+		"update": "doc.userId == auth.uid || 'admin' == auth.role",
+		"delete": "'admin' == auth.role"
+	},
+	"properties": {
+		"_id": {
+			"description": "ID，系统自动生成"
+		},
+		"orderNo": {
+			"bsonType": "string",
+			"description": "订单编号"
+		},
+		"userId": {
+			"bsonType": "string",
+			"description": "用户ID"
+		},
+		"nickname": {
+			"bsonType": "string",
+			"description": "用户昵称"
+		},
+		"avatar": {
+			"bsonType": "string",
+			"description": "用户头像"
+		},
+		"productId": {
+			"bsonType": "string",
+			"description": "商品ID"
+		},
+		"productName": {
+			"bsonType": "string",
+			"description": "商品名称"
+		},
+		"productType": {
+			"bsonType": "string",
+			"description": "商品类型",
+			"enum": ["vip", "course", "tool", "other"]
+		},
+		"planType": {
+			"bsonType": "string",
+			"description": "会员类型",
+			"enum": ["monthly", "yearly", "permanent", "other"]
+		},
+		"amount": {
+			"bsonType": "number",
+			"description": "订单金额"
+		},
+		"payTime": {
+			"bsonType": "string",
+			"description": "支付时间（格式化后的字符串）"
+		},
+		"paidAt": {
+			"bsonType": "date",
+			"description": "支付时间（日期类型）"
+		},
+		"expireTime": {
+			"bsonType": "string",
+			"description": "过期时间"
+		},
+		"duration": {
+			"bsonType": "int",
+			"description": "会员时长（天）"
+		},
+		"status": {
+			"bsonType": "string",
+			"description": "订单状态",
+			"enum": ["pending", "paid", "cancelled", "refunded", "failed"]
+		},
+		"paymentMethod": {
+			"bsonType": "string",
+			"description": "支付方式",
+			"enum": ["wechat", "alipay", "apple", "other"]
+		},
+		"paymentId": {
+			"bsonType": "string",
+			"description": "支付平台交易ID"
+		},
+		"deviceInfo": {
+			"bsonType": "object",
+			"description": "设备信息"
+		},
+		"cancelReason": {
+			"bsonType": "string",
+			"description": "取消原因"
+		},
+		"cancelledAt": {
+			"bsonType": "date",
+			"description": "取消时间"
+		},
+		"createdAt": {
+			"bsonType": "date",
+			"description": "创建时间"
+		},
+		"updatedAt": {
+			"bsonType": "date",
+			"description": "更新时间"
+		}
+	},
+	"indexes": [
+		{
+			"IndexName": "order_user_status",
+			"MgoKeySchema": {
+				"MgoIndexKeys": [{
+					"Name": "userId",
+					"Direction": "1"
+				}, {
+					"Name": "status",
+					"Direction": "1"
+				}],
+				"MgoIsUnique": false
+			}
+		},
+		{
+			"IndexName": "order_created_at",
+			"MgoKeySchema": {
+				"MgoIndexKeys": [{
+					"Name": "createdAt",
+					"Direction": "-1"
+				}],
+				"MgoIsUnique": false
+			}
+		}
+	]
+} 

@@ -1,0 +1,91 @@
+{
+  "homePage3": {
+    "title": "最新资讯",
+    "titleEn": "LATEST NEWS",
+    "subtitle": "了解平台动态，掌握AI前沿",
+    "refresh": "刷新",
+    "refreshing": "刷新中...",
+    "tabs": {
+      "platform": "平台新闻",
+      "external": "AI资讯"
+    },
+    "empty": {
+      "platform": "暂无平台新闻",
+      "external": "暂无AI资讯"
+    },
+    "summary": {
+      "default": "暂无摘要信息"
+    },
+    "date": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "daysAgo": "{days}天前",
+      "weeksAgo": "{weeks}周前",
+      "monthsAgo": "{months}个月前"
+    },
+    "messages": {
+      "fetching": "正在获取最新新闻...",
+      "fetchSuccess": "成功获取 {count} 条新闻，已保存 {saved} 条",
+      "fetchWarning": "未获取到新新闻，请稍后再试",
+      "fetchError": "刷新失败，请检查网络连接",
+      "viewNews": "查看新闻: {title}"
+    },
+    "errors": {
+      "loadFailed": "加载平台新闻失败",
+      "apiLoadFailed": "API加载失败，使用默认平台新闻"
+    }
+  },
+  "home3": {
+    "viewNews": "查看新闻: {title}"
+  },
+  "homePage4": {
+    "month": "/月",
+    "recommended": "推荐",
+    "subscribe": "立即开通",
+    "proPlanName": "专业版",
+    "proPlanDesc": "适合专业用户和小型团队",
+    "proFeaturesTitle": "专业功能",
+    "proToolPermissionsTitle": "工具权限",
+    "proPrivilegesTitle": "专业特权",
+    "flagshipPlanName": "旗舰版",
+    "flagshipPlanDesc": "适合追求极致体验的用户",
+    "flagshipFeaturesTitle": "旗舰功能",
+    "flagshipToolPermissionsTitle": "工具权限",
+    "flagshipPrivilegesTitle": "旗舰特权",
+    "dedicatedServiceTitle": "专属服务",
+    "unlimitedAiChat": "无限次AI对话",
+    "aiTools150": "150+AI工具",
+    "proTemplates": "专业模板库",
+    "largeFileUpload": "大文件上传支持",
+    "apiAccess": "API访问",
+    "dataExport": "数据导出",
+    "teamCollaboration": "团队协作",
+    "earlyAccessNewFeatures": "优先体验新功能",
+    "dedicatedTechSupport": "专属技术支持",
+    "customConfig": "定制化配置",
+    "advancedDataAnalysis": "高级数据分析",
+    "unlimitedTokens": "无限Token使用",
+    "allModelAccess": "全部AI模型访问",
+    "fastResponse": "极速响应",
+    "dedicatedVipSupport": "专属VIP客服",
+    "allAiTools": "全部AI工具",
+    "flagshipTemplates": "旗舰模板库",
+    "hugeFileUpload": "超大文件上传",
+    "permanentHistory": "永久历史记录",
+    "dedicatedTechConsultant": "专属技术顾问",
+    "customDevelopment": "定制化开发",
+    "advancedDataExport": "高级数据导出",
+    "oneOnOneTechSupport": "一对一技术支持",
+    "dedicatedTraining": "专属培训课程",
+    "regularUpdates": "定期产品更新",
+    "priorityIssueHandling": "优先问题处理",
+    "imageGeneration": "图片生成",
+    "videoGeneration": "视频生成",
+    "voiceInput": "语音输入",
+    "fileUpload": "文件上传",
+    "history90Days": "90天历史记录",
+    "dedicatedSupport": "专属客服",
+    "priorityResponse": "优先响应",
+    "advancedModelAccess": "高级模型访问"
+  }
+}

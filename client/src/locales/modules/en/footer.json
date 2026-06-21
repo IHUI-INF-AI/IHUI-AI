@@ -1,0 +1,22 @@
+{
+  "footer": {
+    "acknowledgments": "Acknowledgments",
+    "companyName": "Company Name",
+    "companyAddress": "Address|Changchun High-tech Zone Yueda Road 107|AI Artificial Intelligence Talent Incubation Base",
+    "addressLabel": "Address: ",
+    "addressLine1": "Changchun High-tech Zone Yueda Road 107",
+    "addressLine2": "AI Talent Incubation Base",
+    "companyContact": "Phone: Contact Phone",
+    "companyEmail": "Email: Email Address",
+    "companyEmail2": "lizong{'@'}aizhs.top",
+    "supportedPlatforms": "Supported Platforms",
+    "models": "Models",
+    "paymentPlatforms": "Payment Platforms",
+    "cloudDatabases": "Cloud Databases",
+    "officialPromotion": "Official Promotion Platform",
+    "officialApp": "Official App",
+    "contactUs": "Contact Us",
+    "icp": "ICP License Number",
+    "copyright": "Copyright"
+  }
+}

@@ -1,0 +1,63 @@
+/**
+ * UniApp 样式变量和工具类
+ * 迁移自 Ai-WXMiniVue/src/uni.scss
+ * 用于兼容原 UniApp 项目的样式
+ */
+
+// 颜色变量
+$uni-color-primary: var(--el-color-primary);
+$uni-color-success: var(--el-text-color-primary);
+$uni-color-warning: var(--el-text-color-primary);
+$uni-color-error: var(--el-text-color-primary);
+$uni-color-info: var(--el-text-color-primary);
+
+// 文字颜色
+$uni-text-color: var(--el-text-color-primary);
+$uni-text-color-inverse: var(--el-bg-color);
+$uni-text-color-grey: var(--el-text-color-placeholder);
+$uni-text-color-placeholder: var(--el-text-color-primary);
+$uni-text-color-disable: var(--el-text-color-primary);
+
+// 背景颜色
+$uni-bg-color: var(--el-bg-color);
+$uni-bg-color-grey: var(--el-text-color-primary);
+$uni-bg-color-hover: var(--el-text-color-primary);
+$uni-bg-color-mask: var(--color-black-40);
+
+// 边框颜色
+$uni-border-color: var(--border-unified-color);
+
+// 字体大小
+$uni-font-size-xs: 0.2rem;
+$uni-font-size-sm: 0.24rem;
+$uni-font-size-base: 0.28rem;
+$uni-font-size-lg: 0.32rem;
+
+// 边框圆角
+$uni-border-radius-sm: 0.1rem;
+$uni-border-radius-base: 0.2rem;
+$uni-border-radius-lg: 0.3rem;
+$uni-border-radius-circle: 50%;
+
+// 间距
+$uni-spacing-row-sm: 0.1rem;
+$uni-spacing-row-base: 0.2rem;
+$uni-spacing-row-lg: 0.3rem;
+
+$uni-spacing-col-sm: 0.1rem;
+$uni-spacing-col-base: 0.2rem;
+$uni-spacing-col-lg: 0.3rem;
+
+// 阴影
+$uni-shadow-sm: 0 0 0.1rem var(--color-black-10);
+$uni-shadow-base: 0 0.1rem 0.2rem var(--color-black-10);
+$uni-shadow-lg: 0 0.2rem 0.4rem var(--color-black-12);
+
+// 导出变量供其他文件使用
+:export {
+  primaryColor: $uni-color-primary;
+  successColor: $uni-color-success;
+  warningColor: $uni-color-warning;
+  errorColor: $uni-color-error;
+  infoColor: $uni-color-info;
+}

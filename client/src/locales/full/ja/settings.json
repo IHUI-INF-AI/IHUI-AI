@@ -1,0 +1,466 @@
+{
+  "settings": {
+    "back": "戻る",
+    "userCenter": "件人センター",
+    "page": {
+      "title": "設定",
+      "subtitle": "管理您的アカウント和適用設定"
+    },
+    "sections": {
+      "personal": {
+        "title": "件人情報",
+        "desc": "管理您的件人资料情報"
+      },
+      "security": {
+        "title": "アカウントセキュリティ",
+        "desc": "保护您的アカウントセキュリティ"
+      },
+      "notifications": {
+        "title": "通知設定",
+        "desc": "管理您接收的通知タイプ"
+      },
+      "privacy": {
+        "title": "プライバシー設定",
+        "desc": "控制您的隐私和データ使用"
+      },
+      "app": {
+        "title": "適用設定",
+        "desc": "カスタム您的適用体验"
+      },
+      "danger": {
+        "title": "危险操作",
+        "desc": "ご注意操作，これ些操作不可できる逆"
+      },
+      "navigation": {
+        "desc": "Desc",
+        "title": "Title"
+      },
+      "other": {
+        "desc": "サポート、バージョンとミニアプリ",
+        "title": "その他"
+      },
+      "services": {
+        "desc": "サービスを表示・管理",
+        "title": "マイサービス"
+      },
+      "themeBackup": {
+        "desc": "Backup and restore your theme configuration"
+      },
+      "themePresets": {
+        "desc": "Create and manage your theme presets"
+      },
+      "themeShortcut": {
+        "desc": "Set keyboard shortcuts for theme switching"
+      },
+      "themeSync": {
+        "desc": "View theme sync status and configure auto sync"
+      },
+      "themeTransition": {
+        "desc": "Configure animation effects for theme switching"
+      }
+    },
+    "securityScore": {
+      "title": "セキュリティスコア",
+      "description": "アカウントのセキュリティ状況を評価",
+      "recommendations": "セキュリティの推奨事項",
+      "viewDetails": "詳細を表示"
+    },
+    "deviceManagement": {
+      "title": "デバイス管理",
+      "description": "ログイン中のデバイスを表示・管理",
+      "noDevices": "ログイン中のデバイスはありません",
+      "currentDevice": "現在のデバイス",
+      "loginTime": "ログイン日時",
+      "lastActive": "最終アクティブ",
+      "removeDevice": "削除",
+      "removeConfirm": "デバイス「{deviceName}」を削除してもよろしいですか？削除後、このデバイスで再ログインが必要になります。",
+      "removeTitle": "デバイスを削除",
+      "removeSuccess": "デバイスを削除しました",
+      "removeAllDevices": "その他のデバイスをすべて削除",
+      "removeAllConfirm": "その他のデバイスをすべて削除してもよろしいですか？削除後、これらのデバイスで再ログインが必要になります。",
+      "removeAllTitle": "すべてのデバイスを削除",
+      "removeAllSuccess": "すべてのデバイスを削除しました",
+      "deviceCount": "ログイン中 {count}/{max} 台のデバイス"
+    },
+    "securityLog": {
+      "title": "セキュリティログ",
+      "description": "アカウントのセキュリティ関連操作記録を表示",
+      "noLogs": "セキュリティログはありません",
+      "login": "ログイン",
+      "logout": "ログアウト",
+      "passwordChange": "パスワード変更",
+      "deviceRemove": "デバイス削除",
+      "suspiciousLogin": "不審なログイン",
+      "tokenRefresh": "トークン更新",
+      "accountUpdate": "アカウント更新"
+    },
+    "twoFactor": {
+      "title": "二要素認証",
+      "description": "アカウントに追加のセキュリティを設定",
+      "enabled": "有効",
+      "disabled": "無効",
+      "enable": "有効にする",
+      "disable": "無効にする",
+      "enableSuccess": "二要素認証を有効にしました",
+      "disableSuccess": "二要素認証を無効にしました",
+      "disableTitle": "二要素認証を無効にする",
+      "disableConfirm": "二要素認証を無効にしてもよろしいですか？アカウントのセキュリティが低下します。",
+      "step1": "QRコードをスキャン",
+      "step2": "コードを確認",
+      "step3": "バックアップコード",
+      "scanQR": "認証アプリでQRコードをスキャンしてください",
+      "secretKey": "シークレットキー",
+      "enterCode": "認証アプリの6桁のコードを入力",
+      "backupCodesDesc": "認証アプリが使えない場合に備えて、これらのバックアップコードを保存してください",
+      "downloadBackupCodes": "バックアップコードをダウンロード",
+      "complete": "設定を完了"
+    },
+    "loginHistory": {
+      "title": "ログイン履歴",
+      "description": "ログイン活動記録を表示",
+      "noHistory": "ログイン記録はありません",
+      "allTypes": "すべてのタイプ",
+      "login": "ログイン",
+      "logout": "ログアウト",
+      "suspicious": "不審なログイン",
+      "passwordChange": "パスワード変更",
+      "deviceRemove": "デバイス削除",
+      "suspiciousLogin": "不審なログイン",
+      "suspiciousWarning": "異常なログインを検出しました。本人の操作か確認してください",
+      "clearHistory": "履歴をクリア",
+      "clearTitle": "ログイン履歴をクリア",
+      "clearConfirm": "すべてのログイン履歴をクリアしてもよろしいですか？",
+      "clearSuccess": "ログイン履歴をクリアしました",
+      "recordCount": "合計 {count} 件"
+    },
+    "sessionManagement": {
+      "title": "セッション管理",
+      "description": "ログインセッションを管理",
+      "noSessions": "アクティブなセッションはありません",
+      "currentSession": "現在のセッション",
+      "expired": "期限切れ",
+      "startTime": "開始時刻",
+      "duration": "継続時間",
+      "endSession": "終了",
+      "endConfirm": "セッション「{deviceName}」を終了してもよろしいですか？",
+      "endTitle": "セッションを終了",
+      "endSuccess": "セッションを終了しました",
+      "cannotEndCurrent": "現在のセッションは終了できません",
+      "endAllOtherSessions": "その他のセッションをすべて終了",
+      "endAllConfirm": "その他のセッションをすべて終了してもよろしいですか？",
+      "endAllTitle": "すべてのセッションを終了",
+      "endAllSuccess": "{count} 件のセッションを終了しました",
+      "sessionCount": "合計 {count} セッション"
+    },
+    "auditExport": {
+      "title": "監査ログのエクスポート",
+      "description": "セキュリティ監査レポートをエクスポート",
+      "dateRange": "日付範囲",
+      "startDate": "開始日",
+      "endDate": "終了日",
+      "exportFormat": "エクスポート形式",
+      "eventTypes": "イベントタイプ",
+      "typeLogin": "ログイン",
+      "typeLogout": "ログアウト",
+      "typePassword": "パスワード変更",
+      "typeDevice": "デバイス操作",
+      "typeSuspicious": "不審なアクティビティ",
+      "preview": "プレビュー",
+      "totalEvents": "イベント合計",
+      "logins": "成功したログイン",
+      "failedLogins": "失敗したログイン",
+      "suspicious": "不審なアクティビティ",
+      "previewBtn": "レポートをプレビュー",
+      "exportBtn": "レポートをエクスポート",
+      "exportSuccess": "レポートをエクスポートしました"
+    },
+    "ipWhitelist": {
+      "title": "IPホワイトリスト",
+      "description": "ログインIPアドレスを制限",
+      "enableWhitelist": "ホワイトリストを有効にする",
+      "strictMode": "厳格モード",
+      "strictModeHint": "ホワイトリストが空の場合はすべてのアクセスを拒否",
+      "ipPlaceholder": "IPアドレスを入力（例：192.168.1.1）",
+      "labelPlaceholder": "ラベル名",
+      "noEntries": "ホワイトリストルールはありません",
+      "export": "エクスポート",
+      "import": "インポート",
+      "clear": "クリア",
+      "addSuccess": "IPを追加しました",
+      "addFailed": "追加に失敗しました。IPが無効または既に存在します",
+      "removeConfirm": "このIPを削除してもよろしいですか？",
+      "removeSuccess": "IPを削除しました",
+      "importSuccess": "インポートに成功しました",
+      "importFailed": "インポートに失敗しました。ファイル形式が無効です",
+      "clearConfirm": "ホワイトリストをクリアしてもよろしいですか？",
+      "clearSuccess": "ホワイトリストをクリアしました"
+    },
+    "notificationCenter": {
+      "title": "セキュリティ通知",
+      "description": "セキュリティ関連の通知を表示",
+      "markAllRead": "すべて既読にする",
+      "all": "すべて",
+      "unread": "未読",
+      "critical": "重要",
+      "high": "高優先度",
+      "noNotifications": "通知はありません",
+      "settings": "通知設定",
+      "enableNotifications": "通知を有効にする",
+      "desktopNotifications": "デスクトップ通知",
+      "soundNotifications": "サウンド通知",
+      "justNow": "たった今",
+      "minutesAgo": "{count} 分前",
+      "hoursAgo": "{count} 時間前"
+    },
+    "loginBehavior": {
+      "title": "ログイン行動分析",
+      "description": "ログインパターンを分析",
+      "noData": "まだログインデータがありません。利用を続けてパターンを確立してください",
+      "totalLogins": "総ログイン数",
+      "avgInterval": "平均間隔",
+      "devices": "デバイス",
+      "locations": "場所",
+      "loginTime": "ログイン時間の分布",
+      "peakHours": "ピーク時間帯",
+      "commonDevices": "よく使うデバイス",
+      "noDevices": "デバイス記録はありません",
+      "commonLocations": "よく使う場所",
+      "noLocations": "場所の記録はありません",
+      "loginCount": "{count} 回ログイン",
+      "trusted": "信頼済み",
+      "trust": "信頼する",
+      "unknown": "不明",
+      "riskAnalysis": "リスク分析",
+      "riskLevel": {
+        "low": "低リスク",
+        "medium": "中リスク",
+        "high": "高リスク",
+        "critical": "重大リスク"
+      },
+      "anomalies": "異常を検出",
+      "recommendations": "セキュリティの推奨事項",
+      "days": "{count} 日",
+      "hours": "{count} 時間"
+    },
+    "data": {
+      "clearCache": "キャッシュをクリア"
+    },
+    "dataClearSuccess": "データをクリアしました",
+    "labels": {
+      "avatar": "アバター",
+      "nickname": "ニックネーム",
+      "email": "メール",
+      "phone": "電話番号",
+      "changePassword": "修改パスワード",
+      "loginNotification": "ログイン通知",
+      "loginDuration": "ログインステータス継続時間",
+      "notificationEnabled": "あり効通知",
+      "emailNotification": "メール通知",
+      "pushNotification": "推送通知",
+      "notificationSound": "通知音声",
+      "profileVisibility": "件人资料可できる见性",
+      "showEmail": "テーブル示メール",
+      "showPhone": "テーブル示電話",
+      "activityTracking": "アクティビティ追踪",
+      "themeMode": "テーマ模式",
+      "language": "言語",
+      "autoSave": "自動保存",
+      "mouseFollower": "鼠标跟随効果",
+      "clearAllData": "クリア所有データ",
+      "deleteAccount": "注销アカウント",
+      "about": "私たちについて",
+      "appPermission": "App Permission",
+      "businessLicense": "Business License",
+      "chatHistory": "チャット履歴",
+      "checkUpdate": "更新確認",
+      "commissionPlan": "コミッションプラン",
+      "contactSupport": "カスタマーサポート",
+      "editProfile": "Edit Profile",
+      "feedback": "ヘルプとフィードバック",
+      "icpRecord": "Icp Record",
+      "logout": "ログアウト",
+      "messageNotification": "メッセージ通知",
+      "modelRecord": "Model Record",
+      "myAIModel": "My AI Model",
+      "myCompany": "My Company",
+      "privacySettings": "プライバシーと権限",
+      "recruitment": "Recruitment",
+      "statistics": "データ統計",
+      "usageRules": "Usage Rules",
+      "viewMiniapp": "ミニアプリを表示",
+      "webVersion": "現在のバージョン",
+      "withdrawRecords": "出金記録"
+    },
+    "desc": {
+      "avatar": "設定您的件人アバター",
+      "nickname": "設定您的ニックネーム",
+      "email": "設定您的メール住所",
+      "phone": "設定您的電話番号码",
+      "changePassword": "定期修改パスワード以保护アカウントセキュリティ",
+      "loginNotification": "新しい设备ログイン时送信通知",
+      "loginDuration": "設定ログイン后保持ログインステータス的時間，下回ログイン时生效",
+      "notificationEnabled": "有効または無効すべて通知",
+      "emailNotification": "接收重要更新しいしい和アクティビティ通知",
+      "pushNotification": "接收システム更新しいしい和维护通知",
+      "notificationSound": "受信通知时再生音声",
+      "profileVisibility": "控制その他ユーザー是否可以表示您的资料",
+      "showEmail": "控制その他ユーザー是否可以表示您的メール",
+      "showPhone": "控制その他ユーザー是否可以表示您的電話",
+      "activityTracking": "允許私たち收集匿名使用データ以改進サービス",
+      "themeMode": "選択您喜欢的界面テーマ",
+      "language": "選択適用テーブル示言語",
+      "autoSave": "自動保存您的工作コンテンツ",
+      "mouseFollower": "あり効炫酷的鼠标跟随动画効果",
+      "clearAllData": "削除すべて聊日記録、設定和件人データ",
+      "deleteAccount": "永久削除您的アカウント和所有相关データ",
+      "about": "私たちについて",
+      "appPermission": "App Permission",
+      "businessLicense": "Business License",
+      "chatHistory": "チャット履歴を表示",
+      "checkUpdate": "新バージョンが利用可能か確認",
+      "commissionPlan": "コミッションプラン詳細を表示",
+      "contactSupport": "問題がありますか？お問い合わせください",
+      "editProfile": "Edit Profile",
+      "feedback": "ヘルプを取得またはフィードバックを送信",
+      "icpRecord": "Icp Record",
+      "logout": "現在のアカウントからログアウト",
+      "messageNotification": "有効にするとシステムメッセージ通知を受信",
+      "modelRecord": "Model Record",
+      "myAIModel": "My AI Model",
+      "myCompany": "My Company",
+      "privacySettings": "プライバシーと権限設定を管理",
+      "recruitment": "Recruitment",
+      "statistics": "使用データ統計を表示",
+      "usageRules": "Usage Rules",
+      "viewMiniapp": "QRコードをスキャンまたはクリックしてミニアプリを開く",
+      "webVersion": "Web版のバージョン番号",
+      "withdrawRecords": "出金履歴を表示"
+    },
+    "placeholders": {
+      "nickname": "ご入力ニックネーム",
+      "email": "ご入力メール",
+      "phone": "ご入力電話番号"
+    },
+    "actions": {
+      "changeAvatar": "変更アバター",
+      "changePassword": "修改パスワード",
+      "clearData": "クリアデータ",
+      "deleteAccount": "注销アカウント",
+      "checkUpdate": "更新確認",
+      "checking": "確認中...",
+      "contact": "お問い合わせ",
+      "go": "Go",
+      "logout": "ログアウト",
+      "viewMiniapp": "ミニアプリを開く"
+    },
+    "options": {
+      "loginDuration": {
+        "7d": "7日",
+        "30d": "30日",
+        "90d": "一季度",
+        "365d": "一年",
+        "permanent": "永久"
+      },
+      "profileVisibility": {
+        "public": "公開",
+        "private": "私密"
+      },
+      "themeMode": {
+        "light": "ライト模式",
+        "dark": "ダーク模式",
+        "auto": "跟随システム"
+      },
+      "language": {
+        "zh-CN": "簡体フォント中國語",
+        "zh-TW": "繁体字フォント中國語",
+        "en-US": "English"
+      }
+    },
+    "dialogs": {
+      "changePassword": {
+        "title": "修改パスワード",
+        "old": "古いパスワード",
+        "oldPlaceholder": "ご入力古いパスワード",
+        "new": "新しいパスワード",
+        "newPlaceholder": "ご入力新しいパスワード",
+        "confirm": "確認パスワード",
+        "confirmPlaceholder": "ご再回入力新しいパスワード",
+        "confirmAction": "確認変更"
+      },
+      "clearData": {
+        "title": "クリア所有データ",
+        "tip": "您確定要クリア所有データ吗？此操作将削除以下コンテンツ：",
+        "items": {
+          "chat": "すべて聊日記録",
+          "settings": "すべて設定",
+          "favorites": "すべてお気に入り",
+          "history": "すべて履歴記録"
+        },
+        "warn": "此操作不可できる逆，ご注意操作！",
+        "confirmAction": "確認クリア"
+      },
+      "deleteAccount": {
+        "title": "注销アカウント",
+        "tip": "您確定要注销アカウント吗？此操作将永久削除您的アカウント和所有相关データ。",
+        "warn": "此操作不可できる逆，ご注意操作！",
+        "placeholder": "ご入力パスワード確認",
+        "confirmAction": "確認ログアウト"
+      },
+      "contact": {
+        "email": "メール",
+        "hours": "サービス時間",
+        "hoursValue": "月曜日から金曜日 9:00-18:00",
+        "phone": "電話",
+        "title": "カスタマーサポート"
+      },
+      "miniapp": {
+        "alt": "ミニアプリQRコード",
+        "tip": "WeChatでスキャンしてミニアプリを開く",
+        "title": "ミニアプリ"
+      }
+    },
+    "comments": {
+      "pageTitle": "页面タイトル",
+      "settingsContent": "設定コンテンツ",
+      "personalInfo": "件人情報設定",
+      "accountSecurity": "アカウントセキュリティ設定",
+      "notifications": "通知設定",
+      "privacy": "プライバシー設定",
+      "appSettings": "適用設定",
+      "dangerZone": "危险操作",
+      "changePasswordDialog": "修改パスワード会話框",
+      "clearDataDialog": "クリアデータ確認会話框",
+      "deleteAccountDialog": "注销アカウント確認会話框"
+    },
+    "confirmLogout": "ログアウトしてもよろしいですか？",
+    "messages": {
+      "latestVersion": "最新バージョンです"
+    },
+    "passwordStrength": {
+      "medium": "Medium",
+      "strong": "Strong",
+      "veryStrong": "Very Strong",
+      "weak": "Weak"
+    },
+    "securityCharts": {
+      "days30": "Days30",
+      "days7": "Days7",
+      "days90": "Days90",
+      "deviceUsage": "Device Usage",
+      "eventDistribution": "Event Distribution",
+      "failed": "Failed",
+      "failedLogin": "Failed Login",
+      "loginTrend": "Login Trend",
+      "riskTimeline": "Risk Timeline",
+      "successful": "Successful",
+      "suspiciousLogin": "Suspicious Login",
+      "title": "Title",
+      "totalEvents": "Total Events",
+      "typeDevice": "Type Device",
+      "typeLogin": "Type Login",
+      "typeLogout": "Type Logout",
+      "typePassword": "Type Password",
+      "typeSuspicious": "Type Suspicious"
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "study": {
+    "cover": "封面",
+    "courseTitle": "课程标题",
+    "courseDesc": "课程描述",
+    "relatedApp": "关联AI应用",
+    "topComment": "置顶评论",
+    "selectTags": "选择课程标签",
+    "chunkUploadFailed": "分片上传失败",
+    "videoUploadSuccess": "视频上传成功！",
+    "editSuccessReview": "修改成功！请等待审核",
+    "deleteSuccessReview": "删除成功！请等待审核",
+    "publishCollectionFirst": "请先发布合集",
+    "videoProcessing": "视频正在合成请稍后发布",
+    "uploadCover": "请上传封面",
+    "uploadVideo": "请上传视频",
+    "enterCourseTitle": "请输入课程标题",
+    "enterCourseDesc": "请输入课程描述",
+    "groupTitle": "合集标题",
+    "groupDesc": "合集描述",
+    "selectTrack": "选择合集赛道",
+    "mainTrackPrefix": "#大赛道",
+    "selectPhase": "选择课程阶段",
+    "uploadVideoCourse": "上传课程视频",
+    "publishSuccessContinue": "发布成功请继续上传视频",
+    "enterGroupTitle": "请输入合集标题",
+    "enterGroupDesc": "请输入合集描述",
+    "selectMainSubTrack": "请选择主赛道和子赛道",
+    "uploadSuccess": "上传成功",
+    "uploadFailed": "上传失败"
+  },
+  "studyAdd": {
+    "cover": "封面",
+    "title": "课程标题",
+    "desc": "课程描述",
+    "publishFirst": "请先发布合集",
+    "videoSynth": "视频正在合成请稍后发布",
+    "uploadCover": "请上传封面",
+    "uploadVideo": "请上传视频",
+    "enterTitle": "请输入课程标题",
+    "enterDesc": "请输入课程描述"
+  },
+  "studyGroup": {
+    "cover": "封面",
+    "groupTitle": "合集标题",
+    "groupDesc": "合集描述",
+    "uploadCover": "请上传封面",
+    "enterGroupTitle": "请输入合集标题",
+    "enterGroupDesc": "请输入合集描述",
+    "selectTrack": "请选择主赛道和子赛道"
+  },
+  "studyIndexModelList": {
+    "loading": "加载中...",
+    "recommendGroups": "推荐课程合集",
+    "viewMore": "查看更多",
+    "noMore": "没有更多了"
+  },
+  "studyIndexStudyList": {
+    "loading": "加载中...",
+    "latestCourses": "最新课程",
+    "viewMore": "查看更多",
+    "noMore": "没有更多了"
+  },
+  "studyIndexStudyTip": {
+    "studyTip": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
+    "studyTip2": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
+    "myGroups": "我的合集"
+  },
+  "studyComment": {
+    "hotComments": "热门评论",
+    "enterReply": "请输入回复内容..."
+  },
+  "studyVideoProgress": {
+    "videoUploading": "视频上传中"
+  },
+  "studyVipBtns": {
+    "vipFree": "会员免费"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "adminOrderManagement": {
+    "export": "导出订单",
+    "search": {},
+    "table": {},
+    "orderType": {},
+    "orderStatus": {
+      "failed": "失败"
+    },
+    "paymentMethod": {},
+    "detail": {},
+    "messages": {
+      "exportFailed": "导出失败",
+      "exportDeveloping": "导出功能开发中",
+      "exportSuccess": "导出成功"
+    },
+    "exportData": {
+      "orderId": "订单ID",
+      "orderNo": "订单号",
+      "userId": "用户ID",
+      "orderType": "订单类型",
+      "amount": "金额",
+      "orderStatus": "订单状态",
+      "paymentMethod": "支付方式",
+      "productName": "商品名称",
+      "description": "描述",
+      "createTime": "创建时间",
+      "completeTime": "完成时间",
+      "filename": "订单列表"
+    },
+    "exportFormatPrompt": "请选择导出格式",
+    "exportCSV": "导出CSV",
+    "exportExcel": "导出Excel",
+    "exportPDF": "导出PDF"
+  },
+  "adminOrderList": {
+    "completed": "已完成",
+    "cancelled": "已取消"
+  }
+}

@@ -1,0 +1,105 @@
+// ============================================
+// 反馈状态样式：加载/空/按钮组/智能圆角
+// 使用 :where() 降低特异性，使用 CSS 变量控制
+// ============================================
+
+@layer components {
+  // 按钮组
+  .button-group {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+    flex-wrap: wrap;
+
+    &.center {
+      justify-content: center;
+    }
+
+    &.right {
+      justify-content: flex-end;
+    }
+  }
+
+  // 加载状态
+  .loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    flex-direction: column;
+    background-color: var(--el-bg-color);
+    border-radius: var(--global-border-radius);
+    padding: var(--spacing-xl);
+    gap: 16px;
+    border: none;
+
+    .loading-text {
+      color: var(--el-text-color-primary);
+      font-size: 14px;
+    }
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--global-border-radius);
+    animation: spin 1s ease-in-out infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  // 空状态
+  .empty-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    min-height: 300px;
+    text-align: center;
+    padding: var(--spacing-2xl);
+    background-color: var(--el-bg-color);
+    border-radius: var(--global-border-radius);
+    border: none;
+    gap: 16px;
+
+    .empty-icon {
+      font-size: 80px;
+      color: var(--el-text-color-primary);
+    }
+
+    .empty-text {
+      color: var(--el-text-color-primary);
+      font-size: var(--font-size-lg);
+      max-width: 100%;
+    }
+  }
+
+  // 智能圆角容器
+  .radius-auto {
+    border-radius: var(--global-border-radius);
+    container-type: inline-size;
+  }
+
+  @container (min-width: 360px) {
+    .radius-auto {
+      border-radius: var(--global-border-radius);
+    }
+  }
+
+  @container (min-width: 640px) {
+    .radius-auto {
+      border-radius: var(--global-border-radius);
+    }
+  }
+
+  @container (min-width: 960px) {
+    .radius-auto {
+      border-radius: var(--global-border-radius);
+    }
+  }
+}

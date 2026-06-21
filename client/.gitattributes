@@ -1,0 +1,42 @@
+# 强制所有文本文件使用 UTF-8 编码，禁止 GBK
+* text=auto working-tree-encoding=UTF-8
+
+# 前端文件
+*.vue text working-tree-encoding=UTF-8
+*.ts text working-tree-encoding=UTF-8
+*.tsx text working-tree-encoding=UTF-8
+*.js text working-tree-encoding=UTF-8
+*.jsx text working-tree-encoding=UTF-8
+*.json text working-tree-encoding=UTF-8
+*.html text working-tree-encoding=UTF-8
+*.css text working-tree-encoding=UTF-8
+*.scss text working-tree-encoding=UTF-8
+*.less text working-tree-encoding=UTF-8
+*.md text working-tree-encoding=UTF-8
+*.yml text working-tree-encoding=UTF-8
+*.yaml text working-tree-encoding=UTF-8
+*.sh text working-tree-encoding=UTF-8
+*.bat text eol=crlf working-tree-encoding=UTF-8
+*.cmd text eol=crlf working-tree-encoding=UTF-8
+*.config text working-tree-encoding=UTF-8
+*.cjs text working-tree-encoding=UTF-8
+*.mjs text working-tree-encoding=UTF-8
+
+# 二进制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.gz binary
+*.exe binary
+
+# 视觉回归测试基线 (Playwright snapshots)
+# 标记为 binary 避免 git 产生无意义的文本 diff
+# 基线更新流程: npx playwright test --update-snapshots
+e2e/**/*.spec.ts-snapshots/*.png binary

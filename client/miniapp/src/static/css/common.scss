@@ -1,0 +1,12 @@
+/* 公共样式类 - 全项目统一使用 AlimamaFangYuanTi，BEVL 圆角 100 */
+
+/* 统一字体变量（与 App.vue 一致） */
+$font-family-unified: 'AlimamaFangYuanTi';
+$font-variation-bevl: "BEVL" 100;
+
+/* 模糊背景效果 */
+.blur-background {
+  // background-color: rgba(255, 255, 255, 0.3);
+  // backdrop-filter: blur(3px);
+  // -webkit-backdrop-filter: blur(3px);
+}

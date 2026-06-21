@@ -1,0 +1,44 @@
+{
+  "commonText": {
+    "view": "查看",
+    "edit": "编辑",
+    "delete": "删除",
+    "cancel": "取消",
+    "confirm": "确定",
+    "save": "保存",
+    "search": "搜索",
+    "reset": "重置",
+    "add": "添加",
+    "remove": "移除",
+    "download": "下载",
+    "upload": "上传",
+    "copy": "复制",
+    "print": "打印",
+    "share": "分享",
+    "back": "返回",
+    "next": "下一步",
+    "previous": "上一步",
+    "submit": "提交",
+    "close": "关闭",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "noRecords": "暂无记录",
+    "success": "操作成功",
+    "failed": "操作失败",
+    "enabled": "启用",
+    "disabled": "禁用",
+    "status": {
+      "completed": "已完成",
+      "pending": "处理中",
+      "processing": "处理中",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    },
+    "fileTypes": {
+      "audio": "音频",
+      "image": "图片",
+      "video": "视频"
+    }
+  }
+}

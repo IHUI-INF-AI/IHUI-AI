@@ -1,0 +1,5 @@
+# pgBouncer 用户列表
+# 格式: "username" "password"
+# 密码可为明文或 md5 (md5 前缀)
+"zhs" "zhs_pg_pass"
+"replicator" "replica_pass"

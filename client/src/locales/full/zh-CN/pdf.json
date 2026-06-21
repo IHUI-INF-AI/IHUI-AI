@@ -1,0 +1,28 @@
+{
+  "pdf": {
+    "signature": "数字签名",
+    "watermark": "水印设置",
+    "fontSize": "字体大小",
+    "opacity": "透明度",
+    "rotation": "旋转角度",
+    "color": "颜色",
+    "presetWatermark": "预设水印",
+    "mergeSplit": "PDF合并拆分",
+    "dropFileHere": "点击或拖拽PDF文件到此处",
+    "splitOptions": "拆分选项",
+    "printSettings": "打印设置",
+    "paperSize": "纸张大小",
+    "orientation": "方向",
+    "scale": "缩放",
+    "fitPage": "适应页面",
+    "actualSize": "实际大小",
+    "pageRange": "页码范围",
+    "allPages": "全部页面",
+    "currentPage": "当前页面",
+    "copies": "打印份数",
+    "duplex": "双面打印",
+    "header": "页眉",
+    "footer": "页脚",
+    "showPageNumber": "显示页码"
+  }
+}

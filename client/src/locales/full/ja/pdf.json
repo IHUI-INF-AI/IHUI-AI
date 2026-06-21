@@ -1,0 +1,28 @@
+{
+  "pdf": {
+    "signature": "電子署名",
+    "watermark": "透かし設定",
+    "fontSize": "フォントサイズ",
+    "opacity": "不透明度",
+    "rotation": "回転角度",
+    "color": "色",
+    "presetWatermark": "プリセット透かし",
+    "mergeSplit": "PDF結合・分割",
+    "dropFileHere": "クリックまたはPDFファイルをここにドラッグ",
+    "splitOptions": "分割オプション",
+    "printSettings": "印刷設定",
+    "paperSize": "用紙サイズ",
+    "orientation": "方向",
+    "scale": "スケール",
+    "fitPage": "ページに合わせる",
+    "actualSize": "実際のサイズ",
+    "pageRange": "ページ範囲",
+    "allPages": "すべてのページ",
+    "currentPage": "現在のページ",
+    "copies": "印刷部数",
+    "duplex": "両面印刷",
+    "header": "ヘッダー",
+    "footer": "フッター",
+    "showPageNumber": "ページ番号を表示"
+  }
+}

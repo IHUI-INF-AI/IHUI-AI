@@ -1,0 +1,16 @@
+{
+  "adminPaymentManagement": {
+    "actions": {
+      "export": "导出"
+    },
+    "paymentList": {
+      "status": "状态"
+    },
+    "status": {
+      "pending": "待支付",
+      "completed": "已完成",
+      "failed": "失败",
+      "refunded": "已退款"
+    }
+  }
+}

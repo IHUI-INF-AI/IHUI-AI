@@ -1,0 +1,592 @@
+<template>
+  <view>
+    <!-- 遮罩层 -->
+    <view class="login-popup-mask" @click.stop="handleMaskClick" @touchmove.stop="safePreventTouchMove"></view>
+    <!-- 弹窗主体 -->
+    <view :class="['login-popup', 'show']" @touchmove="handleTouchMove" @scroll="handleScroll" :style="{ '--blur-amount': blurAmount + 'px' }">
+      <view class="login-popup-header">
+        <view class="" style="width: 100%;    display: flex;align-items: flex-end;justify-content: space-between; ">
+          <image style="width: 370rpx;height: 45rpx;" src="/static/images/headertitley.png"
+            mode=""></image>
+          <image style="width: 288rpx;height: 25.96rpx;" src="/static/images/headertitlet.png"
+            mode=""></image>
+        </view>
+        <!-- <text class="login-popup-title">WELCOME <text class="login-popup-sub">IHUI INF.AI</text></text> -->
+        <!-- <image class="login-popup-avatar" :src="avatarUrl" /> -->
+        <image :src="avatarUrlNew ||
+          'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/user/act.png'
+          " class="login-popup-avatar" @click="chooseAvatar" mode="aspectFill">
+        </image>
+      </view>
+      <view class="login-popup-card">
+        <view class="login-popup-row">
+          <view class="icon user"></view>
+          <view class="login-popup-nickname-prefix">
+            <image style="width: 169rpx;height: 23rpx;" src="/static/images/aiihuitt.png" mode="">
+            </image>
+          </view>
+          <input class="login-popup-username-input" v-model="nickname" placeholder="请输入用户名" maxlength="20"
+            :key="nickname" @input="onInput" @blur="onInput" />
+        </view>
+      </view>
+      <view class="login-popup-card">
+        <view class="login-popup-row" style="display: flex; justify-content: space-between">
+          <view class="icon id"></view>
+          <text v-if="loginInfo.isVip==0&&loginInfo.identityTypy==0" class="login-popup-role"
+            style="padding-right: 0rpx; padding-left: 120rpx;">普通用户</text>
+          <text v-if="loginInfo.isVip==1&&loginInfo.identityTypy==0" class="login-popup-role"
+            style="padding-right: 0rpx; padding-left: 120rpx;">会员</text>
+          <text v-if="loginInfo.isVip==1&&loginInfo.identityTypy==1" class="login-popup-role" style="width: 100%;text-align: center;">操盘手</text>
+          <view class="upgradeImg"
+                v-if="loginInfo.isVip==0&&loginInfo.identityTypy==0"
+                @click="openIntroduce"
+          >
+            <image
+                class="up_img"
+                src="/static/images/default/Upgrade.png"
+                mode="aspectFit"></image>
+          </view>
+          <view class="upgradeImg"
+                v-if="loginInfo.isVip==1&&loginInfo.identityTypy!=1"
+                @click="openIntroduces"
+          >
+            <image
+                class="up_img"
+                src="/static/images/default/Upgrade.png"
+                mode="aspectFit"></image>
+          </view>
+<!--          <button class="login-popup-upgrade" v-if="loginInfo.isVip==0&&loginInfo.identityTypy==0"
+            @click="openIntroduce">立即升级</button>
+          <button class="login-popup-upgrade" v-if="loginInfo.isVip==1&&loginInfo.identityTypy!=1"
+            @click="openIntroduces">立即升级</button>-->
+        </view>
+      </view>
+      <view class="login-popup-card" style="margin-bottom: 0rpx;">
+        <view class="login-popup-row phone-row" :class="{ bg: disabledFlag }">
+          <view class="icon phone"></view>
+          <input :disabled="disabledFlag" style="text-align: center;padding-right: 50rpx;"
+            class="login-popup-username-input" v-model="phone" placeholder="请输入电话号码" maxlength="20" />
+          <!-- <text class="login-popup-phone">{{ phone }}</text> -->
+        </view>
+      </view>
+
+      <view class="login-popup-card33"
+        style="  border-bottom: 4rpx solid rgba(0, 0, 0, 0.2); box-shadow:0rpx;display: flex;justify-content: center;">
+        <view class="">
+          <image src="/static/images/infolink.png" style="width: 254rpx;height: 22rpx;margin-top: 16rpx;" mode="">
+          </image>
+        </view>
+      </view>
+
+      <view class="login-popup-footer" style="margin-top: 24rpx;">
+        <button class="login-popup-btn save" @click="handleLogin">
+          保存信息
+        </button>
+        <button class="login-popup-btn logout" @click="loginOut">登出</button>
+      </view>
+    </view>
+    <!-- 会员介绍弹窗组件 -->
+    <introduce-popup :isShow="introducePopupVisible" @close="handleCloseIntroducePopup"
+      @openPopup="handleOpenPaymentPopup" />
+    <!-- 操盘手介绍弹窗组件 -->
+    <introduce-popups :dataInfo="dataInfo" :isShow="introducePopupVisibles" @close="handleCloseIntroducePopups" />
+  </view>
+</template>
+
+<script setup>
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { uploadPictures } from "@/utils/uploadImage.js"
+import IntroducePopup from "@/components/introduce-popup/index.vue"
+import { getvipPrice } from "@/service/vip.js"
+import IntroducePopups from "@/components/introduce-popup/indexs.vue"
+
+const props = defineProps({
+  loginInfo: {
+    type: Object,
+    required: true
+  }
+})
+
+const emit = defineEmits(['close', 'login', 'update:login-out', 'open-introduce-popup1', 'open-introduce-popups1'])
+
+const isImage = ref(false)
+const nickname = ref('')
+const showTip = ref(false)
+const avatarUrl = ref('')
+const avatarUrlNew = ref('')
+const phone = ref('')
+const fileName = ref('')
+const newUserInfo = ref({
+  isLoggedIn: false,
+  username: "请登录",
+  isVip: null,
+  knowledgeBaseQuota: "N/A",
+  remainingTokens: "",
+  userId: "N/A",
+  avatarUrl: "",
+  memberLevelText: "显示用户的会员等级",
+  nextLevelInfoText: "显示距离下一个等级还差多少积分也就是钱",
+})
+const introducePopupVisible = ref(false)
+const introducePopupVisibles = ref(false)
+const disabledFlag = ref(false)
+const blurAmount = ref(0)
+const scrollTop = ref(0)
+
+function safePreventTouchMove(e) {
+  if (e.cancelable !== false) e.preventDefault()
+}
+
+function onInput(e) {
+  let val = e.detail.value
+  let newVal = ''
+  let len = 0
+  for (let i = 0; i < val.length; i++) {
+    const char = val[i]
+    if (/[\u4e00-\u9fa5]/.test(char)) {
+      if (len + 1 > 3) break
+      newVal += char
+      len += 1
+    } else if (/[a-zA-Z0-9]/.test(char)) {
+      if (len + 0.5 > 3) break
+      newVal += char
+      len += 0.5
+    }
+  }
+  
+  nextTick(() => {
+    nickname.value = newVal
+  })
+}
+
+function openIntroduce() {
+  emit("open-introduce-popup1")
+}
+
+function openIntroduces() {
+  emit("open-introduce-popups1")
+}
+
+function handleMaskClick(e) {
+  emit("close")
+}
+
+function handleTouchMove(e) {
+  if (e.touches && e.touches.length > 0) {
+    const touch = e.touches[0]
+    const scrollY = touch.clientY
+    blurAmount.value = Math.min(Math.max(scrollY / 10, 0), 20)
+  }
+}
+
+function handleScroll(e) {
+  const scrollT = e.detail ? e.detail.scrollTop : 0
+  scrollTop.value = scrollT
+  blurAmount.value = Math.min(Math.max(scrollT / 10, 0), 20)
+}
+
+function loginOut() {
+  emit("close")
+  
+  uni.showModal({
+    title: '提示',
+    content: '确定要退出登录吗？',
+    success: (res) => {
+      if (res.confirm) {
+        try {
+          const { clearLoginDataCompletely } = require('@/utils/auth.js')
+          clearLoginDataCompletely()
+        } catch (e) {
+          clearLoginDataSync()
+        }
+        
+        uni.$emit("loginOut")
+        emit("update:login-out", newUserInfo.value)
+        
+        uni.reLaunch({
+          url: '/pages/login-app/login'
+        })
+      }
+    }
+  })
+}
+
+function clearLoginDataSync() {
+  try {
+    const storageKeys = [
+      'token', 'userInfo', 'data', 'accessToken', 'refreshToken',
+      'openid', 'openId', 'uuid', 'thirdPartyAccounts', 'authInfo',
+      'userMargin', 'isVip', 'vipExpireTime', 'loginState', 'hasLogin',
+      'isLoggedIn', 'phone', 'nickname', 'avatar'
+    ]
+    
+    storageKeys.forEach(key => {
+      try {
+        uni.removeStorageSync(key)
+      } catch (e) {
+      }
+    })
+    
+    try {
+      uni.clearStorageSync()
+    } catch (e) {
+      uni.clearStorage()
+    }
+  } catch (e) {
+  }
+}
+
+function handleCancel() {
+  emit("close")
+}
+
+function chooseAvatar() {
+  uploadPictures()
+    .then((res) => {
+      if (res && res.length > 0) {
+        avatarUrlNew.value = res[0].base64
+        fileName.value = res[0].fileName
+        isImage.value = true
+      }
+    })
+    .catch((err) => {
+      const errorMsg = err && err.message ? err.message : '选择图片失败，请重试'
+      uni.showToast({
+        title: errorMsg,
+        icon: 'none',
+        duration: 2000
+      })
+    })
+}
+
+function handleLogin() {
+  if (nickname.value.length > 8) {
+    uni.showToast({
+      title: "昵称过长 不能超过8个字符",
+      icon: "none",
+    })
+    return
+  }
+  if (!nickname.value) {
+    uni.showToast({
+      title: "请输入昵称",
+      icon: "none",
+    })
+    return
+  }
+
+  if (!phone.value || phone.value.length !== 11) {
+    uni.showToast({
+      title: "请输入正确的手机号码",
+      icon: "none",
+    })
+    return
+  }
+
+  emit("login", {
+    avatar: avatarUrlNew.value,
+    nickname: nickname.value,
+    phone: phone.value,
+    fileName: fileName.value,
+  })
+
+  if (!isImage.value) {
+  } else {
+    uni.setStorageSync('avatarPic', avatarUrlNew.value)
+    uni.$emit('setAvatarPic', avatarUrlNew.value)
+  }
+
+  isImage.value = false
+
+  emit("close")
+}
+
+// created logic
+if (props.loginInfo.username.length > 0) {
+  nickname.value = props.loginInfo.username
+}
+if (!props.loginInfo['avatarUrl'].length) {
+  avatarUrl.value = uni.getStorageSync('avatarPic')
+  avatarUrlNew.value = uni.getStorageSync('avatarPic')
+} else {
+  avatarUrl.value = props.loginInfo.avatarUrl
+  avatarUrlNew.value = props.loginInfo.avatarUrl
+}
+if (props.loginInfo.phone.length > 0) {
+  phone.value = props.loginInfo.phone
+  disabledFlag.value = true
+}
+
+// 在组件挂载时禁止页面滚动
+onMounted(() => {
+  document.body.style.overflow = "hidden"
+})
+
+// 在组件销毁时恢复页面滚动
+onBeforeUnmount(() => {
+  document.body.style.overflow = "auto"
+})
+</script>
+
+<style lang="scss" scoped>
+.login-popup-mask {
+  background-color: rgba(255, 255, 255, 0.3);
+  // backdrop-filter: blur(3px);
+  // -webkit-backdrop-filter: blur(3px);
+  z-index: 1000;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+.login-popup {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: -100%;
+  border-radius: 34.5rpx 34.5rpx 0 0;
+  z-index: 1001;
+  padding: 20rpx 32rpx 0rpx 32rpx;
+  transition: bottom 0.35s cubic-bezier(0.4, 1.4, 0.6, 1);
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #F0F1FA;
+  backdrop-filter: blur(var(--blur-amount, 0px));
+  -webkit-backdrop-filter: blur(var(--blur-amount, 0px));
+  transition: bottom 0.35s cubic-bezier(0.4, 1.4, 0.6, 1), backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease;
+  box-shadow: 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.8);
+  border-width: 6rpx 6rpx 0rpx 6rpx;
+  border-style: solid;
+  border-color: rgba(251, 255, 203, 0.08);
+  overflow-y: auto;
+  &.show {
+    bottom: 0;
+  }
+}
+
+.login-popup-header {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 24rpx;
+
+  .login-popup-title {
+    font-size: 44rpx;
+    font-family: "VT323", monospace;
+    letter-spacing: 4rpx;
+    color: #222;
+    font-weight: bold;
+
+    .login-popup-sub {
+      color: #9694ff;
+      font-size: 32rpx;
+      margin-left: 12rpx;
+    }
+  }
+
+  .login-popup-avatar {
+    width: 140rpx;
+    height: 140rpx;
+    border-radius: 50%;
+    margin: 18rpx auto 0 auto;
+    display: block;
+    border: 6rpx solid #cfceff;
+    box-shadow: 0 2rpx 12rpx #d6d6ff;
+  }
+}
+.login-popup-card33 {
+	width: 80%;
+}
+.login-popup-card {
+  width: 80%;
+  border-radius: 15rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx #e0e0ff;
+  // border: 1px solid #fff;
+
+  .login-popup-row {
+    display: flex;
+    align-items: center;
+    // margin-bottom: 18rpx;
+    font-size: 32rpx;
+    color: #444;
+    border: 1px solid #ffffff;
+
+    .icon {
+      width: 48rpx;
+      height: 48rpx;
+      margin-right: 16rpx;
+
+      &.user {
+        background: url("/static/images/User_02.png") no-repeat center/contain;
+      }
+
+      &.id {
+        background: url("/static/images/identification-documents1.png") no-repeat center/contain;
+      }
+
+      &.phone {
+        background: url("/static/images/phone9.png") no-repeat center/contain;
+      }
+    }
+
+    .login-popup-username {
+      font-weight: bold;
+      font-size: 36rpx;
+      letter-spacing: 2rpx;
+    }
+
+    .login-popup-role {
+      font-size: 32rpx;
+    }
+
+    .login-popup-upgrade {
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.73) 5%, #FFFB00 99%);
+      // background: linear-gradient(180deg,
+      //     rgba(255, 255, 255, 0.73) 5%,
+      //     #fffb00 99%);
+      color: #FF2525;
+      // font-size: 26rpx;
+      // font-weight: bold;
+      border-radius: 8rpx;
+      // box-shadow: 0 2rpx 8rpx #ffe06680;
+	  // height: 59px;
+      border: none;
+      outline: none;
+      margin: 0;
+      height: 40rpx;
+      line-height: 40rpx;
+	  font-family: Lilita One;
+	  font-size: 26rpx;
+	  font-weight: normal;
+	  line-height: normal;
+    }
+
+    &.phone-row {
+      border-radius: 15rpx;
+      padding: 8rpx 16rpx;
+      font-family: monospace;
+      font-size: 34rpx;
+      color: #646464;
+      margin-bottom: 0;
+    }
+
+    &.bg {
+      background: #848484;
+    }
+  }
+}
+
+.login-popup-footer {
+  width: 80%;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin-top: 12rpx;
+
+  .login-popup-btn {
+    width: 100%;
+    font-size: 30rpx;
+    border-radius: 15rpx;
+    letter-spacing: 2rpx;
+    border: none;
+    outline: none;
+  }
+
+  .save {
+    font-size: 48rpx;
+    font-weight: bold;
+    color: #000;
+    text-transform: uppercase;
+    border-radius: 15rpx;
+    border: 4rpx solid #000;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    animation: bouncea 0.5s ease-in-out infinite;
+    margin-bottom: 8rpx;
+    height: 70rpx;
+    line-height: 70rpx;
+  }
+
+  .logout {
+    font-size: 48rpx;
+    font-weight: bold;
+    color: #000;
+    text-transform: uppercase;
+    border-radius: 15rpx;
+    border: 4rpx solid #000;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    animation: bouncea 0.5s ease-in-out infinite;
+    height: 70rpx;
+    line-height: 70rpx;
+  }
+}
+.upgradeImg {
+  width: 155rpx;
+  height: 50rpx;
+  .up_img {
+    width: 100%;
+    height: 100%;
+  }
+}
+.login-popup-row {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1.5rpx solid #d6d6e7;
+  border-radius: 15rpx;
+  box-shadow: 0 2rpx 8rpx #e0e0ff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 0 18rpx;
+  height: 60rpx;
+}
+
+.icon.user {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 12rpx;
+  background: url("https://img.icons8.com/ios/50/000000/user--v1.png") no-repeat center/contain;
+}
+
+.login-popup-username-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 32rpx;
+  color: #222;
+  font-family: "VT323", monospace;
+  letter-spacing: 2rpx;
+  font-weight: bold;
+  padding: 0;
+}
+
+.login-popup-nickname-prefix {
+  margin-right: 8rpx;
+  color: #333;
+  /* 你可以根据实际情况调整样式 */
+}
+
+@keyframes bouncea {
+  0% {
+    box-shadow: none;
+    transform: translate(3rpx, 3rpx);
+  }
+
+  50% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transform: translate(0, 0);
+  }
+
+  100% {
+    box-shadow: none;
+    transform: translate(3rpx, 3rpx);
+  }
+}
+</style>

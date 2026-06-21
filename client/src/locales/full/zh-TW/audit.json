@@ -1,0 +1,18 @@
+{
+  "audit": {
+    "action": "Action",
+    "details": "Details",
+    "endDate": "End Date",
+    "failed": "Failed",
+    "ip": "Ip",
+    "resourceId": "Resource Id",
+    "resourceType": "Resource Type",
+    "startDate": "Start Date",
+    "status": "Status",
+    "success": "Success",
+    "time": "Time",
+    "title": "Title",
+    "totalLogs": "Total Logs",
+    "userId": "User Id"
+  }
+}

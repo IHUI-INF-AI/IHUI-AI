@@ -1,0 +1,35 @@
+{
+  "Vip": {
+    "permanentVip": "/Permanent VIP",
+    "oneClickVip": "One-click activate VIP"
+  },
+  "userMembershipBenefits": {
+    "vipPrice": "Limited 588 yuan/1288 yuan VIP/year",
+    "traderPrice": "Limited 3888 yuan/18888 yuan Trader/year",
+    "benefitName": "Benefit",
+    "normalUser": "Normal User",
+    "vip": "VIP",
+    "trader": "Trader",
+    "upgrade": "Activate Now",
+    "benefit1Title": "Lifetime secondary distribution income",
+    "benefit1One": "Share for Zhihui points",
+    "benefit1Two": "Level 1 distribution 10%",
+    "benefit1Three": "Level 1 distribution 40% Level 2 distribution 10%",
+    "benefit2Title": "Access to 1000+ agent source codes",
+    "benefit3Title": "AI app Coze official channel release",
+    "benefit4Title": "AI app limited free access",
+    "benefit5Title": "Coze/N8N seamless integration",
+    "benefit6Title": "Multi-to-one Q&A coaching",
+    "benefit7Title": "Computing power gift",
+    "benefit7One": "80K",
+    "benefit7Two": "8.88M",
+    "benefit7Three": "18.88M",
+    "benefit8Title": "HQ onboarding and offline learning opportunities",
+    "benefit9Title": "Start a one-person company",
+    "benefit10Title": "Custom Agent",
+    "benefit10One": "Original price",
+    "benefit10Two": "5% off",
+    "benefit10Three": "20% off",
+    "benefit11Title": "Join community service provider list"
+  }
+}

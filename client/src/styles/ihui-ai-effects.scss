@@ -1,0 +1,191 @@
+/* IhuiAi样式增强 - 不影响现有样式，只添加新的样式类 */
+
+/* IhuiAi按钮样式 */
+.ihui-ai-button-primary {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: fit-content;
+  padding: 0 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-align: center;
+  border: 0;
+  border-radius: var(--global-border-radius);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.1s linear;
+  appearance: none;
+  user-select: none;
+  color: var(--el-bg-color-page);
+  background-color: var(--el-color-primary);
+
+  &:hover {
+    border-color: var(--el-color-primary-light-7);
+  }
+
+  &:active {
+    border-color: var(--el-color-primary-dark-2);
+  }
+}
+
+/* 取消蓝色旋转光效：保留其余效果 */
+
+/* IhuiAi卡片悬停效果 */
+.ihui-ai-card-hover {
+  transition: background 0.2s ease-in-out;
+
+  &:hover {
+    background-color: var(--el-fill-color-light);
+  }
+}
+
+/* IhuiAi TestimonialCard 悬停效果 */
+.ihui-ai-testimonial-card {
+  transition: background 0.2s ease-in-out, color 0.2s ease-in-out;
+
+  &:hover {
+    background: var(--el-color-primary);
+
+    .ihui-ai-testimonial-text {
+      color: var(--el-bg-color-page);
+    }
+  }
+}
+
+/* IhuiAi ChatExample 悬停效果 */
+.ihui-ai-chat-example {
+  /* 定义组件私有 CSS 变量，支持状态覆盖 */
+  --chat-example-transform: translateY(0);
+  
+  transition: all 0.3s ease;
+  transform: var(--chat-example-transform);
+  letter-spacing: 0;
+  background: var(--el-bg-color-page);
+  border-radius: var(--global-border-radius);
+
+  &:hover {
+    background: var(--el-bg-color);
+  }
+
+  &:active {
+    --chat-example-transform: translateY(2px);
+  }
+}
+
+/* IhuiAi淡入动画类 */
+.ihui-ai-fade-in-left-animation {
+  animation-name: ihui-ai-fade-in-left-global;
+  animation-duration: 1s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes ihui-ai-fade-in-left-global {
+  from {
+    transform: translateX(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.ihui-ai-fade-in-top-animation {
+  animation-name: ihui-ai-fade-in-top-global;
+  animation-duration: 1s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes ihui-ai-fade-in-top-global {
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.ihui-ai-fade-in-bottom-animation {
+  animation-name: ihui-ai-fade-in-bottom-global;
+  animation-duration: 1s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes ihui-ai-fade-in-bottom-global {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.ihui-ai-opacity-animation {
+  animation-name: ihui-ai-opacity-global;
+  animation-duration: 0.5s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes ihui-ai-opacity-global {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* IhuiAi闪光效果类 */
+.ihui-ai-flash-animation {
+  animation-name: ihui-ai-flash-global;
+  animation-duration: 0.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+}
+
+@keyframes ihui-ai-flash-global {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300px);
+  }
+}
+
+/* IhuiAi背景纹理 */
+.ihui-ai-bg-texture {
+  /* background-image: url('/images/ihui-ai/bgtop.3a236362.png'); */
+  /* 图片文件不存在，暂时注释掉 */
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.05;
+}
+
+.ihui-ai-bg-feature-texture {
+  background-image: url('/images/ihui-ai/featurebg.123bfed8.png');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.03;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .ihui-ai-button-primary {
+    padding: 0 16px;
+    font-size: 14px;
+  }
+}
+

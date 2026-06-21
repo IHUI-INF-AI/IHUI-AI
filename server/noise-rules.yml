@@ -1,0 +1,51 @@
+# 自动生成的告警降噪抑制规则
+# 生成时间: 2026-06-18T07:46:05.869911+00:00
+inhibit_rules:
+  # 类型: cascade_inhibit
+  - source_match:
+      alertname: 'PGInstanceDown'
+    target_match:
+      alertname: 'PGConnectionsHigh'
+    equal: ['instance', 'severity']
+  # 类型: cascade_inhibit
+  - source_match:
+      alertname: 'PGInstanceDown'
+    target_match:
+      alertname: 'PGReplicationLagHigh'
+    equal: ['instance', 'severity']
+  # 类型: cascade_inhibit
+  - source_match:
+      alertname: 'PGInstanceDown'
+    target_match:
+      alertname: 'PGRollbackHigh'
+    equal: ['instance', 'severity']
+  # 类型: cascade_inhibit
+  - source_match:
+      alertname: 'PGInstanceDown'
+    target_match:
+      alertname: 'PGBloatHigh'
+    equal: ['instance', 'severity']
+  # 类型: cascade_inhibit
+  - source_match:
+      alertname: 'PGConnectionsExhausted'
+    target_match:
+      alertname: 'PGConnectionsHigh'
+    equal: ['instance', 'severity']
+  # 类型: cascade_inhibit
+  - source_match:
+      alertname: 'PGDeadlockDetected'
+    target_match:
+      alertname: 'PGRollbackHigh'
+    equal: ['instance', 'severity']
+  # 类型: cascade_inhibit
+  - source_match:
+      alertname: 'PGLongTransactionCritical'
+    target_match:
+      alertname: 'PGLongTransaction'
+    equal: ['instance', 'severity']
+  # 类型: cascade_inhibit
+  - source_match:
+      alertname: 'PGCacheHitLow'
+    target_match:
+      alertname: 'PGConnectionsHigh'
+    equal: ['instance', 'severity']

@@ -1,0 +1,19 @@
+{
+  "featureAppleLogin": {
+    "useAppleLogin": "Apple로 로그인",
+    "appleLoginFailed": "Apple 로그인 실패",
+    "appleLoginProcessFailed": "Apple 로그인 처리 실패",
+    "appleLoginFailed2": "Apple登录失败",
+    "appleLoginRetry": "Apple 로그인 실패, 재시도하세요",
+    "appleLoginFailed3": "Apple登录失败"
+  },
+  "featureCallback": {
+    "expired": "만료",
+    "verifyFailed": "검증 실패",
+    "missing": "누락",
+    "attack": "공격"
+  },
+  "featureGoogleLogin": {
+    "googleLoginFailed": "Google 로그인 실패"
+  }
+}

@@ -1,0 +1,143 @@
+---
+description: 代码重构自动规则
+globs: []
+alwaysApply: true
+---
+
+# 代码重构规则
+
+在编写代码时，我会自动识别并建议重构机会：
+
+## 重构模式识别
+
+### 1. 重复代码 → 提取函数
+
+```typescript
+// ❌ 重复代码
+const user1Name = user1.profile?.name || 'Unknown'
+const user2Name = user2.profile?.name || 'Unknown'
+
+// ✅ 提取函数
+const getUserName = (user: User) => user.profile?.name || 'Unknown'
+const user1Name = getUserName(user1)
+const user2Name = getUserName(user2)
+```
+
+### 2. 复杂条件 → 简化
+
+```typescript
+// ❌ 复杂条件
+if (user && user.role === 'admin' && user.status === 'active' && 
+    user.permissions && user.permissions.includes('edit')) {
+  // ...
+}
+
+// ✅ 提取为函数
+const canEdit = (user: User) => {
+  if (!user || user.status !== 'active') return false
+  return user.role === 'admin' && user.permissions?.includes('edit')
+}
+
+if (canEdit(user)) {
+  // ...
+}
+```
+
+### 3. 长函数 → 拆分
+
+```typescript
+// ❌ 长函数
+const processOrder = async (order: Order) => {
+  // 验证订单（20行）
+  // 计算价格（30行）
+  // 处理支付（25行）
+  // 发送通知（15行）
+}
+
+// ✅ 拆分为小函数
+const processOrder = async (order: Order) => {
+  await validateOrder(order)
+  const total = calculateTotal(order)
+  await processPayment(order, total)
+  await sendNotification(order)
+}
+```
+
+### 4. 魔法数字 → 常量
+
+```typescript
+// ❌ 魔法数字
+if (status === 1) { /* ... */ }
+const delay = 3000
+
+// ✅ 有意义的常量
+const STATUS = {
+  ACTIVE: 1,
+  INACTIVE: 2,
+} as const
+
+const ANIMATION_DELAY_MS = 3000
+
+if (status === STATUS.ACTIVE) { /* ... */ }
+```
+
+### 5. 嵌套地狱 → 早返回
+
+```typescript
+// ❌ 嵌套地狱
+const process = (data: Data | null) => {
+  if (data) {
+    if (data.isValid) {
+      if (data.items.length > 0) {
+        return data.items.map(/* ... */)
+      }
+    }
+  }
+  return []
+}
+
+// ✅ 早返回
+const process = (data: Data | null) => {
+  if (!data) return []
+  if (!data.isValid) return []
+  if (data.items.length === 0) return []
+  
+  return data.items.map(/* ... */)
+}
+```
+
+### 6. 参数过多 → 对象参数
+
+```typescript
+// ❌ 参数过多
+function createUser(
+  name: string, 
+  email: string, 
+  age: number, 
+  role: string,
+  department: string
+) {}
+
+// ✅ 对象参数
+interface CreateUserOptions {
+  name: string
+  email: string
+  age?: number
+  role?: string
+  department?: string
+}
+
+function createUser(options: CreateUserOptions) {}
+```
+
+## 自动执行
+
+我会自动识别并建议：
+
+1. **重复代码** - 提取公共函数
+2. **复杂条件** - 简化或提取
+3. **长函数** - 拆分为小函数
+4. **魔法数字** - 提取为常量
+5. **深层嵌套** - 使用早返回
+6. **参数过多** - 使用对象参数
+7. **类过大** - 拆分职责

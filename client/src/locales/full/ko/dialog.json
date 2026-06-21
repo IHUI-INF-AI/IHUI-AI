@@ -1,0 +1,19 @@
+{
+  "dialogBottom": {
+    "slogan": "30만 AI 개발자 모임, 좋은 기술·좋은 프로젝트",
+    "findExpert": "전문가 개발 찾기",
+    "iAmDeveloper": "저는 개발자입니다",
+    "developerNotice": "개발자 안내",
+    "responsibilityTitle": "1. 개발자 책임",
+    "responsibilityContent": "개발자는 제공하는 기술 서비스가 관련 법률 및 규정을 준수하도록 보장해야 하며 불법적·비규격적 기술 지원을 제공해서는 안 됩니다.",
+    "ipTitle": "2. 지식재산권",
+    "ipContent": "개발자는 지식재산권을 존중해야 하며 타인의 특허권, 저작권, 상표권 등 합법적 권익을 침해해서는 안 됩니다.",
+    "tradeTitle": "3. 거래 규범",
+    "tradeContent": "개발자와 수요 측의 거래는 공정·공평·신의 원칙을 준수하고 거래 과정의 투명성을 보장해야 합니다.",
+    "privacyTitle": "4. 개인정보 보호",
+    "privacyContent": "개발자는 사용자 개인정보를 엄격히 보호해야 하며 유출·판매·불법 사용해서는 안 됩니다.",
+    "standardTitle": "5. 기술 표준",
+    "standardContent": "개발자는 업계 표준에 부합하는 기술 서비스를 제공해야 하며 기술 솔루션의 실현 가능성과 신뢰성을 보장해야 합니다.",
+    "agree": "읽고 동의합니다"
+  }
+}

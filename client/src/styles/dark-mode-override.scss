@@ -1,0 +1,101 @@
+/**
+ * 暗色模式背景色强制覆盖
+ * 此文件必须在所有其他样式文件之后加载，以确保覆盖 Element Plus 暗色主题
+ * 强制所有元素在暗色模式下使用纯黑色背景
+ */
+
+/* 强制覆盖 Element Plus 暗色主题变量：使用深色背景变量，避免与 --el-text-color-primary 循环导致整页浅色；字面量兜底保证有深色 */
+html.dark {
+  --el-bg-color: var(--color-dark-bg-3, #1a1a1a);
+  --el-bg-color-page: var(--color-dark-bg-3, #1a1a1a);
+  --el-bg-color-overlay: var(--color-dark-bg-3, #1a1a1a);
+  --el-bg-color-hover: var(--color-dark-bg-5, #2d2d2d);
+}
+
+/* 强制所有主要容器和页面元素使用背景色；根与主容器用 @layer utilities 确保整页暗色不被覆盖 */
+html.dark,
+html.dark html,
+html.dark body,
+html.dark #app,
+html.dark .app-container,
+html.dark .main-content,
+html.dark header,
+html.dark .glass-header,
+html.dark .page-container,
+html.dark .agents-container,
+html.dark .home-container,
+html.dark [id*="app"],
+html.dark [id*="page"],
+html.dark main,
+html.dark .page-section,
+html.dark .page-content,
+html.dark .fifth-page-content,
+html.dark .fourth-page-content,
+html.dark #first-page,
+html.dark #second-page,
+html.dark #third-page,
+html.dark #fourth-page,
+html.dark #fifth-page,
+html.dark footer,
+html.dark .footer-container,
+html.dark .footer-main,
+html.dark .footer-section,
+html.dark .content-card,
+html.dark .footer-container::before,
+html.dark .footer-main::before,
+html.dark .footer-section::before,
+html.dark footer::before {
+  background-color: var(--el-bg-color);
+  background: var(--el-bg-color);
+}
+
+/* 确保 body、html、#app、主容器整页深色，优先于其他样式 */
+/* 放入 @layer utilities 天然覆盖 vendor 层与组件默认样式，用层顺序控制 */
+@layer utilities {
+  html.dark,
+  html.dark body,
+  html.dark #app,
+  html.dark .app-container,
+  html.dark .main-content {
+    background-color: var(--el-bg-color);
+    background: var(--el-bg-color);
+  }
+}
+
+/* 第四页定价按钮样式 - 最高优先级覆盖 */
+html.dark button.subscribe-button,
+html.dark button.subscribe-button-1,
+html.dark button.subscribe-button-2,
+html.dark button.subscribe-button-3,
+html.dark button.subscribe-button-4 {
+  background: var(--el-bg-color);
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+/* 亮色模式下定价按钮样式 */
+html:not(.dark) button.subscribe-button,
+html:not(.dark) button.subscribe-button-1,
+html:not(.dark) button.subscribe-button-2,
+html:not(.dark) button.subscribe-button-3,
+html:not(.dark) button.subscribe-button-4 {
+  background: var(--el-text-color-primary);
+  background-color: var(--el-text-color-primary);
+  color: var(--el-bg-color);
+}
+
+/* 亮色模式下 hero-cta-btn 按钮样式 */
+html:not(.dark) .hero-cta-btn,
+html:not(.dark) .hero-cta-btn.el-button--primary {
+  background: var(--el-text-color-primary);
+  background-color: var(--el-text-color-primary);
+  color: var(--el-bg-color);
+}
+
+:where(html:not(.dark)) .hero-cta-btn:not(.ghost) span,
+:where(html:not(.dark)) .hero-cta-btn:not(.ghost) .el-button__text,
+:where(html:not(.dark)) .hero-cta-btn:not(.ghost) .el-icon {
+  color: var(--el-bg-color);
+}
+
+

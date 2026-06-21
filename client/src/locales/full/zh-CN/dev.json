@@ -1,0 +1,52 @@
+{
+  "devEnterModel": {},
+  "devNbn": {},
+  "devEdit": {},
+  "devCSSVariablesCheatsheet": {
+    "textColor": "文字颜色",
+    "bgColor": "背景颜色",
+    "borderColor": "边框颜色",
+    "globalSpacing": "全局间距",
+    "globalRadius": "全局圆角",
+    "globalShadow": "全局阴影"
+  },
+  "devEnterCashDetail": {
+    "withdraw": "提现"
+  },
+  "devEnterPayCard": {
+    "purchased": "已购买"
+  },
+  "devEnterStateCard": {
+    "confirmOffline": "是否确定下架此智能体"
+  },
+  "devStateCard": {
+    "settings": "设置",
+    "reviewing": "审核中",
+    "unpublish": "下架",
+    "category": "分类",
+    "sellType": "售卖类型",
+    "targetGroup": "目标群体",
+    "member": "会员",
+    "allUsers": "所有用户",
+    "price": "价格",
+    "yuan": "元",
+    "month": "月",
+    "limitFreeNote": "限时免费",
+    "discount": "折扣",
+    "none": "无",
+    "publishTime": "发布时间",
+    "limitFreeTime": "限时免费时间",
+    "confirmOffline": "确认下架",
+    "free": "免费",
+    "limitedFree": "限时免费",
+    "paid": "收费",
+    "text": "文字",
+    "image": "图片",
+    "video": "视频",
+    "discount6m80": "6个月后8折",
+    "discount9m70": "9个月后7折",
+    "discount1y50": "1年后5折",
+    "year": "年",
+    "permanent": "永久"
+  }
+}

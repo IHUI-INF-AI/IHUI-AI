@@ -1,0 +1,329 @@
+---
+description: 项目样式架构规范 - 防止样式冲突和覆盖问题
+globs: ["src/**/*.vue", "src/**/*.scss", "src/**/*.css"]
+alwaysApply: true
+---
+
+# 样式架构规范
+
+## 1. 样式分层体系（ITCSS）
+
+本项目采用 **ITCSS**（Inverted Triangle CSS）分层架构，从最通用到最具体：
+
+```
+┌─────────────────────────────────────────────────┐
+│  1. Settings (设置层)                            │  最低特异性
+│     - CSS 变量定义 (_design-tokens.scss)         │
+│     - Tailwind 配置                              │
+├─────────────────────────────────────────────────┤
+│  2. Tools (工具层)                               │
+│     - SCSS mixins (_breakpoints.scss)            │
+│     - 工具函数                                   │
+├─────────────────────────────────────────────────┤
+│  3. Generic (通用层)                             │
+│     - CSS Reset                                  │
+│     - 全局 box-sizing                            │
+├─────────────────────────────────────────────────┤
+│  4. Elements (元素层)                            │
+│     - HTML 元素默认样式                           │
+│     - 如 body, h1-h6, a, button                 │
+├─────────────────────────────────────────────────┤
+│  5. Objects (对象层)                             │
+│     - 布局相关的通用模式                          │
+│     - 如 .container, .grid                       │
+├─────────────────────────────────────────────────┤
+│  6. Components (组件层) ⭐ 大部分代码在这里        │
+│     - Vue 组件样式                               │
+│     - 使用 scoped + BEM 命名                     │
+├─────────────────────────────────────────────────┤
+│  7. Utilities (工具类层)                         │  最高特异性
+│     - Tailwind 工具类                            │
+│     - 单一属性的辅助类                            │
+└─────────────────────────────────────────────────┘
+```
+
+## 2. 核心规则（必须遵守）
+
+### 规则 1：使用高特异性选择器和 CSS 变量
+
+当样式需要覆盖时，使用以下方法：
+
+```scss
+// ✅ 方法一：增加选择器特异性
+.header-nav .button {
+  color: red;
+}
+
+// ✅ 方法二：使用 CSS 变量（推荐）
+.button {
+  color: var(--button-color);
+}
+
+// ✅ 方法三：使用 :where() 降低被覆盖样式的特异性
+:where(.base-style) .button {
+  color: gray;
+}
+```
+
+### 规则 2：组件样式必须使用 BEM 命名 + scoped
+
+```vue
+<template>
+  <!-- 使用 BEM 命名 -->
+  <div class="user-card">
+    <div class="user-card__header">
+      <span class="user-card__title">...</span>
+    </div>
+    <div class="user-card__body user-card__body--highlighted">
+      ...
+    </div>
+  </div>
+</template>
+
+<style lang="scss" scoped>
+// Block
+.user-card {
+  // ...
+  
+  // Element
+  &__header { }
+  &__title { }
+  &__body { }
+  
+  // Modifier
+  &__body--highlighted { }
+}
+</style>
+```
+
+### 规则 3：禁止跨组件样式覆盖
+
+```scss
+// ❌ 禁止：在父组件中覆盖子组件样式
+.parent-component {
+  .child-component__button {
+    color: red;  // 不要这样做！
+  }
+}
+
+// ✅ 正确：使用 props 或 CSS 变量
+// 子组件定义变量
+.child-component__button {
+  color: var(--child-button-color, black);
+}
+
+// 父组件通过变量传递
+.parent-component {
+  --child-button-color: red;
+}
+```
+
+### 规则 4：Teleport 组件使用全局样式块
+
+```vue
+<template>
+  <Teleport to="body">
+    <div class="my-component__dropdown">...</div>
+  </Teleport>
+</template>
+
+<style lang="scss" scoped>
+// scoped 样式（组件内部）
+.my-component { }
+</style>
+
+<style lang="scss">
+// 全局样式块（用于 Teleport）
+// 必须使用完整的 BEM 类名避免冲突
+.my-component__dropdown {
+  // ...
+}
+</style>
+```
+
+## 3. CSS 变量使用规范
+
+### 变量命名规则
+
+```scss
+// 全局设计令牌（在 _design-tokens.scss 定义）
+--el-color-primary      // Element Plus 变量
+--header-btn-height     // 组件系统变量
+--shadow-sm             // 设计系统变量
+
+// 组件内部变量（在组件中定义）
+.my-component {
+  // 定义组件私有变量
+  --mc-spacing: 16px;
+  --mc-color: var(--el-text-color-primary);
+  
+  padding: var(--mc-spacing);
+  color: var(--mc-color);
+}
+```
+
+### 主题切换使用变量
+
+```scss
+// ✅ 正确：使用 CSS 变量自动响应主题
+.card {
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+// ❌ 避免：手动写暗色模式覆盖
+html.dark .card {
+  background: #000;  // 不推荐
+}
+```
+
+## 4. 选择器特异性规则
+
+### 特异性计算
+
+```
+(ID选择器数, 类/属性/伪类数, 元素选择器数)
+
+#id           = (1, 0, 0) = 100
+.class        = (0, 1, 0) = 10
+div           = (0, 0, 1) = 1
+.a .b .c      = (0, 3, 0) = 30
+#id .class    = (1, 1, 0) = 110
+```
+
+### 推荐特异性范围
+
+| 层级 | 最大特异性 | 示例 |
+|------|------------|------|
+| 工具类 | 0,1,0 | `.text-center` |
+| 组件 | 0,3,0 | `.card__header` |
+| 组件变体 | 0,4,0 | `.card__header--large` |
+| 状态 | 0,4,1 | `.btn:hover` |
+
+## 5. Element Plus 样式覆盖
+
+### 使用 :deep() 穿透
+
+```scss
+// ✅ 正确：使用 :deep() 穿透到 Element Plus 组件
+.my-form {
+  :deep(.el-input__wrapper) {
+    border-radius: 8px;
+  }
+}
+
+// ❌ 避免：在全局样式中覆盖
+// 这会影响所有 el-input
+.el-input__wrapper {
+  border-radius: 8px;
+}
+```
+
+### 使用 CSS 变量覆盖
+
+```scss
+// ✅ 推荐：使用 Element Plus 的 CSS 变量
+:root {
+  --el-border-radius-base: 8px;
+  --el-color-primary: #000000;
+}
+```
+
+## 6. 响应式样式规则
+
+### 使用项目断点
+
+```scss
+@use '@/styles/_breakpoints.scss' as bp;
+
+.component {
+  padding: 16px;
+  
+  @include bp.tablet-up {
+    padding: 24px;
+  }
+  
+  @include bp.laptop-up {
+    padding: 32px;
+  }
+}
+```
+
+### 或使用 Tailwind 响应式
+
+```html
+<div class="p-4 tablet:p-6 laptop:p-8">
+  ...
+</div>
+```
+
+## 7. 文件组织规范
+
+```
+src/styles/
+├── _design-tokens.scss    # 设计令牌（唯一变量来源）
+├── _breakpoints.scss      # 断点 mixins
+├── css-variables.scss     # CSS 变量输出
+├── index.scss             # 主入口
+├── element-plus-vars.scss # Element Plus 覆盖
+├── responsive.scss        # 响应式通用样式
+└── utilities.scss         # 工具类
+
+src/components/
+├── ComponentName/
+│   ├── ComponentName.vue  # 组件（包含 scoped 样式）
+│   └── index.ts           # 导出
+```
+
+## 8. 样式审查清单
+
+开发时自检：
+
+- [ ] 类名是否符合 BEM 规范？
+- [ ] 是否使用了 CSS 变量而非硬编码值？
+- [ ] 选择器嵌套是否超过 3 层？
+- [ ] 是否跨组件覆盖了其他组件的样式？
+- [ ] Teleport 内容是否在全局样式块中？
+- [ ] 是否使用了 ID 选择器？（避免）
+- [ ] 样式覆盖是否通过特异性或 CSS 变量解决？
+
+## 9. 常见问题解决方案
+
+### 问题：样式不生效
+
+```scss
+// 1. 检查选择器特异性
+// 2. 使用浏览器开发工具查看哪个规则覆盖了你的样式
+// 3. 通过增加特异性或使用 CSS 变量解决
+
+// ✅ 方法一：增加特异性
+.my-component .btn { color: red; }
+
+// ✅ 方法二：使用 CSS 变量
+.btn { color: var(--btn-color, red); }
+```
+
+### 问题：暗色模式样式不生效
+
+```scss
+// 使用 CSS 变量，自动响应主题切换
+.component {
+  // 不需要写 html.dark .component {}
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+```
+
+### 问题：Element Plus 组件样式覆盖
+
+```scss
+// 方法 1: 使用 :deep()
+.my-wrapper :deep(.el-button) {
+  border-radius: 20px;
+}
+
+// 方法 2: 使用 CSS 变量（推荐）
+.my-wrapper {
+  --el-button-border-radius: 20px;
+}
+```

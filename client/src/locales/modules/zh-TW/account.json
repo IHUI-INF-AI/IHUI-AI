@@ -1,0 +1,18 @@
+{
+  "account": {
+    "searchPlaceholder": {
+      "index": "搜尋賬號"
+    },
+    "label": {
+      "account": "賬號",
+      "role": "角色",
+      "lastLogin": "最後登錄",
+      "actions": "操作",
+      "loginPassword": "登錄密碼",
+      "twoFactor": "二次驗證",
+      "securityEmail": "安全郵箱",
+      "securityMobile": "安全手機",
+      "loginLog": "登錄日誌"
+    }
+  }
+}

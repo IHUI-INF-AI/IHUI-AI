@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>创建占位图标</title>
+    <style>
+        body {
+            font-family: 'AlimamaFangYuanTi';
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .icons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .icon {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+            width: 120px;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>微信小程序TabBar占位图标生成器</h1>
+    <p>这个工具会生成8个极小的1x1像素透明PNG图标，大小远低于40KB，用于占位。</p>
+    
+    <button id="downloadAll">下载所有图标</button>
+    
+    <div class="icons" id="iconContainer"></div>
+    
+    <script>
+        // 1x1像素透明PNG的Base64编码
+        const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==';
+        
+        // 需要创建的图标文件名列表
+        const iconFiles = [
+            'home.png',
+            'home-active.png',
+            'chat.png',
+            'chat-active.png',
+            'member.png',
+            'member-active.png',
+            'settings.png',
+            'settings-active.png'
+        ];
+        
+        // 为每个图标创建下载链接
+        const iconContainer = document.getElementById('iconContainer');
+        
+        iconFiles.forEach(filename => {
+            // 创建图标容器
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'icon';
+            
+            // 添加文件名
+            const nameP = document.createElement('p');
+            nameP.textContent = filename;
+            iconDiv.appendChild(nameP);
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = `data:image/png;base64,${transparentPngBase64}`;
+            link.download = filename;
+            link.textContent = '下载';
+            
+            // 创建按钮样式的链接
+            const button = document.createElement('button');
+            button.appendChild(link);
+            iconDiv.appendChild(button);
+            
+            iconContainer.appendChild(iconDiv);
+        });
+        
+        // 下载所有图标
+        document.getElementById('downloadAll').addEventListener('click', function() {
+            // 显示提示
+            alert('将开始下载8个文件。请将下载的文件全部放入 static/tabbar 目录中。');
+            
+            // 依次触发所有下载
+            setTimeout(() => {
+                document.querySelectorAll('.icon a').forEach(link => {
+                    setTimeout(() => link.click(), 300);
+                });
+            }, 500);
+        });
+    </script>
+</body>
+</html> 

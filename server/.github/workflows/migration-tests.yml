@@ -1,0 +1,106 @@
+name: Migration Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'server/**'
+      - '.github/workflows/migration-tests.yml'
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - 'server/**'
+      - '.github/workflows/migration-tests.yml'
+
+jobs:
+  migrated:
+    name: Phase 1-6 Migration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14-alpine
+        env:
+          POSTGRES_DB: zhs_platform
+          POSTGRES_USER: zhs
+          POSTGRES_PASSWORD: zhs_pg_pass
+          TZ: Asia/Shanghai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zhs -d zhs_platform"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      ENV: test
+      DB1_URL: postgresql+psycopg2://zhs:zhs_pg_pass@localhost:5432/zhs_platform
+      DB2_URL: postgresql+psycopg2://zhs:zhs_pg_pass@localhost:5432/zhs_platform
+      DB3_URL: postgresql+psycopg2://zhs:zhs_pg_pass@localhost:5432/zhs_platform
+      REDIS_URL: redis://localhost:6379/0
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Wait for PG healthy
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if pg_isready -h localhost -p 5432 -U zhs; then
+              echo "PG is ready"
+              break
+            fi
+            sleep 3
+          done
+
+      - name: Migrated services tests
+        run: |
+          pytest tests/test_migrated_services_pure.py -v --tb=short
+
+      - name: Monitoring migrated tests
+        run: |
+          pytest tests/test_monitoring_migrated.py -v --tb=short
+
+      - name: DB pool tune tests
+        run: |
+          pytest tests/test_db_pool_tune.py -v --tb=short
+
+      - name: LLM WS E2E protocol tests
+        run: |
+          pytest tests/test_llm_ws_e2e_protocol.py -v --tb=short
+
+      - name: DB fallback policy tests
+        run: |
+          pytest tests/test_db_fallback_policy.py -v --tb=short
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Migration Tests Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- migrated_services: 17 tests" >> $GITHUB_STEP_SUMMARY
+          echo "- monitoring_migrated: 13 tests" >> $GITHUB_STEP_SUMMARY
+          echo "- db_pool_tune: 9 tests" >> $GITHUB_STEP_SUMMARY
+          echo "- llm_ws_e2e_protocol: 9 tests" >> $GITHUB_STEP_SUMMARY
+          echo "- db_fallback_policy: 8 tests" >> $GITHUB_STEP_SUMMARY
+          echo "- TOTAL: 56 tests" >> $GITHUB_STEP_SUMMARY

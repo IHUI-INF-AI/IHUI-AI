@@ -1,0 +1,17 @@
+{
+  "order": {
+    "status": {
+      "unsettled": "未決済",
+      "pending": "保留中",
+      "refunded": "返金済み",
+      "completed": "完了"
+    }
+  },
+  "orderList": {
+    "title": "注文リスト",
+    "searchPlaceholder": "注文番号で検索...",
+    "orderNo": "注文番号",
+    "orderTime": "注文時間",
+    "noOrders": "注文が見つかりません"
+  }
+}

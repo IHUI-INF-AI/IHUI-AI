@@ -1,0 +1,54 @@
+{
+  "techService": {
+    "title": "技術服務专區",
+    "subtitle": "獲取專業的技術支持和幫助",
+    "services": {
+      "support": {
+        "title": "在線客服",
+        "desc": "聯繫我們的客服團隊獲取幫助"
+      },
+      "docs": {
+        "title": "技術文檔",
+        "desc": "查看詳細的技術文檔和API說明"
+      },
+      "consultation": {
+        "title": "技術咨询",
+        "desc": "预约專業的技術咨询服務"
+      },
+      "training": {
+        "title": "技術培训",
+        "desc": "报名参加我們的技術培训課程"
+      },
+      "custom": {
+        "title": "定制服務",
+        "desc": "獲取個性化的技術解決方案"
+      },
+      "feedback": {
+        "title": "意见反饋",
+        "desc": "提交您的建議和反饋"
+      }
+    },
+    "underDevelopment": "功能開發中",
+    "appointmentTitle": "服務预约",
+    "appointmentSubmitted": "预约提交成功，我們会尽快聯繫您",
+    "submitAppointment": "提交预约",
+    "form": {
+      "name": "姓名",
+      "namePlaceholder": "請輸入您的姓名",
+      "email": "郵箱",
+      "emailPlaceholder": "請輸入您的郵箱",
+      "phone": "電話",
+      "phonePlaceholder": "請輸入您的電話",
+      "preferredDate": "偏好日期",
+      "preferredTime": "偏好時間",
+      "datePlaceholder": "選擇日期",
+      "timePlaceholder": "選擇時間",
+      "description": "需求描述",
+      "descriptionPlaceholder": "請詳細描述您的需求...",
+      "validationRequired": "請填寫必填項",
+      "invalidEmail": "請輸入有效的郵箱地址",
+      "invalidPhone": "請輸入有效的手機號码"
+    },
+    "appointmentFailed": "预约提交失敗，請稍后重試"
+  }
+}

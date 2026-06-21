@@ -1,0 +1,116 @@
+// ============================================
+// 全局组件样式
+// 使用 CSS Layers 架构，放置在 components 层
+// ============================================
+
+@layer components {
+  // 可访问性支持 - 屏幕阅读器专用文本
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  // 路由加载和错误状态样式
+  .route-loading,
+  .route-error {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  .route-loading {
+    .el-skeleton {
+      width: 100%;
+      max-width: 800px;
+    }
+  }
+
+  .route-error {
+    width: 100%;
+    max-width: 600px;
+  }
+
+  // 底部展示栏容器样式
+  .bottom-showcase-wrapper {
+    width: 100%;
+    position: relative;
+  }
+
+  // 滚动动画
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.05);
+    }
+  }
+
+  // 工具类
+  .showcase-fade-in {
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .showcase-pulse {
+    animation: pulse 2s infinite;
+  }
+
+  // 响应式工具类
+  .showcase-hidden-mobile {
+    display: block;
+  }
+
+  .showcase-visible-mobile {
+    display: none;
+  }
+
+  @media (width <= 768px) {
+    .showcase-hidden-mobile {
+      display: none;
+    }
+
+    .showcase-visible-mobile {
+      display: block;
+    }
+  }
+}
+
+// ============================================
+// 布局与溢出（滚动条样式由 styles/_scrollbar-overlay.scss 统一：不占位、悬浮）
+// ============================================
+@layer utilities {
+  html,
+  body {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    -ms-overflow-style: auto;
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "bsonType": "object",
+  "required": ["username", "created_at"],
+  "permission": {
+    "read": true,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "存储文档 ID，系统自动生成"
+    },
+    "username": {
+      "bsonType": "string",
+      "description": "用户名",
+      "title": "用户名",
+      "trim": "both"
+    },
+    "nickname": {
+      "bsonType": "string",
+      "description": "昵称",
+      "title": "昵称",
+      "trim": "both"
+    },
+    "avatar": {
+      "bsonType": "string",
+      "description": "头像",
+      "title": "头像",
+      "trim": "both"
+    },
+    "openid": {
+      "bsonType": "string",
+      "description": "微信OpenID",
+      "title": "微信OpenID"
+    },
+    "unionid": {
+      "bsonType": "string",
+      "description": "微信UnionID",
+      "title": "微信UnionID"
+    },
+    "is_VIP": {
+      "bsonType": "int",
+      "description": "是否为VIP用户",
+      "title": "VIP状态",
+      "defaultValue": 0,
+      "enum": [0, 1],
+      "enumDescription": {
+        "0": "非VIP用户",
+        "1": "VIP用户"
+      }
+    },
+    "vip_expire_time": {
+      "bsonType": "timestamp",
+      "description": "VIP过期时间",
+      "title": "VIP过期时间"
+    },
+    "credit": {
+      "bsonType": "int",
+      "description": "用户积分",
+      "title": "积分",
+      "defaultValue": 0
+    },
+    "free_quota": {
+      "bsonType": "int",
+      "description": "免费使用额度",
+      "title": "免费额度",
+      "defaultValue": 5
+    },
+    "mobile": {
+      "bsonType": "string",
+      "description": "手机号码",
+      "title": "手机号"
+    },
+    "last_login_time": {
+      "bsonType": "timestamp",
+      "description": "最后登录时间",
+      "title": "最后登录时间"
+    },
+    "last_login_ip": {
+      "bsonType": "string",
+      "description": "最后登录IP",
+      "title": "最后登录IP"
+    },
+    "created_at": {
+      "bsonType": "timestamp",
+      "description": "创建时间",
+      "title": "创建时间"
+    },
+    "updated_at": {
+      "bsonType": "timestamp",
+      "description": "更新时间",
+      "title": "更新时间"
+    }
+  }
+} 

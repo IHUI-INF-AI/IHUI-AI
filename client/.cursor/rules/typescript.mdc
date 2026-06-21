@@ -1,0 +1,90 @@
+---
+description: TypeScript 代码自动规则
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: false
+---
+
+# TypeScript 开发规则
+
+当编辑或创建 `.ts` / `.tsx` 文件时，我会自动遵循以下规则：
+
+## 类型定义（强制）
+
+1. **显式类型** - 函数参数和返回值必须有类型
+```typescript
+// ✅ 正确
+function fetchUser(id: number): Promise<User> {}
+
+// ❌ 错误
+function fetchUser(id) {}
+```
+
+2. **接口优先** - 使用 interface 定义对象类型
+```typescript
+// ✅ 优先使用
+interface User {
+  id: number
+  name: string
+}
+
+// 联合类型时使用 type
+type Status = 'active' | 'inactive'
+```
+
+3. **避免 any** - 使用 unknown 或泛型替代
+```typescript
+// ❌ 避免
+const data: any = {}
+
+// ✅ 使用
+const data: unknown = {}
+const data: Record<string, unknown> = {}
+```
+
+## 错误处理（强制）
+
+```typescript
+// 异步函数必须有 try-catch
+async function fetchData() {
+  try {
+    const response = await api.get()
+    return response.data
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      // 处理 HTTP 错误
+    }
+    throw error
+  }
+}
+```
+
+## 命名规范
+
+- 接口名：PascalCase，不加 I 前缀
+- 类型名：PascalCase
+- 变量/函数：camelCase
+- 常量：UPPER_SNAKE_CASE
+- 枚举值：PascalCase
+
+## 导入顺序
+
+```typescript
+// 1. 第三方库
+import { ref } from 'vue'
+import axios from 'axios'
+
+// 2. 内部模块（绝对路径）
+import { useUser } from '@/composables/useUser'
+import type { User } from '@/types'
+
+// 3. 相对路径导入
+import { helper } from './utils'
+```
+
+## 自动执行
+
+1. 添加缺失的类型注解
+2. 将 any 替换为更精确的类型
+3. 添加错误处理
+4. 优化导入顺序
+5. 添加 JSDoc 注释

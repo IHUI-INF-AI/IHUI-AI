@@ -1,0 +1,15 @@
+{
+  "shortcuts": {
+    "핵심 장점": "제목",
+    "search": "검색",
+    "noResults": "없음Results",
+    "toggleTip": "toggle팁",
+    "scopes": {
+      "chat": "대화",
+      "drama": "Drama",
+      "editor": "Editor",
+      "input": "입력"
+    },
+    "title": "제목"
+  }
+}

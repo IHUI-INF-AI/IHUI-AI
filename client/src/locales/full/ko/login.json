@@ -1,0 +1,179 @@
+{
+  "login": {
+    "selectProject": "프로젝트 선택",
+    "switchProject": "프로젝트 전환",
+    "핵심 장점": "로그인",
+    "sub핵심 장점": "환영합니다",
+    "rememberMe": "로그인 상태 유지",
+    "forgotPassword": "비밀번호 찾기",
+    "noAccount": "계정이 없으신가요?",
+    "registerNow": "지금 가입",
+    "loginSuccess": "로그인 성공",
+    "loginFailed": "로그인 실패",
+    "project": {
+      "main": "Zhihui AI 메인 플랫폼",
+      "open": "오픈 플랫폼",
+      "admin": "관리 포털",
+      "eduWeb": "Zhihui AI 교육 플랫폼",
+      "eduAdmin": "교육 관리 포털",
+      "user": "생각사용게 포털"
+    },
+    "crossProject": {
+      "loggingIn": "{project}에 로그인 중...",
+      "user": "생각사용게 포털",
+      "admin": "관리 포털",
+      "switchTo": "전환"
+    },
+    "ihuiLogo": "Zhihui AI 로고",
+    "worldFirst": "세계 최초",
+    "oneStopAI": "모두를 위한 올인원 AI 플랫폼",
+    "aiModels": "AI 모델",
+    "users500k": "50만+",
+    "users": "생각사용게",
+    "availability": "가사용성",
+    "tabs": {
+      "account": "계정 로그인",
+      "전화": "전화번호 로그인",
+      "accountRegister": "계정 가입",
+      "전화Register": "전화번호 가입",
+      "phone": "휴대전화로그인",
+      "phoneRegister": "휴대전화가입"
+    },
+    "placeholders": {
+      "username": "생각사용게 이름을 입력하세요",
+      "usernameOrEmail": "생각사용게 이름 또는 이메일을 입력하세요",
+      "이메일": "이메일 주의소를 입력하세요",
+      "password": "비밀번호를 입력하세요",
+      "setPassword": "비밀번호를 설정하세요",
+      "confirmPassword": "비밀번호를 확인하세요",
+      "전화": "전화번호를 입력하여 로그인",
+      "전화Register": "전화번호를 입력하여 가입",
+      "smsCode": "SMS 인증 코드를 입력하세요",
+      "setLoginPassword": "로그인 비밀번호를 설정하세요",
+      "confirmLoginPassword": "로그인 비밀번호를 확인하세요",
+      "email": "요청입력이메일주의소",
+      "phone": "요청입력휴대전화번호로그인",
+      "phoneRegister": "요청입력휴대전화번호가입"
+    },
+    "buttons": {
+      "login": "지금 로그인",
+      "register": "지금 가입",
+      "submitLogin": "로그인",
+      "submitRegister": "가입",
+      "sendCode": "인증 코드 보내기",
+      "resend": "다시 보내기",
+      "resendIn": "{seconds}초 후 다시 보내기"
+    },
+    "mode": {
+      "userLogin": "생각사용게 로그인",
+      "userRegister": "생각사용게 가입",
+      "hasAccount": "계정이 있으신가요? 로그인",
+      "noAccount": "계정이 없으신가요? 가입"
+    },
+    "password": {
+      "show": "비밀번호 표시",
+      "hide": "비밀번호 숨기기"
+    },
+    "agreement": {
+      "prefix": "다음에 동의합니다",
+      "userAgreement": "《생각사용게 약관》",
+      "privacyPolicy": "《개인정보 보호정책》",
+      "and": "및"
+    },
+    "error": {
+      "unknownError": "알 수 없는 오류",
+      "insecureConnection": "현재 연결이 안전하지 않습니다. HTTPS를 생각사용하여 접속하는 것을 권장합니다"
+    },
+    "thirdParty": {
+      "or": "또는",
+      "wechatLogin": "WeChat 로그인",
+      "alipayLogin": "Alipay 로그인",
+      "googleLogin": "Google 로그인",
+      "appleLogin": "Apple 로그인",
+      "notice": "서드파티 로그인을 생각사용하면 다음에 동의하는 것으로 간주의됩니다",
+      "privacyPolicy": "개인정보 보호정책",
+      "termsOfService": "서비스 약관",
+      "wechatLoginFailed": "WeChat 로그인 실패, 다시 시도하세요",
+      "alipayLoginFailed": "Alipay 로그인 실패, 다시 시도하세요",
+      "googleLoginFailed": "Google 로그인 실패, 다시 시도하세요",
+      "appleLoginFailed": "Apple 로그인 실패, 다시 시도하세요",
+      "tooltip": {
+        "wechat": "WeChat 로그인",
+        "alipay": "Alipay 로그인",
+        "google": "Google 로그인",
+        "apple": "Apple 로그인",
+        "feishu": "Feishu 로그인"
+      },
+      "feishuLogin": "Feishu로그인",
+      "accountLogin": "accountLogin",
+      "alipay": "alipay",
+      "comingSoon": "comingSoon",
+      "이메일Login": "이메일Login",
+      "feishu": "feishu",
+      "otherMethods": "otherMethods",
+      "전화Login": "전화Login",
+      "quickLogin": "quickLogin",
+      "securityNotice1": "securityNotice1",
+      "securityNotice2": "securityNotice2",
+      "securityNotice3": "securityNotice3",
+      "selectPreferred": "selectPreferred",
+      "emailLogin": "emailLogin",
+      "phoneLogin": "phoneLogin"
+    },
+    "brand": {
+      "핵심 장점": "세계 최초 혁신 AI App Store",
+      "sub핵심 장점": "모두를 위한 원스톱 AI 통합 앱 플랫폼",
+      "title": "세계 최초 혁신 AI App Store",
+      "subtitle": "모두를 위한 원스톱 AI 통합 앱 플랫폼"
+    },
+    "form": {
+      "username": "생각사용게이름",
+      "password": "비밀번호",
+      "login": "로그인",
+      "forgotPassword": "비밀번호 찾기？",
+      "rememberMe": "나 기억하기"
+    },
+    "social": {
+      "wechat": "위챗로그인",
+      "qq": "QQ로그인",
+      "전화": "휴대전화로그인",
+      "phone": "휴대전화로그인"
+    },
+    "register": {
+      "핵심 장점": "생성계정",
+      "link": "계정이 없으신가요? 지금 가입하세요",
+      "username": "생각사용게이름",
+      "password": "비밀번호",
+      "confirmPassword": "확인비밀번호",
+      "전화": "전화번호",
+      "code": "인증 코드",
+      "sendCode": "전송인증 코드",
+      "submit": "가입",
+      "title": "생성계정",
+      "phone": "휴대전화번호"
+    },
+    "hidePassword": "숨기기Password",
+    "showPassword": "표시Password",
+    "welcomeTitle": "welcome제목",
+    "apple": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "google": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "switchPlatform": "switchPlatform",
+    "title": "로그인",
+    "subtitle": "돌아오신 것을 환영합니다",
+    "goLogin": "Go Login",
+    "goRegister": "Go Register",
+    "hasAccount": "Has Account"
+  },
+  "loginPopup": {
+    "핵심 장점": "로그인",
+    "전화Login": "전화번호 로그인"
+  }
+}

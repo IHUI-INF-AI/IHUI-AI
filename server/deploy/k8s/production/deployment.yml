@@ -1,0 +1,74 @@
+# P29-5 K8s 真实集群演练: Deployment
+# ZHS 生产环境 API 服务部署
+# - 3 副本, 滚动更新
+# - 资源限制: requests 256Mi/250m, limits 512Mi/500m
+# - 健康检查: livenessProbe + readinessProbe
+# - 优雅终止: terminationGracePeriodSeconds 60
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zhs-platform-api
+  namespace: zhs-platform
+  labels:
+    app: zhs-platform
+    component: api
+    environment: production
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: zhs-platform
+      component: api
+  template:
+    metadata:
+      labels:
+        app: zhs-platform
+        component: api
+        environment: production
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: api
+          image: zhs-platform:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: zhs-platform-config
+            - secretRef:
+                name: zhs-platform-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 40
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]

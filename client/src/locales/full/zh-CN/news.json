@@ -1,0 +1,49 @@
+{
+  "newsCenter": {
+    "title": "AI动态",
+    "subtitle": "了解我们的最新动态、产品更新和行业资讯",
+    "disconnect": "断开连接",
+    "liveFeedActive": "动态更新中",
+    "comingSoon": "新闻详情即将开放，敬请期待",
+    "quickNav": "快速导航",
+    "fetchFailed": "获取新闻失败",
+    "loadMore": "加载更多",
+    "loadingMore": "加载中...",
+    "pageInfo": "第 {page} 页，共 {total} 页",
+    "categories": {
+      "all": "全部",
+      "company": "公司动态",
+      "product": "产品更新",
+      "industry": "行业资讯",
+      "event": "活动公告"
+    },
+    "readMore": "阅读全文",
+    "minRead": "分钟阅读",
+    "news": {
+      "platformMajorUpdate": {
+        "title": "平台重大更新：全新 AI 模型上线",
+        "excerpt": "我们很高兴地宣布，平台已集成最新的 GPT-4 和 Claude 3 模型，为用户提供更强大的 AI 能力。"
+      },
+      "award2024": {
+        "title": "智汇AI荣获2024年度最佳AI平台奖",
+        "excerpt": "在刚刚结束的AI创新大会上，智汇AI平台凭借卓越的技术实力和用户体验，荣获年度最佳AI平台奖。"
+      },
+      "industryTrends": {
+        "title": "AI行业发展趋势分析报告",
+        "excerpt": "深度解析2024年AI行业的发展趋势，包括大模型、多模态AI、AI Agent等热门技术方向。"
+      },
+      "devConference2025": {
+        "title": "开发者大会2025即将举办",
+        "excerpt": "我们将在3月举办年度开发者大会，届时将发布多项重磅产品和功能更新，欢迎开发者报名参加。"
+      },
+      "workflowAutomation": {
+        "title": "新功能发布：AI工作流自动化",
+        "excerpt": "全新的AI工作流功能现已上线，让您可以通过可视化界面轻松创建复杂的AI自动化流程。"
+      },
+      "partnerProgram": {
+        "title": "合作伙伴计划正式启动",
+        "excerpt": "我们正式启动合作伙伴计划，欢迎各类企业和服务商加入，共同推动AI技术的普及和应用。"
+      }
+    }
+  }
+}

@@ -1,0 +1,211 @@
+{
+  "enterprise": {
+    "keywords": "Enterprise AI, Agents, Human-Machine Collaboration, AI Training, Enterprise Digital Transformation, AI Solutions, iHui AI Community",
+    "title": "iHui AI Community - Enterprise AI Services",
+    "description": "AI era enterprise rational efficiency services and mutual aid community, helping decision makers build super organizations with human-machine collaboration"
+  },
+  "enterpriseService": {
+    "architecture": {
+      "aiEffect": {
+        "metrics": {
+          "cost": "成本优化",
+          "efficiency": "效率提升",
+          "experience": "ExperienceUpgrade"
+        },
+        "superEmployee": "超级员工",
+        "superProduct": "超级产品/服务",
+        "superTeam": "超级团队",
+        "title": "AI化效果"
+      },
+      "description": "从物理世界到信息世界，构建人机协同的超级企业",
+      "infoWorld": {
+        "advanced": {
+          "items": {
+            "agent": "AgentAI",
+            "generative": "生成式AI",
+            "perception": "PerceiveAI",
+            "physical": "物理AI"
+          },
+          "label": "高级信息世界"
+        },
+        "basic": {
+          "items": {
+            "automation": "自动化",
+            "informatization": "信息化",
+            "iot": "物联网"
+          },
+          "label": "初级信息世界"
+        },
+        "title": "信息世界"
+      },
+      "physicalWorld": {
+        "culture": {
+          "description": "企业文化、使命愿景、批判性思维与谦卑态度",
+          "title": "人本价值"
+        },
+        "process": {
+          "description": "正向与逆向流程分析，优化业务运转效率",
+          "title": "流程梳理"
+        },
+        "structure": {
+          "description": "帮助企业梳理组织结构，定义数字员工岗位",
+          "title": "组织架构"
+        },
+        "title": "物理世界"
+      },
+      "title": "企业AI化服务路径与架构原理"
+    },
+    "badge": "ENTERPRISESERVICE",
+    "badgeNew": "badgeNew",
+    "communityLabel": "communityLabel",
+    "compass": {
+      "axes": {
+        "autonomy": {
+          "high": "High",
+          "low": "Low"
+        },
+        "complexity": {
+          "high": "Complex",
+          "low": "Simple"
+        }
+      },
+      "cta": "深入了解智能体场景",
+      "description": "基于任务执行复杂度与自主决策依赖度两个维度，帮助企业识别和规划智能体应用场景",
+      "title": "智能体场景罗盘"
+    },
+    "coreService": "coreService",
+    "courses": {
+      "aiTools": {
+        "description": "description",
+        "title": "AI新工具课程"
+      },
+      "culture": {
+        "description": "description",
+        "title": "文化类课程"
+      },
+      "description": "系统化的AI认知与实践课程，帮助企业决策者全面理解AI时代的机遇与挑战",
+      "thinking": {
+        "description": "description",
+        "title": "思维类课程"
+      },
+      "title": "课程体系"
+    },
+    "exit": "exit",
+    "footer": {
+      "agentScenario": "智能体场景",
+      "company": "智汇AI社",
+      "contact": "Contact Us",
+      "humanMachine": "人机协作",
+      "location": "中国 · 北京"
+    },
+    "heroSubtitle": "AI时代企业理性效率服务与互助社群。帮助决策者深度理解AI与企业的关系，构建人机协同的超级组织。",
+    "heroTitle": "智汇AI企业服务",
+    "join": {
+      "benefits": {
+        "aiAssistant": "AI助手优先体验",
+        "allCourses": "全年所有课程免费参加",
+        "exploration": "探索活动优先参与",
+        "mutualAid": "社群互助无限次",
+        "onlineCommunity": "线上社群专属入口",
+        "refund": "不满意全额退款",
+        "title": "Member Benefits"
+      },
+      "cta": "立即加入",
+      "currentPrice": "现价",
+      "description": "与志同道合的企业决策者一起，探索AI时代的无限可能",
+      "earlyBird": "早鸟优惠",
+      "hint": "扫码咨询或直接联系我们",
+      "originalPrice": "原价",
+      "perYear": "/人/年",
+      "seatsNote": "仅限前18位会员",
+      "title": "加入智汇AI社"
+    },
+    "jumpToSection": "jumpToSection",
+    "layers": {
+      "layer01": "layer01",
+      "layer02": "layer02",
+      "layer03": "layer03"
+    },
+    "learnMore": "learnMore",
+    "modules": {
+      "aiService": {
+        "description": "专业大模型与智能体服务，提供深度AI化咨询与支持",
+        "title": "AIProfessionalService"
+      },
+      "localCommunity": {
+        "description": "线下课程、探索活动与互助社群，深度链接志同道合的决策者",
+        "title": "在地社群"
+      },
+      "module01": "module01",
+      "module02": "module02",
+      "module03": "module03",
+      "onlineCommunity": {
+        "description": "便捷的在线交流平台，随时随地获取信息与支持",
+        "title": "线上社群"
+      }
+    },
+    "phases": {
+      "phase01": "phase01",
+      "phase02": "phase02",
+      "phase03": "phase03"
+    },
+    "positioning": {
+      "description": "智汇AI社致力于帮助企业决策者深度理解AI与企业的关系，通过系统化的课程、实践探索和社群互助，构建人机协同的超级组织，实现企业的理性效率提升。",
+      "title": "AI时代企业理性效率服务与互助社群"
+    },
+    "scrollProgress": "scrollProgress",
+    "sectionNavigation": "sectionNavigation",
+    "sections": {
+      "agentCompass": "agentCompass",
+      "architecture": "architecture",
+      "courseSystem": "courseSystem",
+      "joinUs": "joinUs",
+      "positioning": "positioning",
+      "serviceModules": "serviceModules",
+      "toolsOverview": "toolsOverview"
+    },
+    "skipToMain": "skipToMain",
+    "stats": {
+      "earlyBirdLabel": "元/人/年 早鸟价",
+      "priceLabel": "元/人/年 标准价格",
+      "seatsLabel": "位早鸟名额"
+    },
+    "tools": {
+      "description": "从通用AI工具到行业专属智能体，全方位满足企业AI化需求",
+      "function": {
+        "office": "办公协作",
+        "production": "生产制造",
+        "rd": "研发创新",
+        "sales": "营销客服",
+        "title": "职能智能体"
+      },
+      "general": {
+        "image": "图像生成",
+        "text": "Text Generation",
+        "title": "通用AI工具",
+        "video": "Video Generation",
+        "voice": "VoiceHandle"
+      },
+      "industry": {
+        "education": "教育行业",
+        "government": "政务服务",
+        "healthcare": "医疗健康",
+        "manufacturing": "制造业",
+        "title": "行业智能体"
+      },
+      "partners": {
+        "title": "生态合作伙伴"
+      },
+      "title": "企业AI工具一览"
+    },
+    "typingPhrases": {
+      "intelligentTransformation": "Intelligent Transformation",
+      "humanMachineCollaboration": "Human-Machine Collaboration",
+      "rationalEfficiency": "Rational Efficiency"
+    },
+    "courseDuration": {
+      "oneLesson": "1 lesson",
+      "series": "Series"
+    }
+  }
+}

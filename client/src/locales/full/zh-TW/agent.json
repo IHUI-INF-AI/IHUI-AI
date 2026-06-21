@@ -1,0 +1,266 @@
+{
+  "agentChat": {
+    "send": "發送",
+    "showReasoning": "顯示思考過程",
+    "hideReasoning": "隱藏思考過程",
+    "reject": "拒絕",
+    "approve": "批準",
+    "needManualReview": "需要人工審核",
+    "startChat": "開始與智能體對話",
+    "startChatHint": "智能體可以幫您執行複雜的任務和推理",
+    "inputMessagePlaceholder": "輸入消息給智能體...",
+    "pleaseEnterContent": "請輸入消息內容",
+    "messageSent": "消息已發送",
+    "step": "步驟",
+    "roles": {
+      "user": "用戶",
+      "assistant": "AI助手"
+    },
+    "stages": {
+      "reasoning": "思考中",
+      "acting": "執行中",
+      "result": "完成"
+    },
+    "reasoningChain": {
+      "step1": "分析用戶請求...",
+      "step2": "理解任務目標...",
+      "step3": "制定執行計劃..."
+    },
+    "agentReply": "智能體回復: 我理解您的需求 \"{message}\"，正在處理中...",
+    "errors": {
+      "switchModeFailed": "切換模式失敗",
+      "sendMessageFailed": "發送消息失敗",
+      "startVoiceRecognitionFailed": "啟動語音識別失敗",
+      "stopVoiceRecognitionFailed": "停止語音識別失敗",
+      "loadModelsFailed": "獲取模型列表失敗",
+      "voiceRecognitionAlreadyStarted": "語音识別已啟動，請先停止當前识別",
+      "copyFailed": "複製失敗",
+      "readFileFailed": "读取文件失敗"
+    },
+    "success": {
+      "copyToClipboard": "已複製到剪貼板",
+      "messageUpdated": "消息已更新",
+      "messageDeleted": "消息已刪除",
+      "fileUploaded": "文件上傳成功"
+    },
+    "warnings": {
+      "maxFileUpload": "最多上傳10個文件",
+      "fileSizeExceeded": "文件大小超過限制",
+      "confirmDelete": "確定要刪除這條消息嗎？"
+    },
+    "features": {
+      "regenerateDeveloping": "重新生成功能開發中",
+      "retryDeveloping": "重試功能開發中",
+      "exportDeveloping": "導出功能開發中"
+    },
+    "voiceRecognition": {
+      "stopped": "語音識別已停止"
+    },
+    "timeLabels": {
+      "justNow": "剛剛",
+      "minutesAgo": "{minutes}分鐘前",
+      "hoursAgo": "{hours}小時前",
+      "daysAgo": "{days}天前"
+    },
+    "audioRecording": "🎤 錄音 {duration}秒"
+  },
+  "agentCard": {
+    "dashscopeModel": "百炼模型"
+  },
+  "agentScenario": {
+    "heroTitle": "智能體場景羅盤",
+    "heroSubtitle": "基於任務执行复杂度與自主決策依赖度两個维度，幫助企業识別和规划智能體應用場景，找到最适合的AI落地路径。",
+    "overview": {
+      "title": "理解智能體場景羅盤",
+      "description": "智能體場景羅盤是一個幫助企業识別和规划AI智能體應用場景的分析框架。通過任務执行复杂度和自主決策依赖度两個维度，将智能體應用分為四個象限，幫助企業根据自身情况選擇最适合的落地路径。",
+      "keyPoint": "核心洞察",
+      "keyPointText": "不同象限的智能體對技術能力、部署成本和风险管控的要求各不相同。企業應從左下象限（简单決策+简单执行）開始，逐步积累經驗后再向其他象限擴展。"
+    },
+    "axes": {
+      "complexity": {
+        "title": "任務执行复杂度",
+        "low": "低",
+        "high": "高"
+      },
+      "autonomy": {
+        "title": "自主決策依赖度",
+        "low": "低",
+        "high": "高"
+      }
+    },
+    "characteristics": {
+      "title": "特征"
+    },
+    "examples": {
+      "title": "典型應用"
+    },
+    "value": {
+      "title": "價值定位"
+    },
+    "quadrants": {
+      "simple": {
+        "title": "高效助手 - 简单決策兼简单执行智能體",
+        "fullDescription": "這类智能體处於場景羅盤的左下象限，特点是自主決策依赖度低、任務执行复杂度也低。用戶意图明确，智能體只需完成相對简单的任務，通常涉及少量步骤和API调用。",
+        "chars": {
+          "steps": "步骤少",
+          "calls": "调用简单",
+          "volume": "處理量高",
+          "dependency": "低依赖度"
+        },
+        "examples": {
+          "workflow": {
+            "name": "流程自動化助手",
+            "desc": "自動化處理重複性工作流程，如數據录入、報表生成"
+          },
+          "qa": {
+            "desc": "Desc",
+            "name": "Name"
+          }
+        },
+        "value": "技術門檻最低，部署最快，适合企業AI化的第一步。可以快速產生價值，建立團隊對AI的信心。"
+      },
+      "decision": {
+        "title": "智慧顾问 - 复杂決策智能體",
+        "fullDescription": "這类智能體处於場景羅盤的左上象限，特点是自主決策依赖度高、但任務执行复杂度低。用戶提出的是開放性問題，需要智能體進行深度思考和分析，但最终的执行相對简单（如生成報告或建議）。",
+        "chars": {
+          "openEnded": "開放性問題",
+          "reasoning": "深度推理",
+          "output": "输出简单",
+          "prediction": "預測分析"
+        },
+        "examples": {
+          "analysis": {
+            "name": "數據分析顾问",
+            "desc": "深度分析业务數據，發現洞察并提供可视化報告"
+          },
+          "advisor": {
+            "name": "決策支持顾问",
+            "desc": "綜合多方面信息，為管理层提供決策建議"
+          }
+        },
+        "value": "核心價值在於降低決策成本，提高決策質量:。适合需要深度分析但执行简单的場景。"
+      },
+      "execution": {
+        "title": "执行專家 - 复杂执行智能體",
+        "fullDescription": "這类智能體处於場景羅盤的右下象限，特点是自主決策依赖度低、但任務执行复杂度高。用戶意图非常明确，但完成任務需要协调多個系統、调用多個API、执行复杂的流程。",
+        "chars": {
+          "clearIntent": "意图明确",
+          "multiStep": "多步骤流程",
+          "multiAPI": "多API调用",
+          "crossSystem": "跨系統協作"
+        },
+        "examples": {
+          "meeting": {
+            "name": "會议安排助手",
+            "desc": "协调多方日程，预订会议室，發送邀請，准备会议资料"
+          },
+          "approval": {
+            "name": "審批流程助手",
+            "desc": "自動化复杂的審批流程，跨部門协调，文檔流轉"
+          }
+        },
+        "value": "核心價值在於解放人力，處理跨系統的复杂任務。需要良好的系統集成能力。"
+      },
+      "complex": {
+        "title": "全能專家 - 复杂決策兼复杂执行智能體",
+        "badge": "高级應用",
+        "fullDescription": "這类智能體处於場景羅盤的右上象限，是最复杂的智能體類型。它需要處理不確定性高的開放式任務，自主進行规划和決策，同时执行過程也涉及多系統協作和長週期管理。",
+        "chars": {
+          "autonomousPlanning": "自主规划",
+          "autonomousExecution": "自主执行",
+          "lifecycle": "生命週期管理",
+          "multiAgent": "多智能體協作"
+        },
+        "examples": {
+          "marketing": {
+            "name": "营销活動自動化",
+            "desc": "從市場调研到活動策划、执行、效果追踪的全流程自動化"
+          },
+          "multiAgent": {
+            "name": "多智能體協作系統",
+            "desc": "多個專業智能體协同工作，共同完成复杂項目"
+          }
+        },
+        "value": "代表AI應用的最高水平，需要強大的大模型能力和完善的基礎設施。建議在积累足够經驗后再尝试。"
+      }
+    },
+    "guide": {
+      "title": "企業落地建議",
+      "intro": "基於智能體場景羅盤，我們建議企業采用渐進式的AI落地策略，從简单場景開始，逐步积累經驗和能力。",
+      "steps": {
+        "identify": {
+          "title": "识別場景",
+          "desc": "梳理業務流程，识別可能的AI應用場景，并用羅盤進行分類"
+        },
+        "evaluate": {
+          "title": "评估能力",
+          "desc": "评估企業當前的技術能力、數據基礎和組織准备度"
+        },
+        "pilot": {
+          "title": "试点驗證",
+          "desc": "選擇1-2個简单場景進行试点，驗證價值并积累經驗"
+        },
+        "scale": {
+          "title": "规模擴展",
+          "desc": "基於试点經驗，逐步擴展到更多場景和更复杂的象限"
+        }
+      }
+    },
+    "cta": {
+      "title": "開启您的AI智能體之旅",
+      "description": "加入智匯AI社，與專業顾问一起规划最适合您企業的智能體落地路径",
+      "learnMore": "了解企業服務",
+      "contact": "聯繫顾问"
+    },
+    "footer": {
+      "enterprise": "企業服務",
+      "humanMachine": "人機協作",
+      "contact": "聯繫我們"
+    }
+  },
+  "agentManager": {
+    "title": "標題",
+    "createAgent": "創建Agent",
+    "name": "名稱",
+    "type": "類型",
+    "model": "模型",
+    "status": "狀態",
+    "test": "Test",
+    "testAgent": "TestAgent",
+    "editAgent": "編輯Agent",
+    "agentNamePlaceholder": "agentName請輸入",
+    "selectTypePlaceholder": "selectType請輸入",
+    "typeReasoning": "Type推理",
+    "typeActing": "TypeActing",
+    "typeSpecialist": "TypeSpecialist",
+    "selectModelPlaceholder": "selectModel請輸入",
+    "systemPrompt": "System提示符",
+    "systemPromptPlaceholder": "systemPrompt請輸入",
+    "deleteConfirm": "確定要刪除吗？",
+    "deleteTitle": "刪除標題",
+    "statusActive": "狀態活動",
+    "statusInactive": "狀態非活動",
+    "statusDeprecated": "狀態已弃用",
+    "statusUnknown": "狀態Unknown"
+  },
+  "agentSwarmMonitor": {
+    "status": "狀態",
+    "task": "任務",
+    "currentIteration": "當前迭代",
+    "agentStatus": "智能體狀態",
+    "agentName": "Agent名稱",
+    "type": "類型",
+    "currentStep": "當前步骤",
+    "performanceMetrics": "表现Metrics",
+    "successRate": "成功速率",
+    "averageExecutionTime": "平均值执行時間",
+    "averageTokens": "平均值Tokens",
+    "totalSteps": "總計Steps",
+    "completedSteps": "已完成Steps",
+    "failedSteps": "FailedSteps",
+    "toolResults": "工具Results",
+    "reflection": "Reflection",
+    "corrected": "Corrected",
+    "correctedResult": "Corrected結果"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "imageGen": {
+    "qwen": {
+      "title": "通義千問 - テキストから画像",
+      "tag": "DashScope",
+      "form": {
+        "model": "モデル",
+        "modelPlaceholder": "モデルを選択",
+        "prompt": "プロンプト",
+        "promptPlaceholder": "生成したい画像を説明..."
+      },
+      "buttons": {
+        "generate": "画像を生成",
+        "reset": "リセット",
+        "download": "ダウンロード",
+        "copyUrl": "リンクをコピー"
+      },
+      "result": "生成結果",
+      "messages": {
+        "modelRequired": "モデルを選択してください",
+        "promptRequired": "プロンプトを入力してください",
+        "generateSuccess": "画像が正常に生成されました！",
+        "generateFailed": "生成失敗",
+        "copySuccess": "リンクがコピーされました",
+        "generating": "画像を生成中...",
+        "modelRemarkMissing": "モデルインターフェースが設定されていません",
+        "wsNotSupported": "WebSocket生成はまだサポートされていません"
+      }
+    },
+    "doubao": {
+      "title": "豆包画像生成",
+      "tag": "ByteDance",
+      "form": {
+        "prompt": "プロンプト",
+        "promptPlaceholder": "生成したい画像を説明..."
+      },
+      "buttons": {
+        "generate": "生成"
+      },
+      "messages": {
+        "promptRequired": "プロンプトを入力してください",
+        "generateFailed": "生成失敗"
+      }
+    },
+    "i2i": {
+      "title": "通義万相 - 画像から画像",
+      "tag": "DashScope",
+      "form": {
+        "referenceImage": "参照画像",
+        "selectImage": "画像を選択",
+        "uploadTip": "JPG、PNG形式をサポート、最大10MB",
+        "prompt": "プロンプト",
+        "promptPlaceholder": "希望する画像のスタイルとコンテンツを説明..."
+      },
+      "buttons": {
+        "generate": "画像を生成",
+        "reset": "リセット"
+      },
+      "result": "生成結果",
+      "messages": {
+        "imageRequired": "参照画像をアップロードしてください",
+        "uploadFailed": "画像のアップロードに失敗しました",
+        "uploadFirst": "まず参照画像をアップロードしてください"
+      }
+    },
+    "jimeng": {
+      "title": "即夢画像生成",
+      "tag": "即夢AI",
+      "form": {
+        "prompt": "プロンプト",
+        "promptPlaceholder": "生成したい画像を説明..."
+      },
+      "buttons": {
+        "generate": "生成"
+      },
+      "messages": {
+        "promptRequired": "プロンプトを入力してください",
+        "generateFailed": "生成失敗",
+        "generating": "画像を生成中..."
+      }
+    },
+    "edit": {
+      "title": "通義千問 - 画像編集",
+      "tag": "DashScope",
+      "alertTitle": "画像編集機できる",
+      "alertDesc": "画像をアップロードして編集指示を入力すると、AIが指示に従って画像を編集します",
+      "form": {
+        "image": "元の画像",
+        "selectImage": "画像を選択",
+        "text": "編集指示",
+        "textPlaceholder": "希望する編集効果を説明してください。例：背景をビーチに変更..."
+      },
+      "buttons": {
+        "edit": "編集を開始",
+        "reset": "リセット"
+      },
+      "result": "編集結果",
+      "messages": {
+        "imageRequired": "画像をアップロードしてください",
+        "textRequired": "編集指示を入力してください",
+        "uploadFailed": "画像のアップロードに失敗しました",
+        "uploadFirst": "まず画像をアップロードしてください",
+        "editSuccess": "画像の編集が正常に完了しました！",
+        "editFailed": "編集失敗"
+      }
+    }
+  },
+  "imageShare": {
+    "title": "画像を共有",
+    "close": "閉じる",
+    "shareImage": "画像を共有",
+    "shareMethod": "共ありメソッド",
+    "noImage": "画像なし",
+    "download": "画像をダウンロード",
+    "copyLink": "リンクをコピー",
+    "downloadSuccess": "画像のダウンロードに成功しました",
+    "downloadFailed": "ダウンロードに失敗しました。もう一度お試しください",
+    "copySuccess": "リンクがクリップボードにコピーされました",
+    "copyFailed": "コピーに失敗しました。もう一度お試しください",
+    "noImageToDownload": "ダウンロード可能性な画像がありません",
+    "noLinkToCopy": "コピー可能性なリンクがありません"
+  },
+  "imageUpload": {
+    "countLimit": "Count Limit",
+    "filenameComma": "Filename Comma",
+    "formatError": "Format Error",
+    "preview": "Preview",
+    "sizeLimit": "Size Limit",
+    "tip": "Tip",
+    "uploadFail": "Upload Fail",
+    "uploading": "Uploading"
+  }
+}

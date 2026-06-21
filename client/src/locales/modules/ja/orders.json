@@ -1,0 +1,118 @@
+{
+  "orders": {
+    "title": "注文管理",
+    "subtitle": "注文の確認と管理",
+    "searchPlaceholder": "注文を検索...",
+    "clearSearch": "検索をクリア",
+    "tabs": {
+      "all": "すべての注文",
+      "pending": "支払い待ち",
+      "processing": "処理中",
+      "completed": "完了",
+      "cancelled": "キャンセル済み",
+      "shipping": "配送中",
+      "refunded": "返金済み"
+    },
+    "order": {
+      "orderId": "注文ID",
+      "productName": "商品名",
+      "amount": "金額",
+      "status": "ステータス",
+      "createTime": "作成時間",
+      "payTime": "支払い時間",
+      "actions": "操作"
+    },
+    "status": {
+      "pending": "支払い待ち",
+      "processing": "処理中",
+      "completed": "完了",
+      "cancelled": "キャンセル済み",
+      "refunded": "返金済み",
+      "paid": "支払済み"
+    },
+    "actions": {
+      "viewDetails": "詳細を表示",
+      "cancel": "注文をキャンセル",
+      "pay": "今すぐ支払う",
+      "refund": "返金",
+      "goShop": "ショップへ",
+      "confirmReceived": "受領確認",
+      "viewProduct": "商品を表示",
+      "detail": "詳細",
+      "copyOrderId": "注文IDをコピー",
+      "copyProductId": "商品IDをコピー",
+      "copyOrderInfo": "注文情報をコピー",
+      "retry": "再試行"
+    },
+    "labels": {
+      "orderId": "注文ID",
+      "orderType": "注文タイプ",
+      "amount": "金額",
+      "status": "ステータス",
+      "createTime": "作成時間",
+      "actions": "操作",
+      "payTime": "支払い時間",
+      "productName": "商品名",
+      "productType": "商品タイプ",
+      "paymentMethod": "支払い方法",
+      "expireTime": "有効期限"
+    },
+    "empty": {
+      "title": "注文なし",
+      "noSearchResult": "検索条件に一致する注文はありません",
+      "noOrders": "まだ注文はありません"
+    },
+    "noMore": "これ以上の注文はありません",
+    "detail": {
+      "title": "注文詳細",
+      "orderInfo": "注文情報",
+      "productInfo": "商品情報",
+      "paymentInfo": "支払い情報",
+      "shippingInfo": "配送情報"
+    },
+    "productType": {
+      "vip": "VIP",
+      "tokens": "Tokens",
+      "tool": "ツール",
+      "agent": "エージェント",
+      "unknown": "不明"
+    },
+    "paymentMethod": {
+      "wechat": "WeChat Pay",
+      "alipay": "Alipay",
+      "balance": "残高",
+      "unknown": "不明"
+    },
+    "dialogs": {
+      "cancel": {
+        "confirm": "この注文をキャンセルしてもよろしいですか？",
+        "title": "注文をキャンセル"
+      },
+      "received": {
+        "confirm": "注文を受け取りましたか？",
+        "title": "受領確認"
+      }
+    },
+    "messages": {
+      "cancelled": "注文をキャンセルしました",
+      "cancelFailed": "注文のキャンセルに失敗しました",
+      "received": "注文の受領を確認しました",
+      "receiveFailed": "受領確認に失敗しました",
+      "refundNotAvailable": "現在返金できません",
+      "refundApplied": "返金申請を提出しました",
+      "refundApplyFailed": "返金申請に失敗しました",
+      "navigateNotSupported": "ナビゲーション非対応",
+      "copyOrderIdSuccess": "注文IDをコピーしました",
+      "copyProductIdSuccess": "商品IDをコピーしました",
+      "copyOrderInfoSuccess": "注文情報をコピーしました",
+      "loadFailed": "注文の読み込みに失敗しました。後でもう一度お試しください"
+    },
+    "error": {
+      "title": "読み込み失敗"
+    },
+    "refundReasonPlaceholder": "返金理由を入力してください",
+    "applyRefund": "返金を申請",
+    "refundReasonRequired": "返金理由は必須です",
+    "refundReasonMinLength": "返金理由が短すぎます"
+  }
+}

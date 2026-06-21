@@ -1,0 +1,14 @@
+{
+  "second": "秒",
+  "minute": "分钟",
+  "hour": "小时",
+  "day": "日",
+  "month": "月",
+  "week": "周",
+  "year": "年",
+  "timeExpr": "时间表达式",
+  "cronExpr": "Cron表达式",
+  "confirm": "确定",
+  "reset": "重置",
+  "cancel": "取消"
+}

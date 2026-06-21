@@ -1,0 +1,15 @@
+{
+  "adminFundManagement": {
+    "actions": {
+      "Export": "Export"
+    },
+    "fundList": {}
+  },
+  "adminFundStatistics": {
+    "Refresh": "Refresh Data",
+    "FailedOrders": "Failed Orders",
+    "period": {},
+    "messages": {},
+    "chart": {}
+  }
+}

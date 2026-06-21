@@ -1,0 +1,19 @@
+{
+  "name": "payment",
+  "version": "1.0.0",
+  "description": "支付相关云函数",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "payment",
+    "order",
+    "微信支付"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "crypto": "^1.0.1"
+  }
+} 

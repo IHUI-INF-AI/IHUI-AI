@@ -1,0 +1,7 @@
+{
+  "Agents": {
+    "exploreAgents": "AIエージェント探索",
+    "createCustomAgent": "カスタムエージェント作成",
+    "oneClickDeploy": "ワンクリック展開"
+  }
+}

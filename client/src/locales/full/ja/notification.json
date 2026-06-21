@@ -1,0 +1,33 @@
+{
+  "notification": {
+    "title": "通知",
+    "center": "メッセージセンター",
+    "messages": "メッセージ",
+    "viewUserCenter": "ユーザーセンターをテーブル示",
+    "empty": "通知なし",
+    "allRead": "すべて既読にする",
+    "viewAll": "すべてテーブル示",
+    "markAllReadSuccess": "すべて既読にしました",
+    "markAllReadFailed": "既読に失敗しました",
+    "markReadFailed": "既読に失敗しました",
+    "operationFailed": "操作に失敗しました",
+    "loadAbnormal": "読み込みエラー"
+  },
+  "notificationCenter": {
+    "title": "セキュリティ通知",
+    "description": "セキュリティ関連の通知を表示",
+    "markAllRead": "すべて既読にする",
+    "all": "すべて",
+    "unread": "未読",
+    "critical": "重要",
+    "high": "高優先度",
+    "noNotifications": "通知はありません",
+    "settings": "通知設定",
+    "enableNotifications": "通知を有効にする",
+    "desktopNotifications": "デスクトップ通知",
+    "soundNotifications": "サウンド通知",
+    "justNow": "たった今",
+    "minutesAgo": "{count} 分前",
+    "hoursAgo": "{count} 時間前"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "webOnlyFeature": {
+    "title": "Web限定機能",
+    "description": "Webプラットフォームで利用可能な機能",
+    "desktopOptimization": "デスクトップ最適化",
+    "desktopOptimizationDesc": "デスクトップブラウザ向けのインタラクション",
+    "mouseInteraction": "マウス操作",
+    "mouseInteractionDesc": "ホバー・クリック対応",
+    "keyboardShortcuts": "キーボードショートカット",
+    "keyboardShortcutsDesc": "ショートカット対応"
+  }
+}

@@ -1,0 +1,342 @@
+.input-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--el-bg-color);
+  border-top: none;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  z-index: var(--z-header);
+}
+
+.input-main {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.input-box {
+  flex: 1;
+  position: relative;
+  background: var(--el-bg-color-page);
+  border-radius: var(--global-border-radius);
+  padding: 8px 16px;
+  min-height: 40px;
+  max-height: 120px;
+  overflow-y: auto;
+  
+  &.focused {
+    background: var(--el-bg-color);
+    border: none;
+  }
+  
+  &.loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}
+
+.input-content {
+  outline: none;
+  border: none;
+  background: transparent;
+  width: 100%;
+  resize: none;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--el-text-color-primary);
+  box-sizing: border-box;
+  word-wrap: break-word;
+  word-break: break-all;
+  
+  &::placeholder {
+    color: var(--el-text-color-placeholder);
+  }
+}
+
+.input-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  
+  .tool-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--global-border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: transparent;
+    border: none;
+    color: var(--el-text-color-secondary);
+    
+    &:hover {
+      background: var(--el-bg-color-page);
+      color: var(--el-text-color-primary);
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+    
+    &.active {
+      color: var(--el-text-color-secondary);
+    }
+  }
+}
+
+.input-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 0 8px;
+}
+
+.action-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.action-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.send-btn {
+  padding: 6px 16px;
+  border-radius: var(--global-border-radius);
+  font-size: 12px;
+  background: var(--el-color-primary);
+  color: var(--el-bg-color-page);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  
+  &:hover {
+    background: var(--el-color-primary);
+    color: var(--el-bg-color-page);
+
+    .send-btn-text {
+      transition: color 0.3s ease;
+      color: var(--el-color-white);
+    }
+
+    .el-icon svg {
+      transition: fill 0.3s ease, color 0.3s ease;
+      fill: var(--el-color-white);
+      color: var(--el-color-white);
+    }
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  &:disabled {
+    background: var(--el-bg-color-disabled);
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+.voice-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--global-border-radius);
+  background: var(--el-bg-color-page);
+  cursor: pointer;
+  transition: all 0.3s;
+  
+  &.active {
+    background: var(--el-color-primary);
+    color: var(--el-bg-color-page);
+  }
+  
+  .voice-animation {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--global-border-radius);
+    background: var(--el-bg-color);
+    animation: voice-pulse 1.5s infinite;
+    
+    &:nth-child(2) {
+      animation-delay: 0.5s;
+    }
+    
+    &:nth-child(3) {
+      animation-delay: 1s;
+    }
+  }
+}
+
+.imgs_list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  
+  .imgs_list_item {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: var(--global-border-radius);
+    overflow: hidden;
+    border: none;
+    
+    .imgs_list_close {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 20px;
+      height: 20px;
+      z-index: calc(var(--z-base) + 1);
+      cursor: pointer;
+    }
+    
+    .imgs_list_item_img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+}
+
+.model-config-popup {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background: var(--el-bg-color);
+  border-radius: var(--global-border-radius);
+  padding: 16px;
+  margin-bottom: 8px;
+  z-index: var(--z-overlay);
+  
+  .model-config-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    
+    h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--el-text-color-placeholder);
+      
+      &:hover {
+        color: var(--el-text-color-secondary);
+      }
+    }
+  }
+  
+  .config-item {
+    margin-bottom: 16px;
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: var(--el-text-color-secondary);
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: var(--global-border-radius);
+      font-size: 14px;
+      box-sizing: border-box;
+      
+      &:focus {
+        outline: none;
+        
+      }
+    }
+  }
+  
+  .config-actions {
+    display: flex;
+    gap: 12px;
+    
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: var(--global-border-radius);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+      
+      &.confirm-btn {
+        background: var(--el-color-primary);
+        color: var(--el-bg-color-page);
+        
+        &:hover {
+          background: var(--el-color-primary);
+        }
+      }
+      
+      &.cancel-btn {
+        background: var(--el-bg-color-page);
+        color: var(--el-text-color-secondary);
+        
+        &:hover {
+          background: var(--el-bg-color-hover);
+        }
+      }
+    }
+  }
+}
+
+// 响应式调整
+@media (max-width: 768px) {
+  .input-area {
+    padding: 8px 12px;
+  }
+  
+  .input-box {
+    padding: 6px 12px;
+    min-height: 36px;
+  }
+  
+  .input-content {
+    font-size: 16px; // 防止iOS缩放
+  }
+  
+  .input-tools {
+    gap: 6px;
+    
+    .tool-btn {
+      width: 28px;
+      height: 28px;
+    }
+  }
+  
+  .imgs_list {
+    gap: 6px;
+    
+    .imgs_list_item {
+      width: 70px;
+      height: 70px;
+    }
+  }
+}

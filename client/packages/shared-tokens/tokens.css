@@ -1,0 +1,159 @@
+/**
+ * 智汇 AI 设计令牌 - CSS 变量
+ * Design Tokens - CSS Variables
+ * 
+ * 本文件是项目所有样式变量的 CSS 变量版本
+ * 小程序和 web 端都可以使用这些变量
+ */
+
+:root {
+  /* ============================================
+   * 1. 颜色系统
+   * ============================================ */
+  
+  /* 1.1 主色调 */
+  --color-primary: #171717;
+  --color-primary-light: #333333;
+  --color-primary-dark: #000000;
+  
+  /* 1.2 语义颜色 */
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  
+  /* 1.3 文字颜色 - 亮色模式 */
+  --color-text-primary: #171717;
+  --color-text-secondary: #6b7280;
+  --color-text-placeholder: #9ca3af;
+  --color-text-disabled: #d1d5db;
+  
+  /* 1.4 文字颜色 - 暗色模式 */
+  --color-text-dark-primary: #ffffff;
+  --color-text-dark-secondary: #d1d5db;
+  
+  /* 1.5 背景颜色 - 亮色模式 */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f7f8fa;
+  --color-bg-tertiary: #f3f4f6;
+  --color-bg-hover: #f9fafb;
+  
+  /* 1.6 背景颜色 - 暗色模式 */
+  --color-bg-dark-primary: #17181c;
+  --color-bg-dark-secondary: #1f2025;
+  --color-bg-dark-tertiary: #27282d;
+  
+  /* 1.7 边框颜色 */
+  --color-border-light: #e5e7eb;
+  --color-border-gray-1: #e5e7eb;
+  --color-border-gray-2: #dde2e6;
+  --color-border-gray-3: #ccd2d8;
+  
+  /* ============================================
+   * 2. 间距系统
+   * ============================================ */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-4xl: 96px;
+  
+  /* ============================================
+   * 3. 圆角系统
+   * ============================================ */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+  
+  /* ============================================
+   * 4. 字体系统
+   * ============================================ */
+  
+  /* 4.1 字体族 */
+  --font-family-base: -apple-system, blinkmacsystemfont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', helvetica, arial, sans-serif;
+  --font-family-chinese: var(--font-family-base);
+  --font-family-english: -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
+  --font-family-mono: 'HarmonyOS Sans SC', monospace;
+  
+  /* 4.2 字体大小 */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+  --font-size-5xl: 48px;
+  
+  /* 4.3 字重 */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* 4.4 行高 */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* ============================================
+   * 5. 阴影系统
+   * ============================================ */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* ============================================
+   * 6. 过渡系统
+   * ============================================ */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+  
+  /* ============================================
+   * 7. z-index 系统
+   * ============================================ */
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal-backdrop: 1040;
+  --z-index-modal: 1050;
+  --z-index-popover: 1060;
+  --z-index-tooltip: 1070;
+  
+  /* ============================================
+   * 8. 小程序专用变量
+   * ============================================ */
+  --app-status-bar-height: 0px;
+  --app-nav-bar-height: 44px;
+  --app-nav-bar-width: 87px;
+  --app-top-bar-height: 44px;
+}
+
+/* 暗色模式 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #d1d5db;
+    --color-text-placeholder: #9ca3af;
+    
+    --color-bg-primary: #17181c;
+    --color-bg-secondary: #1f2025;
+    --color-bg-tertiary: #27282d;
+    --color-bg-hover: #2a2b30;
+    
+    --color-border-light: #374151;
+    --color-border-gray-1: #374151;
+    --color-border-gray-2: #4b5563;
+    --color-border-gray-3: #6b7280;
+  }
+}

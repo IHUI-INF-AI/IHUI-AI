@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智汇AI - 系统状态监控</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .status {
+            background: #10b981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+        .links {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .link-button {
+            display: block;
+            padding: 15px 25px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .link-button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .link-button.primary {
+            background: #10b981;
+            font-size: 18px;
+        }
+        .link-button.primary:hover {
+            background: #059669;
+        }
+        .info {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .info-item {
+            margin-bottom: 10px;
+            color: #555;
+            font-size: 14px;
+        }
+        .info-item strong {
+            color: #333;
+            margin-right: 10px;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #999;
+            font-size: 14px;
+        }
+        .back-link {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #10b981;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .back-link:hover {
+            background: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="./index.html" class="back-link">← 返回工具集</a>
+        
+        <h1>📊 系统状态监控</h1>
+        <p class="subtitle">实时监控系统运行状态</p>
+        
+        <div class="status">✅ 系统运行正常</div>
+        
+        <div class="links">
+            <a href="/login" class="link-button primary" target="_blank">
+                🔐 打开登录页面
+            </a>
+            <a href="/register" class="link-button" target="_blank">
+                📝 打开注册页面
+            </a>
+            <a href="/" class="link-button" target="_blank">
+                🏠 打开首页
+            </a>
+            <a href="/api/auth/health" class="link-button" target="_blank">
+                ⚡ 后端健康检查
+            </a>
+        </div>
+        
+        <div class="info">
+            <div class="info-item">
+                <strong>前端服务器:</strong> <span id="frontend-status">检测中...</span>
+            </div>
+            <div class="info-item">
+                <strong>后端API:</strong> <span id="backend-status">检测中...</span>
+            </div>
+            <div class="info-item">
+                <strong>登录页面:</strong> <span id="login-status">检测中...</span>
+            </div>
+            <div class="info-item">
+                <strong>注册页面:</strong> <span id="register-status">检测中...</span>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>智汇AI社区 © 2025</p>
+            <p>系统监控工具 🚀</p>
+        </div>
+    </div>
+
+    <script>
+        // 检查各个服务状态
+        async function checkAllServices() {
+            // 检查前端服务器
+            try {
+                const response = await fetch('/');
+                if (response.ok) {
+                    document.getElementById('frontend-status').textContent = '✅ 运行正常';
+                    document.getElementById('frontend-status').style.color = '#10b981';
+                } else {
+                    document.getElementById('frontend-status').textContent = '⚠️ 响应异常';
+                    document.getElementById('frontend-status').style.color = '#f59e0b';
+                }
+            } catch (error) {
+                document.getElementById('frontend-status').textContent = '❌ 连接失败';
+                document.getElementById('frontend-status').style.color = '#ef4444';
+            }
+
+            // 检查后端API
+            try {
+                const response = await fetch('/api/auth/health');
+                if (response.ok) {
+                    document.getElementById('backend-status').textContent = '✅ 运行正常';
+                    document.getElementById('backend-status').style.color = '#10b981';
+                } else {
+                    document.getElementById('backend-status').textContent = '⚠️ 响应异常';
+                    document.getElementById('backend-status').style.color = '#f59e0b';
+                }
+            } catch (error) {
+                document.getElementById('backend-status').textContent = '❌ 连接失败';
+                document.getElementById('backend-status').style.color = '#ef4444';
+            }
+
+            // 检查登录页面
+            try {
+                const response = await fetch('/login');
+                if (response.ok) {
+                    document.getElementById('login-status').textContent = '✅ 可访问';
+                    document.getElementById('login-status').style.color = '#10b981';
+                } else {
+                    document.getElementById('login-status').textContent = '⚠️ 响应异常';
+                    document.getElementById('login-status').style.color = '#f59e0b';
+                }
+            } catch (error) {
+                document.getElementById('login-status').textContent = '❌ 无法访问';
+                document.getElementById('login-status').style.color = '#ef4444';
+            }
+
+            // 检查注册页面
+            try {
+                const response = await fetch('/register');
+                if (response.ok) {
+                    document.getElementById('register-status').textContent = '✅ 可访问';
+                    document.getElementById('register-status').style.color = '#10b981';
+                } else {
+                    document.getElementById('register-status').textContent = '⚠️ 响应异常';
+                    document.getElementById('register-status').style.color = '#f59e0b';
+                }
+            } catch (error) {
+                document.getElementById('register-status').textContent = '❌ 无法访问';
+                document.getElementById('register-status').style.color = '#ef4444';
+            }
+        }
+
+        // 页面加载时检查服务状态
+        window.onload = checkAllServices;
+        
+        // 每30秒自动检查一次
+        setInterval(checkAllServices, 30000);
+    </script>
+</body>
+</html>

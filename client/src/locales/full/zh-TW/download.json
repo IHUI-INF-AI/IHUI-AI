@@ -1,0 +1,19 @@
+{
+  "downloadCenter": {
+    "back首頁": "返回首頁",
+    "apps": {
+      "ios": {},
+      "android": {}
+    },
+    "sdkList": {
+      "javascript": {},
+      "python": {},
+      "java": {}
+    },
+    "docs": {
+      "api": {},
+      "guide": {},
+      "design": {}
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "Payment": {
+    "alreadyVip": "あなたは既にVIPです",
+    "notLogged": "ユーザーはログインしていません",
+    "incompleteProduct": "商品情報が不完全",
+    "selectPayMethod": "支払い方法を選択してください",
+    "notLoggedOrNoOpenId": "未ログインまたはopenidなし"
+  }
+}

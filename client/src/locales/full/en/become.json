@@ -1,0 +1,71 @@
+{
+  "becomeSupplier": {
+    "title": "Become a Supplier",
+    "subtitle": "Join our supplier network and grow together",
+    "form": {
+      "companyName": "Company Name",
+      "companyNamePlaceholder": "Please enter company name",
+      "contactName": "Contact Person",
+      "contactNamePlaceholder": "Please enter contact person name",
+      "phone": "Contact Phone",
+      "phonePlaceholder": "Please enter contact phone",
+      "email": "Email",
+      "emailPlaceholder": "Please enter email",
+      "address": "Company Address",
+      "addressPlaceholder": "Please enter company address",
+      "business": "Main Business",
+      "businessPlaceholder": "Please describe the company's main business",
+      "intention": "Cooperation Intention",
+      "intentionPlaceholder": "Please describe your cooperation intention and expectations",
+      "submit": "Submit Application",
+      "reset": "Reset",
+      "processing": "Submitting...",
+      "submitProposal": "Submit"
+    },
+    "success": "Application submitted successfully! We will contact you within 3-5 business days!",
+    "processSteps": {
+      "submitApplication": {
+        "title": "Submit Application",
+        "description": "Fill in the supplier application form and submit basic company information"
+      },
+      "qualificationReview": {
+        "title": "Qualification Review",
+        "description": "We will review your application within 3-5 business days"
+      },
+      "businessNegotiation": {
+        "title": "Business Negotiation",
+        "description": "After approval, our business team will contact you"
+      },
+      "signAgreement": {
+        "title": "Sign Agreement",
+        "description": "Both parties confirm cooperation details and sign a formal cooperation agreement"
+      },
+      "onlineDocking": {
+        "title": "Online Docking",
+        "description": "The technical team assists in completing product docking and going live"
+      }
+    },
+    "benefits": {
+      "market": {
+        "title": "Title",
+        "description": "Description"
+      },
+      "support": {
+        "title": "Title",
+        "description": "Description"
+      },
+      "settlement": {
+        "title": "Title",
+        "description": "Description"
+      },
+      "security": {
+        "title": "Title",
+        "description": "Description"
+      },
+      "title": "Partnership Benefits"
+    },
+    "process": {
+      "title": "Partnership Process"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "message": {
+    "searchPlaceholder": {
+      "announcement": "공지 검색"
+    },
+    "label": {
+      "title": "제목",
+      "category": "카테고리",
+      "time": "시간",
+      "actions": "작업"
+    }
+  }
+}

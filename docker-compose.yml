@@ -1,0 +1,99 @@
+# P14.5 Docker Compose 编排: 前端 + 后端
+version: '3.8'
+
+services:
+  # 后端 FastAPI
+  backend:
+    build:
+      context: ./server
+      dockerfile: ../Dockerfile.server
+    image: aizhs-server:14.5
+    container_name: aizhs-backend
+    restart: unless-stopped
+    environment:
+      - DB1_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
+      - DB2_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
+      - DB3_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET}
+      - SESSION_SECRET_KEY=${SESSION_SECRET}
+      - ENV=production
+      - CORS_ORIGINS=https://${DOMAIN}
+      - MINIO_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET=aizhs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aizhs-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # 前端 nginx
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+      args:
+        VITE_API_BASE: https://${DOMAIN}/api/v1
+        VITE_APP_TITLE: ${APP_TITLE}
+    image: aizhs-client:14.5
+    container_name: aizhs-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - aizhs-net
+
+  # PostgreSQL 数据库
+  db:
+    image: postgres:15-alpine
+    container_name: aizhs-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aizhs
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: aizhs
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - aizhs-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aizhs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: aizhs-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redisdata:/data
+    networks:
+      - aizhs-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  aizhs-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:

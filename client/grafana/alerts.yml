@@ -1,0 +1,63 @@
+groups:
+  - name: frontend-monitoring
+    interval: 15s
+    rules:
+      - alert: LCPTooHigh
+        expr: histogram_quantile(0.75, sum(rate(web_vitals_lcp_bucket[5m])) by (le)) > 4000
+        for: 5m
+        labels:
+          severity: warning
+          category: web-vitals
+        annotations:
+          summary: "LCP 过高"
+          description: "LCP p75 超过 4 秒（当前 {{ $value }}ms），用户体验不佳"
+
+      - alert: CLSTooHigh
+        expr: histogram_quantile(0.75, sum(rate(web_vitals_cls_bucket[5m])) by (le)) > 0.25
+        for: 5m
+        labels:
+          severity: warning
+          category: web-vitals
+        annotations:
+          summary: "CLS 过高"
+          description: "CLS p75 超过 0.25（当前 {{ $value }}），页面布局不稳定"
+
+      - alert: INPTooHigh
+        expr: histogram_quantile(0.75, sum(rate(web_vitals_inp_bucket[5m])) by (le)) > 500
+        for: 5m
+        labels:
+          severity: warning
+          category: web-vitals
+        annotations:
+          summary: "INP 过高"
+          description: "INP p75 超过 500ms（当前 {{ $value }}ms），交互响应慢"
+
+      - alert: FrontendErrorRateHigh
+        expr: sum(rate(frontend_errors_total[5m])) / sum(rate(frontend_requests_total[5m])) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          category: error
+        annotations:
+          summary: "前端错误率过高"
+          description: "前端错误率超过 5%（当前 {{ $value }}%），请检查控制台错误"
+
+      - alert: CSPViolationsSpike
+        expr: rate(csp_violations_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "CSP 违规激增"
+          description: "CSP 违规上报率超过 10/min，可能存在安全风险"
+
+      - alert: ApiErrorRateHigh
+        expr: sum(rate(api_errors_total[5m])) by (status_code) > 10
+        for: 2m
+        labels:
+          severity: warning
+          category: api
+        annotations:
+          summary: "API 错误率过高 ({{ $labels.status_code }})"
+          description: "状态码 {{ $labels.status_code }} 的 API 错误率超过 10/min"

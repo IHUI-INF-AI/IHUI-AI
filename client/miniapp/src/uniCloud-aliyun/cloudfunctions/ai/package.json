@@ -1,0 +1,9 @@
+{
+  "name": "ai",
+  "version": "1.0.0",
+  "description": "AI对话云函数",
+  "main": "index.js",
+  "dependencies": {},
+  "author": "",
+  "license": "ISC"
+} 

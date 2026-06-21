@@ -1,0 +1,22 @@
+{
+  "passwordSecret": "passwordSecret-AIzhihuishe",
+  "tokenSecret": "tokenSecret-AIzhihuishe",
+  "tokenExpiresIn": 7200,
+  "tokenExpiresThreshold": 600,
+  "passwordErrorLimit": 6,
+  "passwordErrorRetryTime": 3600,
+  "bindTokenToDevice": false,
+  "passwordStrength": "medium",
+  "needPermission": false,
+  "autoSetInviteCode": true,
+  "forceInviteCode": false,
+  "mp-weixin": {
+    "tokenExpiresIn": 2592000,
+    "oauth": {
+      "weixin": {
+        "appid": "wxfca5c875c72fe3c4",
+        "appsecret": "请在uniCloud控制台添加你的appsecret"
+      }
+    }
+  }
+} 

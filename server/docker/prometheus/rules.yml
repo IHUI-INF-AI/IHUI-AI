@@ -1,0 +1,565 @@
+groups:
+  - name: zhs-platform.rules
+    interval: 30s
+    rules:
+      # ---------- HTTP 错误率 ----------
+      - alert: ZHSHighErrorRate
+        expr: |
+          sum(rate(zhs_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(zhs_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "ZHS Platform 5xx 错误率 > 5%"
+          description: "近 5 分钟 5xx 错误率 {{ $value | humanizePercentage }}，持续 5 分钟。"
+
+      - alert: ZHSClientErrorSpike
+        expr: |
+          sum(rate(zhs_http_requests_total{status=~"4.."}[5m]))
+            / sum(rate(zhs_http_requests_total[5m])) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "ZHS Platform 4xx 错误率 > 20%"
+          description: "近 5 分钟 4xx 错误率 {{ $value | humanizePercentage }}。"
+
+      # ---------- 请求延迟 ----------
+      - alert: ZHSHighLatency
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(zhs_http_request_duration_seconds_bucket[5m]))) > 2.0
+        for: 10m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "ZHS Platform P95 延迟 > 2s"
+          description: "P95 延迟 {{ $value }}s，超过 2 秒阈值。"
+
+      - alert: ZHSVeryHighLatency
+        expr: |
+          histogram_quantile(0.99, sum by (le) (rate(zhs_http_request_duration_seconds_bucket[5m]))) > 5.0
+        for: 5m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "ZHS Platform P99 延迟 > 5s"
+          description: "P99 延迟 {{ $value }}s，服务严重变慢。"
+
+      # ---------- 慢 SQL ----------
+      - alert: ZHSSlowSQLSpike
+        expr: |
+          rate(zhs_sql_slow_queries_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "ZHS Platform 慢查询增多"
+          description: "慢查询速率 {{ $value }}次/秒。"
+
+      # ---------- WebSocket ----------
+      - alert: ZHSWebSocketOverload
+        expr: zhs_websocket_connections > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "WebSocket 连接数 > 10000"
+          description: "当前连接数 {{ $value }}，接近承载上限。"
+
+      # ---------- 进程资源 ----------
+      - alert: ZHSHighMemoryUsage
+        expr: process_resident_memory_bytes > 2 * 1024 * 1024 * 1024
+        for: 10m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "ZHS Platform 内存使用 > 2GB"
+          description: "当前 RSS {{ $value | humanize }}B。"
+
+      - alert: ZHSHighCPU
+        expr: rate(process_cpu_seconds_total[5m]) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "ZHS Platform CPU > 85%"
+          description: "CPU 占用 {{ $value | humanizePercentage }}。"
+
+      # ---------- 进程存活 ----------
+      - alert: ZHSAppDown
+        expr: up{job="zhs-platform"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "ZHS Platform 实例不可达"
+          description: "目标 {{ $labels.instance }} 已掉线超过 1 分钟。"
+
+      # ---------- 数据库连接池 ----------
+      - alert: ZHSDBPoolExhausted
+        expr: zhs_db_pool_in_use > 8
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "ZHS 数据库连接池使用过高"
+          description: "{{ $labels.engine }} 池使用 {{ $value }}。"
+
+      # ---------- Redis ----------
+      - alert: ZHSRedisDown
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "Redis 不可达"
+          description: "Redis 服务已不可达 2 分钟。"
+
+      # =====================================================================
+      # 建议 86 新增告警: DB 连接池 / WS 漏报 / Notice 推送 / 缓存 / 业务错误
+      # =====================================================================
+
+      # ---------- DB 连接池 (建议 78 新增的 5 个 Gauge) ----------
+      - alert: ZHSDBPoolExhausted
+        expr: zhs_db_pool_in_use / zhs_db_pool_size > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "DB 连接池使用率 > 90%"
+          description: "{{ $labels.engine }} 池使用率 {{ $value | humanizePercentage }}。"
+
+      - alert: ZHSDBPoolCheckoutTimeouts
+        expr: increase(zhs_db_pool_checkout_timeouts_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "DB 连接池 checkout 超时"
+          description: "{{ $labels.engine }} 近 5 分钟出现 {{ $value }} 次 checkout 超时, 业务可能已雪崩。"
+
+      - alert: ZHSDBPoolOverflowHigh
+        expr: zhs_db_pool_overflow > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "DB 连接池 overflow 过高"
+          description: "{{ $labels.engine }} overflow 当前 {{ $value }} (超出 pool_size 的连接数)."
+
+      # ---------- WebSocket 漏报 (跨实例 pub/sub 监控) ----------
+      - alert: ZHSWSLeak
+        expr: |
+          sum(rate(zhs_biz_ws_pubsub_dropped_total[5m]))
+            / sum(rate(zhs_biz_ws_messages_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "WS pub/sub 漏报率 > 5%"
+          description: "近 5 分钟漏报率 {{ $value | humanizePercentage }}, 跨实例广播可能异常。"
+
+      - alert: ZHSWSCapacityWarning
+        expr: zhs_biz_ws_connections > 4000
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "WS 连接数接近上限"
+          description: "当前 {{ $value }} 连接, 默认 max=5000。"
+
+      # ---------- 通知推送失败 (建议 81 推送指标) ----------
+      - alert: ZHSNoticePushFailure
+        expr: |
+          sum(rate(zhs_biz_errors_total{endpoint="notice_push"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "Notice 推送异常"
+          description: "近 5 分钟 {{ $value }} 次/秒推送失败。"
+
+      # ---------- 缓存命中率 ----------
+      - alert: ZHSCacheHitRatioLow
+        expr: zhs_biz_cache_hit_ratio < 0.5
+        for: 15m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "缓存命中率 < 50%"
+          description: "{{ $labels.key_prefix }} 命中率 {{ $value | humanizePercentage }} 持续 15 分钟。"
+
+      # ---------- Alembic 迁移审计 (建议 79) ----------
+      - alert: ZHSAlembicMigrationFailed
+        expr: increase(zhs_alembic_audit_failed_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "Alembic 迁移失败"
+          description: "近 1 小时有 {{ $value }} 次迁移失败, 检查 alembic_audit 日志。"
+
+      # ---------- 任务执行失败 (cron / scheduler) ----------
+      - alert: ZHSJobFailed
+        expr: |
+          sum by (job_name) (increase(zhs_biz_job_executions_total{status="failed"}[1h])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "定时任务执行失败"
+          description: "任务 {{ $labels.job_name }} 近 1 小时失败 {{ $value }} 次。"
+
+      # ---------- 业务异常累积 ----------
+      - alert: ZHSBizErrorSpike
+        expr: |
+          sum(rate(zhs_biz_errors_total[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "业务错误率突增"
+          description: "近 5 分钟 {{ $value }} 次/秒业务错误 (endpoint={{ $labels.endpoint }})。"
+
+      # ---------- Alembic audit log 文件缺失 (冷备场景) ----------
+      - alert: ZHSAlembicAuditMissing
+        expr: zhs_alembic_audit_last_success_timestamp == 0
+        for: 24h
+        labels:
+          severity: info
+          service: zhs-platform
+        annotations:
+          summary: "Alembic 审计日志 24h 内无成功记录"
+          description: "可能系统未运行迁移或审计写入失败。"
+
+      # =====================================================================
+      # 建议 90 新增告警: 慢 SQL 串联 trace + DB pool 细粒度 + 多实例 WS
+      # =====================================================================
+
+      # ---------- 慢 SQL 速率 (带 trace 关联) ----------
+      - alert: ZHSSlowSQLWithTrace
+        expr: |
+          sum(rate(zhs_slow_sql_with_trace_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "慢 SQL 持续触发 (有 trace 关联)"
+          description: "近 5 分钟 {{ $value | humanize }} 次/秒慢 SQL 携带 OTel trace, 建议查 trace_id 定位业务调用. {{ $labels.engine }}.{{ $labels.table }}."
+
+      - alert: ZHSSlowSQLBurst
+        expr: |
+          sum by (engine, table) (rate(zhs_slow_sql_with_trace_total[1m])) > 1
+        for: 2m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "单表慢 SQL 突增 (>1 次/秒)"
+          description: "{{ $labels.engine }}.{{ $labels.table }} 近 1 分钟 {{ $value }} 次/秒慢 SQL."
+
+      # ---------- DB pool 多 engine 细分 (建议 78) ----------
+      - alert: ZHSDBPoolMultiEngineSaturated
+        expr: |
+          count by (engine) (
+            zhs_db_pool_in_use / zhs_db_pool_size > 0.95
+          ) >= 2
+        for: 5m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "多个 DB 引擎同时饱和"
+          description: "已有 {{ $value }} 个 engine 池使用率 > 95%."
+
+      - alert: ZHSDBPoolInUseHighSingle
+        expr: zhs_db_pool_in_use / zhs_db_pool_size > 0.95
+        for: 3m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "单 engine 连接池使用率 > 95%"
+          description: "{{ $labels.engine }} 池使用率 {{ $value | humanizePercentage }}."
+
+      # ---------- WS 多实例容量 ----------
+      - alert: ZHSWSMultiInstanceLeak
+        expr: |
+          sum by (instance) (rate(zhs_biz_ws_pubsub_dropped_total[5m]))
+            / sum by (instance) (rate(zhs_biz_ws_messages_total[5m])) > 0.02
+        for: 3m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "单实例 WS 漏报率 > 2%"
+          description: "instance={{ $labels.instance }} 漏报率 {{ $value | humanizePercentage }}, Redis pubsub 可能异常."
+
+      # ---------- OTel 采样率健康度 (建议 93) ----------
+      - alert: ZHSOtelSampleRateZero
+        expr: |
+          sum(rate(zhs_otel_spans_exported_total[5m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "OTel 10 分钟无 span 导出"
+          description: "采样率可能为 0 或 OTLP 端点不可达, 检查 ZHS_OTEL_SAMPLE_RATIO."
+
+      # ---------- 多租户: 单一租户占用过多资源 (建议 87 预演) ----------
+      - alert: ZHSTenantDominantTraffic
+        expr: |
+          max by (tenant) (
+            sum by (tenant) (rate(zhs_biz_requests_total[5m]))
+          )
+            / sum(rate(zhs_biz_requests_total[5m])) > 0.8
+        for: 10m
+        labels:
+          severity: info
+          service: zhs-platform
+        annotations:
+          summary: "单租户流量占比 > 80%"
+          description: "tenant={{ $labels.tenant }} 占总流量 {{ $value | humanizePercentage }}, 排查是否数据倾斜."
+
+      # =====================================================================
+      # 建议 115: CI Nightly Observability Drill 健康度 (Loki / Prom 兜底)
+      # =====================================================================
+
+      # CI push 一个 gauge: ai_ci_drill_last_success_timestamp
+      # nightly 跑成功时刷新; 如果 25h 内没成功 → 告警 (兜底 web hook 通知失败)
+      - alert: ZHS_CI_DRILL_Stale
+        expr: |
+          (time() - ai_ci_drill_last_success_timestamp) > 25 * 3600
+        for: 1m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "CI Nightly Observability Drill 超过 25h 未成功"
+          description: "最近一次成功时间 {{ $value | humanizeDuration }} 前, 可能是 workflow 失败或 Pushgateway 写入失败."
+
+      # CI 显式上报 drill 失败次数 (workflow 失败时 +1)
+      - alert: ZHS_CI_DRILL_Failed
+        expr: increase(ai_ci_drill_failure_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "CI Observability Drill 失败 {{ $value }} 次 (近 1h)"
+          description: "近 1 小时有 {{ $value }} 次 drill 失败, 检查 .github/workflows/observability-drills.yml artifact."
+
+      # 慢 SQL 演练本身 0 触发 (说明 drill 没真正执行, 也可能代码 bug)
+      - alert: ZHS_CI_DRILL_SlowSQLZeroHit
+        expr: |
+          increase(ai_ci_drill_slow_sql_invocations_total[24h]) == 0
+        for: 24h
+        labels:
+          severity: info
+          service: zhs-platform
+        annotations:
+          summary: "CI 慢 SQL drill 24h 内 0 调用"
+          description: "drill_slow_sql_alert 没真正跑, 检查 CI cron 是否被禁用."
+
+      # =====================================================================
+      # 建议 136: Canary 紧急回滚告警 (auto_rollback 触发)
+      # =====================================================================
+
+      # auto_rollback 标志位: CanaryStageController.mark_failure 触发时设为 1
+      # manual rollback 不会触发, 仅 auto (阈值失败累计)
+      - alert: ZHSRollbackActive
+        expr: zhs_canary_rollback_active == 1
+        for: 0m
+        labels:
+          severity: critical
+          service: zhs-platform
+        annotations:
+          summary: "[Canary] 紧急回滚已触发"
+          description: "CanaryStageController 因连续失败触发紧急回滚 (auto_rollback), 当前阶段已降至 STAGE_0, 检查 v2 健康度后人工 promote."
+
+      # Canary 阶段比例异常 (0% / 100% 之外持续超过 30 分钟)
+      - alert: ZHSCanaryStuckMidStage
+        expr: |
+          zhs_canary_stage_ratio{stage!="0%"} > 0
+          and zhs_canary_stage_ratio{stage!="0%"} < 1
+        for: 30m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "[Canary] 阶段卡在中间态 > 30 分钟"
+          description: "Canary 处于 {{ $labels.stage }} 阶段超过 30 分钟, 检查是否人工未及时 promote."
+
+      # 影子流量异常 (shadow.ratio > canary.ratio * 1.5)
+      # 联动策略应该是 canary.ratio = shadow.ratio, 偏离说明 link 配错
+      - alert: ZHSShadowRatioMismatch
+        expr: |
+          zhs_shadow_ratio > 0
+          and zhs_shadow_ratio > (sum(zhs_canary_stage_ratio) * 1.5)
+        for: 5m
+        labels:
+          severity: warning
+          service: zhs-platform
+        annotations:
+          summary: "[Canary Shadow] shadow 比例异常偏离 canary 阶段"
+          description: "shadow.ratio={{ $value }} 远超当前 canary 阶段比例, 联动可能断开, 检查 CanaryShadowLink 配置."
+
+      # =====================================================================
+      # PostgreSQL 原生指标告警 (postgres-exporter 提供)
+      # =====================================================================
+
+      # ---------- PostgreSQL 实例宕机 ----------
+      - alert: ZHSPgDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 实例不可达"
+          description: "pg_up=0, PostgreSQL 实例 {{ $labels.instance }} 已掉线超过 1 分钟, 立即检查服务状态."
+
+      # ---------- PostgreSQL 连接数过高 ----------
+      - alert: ZHSPgConnectionsHigh
+        expr: |
+          sum(pg_stat_activity_count) / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 连接数 > 80%"
+          description: "活跃连接数占最大连接数 {{ $value | humanizePercentage }}, 持续 5 分钟, 可能即将耗尽."
+
+      # ---------- PostgreSQL 连接数耗尽 ----------
+      - alert: ZHSPgConnectionsExhausted
+        expr: |
+          sum(pg_stat_activity_count) / pg_settings_max_connections > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 连接数 > 95% (耗尽)"
+          description: "活跃连接数占最大连接数 {{ $value | humanizePercentage }}, 持续 2 分钟, 新连接将被拒绝."
+
+      # ---------- PostgreSQL 死锁 ----------
+      - alert: ZHSPgDeadlocks
+        expr: increase(pg_stat_database_deadlocks[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 检测到死锁"
+          description: "数据库 {{ $labels.datname }} 近 5 分钟出现 {{ $value }} 次死锁, 检查事务隔离级别和锁顺序."
+
+      # ---------- PostgreSQL 回滚率过高 ----------
+      - alert: ZHSPgRollbackRateHigh
+        expr: |
+          sum(rate(pg_stat_database_xact_rollback[5m]))
+            / (sum(rate(pg_stat_database_xact_commit[5m])) + sum(rate(pg_stat_database_xact_rollback[5m]))) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 回滚率 > 10%"
+          description: "近 5 分钟回滚率 {{ $value | humanizePercentage }}, 持续 10 分钟, 检查业务逻辑或约束冲突."
+
+      # ---------- PostgreSQL 缓存命中率低 ----------
+      - alert: ZHSPgCacheHitRatioLow
+        expr: |
+          sum(rate(pg_stat_database_blks_hit[5m]))
+            / (sum(rate(pg_stat_database_blks_hit[5m])) + sum(rate(pg_stat_database_blks_read[5m]))) < 0.9
+        for: 15m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 缓存命中率 < 90%"
+          description: "共享缓冲区命中率 {{ $value | humanizePercentage }}, 持续 15 分钟, 考虑增大 shared_buffers 或优化查询."
+
+      # ---------- PostgreSQL 数据库大小异常增长 ----------
+      - alert: ZHSPgDatabaseSizeGrowing
+        expr: |
+          deriv(pg_database_size_bytes[1h]) > 10485760
+        for: 30m
+        labels:
+          severity: info
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 数据库快速增长 (>10MB/h)"
+          description: "数据库 {{ $labels.datname }} 每小时增长 > 10MB, 持续 30 分钟, 检查是否有大批量写入或日志表未清理."
+
+      # ---------- PostgreSQL 复制延迟 ----------
+      - alert: ZHSPgReplicationLag
+        expr: |
+          pg_replication_lag_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 复制延迟 > 30s"
+          description: "从库延迟 {{ $value }}s, 持续 5 分钟, 检查网络或从库负载."
+
+      # ---------- PostgreSQL 复制中断 ----------
+      - alert: ZHSPgReplicationBroken
+        expr: |
+          pg_replication_is_replicating == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 复制中断"
+          description: "从库 {{ $labels.instance }} 复制状态为 0, 持续 2 分钟, 立即检查复制连接."
+
+      # ---------- PostgreSQL 表膨胀 (autovacuum 未跟上) ----------
+      - alert: ZHSPgBloatHigh
+        expr: |
+          pg_stat_user_tables_n_dead_tup > 100000
+        for: 30m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 表死元组过多"
+          description: "表 {{ $labels.relname }} 有 {{ $value }} 个死元组, 持续 30 分钟, autovacuum 可能未跟上, 考虑手动 VACUUM."
+
+      # ---------- PostgreSQL 长事务 ----------
+      - alert: ZHSPgLongTransaction
+        expr: |
+          max(pg_stat_activity_max_tx_duration) > 300
+        for: 2m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL 长事务 > 5 分钟"
+          description: "最长事务持续时间 {{ $value }}s, 持续 2 分钟, 可能阻塞 vacuum 或复制."

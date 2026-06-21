@@ -1,0 +1,30 @@
+{
+  "ApiTestPage": {
+    "startAITest": "AI API 테스트 시작"
+  },
+  "apiTestPage": {
+    "testName": {
+      "unifiedChatImport": "통합 채팅 서비스 가져오기",
+      "fastapiImport": "FastAPI 서비스 가져오기",
+      "agentImport": "Agent 서비스 가져오기",
+      "mcpImport": "MCP 서비스 가져오기",
+      "ihuiStreamImport": "ihui API 스트리밍 서비스 가져오기",
+      "llmChatImport": "LLM 채팅 서비스 가져오기",
+      "unifiedGenImport": "통합 생성 서비스 가져오기",
+      "aiGenImport": "AI 생성 서비스 가져오기",
+      "aiModelImport": "AI 모델 서비스 가져오기",
+      "aiGenAdapterImport": "AI 생성 어댑터 가져오기",
+      "aiChatTypeImport": "AI 채팅 타입 정의",
+      "serviceUnifiedExport": "서비스 계층 통합 내보내기"
+    },
+    "category": {
+      "chat": "채팅",
+      "generation": "생성",
+      "type": "타입",
+      "export": "내보내기"
+    },
+    "logPass": "통과",
+    "logFail": "실패",
+    "duration": "소요 시간: {duration}ms"
+  }
+}

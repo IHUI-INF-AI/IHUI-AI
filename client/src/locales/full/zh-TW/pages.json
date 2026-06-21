@@ -1,0 +1,19 @@
+{
+  "pages": {
+    "index": {
+      "features": {
+        "hot": {},
+        "activity": {},
+        "service": {}
+      }
+    },
+    "login": {
+      "alipayAuth": {},
+      "wechatAuth": {}
+    },
+    "userProfile": {
+      "userInfo": {},
+      "menu": {}
+    }
+  }
+}

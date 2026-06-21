@@ -1,0 +1,27 @@
+{
+  "exam": {
+    "searchPlaceholder": {
+      "list": "搜索考试",
+      "answer": "搜索答卷",
+      "paper": "搜索试卷",
+      "paperCategory": "搜索分类",
+      "paperMock": "搜索模拟卷",
+      "paperNormal": "搜索正式卷",
+      "paperRandom": "搜索随机卷",
+      "question": "搜索题目",
+      "questionCategory": "搜索分类",
+      "questionFill": "搜索填空题",
+      "questionJudgment": "搜索判断题",
+      "questionMulti": "搜索多选题",
+      "questionSingle": "搜索单选题",
+      "questionSubjective": "搜索主观题"
+    },
+    "label": {
+      "user": "用户",
+      "paper": "试卷",
+      "score": "得分",
+      "duration": "用时",
+      "submitTime": "提交时间"
+    }
+  }
+}

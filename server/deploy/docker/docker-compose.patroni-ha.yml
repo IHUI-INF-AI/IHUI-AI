@@ -1,0 +1,210 @@
+# Patroni 高可用 PoC 环境 (3 节点 etcd + 3 节点 Patroni + HAProxy)
+#
+# 架构:
+#   - 3 节点 etcd 集群 (Raft 一致性)
+#   - 3 节点 Patroni + PostgreSQL (1 Leader + 2 Replica)
+#   - HAProxy 读写路由 (主写从读)
+#
+# 用法: docker-compose -f deploy/docker/docker-compose.patroni-ha.yml up -d
+#
+# 验证:
+#   curl http://localhost:8008/cluster (Patroni 集群状态)
+#   curl http://localhost:7000/stats (HAProxy 状态)
+#   psql -h 127.0.0.1 -p 5000 -U zhs zhs_ai_project (写)
+#   psql -h 127.0.0.1 -p 5001 -U zhs zhs_ai_project (读)
+version: "3.9"
+
+services:
+  # ---------- etcd 集群 (3 节点) ----------
+  etcd1:
+    image: quay.io/coreos/etcd:v3.5.12
+    restart: always
+    environment:
+      - ETCD_NAME=etcd1
+      - ETCD_DATA_DIR=/etcd-data
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd1:2380
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd1:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_INITIAL_CLUSTER=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER_TOKEN=patroni-zhs
+      - TZ=Asia/Shanghai
+    volumes:
+      - etcd1_data:/etcd-data
+    ports:
+      - "2379:2379"
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  etcd2:
+    image: quay.io/coreos/etcd:v3.5.12
+    restart: always
+    environment:
+      - ETCD_NAME=etcd2
+      - ETCD_DATA_DIR=/etcd-data
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd2:2380
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd2:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_INITIAL_CLUSTER=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER_TOKEN=patroni-zhs
+      - TZ=Asia/Shanghai
+    volumes:
+      - etcd2_data:/etcd-data
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  etcd3:
+    image: quay.io/coreos/etcd:v3.5.12
+    restart: always
+    environment:
+      - ETCD_NAME=etcd3
+      - ETCD_DATA_DIR=/etcd-data
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd3:2380
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd3:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_INITIAL_CLUSTER=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER_TOKEN=patroni-zhs
+      - TZ=Asia/Shanghai
+    volumes:
+      - etcd3_data:/etcd-data
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Patroni 节点 1 (初始 Leader) ----------
+  patroni1:
+    image: ghcr.io/zalando/spilo-15:2.1-p9
+    restart: always
+    environment:
+      - PATRONI_NAME=patroni1
+      - PATRONI_SCOPE=zhs
+      - PATRONI_POSTGRESQL_DATA_DIR=/home/postgres/pgdata/pgroot/data
+      - PATRONI_POSTGRESQL_BIN_DIR=/usr/lib/postgresql/15/bin
+      - PATRONI_POSTGRESQL_LISTEN=0.0.0.0:5432
+      - PATRONI_POSTGRESQL_CONNECT_ADDRESS=patroni1:5432
+      - PATRONI_RESTAPI_LISTEN=0.0.0.0:8008
+      - PATRONI_RESTAPI_CONNECT_ADDRESS=patroni1:8008
+      - PATRONI_ETCD3_HOSTS=etcd1:2379,etcd2:2379,etcd3:2379
+      - PATRONI_SUPERUSER_USERNAME=zhs
+      - PATRONI_SUPERUSER_PASSWORD=zhs_pg_pass
+      - PATRONI_REPLICATION_USERNAME=replicator
+      - PATRONI_REPLICATION_PASSWORD=replica_pass
+      - PATRONI_POSTGRESQL_PARAMETERS=max_connections=200,shared_buffers=2GB,work_mem=16MB
+      - PATRONI_POSTGRESQL_PGPASS=/home/postgres/.pgpass
+      - TZ=Asia/Shanghai
+    volumes:
+      - patroni1_data:/home/postgres/pgdata
+    ports:
+      - "5432:5432"
+      - "8008:8008"
+    depends_on:
+      etcd1:
+        condition: service_healthy
+      etcd2:
+        condition: service_healthy
+      etcd3:
+        condition: service_healthy
+
+  # ---------- Patroni 节点 2 (Replica) ----------
+  patroni2:
+    image: ghcr.io/zalando/spilo-15:2.1-p9
+    restart: always
+    environment:
+      - PATRONI_NAME=patroni2
+      - PATRONI_SCOPE=zhs
+      - PATRONI_POSTGRESQL_DATA_DIR=/home/postgres/pgdata/pgroot/data
+      - PATRONI_POSTGRESQL_BIN_DIR=/usr/lib/postgresql/15/bin
+      - PATRONI_POSTGRESQL_LISTEN=0.0.0.0:5432
+      - PATRONI_POSTGRESQL_CONNECT_ADDRESS=patroni2:5432
+      - PATRONI_RESTAPI_LISTEN=0.0.0.0:8008
+      - PATRONI_RESTAPI_CONNECT_ADDRESS=patroni2:8008
+      - PATRONI_ETCD3_HOSTS=etcd1:2379,etcd2:2379,etcd3:2379
+      - PATRONI_SUPERUSER_USERNAME=zhs
+      - PATRONI_SUPERUSER_PASSWORD=zhs_pg_pass
+      - PATRONI_REPLICATION_USERNAME=replicator
+      - PATRONI_REPLICATION_PASSWORD=replica_pass
+      - PATRONI_POSTGRESQL_PARAMETERS=max_connections=200,shared_buffers=2GB,work_mem=16MB
+      - PATRONI_POSTGRESQL_PGPASS=/home/postgres/.pgpass
+      - TZ=Asia/Shanghai
+    volumes:
+      - patroni2_data:/home/postgres/pgdata
+    ports:
+      - "5442:5432"
+      - "8018:8008"
+    depends_on:
+      etcd1:
+        condition: service_healthy
+      etcd2:
+        condition: service_healthy
+      etcd3:
+        condition: service_healthy
+
+  # ---------- Patroni 节点 3 (Replica) ----------
+  patroni3:
+    image: ghcr.io/zalando/spilo-15:2.1-p9
+    restart: always
+    environment:
+      - PATRONI_NAME=patroni3
+      - PATRONI_SCOPE=zhs
+      - PATRONI_POSTGRESQL_DATA_DIR=/home/postgres/pgdata/pgroot/data
+      - PATRONI_POSTGRESQL_BIN_DIR=/usr/lib/postgresql/15/bin
+      - PATRONI_POSTGRESQL_LISTEN=0.0.0.0:5432
+      - PATRONI_POSTGRESQL_CONNECT_ADDRESS=patroni3:5432
+      - PATRONI_RESTAPI_LISTEN=0.0.0.0:8008
+      - PATRONI_RESTAPI_CONNECT_ADDRESS=patroni3:8008
+      - PATRONI_ETCD3_HOSTS=etcd1:2379,etcd2:2379,etcd3:2379
+      - PATRONI_SUPERUSER_USERNAME=zhs
+      - PATRONI_SUPERUSER_PASSWORD=zhs_pg_pass
+      - PATRONI_REPLICATION_USERNAME=replicator
+      - PATRONI_REPLICATION_PASSWORD=replica_pass
+      - PATRONI_POSTGRESQL_PARAMETERS=max_connections=200,shared_buffers=2GB,work_mem=16MB
+      - PATRONI_POSTGRESQL_PGPASS=/home/postgres/.pgpass
+      - TZ=Asia/Shanghai
+    volumes:
+      - patroni3_data:/home/postgres/pgdata
+    ports:
+      - "5452:5432"
+      - "8028:8008"
+    depends_on:
+      etcd1:
+        condition: service_healthy
+      etcd2:
+        condition: service_healthy
+      etcd3:
+        condition: service_healthy
+
+  # ---------- HAProxy (读写路由) ----------
+  haproxy:
+    image: haproxy:2.8-alpine
+    restart: always
+    volumes:
+      - ../../docker/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "5000:5000"  # 写端口 (主)
+      - "5001:5001"  # 读端口 (从)
+      - "7000:7000"  # stats
+    depends_on:
+      - patroni1
+      - patroni2
+      - patroni3
+
+volumes:
+  etcd1_data:
+  etcd2_data:
+  etcd3_data:
+  patroni1_data:
+  patroni2_data:
+  patroni3_data:

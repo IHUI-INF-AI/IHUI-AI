@@ -1,0 +1,12 @@
+{
+  "mobileOptimized": {
+    "title": "モバイル最適化",
+    "description": "モバイル向け体験",
+    "responsiveDesign": "レスポンシブ",
+    "responsiveDesignDesc": "各種画面サイズ対応",
+    "touchOptimization": "タッチ最適化",
+    "touchOptimizationDesc": "タッチ操作対応",
+    "fastLoading": "高速読み込み",
+    "fastLoadingDesc": "モバイルパフォーマンス最適化"
+  }
+}

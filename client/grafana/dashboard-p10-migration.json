@@ -1,0 +1,175 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "P10/P11 v1→v2 API 迁移监控仪表板 (端点数量、覆盖率、Shadow 模式对比、弃用请求)",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "title": "ZHS API v1→v2 Migration (P10/P11)",
+  "tags": ["migration", "v2", "p10", "p11", "zhs"],
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1,
+  "links": [
+    { "title": "v2 OpenAPI 文档", "url": "/docs/v2", "type": "link", "icon": "external link" },
+    { "title": "迁移统计 JSON", "url": "/api/migration/stats", "type": "link", "icon": "external link" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "v2 迁移覆盖率",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 85 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "expr": "zhs_api_migration_coverage_percent",
+          "refId": "A",
+          "legendFormat": "覆盖率"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "v1 端点总数",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short" } },
+      "targets": [
+        { "expr": "zhs_api_migration_v1_endpoints", "refId": "A", "legendFormat": "v1" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "v2 端点总数",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short" } },
+      "targets": [
+        { "expr": "zhs_api_migration_v2_endpoints", "refId": "A", "legendFormat": "v2" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Shadow 模式 Pass Rate",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "green", "value": 95 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(zhs_api_shadow_pass[5m])) / clamp_min(sum(rate(zhs_api_shadow_total[5m])), 1) * 100",
+          "refId": "A",
+          "legendFormat": "pass %"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "v1 弃用请求速率 (QPS)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (rate(zhs_api_v1_legacy_requests_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{endpoint}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "v2 请求速率 (QPS, 按 status)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(zhs_api_v2_requests_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Shadow 模式 Pass vs Diff (累计)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        { "expr": "zhs_api_shadow_total", "refId": "A", "legendFormat": "total" },
+        { "expr": "zhs_api_shadow_pass", "refId": "B", "legendFormat": "pass" },
+        { "expr": "zhs_api_shadow_diff", "refId": "C", "legendFormat": "diff" },
+        { "expr": "zhs_api_shadow_errors", "refId": "D", "legendFormat": "errors" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "v1/v2 端点总数趋势",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        { "expr": "zhs_api_migration_v1_endpoints", "refId": "A", "legendFormat": "v1" },
+        { "expr": "zhs_api_migration_v2_endpoints", "refId": "B", "legendFormat": "v2" },
+        { "expr": "zhs_api_migration_coverage_percent", "refId": "C", "legendFormat": "coverage %" }
+      ]
+    }
+  ],
+  "templating": { "list": [] }
+}

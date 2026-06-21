@@ -1,0 +1,79 @@
+{
+  "study": {
+    "cover": "カバー",
+    "courseTitle": "コースタイトル",
+    "courseDesc": "コース説明",
+    "relatedApp": "関連AIアプリ",
+    "topComment": "トップコメント",
+    "selectTags": "コースタグを選択",
+    "chunkUploadFailed": "チャンクアップロード失敗",
+    "videoUploadSuccess": "動画アップロード成功！",
+    "editSuccessReview": "変更成功！審査をお待ちください",
+    "deleteSuccessReview": "削除成功！審査をお待ちください",
+    "publishCollectionFirst": "まずコレクションを公開してください",
+    "videoProcessing": "動画処理中。後で公開してください",
+    "uploadCover": "カバーをアップロードしてください",
+    "uploadVideo": "動画をアップロードしてください",
+    "enterCourseTitle": "コースタイトルを入力してください",
+    "enterCourseDesc": "コース説明を入力してください",
+    "groupTitle": "コレクションタイトル",
+    "groupDesc": "コレクション説明",
+    "selectTrack": "コレクショントラックを選択",
+    "mainTrackPrefix": "#メイントラック",
+    "selectPhase": "コースフェーズを選択",
+    "uploadVideoCourse": "コース動画をアップロード",
+    "publishSuccessContinue": "公開成功、動画のアップロードを続行",
+    "enterGroupTitle": "コレクションタイトルを入力してください",
+    "enterGroupDesc": "コレクション説明を入力してください",
+    "selectMainSubTrack": "メインとサブトラックを選択してください",
+    "uploadSuccess": "アップロード成功",
+    "uploadFailed": "アップロード失敗"
+  },
+  "studyAdd": {
+    "cover": "カバー",
+    "title": "コースタイトル",
+    "desc": "コース説明",
+    "publishFirst": "先にコレクションを公開",
+    "videoSynth": "ビデオ合成中、後で公開",
+    "uploadCover": "カバーをアップロード",
+    "uploadVideo": "ビデオをアップロード",
+    "enterTitle": "コースタイトルを入力",
+    "enterDesc": "コース説明を入力"
+  },
+  "studyGroup": {
+    "cover": "カバー",
+    "groupTitle": "グループタイトル",
+    "groupDesc": "グループ説明",
+    "uploadCover": "カバーをアップロードしてください",
+    "enterGroupTitle": "グループタイトルを入力してください",
+    "enterGroupDesc": "グループ説明を入力してください",
+    "selectTrack": "メインとサブトラックを選択してください"
+  },
+  "studyIndexModelList": {
+    "loading": "読み込み中...",
+    "recommendGroups": "おすすめグループ",
+    "viewMore": "もっと見る",
+    "noMore": "もうありません"
+  },
+  "studyIndexStudyList": {
+    "loading": "読み込み中...",
+    "latestCourses": "最新コース",
+    "viewMore": "もっと見る",
+    "noMore": "もうありません"
+  },
+  "studyIndexStudyTip": {
+    "studyTip": "智匯AI クラウド教育/ショートビデオ - AI動画共有を歓迎",
+    "studyTip2": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
+    "myGroups": "マイグループ"
+  },
+  "studyComment": {
+    "hotComments": "人気コメント",
+    "enterReply": "返信内容を入力してください..."
+  },
+  "studyVideoProgress": {
+    "videoUploading": "動画アップロード中"
+  },
+  "studyVipBtns": {
+    "vipFree": "VIP無料"
+  }
+}

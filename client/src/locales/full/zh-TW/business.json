@@ -1,0 +1,283 @@
+{
+  "businessCard": {
+    "title": "我的社群名片",
+    "subtitle": "展示您的個人信息和聯繫方式",
+    "shareCard": "分享名片",
+    "shareToWechat": "分享到微信",
+    "copyCardLink": "複製名片鏈接",
+    "scanQrCode": "請使用微信扫描二維碼分享",
+    "shareInDevelopment": "分享功能開發中",
+    "copySuccess": "名片鏈接已複製到剪貼板",
+    "copyFailed": "複製失敗，請手動複製",
+    "shareSuccess": "分享成功",
+    "shareFailed": "分享失敗",
+    "upload": "上傳社群名片",
+    "uploadHint": "支援 JPG、PNG 格式，建議尺寸 750×1334px",
+    "uploading": "上傳中...",
+    "changeImage": "點擊更換名片圖片",
+    "dropImage": "點擊或拖曳圖片到此處上傳",
+    "customEntry": "社群名片定製入口",
+    "uploadSuccess": "名片上傳成功",
+    "uploadFailed": "名片上傳失敗，請重試"
+  },
+  "businessDocs": {
+    "title": "業務文檔",
+    "subtitle": "專案概覽、API 模組、部署流程、環境變數、安全策略、FAQ、更新日誌與貢獻指南",
+    "tab": {
+      "overview": "專案概覽",
+      "modules": "API 模組",
+      "deploy": "部署流程",
+      "environment": "環境變數",
+      "security": "安全策略",
+      "faq": "FAQ",
+      "changelog": "更新日誌",
+      "contributing": "貢獻指南"
+    },
+    "overview": {
+      "title": "專案資訊",
+      "projectName": "專案名稱",
+      "version": "版本",
+      "license": "授權條款",
+      "node": "Node 版本",
+      "description": "專案描述",
+      "descriptionValue": "智匯AI社群 (iHui AI) - 專業的AI工具整合平台（Monorepo：官網 + 微信小程式）"
+    },
+    "modules": {
+      "title": "API 模組清單",
+      "method": "方法",
+      "path": "路徑",
+      "desc": "說明",
+      "list": {
+        "auth": {
+          "title": "認證模組",
+          "desc": "帳號註冊、登入、第三方登入、JWT 權杖、裝置綁定與多因子認證",
+          "endpoints": {
+            "login": "帳號密碼登入",
+            "register": "使用者註冊",
+            "refresh": "重新整理權杖",
+            "logout": "登出",
+            "userInfo": "取得當前使用者資訊"
+          }
+        },
+        "payment": {
+          "title": "支付模組",
+          "desc": "微信 / 支付寶 / 銀聯多渠道支付 + 訂單建立 + 非同步通知 + 同步回呼",
+          "endpoints": {
+            "aliPay": "建立支付寶支付訂單",
+            "aliPayNotify": "支付寶非同步通知",
+            "aliPaySuccess": "查詢支付結果",
+            "wxPay": "建立微信支付訂單",
+            "orderCreate": "建立統一訂單"
+          }
+        },
+        "ai": {
+          "title": "AI 模組",
+          "desc": "AI 對話、圖像生成、影片生成、模型管理、智慧體編排",
+          "endpoints": {
+            "chat": "AI 對話",
+            "generate": "AI 內容生成",
+            "models": "可用模型清單",
+            "agentsCreate": "建立智慧體"
+          }
+        },
+        "user": {
+          "title": "使用者模組",
+          "desc": "使用者資料、設定、VIP 等級、錢包、訂單、訊息",
+          "endpoints": {
+            "profileGet": "取得個人資料",
+            "profileUpdate": "更新個人資料",
+            "vipLevels": "VIP 等級清單",
+            "orders": "我的訂單"
+          }
+        },
+        "admin": {
+          "title": "管理後台",
+          "desc": "管理後台（使用者、角色、選單、字典、監控）",
+          "endpoints": {
+            "login": "管理員登入",
+            "users": "使用者清單",
+            "roles": "角色清單",
+            "menus": "選單樹"
+          }
+        }
+      }
+    },
+    "deploy": {
+      "title": "部署步驟",
+      "steps": {
+        "clone": {
+          "title": "複製儲存庫",
+          "desc": "git clone <repo-url> && cd officialsite"
+        },
+        "install": {
+          "title": "安裝相依套件",
+          "desc": "npm install（會自動建置 shared 子套件）"
+        },
+        "env": {
+          "title": "環境變數",
+          "desc": "複製 .env.example 為 .env.production 並填寫實際值"
+        },
+        "build": {
+          "title": "型別檢查 + 建置",
+          "desc": "npm run build:typecheck（含 vue-tsc + vite build）"
+        },
+        "preview": {
+          "title": "本地預覽",
+          "desc": "npm run build && vite preview --port 8888"
+        },
+        "production": {
+          "title": "部署到生產",
+          "desc": "nginx 複製 dist/ 目錄 + 設定 CSP + 啟用 HTTPS + 啟動後端"
+        }
+      }
+    },
+    "environment": {
+      "title": "環境變數",
+      "key": "變數名稱",
+      "required": "必填",
+      "desc": "說明",
+      "yes": "是",
+      "no": "否",
+      "note": "以下變數需要寫入 .env.production，建置時由 Vite 注入；執行時可透過 import.meta.env 存取",
+      "vars": {
+        "viteApiBaseUrl": "後端 API 基礎 URL（如 https://api.example.com）",
+        "viteAppTitle": "站點標題",
+        "viteEnableMonitor": "是否啟用前端監控回報（true/false）",
+        "viteUseVize": "是否啟用 Vize 編譯最佳化",
+        "buildPlatform": "建置目標平台（web/h5/alipay/electron）",
+        "viteCspReportUri": "CSP 違規回報位址",
+        "viteSentryDsn": "Sentry 錯誤監控 DSN"
+      }
+    },
+    "security": {
+      "title": "安全策略清單",
+      "items": {
+        "csp": {
+          "title": "CSP",
+          "desc": "透過 meta 注入統一來源宣告 + 同步到 nginx；違規回報至 /api/csp-report"
+        },
+        "hmac": {
+          "title": "HMAC 簽章",
+          "desc": "所有寫入介面使用 DeviceService 產生 device_id + requestSignature（HMAC-SHA256）"
+        },
+        "webhook": {
+          "title": "Webhook 簽章",
+          "desc": "支付回呼 + Webhook 使用 webhookSignature 模組驗證 + 防重放 + 冪等 ID"
+        },
+        "session": {
+          "title": "工作階段管理",
+          "desc": "權杖透過 StorageManager 加密儲存 + LoginDuration 偵測過期"
+        },
+        "rbac": {
+          "title": "RBAC 權限",
+          "desc": "前端 useAuthStore + 後端 RBAC；敏感頁面 requiresAuth + requiresAdmin 守衛"
+        },
+        "xss": {
+          "title": "XSS 防護",
+          "desc": "vue-i18n 預設 escape + safeHtml 指令白名單 + DOMPurify 二次過濾"
+        }
+      }
+    },
+    "faq": {
+      "title": "常見問題解答",
+      "items": {
+        "browser": {
+          "q": "專案支援哪些瀏覽器？",
+          "a": "支援 Chrome 90+、Firefox 88+、Safari 14+、Edge 90+。IE 不支援。PWA 功能需要支援 Service Worker 的瀏覽器。"
+        },
+        "language": {
+          "q": "如何切換語言？",
+          "a": "點擊頂部導航列的語言切換器，支援簡體中文、繁體中文、英文、日文、韓文 5 種語言。"
+        },
+        "demo": {
+          "q": "如何啟用演示模式？",
+          "a": "在 URL 後新增 ?demo=true 參數，或在 .env 中設定 VITE_DEMO_MODE=true。演示模式下網路錯誤會自動使用 mock 資料兜底。"
+        },
+        "deploy": {
+          "q": "如何部署到生產環境？",
+          "a": "請參考\"部署流程\"Tab：1) npm run build:typecheck 2) 複製 dist/ 到 nginx 3) 設定 HTTPS + CSP 4) 啟動後端服務。"
+        },
+        "contribute": {
+          "q": "如何貢獻程式碼？",
+          "a": "請參考\"貢獻指南\"Tab：Fork 儲存庫 → 建立分支 → 提交 PR。程式碼需通過 typecheck + lint + 測試。"
+        },
+        "techStack": {
+          "q": "專案使用什麼技術棧？",
+          "a": "Vue 3 + TypeScript + Vite + Element Plus + Pinia + Vue Router + vue-i18n + Playwright + Vitest。"
+        },
+        "bug": {
+          "q": "如何回報 Bug？",
+          "a": "在 GitHub Issues 中提交 Bug 回報，請包含：重現步驟、瀏覽器版本、主控台錯誤日誌、截圖。"
+        },
+        "pwa": {
+          "q": "PWA 支援哪些功能？",
+          "a": "離線存取、背景同步（Background Sync）、推播通知（Push）、分享目標（Share Target）、安裝到桌面。"
+        }
+      }
+    },
+    "changelog": {
+      "title": "版本更新日誌",
+      "items": {
+        "v110": [
+          "PWA 增強：Background Sync + Push 通知 + Web Share Target",
+          "效能最佳化：vue-office chunk 拆分為 5 個子模組",
+          "i18n 補全：所有語言覆蓋率達到 100%",
+          "API Mock 服務統一化：e2e/helpers/api-mock.ts",
+          "文檔增強：FAQ + CHANGELOG + CONTRIBUTING Tab"
+        ],
+        "v100": [
+          "初始版本發布",
+          "5 語言 i18n 支援（zh-CN/en/zh-TW/ja/ko）",
+          "PWA 基礎功能（離線快取 + 安裝到桌面）",
+          "元件展示頁（/storybook）+ 業務文檔頁（/business-docs）",
+          "完整 e2e 測試套件（851 個測試）",
+          "效能預算檢查 + i18n 覆蓋率檢查"
+        ],
+        "v090": [
+          "Beta 版本",
+          "核心頁面開發完成（首頁/登入/註冊/AI 對話/智慧體）",
+          "Element Plus 元件庫整合",
+          "監控告警系統（Sentry 風格）"
+        ]
+      }
+    },
+    "contributing": {
+      "title": "貢獻指南",
+      "note": "歡迎貢獻程式碼！請遵循以上步驟提交 PR，程式碼需通過 typecheck + lint + 測試。",
+      "steps": {
+        "fork": {
+          "title": "Fork 儲存庫",
+          "desc": "在 GitHub 上 Fork 專案到你的帳號"
+        },
+        "clone": {
+          "title": "複製到本地",
+          "desc": "git clone <your-fork-url> && cd officialsite"
+        },
+        "install": {
+          "title": "安裝相依套件",
+          "desc": "npm install（會自動建置 shared 子套件）"
+        },
+        "branch": {
+          "title": "建立分支",
+          "desc": "git checkout -b feature/your-feature-name"
+        },
+        "dev": {
+          "title": "開發 + 測試",
+          "desc": "npm run dev 啟動開發伺服器；npm run test:unit 執行單元測試"
+        },
+        "check": {
+          "title": "程式碼檢查",
+          "desc": "npm run typecheck + npm run lint 確保程式碼品質"
+        },
+        "commit": {
+          "title": "提交程式碼",
+          "desc": "git commit -m \"feat: 描述你的改動\"（遵循 Conventional Commits）"
+        },
+        "push": {
+          "title": "推送 + PR",
+          "desc": "git push origin feature/your-feature-name → 在 GitHub 建立 Pull Request"
+        }
+      }
+    }
+  }
+}

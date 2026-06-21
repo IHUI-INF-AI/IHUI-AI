@@ -1,0 +1,330 @@
+name: Phase 8 Weekly Drill (Monitor-Alert Bridge)
+
+on:
+  # 每周日 凌晨 2 点 (Asia/Shanghai) 自动跑
+  # 错开 observability-drills (二/四/六 04:00) 和 ws-loadtest (一/三/五 04:00)
+  schedule:
+    - cron: '0 18 * * 0'   # UTC 18:00 周日 = 北京时间 周一 02:00
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: '多租户演练 (例: default / tenant_alpha)'
+        required: false
+        default: 'default'
+      include_dashboard:
+        description: '生成 dashboard 4 角度截图 (会跑 playwright 慢一些)'
+        required: false
+        default: 'true'
+      # Phase 9 建议 3: 默认启用 OIDC 短期 token, 弃用 long-lived secret
+      # legacy = 老 secret 模式, 兼容未升级 vault 的环境
+      auth_mode:
+        description: '凭据模式: oidc (推荐) / legacy (long-lived secret)'
+        required: false
+        default: 'oidc'
+
+env:
+  PYTHON_VERSION: "3.12"
+  ZHS_DRILL_DATE: ${{ github.event.schedule != '' && format('{0}', github.event.repository.updated_at | date('YYYYMMDD')) || format('{0}', github.run_id) }}
+
+# Phase 9 建议 3: 默认 all 权限 + id-token 颁发权 (OIDC 模式)
+# workflow 级 permissions 提升到 id-token: write 让所有 job 可拿 OIDC token
+permissions:
+  contents: read
+  id-token: write
+
+# ---------------------------------------------------------------------------
+# 5 个 job 覆盖 phase 8 告警桥接 (建议 4)
+#   1. 静态告警规范化 - 49 条规则 + 抑制链
+#   2. 时钟漂移单元测试 - 新增 ZHSMonitorClockDrift / ZHSMonitorTimeSourceFallback
+#   3. canary bridge 端到端演练 - monitor 持续掉线 -> mark_failure -> auto_rollback
+#   4. 钉钉 webhook 验证 - 4 步端到端 (模拟器)
+#   5. dashboard 4 角度截图 - playwright 渲染 32 panel / 240 ts-bar
+# ---------------------------------------------------------------------------
+jobs:
+  # -------------------------------------------------------------------------
+  # Job 1: 静态告警规则规范化
+  # -------------------------------------------------------------------------
+  check-alert-rules:
+    name: 1. Alert Rules Normalize
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Sync helm chart 副本
+        run: python scripts/ci/sync_observability_config.py
+      - name: Check alert rules
+        run: python scripts/ci/check_alert_rules.py
+      - name: OpenAPI drift strict
+        run: python scripts/ci/check_openapi_schema_drift.py
+
+  # -------------------------------------------------------------------------
+  # Job 2: 时钟漂移单元测试 (5 用例)
+  # -------------------------------------------------------------------------
+  clock-drift-tests:
+    name: 2. Clock Drift Tests
+    needs: check-alert-rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: 静态 2 用例 (rules.yml + PromQL)
+        run: |
+          python -m pytest tests/test_clock_drift.py::test_prom_rules_has_clock_drift_alert \
+                          tests/test_clock_drift.py::test_clock_drift_promql_parses -v --tb=short
+      - name: 启动 uvicorn 跑 3 个动态用例
+        run: |
+          ZHS_DRILL_TEST_PORT=18803 \
+            nohup uvicorn app.main:app --host 127.0.0.1 --port 18803 --log-level warning &
+          sleep 30
+          ZHS_DRILL_TEST_PORT=18803 python -m pytest tests/test_clock_drift.py -v --tb=short
+
+  # -------------------------------------------------------------------------
+  # Job 3: canary bridge 端到端演练
+  # -------------------------------------------------------------------------
+  canary-bridge-drill:
+    name: 3. Canary Bridge Drill
+    needs: clock-drift-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: 多租户演练
+        env:
+          ZHS_CANARY_MONITOR_TENANT_ID: ${{ github.event.inputs.tenant_id || 'default' }}
+        run: |
+          python scripts/ops/drill_canary_monitor_bridge.py \
+            --fail-count 4 --check-interval 0.3 \
+            --tenant-id "${ZHS_CANARY_MONITOR_TENANT_ID}" \
+            2>&1 | tee logs/canary_bridge_drill_${{ env.ZHS_DRILL_DATE }}.log
+      - name: 桥接单测 (8 用例)
+        run: |
+          python -m pytest tests/test_canary_monitor_bridge.py \
+                          tests/test_canary_monitor_bridge_tenant.py -v --tb=short
+
+  # -------------------------------------------------------------------------
+  # Job 4: 钉钉 webhook 端到端验证
+  # -------------------------------------------------------------------------
+  dingtalk-webhook:
+    name: 4. DingTalk Webhook E2E
+    needs: canary-bridge-drill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: 启动模拟器 + 跑验证
+        run: |
+          nohup python scripts/ops/dingtalk_webhook_simulator.py --host 127.0.0.1 --port 9999 &
+          SIM_PID=$!
+          sleep 3
+          python scripts/ops/verify_dingtalk_webhook.py --url http://127.0.0.1:9999/robot/send
+          kill $SIM_PID 2>/dev/null || true
+
+  # -------------------------------------------------------------------------
+  # Job 5: dashboard 4 角度截图 (可选)
+  # -------------------------------------------------------------------------
+  dashboard-screenshots:
+    name: 5. Dashboard Screenshots
+    needs: dingtalk-webhook
+    if: ${{ github.event.inputs.include_dashboard != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install chromium --with-deps
+      - name: 启 uvicorn + 跑 4 角度截图 + 深度样式分析
+        env:
+          ZHS_DRILL_TEST_PORT: "18804"
+        run: |
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 18804 --log-level warning &
+          UV_PID=$!
+          sleep 30
+          python scripts/ops/render_monitor_health_screenshot_v2.py
+          python scripts/ops/audit_dashboard_styles.py
+          kill $UV_PID 2>/dev/null || true
+      - name: 上传 4 张 PNG 为 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-screenshots-${{ env.ZHS_DRILL_DATE }}
+          path: docs/screenshots/zhs_monitor_health_*.png
+          if-no-files-found: warn
+
+  # -------------------------------------------------------------------------
+  # 全部通过后发通知 (建议 4 兜底: 失败时打钉钉)
+  # -------------------------------------------------------------------------
+  notify:
+    name: Notify Result
+    needs: [check-alert-rules, clock-drift-tests, canary-bridge-drill, dingtalk-webhook, dashboard-screenshots]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 汇总结果
+        id: summary
+        run: |
+          {
+            echo "## Phase 8 Weekly Drill 汇总 (${ZHS_DRILL_DATE})"
+            echo ""
+            for job in check-alert-rules clock-drift-tests canary-bridge-drill dingtalk-webhook dashboard-screenshots; do
+              echo "- $job: ${{ needs.$job.result }}"
+            done
+            echo ""
+            echo "是否成功: ${{ needs.check-alert-rules.result == 'success' && needs.clock-drift-tests.result == 'success' && needs.canary-bridge-drill.result == 'success' && needs.dingtalk-webhook.result == 'success' && needs.dashboard-screenshots.result == 'success' }}"
+          } > drill_report.md
+          cat drill_report.md
+
+      - name: 失败时打钉钉
+        id: dingtalk
+        if: failure()
+        env:
+          # Phase 9 建议 3: 凭据模式分流
+          # oidc 模式: 通过 OIDC 兑换短期 token, 不用 long-lived secret
+          # legacy 模式: 兼容老 secret
+          ZHS_AUTH_MODE: ${{ github.event.inputs.auth_mode || 'oidc' }}
+        run: |
+          if [ "$ZHS_AUTH_MODE" = "oidc" ]; then
+            echo "[Phase 9 建议 3] OIDC 模式: 兑换短期 DingTalk webhook token"
+            # OIDC 兑换: GitHub Actions 自动注入 ACTIONS_ID_TOKEN_REQUEST_TOKEN + ACTIONS_ID_TOKEN_REQUEST_URL
+            python scripts/ci/oidc_token_exchange.py \
+              --provider dingtalk --ttl-min 30 \
+              --output logs/oidc_dingtalk_token
+            DINGTALK_WEBHOOK=$(jq -r '.vault_url' logs/oidc_dingtalk_token.meta.json)
+            DINGTALK_SECRET=$(cat logs/oidc_dingtalk_token)
+            echo "已通过 OIDC 拿到 DingTalk 短期 token (TTL 30min, 用完即焚)"
+          else
+            echo "[legacy 模式] 用 long-lived secret"
+            DINGTALK_WEBHOOK="${{ secrets.PHASE8_DRILL_DINGTALK_WEBHOOK }}"
+            DINGTALK_SECRET="${{ secrets.PHASE8_DRILL_DINGTALK_SECRET }}"
+          fi
+          if [ -z "$DINGTALK_WEBHOOK" ] || [ "$DINGTALK_WEBHOOK" = "null" ]; then
+            echo "未拿到 DingTalk webhook, 跳过推送"
+            exit 0
+          fi
+          pip install requests
+          python scripts/ci/dingtalk_drill_notify.py \
+            --webhook "$DINGTALK_WEBHOOK" \
+            --secret  "$DINGTALK_SECRET" \
+            --date     "${ZHS_DRILL_DATE}" \
+            --run-id   "${{ github.run_id }}" \
+            --report   drill_report.md \
+            --repo     "${{ github.repository }}"
+
+      - name: 失败时上传日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase8-drill-logs-${{ env.ZHS_DRILL_DATE }}
+          path: |
+            logs/*.log
+            drill_report.md
+
+  # -------------------------------------------------------------------------
+  # 建议 5: 演练结果回写 Grafana Annotations
+  # -------------------------------------------------------------------------
+  grafana-annotations:
+    name: 6. Grafana Annotations
+    needs: notify
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 推送 annotations (OIDC 模式)
+        id: push_oidc
+        if: ${{ github.event.inputs.auth_mode != 'legacy' }}
+        env:
+          ZHS_AUTH_MODE: ${{ github.event.inputs.auth_mode || 'oidc' }}
+        run: |
+          echo "[Phase 9 建议 3] OIDC 模式: 兑换短期 Grafana token"
+          python scripts/ci/oidc_token_exchange.py \
+            --provider grafana --ttl-min 30 \
+            --output logs/oidc_grafana_token
+          GRAFANA_URL=$(jq -r '.vault_url' logs/oidc_grafana_token.meta.json)
+          GRAFANA_TOKEN=$(cat logs/oidc_grafana_token)
+          if [ -z "$GRAFANA_TOKEN" ] || [ "$GRAFANA_TOKEN" = "null" ]; then
+            echo "[WARN] OIDC 兑换 Grafana token 失败, 跳过 annotations 推送"
+            exit 0
+          fi
+          echo "已通过 OIDC 拿到 Grafana 短期 token (TTL 30min)"
+          python scripts/ops/push_drill_annotations.py \
+            --grafana-url "$GRAFANA_URL" \
+            --token "$GRAFANA_TOKEN" \
+            --date "${ZHS_DRILL_DATE}" \
+            --run-id "${{ github.run_id }}" \
+            --report drill_report.md \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            || echo "[WARN] Grafana annotations 推送失败, 不影响演练"
+      - name: 推送 annotations (legacy 模式)
+        id: push_legacy
+        if: ${{ github.event.inputs.auth_mode == 'legacy' && secrets.PHASE8_DRILL_GRAFANA_TOKEN != '' }}
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL || 'https://grafana.zhs.top' }}
+          GRAFANA_TOKEN: ${{ secrets.PHASE8_DRILL_GRAFANA_TOKEN }}
+        run: |
+          echo "[legacy 模式] 用 long-lived Grafana secret"
+          python scripts/ops/push_drill_annotations.py \
+            --grafana-url "$GRAFANA_URL" \
+            --token "$GRAFANA_TOKEN" \
+            --date "${ZHS_DRILL_DATE}" \
+            --run-id "${{ github.run_id }}" \
+            --report drill_report.md \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            || echo "[WARN] Grafana annotations 推送失败, 不影响演练"
+      - name: 跳过提示 (无凭据)
+        if: ${{ github.event.inputs.auth_mode == 'legacy' && secrets.PHASE8_DRILL_GRAFANA_TOKEN == '' }}
+        run: |
+          echo "[INFO] legacy 模式未配置 PHASE8_DRILL_GRAFANA_TOKEN secret, 跳过 Grafana annotations 推送"
+          echo "或切到 OIDC 模式: workflow_dispatch → auth_mode=oidc (推荐)"
+  # -------------------------------------------------------------------------
+  # 建议 5: Phase 8 演练报告归档 (zip + 模拟 s3 推送, 90 天留存)
+  # -------------------------------------------------------------------------
+  archive-drill-report:
+    name: 7. Archive Phase 8 Drill Report
+    needs: notify
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 打包 zip + 推送到 s3 / 本地 mock
+        env:
+          # 生产: 注入 AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY + s3 bucket 名
+          # 演练: 留空走 local mock, 推到 logs/archive/_s3_mock/
+          PHASE8_S3_BUCKET: ${{ secrets.PHASE8_S3_BUCKET || 'local' }}
+        run: |
+          echo "[Phase 9 建议 5] 归档 phase 8 周演练报告"
+          python scripts/ops/archive_phase8_drill.py \
+            --date "${ZHS_DRILL_DATE}" \
+            --s3-bucket "${PHASE8_S3_BUCKET}" \
+            --s3-prefix phase8 || echo "[WARN] 归档失败, 不影响演练"
+      - name: 上传 archive 产物 (GitHub Artifacts 30 天留存, 配合 s3 长期留存)
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase8-drill-archive-${{ env.ZHS_DRILL_DATE }}
+          path: |
+            logs/archive/phase8_weekly_${{ env.ZHS_DRILL_DATE }}.zip
+            logs/archive/phase8_weekly_${{ env.ZHS_DRILL_DATE }}.manifest.json
+            logs/archive/phase8_weekly_${{ env.ZHS_DRILL_DATE }}.zip.sha256
+            logs/archive/phase8_weekly_${{ env.ZHS_DRILL_DATE }}.push.meta.json
+          retention-days: 30

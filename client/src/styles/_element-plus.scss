@@ -1,0 +1,459 @@
+// ============================================
+// Element Plus 组件覆盖样式模块
+// 统一管理所?Element Plus 组件的样式覆?// ============================================
+
+@use './variables.scss' as *;
+
+// ============================================
+// Dropdown 下拉菜单
+// ============================================
+.el-dropdown-menu {
+  border-radius: var(--global-border-radius);
+  border: 1px solid var(--dropdown-border-color);
+  background-color: var(--el-bg-color-page);
+  box-shadow: none;
+  will-change: transform, opacity;
+
+  &.model-selector-dropdown {
+    border-radius: var(--global-border-radius);
+  }
+}
+
+.el-dropdown-menu__item {
+  color: var(--el-text-color-primary);
+  border-radius: var(--global-border-radius);
+
+  &:hover {
+    background-color: var(--el-fill-color-light);
+    color: var(--el-text-color-primary);
+  }
+}
+
+// ============================================
+// Dialog 对话?// ============================================
+.el-dialog {
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--border-unified-color);
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid var(--border-unified-color);
+}
+
+.el-dialog__footer {
+  border-top: 1px solid var(--border-unified-color);
+}
+
+// ============================================
+// Select 选择?// ============================================
+.el-select-dropdown {
+  border-radius: var(--global-border-radius);
+  border: 1px solid var(--dropdown-border-color);
+  background-color: var(--el-bg-color-page);
+  will-change: transform, opacity;
+}
+
+.el-select-dropdown__item {
+  color: var(--el-text-color-primary);
+
+  &:hover {
+    background-color: var(--el-fill-color-light);
+  }
+
+  &.selected {
+    color: var(--el-color-primary);
+  }
+}
+
+// ============================================
+// Message 消息提示
+// ============================================
+.el-message {
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--border-unified-color);
+}
+
+// ============================================
+// Notification 通知
+// ============================================
+.el-notification {
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--border-unified-color);
+}
+
+// ============================================
+// Popover 气泡卡片
+// ============================================
+.el-popover.el-popper {
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--border-unified-color);
+  will-change: transform, opacity;
+}
+
+// ============================================
+// Tooltip 文字提示
+// ============================================
+.el-tooltip__popper {
+  border-radius: var(--global-border-radius);
+  max-width: 280px;
+  padding: 8px 12px;
+}
+
+.el-popper.is-dark {
+  background: var(--el-bg-color);
+  border: 1px solid var(--border-unified-color);
+  color: var(--el-text-color-primary);
+}
+
+.el-tooltip__content {
+  text-align: center;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+// ============================================
+// Table 表格
+// ============================================
+.el-table {
+  background-color: var(--el-bg-color);
+  border-radius: var(--global-border-radius);
+
+  th.el-table__cell {
+    background-color: var(--el-fill-color-light);
+  }
+
+  tr:hover > td.el-table__cell {
+    background-color: var(--el-fill-color);
+  }
+}
+
+// ============================================
+// Pagination 分页
+// ============================================
+.el-pagination {
+  .el-pager li {
+    border-radius: var(--global-border-radius);
+    background-color: var(--el-bg-color);
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+
+    &.is-active {
+      background-color: var(--el-color-primary);
+      color: var(--el-bg-color-page);
+    }
+  }
+
+  button {
+    border-radius: var(--global-border-radius);
+    background-color: var(--el-bg-color);
+  }
+}
+
+// ============================================
+// Tabs 标签?// ============================================
+.el-tabs__item {
+  color: var(--el-text-color-regular);
+
+  &:hover {
+    color: var(--el-color-primary);
+  }
+
+  &.is-active {
+    color: var(--el-color-primary);
+  }
+}
+
+.el-tabs__active-bar {
+  background-color: var(--el-color-primary);
+}
+
+// ============================================
+// Form 表单
+// ============================================
+.el-form-item__label {
+  color: var(--el-text-color-primary);
+}
+
+// ============================================
+// Switch 开?// ============================================
+
+/* 默认 1px；选中时整条 border 一起设为 2px+主色，避免先 1px 主色再 2px */
+.el-switch.is-checked .el-switch__core {
+  background-color: var(--el-color-primary);
+  border: var(--el-border-width-primary) solid var(--el-color-primary);
+}
+
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: var(--el-color-primary);
+  border: var(--el-border-width-primary) solid var(--el-color-primary);
+}
+
+.el-radio__input.is-checked .el-radio__inner {
+  background-color: var(--el-color-primary);
+  border: var(--el-border-width-primary) solid var(--el-color-primary);
+}
+
+// ============================================
+// Tag 标签
+// ============================================
+.el-tag {
+  border-radius: var(--global-border-radius);
+  font-size: 12px;
+  min-height: 24px;
+  line-height: 22px;
+}
+
+.el-tag__content {
+  font-size: 12px;
+}
+
+.el-tag.el-tag--small {
+  font-size: 12px;
+  min-height: 20px;
+}
+
+.el-tag.el-tag--large {
+  font-size: 14px;
+  min-height: 32px;
+}
+
+// ============================================
+// Button 按钮
+// ============================================
+.el-button {
+  min-height: 32px;
+  height: 32px;
+  font-size: 14px;
+  border-radius: var(--global-border-radius);
+  box-sizing: border-box;
+}
+
+.el-button--small {
+  min-height: 28px;
+  height: 28px;
+  font-size: 12px;
+  padding: 5px 11px;
+  box-sizing: border-box;
+}
+
+.el-button--large {
+  min-height: 40px;
+  height: 40px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.el-button.el-button--small {
+  min-height: 28px;
+  height: 28px;
+}
+
+:where(.el-button.el-button--primary) {
+  min-height: 32px;
+  height: 32px;
+}
+
+:where(.el-button.el-button--small.el-button--primary) {
+  min-height: 28px;
+  height: 28px;
+}
+
+// 社区页面按钮
+.action-btn.el-button {
+  min-height: 32px;
+  height: 32px;
+}
+
+// ============================================
+// Input 输入?// ============================================
+.el-input__inner {
+  min-height: 32px;
+}
+
+.el-input--small .el-input__inner {
+  min-height: 28px;
+  height: 28px;
+}
+
+.el-input__wrapper {
+  min-height: 32px;
+}
+
+.el-input--small .el-input__wrapper {
+  min-height: 28px;
+  height: 28px;
+}
+
+// ============================================
+// Radio 单选框
+// ============================================
+.el-radio-button__original-radio {
+  min-height: 32px;
+}
+
+.el-radio-button__inner {
+  min-height: 32px;
+}
+
+// ============================================
+// Badge 徽章
+// ============================================
+.el-badge__content {
+  border-radius: var(--global-border-radius);
+}
+
+// ============================================
+// Tag 标签类型
+// ============================================
+.el-tag.el-tag--info,
+.el-tag.el-tag--primary,
+.el-tag.el-tag--success,
+.el-tag.el-tag--warning,
+.el-tag.el-tag--danger {
+  font-size: 12px;
+}
+
+// ============================================
+// Progress 进度?// ============================================
+.el-progress-bar__outer {
+  border-radius: var(--global-border-radius);
+}
+
+.el-progress-bar__inner {
+  border-radius: var(--global-border-radius);
+}
+
+// ============================================
+// Loading 加载
+// ============================================
+.el-loading-mask {
+  background-color: var(--color-white-90);
+}
+
+html.dark .el-loading-mask {
+  background-color: var(--color-black-90);
+}
+
+// ============================================
+// Skeleton 骨架?// ============================================
+.el-skeleton__item {
+  background: linear-gradient(
+    90deg,
+    var(--el-fill-color) 25%,
+    var(--el-fill-color-light) 37%,
+    var(--el-fill-color) 63%
+  );
+  background-size: 400% 100%;
+  animation: el-skeleton-loading 1.4s ease infinite;
+  will-change: background-position;
+}
+
+// ============================================
+// Drawer 抽屉
+// ============================================
+.el-drawer {
+  background-color: var(--el-bg-color);
+}
+
+@media (width <= 480px) {
+  :where(.el-drawer.rtl) {
+    width: 100%;
+    max-width: 100vw;
+  }
+}
+
+@media (width <= 768px) {
+  :where(.el-drawer.rtl) {
+    max-width: 100vw;
+  }
+}
+
+// ============================================
+// Menu 菜单
+// ============================================
+.el-menu {
+  background-color: var(--el-bg-color);
+  border-right: none;
+}
+
+.el-menu-item {
+  &:hover {
+    background-color: var(--el-fill-color-light);
+  }
+
+  &.is-active {
+    color: var(--el-color-primary);
+    background-color: var(--el-fill-color-light);
+  }
+}
+
+// ============================================
+// Breadcrumb 面包?// ============================================
+.el-breadcrumb__inner a,
+.el-breadcrumb__inner.is-link {
+  color: var(--el-text-color-primary);
+
+  &:hover {
+    color: var(--el-color-primary);
+  }
+}
+
+// ============================================
+// Steps 步骤?// ============================================
+.el-step__head.is-finish {
+  color: var(--el-color-primary);
+  border: var(--el-border-width-primary) solid var(--el-color-primary);
+}
+
+.el-step__title.is-finish {
+  color: var(--el-color-primary);
+}
+
+// ============================================
+// Calendar 日历
+// ============================================
+.el-calendar {
+  background-color: var(--el-bg-color);
+}
+
+.el-calendar-table td {
+  border-color: var(--border-unified-color);
+}
+
+// ============================================
+// Avatar 头像
+// ============================================
+.el-avatar {
+  border-radius: var(--global-border-radius);
+}
+
+// ============================================
+// Descriptions 描述列表
+// ============================================
+.el-descriptions {
+  border-radius: var(--global-border-radius);
+}
+
+.el-descriptions__label {
+  color: var(--el-text-color-regular);
+}
+
+// ============================================
+// Result 结果
+// ============================================
+.el-result {
+  background-color: var(--el-bg-color);
+}
+
+// ============================================
+// Empty 空状?// ============================================
+.el-empty__description {
+  color: var(--el-text-color-secondary);
+}

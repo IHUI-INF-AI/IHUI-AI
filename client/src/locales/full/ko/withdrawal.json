@@ -1,0 +1,76 @@
+{
+  "withdrawal": {
+    "핵심 장점": "출금",
+    "availableAmount": "AI를출금금액",
+    "rules": {
+      "minAmount": "최낮음출금금액",
+      "processingTime": "처리시간"
+    },
+    "form": {
+      "amount": "출금금액",
+      "amountPlaceholder": "요청입력출금금액",
+      "withdrawAll": "모든출금",
+      "amountTip": "생각사용 가능잔액：{available}，최낮음출금：{minAmount}",
+      "submit": "제출출금",
+      "method": "파티방법",
+      "wechatAccount": "Wechat계정",
+      "wechatPlaceholder": "위챗요청입력",
+      "alipayAccount": "Alipay계정",
+      "alipayPlaceholder": "알리페이요청입력",
+      "realName": "실명",
+      "realNamePlaceholder": "실명요청입력",
+      "bankName": "은행행동이름",
+      "bankNamePlaceholder": "은행행동이름요청입력",
+      "bankAccount": "은행행동계정",
+      "bankPlaceholder": "은행행동요청입력",
+      "remark": "준비가입",
+      "remarkPlaceholder": "remark요청입력"
+    },
+    "methods": {
+      "핵심 장점": "출금방법",
+      "wechat": "위챗",
+      "alipay": "알리페이",
+      "bank": "은행 카드이체",
+      "title": "출금현재파티방식"
+    },
+    "account": {
+      "핵심 장점": "출금계정",
+      "name": "계정이름",
+      "accountNumber": "계정번호코드",
+      "bankName": "은행행동이름",
+      "branch": "열사용자행",
+      "title": "출금현재계정"
+    },
+    "messages": {
+      "success": "출금신청요청제출성공",
+      "failed": "출금신청요청실패",
+      "insufficientBalance": "잔액부족",
+      "processing": "처리 중처리출금신청요청...",
+      "pleaseLogin": "요청진로그인",
+      "fetchInfoFailed": "획득정보실패"
+    },
+    "certification": {
+      "required": "필요실시간이름인증",
+      "goToCertify": "인증하러 가기"
+    },
+    "submit": {
+      "submitting": "제출중간...",
+      "button": "청크단추"
+    },
+    "validation": {
+      "amountRequired": "금액필수",
+      "amountMin": "금액최소",
+      "amountExceed": "금액Exceed",
+      "accountRequired": "계정필수",
+      "realNameRequired": "실명필수",
+      "bankNameRequired": "은행행동이름필수",
+      "bankAccountInvalid": "Bank계정Invalid"
+    },
+    "inputValidAmount": "요청입력유효금액",
+    "insufficientBalance": "잔액부족",
+    "selectMethod": "요청선택출금방법",
+    "submitSuccess": "제출성공",
+    "submitPending": "제출중간...",
+    "title": "출금현재"
+  }
+}

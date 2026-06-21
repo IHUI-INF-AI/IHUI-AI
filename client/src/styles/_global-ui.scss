@@ -1,0 +1,150 @@
+// ============================================
+// 全局切换按钮、Tooltip 样式、动画、按钮重置
+// 使用 :where() 降低特异性，使用 CSS 变量控制
+// ============================================
+
+@layer base {
+  // 全局 Tooltip 样式覆盖
+  .el-popper.is-dark {
+    background: var(--el-bg-color);
+    border: 1px solid var(--border-unified-color);
+    border-radius: var(--global-border-radius);
+    color: var(--el-text-color-primary);
+  }
+
+  .el-popper.is-dark .el-popper__arrow::before {
+    background: var(--el-bg-color);
+    border-color: var(--border-unified-color);
+  }
+
+  :where(html.dark) .el-popper.is-dark {
+    background: var(--el-text-color-primary);
+    border: 1px solid var(--border-unified-color);
+    color: var(--color-gray-ededed);
+  }
+
+  :where(html.dark) .el-popper.is-dark .el-popper__arrow::before {
+    background: var(--el-text-color-primary);
+    border-color: var(--border-unified-color);
+  }
+
+  // 切换项目按钮
+  :where(.el-button.switch-project-btn) {
+    border-radius: var(--global-border-radius);
+    border: none;
+    background-color: transparent;
+    background: transparent;
+    color: var(--el-text-color-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    width: auto;
+    min-width: auto;
+    max-width: none;
+    padding: 4px 8px;
+
+    &:hover {
+      background-color: var(--el-bg-color);
+      background: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+      border: none;
+    }
+
+    &:active {
+      background-color: var(--el-color-primary);
+      background: var(--el-color-primary);
+      color: var(--el-bg-color-page);
+      border: none;
+    }
+
+    span,
+    .el-button__text {
+      color: inherit;
+    }
+  }
+
+  // 切换项目按钮暗色模式
+  :where(html.dark) .el-button.switch-project-btn {
+    background-color: transparent;
+    background: transparent;
+    color: var(--el-text-color-primary);
+    border: none;
+
+    &:hover {
+      background-color: var(--el-fill-color-light);
+      background: var(--el-fill-color-light);
+      color: var(--el-text-color-primary);
+      border: none;
+    }
+
+    &:active {
+      background-color: var(--el-color-primary);
+      background: var(--el-color-primary);
+      color: var(--el-bg-color-page);
+      border: none;
+    }
+
+    span,
+    .el-button__text {
+      color: inherit;
+    }
+  }
+
+  // 路由切换动画
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 0.3s ease;
+  }
+
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+  }
+
+  .slide-enter-active,
+  .slide-leave-active {
+    transition: transform 0.3s ease;
+  }
+
+  .slide-enter-from {
+    transform: translateX(-100%);
+  }
+
+  .slide-leave-to {
+    transform: translateX(100%);
+  }
+
+  // 重置 button 默认边框
+  :where(button):not(.hero-cta-btn, .theme-toggle-fallback, .promotion-close-btn) {
+    border: none;
+    background: transparent;
+  }
+
+  // body 样式重置
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    position: relative;
+    background-color: var(--el-bg-color-page);
+    opacity: 1;
+    visibility: visible;
+    display: block;
+  }
+
+  // 亮色模式 body 背景
+  html:not(.dark) body {
+    background-color: var(--el-bg-color-page);
+  }
+
+  // 暗色模式 body 背景
+  :where(html.dark) body,
+  .dark-content body,
+  body.dark-background,
+  html.dark-background body {
+    background-color: var(--page-bg-color);
+  }
+
+  // 移除发布状态的黑色边框
+  .card_content .status .fabu,
+  .card-content .status .fabu {
+    border: none;
+  }
+}

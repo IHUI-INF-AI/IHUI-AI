@@ -1,0 +1,7 @@
+{
+  "distRealAuthModal": {
+    "incompleteUserInfo": "불완전한 사용자 정보, 재로그인하세요",
+    "realAuthSuccess": "실명 인증 성공",
+    "realAuthFailed": "실명 인증 실패, 재시도하세요"
+  }
+}

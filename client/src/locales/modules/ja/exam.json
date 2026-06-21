@@ -1,0 +1,27 @@
+{
+  "exam": {
+    "searchPlaceholder": {
+      "list": "試験を検索",
+      "answer": "回答用紙を検索",
+      "paper": "試験問題を検索",
+      "paperCategory": "カテゴリを検索",
+      "paperMock": "模擬問題を検索",
+      "paperNormal": "本番問題を検索",
+      "paperRandom": "ランダム問題を検索",
+      "question": "問題を検索",
+      "questionCategory": "カテゴリを検索",
+      "questionFill": "穴埋め問題を検索",
+      "questionJudgment": "○×問題を検索",
+      "questionMulti": "複数選択問題を検索",
+      "questionSingle": "単一選択問題を検索",
+      "questionSubjective": "主観問題を検索"
+    },
+    "label": {
+      "user": "ユーザー",
+      "paper": "試験問題",
+      "score": "得点",
+      "duration": "所要時間",
+      "submitTime": "提出時間"
+    }
+  }
+}

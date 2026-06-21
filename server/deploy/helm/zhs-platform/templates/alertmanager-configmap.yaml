@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zhs-platform.fullname" . }}-alertmanager
+  labels:
+    {{- include "zhs-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+data:
+  # Alertmanager 路由 (建议 86)
+  # critical → 钉钉/电话; warning → webhook; info → 静默 (仅 dashboard 标记)
+  alertmanager.yml: |
+{{ .Files.Get "prometheus/alertmanager.yml" | indent 4 }}

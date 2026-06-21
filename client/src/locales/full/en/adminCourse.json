@@ -1,0 +1,107 @@
+{
+  "adminCourseManagement": {
+    "tabs": {},
+    "actions": {
+      "Export": "Export"
+    },
+    "courseList": {
+      "Status": "Status"
+    },
+    "search": {},
+    "categoryList": {},
+    "dialogs": {},
+    "messages": {
+      "fetchFailed": "Failed to fetch course list",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    },
+    "coursePayLogForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "coursePayForm": {
+      "Status": "Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled",
+      "validation": {
+        "StatusRequired": "Please select Status"
+      },
+      "messages": {}
+    },
+    "courseForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "courseAuditForm": {
+      "validation": {},
+      "messages": {}
+    }
+  },
+  "adminCoursePayLogManagement": {
+    "actions": {
+      "Export": "Export"
+    },
+    "search": {},
+    "table": {},
+    "payMethod": {},
+    "payStatus": {
+      "Failed": "Failed"
+    },
+    "refundStatus": {
+      "Failed": "Refund Failed"
+    },
+    "dialog": {},
+    "messages": {
+      "ExportSuccess": "Exported successfully",
+      "ExportFailed": "Export Failed"
+    }
+  },
+  "adminCoursePayManagement": {
+    "Export": "Export",
+    "search": {
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status"
+    },
+    "table": {
+      "Status": "Status"
+    },
+    "discountType": {},
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
+    },
+    "dialogs": {},
+    "messages": {
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    }
+  },
+  "adminCourseAuditManagement": {
+    "search": {
+      "Export": "Export"
+    },
+    "table": {},
+    "auditType": {},
+    "auditStatus": {
+      "Approved": "Approved",
+      "Rejected": "Rejected"
+    },
+    "dialogs": {},
+    "messages": {
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    }
+  },
+  "adminCoursePay": {
+    "messages": {
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
+    }
+  },
+  "adminCoursePayLog": {
+    "messages": {
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
+    }
+  }
+}

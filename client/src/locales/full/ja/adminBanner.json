@@ -1,0 +1,39 @@
+{
+  "adminBannerManagement": {
+    "tabs": {},
+    "actions": {},
+    "bannerList": {
+      "status": "ステータス"
+    },
+    "search": {
+      "statusPlaceholder": "请選択ステータス",
+      "statusAll": "全て",
+      "statusEnabled": "あり効",
+      "statusDisabled": "無効"
+    },
+    "dialogs": {},
+    "messages": {},
+    "carouselForm": {
+      "status": "ステータス",
+      "statusEnabled": "あり効",
+      "statusDisabled": "無効",
+      "validation": {
+        "statusRequired": "请選択ステータス"
+      },
+      "messages": {}
+    },
+    "activityForm": {
+      "status": "ステータス",
+      "statusPlaceholder": "请選択ステータス",
+      "statusEnabled": "あり効",
+      "statusDisabled": "無効",
+      "validation": {
+        "statusRequired": "请選択ステータス"
+      },
+      "upload": {
+        "failed": "アップロード失敗"
+      },
+      "messages": {}
+    }
+  }
+}

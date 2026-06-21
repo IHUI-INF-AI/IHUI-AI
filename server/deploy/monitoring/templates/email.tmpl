@@ -1,0 +1,54 @@
+{{ define "zhs.email" }}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .critical { color: #d32f2f; font-weight: bold; }
+    .warning { color: #f57c00; font-weight: bold; }
+    .info { color: #1976d2; font-weight: bold; }
+    .resolved { color: #388e3c; font-weight: bold; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <h1>ZHS 平台告警通知</h1>
+  <p>
+    <strong>告警名:</strong> {{ .CommonLabels.alertname }}<br>
+    <strong>服务:</strong> {{ .CommonLabels.service }}<br>
+    <strong>集群:</strong> {{ .CommonLabels.cluster }}<br>
+    <strong>区域:</strong> {{ .CommonLabels.region }}<br>
+    <strong>严重程度:</strong>
+    <span class="{{ .CommonLabels.severity }}">{{ .CommonLabels.severity }}</span><br>
+    <strong>状态:</strong>
+    <span class="{{ .Status }}">{{ .Status }}</span><br>
+    <strong>开始时间:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+  </p>
+
+  <h2>告警详情</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>摘要</th>
+        <th>描述</th>
+        <th>实例</th>
+      </tr>
+    </thead>
+    <tbody>
+    {{ range .Alerts }}
+      <tr>
+        <td>{{ .Annotations.summary }}</td>
+        <td>{{ .Annotations.description }}</td>
+        <td>{{ .Labels.instance }}</td>
+      </tr>
+    {{ end }}
+    </tbody>
+  </table>
+
+  <p><a href="{{ .ExternalURL }}">查看 Alertmanager</a></p>
+</body>
+</html>
+{{ end }}

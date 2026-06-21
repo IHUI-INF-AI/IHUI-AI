@@ -1,0 +1,12 @@
+{
+  "certificate": {
+    "searchPlaceholder": {
+      "template": "テンプレートを検索"
+    },
+    "label": {
+      "templateName": "テンプレート名",
+      "issuer": "発行機関",
+      "actions": "操作"
+    }
+  }
+}

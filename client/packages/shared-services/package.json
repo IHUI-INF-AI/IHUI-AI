@@ -1,0 +1,29 @@
+{
+  "name": "@aizhs/shared-services",
+  "version": "1.0.0",
+  "description": "智汇AI 多端共享业务服务（纯逻辑 + 请求适配器）",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aizhs/shared-api": "1.0.0",
+    "@aizhs/shared-auth": "1.0.0",
+    "@aizhs/shared-types": "1.0.0"
+  },
+  "license": "Apache-2.0"
+}

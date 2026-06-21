@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>隐私政策生成器 - 合规您的网站</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        body {
+            padding: 15px;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+        
+        .privacy-container {
+            max-width: 100%;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .privacy-title {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .privacy-content {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #444;
+        }
+        
+        .privacy-section {
+            margin-bottom: 25px;
+        }
+        
+        .privacy-section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #222;
+            padding-left: 10px;
+            border-left: 4px solid #4a6cf7;
+        }
+        
+        .privacy-text {
+            margin-bottom: 15px;
+            text-align: justify;
+            text-indent: 2em;
+        }
+        
+        .privacy-list {
+            padding-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .privacy-list-item {
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        .privacy-list-item::before {
+            content: "•";
+            color: #4a6cf7;
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+        
+        .privacy-list-item-number {
+            font-weight: 600;
+            margin-right: 5px;
+            color: #4a6cf7;
+        }
+        
+        .contact-info {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        
+        .company-info {
+            text-align: center;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                font-size: 15px;
+            }
+            
+            .privacy-container {
+                padding: 15px;
+            }
+            
+            .privacy-title {
+                font-size: 20px;
+            }
+            
+            .privacy-section-title {
+                font-size: 16px;
+            }
+            
+            .privacy-content {
+                font-size: 15px;
+            }
+        }
+        
+        /* 微信小程序适配 */
+        .wx-container {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 wx-container">
+    <div class="privacy-container">
+        <div class="privacy-title">隐私政策</div>
+        
+        <div class="privacy-content">
+            <div class="privacy-text">
+                欢迎使用由 吉林省爱智汇人工智能科技有限公司（以下简称 "我们"）开发和运营的软件产品（包括但不限于 APP、小程序、web 应用，以下统称 "本软件"）。我们非常重视用户个人信息的保护，致力于维护您的隐私安全。本《隐私政策》（以下简称 "本政策"）旨在向您说明我们在收集、使用、存储、共享、转让、公开披露您个人信息时的规则和方法。请您在使用本软件前，仔细阅读并理解本政策的全部内容。如您使用本软件，即表示您已充分理解并同意我们按照本政策处理您的个人信息。
+            </div>
+            
+            <div class="privacy-section">
+                <div class="privacy-section-title">一、我们收集的个人信息</div>
+                <div class="privacy-text">
+                    我们仅收集为提供本软件功能和服务所必要的个人信息，具体包括以下类型：
+                </div>
+                <div class="privacy-list">
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">1.</span>基本信息：当您注册、登录本软件时，我们可能收集您的手机号码、电子邮箱地址、用户名、密码等用于身份识别和账号管理的信息。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">2.</span>使用信息：在您使用本软件过程中，我们会自动收集相关使用信息，例如设备信息（包括设备型号、操作系统版本、设备标识符等）、软件版本号、登录时间、使用时长、操作记录、点击行为、浏览记录等，用于优化软件性能、提升用户体验和保障软件安全。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">3.</span>位置信息：若您使用与位置相关的功能（如定位导航、基于位置的推荐服务等），我们会在获得您明确授权后，收集您的位置信息（包括精确位置和大致位置）。您可以随时在设备设置中关闭位置权限以停止我们收集位置信息，但这可能导致部分功能无法正常使用。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">4.</span>其他信息：根据具体业务场景，我们还可能收集您主动提供的其他信息，如在参与活动、反馈意见时提供的姓名、联系方式、照片、视频等信息；或从第三方合作伙伴处合法获取的您的相关信息（在获取前会向您告知并征得您同意）。</div>
+                </div>
+            </div>
+            
+            <div class="privacy-section">
+                <div class="privacy-section-title">二、个人信息的使用</div>
+                <div class="privacy-text">
+                    我们收集的个人信息将用于以下目的：
+                </div>
+                <div class="privacy-list">
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">1.</span>提供和维护软件服务：用于身份验证、账号管理、交易处理、订单跟踪等，以保障您正常使用本软件的各项功能。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">2.</span>个性化服务：根据您的使用习惯、偏好和历史行为，为您提供个性化的内容推荐、广告展示和功能优化建议。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">3.</span>安全保障：分析和监测软件运行情况，预防、识别和应对安全风险，保障软件和用户信息安全；同时用于反欺诈、反作弊、身份验证等。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">4.</span>改进和优化产品：通过对收集的信息进行统计分析和研究，改进软件功能、性能和用户体验，开发新的产品和服务。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">5.</span>客户服务：处理您的咨询、投诉、建议，为您提供技术支持和售后服务。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">6.</span>法律合规：遵守法律法规、监管要求或响应司法机关、行政机关的合法要求。</div>
+                </div>
+            </div>
+            
+            <div class="privacy-section">
+                <div class="privacy-section-title">三、个人信息的共享、转让与公开披露</div>
+                <div class="privacy-list">
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">1.</span>共享：我们不会向其他任何第三方共享您的个人信息，除非满足以下情形并事先征得您的同意：
+                        <div class="privacy-list" style="margin-top: 10px;">
+                            <div class="privacy-list-item">获得您的明确同意或授权。</div>
+                            <div class="privacy-list-item">为提供您需要的服务，与第三方合作伙伴（如支付机构、地图服务提供商等）共享必要的个人信息，但我们会要求第三方遵守严格的保密义务，并限制其仅在提供服务所需的范围内使用您的个人信息。</div>
+                            <div class="privacy-list-item">根据法律法规、监管要求或司法机关、行政机关的强制性要求，向相关部门提供您的个人信息。</div>
+                        </div>
+                    </div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">2.</span>转让：我们不会将您的个人信息转让给任何第三方，除非获得您的明确同意或满足法律法规规定的情形。如涉及业务合并、收购、破产清算等，我们会在转让前向您告知相关情况，并要求新的持有您个人信息的主体继续受本政策约束。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">3.</span>公开披露：我们仅会在以下情形下公开披露您的个人信息，并在公开披露前向您告知披露的目的、信息类型及可能涉及的敏感信息：
+                        <div class="privacy-list" style="margin-top: 10px;">
+                            <div class="privacy-list-item">获得您明确同意。</div>
+                            <div class="privacy-list-item">根据法律法规、监管要求或司法机关、行政机关的强制性要求，必须公开披露。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="privacy-section">
+                <div class="privacy-section-title">四、个人信息的存储与保护</div>
+                <div class="privacy-list">
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">1.</span>存储：我们会将收集到的个人信息存储在 [存储地]，存储期限将根据法律法规要求和为您提供服务的需要确定。在超出必要存储期限后，我们会对您的个人信息进行删除或匿名化处理。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">2.</span>保护：我们采取了一系列技术和管理措施保护您的个人信息安全，包括但不限于数据加密、访问控制、安全审计、定期安全评估等。同时，我们要求员工和合作伙伴遵守严格的保密义务，防止个人信息泄露、丢失、篡改或被非法使用。但请注意，尽管我们尽力保障信息安全，由于技术限制、网络攻击等不可预见的因素，仍可能存在一定风险。</div>
+                </div>
+            </div>
+            
+            <div class="privacy-section">
+                <div class="privacy-section-title">五、您的权利</div>
+                <div class="privacy-text">
+                    您对自己的个人信息享有以下权利：
+                </div>
+                <div class="privacy-list">
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">1.</span>查阅权：您有权查阅我们收集、使用的您的个人信息。您可以通过本软件的相关功能入口或联系我们的客服人员进行查询。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">2.</span>更正权：如果您发现我们收集、存储的您的个人信息存在错误，您有权要求我们进行更正。您可以自行在软件中修改可编辑的信息，或向我们提交更正申请。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">3.</span>删除权：在符合法律法规规定的情形下，您有权要求我们删除您的个人信息。例如，当您的个人信息处理目的已实现、不再必要，或您撤回同意等。您可以通过联系我们的客服提交删除申请。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">4.</span>撤回同意权：您可以随时通过设备设置或软件中的相关功能撤回对我们收集、使用您个人信息的同意。但撤回同意可能导致您无法继续使用相关功能或服务。</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">5.</span>注销账号权：您有权注销在本软件注册的账号。您可以通过软件内的注销功能或联系我们的客服申请注销账号，注销后我们将按照法律法规要求对您的个人信息进行处理。</div>
+                </div>
+            </div>
+            
+            <div class="privacy-section">
+                <div class="privacy-section-title">六、未成年人保护</div>
+                <div class="privacy-text">
+                    我们非常重视对未成年人个人信息的保护。本软件不向未成年人提供服务，若我们发现收集到的个人信息属于未成年人，我们将尽快删除相关信息。若您是未成年人的监护人，发现未成年人未经您同意使用本软件并向我们提供个人信息的，请您及时联系我们，我们将采取相应措施进行处理。
+                </div>
+            </div>
+            
+            <div class="privacy-section">
+                <div class="privacy-section-title">七、政策变更</div>
+                <div class="privacy-text">
+                    我们可能会根据业务发展、法律法规变化或其他合理原因对本政策进行修订。修订后的政策将在本软件显著位置公布，并自公布之日起一定期限后生效（具体期限以公布内容为准）。若您在政策变更后继续使用本软件，即表示您已充分理解并同意接受修订后的政策约束。如您不同意变更后的政策，您应停止使用本软件。
+                </div>
+            </div>
+            
+            <div class="privacy-section">
+                <div class="privacy-section-title">八、联系我们</div>
+                <div class="privacy-text">
+                    如果您对本政策或我们处理您个人信息的行为有任何疑问、意见或建议，或需要行使您的个人信息权利，您可以通过以下方式联系我们：
+                </div>
+                <div class="contact-info">
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">1.</span>客服邮箱：502319984@qq.com</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">2.</span>客服电话：[客服电话号码]</div>
+                    <div class="privacy-list-item"><span class="privacy-list-item-number">3.</span>在线客服：您可以通过本软件内的在线客服功能与我们联系（包含二维码联系）</div>
+                    <div class="privacy-text" style="margin-top: 10px; text-indent: 0;">
+                        我们将在收到您的反馈后 7个工作日内予以回复，并尽力解决您的问题。
+                    </div>
+                </div>
+            </div>
+            
+            <div class="company-info">
+                吉林省爱智汇人工智能科技有限公司<br>
+                2025-06-20
+            </div>
+        </div>
+    </div>
+</body>
+</html>

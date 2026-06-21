@@ -1,0 +1,7 @@
+{
+  "Agents": {
+    "exploreAgents": "Explore AI Agents",
+    "createCustomAgent": "Create Custom Agent",
+    "oneClickDeploy": "One-click deploy and call"
+  }
+}

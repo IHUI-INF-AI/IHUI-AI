@@ -1,0 +1,21 @@
+{
+  "favorites": {
+    "title": "My Favorites",
+    "subtitle": "View and manage your favorite content",
+    "selectType": "Select Type",
+    "all": "All",
+    "agent": "AI Agent",
+    "tool": "Tool",
+    "knowledge": "Knowledge Base",
+    "conversation": "Conversation",
+    "noFavorites": "No favorites",
+    "removeFavorite": "Remove Favorite",
+    "removeFavoriteConfirm": "This favorite",
+    "removeFavorite Successful": "Favorite removed",
+    "removeFavoriteFailed": "Failed to remove favorite",
+    "retry": "Retry",
+    "loadFailed": "Failed to load favorites list",
+    "resourceId": "Resource ID",
+    "removeFavoriteSuccess": "CancelledFavorite"
+  }
+}

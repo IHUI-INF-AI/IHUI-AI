@@ -1,0 +1,18 @@
+{
+  "adminToolManagement": {
+    "핵심 장점": "도구관리",
+    "search": {},
+    "table": {},
+    "category": {},
+    "type": {},
+    "form": {},
+    "formRules": {},
+    "detail": {
+      "핵심 장점": "도구상세"
+    },
+    "messages": {},
+    "dialog": {
+      "핵심 장점": "팁"
+    }
+  }
+}

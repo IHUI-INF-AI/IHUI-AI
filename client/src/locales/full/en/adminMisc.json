@@ -1,0 +1,30 @@
+{
+  "adminFAQManagement": {
+    "search": {},
+    "table": {},
+    "category": {},
+    "form": {},
+    "formRules": {},
+    "detail": {},
+    "dialogs": {},
+    "messages": {}
+  },
+  "adminFAQ": {
+    "messages": {}
+  },
+  "adminFAQList": {
+    "pinned": "Pinned",
+    "unpinned": "Unpinned",
+    "deleted": "Deleted"
+  },
+  "admin": {
+    "eventBus": {
+      "allSubscriptionsCleared": "All Subscriptions Cleared",
+      "confirmClearAll": "Confirm Clear All",
+      "confirmClearHistory": "Confirm Clear History",
+      "eventSent": "Event Sent",
+      "historyCleared": "History Cleared",
+      "subscriptionDeleted": "Subscription Deleted"
+    }
+  }
+}

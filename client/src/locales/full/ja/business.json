@@ -1,0 +1,283 @@
+{
+  "businessCard": {
+    "title": "マイコミュニティカード",
+    "subtitle": "展示您的件人情報和連絡メソッド",
+    "shareCard": "共あり名片",
+    "shareToWechat": "共あり到WeChat",
+    "copyCardLink": "コピー名片リンク",
+    "scanQrCode": "ご使用WeChat扫描二维码共有",
+    "shareInDevelopment": "共有機できる開発中",
+    "copySuccess": "名片リンク済みコピー到クリップボード",
+    "copyFailed": "コピー失敗，请手動コピー",
+    "shareSuccess": "シェア成功",
+    "shareFailed": "シェア失敗",
+    "upload": "コミュニティカードアップロード",
+    "uploadHint": "JPG、PNGフォーマット対応、推奨サイズ 750×1334px",
+    "uploading": "アップロード中...",
+    "changeImage": "クリックでカード画像変更",
+    "dropImage": "クリックまたは画像をドラッグしてアップロード",
+    "customEntry": "コミュニティカードカスタマイズ入口",
+    "uploadSuccess": "カードアップロード成功",
+    "uploadFailed": "カードアップロード失敗、再試行"
+  },
+  "businessDocs": {
+    "title": "ビジネスドキュメント",
+    "subtitle": "プロジェクト概要、APIモジュール、デプロイフロー、環境変数、セキュリティポリシー、FAQ、変更ログ、コントリビューションガイド",
+    "tab": {
+      "overview": "概要",
+      "modules": "APIモジュール",
+      "deploy": "デプロイ",
+      "environment": "環境変数",
+      "security": "セキュリティ",
+      "faq": "FAQ",
+      "changelog": "変更ログ",
+      "contributing": "コントリビューション"
+    },
+    "overview": {
+      "title": "プロジェクト情報",
+      "projectName": "プロジェクト名",
+      "version": "バージョン",
+      "license": "ライセンス",
+      "node": "Nodeバージョン",
+      "description": "プロジェクト説明",
+      "descriptionValue": "iHui AIコミュニティ - プロフェッショナルAIツール統合プラットフォーム（Monorepo：公式サイト + WeChatミニプログラム）"
+    },
+    "modules": {
+      "title": "APIモジュールカタログ",
+      "method": "メソッド",
+      "path": "パス",
+      "desc": "説明",
+      "list": {
+        "auth": {
+          "title": "認証モジュール",
+          "desc": "アカウント登録、ログイン、サードパーティログイン、JWTトークン、デバイスバインディング、MFA",
+          "endpoints": {
+            "login": "アカウントパスワードログイン",
+            "register": "ユーザー登録",
+            "refresh": "トークンリフレッシュ",
+            "logout": "ログアウト",
+            "userInfo": "現在のユーザー情報を取得"
+          }
+        },
+        "payment": {
+          "title": "決済モジュール",
+          "desc": "WeChat / Alipay / 銀聯マルチチャネル決済 + 注文作成 + 非同期通知 + 同期コールバック",
+          "endpoints": {
+            "aliPay": "Alipay決済注文を作成",
+            "aliPayNotify": "Alipay非同期通知",
+            "aliPaySuccess": "決済結果を照会",
+            "wxPay": "WeChat決済注文を作成",
+            "orderCreate": "統一注文を作成"
+          }
+        },
+        "ai": {
+          "title": "AIモジュール",
+          "desc": "AIチャット、画像生成、動画生成、モデル管理、エージェントオーケストレーション",
+          "endpoints": {
+            "chat": "AIチャット",
+            "generate": "AIコンテンツ生成",
+            "models": "利用可能なモデルリスト",
+            "agentsCreate": "エージェントを作成"
+          }
+        },
+        "user": {
+          "title": "ユーザーモジュール",
+          "desc": "ユーザープロフィール、設定、VIPレベル、ウォレット、注文、メッセージ",
+          "endpoints": {
+            "profileGet": "個人プロフィールを取得",
+            "profileUpdate": "個人プロフィールを更新",
+            "vipLevels": "VIPレベルリスト",
+            "orders": "マイ注文"
+          }
+        },
+        "admin": {
+          "title": "管理コンソール",
+          "desc": "管理コンソール（ユーザー、ロール、メニュー、辞書、監視）",
+          "endpoints": {
+            "login": "管理者ログイン",
+            "users": "ユーザーリスト",
+            "roles": "ロールリスト",
+            "menus": "メニューツリー"
+          }
+        }
+      }
+    },
+    "deploy": {
+      "title": "デプロイ手順",
+      "steps": {
+        "clone": {
+          "title": "リポジトリをクローン",
+          "desc": "git clone <repo-url> && cd officialsite"
+        },
+        "install": {
+          "title": "依存関係をインストール",
+          "desc": "npm install（sharedサブパッケージを自動ビルド）"
+        },
+        "env": {
+          "title": "環境変数",
+          "desc": ".env.exampleを.env.productionにコピーし、実際の値を入力"
+        },
+        "build": {
+          "title": "型チェック + ビルド",
+          "desc": "npm run build:typecheck（vue-tsc + vite buildを含む）"
+        },
+        "preview": {
+          "title": "ローカルプレビュー",
+          "desc": "npm run build && vite preview --port 8888"
+        },
+        "production": {
+          "title": "本番にデプロイ",
+          "desc": "nginxにdist/ディレクトリをコピー + CSPを設定 + HTTPSを有効化 + バックエンドを起動"
+        }
+      }
+    },
+    "environment": {
+      "title": "環境変数",
+      "key": "キー",
+      "required": "必須",
+      "desc": "説明",
+      "yes": "はい",
+      "no": "いいえ",
+      "note": "これらの変数は.env.productionに書き込み、ビルド時にViteが注入します。実行時はimport.meta.envでアクセスできます",
+      "vars": {
+        "viteApiBaseUrl": "バックエンドAPIベースURL（例：https://api.example.com）",
+        "viteAppTitle": "サイトタイトル",
+        "viteEnableMonitor": "フロントエンド監視報告を有効にするか（true/false）",
+        "viteUseVize": "Vizeコンパイル最適化を有効にするか",
+        "buildPlatform": "ビルドターゲットプラットフォーム（web/h5/alipay/electron）",
+        "viteCspReportUri": "CSP違反報告URL",
+        "viteSentryDsn": "Sentryエラー監視DSN"
+      }
+    },
+    "security": {
+      "title": "セキュリティポリシー",
+      "items": {
+        "csp": {
+          "title": "CSP",
+          "desc": "metaで統一ソース宣言を注入 + nginxに同期。違反を/api/csp-reportに報告"
+        },
+        "hmac": {
+          "title": "HMAC署名",
+          "desc": "すべての書き込みAPIはDeviceServiceを使用してdevice_id + requestSignatureを生成（HMAC-SHA256）"
+        },
+        "webhook": {
+          "title": "Webhook署名",
+          "desc": "決済コールバック + WebhookはwebhookSignatureモジュールで検証 + リプレイ防止 + 冪等ID"
+        },
+        "session": {
+          "title": "セッション管理",
+          "desc": "StorageManagerでトークンを暗号化保存 + LoginDurationで有効期限を検出"
+        },
+        "rbac": {
+          "title": "RBAC権限",
+          "desc": "フロントエンドuseAuthStore + バックエンドRBAC。機密ページはrequiresAuth + requiresAdminでガード"
+        },
+        "xss": {
+          "title": "XSS保護",
+          "desc": "vue-i18nデフォルトエスケープ + safeHtmlディレクティブホワイトリスト + DOMPurify二次フィルタリング"
+        }
+      }
+    },
+    "faq": {
+      "title": "よくある質問",
+      "items": {
+        "browser": {
+          "q": "プロジェクトはどのブラウザをサポートしていますか？",
+          "a": "Chrome 90+、Firefox 88+、Safari 14+、Edge 90+をサポートします。IEはサポートされていません。PWA機能はService Workerをサポートするブラウザが必要です。"
+        },
+        "language": {
+          "q": "言語を切り替えるには？",
+          "a": "トップナビゲーションバーの言語切り替えボタンをクリック。簡体字中国語、繁体字中国語、英語、日本語、韓国語の5言語をサポート。"
+        },
+        "demo": {
+          "q": "デモモードを有効にするには？",
+          "a": "URLに?demo=trueパラメータを追加するか、.envでVITE_DEMO_MODE=trueを設定。デモモードではネットワークエラー時に自動的にモックデータにフォールバックします。"
+        },
+        "deploy": {
+          "q": "本番環境にデプロイするには？",
+          "a": "「デプロイ」Tabを参照：1) npm run build:typecheck 2) dist/をnginxにコピー 3) HTTPS + CSPを設定 4) バックエンドサービスを起動。"
+        },
+        "contribute": {
+          "q": "コードをコントリビュートするには？",
+          "a": "「コントリビューション」Tabを参照：リポジトリをFork → ブランチを作成 → PRを提出。コードはtypecheck + lint + テストに合格する必要があります。"
+        },
+        "techStack": {
+          "q": "プロジェクトはどのテクノロジースタックを使用していますか？",
+          "a": "Vue 3 + TypeScript + Vite + Element Plus + Pinia + Vue Router + vue-i18n + Playwright + Vitest。"
+        },
+        "bug": {
+          "q": "バグを報告するには？",
+          "a": "GitHub Issuesでバグレポートを提出。再現手順、ブラウザバージョン、コンソールエラーログ、スクリーンショットを含めてください。"
+        },
+        "pwa": {
+          "q": "PWAはどの機能をサポートしていますか？",
+          "a": "オフラインアクセス、バックグラウンド同期（Background Sync）、プッシュ通知（Push）、共有ターゲット（Share Target）、デスクトップにインストール。"
+        }
+      }
+    },
+    "changelog": {
+      "title": "バージョン変更ログ",
+      "items": {
+        "v110": [
+          "PWA強化：Background Sync + Push通知 + Web Share Target",
+          "パフォーマンス最適化：vue-officeチャンクを5つのサブモジュールに分割",
+          "i18n補完：すべての言語カバレッジが100%に達成",
+          "API Mockサービス統一化：e2e/helpers/api-mock.ts",
+          "ドキュメント強化：FAQ + CHANGELOG + CONTRIBUTING Tab"
+        ],
+        "v100": [
+          "初期バージョンリリース",
+          "5言語i18nサポート（zh-CN/en/zh-TW/ja/ko）",
+          "PWA基本機能（オフラインキャッシュ + デスクトップにインストール）",
+          "コンポーネントショーケースページ（/storybook）+ ビジネスドキュメントページ（/business-docs）",
+          "完全なe2eテストスイート（851テスト）",
+          "パフォーマンス予算チェック + i18nカバレッジチェック"
+        ],
+        "v090": [
+          "Betaバージョン",
+          "コアページ開発完了（ホーム/ログイン/登録/AIチャット/エージェント）",
+          "Element Plusコンポーネントライブラリ統合",
+          "監視アラートシステム（Sentryスタイル）"
+        ]
+      }
+    },
+    "contributing": {
+      "title": "コントリビューションガイド",
+      "note": "コントリビューションを歓迎します！上記の手順に従ってPRを提出してください。コードはtypecheck + lint + テストに合格する必要があります。",
+      "steps": {
+        "fork": {
+          "title": "リポジトリをFork",
+          "desc": "GitHubでプロジェクトをあなたのアカウントにFork"
+        },
+        "clone": {
+          "title": "ローカルにクローン",
+          "desc": "git clone <your-fork-url> && cd officialsite"
+        },
+        "install": {
+          "title": "依存関係をインストール",
+          "desc": "npm install（sharedサブパッケージを自動ビルド）"
+        },
+        "branch": {
+          "title": "ブランチを作成",
+          "desc": "git checkout -b feature/your-feature-name"
+        },
+        "dev": {
+          "title": "開発 + テスト",
+          "desc": "npm run devで開発サーバーを起動；npm run test:unitでユニットテストを実行"
+        },
+        "check": {
+          "title": "コードチェック",
+          "desc": "npm run typecheck + npm run lintでコード品質を確保"
+        },
+        "commit": {
+          "title": "コードをコミット",
+          "desc": "git commit -m \"feat: 変更内容を記述\"（Conventional Commitsに従う）"
+        },
+        "push": {
+          "title": "プッシュ + PR",
+          "desc": "git push origin feature/your-feature-name → GitHubでPull Requestを作成"
+        }
+      }
+    }
+  }
+}

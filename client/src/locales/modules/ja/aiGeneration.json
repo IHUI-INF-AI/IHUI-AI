@@ -1,0 +1,35 @@
+{
+  "aiGeneration": {
+    "messages": {
+      "pleaseEnterContent": "コンテンツを入力",
+      "pleaseUploadAudio": "音声ファイルをアップロード",
+      "pleaseUploadFirstFrame": "最初のフレーム画像をアップロード",
+      "pleaseUploadImage": "先に画像をアップロード",
+      "modelNotSelected": "モデルが未選択",
+      "videoSingleImageOnly": "動画生成は1枚の画像のみアップロード可能",
+      "editSingleImageOnly": "このモデルは1枚の画像のみ編集可能",
+      "missingTaskId": "動画生成開始失敗：タスクIDがありません",
+      "videoStartFailed": "動画生成開始失敗",
+      "videoResultFormatError": "動画生成結果形式エラー",
+      "videoGenerationFailed": "動画生成失敗",
+      "videoGetResultFailed": "動画生成結果の取得失敗",
+      "videoGenerationRetry": "動画生成失敗、再試行してください",
+      "audioStartFailed": "音声生成開始失敗",
+      "audioResultFormatError": "音声生成結果形式エラー",
+      "audioGenerationFailed": "音声生成失敗",
+      "audioGetResultFailed": "音声生成結果の取得失敗",
+      "audioSynthesisFailed": "音声合成失敗",
+      "imageGenerationRetry": "画像生成失敗、再試行してください",
+      "imageEditRetry": "画像編集失敗、再試行してください",
+      "generationRetry": "生成失敗、再試行してください",
+      "imageUnderstandFailed": "画像理解失敗、再試行してください",
+      "query3DFailed": "3D生成結果のクエリ失敗",
+      "3dStartFailed": "3D生成開始失敗",
+      "connectionError": "接続エラー",
+      "connectionFailed": "接続失敗",
+      "websocketNotConnected": "WebSocket未接続",
+      "messageParseError": "メッセージ解析失敗",
+      "sendFailed": "送信失敗、再試行してください"
+    }
+  }
+}

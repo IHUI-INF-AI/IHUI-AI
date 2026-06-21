@@ -1,0 +1,15 @@
+{
+  "eventBus": {
+    "totalEvents": "總事件數",
+    "activeSubs": "活躍訂閱",
+    "processed": "已處理事件",
+    "errors": "錯誤數",
+    "typeDist": "事件類型分佈",
+    "subManage": "訂閱管理",
+    "history": "事件歷史",
+    "testSend": "測試事件發送",
+    "eventData": "事件資料",
+    "metadata": "元資料",
+    "errorInfo": "錯誤資訊"
+  }
+}

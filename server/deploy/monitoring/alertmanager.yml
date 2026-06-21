@@ -1,0 +1,266 @@
+###############################################################################
+# ZHS 平台 Alertmanager 集成配置
+#
+# 功能:
+#   - 4 渠道告警 (钉钉/飞书/企业微信/邮件)
+#   - 3 级告警路由 (critical/warning/info)
+#   - 关键词升级 (outage/failover -> critical)
+#   - 告警历史持久化 (webhook -> 告警历史 DB)
+#   - 告警抑制 (inhibit_rules)
+#   - 告警分组 + 静默
+#
+# 告警链路:
+#   Prometheus -> Alertmanager -> 4 渠道 (钉钉/飞书/企业微信/邮件)
+#                                 -> alert_history_db.py (SQLite 持久化)
+#
+# 用法:
+#   kubectl apply -f deploy/helm/zhs-platform/prometheus/alertmanager.yml
+#   或作为 ConfigMap 挂载到 alertmanager Pod
+###############################################################################
+
+global:
+  resolve_timeout: 5m
+  # SMTP 邮件配置 (通过环境变量注入)
+  smtp_smarthost: 'smtp.aizhs.top:465'
+  smtp_from: 'alerts@aizhs.top'
+  smtp_require_tls: true
+  smtp_auth_username: '${SMTP_USERNAME}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+
+# 模板目录
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+###############################################################################
+# 主路由 (3 级 + 关键词升级 + CI drill)
+###############################################################################
+
+route:
+  group_by: ['alertname', 'service', 'cluster', 'region']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'zhs-default'
+  routes:
+    # 1. Critical 告警 -> 多渠道 (钉钉 + 飞书 + 邮件)
+    - match:
+        severity: critical
+      receiver: 'zhs-critical-multi'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+      # 关键词升级: outage/failover 强制 critical (即使原 severity 是 warning)
+      # 通过 alert label 匹配: alertname 包含 outage/failover 字样
+      matchers:
+        - alertname =~ ".*outage.*|.*failover.*|.*down.*"
+      receiver: 'zhs-critical-multi'
+
+    # 2. Warning 告警 -> 钉钉 + 飞书
+    - match:
+        severity: warning
+      receiver: 'zhs-warning'
+      group_wait: 30s
+      repeat_interval: 4h
+
+    # 3. Info 告警 -> 仅邮件 (低优先级)
+    - match:
+        severity: info
+      receiver: 'zhs-info'
+      group_wait: 60s
+      repeat_interval: 24h
+
+    # 4. CI drill 失败 -> 专用 receiver (钉钉 + 告警历史)
+    - match_re:
+        alertname: 'ZHS_CI_DRILL_.*'
+      receiver: 'zhs-ci-drill'
+      group_wait: 10s
+      repeat_interval: 2h
+      continue: false
+
+    # 5. 跨云切换 (failover) -> 强制 critical
+    - match_re:
+        alertname: 'ZHSFailover.*|ZHSCrossCloud.*|ZHS_DR_.*'
+      receiver: 'zhs-critical-multi'
+      group_wait: 5s
+      repeat_interval: 30m
+      continue: false
+
+    # 6. 多租户 schema 路由告警 -> 钉钉
+    - match:
+        component: tenant-routing
+      receiver: 'zhs-warning'
+      group_wait: 30s
+      repeat_interval: 4h
+
+    # 7. 告警历史写入 (所有告警都必须经过)
+    - receiver: 'zhs-alert-history'
+      continue: true
+      # 不设置 match, 兜底路由, 所有告警都走这里写入历史
+
+###############################################################################
+# 接收器 (4 渠道 + 告警历史)
+###############################################################################
+
+receivers:
+  # 默认 receiver (空, 仅占位)
+  - name: 'zhs-default'
+    webhook_configs:
+      - url: 'http://app:8000/api/v1/monitor/alerts/webhook'
+        send_resolved: true
+        max_alerts: 0
+
+  # Critical 多渠道 (钉钉 + 飞书 + 邮件 + 告警历史)
+  - name: 'zhs-critical-multi'
+    webhook_configs:
+      - url: 'http://app:8000/api/v1/monitor/alerts/webhook'
+        send_resolved: true
+        max_alerts: 0
+    # 钉钉 (企业版机器人)
+    webhook_configs:
+      - url: '${DINGTALK_WEBHOOK}'
+        send_resolved: true
+        max_alerts: 0
+        # 钉钉签名
+    # 飞书
+    # wechat_configs 已废弃, 用 webhook
+    # 企业微信
+      - url: '${WECHAT_WEBHOOK}'
+        send_resolved: true
+        max_alerts: 0
+    # 邮件
+    email_configs:
+      - to: 'oncall@aizhs.top, sre@aizhs.top'
+        send_resolved: true
+        headers:
+          Subject: '[CRITICAL] {{ .GroupLabels.alertname }} - {{ .GroupLabels.service }}'
+        html: '<h2>ZHS 平台 Critical 告警</h2><p><strong>告警:</strong> {{ .GroupLabels.alertname }}</p><p><strong>服务:</strong> {{ .GroupLabels.service }}</p><p><strong>集群:</strong> {{ .GroupLabels.cluster }}</p><p><strong>区域:</strong> {{ .GroupLabels.region }}</p><p><strong>状态:</strong> {{ .Status }}</p><p><strong>开始时间:</strong> {{ .StartsAt }}</p><h3>告警详情</h3>{{ range .Alerts }}<hr><pre>{{ .Annotations.summary }} {{ .Annotations.description }}</pre>{{ end }}'
+
+  # Warning -> 钉钉 + 飞书
+  - name: 'zhs-warning'
+    webhook_configs:
+      - url: 'http://app:8000/api/v1/monitor/alerts/webhook'
+        send_resolved: true
+        max_alerts: 0
+      - url: '${DINGTALK_WEBHOOK}'
+        send_resolved: false
+        max_alerts: 0
+      - url: '${FEISHU_WEBHOOK}'
+        send_resolved: false
+        max_alerts: 0
+
+  # Info -> 仅邮件
+  - name: 'zhs-info'
+    email_configs:
+      - to: 'alerts-info@aizhs.top'
+        send_resolved: true
+        headers:
+          Subject: '[INFO] {{ .GroupLabels.alertname }}'
+
+  # CI drill 失败专用 (钉钉 + alert_history)
+  - name: 'zhs-ci-drill'
+    webhook_configs:
+      - url: 'http://app:8000/api/v1/monitor/ci/drill-failure'
+        send_resolved: true
+        max_alerts: 0
+      - url: '${DINGTALK_WEBHOOK}'
+        send_resolved: true
+        max_alerts: 0
+    email_configs:
+      - to: 'ci-oncall@aizhs.top'
+        send_resolved: true
+
+  # 告警历史持久化 (所有告警)
+  - name: 'zhs-alert-history'
+    webhook_configs:
+      - url: 'http://app:8000/api/v1/monitor/alert-history'
+        send_resolved: true
+        max_alerts: 0
+
+###############################################################################
+# 抑制规则 (inhibit_rules)
+###############################################################################
+
+inhibit_rules:
+  # 1. 经典 critical -> warning 抑制 (按 alertname + service)
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+
+  # 2. ZHS 专属: canary 紧急回滚 -> 抑制 canary 阶段卡住
+  - source_match:
+      alertname: 'ZHSRollbackActive'
+      severity: 'critical'
+    target_match:
+      alertname: 'ZHSCanaryStageStuck'
+    equal: ['service']
+
+  # 3. canary 紧急回滚 -> 抑制 canary 比例不匹配
+  - source_match:
+      alertname: 'ZHSRollbackActive'
+      severity: 'critical'
+    target_match:
+      alertname: 'ZHSCanaryRatioMismatch'
+    equal: ['service']
+
+  # 4. 数据库宕机 -> 抑制所有 DB 相关 warning
+  - source_match:
+      alertname: 'ZHSDatabaseDown'
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['service']
+
+  # 5. 服务整体宕机 -> 抑制所有 per-instance warning
+  - source_match:
+      alertname: 'ZHSServiceDown'
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['service']
+
+  # 6. CI drill 失败 -> 抑制其他 drill 子告警
+  - source_match:
+      alertname: 'ZHS_CI_DRILL_FAILURE'
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['service']
+
+  # 7. 阿里云故障 -> 抑制非关键业务告警
+  - source_match:
+      alertname: 'ZHSAliyunRegionDown'
+      severity: 'critical'
+    target_match:
+      component: 'app'
+      severity: 'warning'
+    equal: ['service']
+
+  # 8. 故障切换进行中 -> 抑制同 region 业务告警
+  - source_match:
+      alertname: 'ZHSFailoverInProgress'
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['region']
+
+###############################################################################
+# 告警模板 (templates)
+###############################################################################
+# 模板文件位于 /etc/alertmanager/templates/
+# 1. default.tmpl       - 默认模板
+# 2. dingtalk.tmpl      - 钉钉 markdown 模板
+# 3. feishu.tmpl        - 飞书消息卡片模板
+# 4. wechat.tmpl        - 企业微信模板
+# 5. email_html.tmpl    - HTML 邮件模板
+#
+# 模板变量:
+#   - {{ .GroupLabels }}     分组标签
+#   - {{ .CommonLabels }}    公共标签
+#   - {{ .CommonAnnotations }} 公共注解
+#   - {{ .Alerts }}          告警列表
+#   - {{ .Status }}          firing/resolved
+#   - {{ .StartsAt }}        告警开始时间
+#   - {{ .EndsAt }}          告警结束时间
+#   - {{ .ExternalURL }}     Alertmanager 外部 URL

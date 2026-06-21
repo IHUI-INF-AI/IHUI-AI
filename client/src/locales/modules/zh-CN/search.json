@@ -1,0 +1,25 @@
+{
+  "search": {
+    "searchPlaceholder": {
+      "hot": "搜索热词",
+      "searchPage": "输入关键词搜索智能体 / 课程 / 内容"
+    },
+    "label": {
+      "keyword": "热词",
+      "searchCount": "搜索数",
+      "actions": "操作"
+    }
+  },
+  "searchPage": {
+    "hotSearch": "热门搜索",
+    "loading": "加载中...",
+    "emptyHot": "暂无热门搜索",
+    "resultSummary": "找到 {total} 个结果",
+    "noResult": "未找到相关结果",
+    "typeAgent": "智能体",
+    "typeCourse": "课程",
+    "typeContent": "内容",
+    "typeAsk": "问答",
+    "typeCircle": "圈子"
+  }
+}

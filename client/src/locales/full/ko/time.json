@@ -1,0 +1,13 @@
+{
+  "time": {
+    "today": "오늘",
+    "yesterday": "어제",
+    "dayBeforeYesterday": "앞일",
+    "daysAgo": "{days}일앞",
+    "weeksAgo": "{weeks}주앞",
+    "justNow": "방금",
+    "minutesAgo": "{minutes}분앞",
+    "hoursAgo": "{hours}시간앞",
+    "never": "부마음미"
+  }
+}

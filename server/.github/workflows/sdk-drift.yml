@@ -1,0 +1,88 @@
+# P20-3: SDK Drift 持续同步 CI
+# 触发: PR 修改了 server/app/api/** 或 server/app/main.py
+# 行为:
+#   1. 拉取当前 OpenAPI
+#   2. 与 baseline 对比
+#   3. 端点新增/删除/签名变化 → fail (阻断 PR)
+#   4. 输出 markdown 报告作为 artifact
+
+name: SDK Drift Check (P20-3)
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "server/app/api/**"
+      - "server/app/main.py"
+      - "server/scripts/p20_sdk_drift_check.py"
+      - "tests/fixtures/sdk_baseline.json"
+      - ".github/workflows/sdk-drift.yml"
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  sdk-drift:
+    name: SDK Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            server/pyproject.toml
+            server/requirements*.txt
+
+      - name: Install Python deps
+        working-directory: server
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+
+      - name: Run SDK drift check (strict)
+        working-directory: server
+        env:
+          ENV: test
+        run: |
+          echo "===== SDK drift check ====="
+          if [ -f "tests/fixtures/sdk_baseline.json" ]; then
+            python scripts/p20_sdk_drift_check.py --strict
+          else
+            echo "No baseline yet, seeding"
+            python scripts/p20_sdk_drift_check.py --update
+          fi
+          EXIT=$?
+          if [ $EXIT -ne 0 ]; then
+            echo ""
+            echo "===== DRIFT 报告 ====="
+            cat scripts/p20_sdk_drift_report.md
+            echo ""
+            echo "===== 修复指南 ====="
+            echo "1. 本地跑: cd server && python scripts/p20_sdk_drift_check.py --strict"
+            echo "2. 若是预期变更 (新增端点):"
+            echo "   cd server && python scripts/p20_sdk_drift_check.py --update"
+            echo "   git add tests/fixtures/sdk_baseline.json"
+            echo "   git commit -m 'chore(sdk): update baseline for new endpoints'"
+            echo "3. 若是 SDK 未 regen:"
+            echo "   cd server && python scripts/p19_sdk_full_regen.py"
+            echo "   git add client/src/api/v2-sdk/"
+            echo "   git commit -m 'chore(sdk): regen v2-sdk'"
+            exit $EXIT
+          fi
+
+      - name: Upload drift report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-drift-report
+          path: server/scripts/p20_sdk_drift_report.md
+          if-no-files-found: ignore
+          retention-days: 14

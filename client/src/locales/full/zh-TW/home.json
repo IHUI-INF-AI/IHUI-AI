@@ -1,0 +1,91 @@
+{
+  "homePage3": {
+    "title": "最新資訊",
+    "titleEn": "LATEST NEWS",
+    "subtitle": "了解平台動態，掌握AI前沿",
+    "refresh": "刷新",
+    "refreshing": "刷新中...",
+    "tabs": {
+      "platform": "平台新聞",
+      "external": "AI資訊"
+    },
+    "empty": {
+      "platform": "暫無平台新聞",
+      "external": "暫無AI資訊"
+    },
+    "summary": {
+      "default": "暫無摘要信息"
+    },
+    "date": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "daysAgo": "{days}天前",
+      "weeksAgo": "{weeks}週前",
+      "monthsAgo": "{months}個月前"
+    },
+    "messages": {
+      "fetching": "正在獲取最新新聞...",
+      "fetchSuccess": "成功獲取 {count} 條新聞，已保存 {saved} 條",
+      "fetchWarning": "未獲取到新新聞，請稍後再試",
+      "fetchError": "刷新失敗，請檢查網絡連接",
+      "viewNews": "查看新聞: {title}"
+    },
+    "errors": {
+      "loadFailed": "加載平台新聞失敗",
+      "apiLoadFailed": "API加載失敗，使用默認平台新聞"
+    }
+  },
+  "home3": {
+    "viewNews": "查看新聞: {title}"
+  },
+  "homePage4": {
+    "month": "/月",
+    "recommended": "推薦",
+    "subscribe": "立即開通",
+    "proPlanName": "專業版",
+    "proPlanDesc": "適合專業用戶和小型團隊",
+    "proFeaturesTitle": "專業功能",
+    "proToolPermissionsTitle": "工具權限",
+    "proPrivilegesTitle": "專業特權",
+    "flagshipPlanName": "旗艦版",
+    "flagshipPlanDesc": "適合追求極致體驗的用戶",
+    "flagshipFeaturesTitle": "旗艦功能",
+    "flagshipToolPermissionsTitle": "工具權限",
+    "flagshipPrivilegesTitle": "旗艦特權",
+    "dedicatedServiceTitle": "專屬服務",
+    "unlimitedAiChat": "無限次AI對話",
+    "aiTools150": "150+ AI工具",
+    "proTemplates": "專業模板庫",
+    "largeFileUpload": "大文件上傳支援",
+    "apiAccess": "API訪問",
+    "dataExport": "數據導出",
+    "teamCollaboration": "團隊協作",
+    "earlyAccessNewFeatures": "優先體驗新功能",
+    "dedicatedTechSupport": "專屬技術支援",
+    "customConfig": "客製化配置",
+    "advancedDataAnalysis": "高級數據分析",
+    "unlimitedTokens": "無限Token使用",
+    "allModelAccess": "全部AI模型訪問",
+    "fastResponse": "極速響應",
+    "dedicatedVipSupport": "專屬VIP客服",
+    "allAiTools": "全部AI工具",
+    "flagshipTemplates": "旗艦模板庫",
+    "hugeFileUpload": "超大文件上傳",
+    "permanentHistory": "永久歷史記錄",
+    "dedicatedTechConsultant": "專屬技術顧問",
+    "customDevelopment": "客製化開發",
+    "advancedDataExport": "高級數據導出",
+    "oneOnOneTechSupport": "一對一技術支援",
+    "dedicatedTraining": "專屬培訓課程",
+    "regularUpdates": "定期產品更新",
+    "priorityIssueHandling": "優先問題處理",
+    "imageGeneration": "圖片生成",
+    "videoGeneration": "影片生成",
+    "voiceInput": "語音輸入",
+    "fileUpload": "文件上傳",
+    "history90Days": "90天歷史記錄",
+    "dedicatedSupport": "專屬客服",
+    "priorityResponse": "優先響應",
+    "advancedModelAccess": "高級模型訪問"
+  }
+}

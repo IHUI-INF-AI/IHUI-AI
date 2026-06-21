@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "description": "ZHS 业务核心 KPI SLA baseline (建议 Phase 6-A)",
+  "kpis": [
+    {
+      "id": "chat_ai_p99_latency",
+      "name": "Chat AI 响应 P99 延迟",
+      "metric": "zhs_biz_request_duration_seconds",
+      "operation": "histogram_quantile(0.99, sum by (le) (rate(zhs_biz_request_duration_seconds_bucket{endpoint=~\".*chat.*\"}[5m])))",
+      "threshold_value": 2.5,
+      "threshold_op": "lt",
+      "severity": "warning",
+      "alert": "ZHSBizChatAIP99High",
+      "endpoint_pattern": ".*chat.*"
+    },
+    {
+      "id": "payment_callback_success_rate",
+      "name": "支付回调成功率",
+      "metric": "zhs_biz_payment_count_total",
+      "operation": "sum(rate(zhs_biz_payment_count_total{status=\"success\"}[5m])) / sum(rate(zhs_biz_payment_count_total[5m]))",
+      "threshold_value": 0.995,
+      "threshold_op": "gt",
+      "severity": "critical",
+      "alert": "ZHSBizPayCallbackLowSuccess"
+    },
+    {
+      "id": "cache_hit_ratio",
+      "name": "缓存命中率",
+      "metric": "zhs_biz_cache_hit_ratio",
+      "operation": "avg(zhs_biz_cache_hit_ratio)",
+      "threshold_value": 0.5,
+      "threshold_op": "gt",
+      "severity": "warning",
+      "alert": "ZHSBizCacheHitLow"
+    },
+    {
+      "id": "ws_active_connections",
+      "name": "WS 活跃连接数",
+      "metric": "zhs_biz_ws_connections",
+      "operation": "max(zhs_biz_ws_connections)",
+      "threshold_value": 10000,
+      "threshold_op": "lt",
+      "severity": "warning",
+      "alert": "ZHSBizWSConnectionsHigh"
+    },
+    {
+      "id": "biz_error_rate",
+      "name": "业务错误率",
+      "metric": "zhs_biz_errors_total",
+      "operation": "sum(rate(zhs_biz_errors_total[5m])) / sum(rate(zhs_biz_requests_total[5m]))",
+      "threshold_value": 0.01,
+      "threshold_op": "lt",
+      "severity": "critical",
+      "alert": "ZHSBizErrorRateHigh"
+    },
+    {
+      "id": "hls_transcode_p99",
+      "name": "HLS 转码 P99 延迟",
+      "metric": "zhs_biz_hls_transcode_seconds",
+      "operation": "histogram_quantile(0.99, sum by (le) (rate(zhs_biz_hls_transcode_seconds_bucket[10m])))",
+      "threshold_value": 60.0,
+      "threshold_op": "lt",
+      "severity": "warning",
+      "alert": "ZHSBizHLSTranscodeSlow"
+    }
+  ]
+}

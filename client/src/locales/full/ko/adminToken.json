@@ -1,0 +1,28 @@
+{
+  "adminTokenValueManagement": {
+    "핵심 장점": "스마트값관리",
+    "sub핵심 장점": "관리생각사용게스마트값사용소모기이것은",
+    "actions": {
+      "export": "내보내기기이것은"
+    },
+    "search": {},
+    "table": {},
+    "statistics": {
+      "핵심 장점": "스마트값통계"
+    },
+    "export": {
+      "filename": "filename",
+      "핵심 장점": "내보내기",
+      "title": "내보내기"
+    },
+    "messages": {
+      "exportNoData": "없음AI를내보내기의데이마음",
+      "exportSuccess": "스마트값목이것은내보내기 성공",
+      "exportFailed": "내보내기 실패"
+    },
+    "exportFormatPrompt": "요청선택내보내기형식",
+    "exportCSV": "내보내기CSV",
+    "exportExcel": "내보내기Excel",
+    "exportPDF": "내보내기PDF"
+  }
+}

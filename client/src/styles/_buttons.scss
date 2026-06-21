@@ -1,0 +1,696 @@
+// ============================================
+// 按钮样式模块
+// 统一管理所有 Element Plus 按钮覆盖样式
+// 
+// 样式规范：
+// - 亮色模式：黑底白字(primary)
+// - 暗色模式：白底黑字(primary)
+// - 文字颜色使用 var(--el-bg-color-page)
+// ============================================
+
+@use './variables.scss' as *;
+
+// ============================================
+// 按钮类型定义
+// ============================================
+
+// 1. Primary 按钮 - 主要操作按钮
+//    亮色：黑底白字 | 暗色：白底黑字
+//    使用场景：登录、提交、确认等主要操作
+
+// 2. Hero CTA 按钮 - 首页大按钮
+//    亮色：黑底白字 | 暗色：白底黑字
+//    使用场景：首页 Hero 区域的行动号召按钮
+
+// 3. Login 按钮 - 登录按钮
+//    亮色：黑底白字 | 暗色：白底黑字
+//    使用场景：Header 和登录页面的登录/注册按钮
+
+// 4. Send 按钮 - 发送按钮
+//    亮色：黑底白字 | 暗色：白底黑字
+//    使用场景：聊天输入框、表单提交等
+
+// 5. Card Action 按钮 - 卡片操作按钮
+//    亮色：白底黑字带边框 | 暗色：黑底白字带边框
+//    使用场景：卡片内的操作按钮
+
+// 6. Mobile Login 按钮 - 移动端登录按钮
+//    亮色：黑底白字 | 暗色：白底黑字
+//    使用场景：移动端 Header 的登录按钮
+
+// 基础按钮样式（非 primary 类型）
+.el-button:not(.el-button--primary, .hero-cta-btn, .login-button) {
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-bg-color);
+  border: none;
+  color: var(--el-text-color-primary);
+  outline: none;
+  box-shadow: none;
+}
+
+// 切换项目按钮
+:where(:root) .el-button.switch-project-btn,
+:where(:root) .el-button.switch-project-btn.el-button--primary,
+:where(:root) .el-button.switch-project-btn.el-button--primary:where(.is-plain),
+:where(#app) .el-button.switch-project-btn,
+:where(#app) .el-button.switch-project-btn.el-button--primary,
+:where(#app) .el-button.switch-project-btn.el-button--primary:where(.is-plain) {
+  border-radius: var(--global-border-radius);
+  border: none;
+  background-color: transparent;
+  background: transparent;
+  color: var(--el-text-color-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  width: auto;
+  min-width: auto;
+  max-width: none;
+  padding: 4px 8px;
+
+  &:hover {
+    background-color: var(--el-bg-color);
+    background: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+    border: none;
+  }
+
+  &:active {
+    background-color: var(--el-color-primary);
+    background: var(--el-color-primary);
+    color: var(--el-bg-color-page);
+    border: none;
+  }
+
+  span,
+  .el-button__text {
+    color: inherit;
+  }
+}
+
+// card-action 按钮样式
+:where(.el-button.el-button--primary.card-action),
+:where(.el-button--primary.card-action) {
+  background-color: var(--el-bg-color-page);
+  background: var(--el-bg-color-page);
+  border: 1px solid var(--border-unified-color);
+  border-color: var(--border-unified-color);
+  color: var(--el-color-primary);
+  border-radius: var(--global-border-radius);
+  box-shadow: none;
+
+  span,
+  .el-button__text,
+  .el-button__inner {
+    color: var(--el-color-primary);
+    visibility: visible;
+    opacity: 1;
+    display: inline;
+  }
+
+  .el-icon {
+    color: var(--el-color-primary);
+    visibility: visible;
+    opacity: 1;
+    font-size: inherit;
+  }
+
+  &:hover {
+    background-color: var(--el-bg-color-page);
+    background: var(--el-bg-color-page);
+    border: var(--el-border-width-primary) solid var(--el-color-primary);
+    color: var(--el-color-primary);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+// primary 按钮样式
+:where(:root) .el-button.el-button--primary:not(.login-button, .hero-cta-btn, .card-action) {
+  background-color: var(--el-color-primary);
+  color: var(--el-bg-color-page);
+
+  span,
+  .el-button__text {
+    color: var(--el-bg-color-page);
+    visibility: visible;
+    opacity: 1;
+    display: inline;
+  }
+
+  .el-icon {
+    color: var(--el-bg-color-page);
+    visibility: visible;
+    opacity: 1;
+    font-size: inherit;
+  }
+
+  &:active {
+    background-color: var(--el-color-primary);
+    border: var(--el-border-width-primary) solid var(--el-color-primary);
+
+    span,
+    .el-button__text {
+      color: var(--el-text-color-primary);
+    }
+
+    .el-icon {
+      color: var(--el-text-color-primary);
+    }
+  }
+}
+
+// 暗色模式 primary 按钮样式
+:where(html.dark) .el-button.el-button--primary:not(.login-button, .hero-cta-btn, .card-action) {
+  background-color: var(--el-color-primary);
+  color: var(--el-bg-color-page);
+
+  span,
+  .el-button__text {
+    color: var(--el-bg-color-page);
+  }
+
+  .el-icon {
+    color: var(--el-bg-color-page);
+  }
+
+  &:hover {
+    background-color: var(--el-color-primary-light-3);
+    color: var(--el-bg-color-page);
+
+    span,
+    .el-button__text {
+      color: var(--el-bg-color-page);
+    }
+
+    .el-icon {
+      color: var(--el-bg-color-page);
+    }
+  }
+
+  &:active {
+    background-color: var(--el-color-primary-light-5);
+    color: var(--el-bg-color-page);
+
+    span,
+    .el-button__text {
+      color: var(--el-bg-color-page);
+    }
+
+    .el-icon {
+      color: var(--el-bg-color-page);
+    }
+  }
+}
+
+// 禁用状态
+:root .el-button:not(.hero-cta-btn).is-disabled,
+:root .el-button:not(.hero-cta-btn).is-disabled:hover,
+:root .el-button:not(.hero-cta-btn).is-disabled:active {
+  background-color: var(--el-bg-color-page);
+  color: var(--el-text-color-placeholder);
+  border-color: var(--dropdown-border-color);
+  cursor: not-allowed;
+}
+
+// 图标间距
+:root .el-button:not(.hero-cta-btn) .el-icon {
+  margin-right: 8px;
+}
+
+:root .el-button:not(.hero-cta-btn) .el-icon+span {
+  margin-left: 0;
+}
+
+// plain 按钮
+:root .el-button:not(.hero-cta-btn).is-plain {
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  border: none;
+  outline: none;
+  box-shadow: none;
+
+  &:hover {
+    background-color: var(--el-bg-color-page);
+    border: none;
+    outline: none;
+    box-shadow: none;
+  }
+}
+
+// 状态按钮
+:root .el-button:not(.hero-cta-btn).el-button--success,
+:root .el-button:not(.hero-cta-btn).el-button--warning,
+:root .el-button:not(.hero-cta-btn).el-button--danger,
+:root .el-button:not(.hero-cta-btn).el-button--info {
+  background-color: var(--el-color-primary-light-3);
+  border-color: var(--el-color-primary-light-3);
+  color: var(--el-color-white);
+
+  &:hover {
+    background-color: var(--el-color-primary-light-5);
+    border-color: var(--el-color-primary-light-5);
+  }
+}
+
+// 按钮尺寸
+.btn-sm {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--global-border-radius);
+  font-size: 14px;
+}
+
+.btn-md {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--global-border-radius);
+  font-size: 16px;
+}
+
+.btn-lg {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: var(--global-border-radius);
+  font-size: 18px;
+}
+
+// 按钮间距
+:root .el-button:not(.hero-cta-btn)+.el-button {
+  margin-left: 12px;
+}
+
+// link 按钮
+:root .el-button:not(.hero-cta-btn).is-link {
+  background: transparent;
+  border: none;
+  color: var(--el-text-color-regular);
+  padding: 0;
+  height: auto;
+
+  &:hover {
+    color: var(--el-text-color-primary);
+  }
+}
+
+// round 按钮
+:root .el-button:not(.hero-cta-btn).is-round {
+  border-radius: var(--global-border-radius);
+}
+
+// focus-visible
+:root .el-button:not(.hero-cta-btn):focus-visible {
+  outline: none;
+}
+
+// 按钮组
+.button-group {
+  display: flex;
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+  flex-wrap: wrap;
+
+  &.center {
+    justify-content: center;
+  }
+
+  &.right {
+    justify-content: flex-end;
+  }
+}
+
+// 移动端按钮样式
+@media (width <= 480px) {
+  :root .el-button {
+    border: none;
+    height: 40px;
+    padding: 0 16px;
+    font-size: 16px;
+  }
+
+  :root .el-button--default {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 15px;
+  }
+
+  :root .el-button--small {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  :root .el-button--primary {
+    height: 32px;
+  }
+}
+
+// 暗色模式按钮样式
+html.dark {
+  :where(:root) .el-button.switch-project-btn,
+  :where(:root) .el-button.switch-project-btn.el-button--primary,
+  :where(:root) .el-button.switch-project-btn.el-button--primary:where(.is-plain),
+  :where(#app) .el-button.switch-project-btn,
+  :where(#app) .el-button.switch-project-btn.el-button--primary,
+  :where(#app) .el-button.switch-project-btn.el-button--primary:where(.is-plain) {
+    background-color: transparent;
+    background: transparent;
+    color: var(--el-text-color-primary);
+    border: none;
+
+    &:hover {
+      background-color: var(--el-fill-color-light);
+      background: var(--el-fill-color-light);
+      color: var(--el-text-color-primary);
+      border: none;
+    }
+
+    &:active {
+      background-color: var(--el-color-primary);
+      background: var(--el-color-primary);
+      color: var(--el-bg-color-page);
+      border: none;
+    }
+
+    span,
+    .el-button__text {
+      color: inherit;
+    }
+  }
+
+  :where(.el-button.el-button--primary.card-action),
+  :where(.el-button--primary.card-action) {
+    background-color: var(--el-bg-color-page);
+    background: var(--el-bg-color-page);
+    border: 1px solid var(--border-unified-color);
+    border-color: var(--border-unified-color);
+    color: var(--el-color-primary);
+    border-radius: var(--global-border-radius);
+    box-shadow: none;
+
+    span,
+    .el-button__text,
+    .el-button__inner {
+      color: var(--el-color-primary);
+      visibility: visible;
+      opacity: 1;
+      display: inline;
+    }
+
+    .el-icon {
+      color: var(--el-color-primary);
+      visibility: visible;
+      opacity: 1;
+      font-size: inherit;
+    }
+
+    &:hover,
+    &:active {
+      background-color: var(--el-bg-color-page);
+      background: var(--el-bg-color-page);
+      border-color: var(--border-unified-color);
+      border: 1px solid var(--border-unified-color);
+      color: var(--el-color-primary);
+      transform: translateY(0);
+    }
+  }
+}
+
+// ============================================
+// Hero CTA 按钮样式
+// 注意：hero-cta-btn 只在 Home.vue 中使用
+// 样式定义在 src/views/Home.vue.styles.scss 中
+// ============================================
+
+// ============================================
+// Login 按钮样式 (Header)
+// ============================================
+
+// 亮色模式 - 支持原生 button 和 el-button
+:where(:root) .login-button,
+:where(:root) .el-button.login-button,
+:where(:root) .el-button.login-button.el-button--primary {
+  background-color: var(--el-color-primary);
+  background: var(--el-color-primary);
+  color: var(--el-bg-color-page);
+  border: none;
+  border-radius: var(--global-border-radius);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+
+  span,
+  .el-button__text,
+  .el-icon {
+    color: var(--el-bg-color-page);
+  }
+
+  &:hover {
+    background-color: var(--el-color-primary-light-3);
+    background: var(--el-color-primary-light-3);
+    color: var(--el-bg-color-page);
+
+    span,
+    .el-button__text,
+    .el-icon {
+      color: var(--el-bg-color-page);
+    }
+  }
+
+  &:active {
+    background-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-5);
+    color: var(--el-bg-color-page);
+
+    span,
+    .el-button__text,
+    .el-icon {
+      color: var(--el-bg-color-page);
+    }
+  }
+}
+
+// 暗色模式 - 支持原生 button 和 el-button
+:where(html.dark) .login-button,
+:where(html.dark) .el-button.login-button,
+:where(html.dark) .el-button.login-button.el-button--primary {
+  background-color: var(--el-color-primary);
+  background: var(--el-color-primary);
+  color: var(--el-bg-color-page);
+  border: none;
+
+  span,
+  .el-button__text,
+  .el-icon {
+    color: var(--el-bg-color-page);
+  }
+
+  &:hover {
+    background-color: var(--el-color-primary-light-3);
+    background: var(--el-color-primary-light-3);
+    color: var(--el-bg-color-page);
+
+    span,
+    .el-button__text,
+    .el-icon {
+      color: var(--el-bg-color-page);
+    }
+  }
+
+  &:active {
+    background-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-5);
+    color: var(--el-bg-color-page);
+
+    span,
+    .el-button__text,
+    .el-icon {
+      color: var(--el-bg-color-page);
+    }
+  }
+}
+
+// ============================================
+// Send 按钮样式 (聊天发送按钮)
+// 注意：send-btn 在多个 AI 聊天组件中使用
+// 样式定义在各组件内部，使用 CSS 变量处理暗色模式
+// ============================================
+
+// 发送按钮 hover 效果
+.send-btn:hover {
+  background: var(--el-color-primary);
+  
+  .send-btn-text {
+    transition: color 0.3s ease;
+    color: var(--el-color-primary);
+  }
+  
+  .el-icon svg {
+    transition: fill 0.3s ease, color 0.3s ease;
+    fill: var(--el-color-primary);
+    color: var(--el-color-primary);
+  }
+}
+
+// ============================================
+// Mobile Login 按钮样式
+// ============================================
+
+// 亮色模式
+:where(:root) .mobile-login-button {
+  background-color: var(--el-color-primary);
+  background: var(--el-color-primary);
+  color: var(--el-bg-color-page);
+  border: none;
+  border-radius: var(--global-border-radius);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  padding: 8px 16px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--el-color-primary-light-3);
+    background: var(--el-color-primary-light-3);
+    color: var(--el-bg-color-page);
+  }
+
+  &:active {
+    background-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-5);
+    color: var(--el-bg-color-page);
+  }
+}
+
+// ============================================
+// btn-luxe 按钮样式
+// 用于 LearnAI、AICommunity、EduAI、Community 等页面
+// ============================================
+
+.btn-luxe {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 24px;
+  border-radius: var(--global-border-radius);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  white-space: nowrap;
+
+  &.primary {
+    background: var(--el-color-primary);
+    color: var(--el-bg-color-page);
+    border: 1px solid var(--border-unified-color);
+
+    &:hover {
+      background: var(--el-color-primary-light-3);
+      color: var(--el-bg-color-page);
+    }
+  }
+
+  &.ghost {
+    background: transparent;
+    border: 1px solid var(--border-unified-color);
+    color: var(--el-text-color-primary);
+
+    &:hover {
+      border: var(--el-border-width-primary) solid var(--el-color-primary);
+      background: var(--el-fill-color-lighter);
+    }
+  }
+
+  &.large {
+    height: 52px;
+    padding: 0 32px;
+    font-size: 16px;
+  }
+}
+
+html.dark .btn-luxe {
+  &.primary {
+    background: var(--el-color-primary);
+    color: var(--el-bg-color-page);
+  }
+
+  &.ghost {
+    background: transparent;
+    border-color: var(--border-unified-color);
+    color: var(--el-text-color-primary);
+  }
+}
+
+// ============================================
+// Agreement Agree 按钮样式 (协议确认按钮)
+// ============================================
+
+.agreement-agree-button {
+  min-width: 120px;
+  height: 36px;
+  border-radius: var(--global-border-radius);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: var(--el-color-primary);
+  border: 1px solid var(--border-unified-color);
+  color: var(--el-bg-color-page);
+
+  &:hover {
+    background-color: var(--el-color-primary-light-3);
+    border-color: var(--el-color-primary-light-3);
+    color: var(--el-bg-color-page);
+  }
+
+  &:active {
+    background-color: var(--el-color-primary-light-5);
+    border-color: var(--el-color-primary-light-5);
+    color: var(--el-bg-color-page);
+  }
+
+  &:disabled,
+  &.is-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+html.dark .agreement-agree-button {
+  background-color: var(--el-color-primary);
+  border-color: var(--border-unified-color);
+  color: var(--el-bg-color-page);
+
+  &:hover {
+    background-color: var(--el-color-primary-light-3);
+    border-color: var(--el-color-primary-light-3);
+    color: var(--el-bg-color-page);
+  }
+
+  &:active {
+    background-color: var(--el-color-primary-light-5);
+    border-color: var(--el-color-primary-light-5);
+    color: var(--el-bg-color-page);
+  }
+}
+
+// 暗色模式
+:where(html.dark) .mobile-login-button {
+  background-color: var(--el-color-primary);
+  background: var(--el-color-primary);
+  color: var(--el-bg-color-page);
+  border: none;
+
+  &:hover {
+    background-color: var(--el-color-primary-light-3);
+    background: var(--el-color-primary-light-3);
+    color: var(--el-bg-color-page);
+  }
+
+  &:active {
+    background-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-5);
+    color: var(--el-bg-color-page);
+  }
+}

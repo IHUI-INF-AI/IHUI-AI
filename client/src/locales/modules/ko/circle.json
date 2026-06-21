@@ -1,0 +1,15 @@
+{
+  "circle": {
+    "searchPlaceholder": {
+      "category": "카테고리 검색",
+      "dynamic": "게시물 검색",
+      "list": "서클 검색",
+      "frontList": "서클 검색...",
+      "post": "무언가 말해보세요..."
+    },
+    "label": {
+      "categoryName": "카테고리명",
+      "actions": "작업"
+    }
+  }
+}

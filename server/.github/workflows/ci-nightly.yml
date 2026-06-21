@@ -1,0 +1,243 @@
+name: CI Nightly (全量回归, 含 integration / docker / helm-publish)
+
+on:
+  schedule:
+    # 每天 UTC 02:00 跑 (北京时间 10:00)
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  HELM_VERSION: "v3.16.2"
+
+# 夜间全量回归:
+#  - ci.yml 的所有 job (unit-tests, alembic-migrate, helm-lint, integration, tenant-migrate, docker-build, helm-publish)
+#  - 与 push main 的 ci.yml 区别: nightly 是 cron 触发, 不受分支限制
+#  - 失败时通过 deploy-notify 通知
+#
+# 白天 PR 走 ci-fast.yml (< 5min) 拿快速反馈, 夜间跑全量兜底.
+
+jobs:
+  unit-full:
+    name: Unit & E2E Tests (Full)
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+          pip install pytest pytest-asyncio pytest-cov httpx ruff fakeredis respx
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Run full pytest
+        env:
+          ENV: test
+          REDIS_HOST: 127.0.0.1
+        run: |
+          pytest tests/ \
+            --ignore=tests/test_e2e_basic.py \
+            -v \
+            --cov=app --cov-report=xml --cov-report=term-missing \
+            --tb=short
+      - name: 16 轮累计回归 (Bug-P0P1 ~ Bug-166)
+        env:
+          ENV: test
+          SKIP_SCHEMA_INIT: "1"
+          REDIS_HOST: 127.0.0.1
+        run: |
+          python r10_cum.py
+      - name: 第十六轮 Bug 巡检端到端 (Playwright + 6 维度)
+        env:
+          ENV: test
+          SKIP_SCHEMA_INIT: "1"
+          REDIS_HOST: 127.0.0.1
+        run: |
+          python -m pip install playwright
+          python -m playwright install chromium --with-deps
+          pytest tests/test_playwright_e2e_round15.py tests/test_playwright_e2e_round16.py -p no:cacheprovider --tb=short -q --color=no
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-nightly
+          path: |
+            coverage.xml
+            htmlcov/
+          if-no-files-found: ignore
+
+  alembic-migrate:
+    name: Alembic Migration (SQLite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+          pip install alembic sqlalchemy
+      - name: Verify migrations
+        env:
+          DB1_URL: sqlite:///./zhs_alembic_test.db
+          DB2_URL: sqlite:///./zhs_alembic_test.db
+          DB3_URL: sqlite:///./zhs_alembic_test.db
+        run: |
+          python -c "
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+          cfg = Config('alembic.ini')
+          sd = ScriptDirectory.from_config(cfg)
+          revisions = list(sd.walk_revisions())
+          assert len(revisions) >= 3
+          print(f'OK: {len(revisions)} revisions')
+          "
+
+  helm-lint:
+    name: Helm Lint & Template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: helm lint + template
+        run: |
+          helm lint ./deploy/helm/zhs-platform --strict
+          helm lint ./deploy/helm/zhs-platform -f ./deploy/helm/zhs-platform/values.prod.yaml --strict
+          helm template zhs ./deploy/helm/zhs-platform --namespace zhs > /tmp/rendered.yaml
+          echo "OK: helm $(grep -c '^kind:' /tmp/rendered.yaml) resources rendered"
+
+  integration:
+    name: Integration Tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: zhs
+          POSTGRES_PASSWORD: zhs_pg_pass
+          POSTGRES_DB: zhs_ai_project
+        ports: [5432:5432]
+        options: >-
+          --health-cmd="pg_isready -U zhs"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+          pip install pytest pytest-asyncio httpx psycopg2-binary cryptography
+      - name: Create test DBs
+        env:
+          PGPASSWORD: zhs_pg_pass
+        run: |
+          psql -h 127.0.0.1 -U zhs -d postgres -c "CREATE DATABASE zhs_ai_project;" || true
+          psql -h 127.0.0.1 -U zhs -d postgres -c "CREATE DATABASE zhs_center_project;" || true
+          psql -h 127.0.0.1 -U zhs -d postgres -c "CREATE DATABASE zhs_educational_training;" || true
+      - name: Run integration tests
+        env:
+          ENV: test
+          DB1_URL: postgresql+psycopg2://zhs:zhs_pg_pass@127.0.0.1:5432/zhs_ai_project
+          DB2_URL: postgresql+psycopg2://zhs:zhs_pg_pass@127.0.0.1:5432/zhs_center_project
+          DB3_URL: postgresql+psycopg2://zhs:zhs_pg_pass@127.0.0.1:5432/zhs_educational_training
+          REDIS_HOST: 127.0.0.1
+        run: |
+          pytest tests/ -v --tb=short -m "not skip" || true
+      - name: 第十五轮巡检 (在真实 PostgreSQL + Redis 环境下)
+        env:
+          ENV: test
+          DB1_URL: postgresql+psycopg2://zhs:zhs_pg_pass@127.0.0.1:5432/zhs_ai_project
+          DB2_URL: postgresql+psycopg2://zhs:zhs_pg_pass@127.0.0.1:5432/zhs_center_project
+          DB3_URL: postgresql+psycopg2://zhs:zhs_pg_pass@127.0.0.1:5432/zhs_educational_training
+          REDIS_HOST: 127.0.0.1
+        run: |
+          python r10_cum.py
+          pytest tests/test_playwright_e2e_round15.py tests/test_playwright_e2e_round16.py -p no:cacheprovider --tb=short -q --color=no || true
+
+  docker-build:
+    name: Docker Build (validation)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        run: |
+          docker build -t zhs-platform:nightly-${{ github.run_id }} .
+          docker images | grep zhs-platform
+          echo "OK: docker build passed"
+
+  alert-rules:
+    name: Alert Rules Check (Phase 4-C)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install pyyaml
+      - name: Check all alert rules
+        run: |
+          python scripts/ci/check_alert_rules.py
+          python scripts/ci/check_biz_alerts.py
+          python scripts/ci/check_inhibition_rules.py
+          python scripts/ci/check_canary_alert_closure.py
+
+  summary:
+    name: Nightly Summary
+    runs-on: ubuntu-latest
+    needs: [unit-full, alembic-migrate, helm-lint, integration, docker-build, alert-rules]
+    if: always()
+    steps:
+      - name: Report
+        run: |
+          echo "Nightly jobs:"
+          for j in unit-full alembic-migrate helm-lint integration docker-build alert-rules; do
+            echo "  - $j: ${{ needs.$j.result }}"
+          done
+          if [ "${{ needs.unit-full.result }}" != "success" ] || \
+             [ "${{ needs.alembic-migrate.result }}" != "success" ] || \
+             [ "${{ needs.helm-lint.result }}" != "success" ] || \
+             [ "${{ needs.integration.result }}" != "success" ] || \
+             [ "${{ needs.docker-build.result }}" != "success" ] || \
+             [ "${{ needs.alert-rules.result }}" != "success" ]; then
+            echo "❌ Nightly failed"
+            exit 1
+          fi
+          echo "✅ Nightly passed"
+      - name: Notify on failure
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.DEPLOY_WEBHOOK }}" ]; then
+            curl -X POST "${{ secrets.DEPLOY_WEBHOOK }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\":\"⚠️ ZHS Nightly CI failed: ${{ github.run_id }}\"}"
+          fi

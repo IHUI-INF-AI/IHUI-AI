@@ -1,0 +1,160 @@
+{
+  "home": {
+    "input": {
+      "placeholder": "質問を入力してください。ctrl/cmd+Enterで送信",
+      "modelButton": "モデル",
+      "modelSwitch": "モデル",
+      "auto": "自動",
+      "manual": "手動",
+      "loading": "読み込み中...",
+      "noModelData": "{type}モデルのデータがありません",
+      "imageTab": "画像",
+      "videoTab": "動画",
+      "textTab": "テキスト",
+      "selectAuto": "auto",
+      "model": "モデル",
+      "tabs": {
+        "image": "画像",
+        "video": "動画",
+        "text": "テキスト",
+        "3d": "3D",
+        "voice": "音声",
+        "digitalHuman": "デジタルヒューマン",
+        "universal": "ユニバーサル",
+        "talk": "チャット",
+        "audio": "オーディオ",
+        "videoa": "デジタルヒューマン",
+        "other": "その他"
+      },
+      "loadModelFailed": "モデルリストの読み込みに失敗しました。後でもう一度お試しください",
+      "apiAccess": "API連携"
+    },
+    "welcome": "スマートAIコミュニティへようこそ",
+    "page1": {
+      "content": "スマートAIコミュニティ、AIの無限の可能性を探索",
+      "ctaPrimary": "今すぐ体験",
+      "ctaSecondary": "詳細を見る"
+    },
+    "page2": {
+      "title": "強力な機能",
+      "titleEn": "PowerfulFeatures",
+      "content": "私たちが提供する全方位のAIサービスを探索してください。モデル統合からアプリストアまで、あなたの様々なニーズを満たします",
+      "features": {
+        "modelIntegration": "多モデル統合",
+        "appStore": "AIアプリストア",
+        "contentCreation": "コンテンツ創作",
+        "edu": "AI教育",
+        "navigation": "スマートナビゲーション",
+        "mcpUse": "MCP使用"
+      },
+      "advantages": {
+        "title": "コアアドバンテージ",
+        "titleEn": "CoreAdvantages",
+        "subtitle": "なぜスマートAIを選ぶのか",
+        "professional": {
+          "title": "専門",
+          "description": "AI分野を深く掘り下げ、専門的な技術ソリューションと業界最先端の製品サービスを提供します"
+        },
+        "efficient": {
+          "title": "効率的",
+          "description": "開発プロセスを簡素化し、豊富なAPIインターフェースとツールで、AIアプリを迅速に公開"
+        },
+        "reliable": {
+          "title": "信頼性",
+          "description": "安定した信頼できるサービス保障、99.9%の可用性で業務継続性を保証します"
+        },
+        "innovative": {
+          "title": "イノベーション",
+          "description": "継続的な技術イノベーション、エージェントクラスタ、階層計画など最先端のAI機能"
+        }
+      }
+    },
+    "page3": {
+      "title": "会社概要",
+      "content": "スマートAIコミュニティは、AI愛好家と開発者に最高品質のサービスとリソースを提供することに専念しています",
+      "titleEn": "AI NEWS",
+      "subtitle": "AI分野の最新動向と最先端技術を探索",
+      "tabs": {
+        "platform": "プラットフォームニュース",
+        "external": "AIニュース"
+      },
+      "empty": {
+        "platform": "プラットフォームニュースはありません",
+        "external": "AIニュースはありません"
+      }
+    },
+    "page4": {
+      "title": "適切なプランを選択",
+      "titleEn": "ChooseYourPlan",
+      "content": "様々なニーズに応える柔軟な価格プランで、AIの旅を始めましょう",
+      "subtitle": "様々なニーズに応える柔軟な価格プラン"
+    },
+    "page5": {
+      "title": "私たちに参加",
+      "titleEn": "JOIN US",
+      "content": "スマートAIコミュニティの一員となり、グローバルAI愛好家と一緒にスマートな未来を探索しましょう",
+      "joinText": "もっと多くのAIファンが私たちに参加し、人工知能の無限の可能性を共に探索しましょう"
+    },
+    "marquee": {
+      "kouzi": "コウズアイコン",
+      "bbxLogo": "BBXロゴ",
+      "brand4": "ブランドアイコン",
+      "zhipu": "Zhipu Qingyan",
+      "brand8": "ブランド8",
+      "openai": "OpenAI",
+      "gork": "Gork",
+      "ali": "アリババ",
+      "tencent": "テンセント",
+      "huawei": "ファーウェイ",
+      "baidu": "バイドゥ",
+      "yuanbaoxiang": "ユエンバオシャン",
+      "yushu": "ユーシュテクノロジー",
+      "dbsfdx": "東北師範大學",
+      "jldx": "吉林大學"
+    },
+    "miniappModal": {
+      "title": "WeChatミニプログラム",
+      "qrAlt": "ミニプログラムQRコード",
+      "scanTip": "WeChatを開いてスキャンすると、ミニプログラムに入れます"
+    },
+    "typewriter": {
+      "explore": "AIの無限の可能性を探索する",
+      "brand": "IHUI AI コミュニティ",
+      "connect": "創造性を繋ぎ、未知を解き放つ"
+    },
+    "promotionModal": {
+      "title": "新メンバー特典！",
+      "subtitle": "今すぐ購読、ダブルポイント獲得！",
+      "doublePoints": "2倍ポイント",
+      "credits": {
+        "starter": "Starter {total}（追加 {extra}）ポイント獲得",
+        "basic": "Basic {total}（追加 {extra}）ポイント獲得",
+        "pro": "Pro {total}（追加 {extra}）ポイント獲得"
+      },
+      "hint": "今すぐ購読、初月に {highlight} を獲得できます",
+      "primaryButton": "追加ポイント取得",
+      "secondaryLink": "無料ポイントは不要です",
+      "close": "閉じる"
+    },
+    "comments": {
+      "mainContent": "ホームコンテンツ：下方向に並べて表示",
+      "firstPage": "最初ページ",
+      "mainTitle": "中央メインタイトル",
+      "interactiveText": "既存のインタラクティブテキスト効果を維持（任意）",
+      "secondPage": "2番目ページ",
+      "featuresGrid": "機能モジュール表示"
+    },
+    "features": {
+      "modelIntegration": "モデル統合",
+      "appStore": "AppStore",
+      "contentCreation": "コンテンツ創作",
+      "edu": "Edu",
+      "navigation": "ナビゲーション"
+    },
+    "hardcoded": {
+      "hot": "人気",
+      "news": "ニュース",
+      "aiNews": "AIニュース"
+    }
+  }
+}

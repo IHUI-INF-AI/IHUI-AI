@@ -1,0 +1,38 @@
+{
+  "eduDoc": {
+    "category": {
+      "education": "教育",
+      "userQuickStart": "ユーザー · クイックスタート",
+      "userFeatures": "ユーザー · 機能使用",
+      "userGuide": "ユーザー · 利用ガイド",
+      "userFaq": "ユーザー · よくある質問",
+      "devIncentive": "開発者 · インセンティブプログラム",
+      "devQuickStart": "開発者 · クイックスタート",
+      "devApi": "開発者 · APIドキュメント",
+      "devSdk": "開発者 · SDKドキュメント",
+      "devIntegration": "開発者 · 連携ガイド",
+      "devOther": "開発者 · その他",
+      "termsPolicy": "利用規約とポリシー",
+      "enterprise": "エンタープライズサービス"
+    },
+    "title": {
+      "projectReadme": "プロジェクト概要",
+      "eduPlatform": "教育プラットフォーム紹介",
+      "enterpriseWhitepaper": "AIスマートハブプロジェクト白書",
+      "enterpriseIntro": "スマートAIハブ紹介",
+      "enterpriseDecisionMaker": "企業AI化意思決定者コミュニティ",
+      "enterpriseHumanAiCollaboration": "人機協力組織",
+      "enterpriseAgentScenarios": "エージェントシナリオ",
+      "devIncentiveOverview": "プログラム概要",
+      "devIncentivePublish": "エージェント公開ガイド",
+      "devIncentiveMonetization": "開発者収益化ガイド",
+      "devIncentiveCourse": "開発伴走コース",
+      "devIncentivePlatform": "プラットフォーム機能紹介"
+    },
+    "menu": "メニュー",
+    "edit": "編集",
+    "delete": "削除",
+    "admin": "管理者",
+    "metaDescription": "完全技術ドキュメント"
+  }
+}

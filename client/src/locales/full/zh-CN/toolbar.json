@@ -1,0 +1,60 @@
+{
+  "toolbar": {
+    "agents": {
+      "title": "独家开发 AI Agent应用"
+    },
+    "marketing": {
+      "title": "运营内容生成",
+      "desc": "智能生成各类营销内容，提升运营效率"
+    },
+    "menu": {
+      "trafficOperation": "流量运营陪跑",
+      "oneStopEquipment": "一站式设备应用",
+      "aiTechnicalServices": "AI其他技术服务"
+    },
+    "tools": {
+      "categories": {
+        "creativeDesign": "创意设计"
+      },
+      "items": {
+        "creator": "系统管理员",
+        "image": {
+          "title": "图像生成",
+          "desc": "AI生成高质量图像",
+          "tag1": "图像",
+          "tag2": "设计"
+        },
+        "video": {
+          "title": "视频生成",
+          "desc": "AI生成专业视频",
+          "tag1": "视频",
+          "tag2": "动画"
+        },
+        "copy": {
+          "title": "文案生成",
+          "desc": "AI智能文案创作",
+          "tag1": "文案",
+          "tag2": "写作"
+        },
+        "edit": {
+          "title": "视频编辑",
+          "desc": "智能视频剪辑工具",
+          "tag1": "剪辑",
+          "tag2": "编辑"
+        },
+        "live": {
+          "title": "直播助手",
+          "desc": "AI直播辅助工具",
+          "tag1": "直播",
+          "tag2": "互动"
+        },
+        "digital": {
+          "title": "数字人",
+          "desc": "AI数字人生成",
+          "tag1": "数字人",
+          "tag2": "虚拟形象"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,286 @@
+{
+  "themeToggle": {
+    "switchToLight": "전환도달밝음색템플릿방식",
+    "switchToDark": "전환도달어두움색템플릿방식",
+    "lightMode": "라이트 모드",
+    "darkMode": "다크 모드",
+    "autoMode": "시스템 따르기",
+    "currentMode": "현재 테마",
+    "clickToChange": "클릭하여 변경",
+    "menuLabel": "테마 선택 메뉴",
+    "switchingToDark": "다크 모드로 전환 중...",
+    "switchingToLight": "라이트 모드로 전환 중...",
+    "highContrastLight": "고대비 라이트",
+    "highContrastDark": "고대비 다크",
+    "switchingToHighContrastLight": "고대비 라이트 모드로 전환 중...",
+    "switchingToHighContrastDark": "고대비 다크 모드로 전환 중..."
+  },
+  "themeBackup": {
+    "auto": "Auto",
+    "autoBackup": "Auto Backup",
+    "backupCreated": "Backup created successfully",
+    "backupDeleted": "Backup deleted",
+    "backupRestored": "Backup restored successfully",
+    "confirmDelete": "Confirm Delete",
+    "createBackup": "Create Backup",
+    "delete": "Delete",
+    "deleteWarning": "Are you sure you want to delete this backup? This action cannot be undone.",
+    "export": "Export",
+    "exportSuccess": "Export successful",
+    "import": "Import",
+    "importFailed": "Import failed",
+    "importPlaceholder": "Paste backup JSON data",
+    "importSuccess": "Import successful",
+    "interval": "Backup Interval",
+    "intervals": {
+      "daily": "Daily",
+      "hourly": "Hourly",
+      "weekly": "Weekly"
+    },
+    "manualBackup": "Manual Backup",
+    "maxBackups": "Max Backups",
+    "noBackups": "No backups yet",
+    "restore": "Restore",
+    "restoreFailed": "Restore failed",
+    "storageSize": "Storage Size",
+    "title": "Theme Backup",
+    "totalBackups": "Total Backups"
+  },
+  "themePreset": {
+    "applied": "Applied preset: {name}",
+    "create": "Create Preset",
+    "created": "Preset created",
+    "deleteConfirm": "Are you sure you want to delete this preset?",
+    "deleted": "Preset deleted",
+    "duplicated": "Preset duplicated",
+    "edit": "Edit Preset",
+    "export": "Export Presets",
+    "exported": "Presets exported",
+    "import": "Import Presets",
+    "importFailed": "Import failed",
+    "imported": "Imported {count} presets",
+    "mode": "Mode",
+    "name": "Name",
+    "nameRequired": "Please enter a preset name",
+    "reset": "Reset to Defaults",
+    "resetConfirm": "Are you sure you want to reset all presets? This will delete all custom presets.",
+    "resetSuccess": "Presets reset",
+    "title": "Theme Presets",
+    "updated": "Preset updated"
+  },
+  "themePreview": {
+    "apply": "Apply This Theme",
+    "title": "Theme Preview"
+  },
+  "themeSettings": {
+    "advanced": {
+      "accessibility": "Accessibility Settings",
+      "announceChanges": "Announce Theme Changes",
+      "debug": "Debug Tools",
+      "export": "Export",
+      "exportReport": "Export Debug Report",
+      "exportSuccess": "Export successful",
+      "focusDefault": "Default",
+      "focusHighContrast": "High Contrast",
+      "focusIndicator": "Focus Indicator",
+      "focusLarge": "Large",
+      "hideDebug": "Hide Debug Info",
+      "import": "Import",
+      "importExport": "Import/Export",
+      "importSuccess": "Import successful: {presets} presets, {schedules} schedules",
+      "keyboardNav": "Keyboard Navigation",
+      "showDebug": "Show Debug Info",
+      "voiceControl": "Voice Control"
+    },
+    "basic": {
+      "currentTheme": "Current Theme",
+      "preview": "Preview Theme",
+      "quickActions": "Quick Actions",
+      "reset": "Reset to Default",
+      "resetSuccess": "Reset to default settings",
+      "toggleDark": "Toggle Dark Mode"
+    },
+    "schedule": {
+      "add": "Add Schedule",
+      "days": "Repeat Days",
+      "label": "Label",
+      "mode": "Mode",
+      "nextSwitch": "Next switch",
+      "time": "Time",
+      "title": "Scheduled Switch"
+    },
+    "search": "Search settings...",
+    "sync": {
+      "download": "Download from Cloud",
+      "lastSynced": "Last synced",
+      "notSynced": "Not synced yet",
+      "syncSuccess": "Sync successful",
+      "syncing": "Syncing...",
+      "title": "Cloud Sync",
+      "upload": "Upload to Cloud"
+    },
+    "tabs": {
+      "advanced": "Advanced",
+      "basic": "Basic",
+      "presets": "Presets",
+      "schedule": "Schedule",
+      "sync": "Cloud Sync"
+    },
+    "title": "Theme Settings"
+  },
+  "themeShortcut": {
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "resetDefaults": "Reset to Defaults",
+    "shortcutUpdated": "Shortcut updated",
+    "shortcutsReset": "Shortcuts reset",
+    "tip1": "Shortcuts are activated automatically after page load",
+    "tip2": "Some shortcuts may conflict with other applications",
+    "tip3": "Disabled shortcuts need to be manually enabled to take effect",
+    "tips": "Tips",
+    "title": "Theme Shortcuts"
+  },
+  "themeSync": {
+    "autoSync": "Auto Sync",
+    "cancel": "Cancel",
+    "cancelled": "Sync cancelled",
+    "conflict": {
+      "cloudBackup": "Cloud Backup",
+      "confirm": "Confirm",
+      "description": "A conflict was detected between local and cloud data. Please choose how to resolve it.",
+      "keepLocal": "Keep Local Version",
+      "merge": "Smart Merge",
+      "mergeDesc": "Automatically select the latest changes",
+      "rememberChoice": "Remember my choice",
+      "thisDevice": "This Device",
+      "title": "Sync Conflict",
+      "useCloud": "Use Cloud Version"
+    },
+    "history": {
+      "actionConflict": "Conflict Resolved",
+      "actionDownload": "Download",
+      "actionUpload": "Upload",
+      "avgDuration": "Avg Duration",
+      "clear": "Clear",
+      "clearConfirm": "Are you sure you want to clear all sync history?",
+      "empty": "No sync records",
+      "export": "Export",
+      "exportFailed": "Export failed",
+      "exportSuccess": "Export successful",
+      "failed": "Failed",
+      "showAll": "Show all {count} records",
+      "showLess": "Show less",
+      "success": "Success",
+      "title": "Sync History"
+    },
+    "intervals": {
+      "daily": "Daily",
+      "hourly": "Hourly",
+      "weekly": "Weekly"
+    },
+    "lastSync": "Last Sync",
+    "loginRequired": "Please login first to sync",
+    "notifications": "Desktop Notifications",
+    "offlineCannotProcess": "Network unavailable, cannot process sync queue",
+    "offlineMode": "You are offline. Sync will resume when connection is restored",
+    "offlineQueue": "{count} sync tasks pending",
+    "processQueue": "Process Now",
+    "progress": {
+      "completing": "Sync almost complete...",
+      "finalizing": "Finalizing sync...",
+      "preparing": "Preparing sync...",
+      "uploading": "Uploading data..."
+    },
+    "settings": {
+      "devices": {
+        "active": "Active devices",
+        "current": "Current device",
+        "remove": "Remove",
+        "removeConfirm": "Are you sure you want to remove this device? It will need to re-login.",
+        "removeSuccess": "Device removed",
+        "title": "Synced Devices",
+        "total": "Total devices"
+      },
+      "encryption": {
+        "disable": "Disable Encryption",
+        "disableConfirm": "Disabling encryption will stop encrypting sync data. Continue?",
+        "disabled": "Disabled",
+        "disabledSuccess": "Encryption disabled",
+        "enable": "Enable Encryption",
+        "enabled": "Enabled",
+        "setPassword": "Set encryption password",
+        "setupFailed": "Encryption setup failed",
+        "setupSuccess": "Encryption setup successful",
+        "title": "Data Encryption"
+      },
+      "performance": {
+        "avgDuration": "Avg Duration",
+        "export": "Export Data",
+        "exportSuccess": "Export successful",
+        "operations": "Operations",
+        "reportTitle": "Sync Performance Report",
+        "successRate": "Success Rate",
+        "title": "Sync Performance",
+        "viewReport": "View Report"
+      }
+    },
+    "status": {
+      "error": "Sync Failed",
+      "idle": "Waiting to Sync",
+      "synced": "Synced",
+      "syncing": "Syncing..."
+    },
+    "syncFailed": "Theme sync failed",
+    "syncInterval": "Sync Interval",
+    "syncNow": "Sync Now",
+    "syncSuccess": "Theme synced successfully",
+    "timeDaysAgo": "{count} days ago",
+    "timeHoursAgo": "{count} hours ago",
+    "timeJustNow": "Just now",
+    "timeMinutesAgo": "{count} minutes ago",
+    "title": "Theme Sync"
+  },
+  "themeTransition": {
+    "customConfig": "Custom Configuration",
+    "direction": "Direction",
+    "directions": {
+      "down": "From Bottom",
+      "left": "From Left",
+      "right": "From Right",
+      "up": "From Top"
+    },
+    "duration": "Duration",
+    "easing": "Easing",
+    "easings": {
+      "bounce": "Bounce",
+      "smooth": "Smooth",
+      "swift": "Swift"
+    },
+    "enableOverlay": "Enable Overlay",
+    "overlayColor": "Overlay Color",
+    "playDemo": "Play Demo",
+    "playing": "Playing",
+    "presetApplied": "Preset applied",
+    "presets": "Presets",
+    "preview": "Preview",
+    "previewComplete": "Preview complete",
+    "previewTitle": "Preview Title",
+    "speed": "Speed",
+    "speeds": {
+      "fast": "Fast",
+      "instant": "Instant",
+      "normal": "Normal",
+      "slow": "Slow"
+    },
+    "title": "Theme Transition",
+    "type": "Animation Type",
+    "types": {
+      "fade": "Fade",
+      "flip": "Flip",
+      "none": "None",
+      "ripple": "Ripple",
+      "slide": "Slide",
+      "zoom": "Zoom"
+    }
+  }
+}

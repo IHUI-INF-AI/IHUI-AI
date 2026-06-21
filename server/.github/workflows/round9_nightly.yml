@@ -1,0 +1,301 @@
+name: Round 9 Nightly Tests
+
+on:
+  schedule:
+    # 每天 UTC 02:00 跑 (北京时间 10:00)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      task_filter:
+        description: '任务过滤 (P0-1/P0-2/P0-3/P1-4/P1-5/P1-6/P2-7/P2-8/P2-9/P2-10/all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - P0-1
+          - P0-2
+          - P0-3
+          - P1-4
+          - P1-5
+          - P1-6
+          - P2-7
+          - P2-8
+          - P2-9
+          - P2-10
+
+env:
+  PYTHON_VERSION: "3.12"
+
+# ---------------------------------------------------------------------------
+# Round 9 Nightly 任务测试
+#
+# 任务清单:
+#   P0-1: 租户路由 FastAPI 集成
+#   P0-2: 告警链路实际部署
+#   P0-3: ArgoCD 部署
+#   P1-4: 金丝雀生产演练
+#   P1-5: 告警历史查询面板
+#   P1-6: 多租户压测报告生成
+#   P2-7: 跨云 Terraform 实施
+#   P2-8: 故障切换剧本实操
+#   P2-9: Alertmanager 集成
+#   P2-10: Round 9 端到端回归
+# ---------------------------------------------------------------------------
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Stage 1: 初始化 (公共步骤)
+  # -------------------------------------------------------------------------
+  init:
+    name: Setup
+    runs-on: ubuntu-latest
+    outputs:
+      task_filter: ${{ steps.filter.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 解析 task_filter
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.task_filter }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=all" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Task filter: $(cat $GITHUB_OUTPUT | grep value= | cut -d= -f2)"
+
+  # -------------------------------------------------------------------------
+  # Job: 单元测试阶段 (P0-1, P0-2, P0-3)
+  # -------------------------------------------------------------------------
+  unit-tests:
+    name: Unit Tests (P0-1/2/3)
+    needs: init
+    if: needs.init.outputs.task_filter == 'all' || startsWith(needs.init.outputs.task_filter, 'P0-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bcrypt<4.0"
+          pip install -e .
+          pip install pytest pytest-asyncio httpx fakeredis
+
+      - name: "[P0-1] 租户路由 FastAPI 集成"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P0-1" ]; then
+            echo "=== P0-1 ==="
+            python scripts/test_tenant_fastapi_integration.py
+          fi
+
+      - name: "[P0-2] 告警链路实际部署"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P0-2" ]; then
+            echo "=== P0-2 ==="
+            python scripts/test_alert_link_deploy.py
+          fi
+
+      - name: "[P0-3] ArgoCD 部署"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P0-3" ]; then
+            echo "=== P0-3 ==="
+            python scripts/test_argo_deploy.py
+          fi
+
+  # -------------------------------------------------------------------------
+  # Job: 演练阶段 (P1-4, P1-5, P1-6)
+  # -------------------------------------------------------------------------
+  drill-tests:
+    name: Drill Tests (P1-4/5/6)
+    needs: init
+    if: needs.init.outputs.task_filter == 'all' || startsWith(needs.init.outputs.task_filter, 'P1-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: "[P1-4] 金丝雀生产演练"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P1-4" ]; then
+            echo "=== P1-4 ==="
+            python scripts/test_canary_drill.py
+          fi
+
+      - name: "[P1-5] 告警历史面板"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P1-5" ]; then
+            echo "=== P1-5 ==="
+            python scripts/test_alert_history_dashboard.py
+          fi
+
+      - name: "[P1-6] 多租户压测报告"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P1-6" ]; then
+            echo "=== P1-6 ==="
+            python scripts/test_loadtest_report_gen.py
+          fi
+
+  # -------------------------------------------------------------------------
+  # Job: 跨云 & 集成阶段 (P2-7, P2-8, P2-9)
+  # -------------------------------------------------------------------------
+  cross-cloud-tests:
+    name: Cross-Cloud Tests (P2-7/8/9)
+    needs: init
+    if: needs.init.outputs.task_filter == 'all' || startsWith(needs.init.outputs.task_filter, 'P2-7') || startsWith(needs.init.outputs.task_filter, 'P2-8') || startsWith(needs.init.outputs.task_filter, 'P2-9')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyyaml
+
+      - name: "安装 Terraform (P2-7)"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P2-7" ]; then
+            curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+            sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+            sudo apt-get update
+            sudo apt-get install -y terraform
+            terraform version
+          fi
+
+      - name: "[P2-7] 跨云 Terraform 语法检查"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P2-7" ]; then
+            echo "=== P2-7 ==="
+            for tf_dir in terraform/aliyun terraform/huawei terraform/aws; do
+              echo "--- terraform fmt: $tf_dir ---"
+              terraform fmt -check -diff "$tf_dir" || true
+              echo "--- terraform validate: $tf_dir ---"
+              cd "$tf_dir"
+              terraform init -backend=false
+              terraform validate
+              cd "$GITHUB_WORKSPACE"
+            done
+            echo "=== P2-7 测试 ==="
+            python scripts/test_terraform_aliyun.py
+          fi
+
+      - name: "[P2-8] 故障切换剧本"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P2-8" ]; then
+            echo "=== P2-8 ==="
+            bash scripts/failover_runbook_test.sh --dry-run
+            python scripts/test_failover_runbook.py
+          fi
+
+      - name: "[P2-9] Alertmanager 集成"
+        run: |
+          if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P2-9" ]; then
+            echo "=== P2-9 ==="
+            # 验证 alertmanager 配置文件
+            python -c "
+            import yaml
+            with open('deploy/monitoring/alertmanager.yml') as f:
+                cfg = yaml.safe_load(f)
+            assert 'route' in cfg
+            assert 'receivers' in cfg
+            assert 'inhibit_rules' in cfg
+            print('OK: alertmanager.yml 解析成功')
+            print(f'  receivers: {len(cfg[\"receivers\"])}')
+            print(f'  routes: {len(cfg[\"route\"][\"routes\"])}')
+            "
+            python scripts/test_alertmanager_integration.py
+          fi
+
+  # -------------------------------------------------------------------------
+  # Job: 综合回归 (P2-10)
+  # -------------------------------------------------------------------------
+  e2e-regression:
+    name: E2E Regression (P2-10)
+    needs: init
+    if: needs.init.outputs.task_filter == 'all' || needs.init.outputs.task_filter == 'P2-10'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: "[P2-10] Round 9 端到端回归"
+        run: |
+          echo "=== P2-10 ==="
+          python scripts/test_round9_e2e.py
+
+  # -------------------------------------------------------------------------
+  # Job: 汇总报告
+  # -------------------------------------------------------------------------
+  summary:
+    name: Round 9 Summary Report
+    needs: [unit-tests, drill-tests, cross-cloud-tests, e2e-regression]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: 运行 round9_summary
+        run: |
+          python scripts/round9_summary.py > round9_summary.log 2>&1 || true
+          cat round9_summary.log
+
+      - name: 上传日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: round9-nightly-logs
+          path: |
+            round9_summary.log
+            logs/
+          if-no-files-found: ignore
+
+      - name: 发送通知
+        if: failure()
+        env:
+          DEPLOY_WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
+        run: |
+          if [ -n "${DEPLOY_WEBHOOK}" ]; then
+            curl -X POST "${DEPLOY_WEBHOOK}" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\":\"❌ Round 9 Nightly Tests 失败: ${{ github.run_id }}\"}"
+          fi

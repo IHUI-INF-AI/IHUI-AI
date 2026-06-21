@@ -1,0 +1,9 @@
+{
+  "promptTemplates": {
+    "title": "Prompt Templates",
+    "addCustom": "Add Custom",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "other": "Other"
+  }
+}

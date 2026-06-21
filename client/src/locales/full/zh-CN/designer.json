@@ -1,0 +1,43 @@
+{
+  "designer": {
+    "mode": "模式",
+    "labels": {
+      "strategy": "设计策略",
+      "audit": "设计审核",
+      "blueprint": "设计蓝图",
+      "code": "设计代码"
+    },
+    "model": "模型",
+    "selectModel": "选择模型",
+    "input": "输入",
+    "placeholder": "请输入您的需求...",
+    "actions": {
+      "generate": "生成",
+      "reset": "重置"
+    },
+    "tabs": {
+      "output": "输出",
+      "vue": "Vue",
+      "react": "React",
+      "html": "HTML"
+    },
+    "empty": "暂无内容",
+    "prompts": {
+      "line1": "你是一个专业的AI设计助手",
+      "line2": "根据用户的需求，生成相应的设计内容",
+      "line3": "输出格式清晰，易于理解",
+      "line4": "确保内容的专业性和准确性"
+    },
+    "errors": {
+      "selectModel": "请选择模型",
+      "enterRequirement": "请输入需求",
+      "generateFailed": "生成失败"
+    },
+    "expect": {
+      "strategy": "设计策略",
+      "audit": "设计审核",
+      "blueprint": "设计蓝图",
+      "code": "设计代码"
+    }
+  }
+}

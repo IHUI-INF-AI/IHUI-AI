@@ -1,0 +1,79 @@
+{
+  "study": {
+    "cover": "Cover",
+    "courseTitle": "Course Title",
+    "courseDesc": "Course Description",
+    "relatedApp": "Related AI App",
+    "topComment": "Top Comment",
+    "selectTags": "Select Course Tags",
+    "chunkUploadFailed": "Chunk upload failed",
+    "videoUploadSuccess": "Video uploaded!",
+    "editSuccessReview": "Modified! Please wait for review",
+    "deleteSuccessReview": "Deleted! Please wait for review",
+    "publishCollectionFirst": "Please publish the collection first",
+    "videoProcessing": "Video is being processed, please publish later",
+    "uploadCover": "Please upload cover",
+    "uploadVideo": "Please upload video",
+    "enterCourseTitle": "Please enter course title",
+    "enterCourseDesc": "Please enter course description",
+    "groupTitle": "Collection Title",
+    "groupDesc": "Collection Description",
+    "selectTrack": "Select Collection Track",
+    "mainTrackPrefix": "#MainTrack",
+    "selectPhase": "Select Course Phase",
+    "uploadVideoCourse": "Upload Course Video",
+    "publishSuccessContinue": "Published, continue uploading videos",
+    "enterGroupTitle": "Please enter collection title",
+    "enterGroupDesc": "Please enter collection description",
+    "selectMainSubTrack": "Please select main and sub tracks",
+    "uploadSuccess": "Upload successful",
+    "uploadFailed": "Upload failed"
+  },
+  "studyAdd": {
+    "cover": "Cover",
+    "title": "Course Title",
+    "desc": "Course Description",
+    "publishFirst": "Please publish collection first",
+    "videoSynth": "Video is being synthesized, please publish later",
+    "uploadCover": "Please upload cover",
+    "uploadVideo": "Please upload video",
+    "enterTitle": "Please enter course title",
+    "enterDesc": "Please enter course description"
+  },
+  "studyGroup": {
+    "cover": "Cover",
+    "groupTitle": "Group Title",
+    "groupDesc": "Group Description",
+    "uploadCover": "Please upload cover",
+    "enterGroupTitle": "Please enter group title",
+    "enterGroupDesc": "Please enter group description",
+    "selectTrack": "Please select main and sub track"
+  },
+  "studyIndexModelList": {
+    "loading": "Loading...",
+    "recommendGroups": "Recommended Groups",
+    "viewMore": "View More",
+    "noMore": "No more"
+  },
+  "studyIndexStudyList": {
+    "loading": "Loading...",
+    "latestCourses": "Latest Courses",
+    "viewMore": "View More",
+    "noMore": "No more"
+  },
+  "studyIndexStudyTip": {
+    "studyTip": "iHui AI Cloud Education/Short Video - Welcome to share AI videos",
+    "studyTip2": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
+    "myGroups": "My Groups"
+  },
+  "studyComment": {
+    "hotComments": "Hot Comments",
+    "enterReply": "Please enter reply..."
+  },
+  "studyVideoProgress": {
+    "videoUploading": "Video uploading"
+  },
+  "studyVipBtns": {
+    "vipFree": "VIP Free"
+  }
+}

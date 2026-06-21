@@ -1,0 +1,22 @@
+{
+  "recharge": {
+    "title": "チャージ",
+    "selectAmount": "選択チャージ金額",
+    "officialRecharge": "官方チャージ",
+    "rate": "汇率説明",
+    "normalUser": "普通ユーザー：",
+    "vipUser": "VIPユーザー：",
+    "operator": "操盘手：",
+    "tokens": "智汇値",
+    "selectPayment": "選択支払い方法",
+    "moreMethods": "もっと方法",
+    "recharge": "立即チャージ",
+    "selectAmountAndPayment": "ご選択チャージ金額和支払い方法",
+    "rechargeSuccess": "チャージ成功",
+    "rechargeFailed": "チャージ失敗",
+    "wechatPay": "WeChat支払い",
+    "alipay": "支払い宝",
+    "fetchConfigFailed": "取得チャージ設定失敗",
+    "rechargeOperationFailed": "チャージ失敗"
+  }
+}

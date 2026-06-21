@@ -1,0 +1,40 @@
+{{/*
+5 个 Grafana dashboard JSON 通过 ConfigMap 注入,
+配合 grafana sidecar (kubernetes-sidecar pattern) 自动加载到 Grafana UI.
+
+触发条件: .Values.grafanaDashboards.enabled = true (默认 true, 关闭时本 ConfigMap 不渲染).
+依赖: 集群中已有 grafana Deployment, 并开启 dashboard sidecar (见 chart README).
+*/}}
+{{- if .Values.grafanaDashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zhs-platform.fullname" . }}-grafana-dashboards
+  labels:
+    {{- include "zhs-platform.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+    app.kubernetes.io/component: grafana-dashboards
+data:
+  dashboards.yaml: |-
+    apiVersion: 1
+    providers:
+      - name: 'zhs-platform'
+        orgId: 1
+        folder: 'zhs-platform'
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 60
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards/zhs-platform
+  zhs_biz_overview.json: |-
+{{ (.Files.Get "dashboards/zhs_biz_overview.json") | indent 4 }}
+  zhs_hls.json: |-
+{{ (.Files.Get "dashboards/zhs_hls.json") | indent 4 }}
+  zhs_cache.json: |-
+{{ (.Files.Get "dashboards/zhs_cache.json") | indent 4 }}
+  zhs_ws.json: |-
+{{ (.Files.Get "dashboards/zhs_ws.json") | indent 4 }}
+  zhs_postgresql.json: |-
+{{ (.Files.Get "dashboards/zhs_postgresql.json") | indent 4 }}
+{{- end }}

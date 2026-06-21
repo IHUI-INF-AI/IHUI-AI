@@ -1,0 +1,12 @@
+{
+  "webOnlyFeature": {
+    "title": "Web专属功能",
+    "description": "仅Web平台可用的功能",
+    "desktopOptimization": "桌面优化",
+    "desktopOptimizationDesc": "专为桌面浏览器优化的交互体验",
+    "mouseInteraction": "鼠标交互",
+    "mouseInteractionDesc": "完整的鼠标悬停和点击交互",
+    "keyboardShortcuts": "键盘快捷键",
+    "keyboardShortcutsDesc": "丰富的键盘快捷键支持"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "techService": {
+    "title": "Technical Service Zone",
+    "subtitle": "Get professional technical support and help",
+    "services": {
+      "support": {
+        "title": "Online Support",
+        "desc": "Contact our customer service team for help"
+      },
+      "docs": {
+        "title": "Technical Documentation",
+        "desc": "View detailed technical documentation and API instructions"
+      },
+      "consultation": {
+        "title": "Technical Consultation",
+        "desc": "Book professional technical consultation services"
+      },
+      "training": {
+        "title": "Technical Training",
+        "desc": "Register for our technical training courses"
+      },
+      "custom": {
+        "title": "Custom Services",
+        "desc": "Get personalized technical solutions"
+      },
+      "feedback": {
+        "title": "Feedback",
+        "desc": "Submit your suggestions and feedback"
+      }
+    },
+    "underDevelopment": "Feature under development",
+    "appointmentTitle": "Service Appointment",
+    "appointmentSubmitted": "Appointment submitted successfully, we will contact you soon",
+    "submitAppointment": "Submit Appointment",
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Please enter your name",
+      "email": "Email",
+      "emailPlaceholder": "Please enter your email",
+      "phone": "Phone",
+      "phonePlaceholder": "Please enter your phone number",
+      "preferredDate": "Preferred Date",
+      "preferredTime": "Preferred Time",
+      "datePlaceholder": "Select date",
+      "timePlaceholder": "Select time",
+      "description": "Description",
+      "descriptionPlaceholder": "Please describe your requirements in detail...",
+      "validationRequired": "Please fill in required fields",
+      "invalidEmail": "Please enter a valid email address",
+      "invalidPhone": "Please enter a valid phone number"
+    },
+    "appointmentFailed": "Appointment submission Failed, please try again later"
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "adminAgentManagement": {
+    "tabs": {},
+    "actions": {},
+    "search": {
+      "status": "狀態",
+      "statusPlaceholder": "請選擇狀態",
+      "statusActive": "啟用",
+      "statusInactive": "禁用",
+      "statusDeprecated": "已廢棄"
+    },
+    "table": {
+      "status": "狀態"
+    },
+    "platform": {},
+    "status": {
+      "active": "啟用",
+      "inactive": "禁用",
+      "deprecated": "已廢棄",
+      "unknown": "未知"
+    },
+    "isPublic": {},
+    "agentList": {
+      "status": "狀態"
+    },
+    "categoryList": {},
+    "dialog": {},
+    "test": {
+      "failed": "測試失敗"
+    },
+    "messages": {},
+    "settlementForm": {
+      "status": "狀態",
+      "statusPlaceholder": "請選擇狀態",
+      "statusPending": "待結算",
+      "statusSettled": "已結算",
+      "statusWithdrawn": "已提現",
+      "validation": {
+        "statusRequired": "請選擇狀態"
+      },
+      "messages": {}
+    },
+    "agentForm": {
+      "tabs": {},
+      "basic": {
+        "status": "狀態",
+        "statusPlaceholder": "請選擇狀態",
+        "statusActive": "啟用",
+        "statusInactive": "禁用",
+        "statusDeprecated": "已廢棄"
+      },
+      "platform": {},
+      "advanced": {
+        "availableTags": {},
+        "availableQuestions": {}
+      },
+      "validation": {
+        "statusRequired": "請選擇狀態"
+      },
+      "messages": {
+        "avatarUploadSuccess": "頭像上傳成功"
+      }
+    },
+    "agentCategoryForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "agentBuyForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "advertiseForm": {
+      "status": "狀態",
+      "statusPlaceholder": "請選擇狀態",
+      "statusEnabled": "啟用",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "請選擇狀態"
+      },
+      "upload": {
+        "failed": "上傳失敗"
+      },
+      "messages": {}
+    },
+    "activityForm": {
+      "status": "狀態",
+      "statusEnabled": "狀態已啟用",
+      "statusDisabled": "狀態已禁用",
+      "validation": {
+        "statusRequired": "狀態必填"
+      },
+      "upload": {
+        "failed": "失敗"
+      },
+      "messages": {}
+    }
+  },
+  "adminAgentSettlement": {
+    "messages": {}
+  },
+  "adminAgentBuy": {
+    "messages": {}
+  },
+  "adminAgent": {
+    "messages": {}
+  },
+  "adminAgentBuyManagement": {
+    "actions": {},
+    "buyList": {
+      "status": "訂單狀態"
+    },
+    "search": {
+      "status": "訂單狀態",
+      "statusPlaceholder": "請選擇訂單狀態"
+    },
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    },
+    "settlementStatus": {},
+    "dialogs": {},
+    "messages": {}
+  },
+  "adminAgentSettlementManagement": {
+    "actions": {},
+    "settlementList": {
+      "status": "狀態"
+    },
+    "overview": {},
+    "search": {
+      "status": "狀態",
+      "statusPlaceholder": "請選擇狀態"
+    },
+    "status": {
+      "pending": "待結算",
+      "settled": "已結算",
+      "withdrawn": "已提現",
+      "unknown": "未知"
+    },
+    "settlementStatus": {},
+    "withdrawalStatus": {},
+    "dialogs": {},
+    "messages": {}
+  },
+  "adminAgentCategoryManagement": {
+    "search": {},
+    "table": {},
+    "mainCategory": {},
+    "type": {},
+    "group": {},
+    "form": {},
+    "dialogs": {},
+    "messages": {},
+    "dialog": {}
+  }
+}

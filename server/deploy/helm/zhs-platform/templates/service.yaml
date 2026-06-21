@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zhs-platform.fullname" . }}
+  labels:
+    {{- include "zhs-platform.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    # WebSocket 端口 (与 HTTP 同端口走 upgrade, 单独标注便于监控)
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: ws
+  selector:
+    {{- include "zhs-platform.selectorLabels" . | nindent 4 }}

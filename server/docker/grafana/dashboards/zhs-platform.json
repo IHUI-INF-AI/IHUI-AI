@@ -1,0 +1,216 @@
+{
+  "title": "ZHS Platform Overview",
+  "uid": "zhs-platform",
+  "schemaVersion": 38,
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "tags": ["zhs", "fastapi", "production"],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {"text": "Prometheus", "value": "Prometheus"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "QPS (总请求速率)",
+      "type": "graph",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(zhs_http_requests_total[1m]))",
+          "legendFormat": "总 QPS",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (method) (rate(zhs_http_requests_total[1m]))",
+          "legendFormat": "{{method}}",
+          "refId": "B"
+        }
+      ],
+      "yaxes": [{"format": "reqps"}, {"format": "short"}],
+      "legend": {"showLegend": true, "displayMode": "table", "placement": "right"}
+    },
+    {
+      "id": 2,
+      "title": "错误率 (5xx / 4xx 占比)",
+      "type": "graph",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(zhs_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(zhs_http_requests_total[5m]))",
+          "legendFormat": "5xx 错误率",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(zhs_http_requests_total{status=~\"4..\"}[5m])) / sum(rate(zhs_http_requests_total[5m]))",
+          "legendFormat": "4xx 错误率",
+          "refId": "B"
+        }
+      ],
+      "yaxes": [{"format": "percentunit", "min": 0, "max": 1}, {"format": "short"}],
+      "alert": {
+        "name": "5xx 错误率 > 5%",
+        "conditions": [
+          {
+            "evaluator": {"params": [0.05], "type": "gt"},
+            "operator": {"type": "and"},
+            "query": {"params": ["A", "5m", "now"]},
+            "reducer": {"type": "last"},
+            "type": "query"
+          }
+        ],
+        "frequency": "1m",
+        "for": "5m"
+      }
+    },
+    {
+      "id": 3,
+      "title": "请求延迟 P50 / P95 / P99",
+      "type": "graph",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(zhs_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(zhs_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "P95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(zhs_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "P99",
+          "refId": "C"
+        }
+      ],
+      "yaxes": [{"format": "s"}, {"format": "short"}]
+    },
+    {
+      "id": 4,
+      "title": "活跃连接数 (HTTP + WebSocket)",
+      "type": "graph",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "zhs_active_connections",
+          "legendFormat": "HTTP",
+          "refId": "A"
+        },
+        {
+          "expr": "zhs_websocket_connections",
+          "legendFormat": "WebSocket",
+          "refId": "B"
+        }
+      ],
+      "yaxes": [{"format": "short"}, {"format": "short"}]
+    },
+    {
+      "id": 5,
+      "title": "Top 10 慢端点 (P95)",
+      "type": "table",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum by (le, endpoint) (rate(zhs_http_request_duration_seconds_bucket[5m]))))",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Top 10 高频端点 (QPS)",
+      "type": "table",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "topk(10, sum by (endpoint) (rate(zhs_http_requests_total[5m])))",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Python 进程内存 (RSS)",
+      "type": "graph",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "RSS",
+          "refId": "A"
+        },
+        {
+          "expr": "process_virtual_memory_bytes",
+          "legendFormat": "VSZ",
+          "refId": "B"
+        }
+      ],
+      "yaxes": [{"format": "bytes"}, {"format": "short"}]
+    },
+    {
+      "id": 8,
+      "title": "Python GC 次数",
+      "type": "graph",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(python_gc_collections_total[5m])",
+          "legendFormat": "Gen{{generation}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [{"format": "ops"}, {"format": "short"}]
+    },
+    {
+      "id": 9,
+      "title": "CPU 使用率",
+      "type": "graph",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 0, "y": 32, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total[5m])",
+          "legendFormat": "进程 CPU",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [{"format": "percentunit", "min": 0, "max": 1}, {"format": "short"}]
+    },
+    {
+      "id": 10,
+      "title": "单端点 QPS (按 endpoint 拆分)",
+      "type": "graph",
+      "datasource": "${datasource}",
+      "gridPos": {"x": 12, "y": 32, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (rate(zhs_http_requests_total{status=~\"2..\"}[5m]))",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [{"format": "reqps"}, {"format": "short"}]
+    }
+  ]
+}

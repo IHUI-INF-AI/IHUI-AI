@@ -1,0 +1,79 @@
+{
+  "study": {
+    "cover": "커버",
+    "courseTitle": "과정 제목",
+    "courseDesc": "과정 설명",
+    "relatedApp": "관련 AI 앱",
+    "topComment": "상단 댓글",
+    "selectTags": "과정 태그 선택",
+    "chunkUploadFailed": "청크 업로드 실패",
+    "videoUploadSuccess": "비디오 업로드 성공!",
+    "editSuccessReview": "수정 성공! 검토를 기다려 주세요",
+    "deleteSuccessReview": "삭제 성공! 검토를 기다려 주세요",
+    "publishCollectionFirst": "먼저 컬렉션을 게시하세요",
+    "videoProcessing": "비디오 처리 중. 나중에 게시하세요",
+    "uploadCover": "커버를 업로드하세요",
+    "uploadVideo": "비디오를 업로드하세요",
+    "enterCourseTitle": "과정 제목을 입력하세요",
+    "enterCourseDesc": "과정 설명을 입력하세요",
+    "groupTitle": "컬렉션 제목",
+    "groupDesc": "컬렉션 설명",
+    "selectTrack": "컬렉션 트랙 선택",
+    "mainTrackPrefix": "#메인 트랙",
+    "selectPhase": "과정 단계 선택",
+    "uploadVideoCourse": "과정 비디오 업로드",
+    "publishSuccessContinue": "게시 성공, 비디오 업로드 계속",
+    "enterGroupTitle": "컬렉션 제목을 입력하세요",
+    "enterGroupDesc": "컬렉션 설명을 입력하세요",
+    "selectMainSubTrack": "메인 및 하위 트랙을 선택하세요",
+    "uploadSuccess": "업로드 성공",
+    "uploadFailed": "업로드 실패"
+  },
+  "studyAdd": {
+    "cover": "커버",
+    "title": "강의 제목",
+    "desc": "강의 설명",
+    "publishFirst": "먼저 컬렉션 게시",
+    "videoSynth": "비디오 합성 중, 나중에 게시",
+    "uploadCover": "커버 업로드",
+    "uploadVideo": "비디오 업로드",
+    "enterTitle": "강의 제목 입력",
+    "enterDesc": "강의 설명 입력"
+  },
+  "studyGroup": {
+    "cover": "커버",
+    "groupTitle": "그룹 제목",
+    "groupDesc": "그룹 설명",
+    "uploadCover": "커버를 업로드하세요",
+    "enterGroupTitle": "그룹 제목을 입력하세요",
+    "enterGroupDesc": "그룹 설명을 입력하세요",
+    "selectTrack": "메인/서브 트랙을 선택하세요"
+  },
+  "studyIndexModelList": {
+    "loading": "로딩...",
+    "recommendGroups": "추천 그룹",
+    "viewMore": "더 보기",
+    "noMore": "더 이상 없음"
+  },
+  "studyIndexStudyList": {
+    "loading": "로딩...",
+    "latestCourses": "최신 강좌",
+    "viewMore": "더 보기",
+    "noMore": "더 이상 없음"
+  },
+  "studyIndexStudyTip": {
+    "studyTip": "즈후이 AI 클라우드 교육/숏폼 - AI 비디오 공유를 환영",
+    "studyTip2": "智汇AI 云教育/短视频  欢迎所有AI相关视频上传分享",
+    "myGroups": "내 그룹"
+  },
+  "studyComment": {
+    "hotComments": "인기 댓글",
+    "enterReply": "답글 내용을 입력하세요..."
+  },
+  "studyVideoProgress": {
+    "videoUploading": "비디오 업로드 중"
+  },
+  "studyVipBtns": {
+    "vipFree": "VIP 무료"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "adminActivityManagement": {
+    "핵심 장점": "활동관리",
+    "sub핵심 장점": "관리활동및활동카테고리",
+    "actions": {
+      "export": "내보내기"
+    },
+    "activityList": {
+      "핵심 장점": "활동제목",
+      "status": "상태"
+    },
+    "search": {
+      "핵심 장점": "활동제목",
+      "핵심 장점Placeholder": "요청입력활동제목",
+      "status": "상태",
+      "statusPlaceholder": "요청선택상태",
+      "statusEnabled": "활성화",
+      "statusDisabled": "비활성화"
+    },
+    "status": {
+      "enabled": "활성화",
+      "disabled": "비활성화"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "내보내기 성공",
+      "exportFailed": "내보내기 실패"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "Payment": {
+    "alreadyVip": "You are already a VIP",
+    "notLogged": "User not logged in",
+    "incompleteProduct": "Incomplete product info",
+    "selectPayMethod": "Please select payment method",
+    "notLoggedOrNoOpenId": "User not logged in or no openid"
+  }
+}

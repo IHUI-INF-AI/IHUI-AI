@@ -1,0 +1,54 @@
+apiVersion: 1
+# Grafana 告警 Notification Policies 路由树
+# 告警根据 labels 路由到不同 Contact Point
+policies:
+  # 默认兜底: 任何未匹配告警都进 webhook
+  - orgId: 1
+    receiver: zhs-webhook-default
+    group_by:
+      - grafana_folder
+      - alertname
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+
+  # Critical 级别: 钉钉 (含 @所有人)
+  - orgId: 1
+    receiver: zhs-dingtalk-critical
+    object_matchers:
+      - ["severity", "=", "critical"]
+    group_wait: 10s
+    group_interval: 2m
+    repeat_interval: 30m
+    continue: true  # 同时触发默认 webhook
+
+  # Warning 级别: 飞书
+  - orgId: 1
+    receiver: zhs-feishu-warning
+    object_matchers:
+      - ["severity", "=", "warning"]
+    group_wait: 20s
+    group_interval: 3m
+    repeat_interval: 1h
+    continue: true
+
+  # 支付团队: 单独路由 (critical + team=pay)
+  - orgId: 1
+    receiver: zhs-dingtalk-critical
+    object_matchers:
+      - ["team", "=", "pay"]
+      - ["severity", "=", "critical"]
+    group_wait: 5s
+    group_interval: 1m
+    repeat_interval: 15m
+    continue: true
+
+  # AI 团队: warning + team=ai 单独路由
+  - orgId: 1
+    receiver: zhs-feishu-warning
+    object_matchers:
+      - ["team", "=", "ai"]
+      - ["severity", "=", "warning"]
+    group_wait: 10s
+    group_interval: 2m
+    repeat_interval: 30m

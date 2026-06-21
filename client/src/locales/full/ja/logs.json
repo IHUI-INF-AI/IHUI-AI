@@ -1,0 +1,9 @@
+{
+  "logs": {
+    "loginFailed": "login失敗",
+    "logoutApiFailed": "logoutApi失敗",
+    "thirdPartyLoginFailed": "thirdPartyLogin失敗",
+    "refreshTokenFailed": "refreshToken失敗",
+    "getUserInfoFailed": "getUserInfo失敗"
+  }
+}

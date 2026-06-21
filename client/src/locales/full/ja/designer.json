@@ -1,0 +1,43 @@
+{
+  "designer": {
+    "mode": "模式",
+    "labels": {
+      "strategy": "デザイン策略",
+      "audit": "デザイン审核",
+      "blueprint": "デザイン蓝图",
+      "code": "デザインコード"
+    },
+    "model": "モデル",
+    "selectModel": "選択モデル",
+    "input": "入力",
+    "placeholder": "ご入力您的必要求...",
+    "actions": {
+      "generate": "生成",
+      "reset": "リセット"
+    },
+    "tabs": {
+      "output": "出力",
+      "vue": "Vue",
+      "react": "React",
+      "html": "HTML"
+    },
+    "empty": "なしコンテンツ",
+    "prompts": {
+      "line1": "你是一件専門的AIデザイン助手",
+      "line2": "根据ユーザー的需求，生成相应的デザインコンテンツ",
+      "line3": "出力形式鮮明、易于理解",
+      "line4": "確認コンテンツ的専門性和准确性"
+    },
+    "errors": {
+      "selectModel": "请選択モデル",
+      "enterRequirement": "ご入力必要求",
+      "generateFailed": "生成失敗"
+    },
+    "expect": {
+      "strategy": "デザイン策略",
+      "audit": "デザイン审核",
+      "blueprint": "デザイン蓝图",
+      "code": "デザインコード"
+    }
+  }
+}
