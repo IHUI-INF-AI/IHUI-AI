@@ -115,23 +115,27 @@ const onRetry = () => {
   color: var(--el-text-color-regular);
   font-size: 13px;
 }
+
 .batch-edit :where(.el-form-item__content) {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+
 .batch-edit__progress {
   margin-top: 16px;
   padding: 12px;
   background: var(--el-fill-color-light);
   border-radius: var(--global-border-radius);
 }
+
 .batch-edit__progress-text {
   margin: 8px 0 0;
   text-align: center;
   color: var(--el-text-color-secondary);
   font-size: 13px;
 }
+
 .batch-edit__failed-text {
   margin: 4px 0 0;
   text-align: center;
