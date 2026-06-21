@@ -1,0 +1,47 @@
+#!/usr/bin/env sh
+# 根目录 Pre-commit 钩子
+# 作用：提交代码前自动检查，防止问题代码进入仓库
+# 检查内容：
+#   1. 高特异性选择器检测（用户规则：禁止 4 类以上嵌套的选择器）
+#   2. !important 检查（用户规则：禁止 !important）
+#   3. nul 残留文件扫描（Windows 终端重定向副作用）
+#   4. markraw-icon 规则检查（响应式对象中组件 icon 必须用 markRaw 包装）
+# 注意：检查脚本在 client 目录，需要切换到 client 目录执行
+
+set -e
+
+# 只检查 client 目录下的文件
+CLIENT_STAGED=$(git diff --cached --name-only | grep "^client/" || true)
+if [ -z "$CLIENT_STAGED" ]; then
+  echo "✓ 没有 client 目录的文件变更，跳过前端检查"
+  exit 0
+fi
+
+echo "▶ 切换到 client 目录执行前端检查..."
+cd client
+
+echo "▶ Running lint-staged..."
+npx lint-staged
+
+# lint-staged 修复后可能有新修改未暂存，一次性添加避免循环提交
+cd ..
+UNSTAGED=$(git diff --name-only | grep "^client/" || true)
+if [ -n "$UNSTAGED" ]; then
+  echo "▶ 检测到 lint-staged 修复后的未暂存文件，一次性添加..."
+  git add client/
+fi
+
+echo "▶ Running no-important check..."
+cd client
+npm run check:no-important --silent
+
+echo "▶ Scanning for nul residue files..."
+node scripts/check-nul.mjs
+
+echo "▶ Checking markraw-icon rule on staged files..."
+node scripts/check-markraw-staged.mjs
+
+echo "▶ Checking high specificity selectors on staged files..."
+HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs
+
+echo "✓ 所有前端检查通过"

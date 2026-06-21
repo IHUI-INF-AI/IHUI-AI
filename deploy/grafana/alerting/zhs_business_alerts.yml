@@ -1,0 +1,150 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "zhs-business-funnel",
+      "folder": "ZHS",
+      "interval": "30s",
+      "rules": [
+        {
+          "uid": "zhs-payment-fail-rate",
+          "title": "支付失败率告警",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": {"from": 300, "to": 0},
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "sum(increase(zhs_business_events_total{event=\"payment_fail\"}[5m]))",
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "",
+              "relativeTimeRange": {"from": 300, "to": 0},
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "sum(increase(zhs_business_events_total{event=\"payment_success\"}[5m])) + sum(increase(zhs_business_events_total{event=\"payment_fail\"}[5m]))",
+                "refId": "B"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "",
+              "relativeTimeRange": {"from": 0, "to": 0},
+              "datasourceUid": "__expr__",
+              "model": {
+                "type": "threshold",
+                "expression": "A / clamp_min(B, 1)",
+                "refId": "C",
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {"type": "gt", "params": [0.3]},
+                    "operator": {"type": "and"},
+                    "query": {"params": ["C"]},
+                    "reducer": {"type": "last", "params": []}
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "Alerting",
+          "for": "2m",
+          "annotations": {
+            "summary": "支付失败率超过 30%",
+            "description": "最近 5 分钟支付失败率 {{ $values.C }} 超过 30%，请检查支付通道。"
+          },
+          "labels": {"severity": "critical", "team": "pay"}
+        },
+        {
+          "uid": "zhs-chat-error-rate",
+          "title": "Chat 错误率告警",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": {"from": 300, "to": 0},
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "sum(increase(zhs_business_events_total{event=~\"error_.*\"}[5m]))",
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "",
+              "relativeTimeRange": {"from": 300, "to": 0},
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "sum(increase(zhs_business_events_total{event=\"chat_send\"}[5m]))",
+                "refId": "B"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "",
+              "relativeTimeRange": {"from": 0, "to": 0},
+              "datasourceUid": "__expr__",
+              "model": {
+                "type": "threshold",
+                "expression": "A / clamp_min(B, 1)",
+                "refId": "C"
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "Alerting",
+          "for": "3m",
+          "annotations": {
+            "summary": "Chat 错误率超过 10%",
+            "description": "Chat 接口错误率 {{ $values.C }} 超过 10%，请检查上游模型服务。"
+          },
+          "labels": {"severity": "warning", "team": "ai"}
+        },
+        {
+          "uid": "zhs-chat-latency-p95",
+          "title": "Chat P95 延迟告警",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": {"from": 300, "to": 0},
+              "datasourceUid": "prometheus",
+              "model": {
+                "expr": "histogram_quantile(0.95, sum by (le) (rate(zhs_business_latency_seconds_bucket{event=\"chat_send\"}[5m])))",
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "",
+              "relativeTimeRange": {"from": 0, "to": 0},
+              "datasourceUid": "__expr__",
+              "model": {
+                "type": "threshold",
+                "expression": "A",
+                "refId": "C"
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "Alerting",
+          "for": "5m",
+          "annotations": {
+            "summary": "Chat P95 延迟超过 3 秒",
+            "description": "Chat 接口 P95 延迟 {{ $values.A }}s 超过阈值，请检查模型服务。"
+          },
+          "labels": {"severity": "warning", "team": "ai"}
+        }
+      ]
+    }
+  ]
+}

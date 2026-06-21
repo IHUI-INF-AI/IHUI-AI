@@ -1,0 +1,45 @@
+apiVersion: 1
+# Grafana 告警 Contact Points 配置
+# 渠道: webhook 通用 / 钉钉 / 飞书 / 邮件
+# 通过 envsubst 注入敏感 URL, 或用 Grafana vault 存储
+contactPoints:
+  - orgId: 1
+    name: zhs-webhook-default
+    receivers:
+      - name: zhs-webhook-default
+        type: webhook
+        settings:
+          # 业务告警 webhook 端点 (后端或独立服务)
+          url: ${ZHS_ALERT_WEBHOOK_URL}
+          httpMethod: POST
+          # 通用 headers (可选)
+          username: ""
+          password: ""
+        # 不要在 Contact Point 直接写明文 URL, 用 envsubst 注入
+
+  - orgId: 1
+    name: zhs-dingtalk-critical
+    receivers:
+      - name: zhs-dingtalk-critical
+        type: teams  # 占位, 实际用 webhook 自定义
+        settings:
+          url: ${ZHS_DINGTALK_WEBHOOK}
+          httpMethod: POST
+
+  - orgId: 1
+    name: zhs-feishu-warning
+    receivers:
+      - name: zhs-feishu-warning
+        type: teams
+        settings:
+          url: ${ZHS_FEISHU_WEBHOOK}
+          httpMethod: POST
+
+  - orgId: 1
+    name: zhs-email-team
+    receivers:
+      - name: zhs-email-team
+        type: email
+        settings:
+          addresses: ${ZHS_ALERT_EMAIL:-ops@zhs.com,sre@zhs.com}
+          singleEmail: false
