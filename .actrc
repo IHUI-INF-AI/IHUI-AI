@@ -1,0 +1,17 @@
+# nektos/act 本地 CI 演练配置
+# 文档: https://nektosact.com/usage/index.html
+
+# 默认使用小型镜像，加快启动
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+-P ubuntu-22.04=catthehacker/ubuntu:act-22.04
+
+# 关闭交互式 prompt
+--no-skip-checkout
+
+# 容器默认无 secrets；CI 中的 secrets 通过 --secret-file 注入
+
+# 常用命令:
+#   act -l                          # 列出所有 workflow 与 job
+#   act workflow_dispatch           # 手动触发 workflow_dispatch 事件
+#   act -j visual-regression        # 仅跑视觉回归 job
+#   act --secret-file .env.act      # 注入 secrets
