@@ -1,15 +1,16 @@
-#!/usr/bin/env sh
-# 根目录 Pre-push 钩子
-# 作用：推送代码前自动检查，防止有问题的代码进入远端分支
-# 检查内容：
-#   1. TypeScript 类型检查
-#   2. 样式审计（no-important / colors / font-size）
-#   3. 设计 tokens 检查
-#   4. 高特异性选择器检测
-# 注意：检查脚本在 client 目录，需要切换到 client 目录执行
+#!/bin/sh
 
-set -e
+# ============================================================================
+# Pre-push 钩子 (合并版)
+# 1. Git LFS pre-push (大文件管理)
+# 2. 前端代码检查 (TypeScript / 样式审计 / 设计 tokens)
+# ============================================================================
 
+# --- 1. Git LFS ---
+command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'pre-push' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
+git lfs pre-push "$@"
+
+# --- 2. 前端代码检查 ---
 # 只在有 client 目录的文件变更时才执行检查
 CLIENT_STAGED=$(git diff --cached --name-only | grep "^client/" || true)
 CLIENT_RECENT=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep "^client/" || true)
@@ -25,13 +26,9 @@ echo "▶ Running vue-tsc type check (this may take a while)..."
 npm run typecheck --silent
 
 echo "▶ Running style audit (no-important / colors / font-size)..."
-CHECK_NO_IMPORTANT_BASELINE=1 CHECK_COLORS_BASELINE=1 CHECK_FONTSIZE_BASELINE=1 npm run style:audit --silent
+CHECK_NO_IMPORTANT_BASELINE=1 CHECK_COLORS=1 CHECK_FONT_SIZE=1 npm run check:no-important --silent
 
 echo "▶ Running design tokens check..."
-npm run tokens:check --silent
-npm run tokens:naming --silent
+npm run check:tokens --silent
 
-echo "▶ Running high specificity selector check..."
-HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent
-
-echo "✓ 所有前端检查通过，可以推送"
+echo "✓ 所有前端检查通过"
