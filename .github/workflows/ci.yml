@@ -820,7 +820,8 @@ jobs:
       - name: 构建前端
         uses: docker/build-push-action@v5
         with:
-          context: ./client
+          context: .
+          file: Dockerfile.client
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}
@@ -835,20 +836,34 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: staging
-      url: https://staging.zhs.example.com
+      url: https://staging.aizhs.top
     steps:
       - uses: actions/checkout@v4
       - name: 部署
         env:
-          KUBECONFIG: ${{ secrets.STAGING_KUBECONFIG }}
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.STAGING_HOST }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: |
           echo "staging 部署触发"
-          helm upgrade --install zhs-staging deploy/helm/zhs-app \
-            --kubeconfig $KUBECONFIG \
-            --namespace staging \
-            --values deploy/helm/zhs-app/values-staging.yaml \
-            --set image.tag=${{ github.sha }} \
-            --wait --timeout 600s
+          ssh -o StrictHostKeyChecking=no root@$DEPLOY_HOST "
+            cd /opt/aizhs &&
+            git pull origin main &&
+            export DB_PASSWORD=$DB_PASSWORD &&
+            export REDIS_PASSWORD=$REDIS_PASSWORD &&
+            export JWT_SECRET=$JWT_SECRET &&
+            export SESSION_SECRET=$SESSION_SECRET &&
+            export MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY &&
+            export MINIO_SECRET_KEY=$MINIO_SECRET_KEY &&
+            export DOMAIN=staging.aizhs.top &&
+            export APP_TITLE='智汇AI(staging)' &&
+            docker compose up -d --build
+          "
 
   notify-failure:
     name: 失败通知
