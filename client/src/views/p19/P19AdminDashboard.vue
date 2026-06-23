@@ -16,9 +16,9 @@
       <el-table :data="logs" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="admin" label="Admin" width="120" />
-        <el-table-column prop="action" label="操作" width="140" />
-        <el-table-column prop="target" label="目标" />
-        <el-table-column prop="created_at" label="时间" width="200" />
+        <el-table-column prop="action" :label="t('p19AdminDashboard.action')" width="140" />
+        <el-table-column prop="target" :label="t('p19AdminDashboard.target')" />
+        <el-table-column prop="created_at" :label="t('p19AdminDashboard.time')" width="200" />
       </el-table>
     </el-card>
   </div>
@@ -56,7 +56,7 @@ onMounted(async () => {
       created_at: a.createdAt,
     }))
   } catch (e: any) {
-    ElMessage.error('加载失败: ' + (e?.message || e))
+    ElMessage.error(t('common.loadFailed') + ': ' + (e?.message || e))
   } finally {
     loading.value = false
   }

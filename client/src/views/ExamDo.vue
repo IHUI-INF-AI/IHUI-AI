@@ -41,11 +41,11 @@
           </div>
 
           <div v-else-if="q.type === 'fill'" class="options">
-            <input v-model="answers[q.id]" class="fill-input" placeholder="请输入答案" />
+            <input v-model="answers[q.id]" class="fill-input" :placeholder="t('examDo.inputAnswer')" />
           </div>
 
           <div v-else-if="q.type === 'essay'" class="options">
-            <textarea v-model="answers[q.id]" class="essay-input" rows="4" placeholder="请作答..." />
+            <textarea v-model="answers[q.id]" class="essay-input" rows="4" :placeholder="t('examDo.inputEssay')" />
           </div>
         </div>
       </div>
@@ -55,18 +55,18 @@
       </div>
     </template>
 
-    <el-dialog v-model="resultVisible" title="考试结果" width="420px">
+    <el-dialog v-model="resultVisible" :title="t('examDo.examResult')" width="420px">
       <div v-if="result" class="result-body">
         <div class="r-score">
           <span class="r-score-num">{{ result.score }}</span>
           <span class="r-score-total">/ {{ result.total_score }}</span>
         </div>
         <div :class="['r-passed', { passed: result.passed }]">
-          {{ result.passed ? '🎉 恭喜通过' : '😢 未及格' }}
+          {{ result.passed ? t('examDo.passed') : t('examDo.failed') }}
         </div>
       </div>
       <template #footer>
-        <el-button @click="goBack">返回列表</el-button>
+        <el-button @click="goBack">{{ t('examDo.backToList') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -99,7 +99,14 @@ const resultVisible = ref(false)
 const result = ref<any>(null)
 
 function getTypeLabel(type: string) {
-  return { single: '单选', multiple: '多选', judge: '判断', fill: '填空', essay: '简答' }[type] || type
+  const labels: Record<string, string> = {
+    single: t('examDo.typeSingle'),
+    multiple: t('examDo.typeMultiple'),
+    judge: t('examDo.typeJudge'),
+    fill: t('examDo.typeFill'),
+    essay: t('examDo.typeEssay')
+  }
+  return labels[type] || type
 }
 
 function getOptions(q: any) {
@@ -176,7 +183,7 @@ async function handleSubmit() {
     resultVisible.value = true
     if (timerId.value) clearInterval(timerId.value)
   } catch {
-    toast.error('提交失败')
+    toast.error(t('common.errors.submitFailed'))
   } finally {
     submitting.value = false
   }

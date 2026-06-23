@@ -111,6 +111,6 @@ export default defineConfig({
     command: 'npm run dev',
     url: FRONTEND_URL,
     reuseExistingServer: true,
-    timeout: 120 * 1000,
+    timeout: 300 * 1000,
   },
 })

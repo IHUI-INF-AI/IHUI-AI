@@ -550,7 +550,8 @@
     "selectDoc": "请从左侧选择文档",
     "loadFailed": "加载文档失败",
     "searchPlaceholder": "搜索文档...",
-    "toc": "目录"
+    "toc": "目录",
+    "enterpriseService": "企业服务"
   },
   "common": {
     "siteName": "智汇AI社区",
@@ -620,7 +621,8 @@
       "getCaptchaFailed": "获取验证码失败",
       "requestCancelled": "请求已取消",
       "loginFailed": "Login Failed",
-      "actionFailed": "操作失败"
+      "actionFailed": "操作失败",
+      "removeFailed": "移除失败"
     },
     "messages": {
       "loadSuccess": "加载成功",
@@ -629,7 +631,8 @@
       "createSuccess": "创建成功",
       "operationSuccess": "操作成功",
       "saving": "保存中",
-      "loginSuccess": "登录成功"
+      "loginSuccess": "登录成功",
+      "removed": "已移除"
     },
     "add": "添加",
     "addSuccess": "添加成功",
@@ -2362,7 +2365,9 @@
       "codeGroup": "代码生成",
       "otherGroup": "其他",
       "other": "其他"
-    }
+    },
+    "searchPlaceholder": "输入关键词进行搜索",
+    "allTypes": "全部类型"
   },
   "voiceInput": {
     "listening": "正在聆听...",
@@ -12906,6 +12911,7 @@
     }
   },
   "learn": {
+    "hotRecommend": "热门推荐",
     "searchPlaceholder": {
       "category": "搜索分类",
       "lesson": "搜索课程",
@@ -13138,7 +13144,10 @@
     "title": "标题",
     "content": "正文",
     "category": "分类",
-    "selectCategory": "选择分类 (可选)"
+    "selectCategory": "选择分类 (可选)",
+    "searchPlaceholder": "搜索问题...",
+    "titlePlaceholder": "一句话描述你的问题",
+    "contentPlaceholder": "详细说明..."
   },
   "adminClassicHome": {
     "vsYesterday": "较昨日",
@@ -13321,7 +13330,8 @@
     "publish": "发布",
     "noPosts": "暂无动态",
     "top": "置顶",
-    "essence": "精华"
+    "essence": "精华",
+    "postPlaceholder": "说点什么..."
   },
   "withdrawDialog": {
     "availableBalance": "可提现余额",
@@ -13373,7 +13383,10 @@
     "like": "点赞",
     "comment": "评论",
     "searchArticle": "搜索文章",
-    "noArticle": "暂无文章"
+    "noArticle": "暂无文章",
+    "latest": "最新",
+    "hottest": "最热",
+    "essenceLabel": "精华"
   },
   "askDetail": {
     "backToList": "返回列表",
@@ -13536,7 +13549,8 @@
     "top": "置顶",
     "hot": "热",
     "official": "官方",
-    "read": "阅读"
+    "read": "阅读",
+    "all": "全部"
   },
   "ranking": {
     "title": "排行榜",
@@ -14155,7 +14169,9 @@
   },
   "learnRate": {
     "reviews": "条评价",
-    "writeReview": "写评价"
+    "writeReview": "写评价",
+    "rating": "评分",
+    "content": "内容"
   },
   "learnTopicDetail": {
     "topicNotFound": "专题不存在",
@@ -14165,7 +14181,8 @@
   "livePlay": {
     "liveNotFound": "直播不存在",
     "notLive": "主播未开播",
-    "send": "发送"
+    "send": "发送",
+    "danmuPlaceholder": "发条弹幕..."
   },
   "memberArticle": {
     "myArticles": "我的文章",
@@ -14195,7 +14212,10 @@
   },
   "p19AdminDashboard": {
     "title": "P19 Admin 仪表盘",
-    "recentActivity": "最近活动"
+    "recentActivity": "最近活动",
+    "action": "操作",
+    "target": "目标",
+    "time": "时间"
   },
   "statisticsPage": {
     "zeroHour": "0小时"

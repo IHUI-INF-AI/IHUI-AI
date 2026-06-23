@@ -2,7 +2,7 @@
   <div class="learn-home-page page-container">
     <LearnNavMenu />
     <Banner :carousel="carousel" :loading="bannerLoading" />
-    <Hot :list="hotList" :loading="hotLoading" title="热门推荐" type="learn" @refresh="loadHot" />
+    <Hot :list="hotList" :loading="hotLoading" :title="t('learn.hotRecommend')" type="learn" @refresh="loadHot" />
     <RowTabs
       v-for="cat in categoryLessons"
       :key="cat.id"
@@ -11,17 +11,20 @@
       :sub-categories="cat.subCategories"
       :loading="false"
     />
-    <el-empty v-if="!categoryLessons.length && !hotLoading" description="暂无课程" />
+    <el-empty v-if="!categoryLessons.length && !hotLoading" :description="t('common.noData')" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import Banner from '@/components/module/Banner.vue'
 import Hot from '@/components/module/Hot.vue'
 import RowTabs from '@/components/module/RowTabs.vue'
 import { learnApi } from '@/api/learn'
+
+const { t } = useI18n()
 
 // 轮播图项
 interface CarouselItem {

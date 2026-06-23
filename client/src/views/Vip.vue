@@ -646,6 +646,8 @@ const createRipple = (e: MouseEvent, el: HTMLElement) => {
 }
 
 const fetchUserVipInfo = async () => {
+  // 未登录时不发起需认证请求，避免全局拦截器强制跳转 /login
+  if (!authStore.token) return
   const data = await executeVipApi(async () => {
     const { getUserVipInfo: getUserVipInfoFromUser } = await import('@/api/user')
     return await getUserVipInfoFromUser()
@@ -741,7 +743,7 @@ const handlePaymentClick = async () => {
     await handlePayment(selectedPlan.value)
   } catch (e) {
     console.error('[Vip] 支付发起失败', e)
-    ElMessage.error('支付发起失败，请重试')
+    ElMessage.error(t('common.errors.paymentInitFailed'))
   }
 }
 

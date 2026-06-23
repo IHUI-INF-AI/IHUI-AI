@@ -380,6 +380,15 @@ except Exception:
     education_platform_router = None
     HAS_EDU_PLATFORM = False
 
+# --- Education Exam 教育考试模块 ---
+try:
+    from app.api.v1.education import router as education_exam_router
+
+    HAS_EDU_EXAM = True
+except Exception:
+    education_exam_router = None
+    HAS_EDU_EXAM = False
+
 # --- Course Audit 课程审核 ---
 try:
     from app.api.v1.course_audit import router as course_audit_router
@@ -812,6 +821,10 @@ if category_dict_router:
 # Education Platform
 if education_platform_router:
     api_router.include_router(education_platform_router, tags=["Education Platform"])
+
+# Education Exam
+if education_exam_router:
+    api_router.include_router(education_exam_router, prefix="/education/exam", tags=["Education Exam"])
 
 # Course Audit
 if course_audit_router:

@@ -465,6 +465,17 @@ function setupRequestInterceptor() {
 
       // 如果不在白名单中，才检查用户是否已登录
       if (!isWhitelisted && !token && !isDemo) {
+        // 公开页面（requiresAuth: false）不触发登录重定向，仅静默拒绝请求
+        try {
+          const routerMod = await import('@/router')
+          const currentRoute = routerMod.default?.currentRoute?.value
+          if (currentRoute?.meta?.requiresAuth === false) {
+            return Promise.reject(new Error(i18nT('errors.notLoggedIn')))
+          }
+        } catch {
+          // router 未就绪，继续正常登录重定向流程
+        }
+
         // 显示登录提示
         ElMessage.warning(i18nT('errors.pleaseLogin'))
 
@@ -679,6 +690,17 @@ function setupResponseInterceptor() {
 
       // 处理401错误 - 未授权或Token过期
       if (status === 401) {
+        // 公开页面（requiresAuth: false）不触发登录重定向，仅静默拒绝请求
+        try {
+          const routerMod = await import('@/router')
+          const currentRoute = routerMod.default?.currentRoute?.value
+          if (currentRoute?.meta?.requiresAuth === false) {
+            return Promise.reject(error)
+          }
+        } catch {
+          // router 未就绪，继续正常 401 处理流程
+        }
+
         // 如果是刷新Token的请求出错，直接跳转到登录页（避免刷新接口死循环）
         const refreshEndpointHints = [
           '/refresh-token',

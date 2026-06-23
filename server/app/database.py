@@ -181,6 +181,10 @@ AI_PROJECT_TABLES = {
     "ai_user_feedback",
     "ai_gc",
     "ai_gc_user_log",
+    # Multi-Agent Crew
+    "zhs_crew_session",
+    "zhs_crew_task",
+    "zhs_crew_message",
     # Code generation
     "gen_table",
     "gen_table_column",

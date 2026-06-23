@@ -23,12 +23,12 @@
       </div>
     </div>
 
-    <el-dialog v-model="dialogVisible" title="写评价" width="500px">
+    <el-dialog v-model="dialogVisible" :title="t('learnRate.writeReview')" width="500px">
       <el-form>
-        <el-form-item label="评分">
+        <el-form-item :label="t('learnRate.rating')">
           <el-rate v-model="form.rating" />
         </el-form-item>
-        <el-form-item label="内容">
+        <el-form-item :label="t('learnRate.content')">
           <el-input v-model="form.content" type="textarea" :rows="4" />
         </el-form-item>
       </el-form>
@@ -74,7 +74,7 @@ async function load() {
 
 async function handleSubmit() {
   if (!form.value.content.trim()) {
-    ElMessage.warning('请输入评价内容')
+    ElMessage.warning(t('common.messages.rateWarning'))
     return
   }
   submitting.value = true
@@ -84,7 +84,7 @@ async function handleSubmit() {
       content: form.value.content,
       rating: form.value.rating,
     })
-    ElMessage.success('评价成功')
+    ElMessage.success(t('common.messages.rateSuccess'))
     dialogVisible.value = false
     form.value = { rating: 5, content: '' }
     load()

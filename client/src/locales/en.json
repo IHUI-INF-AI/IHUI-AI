@@ -36,7 +36,8 @@
     "selectDoc": "Please select a document from the left",
     "loadFailed": "Failed to load document",
     "searchPlaceholder": "Search documents...",
-    "toc": "Toc"
+    "toc": "Toc",
+    "enterpriseService": "Enterprise Services"
   },
   "open": {
     "documentCenter": {
@@ -1100,7 +1101,8 @@
       "requestCancelled": "Request cancelled",
       "exportFailed": "Export failed",
       "loginFailed": "Login Failed",
-      "actionFailed": "Operation Failed"
+      "actionFailed": "Operation Failed",
+      "removeFailed": "Removal failed"
     },
     "messages": {
       "loadSuccess": "Loaded successfully",
@@ -1111,7 +1113,8 @@
       "operationSuccess": "Operation successful",
       "saving": "Saving",
       "Login Successful": "Login Successful",
-      "loginSuccess": "Login successful"
+      "loginSuccess": "Login successful",
+      "removed": "Removed"
     },
     "share": "Share",
     "print": "Print",
@@ -5163,7 +5166,9 @@
       "codeGroup": "Code Group",
       "otherGroup": "Other Group",
       "other": "Other"
-    }
+    },
+    "searchPlaceholder": "Enter keywords to search",
+    "allTypes": "All types"
   },
   "aboutUs": {
     "heroTitle": "About Us",
@@ -16677,6 +16682,7 @@
     }
   },
   "learn": {
+    "hotRecommend": "Hot Recommendations",
     "searchPlaceholder": {
       "category": "Search Category",
       "lesson": "Search Lesson",
@@ -16901,7 +16907,10 @@
     "title": "Title",
     "content": "Content",
     "category": "Category",
-    "selectCategory": "Select category (optional)"
+    "selectCategory": "Select category (optional)",
+    "searchPlaceholder": "Search questions...",
+    "titlePlaceholder": "Describe your question in one sentence",
+    "contentPlaceholder": "Provide details..."
   },
   "adminClassicHome": {
     "vsYesterday": "vs yesterday",
@@ -17084,7 +17093,8 @@
     "publish": "Publish",
     "noPosts": "No posts",
     "top": "Pinned",
-    "essence": "Featured"
+    "essence": "Featured",
+    "postPlaceholder": "Say something..."
   },
   "withdrawDialog": {
     "availableBalance": "Available Balance",
@@ -17107,7 +17117,9 @@
     "top": "Pinned",
     "noDesc": "No description",
     "members": "members",
-    "posts": "posts"
+    "posts": "posts",
+    "searchPlaceholder": "Search circles...",
+    "onlyOfficial": "Official only"
   },
   "tools": {
     "title": "AI Tools",
@@ -17136,7 +17148,10 @@
     "like": "Likes",
     "comment": "Comments",
     "searchArticle": "Search articles",
-    "noArticle": "No articles"
+    "noArticle": "No articles",
+    "latest": "Latest",
+    "hottest": "Hottest",
+    "essenceLabel": "Featured"
   },
   "askDetail": {
     "backToList": "Back to List",
@@ -17280,7 +17295,18 @@
     "startExam": "Start Exam",
     "remaining": "Remaining",
     "score": "pts",
-    "submit": "Submit"
+    "submit": "Submit",
+    "inputAnswer": "Enter your answer",
+    "inputEssay": "Write your response...",
+    "examResult": "Exam Result",
+    "passed": "🎉 Congratulations, passed!",
+    "failed": "😢 Not passed",
+    "backToList": "Back to list",
+    "typeSingle": "Single choice",
+    "typeMultiple": "Multiple choice",
+    "typeJudge": "True/False",
+    "typeFill": "Fill in the blank",
+    "typeEssay": "Short answer"
   },
   "memberPoint": {
     "myPoints": "My Points",
@@ -17299,7 +17325,8 @@
     "top": "Top",
     "hot": "Hot",
     "official": "Official",
-    "read": "Read"
+    "read": "Read",
+    "all": "All"
   },
   "ranking": {
     "title": "Leaderboard",
@@ -17918,7 +17945,9 @@
   },
   "learnRate": {
     "reviews": "reviews",
-    "writeReview": "Write a review"
+    "writeReview": "Write a review",
+    "rating": "Rating",
+    "content": "Content"
   },
   "learnTopicDetail": {
     "topicNotFound": "Topic does not exist",
@@ -17928,7 +17957,8 @@
   "livePlay": {
     "liveNotFound": "Live does not exist",
     "notLive": "Streamer is not live",
-    "send": "Send"
+    "send": "Send",
+    "danmuPlaceholder": "Send a message..."
   },
   "memberArticle": {
     "myArticles": "My articles",
@@ -17958,7 +17988,10 @@
   },
   "p19AdminDashboard": {
     "title": "P19 Admin Dashboard",
-    "recentActivity": "Recent activity"
+    "recentActivity": "Recent activity",
+    "action": "Action",
+    "target": "Target",
+    "time": "Time"
   },
   "statisticsPage": {
     "zeroHour": "0 hours"

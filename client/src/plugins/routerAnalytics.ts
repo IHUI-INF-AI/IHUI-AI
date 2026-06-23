@@ -4,7 +4,7 @@
  */
 
 import type { Router, RouteLocationNormalized } from 'vue-router'
-import { useAnalytics, analyticsUtils } from '@/composables/useAnalytics'
+import { analyticsUtils } from '@/composables/useAnalytics'
 import { logger } from '@/utils/logger'
 
 interface PageAnalyticsState {
@@ -19,8 +19,7 @@ let previousPath: string = ''
 let scrollRafId: number | null = null
 
 const trackScrollMilestone = (milestone: number, path: string) => {
-  const analytics = useAnalytics()
-  void analytics.sendEvent({
+  void analyticsUtils.sendEvent({
     category: 'user_engagement',
     action: 'scroll_depth',
     value: milestone,
@@ -75,8 +74,7 @@ const endPageTracking = () => {
 
   const duration = Math.round((Date.now() - currentPageState.enterTime) / 1000)
   
-  const analytics = useAnalytics()
-  void analytics.sendEvent({
+  void analyticsUtils.sendEvent({
     category: 'user_engagement',
     action: 'page_time',
     value: duration,
@@ -104,12 +102,11 @@ export const setupRouterAnalytics = (router: Router) => {
     if (to.path === previousPath) return
     previousPath = to.path
 
-    const analytics = useAnalytics()
     const pageName = (to.meta?.title as string) || to.name?.toString() || to.path
     
-    analytics.trackPageView(pageName)
+    analyticsUtils.trackPageView(pageName, to.path)
 
-    void analytics.sendEvent({
+    void analyticsUtils.sendEvent({
       category: 'navigation',
       action: 'route_change',
       label: to.path,

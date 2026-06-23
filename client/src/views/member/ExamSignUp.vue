@@ -1,8 +1,8 @@
-<template>
+﻿<template>
   <MemberLayout active="exam-sign-up">
     <div class="member-exam-signup-page" v-loading="loading">
       <h2 class="page-title">{{ t('memberExamSignUp.title') }}</h2>
-      <el-empty v-if="!list.length" :description="t('memberExamSignUp.noSignUp')" />
+      <el-empty v-if="!list.length" :description="emptyDescription" />
       <el-table v-else :data="list" stripe>
         <el-table-column prop="examName" :label="t('memberExamSignUp.exam')" />
         <el-table-column :label="t('memberExamSignUp.status')" width="100">
@@ -26,16 +26,22 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
-import { useRouter } from 'vue-router'
 import MemberLayout from '@/components/member/Layout.vue'
 import { memberApi } from '@/api/member'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const list = ref<any[]>([])
 const loading = ref(false)
+const loadFailed = ref(false)
+
+const emptyDescription = computed(() => {
+  if (loadFailed.value) return t('memberExamSignUp.loadFailed', '报名记录加载失败，请稍后重试')
+  return t('memberExamSignUp.noSignUp')
+})
 
 function statusLabel(s?: string) {
   return s === 'completed' ? t('memberExamSignUp.completed') : s === 'cancel_sign_up' ? t('memberExamSignUp.cancelled') : t('memberExamSignUp.inProgress')
@@ -43,16 +49,21 @@ function statusLabel(s?: string) {
 
 async function load() {
   loading.value = true
+  loadFailed.value = false
   try {
     const res: any = await memberApi.examSignUp()
     list.value = res.data?.items || res.data?.list || []
+  } catch {
+    loadFailed.value = true
+    list.value = []
   } finally {
     loading.value = false
   }
 }
 
 function goExam(row: any) {
-  router.push({ path: `/exam/${row.examId}` })
+  const id = row.examId || row.paperId || row.id
+  if (id) router.push(`/exam/${id}`)
 }
 
 onMounted(load)
@@ -64,8 +75,8 @@ onMounted(load)
 }
 
 :where(.page-title) {
-  margin: 0 0 24px;
   font-size: 20px;
   font-weight: 600;
+  margin: 0 0 24px;
 }
 </style>

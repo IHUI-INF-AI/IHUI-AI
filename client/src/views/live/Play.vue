@@ -56,7 +56,7 @@
             <div class="comment-input">
               <el-input
                 v-model="newComment"
-                placeholder="发条弹幕..."
+                :placeholder="t('livePlay.danmuPlaceholder')"
                 size="small"
                 @keyup.enter="sendComment"
               >
@@ -134,7 +134,7 @@ async function loadGifts() {
     const res: any = await liveApi.giftList()
     giftList.value = res.data || []
   } catch {
-    ElMessage.error('礼物列表加载失败')
+    ElMessage.error(t('common.errors.giftListLoadFailed'))
   }
 }
 
@@ -152,7 +152,7 @@ async function sendComment() {
     await liveApi.commentSubmit({ channelId: id, content, type: 'text' })
   } catch {
     commentList.value = commentList.value.filter((c) => c.id !== item.id)
-    ElMessage.error('评论发送失败')
+    ElMessage.error(t('common.errors.commentSendFailed'))
   }
 }
 
@@ -161,7 +161,7 @@ async function sendGift(g: any) {
     await liveApi.giftSend({ channelId: id, giftId: g.id, count: 1 })
     ElMessage.success(`送出 ${g.name} x1`)
   } catch {
-    ElMessage.error('礼物发送失败')
+    ElMessage.error(t('common.errors.giftSendFailed'))
   }
 }
 
@@ -175,7 +175,7 @@ async function toggleSubscribe() {
       channel.value.isSubscribed = true
     }
   } catch {
-    ElMessage.error('操作失败，请重试')
+    ElMessage.error(t('common.errors.operationFailedRetry'))
   }
 }
 

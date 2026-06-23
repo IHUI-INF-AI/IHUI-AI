@@ -9,7 +9,7 @@
     </div>
 
     <div class="filter-bar">
-      <input v-model="keyword" class="search-input" placeholder="搜索问题..." @keydown.enter="handleSearch" />
+      <input v-model="keyword" class="search-input" :placeholder="t('askList.searchPlaceholder')" @keydown.enter="handleSearch" />
       <select v-model="cid" class="filter-select" @change="loadList">
         <option value="">{{ t('askList.allCategories') }}</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
@@ -53,12 +53,12 @@
       </ul>
     </div>
 
-    <el-dialog v-model="askDialog" title="提出问题" width="520px">
+    <el-dialog v-model="askDialog" :title="t('askList.askQuestion')" width="520px">
       <div class="ask-form">
         <label class="form-label">{{ t('askList.title') }}</label>
-        <input v-model="newQ.title" class="form-input" placeholder="一句话描述你的问题" />
+        <input v-model="newQ.title" class="form-input" :placeholder="t('askList.titlePlaceholder')" />
         <label class="form-label">{{ t('askList.content') }}</label>
-        <textarea v-model="newQ.content" class="form-textarea" rows="5" placeholder="详细说明..." />
+        <textarea v-model="newQ.content" class="form-textarea" rows="5" :placeholder="t('askList.contentPlaceholder')" />
         <label class="form-label">{{ t('askList.category') }}</label>
         <select v-model="newQ.cid" class="form-input">
           <option value="">{{ t('askList.selectCategory') }}</option>
@@ -137,7 +137,7 @@ function goDetail(id: number) {
 
 async function handleAsk() {
   if (!newQ.value.title.trim() || !newQ.value.content.trim()) {
-    toast.error('标题和正文不能为空')
+    toast.error(t('common.messages.titleContentRequired'))
     return
   }
   submitting.value = true
@@ -148,7 +148,7 @@ async function handleAsk() {
     }
     if (newQ.value.cid) data.cid_list = [Number(newQ.value.cid)]
     await askApi.create(data)
-    toast.success('提问成功')
+    toast.success(t('common.messages.askSuccess'))
     askDialog.value = false
     newQ.value = { title: '', content: '', cid: '' }
     loadList()

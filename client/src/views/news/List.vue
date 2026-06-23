@@ -6,7 +6,7 @@
     </div>
     <div class="filter-bar">
       <el-tabs v-model="activeCid" @tab-change="reload">
-        <el-tab-pane label="全部" name="" />
+        <el-tab-pane :label="t('newsList.all')" name="" />
         <el-tab-pane v-for="c in categories" :key="c.id" :label="c.name" :name="String(c.id)" />
       </el-tabs>
       <div class="filter-right">

@@ -85,41 +85,86 @@ def deduct_user_token(user_uuid: str, quantity: int, desc: str = "", db: Session
             return {"success": False, "reason": str(e)}
 
 
-def expire_user_tokens(user_uuid: str, db: Session | None = None) -> dict:
+def list_token_flows(
+    user_uuid: str,
+    page: int = 1,
+    limit: int = 20,
+    op_type: int | None = None,
+) -> dict:
+    """查询用户 token 操作流水（分页 + 可选类型过滤）.
+
+    对应 margin.py /flows 端点，返回 {"items": [...], "total": N}.
+    """
+    from app.models.payment_models import OperateTokenFlow
+
+    with get_session() as db:
+        q = db.query(OperateTokenFlow).filter(
+            OperateTokenFlow.user_id == user_uuid
+        )
+        if op_type is not None:
+            q = q.filter(OperateTokenFlow.type == op_type)
+        total = q.count()
+        items = (
+            q.order_by(OperateTokenFlow.id.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        data = [
+            {
+                "id": f.id,
+                "user_id": f.user_id,
+                "token_quantity": f.token_quantity,
+                "type": f.type,
+                "operate_desc": f.operate_desc,
+                "token_free": f.token_free,
+                "user_uuid": f.user_uuid,
+            }
+            for f in items
+        ]
+        return {"items": data, "total": total}
+
+
+def expire_token(user_uuid: str, quantity: int = 0, source: str = "到期清零", db: Session | None = None) -> dict:
     with get_session() as db:
         try:
             margin = _ensure_margin(db, user_uuid)
-            old_qty = margin.token_quantity or 0
-            margin.token_quantity = 0
-            _log_flow(db, user_uuid, -old_qty, OP_EXPIRE, "Token expired")
-            return {"success": True, "expired": old_qty}
+            current = margin.token_quantity or 0
+            expire_qty = quantity if quantity > 0 else current
+            if expire_qty <= 0:
+                return {"success": True, "expired": 0, "balance": 0}
+            margin.token_quantity = current - expire_qty
+            _log_flow(db, user_uuid, -expire_qty, OP_EXPIRE, source or "Token expired")
+            return {"success": True, "expired": expire_qty, "balance": margin.token_quantity}
         except Exception as e:
             logger.error(f"Expire error: {e}")
             return {"success": False, "reason": str(e)}
 
 
-def refund_token(user_uuid: str, quantity: int, desc: str = "", db: Session | None = None) -> dict:
+def refund_token(user_uuid: str, quantity: int, out_trade_no: str = "", db: Session | None = None) -> dict:
     with get_session() as db:
         try:
             if quantity <= 0:
                 return {"success": False, "reason": "quantity must be positive"}
             margin = _ensure_margin(db, user_uuid)
             margin.token_quantity = (margin.token_quantity or 0) + quantity
-            _log_flow(db, user_uuid, quantity, OP_REFUND, desc or "Token refund")
+            _log_flow(db, user_uuid, quantity, OP_REFUND, out_trade_no or "Token refund")
             return {"success": True, "balance": margin.token_quantity}
         except Exception as e:
             logger.error(f"Refund error: {e}")
             return {"success": False, "reason": str(e)}
 
 
-def grant_commission(user_uuid: str, quantity: int, order_id: str = "", db: Session | None = None) -> dict:
+def grant_commission(user_uuid: str, quantity: int, invited_user_id: str = "", source: str = "", db: Session | None = None) -> dict:
     with get_session() as db:
         try:
             if quantity <= 0:
                 return {"success": False, "reason": "quantity must be positive"}
             margin = _ensure_margin(db, user_uuid)
             margin.token_quantity = (margin.token_quantity or 0) + quantity
-            desc = f"commission order:{order_id}" if order_id else "commission"
+            desc = f"commission source:{source}" if source else "commission"
+            if invited_user_id:
+                desc += f" invited:{invited_user_id}"
             _log_flow(db, user_uuid, quantity, OP_COMMISSION, desc)
             return {"success": True, "balance": margin.token_quantity}
         except Exception as e:

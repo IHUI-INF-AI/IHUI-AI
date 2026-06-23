@@ -7,9 +7,9 @@
     <div class="filter-bar">
       <el-input v-model="keyword" :placeholder="t('articleList.searchArticle')" clearable class="search-input" @keyup.enter="reload" />
       <el-select v-model="sortBy" class="sort-select" @change="reload">
-        <el-option label="最新" value="new" />
-        <el-option label="最热" value="hot" />
-        <el-option label="精华" value="essence" />
+        <el-option :label="t('articleList.latest')" value="new" />
+        <el-option :label="t('articleList.hottest')" value="hot" />
+        <el-option :label="t('articleList.essenceLabel')" value="essence" />
       </el-select>
     </div>
     <div class="article-list" v-if="list.length">

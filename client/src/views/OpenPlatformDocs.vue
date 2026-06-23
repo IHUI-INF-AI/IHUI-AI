@@ -94,7 +94,7 @@
                 </template>
               </el-tree>
             </el-tab-pane>
-            <el-tab-pane label="企业服务" name="enterpriseService">
+            <el-tab-pane :label="t('openPlatformDocs.enterpriseService')" name="enterpriseService">
               <el-tree
                 ref="enterpriseServiceTreeRef"
                 :data="filteredEnterpriseServiceDocTree"

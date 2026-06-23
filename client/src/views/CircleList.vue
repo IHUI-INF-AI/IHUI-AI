@@ -8,14 +8,14 @@
     </div>
 
     <div class="filter-bar">
-      <input v-model="keyword" class="search-input" placeholder="搜索圈子..." @keydown.enter="loadList" />
+      <input v-model="keyword" class="search-input" :placeholder="t('circleList.searchPlaceholder')" @keydown.enter="loadList" />
       <select v-model="cid" class="filter-select" @change="loadList">
         <option value="">{{ t('circleList.allCategories') }}</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
       <label class="checkbox-wrap">
         <input v-model="onlyOfficial" type="checkbox" @change="loadList" />
-        只看官方
+        {{ t('circleList.onlyOfficial') }}
       </label>
     </div>
 
@@ -79,7 +79,7 @@ async function loadList() {
     const data = res?.data
     circles.value = data?.data || data?.list || data || []
   } catch {
-    loadError.value = '加载失败'
+    loadError.value = t('common.loadFailed')
   } finally {
     loading.value = false
   }

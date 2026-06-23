@@ -385,3 +385,5 @@ export const adminApi = new Proxy(rawAdminApi, {
 }) as unknown as UnwrappedAdminApi
 
 export default adminApi
+
+export type { ApiResponse, PaginationResponse } from '@/types'

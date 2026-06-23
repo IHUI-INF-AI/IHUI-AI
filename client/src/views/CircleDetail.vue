@@ -22,7 +22,7 @@
       <h2 class="section-title">{{ t('circleDetail.postsTitle') }}</h2>
 
       <div class="post-form">
-        <textarea v-model="newPost" class="post-textarea" rows="3" placeholder="说点什么..."></textarea>
+        <textarea v-model="newPost" class="post-textarea" rows="3" :placeholder="t('circleDetail.postPlaceholder')"></textarea>
         <el-button type="primary" :loading="submitting" @click="handlePublish">{{ t('circleDetail.publish') }}</el-button>
       </div>
 
@@ -108,33 +108,33 @@ async function handleJoin() {
     if (joined.value) {
       await circleApi.quit(id)
       joined.value = false
-      toast.success('已退出')
+      toast.success(t('common.messages.leftCircle'))
     } else {
       await circleApi.join(id)
       joined.value = true
-      toast.success('已加入')
+      toast.success(t('common.messages.joinedCircle'))
     }
   } catch {
-    toast.error('操作失败')
+    toast.error(t('common.errors.operationFailed'))
   }
 }
 
 async function handlePublish() {
   const id = Number(route.params.id)
   if (!newPost.value.trim()) {
-    toast.error('请输入内容')
+    toast.error(t('common.messages.inputContent'))
     return
   }
   submitting.value = true
   try {
     await circleApi.publish({ circle_id: id, content: newPost.value })
-    toast.success('发布成功')
+    toast.success(t('common.messages.publishSuccess'))
     newPost.value = ''
     const pRes = await circleApi.posts(id, { page: 1, limit: 30 })
     const pData = pRes?.data
     posts.value = pData?.data || pData?.list || pData || []
   } catch {
-    toast.error('发布失败')
+    toast.error(t('common.messages.publishFailed'))
   } finally {
     submitting.value = false
   }
@@ -149,7 +149,7 @@ async function handleLike(postId: number) {
       p.like_num = Math.max(0, (p.like_num || 0) + (p.is_liked ? 1 : -1))
     }
   } catch {
-    toast.error('操作失败')
+    toast.error(t('common.errors.operationFailed'))
   }
 }
 
