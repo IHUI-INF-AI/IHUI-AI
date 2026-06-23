@@ -217,7 +217,7 @@ onMounted(() => {
               </div>
             </div>
           </template>
-          <div v-else class="loading-state">暂无可用的连续购买选项</div>
+          <div v-else class="loading-state">{{ t('vipIntroducePopup.noContinuousOptions') }}</div>
         </div>
 
         <div v-else-if="activeTab === 'monthly'" class="pricing-options">
@@ -236,7 +236,7 @@ onMounted(() => {
                     <span v-if="(item.defAmount || 0) > (item.amount || 0)" class="discount-tag">
                       {{ (Math.floor((item.amount || 0) / (item.defAmount || 1) * 100) / 10).toFixed(1) }}折
                     </span>
-                    <span v-else class="trial-tag">试用</span>
+                    <span v-else class="trial-tag">{{ t('vipIntroducePopup.trial') }}</span>
                   </div>
                   <span class="price-info">{{ item.detail }}</span>
                 </div>
@@ -247,7 +247,7 @@ onMounted(() => {
               </div>
             </div>
           </template>
-          <div v-else class="loading-state">暂无可用的按月购买选项</div>
+          <div v-else class="loading-state">{{ t('vipIntroducePopup.noMonthlyOptions') }}</div>
         </div>
 
         <div class="subscribe-button" @click="handleSubscribe">

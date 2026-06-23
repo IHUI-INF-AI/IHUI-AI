@@ -9,7 +9,7 @@
 
     <!-- Page Header -->
     <div class="page-header glass-card">
-      <button class="back-btn ripple-btn" aria-label="返回" @click="handleBack">
+      <button class="back-btn ripple-btn" :aria-label="t('common.back')" @click="handleBack">
         <el-icon><ArrowLeft /></el-icon>
       </button>
       <h1 class="page-title">
@@ -95,7 +95,7 @@
 
         <div class="question-container">
           <div class="question-actions">
-            <button class="action-btn ripple-btn" aria-label="复制到输入框" @click="copyToInput(item.question)">
+            <button class="action-btn ripple-btn" :aria-label="t('common.copy')" @click="copyToInput(item.question)">
               <el-icon><CopyDocument /></el-icon>
             </button>
           </div>
@@ -156,7 +156,7 @@
           </div>
 
           <div class="answer-actions">
-            <button class="action-btn ripple-btn" aria-label="切换答案显示" @click="toggleAnswerVisibility(index)">
+            <button class="action-btn ripple-btn" :aria-label="t('common.toggleAnswer')" @click="toggleAnswerVisibility(index)">
               <el-icon>
                 <View v-if="!answerVisibilityStates[index]" />
                 <Hide v-else />
@@ -164,7 +164,7 @@
             </button>
             <button
               class="action-btn ripple-btn"
-              aria-label="切换思考过程"
+              :aria-label="t('common.toggleThinking')"
               @click="toggleThinking(index)"
               v-if="agentContentList[index] && agentContentList[index].isHaveSikao"
             >
@@ -181,7 +181,7 @@
             </button>
             <button
               class="action-btn ripple-btn"
-              aria-label="下载图片"
+              :aria-label="t('common.download')"
               @click="downloadImages(index)"
               v-if="
                 agentContentList[index] &&
@@ -191,7 +191,7 @@
             >
               <el-icon><Download /></el-icon>
             </button>
-            <button class="action-btn ripple-btn" aria-label="分享" @click="shareMessage(index)">
+            <button class="action-btn ripple-btn" :aria-label="t('common.share')" @click="shareMessage(index)">
               <el-icon><Share /></el-icon>
             </button>
           </div>
@@ -287,10 +287,10 @@
         </div>
 
         <div class="input-actions">
-          <button class="action-btn ripple-btn" aria-label="上传图片" @click="handleImageUpload">
+          <button class="action-btn ripple-btn" :aria-label="t('common.upload')" @click="handleImageUpload">
             <el-icon><Picture /></el-icon>
           </button>
-          <button class="action-btn ripple-btn" aria-label="语音输入" @click="handleVoiceInput">
+          <button class="action-btn ripple-btn" :aria-label="t('common.voiceInput')" @click="handleVoiceInput">
             <el-icon><Microphone /></el-icon>
           </button>
           <button

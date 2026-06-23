@@ -111,6 +111,8 @@ const rawAdminApi = {
   examQuestionSubjective: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/question/subjective', { params }),
   examAnswerMarkSave: (id: string | number, payload: Record<string, unknown>) =>
     http.post<ApiResponse<unknown>>(`/admin/exam/answer/${id}/mark`, payload),
+  examAnswerList: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/answer/list', { params }),
+  examAnswerDetail: (id: string | number) => http.get<ApiResponse<unknown>>(`/admin/exam/answer/${id}`),
   examAnswerCreate: (payload: Record<string, unknown>) =>
     http.post<ApiResponse<{ id: number }>>('/admin/exam/answer', payload),
   examPaperCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/paper', payload),
@@ -130,6 +132,10 @@ const rawAdminApi = {
   examPaperCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/paper/category/${id}`),
   examPaperCategoryBatchDelete: (ids: (string | number)[]) =>
     http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/paper/category/batch-delete', { ids }),
+  examChapterBatchDelete: (ids: (string | number)[]) =>
+    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/chapter/batch-delete', { ids }),
+  examChapterSectionBatchDelete: (ids: (string | number)[]) =>
+    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/chapter/section/batch-delete', { ids }),
   examQuestionCategoryUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/question/category/${id}`, payload),
   examQuestionCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/question/category/${id}`),
   examQuestionCategoryBatchDelete: (ids: (string | number)[]) =>
@@ -187,7 +193,6 @@ const rawAdminApi = {
   searchHot: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/search/hot', { params }),
 
   // === P21.3: CRUD 方法补全 (create / update / delete) ===
-  // 会员子实体
   memberTagCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/member/tag', payload),
   memberTagUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/member/tag/${id}`, payload),
   memberTagDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/member/tag/${id}`),
@@ -229,13 +234,6 @@ const rawAdminApi = {
   learnTopicCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/learn/topic/category/${id}`),
 
   // 考试/题库
-  examQuestionCategoryCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/question/category', payload),
-  examQuestionCategoryUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/question/category/${id}`, payload),
-
-  examPaperCategoryCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/paper/category', payload),
-  examPaperCategoryUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/paper/category/${id}`, payload),
-  examPaperCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/paper/category/${id}`),
-
   // 直播
   liveLecturerCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/live/lecturer', payload),
   liveLecturerUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/live/lecturer/${id}`, payload),

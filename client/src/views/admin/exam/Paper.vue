@@ -59,10 +59,10 @@ const statusLabel = (status?: number | string) => {
 
 const columns: Column<any>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'name', dataKey: 'name', title: '试卷名称', minWidth: 220 },
+  { key: 'name', dataKey: 'name', title: '试卷名称', width: 220 },
   { key: 'category', dataKey: 'category', title: '分类', width: 120 },
-  { key: 'type', dataKey: 'type', title: '类型', width: 110, cellRenderer: ({ rowData: row }) => typeLabel(row?.type) },
-  { key: 'difficulty', dataKey: 'difficulty', title: '难度', width: 90, cellRenderer: ({ rowData: row }) => difficultyLabel(row?.difficulty) },
+  { key: 'type', dataKey: 'type', title: '类型', width: 110, cellRenderer: ({ rowData: row }) => h('span', {}, typeLabel(row?.type)) },
+  { key: 'difficulty', dataKey: 'difficulty', title: '难度', width: 90, cellRenderer: ({ rowData: row }) => h('span', {}, difficultyLabel(row?.difficulty)) },
   { key: 'duration', dataKey: 'duration', title: '时长(分钟)', width: 120 },
   { key: 'totalScore', dataKey: 'totalScore', title: '总分', width: 100 },
   { key: 'passScore', dataKey: 'passScore', title: '及格分', width: 100 },

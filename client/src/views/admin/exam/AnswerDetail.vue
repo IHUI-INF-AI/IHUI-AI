@@ -69,7 +69,7 @@ async function load() {
   loading.value = true
   try {
     const res = await adminApi.examAnswerDetail(route.params.id as string)
-    const payload = (res?.data?.data || res?.data || {}) as Record<string, unknown>
+    const payload = ((res?.data as any)?.data || (res?.data as any) || {}) as Record<string, unknown>
     Object.assign(data, {
       id: payload.id,
       userName: payload.userName,

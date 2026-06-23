@@ -147,7 +147,7 @@
                 <div class="preview-grid" v-if="uploadedImages.length">
                   <div v-for="(img, i) in uploadedImages" :key="i" class="preview-item">
                     <img :src="img.preview" alt="反馈图片" loading="lazy" />
-                    <button aria-label="删除图片" @click.stop="removeImage(i)">×</button>
+                    <button :aria-label="t('common.deleteImage')" @click.stop="removeImage(i)">×</button>
                   </div>
                 </div>
               </div>

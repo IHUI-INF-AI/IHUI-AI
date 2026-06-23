@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    title="交易详情"
+    :title="t('transactionDetail.title')"
     width="520"
     :align-center="true"
     :show-close="true"

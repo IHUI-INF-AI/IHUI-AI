@@ -109,7 +109,7 @@
         <span
           class="stat-item stat-item--like"
           :class="{ 'is-active': creation.isLiked }"
-          title="点赞"
+          :title="t('community.like')"
           @click.stop="handleLike"
         >
           <el-icon>
@@ -120,7 +120,7 @@
         <span
           class="stat-item stat-item--favorite"
           :class="{ 'is-active': creation.isFavorited }"
-          title="收藏"
+          :title="t('community.favorite')"
           @click.stop="handleFavorite"
         >
           <el-icon><Star /></el-icon>
@@ -128,7 +128,7 @@
         </span>
         <span
           class="stat-item stat-item--view"
-          title="浏览"
+          :title="t('community.views')"
         >
           <el-icon><Eye /></el-icon>
           <span>{{ formatNumber(creation.viewsCount || 0) }}</span>
@@ -140,12 +140,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   VideoPlay, Headphones, Document, Star,
   CircleCheck, Link, Image, FileText, Code, Music, Box, Eye
 } from '@/lib/lucide-fallback'
 import type { AICreation, ContentType, AISource } from '@/api/ai-community'
 import { formatNumber } from '@/utils/format'
+
+const { t } = useI18n()
 
 interface Props {
   creation: AICreation

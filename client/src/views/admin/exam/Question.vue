@@ -54,9 +54,9 @@ const difficultyLabel = (difficulty?: number | string) => {
 
 const columns: Column<any>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'title', dataKey: 'title', title: '题目内容', minWidth: 320 },
-  { key: 'type', dataKey: 'type', title: '题型', width: 110, cellRenderer: ({ rowData: row }) => typeLabel(row?.type) },
-  { key: 'difficulty', dataKey: 'difficulty', title: '难度', width: 90, cellRenderer: ({ rowData: row }) => difficultyLabel(row?.difficulty) },
+  { key: 'title', dataKey: 'title', title: '题目内容', width: 320 },
+  { key: 'type', dataKey: 'type', title: '题型', width: 110, cellRenderer: ({ rowData: row }) => h('span', {}, typeLabel(row?.type)) },
+  { key: 'difficulty', dataKey: 'difficulty', title: '难度', width: 90, cellRenderer: ({ rowData: row }) => h('span', {}, difficultyLabel(row?.difficulty)) },
   { key: 'score', dataKey: 'score', title: '分值', width: 100 },
   {
     key: 'actions',

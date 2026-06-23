@@ -1,3 +1,8 @@
 {
-  "liveStreaming": {}
+  "liveStreaming": {},
+  "livePlay": {
+    "liveNotFound": "라이브가 존재하지 않습니다",
+    "notLive": "스트리머가 방송 중이 아닙니다",
+    "send": "전송"
+  }
 }

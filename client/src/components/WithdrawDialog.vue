@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    title="钱包提现"
+    :title="t('withdrawDialog.title')"
     width="480"
     :align-center="true"
     :show-close="true"

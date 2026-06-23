@@ -88,7 +88,7 @@ watch(
     try {
       const id = props.initialData.id
       const res = await adminApi.examAnswerDetail(id)
-      const payload = (res?.data?.data || res?.data || {}) as Record<string, unknown>
+      const payload = ((res?.data as any)?.data || (res?.data as any) || {}) as Record<string, unknown>
       Object.assign(detail, {
         id: payload.id,
         userName: payload.userName,

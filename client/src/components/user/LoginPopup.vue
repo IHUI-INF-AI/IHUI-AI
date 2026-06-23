@@ -19,7 +19,7 @@
         <el-form-item prop="phone" :label="t('userComponents.loginPopup.phone') || '手机号'">
           <el-input
             v-model="formData.phone"
-            placeholder="请输入手机号"
+            :placeholder="t('userLoginPopup.phonePlaceholder')"
             maxlength="11"
             :prefix-icon="Iphone"
             clearable
@@ -31,7 +31,7 @@
           <div class="code-input-group">
             <el-input
               v-model="formData.code"
-              placeholder="请输入验证码"
+              :placeholder="t('userLoginPopup.codePlaceholder')"
               maxlength="6"
               :prefix-icon="Lock"
               size="large"

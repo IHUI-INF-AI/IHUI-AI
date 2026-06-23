@@ -1129,6 +1129,17 @@
     "backToLogin": "Back to Login",
     "next": "Next",
     "previous": "Previous",
+    "toggleAnswer": "Toggle answer visibility",
+    "toggleThinking": "Toggle thinking process",
+    "voiceInput": "Voice input",
+    "categoryNav": "Category navigation",
+    "aiWorldCarousel": "AI World carousel",
+    "deleteImage": "Delete image",
+    "deleteNotification": "Delete notification",
+    "unsubscribe": "Unsubscribe",
+    "coreData": "Core data",
+    "hot": "Hot",
+    "pleaseSelect": "Please select",
     "tip": "Tip",
     "confirmDelete": "Confirm Delete",
     "batchDelete": "Batch Delete",
@@ -5087,6 +5098,8 @@
     "allPosts": "All Posts",
     "noPosts": "No posts yet",
     "favorite": "Favorite",
+    "like": "Like",
+    "views": "Views",
     "following": "Following",
     "noFollowingPosts": "No following posts",
     "recommended": "Recommended",
@@ -15105,6 +15118,8 @@
   },
   "studyGroup": {
     "subTrack": "Sub Track",
+    "titlePlaceholder": "Enter collection title",
+    "descPlaceholder": "Enter collection description",
     "pleaseSelect": "Please Select",
     "uploadVideo": "Upload Video",
     "publish": "Publish",
@@ -15120,6 +15135,8 @@
   },
   "userLoginPopup": {
     "welcomeBack": "Welcome back, please login",
+    "phonePlaceholder": "Enter phone number",
+    "codePlaceholder": "Enter verification code",
     "enterPhone": "Please enter phone number",
     "invalidPhone": "Invalid phone format",
     "codeSent": "Verification code sent",
@@ -16318,6 +16335,13 @@
     }
   },
   "adminCommon": {
+    "batchEdit": "Batch Edit",
+    "batchSave": "Batch Save",
+    "retryFailed": "Retry Failed",
+    "updating": "Updating",
+    "failed": "Failed",
+    "items": "items",
+    "canRetryHint": "Click \"Retry Failed\" to update again",
     "label": {
       "activityId": "Activity ID",
       "ai": "AI",
@@ -17121,6 +17145,7 @@
     "postPlaceholder": "Say something..."
   },
   "withdrawDialog": {
+    "title": "Wallet Withdrawal",
     "availableBalance": "Available Balance",
     "amount": "Withdrawal Amount",
     "bankCard": "Bank Card",
@@ -17367,6 +17392,7 @@
     "selectFile": "Select File"
   },
   "transactionDetail": {
+    "title": "Transaction Detail",
     "txId": "Transaction ID",
     "status": "Status",
     "user": "User",
@@ -18450,7 +18476,10 @@
     "official": "Official"
   },
   "vipIntroducePopup": {
-    "loading": "Loading"
+    "loading": "Loading",
+    "noContinuousOptions": "No continuous purchase options available",
+    "trial": "Trial",
+    "noMonthlyOptions": "No monthly purchase options available"
   },
   "vipPrivateAdvisory": {
     "joinUs": "Join Us"

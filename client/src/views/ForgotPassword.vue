@@ -19,7 +19,7 @@
         <div class="fp-card-border"></div>
         
         <div class="card-header">
-          <button class="fp-back-btn fp-ripple" aria-label="返回" @click="handleBack">
+          <button class="fp-back-btn fp-ripple" :aria-label="t('common.back')" @click="handleBack">
             <el-icon><ArrowLeft /></el-icon>
             <span class="btn-glow"></span>
           </button>

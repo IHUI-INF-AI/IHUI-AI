@@ -5,7 +5,11 @@
     "largeDocHint": "大きなドキュメントは時間がかかる場合があります",
     "docLoadFailed": "ドキュメント読み込み失敗",
     "tryDownload": "ダウンロードしてローカルアプリで開いてください",
-    "officeDoc": "Officeドキュメント"
+    "officeDoc": "Officeドキュメント",
+    "zoomOut": "縮小",
+    "reset": "リセット",
+    "download": "ダウンロード",
+    "openInOfficeOnline": "Office Onlineで開く"
   },
   "viewerModel3DViewer": {
     "model3dFile": "3Dモデルファイル",
@@ -25,13 +29,29 @@
   },
   "viewerEnhancedPdfViewer": {
     "loadingPdf": "PDF読み込み中...",
-    "pdfLoadFailed": "PDF読み込み失敗"
+    "pdfLoadFailed": "PDF読み込み失敗",
+    "prevPage": "前のページ",
+    "zoomOut": "縮小",
+    "search": "検索",
+    "download": "ダウンロード",
+    "fullscreen": "フルスクリーン"
   },
   "viewerImageViewer": {
     "loading": "読み込み中...",
-    "imageLoadFailed": "画像読み込み失敗"
+    "imageLoadFailed": "画像読み込み失敗",
+    "zoomOut": "縮小",
+    "reset": "リセット",
+    "rotateLeft": "左回転",
+    "rotateRight": "右回転",
+    "fitScreen": "画面に合わせる",
+    "fullscreen": "フルスクリーン",
+    "download": "ダウンロード"
   },
   "viewerMediaViewer": {
-    "mediaLoadFailed": "メディア読み込み失敗"
+    "mediaLoadFailed": "メディア読み込み失敗",
+    "playSpeed": "再生速度",
+    "loop": "ループ",
+    "mute": "ミュート",
+    "download": "ダウンロード"
   }
 }

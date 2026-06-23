@@ -1,3 +1,8 @@
 {
-  "liveStreaming": {}
+  "liveStreaming": {},
+  "livePlay": {
+    "liveNotFound": "直播不存在",
+    "notLive": "主播未开播",
+    "send": "发送"
+  }
 }

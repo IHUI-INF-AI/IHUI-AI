@@ -13,13 +13,13 @@
 
     <div class="video-form">
       <div class="title">{{ t('studyGroup.groupTitle') }}</div>
-      <el-input v-model="formInfo.title" placeholder="请输入合集标题" class="mb12" />
+      <el-input v-model="formInfo.title" :placeholder="t('studyGroup.titlePlaceholder')" class="mb12" />
       <div class="title">{{ t('studyGroup.groupDesc') }}</div>
-      <el-input v-model="formInfo.content" type="textarea" :rows="4" placeholder="请输入合集描述" class="mb12" />
+      <el-input v-model="formInfo.content" type="textarea" :rows="4" :placeholder="t('studyGroup.descPlaceholder')" class="mb12" />
 
       <div class="sub-title">{{ t('study.selectTrack') }}</div>
       <div class="title">{{ t('study.mainTrackPrefix') }}</div>
-      <el-select v-model="msId" placeholder="请选择" @change="changeMain">
+      <el-select v-model="msId" :placeholder="t('common.pleaseSelect')" @change="changeMain">
         <el-option v-for="item in mainSaidao" :key="item.id" :label="item.name" :value="item.id" />
       </el-select>
 
@@ -29,7 +29,7 @@
       </el-select>
 
       <div class="sub-title">{{ t('study.selectPhase') }}</div>
-      <el-select v-model="formInfo.stage" placeholder="请选择" @change="changeStage">
+      <el-select v-model="formInfo.stage" :placeholder="t('common.pleaseSelect')" @change="changeStage">
         <el-option v-for="item in stageList" :key="item.id" :label="item.name" :value="item.id" />
       </el-select>
     </div>

@@ -5,7 +5,11 @@
     "largeDocHint": "大型文件可能需要較長時間",
     "docLoadFailed": "文件載入失敗",
     "tryDownload": "請嘗試下載後使用本地軟件打開",
-    "officeDoc": "Office 文件"
+    "officeDoc": "Office 文件",
+    "zoomOut": "縮小",
+    "reset": "重置",
+    "download": "下載",
+    "openInOfficeOnline": "在Office Online中打開"
   },
   "viewerModel3DViewer": {
     "model3dFile": "3D模型檔案",
@@ -25,13 +29,29 @@
   },
   "viewerEnhancedPdfViewer": {
     "loadingPdf": "正在載入PDF...",
-    "pdfLoadFailed": "PDF載入失敗"
+    "pdfLoadFailed": "PDF載入失敗",
+    "prevPage": "上一頁",
+    "zoomOut": "縮小",
+    "search": "搜尋",
+    "download": "下載",
+    "fullscreen": "全螢幕"
   },
   "viewerImageViewer": {
     "loading": "載入中...",
-    "imageLoadFailed": "圖片載入失敗"
+    "imageLoadFailed": "圖片載入失敗",
+    "zoomOut": "縮小",
+    "reset": "重置",
+    "rotateLeft": "左旋轉",
+    "rotateRight": "右旋轉",
+    "fitScreen": "適應螢幕",
+    "fullscreen": "全螢幕",
+    "download": "下載"
   },
   "viewerMediaViewer": {
-    "mediaLoadFailed": "媒體載入失敗"
+    "mediaLoadFailed": "媒體載入失敗",
+    "playSpeed": "播放速度",
+    "loop": "循環",
+    "mute": "靜音",
+    "download": "下載"
   }
 }

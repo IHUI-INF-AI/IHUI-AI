@@ -6,7 +6,7 @@
     <div class="ai-world-page__wrap" :class="{ 'ai-world-page__wrap--nav-fixed': !isTabletDown }">
       <!-- 左侧菜单栏：Teleport 到 body 避免被 #main-content 内 transform/滚动容器影响，真正固定于视口 -->
       <Teleport to="body" :disabled="isTabletDown">
-        <aside v-if="!loading && sectionNavTreeWithIndex.length" class="ai-world-page__nav" aria-label="分类导航">
+        <aside v-if="!loading && sectionNavTreeWithIndex.length" class="ai-world-page__nav" :aria-label="t('common.categoryNav')">
           <nav class="ai-world-page__nav-inner">
           <template v-for="(navSection, si) in sectionNavTreeWithIndex" :key="navSection.sectionTitle">
             <!-- 仅一个子项且无/重复子标题：单一级菜单，不展开 -->
@@ -43,7 +43,7 @@
 
       <div class="ai-world-page__container">
         <!-- 标题区：Hero 轮播图 - 重构为带叠层内容与高级样式的卡片式轮播 -->
-        <section class="ai-world-page__hero" aria-label="AI 世界轮播">
+        <section class="ai-world-page__hero" :aria-label="t('common.aiWorldCarousel')">
           <div class="ai-world-page__hero-carousel-wrap">
             <el-carousel :interval="4500" height="440px" indicator-position="none" arrow="hover"
               class="ai-world-page__hero-carousel">

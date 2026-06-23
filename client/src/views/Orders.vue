@@ -223,7 +223,7 @@
                 {{ t('orders.actions.detail') }}
               </button>
               <el-dropdown trigger="click" @command="(cmd: string) => handleOrderCommand(cmd, order)">
-                <button class="action-btn more-btn ripple-btn" aria-label="更多操作" @click.stop>
+                <button class="action-btn more-btn ripple-btn" :aria-label="t('common.moreActions')" @click.stop>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
                     <circle cx="12" cy="5" r="2"></circle>
                     <circle cx="12" cy="12" r="2"></circle>
@@ -268,7 +268,7 @@
             <div class="modal-content glass" @click.stop>
               <div class="modal-header">
                 <h3>{{ t('orders.detail.title') }}</h3>
-                <button @click="closeOrderDetail" class="close-btn ripple-btn" aria-label="关闭">
+                <button @click="closeOrderDetail" class="close-btn ripple-btn" :aria-label="t('common.close')">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>

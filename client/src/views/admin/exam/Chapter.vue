@@ -45,7 +45,7 @@ const initialData = reactive<Record<string, any>>({})
 
 const columns: Column<any>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'title', dataKey: 'title', title: '章节标题', minWidth: 220 },
+  { key: 'title', dataKey: 'title', title: '章节标题', width: 220 },
   { key: 'paperId', dataKey: 'paperId', title: '试卷ID', width: 100 },
   { key: 'questionNum', dataKey: 'questionNum', title: '题目数', width: 100 },
   { key: 'totalScore', dataKey: 'totalScore', title: '总分', width: 100 },

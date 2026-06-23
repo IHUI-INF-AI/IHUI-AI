@@ -18,6 +18,7 @@
 import http from '@/utils/request'
 import type { ApiResponse, PaginationParams, PaginationResponse } from '@/types'
 import type { Comment } from '@/api/community'
+import type { Certificate } from '@/api/learn'
 
 export interface MemberProfile {
   id: string
@@ -167,7 +168,7 @@ export const memberApi = {
 
   commentList: (params?: PaginationParams) =>
     http.get<ApiResponse<PaginationResponse<unknown>>>('/userComment/list', { params }),
-  commentCreate: (data: { refType: Comment['refType']; refId: string | number; content: string; rating?: number }) =>
+  commentCreate: (data: { refType: string; refId: string | number; content: string; rating?: number }) =>
     http.post<ApiResponse<unknown>>('/userComment/create', data),
 
   resourceList: (params?: PaginationParams) =>

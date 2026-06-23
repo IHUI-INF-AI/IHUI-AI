@@ -21,7 +21,7 @@
     </div>
 
     <!-- 核心数据卡片 -->
-    <section class="stats-grid" aria-label="核心数据">
+    <section class="stats-grid" :aria-label="t('common.coreData')">
       <article
         v-for="card in stats"
         :key="card.key"

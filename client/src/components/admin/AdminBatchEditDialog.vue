@@ -1,5 +1,5 @@
 <template>
-  <ElDialog v-model="visibleModel" title="批量编辑" width="500px" append-to-body :close-on-click-modal="!submitting">
+  <ElDialog v-model="visibleModel" :title="t('adminCommon.batchEdit')" width="500px" append-to-body :close-on-click-modal="!submitting">
     <div class="batch-edit" v-if="visibleModel">
       <p class="batch-edit__tip">{{ t('adminBatchEditDialog.selectedTip', { count: rows.length }) }}</p>
       <ElForm label-width="120px">
@@ -16,14 +16,14 @@
       </ElForm>
       <div class="batch-edit__progress" v-if="progress.visible">
         <ElProgress :percentage="progress.total ? Math.round((progress.current / progress.total) * 100) : 0" :status="progressStatus" />
-        <p class="batch-edit__progress-text">正在更新 {{ progress.current }} / {{ progress.total }} 条</p>
-        <p class="batch-edit__failed-text" v-if="failedCount > 0">失败 {{ failedCount }} 条，可点击"重试失败项"重新更新</p>
+        <p class="batch-edit__progress-text">{{ t('adminCommon.updating') }} {{ progress.current }} / {{ progress.total }} {{ t('adminCommon.items') }}</p>
+        <p class="batch-edit__failed-text" v-if="failedCount > 0">{{ t('adminCommon.failed') }} {{ failedCount }} {{ t('adminCommon.items') }}，{{ t('adminCommon.canRetryHint') }}</p>
       </div>
     </div>
     <template #footer>
-      <ElButton @click="visibleModel = false" :disabled="submitting">取消</ElButton>
-      <ElButton type="warning" v-if="failedCount > 0" :loading="submitting" @click="onRetry">重试失败项</ElButton>
-      <ElButton type="primary" :loading="submitting" @click="onSubmit">批量保存</ElButton>
+      <ElButton @click="visibleModel = false" :disabled="submitting">{{ t('common.cancel') }}</ElButton>
+      <ElButton type="warning" v-if="failedCount > 0" :loading="submitting" @click="onRetry">{{ t('adminCommon.retryFailed') }}</ElButton>
+      <ElButton type="primary" :loading="submitting" @click="onSubmit">{{ t('adminCommon.batchSave') }}</ElButton>
     </template>
   </ElDialog>
 </template>

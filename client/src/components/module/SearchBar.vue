@@ -15,7 +15,7 @@
       </template>
     </el-input>
     <div v-if="hotWords && hotWords.length" class="hot-words">
-      <span class="hot-label">热门:</span>
+      <span class="hot-label">{{ t('common.hot') }}:</span>
       <span
         v-for="(w, i) in hotWords"
         :key="i"

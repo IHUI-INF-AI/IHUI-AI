@@ -127,7 +127,7 @@
             class="sub-item"
           >
             <span>{{ s.email }} · {{ freqLabel(s.frequency) }}</span>
-            <button class="sub-remove" aria-label="取消订阅" @click="unsubscribe(s.id)">×</button>
+            <button class="sub-remove" :aria-label="t('common.unsubscribe')" @click="unsubscribe(s.id)">×</button>
           </div>
         </div>
       </div>

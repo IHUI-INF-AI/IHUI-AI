@@ -54,7 +54,7 @@
             <p class="notif-content">{{ n.content }}</p>
             <span class="notif-time">{{ formatTime(n.send_time) }}</span>
           </div>
-          <button class="del-btn" aria-label="删除通知" @click.stop="handleDelete(n)">×</button>
+          <button class="del-btn" :aria-label="t('common.deleteNotification')" @click.stop="handleDelete(n)">×</button>
         </li>
       </ul>
     </div>
