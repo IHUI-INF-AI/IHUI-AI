@@ -14,6 +14,7 @@
     "export": "導出",
     "import": "導入",
     "copy": "複製",
+    "lineWrap": "換行",
     "copySuccess": "複製成功",
     "copyFailed": "複製失敗",
     "download": "下載",

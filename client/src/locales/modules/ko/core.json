@@ -14,6 +14,7 @@
     "export": "내보내기",
     "import": "가져오기",
     "copy": "복생각",
+    "lineWrap": "줄 바꿈",
     "copySuccess": "복생각 성공",
     "copyFailed": "복생각 실패",
     "download": "다운로드",

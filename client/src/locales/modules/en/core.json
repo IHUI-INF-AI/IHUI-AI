@@ -72,6 +72,7 @@
     "Export": "Export",
     "import": "Import",
     "copy": "Copy",
+    "lineWrap": "Word Wrap",
     "copySuccess": "Copied successfully",
     "copyFailed": "Copy Failed",
     "download": "Download",
