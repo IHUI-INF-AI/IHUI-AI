@@ -602,5 +602,27 @@
       "items": {}
     },
     "cta_section": {}
+  },
+  "learnRate": {
+    "reviews": "条评价",
+    "writeReview": "写评价",
+    "rating": "评分",
+    "content": "内容"
+  },
+  "learn": {
+    "hotRecommend": "热门推荐",
+    "searchPlaceholder": {
+      "category": "搜索分类",
+      "lesson": "搜索课程",
+      "lessonTrash": "搜索回收站课程",
+      "map": "搜索学习地图",
+      "order": "搜索订单",
+      "orderInvoiceApplication": "搜索发票申请",
+      "orderInvoiceTitle": "搜索发票抬头",
+      "report": "搜索报告",
+      "signup": "搜索报名",
+      "topic": "搜索专题",
+      "topicCategory": "搜索专题分类"
+    }
   }
 }

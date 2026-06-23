@@ -61,6 +61,10 @@ dependencies = [
     "tencentcloud-sdk-python>=3.0.0",
     "langchain>=1.2.0",
     "langchain-openai>=0.0.5",
+    "langchain-postgres>=0.0.10",
+    "langchain-text-splitters>=0.3.0",
+    "crewai>=1.14.0,<2",
+    "crewai-tools>=1.14.0,<2",
     "mcp>=1.13.1",
 
     # Redis

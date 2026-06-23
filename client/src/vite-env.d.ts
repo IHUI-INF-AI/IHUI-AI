@@ -130,6 +130,17 @@ interface ImportMetaEnv {
   readonly VITE_FEISHU_SCOPE?: string
   readonly VITE_FEISHU_ENABLED?: string
 
+  // 钉钉登录
+  readonly VITE_DINGTALK_CORP_ID?: string
+  readonly VITE_DINGTALK_LOGIN_APP_ID?: string
+  readonly VITE_DINGTALK_REDIRECT_URI?: string
+
+  // 企业微信登录
+  readonly VITE_WORKWECHAT_ENABLED?: string
+  readonly VITE_WORKWECHAT_REDIRECT_URI?: string
+  readonly VITE_WORKWECHAT_SCOPE?: string
+  readonly VITE_WECOM_CORP_ID?: string
+
   // 其他环境变量可以在这里添加
 }
 

@@ -1,9 +1,9 @@
-﻿补建考试章节/小节相关表。
+"""Add exam chapter and chapter section tables if they are missing.
 
 Revision ID: 014_add_exam_tables
 Revises: 013_rename_sys_to_admin
 Create Date: 2026-06-24
-""
+"""
 import logging
 
 from alembic import op
@@ -19,7 +19,7 @@ logger = logging.getLogger("alembic.014")
 
 
 def upgrade() -> None:
-    """补建 exam_chapter / exam_chapter_section 两张表。"""
+    """create missing exam chapter and section tables."""
     import app.models  # noqa: F401
     from app.database import Base
     from app.config import settings
@@ -44,5 +44,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """回滚: 不删除表，避免数据丢失。"""
+    """do not drop tables on rollback to avoid data loss."""
     pass

@@ -1,0 +1,12 @@
+{
+  "examDo": {
+    "questionCount": "题目数",
+    "duration": "时长",
+    "minutes": "分钟",
+    "passScore": "及格",
+    "startExam": "开始考试",
+    "remaining": "剩余",
+    "score": "分",
+    "submit": "交卷"
+  }
+}

@@ -143,7 +143,7 @@ async function onDialogSubmit(form: Record<string, any>) {
         throw new Error('options 需要是数组')
       }
     } catch (error) {
-      ElMessage.error('选项需为 JSON 数组，例如 ["A","B","C","D"]')
+      ElMessage.error(t('common.errors.jsonArrayError'))
       return
     }
   }

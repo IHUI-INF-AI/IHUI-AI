@@ -45,5 +45,26 @@
     "loadingMore": "載入中...",
     "pageInfo": "第 {page} 頁，共 {total} 頁",
     "minRead": "分钟阅读"
+  },
+  "newsList": {
+    "title": "資訊中心",
+    "desc": "取得最新教育動態、政策解讀與產業資訊",
+    "viewHot": "查看熱門",
+    "top": "置頂",
+    "hot": "熱",
+    "official": "官方",
+    "read": "閱讀"
+  },
+  "articleList": {
+    "featuredArticles": "精選文章",
+    "pageDesc": "深度好文 · 實戰經驗 · 行業洞察",
+    "top": "置頂",
+    "essence": "精",
+    "anonymous": "匿名",
+    "read": "閱讀",
+    "like": "點讚",
+    "comment": "評論",
+    "searchArticle": "搜尋文章",
+    "noArticle": "暫無文章"
   }
 }

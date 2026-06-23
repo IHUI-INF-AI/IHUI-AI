@@ -1,0 +1,18 @@
+{
+  "askList": {
+    "community": "Q&A 커뮤니티",
+    "subtitle": "질문 / 답변 / AI 지식 공유",
+    "askQuestion": "질문하기",
+    "allCategories": "전체 카테고리",
+    "latest": "최신",
+    "hottest": "인기",
+    "mostAnswered": "답변 많은순",
+    "noQuestions": "질문이 없습니다",
+    "pinned": "고정",
+    "essence": "추천",
+    "title": "제목",
+    "content": "본문",
+    "category": "카테고리",
+    "selectCategory": "카테고리 선택 (선택 사항)"
+  }
+}

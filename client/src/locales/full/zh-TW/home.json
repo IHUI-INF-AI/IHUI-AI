@@ -87,5 +87,156 @@
     "dedicatedSupport": "專屬客服",
     "priorityResponse": "優先響應",
     "advancedModelAccess": "高級模型訪問"
+  },
+  "home": {
+    "input": {
+      "modelButton": "模型",
+      "modelSwitch": "模型",
+      "auto": "自動",
+      "manual": "手動",
+      "loading": "載入中...",
+      "noModelData": "暫無{type}模型資料",
+      "imageTab": "圖像",
+      "videoTab": "影片",
+      "textTab": "文字",
+      "selectAuto": "auto",
+      "model": "模型",
+      "tabs": {
+        "image": "圖像",
+        "video": "視頻",
+        "text": "文本",
+        "3d": "3D",
+        "voice": "語音",
+        "digitalHuman": "數字人",
+        "universal": "全能",
+        "talk": "對話",
+        "audio": "音頻",
+        "videoa": "數字人",
+        "other": "其他"
+      },
+      "apiAccess": "API對接"
+    },
+    "promotionModal": {
+      "title": "新會員特惠！",
+      "subtitle": "立即訂閱，獲得雙倍積分！",
+      "doublePoints": "2倍積分",
+      "credits": {
+        "starter": "Starter 獲得 {total}（額外 {extra}）積分",
+        "basic": "Basic 獲得 {total}（額外 {extra}）積分",
+        "pro": "Pro 獲得 {total}（額外 {extra}）積分"
+      },
+      "hint": "立即訂閱，首月即可獲得 {highlight}",
+      "primaryButton": "獲取額外積分",
+      "secondaryLink": "我不需要免費積分",
+      "close": "關閉"
+    },
+    "marquee": {
+      "kouzi": "扣子圖標",
+      "bbxLogo": "百宝箱logo",
+      "brand4": "品牌圖標",
+      "zhipu": "智谱清言",
+      "brand8": "品牌8",
+      "ali": "阿里雲",
+      "baidu": "百度文心",
+      "dbsfdx": "東北師範大學",
+      "gork": "Grok",
+      "huawei": "華為雲",
+      "jldx": "吉林大學",
+      "openai": "OpenAI",
+      "tencent": "騰訊雲",
+      "yuanbaoxiang": "元寶象",
+      "yushu": "宇樹科技"
+    },
+    "miniappModal": {
+      "qrAlt": "Qr Alt",
+      "scanTip": "Scan Tip",
+      "title": "Title"
+    },
+    "page1": {
+      "content": "Content",
+      "ctaPrimary": "Cta Primary",
+      "ctaSecondary": "Cta Secondary"
+    },
+    "page2": {
+      "advantages": {
+        "efficient": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "innovative": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "professional": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "reliable": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "subtitle": "Subtitle",
+        "title": "Title",
+        "titleEn": "Title En"
+      },
+      "content": "Content",
+      "features": {
+        "appStore": "App Store",
+        "contentCreation": "Content Creation",
+        "edu": "Edu",
+        "modelIntegration": "Model Integration",
+        "navigation": "Navigation"
+      },
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page3": {
+      "empty": {
+        "external": "External",
+        "platform": "Platform"
+      },
+      "subtitle": "Subtitle",
+      "tabs": {
+        "external": "External",
+        "platform": "Platform"
+      },
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page4": {
+      "content": "Content",
+      "subtitle": "Subtitle",
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page5": {
+      "content": "Content",
+      "joinText": "Join Text",
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "typewriter": {
+      "brand": "Brand",
+      "connect": "Connect",
+      "explore": "Explore"
+    },
+    "hardcoded": {
+      "aiNews": "AI資訊",
+      "hot": "熱門",
+      "news": "資訊"
+    },
+    "miniappBtn": "微信小程序",
+    "wheelSensitivityLabel": "滾輪靈敏度",
+    "marqueeSpeedLabel": "滾動速度",
+    "clickToResume": "點擊繼續滾動",
+    "clickToPause": "點擊暫停滾動",
+    "resumeScroll": "繼續滾動",
+    "pauseScroll": "暫停滾動",
+    "sensitivityLow": "低",
+    "sensitivityMid": "中",
+    "sensitivityHigh": "高",
+    "speedSlow": "慢",
+    "speedMid": "中",
+    "speedFast": "快"
   }
 }

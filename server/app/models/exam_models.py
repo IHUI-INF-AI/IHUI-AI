@@ -121,3 +121,41 @@ class ExamWrongQuestion(TimestampMixin, Base):
     wrong_count = Column(Integer, default=1, comment="错误次数")
     last_wrong_time = Column(DateTime, nullable=True)
     is_mastered = Column(Boolean, default=False, comment="是否已掌握")
+
+class ExamChapter(TimestampMixin, Base):
+    """chapter"""
+
+    __tablename__ = "exam_chapter"
+    __table_args__ = (
+        Index("idx_exam_chapter_paper", "paper_id"),
+        Index("idx_exam_chapter_sort", "sort_order"),)
+
+    id = id_column(comment="ID")
+    paper_id = Column(BigInteger, nullable=True, comment="paper id")
+    title = Column(String(200), nullable=False, comment="chapter title")
+    description = Column(Text, nullable=True, comment="chapter description")
+    cover = Column(String(500), nullable=True, comment="cover url")
+    question_num = Column(Integer, default=0, comment="question count")
+    total_score = Column(Float, default=0, comment="total score")
+    sort_order = Column(Integer, default=0)
+
+
+class ExamChapterSection(TimestampMixin, Base):
+    """section"""
+
+    __tablename__ = "exam_chapter_section"
+    __table_args__ = (
+        Index("idx_exam_chapter_section_chapter", "chapter_id"),
+        Index("idx_exam_chapter_section_paper", "paper_id"),)
+
+    id = id_column(comment="ID")
+    chapter_id = Column(BigInteger, nullable=True, comment="chapter id")
+    paper_id = Column(BigInteger, nullable=True, comment="paper id")
+    title = Column(String(200), nullable=False, comment="section title")
+    description = Column(Text, nullable=True, comment="section description")
+    media_url = Column(String(500), nullable=True, comment="media url")
+    content = Column(Text, nullable=True, comment="learning material")
+    question_num = Column(Integer, default=0, comment="question count")
+    total_score = Column(Float, default=0, comment="total score")
+    duration = Column(Integer, default=0, comment="duration in minutes")
+    sort_order = Column(Integer, default=0)

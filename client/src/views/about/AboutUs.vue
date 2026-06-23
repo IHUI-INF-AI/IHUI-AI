@@ -62,7 +62,7 @@
           <button
             v-show="canScrollLeft"
             class="timeline-nav-btn timeline-nav-prev"
-            :aria-label="t('common.previous')"
+            :aria-label="t('common.previousItem')"
             @click="scrollTimeline('left')"
           >
             <el-icon><ChevronLeft /></el-icon>

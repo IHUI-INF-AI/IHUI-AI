@@ -3,6 +3,14 @@
   "livePlay": {
     "liveNotFound": "直播不存在",
     "notLive": "主播未开播",
-    "send": "发送"
+    "send": "发送",
+    "danmuPlaceholder": "发条弹幕...",
+    "points": "积分",
+    "liveIntro": "直播介绍",
+    "noIntro": "暂无介绍",
+    "statistics": "统计数据",
+    "views": "观看",
+    "likes": "点赞",
+    "sentGift": "送出 {name} x1"
   }
 }

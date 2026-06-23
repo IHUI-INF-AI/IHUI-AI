@@ -743,7 +743,7 @@ const handlePaymentClick = async () => {
     await handlePayment(selectedPlan.value)
   } catch (e) {
     console.error('[Vip] 支付发起失败', e)
-    ElMessage.error('支付发起失败，请重试')
+    ElMessage.error(t('common.errors.paymentInitFailed'))
   }
 }
 

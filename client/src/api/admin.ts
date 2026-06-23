@@ -132,10 +132,14 @@ const rawAdminApi = {
   examPaperCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/paper/category/${id}`),
   examPaperCategoryBatchDelete: (ids: (string | number)[]) =>
     http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/paper/category/batch-delete', { ids }),
+  examPaperCategoryCreate: (payload: Record<string, unknown>) =>
+    http.post<ApiResponse<unknown>>('/admin/exam/paper/category', payload),
   examChapterBatchDelete: (ids: (string | number)[]) =>
     http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/chapter/batch-delete', { ids }),
   examChapterSectionBatchDelete: (ids: (string | number)[]) =>
     http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/chapter/section/batch-delete', { ids }),
+  examQuestionCategoryCreate: (payload: Record<string, unknown>) =>
+    http.post<ApiResponse<unknown>>('/admin/exam/question/category', payload),
   examQuestionCategoryUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/question/category/${id}`, payload),
   examQuestionCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/question/category/${id}`),
   examQuestionCategoryBatchDelete: (ids: (string | number)[]) =>
@@ -324,12 +328,6 @@ const rawAdminApi = {
   /** P23.4: 批量删除 */
   learnTopicCategoryBatchDelete: (ids: (string | number)[]) =>
     http.post<ApiResponse<{ success: number; failed: number }>>('/admin/learn/topic/category/batch-delete', { ids }),
-  /** P23.4: 批量删除 */
-  examQuestionCategoryBatchDelete: (ids: (string | number)[]) =>
-    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/question/category/batch-delete', { ids }),
-  /** P23.4: 批量删除 */
-  examPaperCategoryBatchDelete: (ids: (string | number)[]) =>
-    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/paper/category/batch-delete', { ids }),
   /** P23.4: 批量删除 */
   liveLecturerBatchDelete: (ids: (string | number)[]) =>
     http.post<ApiResponse<{ success: number; failed: number }>>('/admin/live/lecturer/batch-delete', { ids }),

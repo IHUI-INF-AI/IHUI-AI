@@ -893,6 +893,8 @@ import { StorageManager } from '@/utils/storage'
 import { RememberMeService } from '@/utils/rememberMeService'
 import { ALIPAY_AUTH_URL } from '@/constants/alipay'
 import { FEISHU_AUTH_URL } from '@/constants/feishu'
+import { DINGTALK_AUTH_URL } from '@/constants/dingtalk'
+import { WECOM_AUTH_URL } from '@/constants/wecom'
 import { ElMessage } from 'element-plus'
 import { useLoginAnalytics } from '@/composables/useAnalytics'
 import {
@@ -970,6 +972,20 @@ const thirdPartyMethods: ThirdPartyMethod[] = [
     enabled: true,
     component: null,
     iconUrl: '/images/loginSANFANG/飞书.svg',
+  },
+  {
+    key: 'dingtalk',
+    name: t('auth.dingtalkLogin'),
+    enabled: true,
+    component: null,
+    iconUrl: '/images/loginSANFANG/钉钉.svg',
+  },
+  {
+    key: 'wecom',
+    name: t('auth.wecomLogin'),
+    enabled: true,
+    component: null,
+    iconUrl: '/images/loginSANFANG/企业微信.svg',
   },
 ]
 
@@ -3977,6 +3993,10 @@ const handleThirdPartyLoginClick = async (methodKey: string): Promise<void> => {
       authUrl = await initiateAppleOAuth()
     } else if (methodKey === 'feishu') {
       authUrl = FEISHU_AUTH_URL
+    } else if (methodKey === 'dingtalk') {
+      authUrl = DINGTALK_AUTH_URL
+    } else if (methodKey === 'wecom') {
+      authUrl = WECOM_AUTH_URL
     } else {
       showWarning(t('auth.thirdPartyMethodUnavailable', { method: methodKey }))
       return

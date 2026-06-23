@@ -177,6 +177,15 @@ from app.api.v1.finance.product_identity import router as product_identity_route
 from app.api.v1.llm.models_unify import router as llm_models_unify_router
 from app.api.v1.llm.ws import router as llm_ws_router
 
+# --- Multi-Agent Crew (多智能体协作) ---
+try:
+    from app.api.v1.crew import router as crew_router
+
+    HAS_CREW = True
+except Exception:
+    crew_router = None
+    HAS_CREW = False
+
 # --- Remote Device ---
 from app.api.v1.remote import router as remote_router
 from app.api.v1.remote import third_router as remote_third_router
@@ -708,6 +717,10 @@ api_router.include_router(stock_analyse_router, tags=["Stock Analyse"])
 # LLM
 api_router.include_router(llm_models_unify_router, prefix="/llm", tags=["LLM: Models Unify"])
 api_router.include_router(llm_ws_router, prefix="/llm", tags=["LLM: Stream WS (coze_zhs_py)"])
+
+# Multi-Agent Crew (多智能体协作)
+if crew_router:
+    api_router.include_router(crew_router, tags=["Multi-Agent Crew"])
 
 # Coze
 api_router.include_router(coze_conversations_router, prefix="/coze/conversations", tags=["Coze: Conversations"])

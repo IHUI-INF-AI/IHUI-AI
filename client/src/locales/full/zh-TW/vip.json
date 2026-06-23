@@ -31,5 +31,8 @@
     "benefit10Two": "9.5折",
     "benefit10Three": "8折",
     "benefit11Title": "入駐社區服務商名列"
+  },
+  "vipIntroducePopup": {
+    "loading": "載入中"
   }
 }

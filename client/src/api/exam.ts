@@ -1,6 +1,6 @@
 /**
- * 考试系统 API
- * 对接后端 /exam/* 端点
+ * 鑰冭瘯绯荤粺 API
+ * 瀵规帴鍚庣 /exam/* 绔偣
  */
 
 import http from '@/utils/request'
@@ -10,6 +10,7 @@ export interface ExamPaper {
   title: string
   description?: string
   category_id: number
+  category?: { id: number; name: string } | null
   course_id?: number
   cover?: string
   total_score: number
@@ -18,8 +19,8 @@ export interface ExamPaper {
   question_num: number
   attempt_num: number
   avg_score: number
-  type: string
-  difficulty: string
+  type: number
+  difficulty: number
   is_free: boolean
   price: number
   status: number
@@ -30,9 +31,9 @@ export interface ExamPaper {
 export interface ExamQuestion {
   id: number
   paper_id: number
-  type: 'single' | 'multiple' | 'judge' | 'fill' | 'essay'
+  type: 1 | 2 | 3 | 4 | 5
   content: string
-  options?: string[]
+  options?: string | string[]
   answer: string
   analysis?: string
   score: number
@@ -42,39 +43,68 @@ export interface ExamQuestion {
 export interface ExamRecord {
   id: number
   paper_id: number
+  paper_title: string
   user_id: string
   score: number
   total_score: number
-  passed: boolean
-  duration: number
-  answers: Record<string, any>
-  create_time: string
+  pass_score: number
+  is_pass: boolean
+  status: number
+  correct_num: number
+  wrong_num: number
+  cost_time: number
+  answer_data?: string
+  start_time?: string
+  submit_time?: string
+}
+
+export interface ExamWrong {
+  id: number
+  question_id: number
+  paper_id: number
+  paper_title: string
+  user_answer: string
+  right_answer: string
+  wrong_count: number
+  is_mastered: boolean
+  last_wrong_time?: string
+}
+
+export interface ExamCategory {
+  id: number
+  pid: number
+  name: string
+  sort_order: number
 }
 
 export const examApi = {
-  // 试卷列表
-  listPapers: (params?: { page?: number; limit?: number; category_id?: number; keyword?: string; difficulty?: string }) =>
+  listPapers: (params?: { page?: number; limit?: number; category_id?: number; keyword?: string; difficulty?: number; is_free?: boolean }) =>
     http.get('/exam/paper/list', { params }),
 
-  // 试卷详情
-  paperDetail: (id: number) => http.get('/exam/paper/detail', { params: { id } }),
+  paperDetail: (id: number) => http.get(`/exam/paper/${id}`),
 
-  // 分类
+  startExam: (paper_id: number) =>
+    http.post('/exam/record/start', null, { params: { paper_id } }),
+
+  submitExam: (record_id: number, answers: Record<string, any>, duration: number) =>
+    http.post('/exam/record/submit', null, { params: { record_id, answers: JSON.stringify(answers), duration } }),
+
   categories: () => http.get('/exam/category/list'),
 
-  // 题目列表
   questions: (paperId: number) => http.get('/exam/question/list', { params: { paper_id: paperId } }),
 
-  // 提交答卷
-  submit: (data: { paper_id: number; answers: Record<string, any>; duration: number }) =>
-    http.post('/exam/record', data),
+  records: (params?: { page?: number; limit?: number; user_id?: string; paper_id?: number }) =>
+    http.get('/exam/record/list', { params }),
 
-  // 考试记录
-  records: (params?: { page?: number; limit?: number }) => http.get('/exam/record/list', { params }),
-  recordDetail: (id: number) => http.get('/exam/record/{rid}', { params: { rid: id } }),
+  recordDetail: (rid: number) => http.get(`/exam/record/${rid}`),
 
-  // 错题本
-  wrongList: (params?: { page?: number; limit?: number }) => http.get('/exam/wrong/list', { params }),
-  markWrongMastered: (id: number) => http.put('/exam/wrong/{wid}/master', { params: { wid: id } }),
-  removeWrong: (id: number) => http.delete('/exam/wrong/' + id),
+  wrongList: (params?: { page?: number; limit?: number; is_mastered?: boolean }) =>
+    http.get('/exam/wrong/list', { params }),
+
+  markWrongMastered: (id: number) => http.put(`/exam/wrong/${id}/master`),
+
+  removeWrong: (id: number) => http.delete(`/exam/wrong/${id}`),
+
+  submit: (payload: { paper_id: number; answers: Record<string, any>; duration: number }) =>
+    http.post('/exam/record/submit', null, { params: { paper_id: payload.paper_id, answers: JSON.stringify(payload.answers), duration: payload.duration } }),
 }

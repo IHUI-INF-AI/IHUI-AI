@@ -45,5 +45,30 @@
     "loadMore": "Load More",
     "loadingMore": "Loading...",
     "minRead": "分钟阅读"
+  },
+  "newsList": {
+    "title": "News Center",
+    "desc": "Get the latest education trends, policy interpretations and industry news",
+    "viewHot": "View Hot",
+    "top": "Top",
+    "hot": "Hot",
+    "official": "Official",
+    "read": "Read",
+    "all": "All"
+  },
+  "articleList": {
+    "featuredArticles": "Featured Articles",
+    "pageDesc": "In-depth Articles · Practical Experience · Industry Insights",
+    "top": "Top",
+    "essence": "Featured",
+    "anonymous": "Anonymous",
+    "read": "Reads",
+    "like": "Likes",
+    "comment": "Comments",
+    "searchArticle": "Search articles",
+    "noArticle": "No articles",
+    "latest": "Latest",
+    "hottest": "Hottest",
+    "essenceLabel": "Featured"
   }
 }

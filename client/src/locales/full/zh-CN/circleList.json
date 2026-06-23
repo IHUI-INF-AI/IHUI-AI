@@ -1,0 +1,15 @@
+{
+  "circleList": {
+    "title": "兴趣圈子",
+    "subtitle": "发现 / 加入 / 同好交流",
+    "allCategories": "全部分类",
+    "noCircles": "暂无圈子",
+    "official": "官方",
+    "top": "置顶",
+    "noDesc": "暂无简介",
+    "members": "成员",
+    "posts": "动态",
+    "searchPlaceholder": "搜索圈子...",
+    "onlyOfficial": "只看官方"
+  }
+}

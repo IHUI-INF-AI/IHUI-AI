@@ -567,6 +567,7 @@ def create_app() -> FastAPI:
             "/agent_management": "agent_management.html",
             "/config_page": "config.html",
             "/sms_login": "sms_login.html",
+            "/crew": "crew.html",
         }
         for _alias, _filename in _HTML_ALIASES.items():
             _path = os.path.join(static_dir, _filename)

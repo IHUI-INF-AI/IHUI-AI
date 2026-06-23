@@ -47,7 +47,13 @@
     "uploadCover": "커버를 업로드하세요",
     "enterGroupTitle": "그룹 제목을 입력하세요",
     "enterGroupDesc": "그룹 설명을 입력하세요",
-    "selectTrack": "메인/서브 트랙을 선택하세요"
+    "selectTrack": "메인/서브 트랙을 선택하세요",
+    "subTrack": "세부 트랙",
+    "pleaseSelect": "선택해 주세요",
+    "uploadVideo": "동영상 업로드",
+    "publish": "게시",
+    "edit": "수정",
+    "delist": "게시 중단"
   },
   "studyIndexModelList": {
     "loading": "로딩...",

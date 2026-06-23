@@ -618,5 +618,24 @@
       "items": {}
     },
     "cta_section": {}
+  },
+  "learnRate": {
+    "reviews": "件の評価",
+    "writeReview": "評価を書く"
+  },
+  "learn": {
+    "searchPlaceholder": {
+      "category": "カテゴリーを検索",
+      "lesson": "レッスンを検索",
+      "lessonTrash": "ゴミ箱のレッスンを検索",
+      "map": "学習マップを検索",
+      "order": "注文を検索",
+      "orderInvoiceApplication": "請求書申請を検索",
+      "orderInvoiceTitle": "請求書名義を検索",
+      "report": "レポートを検索",
+      "signup": "申込を検索",
+      "topic": "トピックを検索",
+      "topicCategory": "トピックカテゴリーを検索"
+    }
   }
 }

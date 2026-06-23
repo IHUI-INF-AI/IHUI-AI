@@ -47,7 +47,15 @@
     "uploadCover": "Please upload cover",
     "enterGroupTitle": "Please enter group title",
     "enterGroupDesc": "Please enter group description",
-    "selectTrack": "Please select main and sub track"
+    "selectTrack": "Please select main and sub track",
+    "subTrack": "Sub Track",
+    "titlePlaceholder": "Enter collection title",
+    "descPlaceholder": "Enter collection description",
+    "pleaseSelect": "Please Select",
+    "uploadVideo": "Upload Video",
+    "publish": "Publish",
+    "edit": "Edit",
+    "delist": "Delist"
   },
   "studyIndexModelList": {
     "loading": "Loading...",

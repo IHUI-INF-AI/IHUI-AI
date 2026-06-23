@@ -1,0 +1,12 @@
+{
+  "examDo": {
+    "questionCount": "문제 수",
+    "duration": "시간",
+    "minutes": "분",
+    "passScore": "합격",
+    "startExam": "시험 시작",
+    "remaining": "남은",
+    "score": "점",
+    "submit": "제출"
+  }
+}

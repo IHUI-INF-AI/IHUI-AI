@@ -158,5 +158,16 @@
     "goLogin": "Go Login",
     "goRegister": "Go Register",
     "hasAccount": "Has Account"
+  },
+  "userLoginPopup": {
+    "welcomeBack": "Welcome back, please login",
+    "phonePlaceholder": "Enter phone number",
+    "codePlaceholder": "Enter verification code",
+    "enterPhone": "Please enter phone number",
+    "invalidPhone": "Invalid phone format",
+    "codeSent": "Verification code sent",
+    "codeSendFailed": "Failed to send code, please retry",
+    "loginSuccess": "Login Successful",
+    "wechatLoginNotConfigured": "WeChat login not configured"
   }
 }

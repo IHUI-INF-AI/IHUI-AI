@@ -158,5 +158,14 @@
     "goRegister": "Go Register",
     "hasAccount": "Has Account"
   },
-  "loginPopup": {}
+  "loginPopup": {},
+  "userLoginPopup": {
+    "welcomeBack": "歡迎回來，請登錄您的帳戶",
+    "enterPhone": "請先輸入手機號",
+    "invalidPhone": "手機號格式不正確",
+    "codeSent": "驗證碼已發送",
+    "codeSendFailed": "驗證碼發送失敗，請重試",
+    "loginSuccess": "登錄成功",
+    "wechatLoginNotConfigured": "微信登錄功能暫未配置"
+  }
 }

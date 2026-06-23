@@ -172,7 +172,7 @@
             </button>
             <button
               class="action-btn ripple-btn"
-              aria-label="复制内容"
+              :aria-label="t('common.copy')"
               @click="
                 copyContent(agentContentList[index].copyContent || agentContentList[index].content)
               "

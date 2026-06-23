@@ -217,7 +217,10 @@
       "method": "Method",
       "realName": "Real Name",
       "realNamePlaceholder": "Real Name Placeholder",
-      "title": "Title"
+      "title": "Title",
+      "alipay": "Alipay",
+      "wechat": "WeChat",
+      "bankCard": "Bank Card"
     }
   },
   "distributionTeam": {

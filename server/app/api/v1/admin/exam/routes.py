@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query
 from loguru import logger
 
 from app.database import get_session
-from app.models.exam_models import ExamCategory, ExamPaper, ExamQuestion, ExamRecord, ExamWrongQuestion
+from app.models.exam_models import ExamCategory, ExamPaper, ExamQuestion, ExamRecord, ExamWrongQuestion, ExamChapter, ExamChapterSection
 from app.schemas.common import error, success
 
 router = APIRouter()
@@ -179,7 +179,7 @@ def _paper_to_dict(p: ExamPaper) -> dict:
 
 
 @router.get("/paper/list", summary="试卷列表")
-async def admin_paper_list(keyword: str | None = None, category_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+async def admin_paper_list(keyword: str | None = None, category_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None):
     with get_session() as db:
         q = db.query(ExamPaper)
         if keyword:
@@ -561,3 +561,216 @@ async def admin_wrong_list(user_id: str | None = None, page: int = Query(1, ge=1
             "page": page,
             "size": size,
         })
+
+
+# ==================== �½� CRUD ====================
+
+
+def _chapter_to_dict(chapter: ExamChapter) -> dict:
+    return {
+        "id": chapter.id,
+        "paperId": chapter.paper_id,
+        "title": chapter.title,
+        "description": chapter.description,
+        "cover": chapter.cover,
+        "questionNum": chapter.question_num,
+        "totalScore": chapter.total_score,
+        "sortOrder": chapter.sort_order,
+        "create_time": chapter.created_at.isoformat() if chapter.created_at else None,
+    }
+
+
+@router.get("/chapter/list", summary="�½��б�")
+async def admin_chapter_list(keyword: str | None = None, paper_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None):
+    with get_session() as db:
+        q = db.query(ExamChapter)
+        if keyword:
+            q = q.filter(ExamChapter.title.like(f"%{keyword}%"))
+        if paper_id is not None:
+            q = q.filter(ExamChapter.paper_id == paper_id)
+        if current is not None:
+            page = current
+        total = q.count()
+        items = q.order_by(ExamChapter.sort_order.asc(), ExamChapter.id.asc()).offset((page - 1) * size).limit(size).all()
+        return success({
+            "records": [_chapter_to_dict(item) for item in items],
+            "total": total,
+            "page": page,
+            "size": size,
+        })
+
+
+@router.get("/chapter/{cid}", summary="�½�����")
+async def admin_chapter_detail(cid: int):
+    with get_session() as db:
+        chapter = db.query(ExamChapter).filter(ExamChapter.id == cid).first()
+        if not chapter:
+            return error("�½ڲ�����", code="404")
+        return success(_chapter_to_dict(chapter))
+
+
+@router.post("/chapter", summary="�����½�")
+async def admin_chapter_create(paper_id: int | None = None, title: str = Query(..., min_length=1), description: str | None = None, cover: str | None = None, question_num: int = Query(0), total_score: float = Query(0), sort_order: int = Query(0)):
+    with get_session() as db:
+        chapter = ExamChapter(paper_id=paper_id, title=title, description=description, cover=cover, question_num=question_num, total_score=total_score, sort_order=sort_order)
+        db.add(chapter)
+        db.flush()
+        return success(_chapter_to_dict(chapter))
+
+
+@router.put("/chapter/{cid}", summary="�޸��½�")
+async def admin_chapter_update(cid: int, paper_id: int | None = None, title: str | None = None, description: str | None = None, cover: str | None = None, question_num: int | None = None, total_score: float | None = None, sort_order: int | None = None):
+    with get_session() as db:
+        chapter = db.query(ExamChapter).filter(ExamChapter.id == cid).first()
+        if not chapter:
+            return error("�½ڲ�����", code="404")
+        if paper_id is not None:
+            chapter.paper_id = paper_id
+        if title is not None:
+            chapter.title = title
+        if description is not None:
+            chapter.description = description
+        if cover is not None:
+            chapter.cover = cover
+        if question_num is not None:
+            chapter.question_num = question_num
+        if total_score is not None:
+            chapter.total_score = total_score
+        if sort_order is not None:
+            chapter.sort_order = sort_order
+        db.flush()
+        return success(_chapter_to_dict(chapter))
+
+
+@router.delete("/chapter/{cid}", summary="ɾ���½�")
+async def admin_chapter_delete(cid: int):
+    with get_session() as db:
+        chapter = db.query(ExamChapter).filter(ExamChapter.id == cid).first()
+        if not chapter:
+            return error("�½ڲ�����", code="404")
+        db.delete(chapter)
+        db.query(ExamChapterSection).filter(ExamChapterSection.chapter_id == cid).delete(synchronize_session=False)
+        db.flush()
+        return success({"deleted": cid})
+
+
+@router.post("/chapter/batch-delete", summary="����ɾ���½�")
+async def admin_chapter_batch_delete(ids: str = Query(...)):
+    id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+    with get_session() as db:
+        db.query(ExamChapterSection).filter(ExamChapterSection.chapter_id.in_(id_list)).delete(synchronize_session=False)
+        db.query(ExamChapter).filter(ExamChapter.id.in_(id_list)).delete(synchronize_session=False)
+        db.flush()
+        return success({"deleted": id_list, "count": len(id_list)})
+
+
+# ==================== С�� CRUD ====================
+
+
+def _section_to_dict(section: ExamChapterSection) -> dict:
+    return {
+        "id": section.id,
+        "chapterId": section.chapter_id,
+        "paperId": section.paper_id,
+        "title": section.title,
+        "description": section.description,
+        "mediaUrl": section.media_url,
+        "media_url": section.media_url,
+        "content": section.content,
+        "questionNum": section.question_num,
+        "totalScore": section.total_score,
+        "duration": section.duration,
+        "sortOrder": section.sort_order,
+        "create_time": section.created_at.isoformat() if section.created_at else None,
+    }
+
+
+@router.get("/chapter/section/list", summary="С���б�")
+async def admin_section_list(keyword: str | None = None, chapter_id: int | None = None, paper_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None):
+    with get_session() as db:
+        q = db.query(ExamChapterSection)
+        if keyword:
+            q = q.filter(ExamChapterSection.title.like(f"%{keyword}%"))
+        if chapter_id is not None:
+            q = q.filter(ExamChapterSection.chapter_id == chapter_id)
+        if paper_id is not None:
+            q = q.filter(ExamChapterSection.paper_id == paper_id)
+        if current is not None:
+            page = current
+        total = q.count()
+        items = q.order_by(ExamChapterSection.sort_order.asc(), ExamChapterSection.id.asc()).offset((page - 1) * size).limit(size).all()
+        return success({
+            "records": [_section_to_dict(item) for item in items],
+            "total": total,
+            "page": page,
+            "size": size,
+        })
+
+
+@router.get("/chapter/section/{sid}", summary="С������")
+async def admin_section_detail(sid: int):
+    with get_session() as db:
+        section = db.query(ExamChapterSection).filter(ExamChapterSection.id == sid).first()
+        if not section:
+            return error("С�ڲ�����", code="404")
+        return success(_section_to_dict(section))
+
+
+@router.post("/chapter/section", summary="����С��")
+async def admin_section_create(chapter_id: int | None = None, paper_id: int | None = None, title: str = Query(..., min_length=1), description: str | None = None, media_url: str | None = None, content: str | None = None, question_num: int = Query(0), total_score: float = Query(0), duration: int = Query(0), sort_order: int = Query(0)):
+    with get_session() as db:
+        section = ExamChapterSection(chapter_id=chapter_id, paper_id=paper_id, title=title, description=description, media_url=media_url, content=content, question_num=question_num, total_score=total_score, duration=duration, sort_order=sort_order)
+        db.add(section)
+        db.flush()
+        return success(_section_to_dict(section))
+
+
+@router.put("/chapter/section/{sid}", summary="�޸�С��")
+async def admin_section_update(sid: int, chapter_id: int | None = None, paper_id: int | None = None, title: str | None = None, description: str | None = None, media_url: str | None = None, content: str | None = None, question_num: int | None = None, total_score: float | None = None, duration: int | None = None, sort_order: int | None = None):
+    with get_session() as db:
+        section = db.query(ExamChapterSection).filter(ExamChapterSection.id == sid).first()
+        if not section:
+            return error("С�ڲ�����", code="404")
+        if chapter_id is not None:
+            section.chapter_id = chapter_id
+        if paper_id is not None:
+            section.paper_id = paper_id
+        if title is not None:
+            section.title = title
+        if description is not None:
+            section.description = description
+        if media_url is not None:
+            section.media_url = media_url
+        if content is not None:
+            section.content = content
+        if question_num is not None:
+            section.question_num = question_num
+        if total_score is not None:
+            section.total_score = total_score
+        if duration is not None:
+            section.duration = duration
+        if sort_order is not None:
+            section.sort_order = sort_order
+        db.flush()
+        return success(_section_to_dict(section))
+
+
+@router.delete("/chapter/section/{sid}", summary="ɾ��С��")
+async def admin_section_delete(sid: int):
+    with get_session() as db:
+        section = db.query(ExamChapterSection).filter(ExamChapterSection.id == sid).first()
+        if not section:
+            return error("С�ڲ�����", code="404")
+        db.delete(section)
+        db.flush()
+        return success({"deleted": sid})
+
+
+@router.post("/chapter/section/batch-delete", summary="����ɾ��С��")
+async def admin_section_batch_delete(ids: str = Query(...)):
+    id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+    with get_session() as db:
+        db.query(ExamChapterSection).filter(ExamChapterSection.id.in_(id_list)).delete(synchronize_session=False)
+        db.flush()
+        return success({"deleted": id_list, "count": len(id_list)})
+

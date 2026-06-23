@@ -21,7 +21,7 @@
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, onMounted, h } from 'vue'
-import { ElButton, ElTag, ElMessageBox, type Column } from 'element-plus'
+import { ElButton, ElTag, ElMessage, ElMessageBox, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import { adminApi } from '@/api/admin'
 import AdminAnswerDetailDialog from './AnswerDetailDialog.vue'
@@ -48,9 +48,9 @@ const columns: Column<any>[] = [
     width: 100,
     cellRenderer: ({ rowData: row }) => {
       const status = Number(row?.status)
-      if (status === 2) return h(ElTag, { type: 'success' }, () => '已批改')
-      if (status === 1) return h(ElTag, { type: 'warning' }, () => '待批改')
-      return h(ElTag, { type: 'info' }, () => '未提交')
+      if (status === 2) return h(ElTag, { type: 'success' }, h('span', {}, '已批改'))
+      if (status === 1) return h(ElTag, { type: 'warning' }, h('span', {}, '待批改'))
+      return h(ElTag, { type: 'info' }, h('span', {}, '未提交'))
     },
   },
   { key: 'submitTime', dataKey: 'submitTime', title: '提交时间', width: 180 },

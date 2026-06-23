@@ -158,5 +158,16 @@
     "goLogin": "前往登录",
     "goRegister": "前往注册",
     "hasAccount": "已有账号"
+  },
+  "userLoginPopup": {
+    "welcomeBack": "欢迎回来，请登录您的账户",
+    "phonePlaceholder": "请输入手机号",
+    "codePlaceholder": "请输入验证码",
+    "enterPhone": "请先输入手机号",
+    "invalidPhone": "手机号格式不正确",
+    "codeSent": "验证码已发送",
+    "codeSendFailed": "验证码发送失败，请重试",
+    "loginSuccess": "登录成功",
+    "wechatLoginNotConfigured": "微信登录功能暂未配置"
   }
 }

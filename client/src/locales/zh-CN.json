@@ -623,7 +623,8 @@
       "requestCancelled": "请求已取消",
       "loginFailed": "Login Failed",
       "actionFailed": "操作失败",
-      "removeFailed": "移除失败"
+      "removeFailed": "移除失败",
+      "jsonArrayError": "选项需为 JSON 数组，例如 [\"A\",\"B\",\"C\",\"D\"]"
     },
     "messages": {
       "loadSuccess": "加载成功",
@@ -655,6 +656,7 @@
     "back": "返回",
     "next": "下一步",
     "previous": "上一步",
+    "previousItem": "上一个",
     "toggleAnswer": "切换答案显示",
     "toggleThinking": "切换思考过程",
     "voiceInput": "语音输入",
@@ -1078,6 +1080,8 @@
     "googleLogin": "Google登录",
     "appleLogin": "Apple登录",
     "feishuLogin": "飞书登录",
+    "dingtalkLogin": "钉钉登录",
+    "wecomLogin": "企业微信登录",
     "missingAccount": "账号",
     "missingPassword": "密码",
     "missingServiceAgreement": "服务协议",
@@ -13805,6 +13809,8 @@
     "tabAll": "全部",
     "tabSystem": "系统",
     "tabPrivate": "私信",
+    "tabFavorite": "收藏",
+    "tabLike": "点赞",
     "typeSystem": "系统消息",
     "typePrivate": "私信",
     "typeNotice": "通知",

@@ -175,5 +175,14 @@
   "loginPopup": {
     "핵심 장점": "로그인",
     "전화Login": "전화번호 로그인"
+  },
+  "userLoginPopup": {
+    "welcomeBack": "돌아오신 것을 환영합니다, 로그인하세요",
+    "enterPhone": "전화번호를 입력하세요",
+    "invalidPhone": "전화번호 형식이 잘못되었습니다",
+    "codeSent": "인증번호 발송됨",
+    "codeSendFailed": "인증번호 발송 실패, 재시도하세요",
+    "loginSuccess": "로그인 성공",
+    "wechatLoginNotConfigured": "WeChat 로그인이 설정되지 않음"
   }
 }

@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "siteName": "智汇AI社区",
     "selectLanguage": "选择语言",
@@ -1490,6 +1490,8 @@
     "googleLogin": "Google登录",
     "appleLogin": "Apple登录",
     "feishuLogin": "飞书登录",
+  "dingtalkLogin": "钉钉登录",
+  "wecomLogin": "企业微信登录",
     "missingAccount": "账号",
     "missingPassword": "密码",
     "missingServiceAgreement": "服务协议",
@@ -1883,6 +1885,12 @@
     "liveList": "直播",
     "liveDetail": "直播详情",
     "livePlay": "直播播放",
+    "circleList": "兴趣圈子",
+    "circleDetail": "圈子详情",
+    "askList": "问答社区",
+    "askDetail": "问答详情",
+    "examDo": "在线答题",
+    "n8nAssistant": "N8N助手",
     "memberPersonal": "个人资料",
     "memberSetting": "账号设置",
     "memberPoint": "我的积分",

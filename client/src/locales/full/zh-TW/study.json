@@ -47,7 +47,13 @@
     "uploadCover": "請上傳封面",
     "enterGroupTitle": "請輸入合集標題",
     "enterGroupDesc": "請輸入合集描述",
-    "selectTrack": "請選擇主賽道和子賽道"
+    "selectTrack": "請選擇主賽道和子賽道",
+    "subTrack": "細分賽道",
+    "pleaseSelect": "請選擇",
+    "uploadVideo": "上傳影片",
+    "publish": "發布",
+    "edit": "修改",
+    "delist": "下架"
   },
   "studyIndexModelList": {
     "loading": "載入中...",

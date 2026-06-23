@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多智能体协作平台 - 智汇AI</title>
+<style>
+:root {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --bg-input: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --border: #334155;
+  --radius: 12px;
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans CJK SC', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+.app { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.header { text-align: center; margin-bottom: 32px; }
+.header h1 {
+  font-size: 28px; font-weight: 700;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+.header p { color: var(--text-secondary); font-size: 14px; }
+.panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+.panel-title {
+  font-size: 16px; font-weight: 600; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-title::before {
+  content: ''; width: 4px; height: 18px; background: var(--accent);
+  border-radius: 2px;
+}
+.input-group { margin-bottom: 16px; }
+.input-group label {
+  display: block; font-size: 13px; color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.input-group input, .input-group textarea, .input-group select {
+  width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; color: var(--text-primary);
+  font-size: 14px; font-family: inherit; transition: border-color 0.2s;
+}
+.input-group input:focus, .input-group textarea:focus, .input-group select:focus {
+  outline: none; border-color: var(--accent);
+}
+.input-group textarea { resize: vertical; min-height: 80px; }
+.row { display: flex; gap: 16px; }
+.row > * { flex: 1; }
+.btn {
+  padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px;
+  font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit;
+}
+.btn-primary {
+  background: var(--accent); color: white;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-secondary {
+  background: var(--bg-input); color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--accent); }
+.actions { display: flex; gap: 12px; justify-content: flex-end; }
+.status-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+}
+.status-pending { background: rgba(245,158,11,0.15); color: var(--warning); }
+.status-running { background: rgba(59,130,246,0.15); color: var(--accent); }
+.status-completed { background: rgba(16,185,129,0.15); color: var(--success); }
+.status-failed { background: rgba(239,68,68,0.15); color: var(--error); }
+.status-badge::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+.status-running::before { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.agent-card {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin-bottom: 12px;
+  transition: all 0.3s; position: relative; overflow: hidden;
+}
+.agent-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+}
+.agent-card.done { border-color: var(--success); }
+.agent-card.error { border-color: var(--error); }
+.agent-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.agent-role {
+  font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+}
+.agent-icon {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.icon-planner { background: rgba(139,92,246,0.2); color: #a78bfa; }
+.icon-researcher { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.icon-executor { background: rgba(16,185,129,0.2); color: #34d399; }
+.icon-reviewer { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.icon-reporter { background: rgba(239,68,68,0.2); color: #f87171; }
+.agent-content {
+  font-size: 13px; color: var(--text-secondary);
+  max-height: 200px; overflow-y: auto; white-space: pre-wrap;
+  word-break: break-word;
+}
+.agent-content.expanded { max-height: none; }
+.agent-desc {
+  font-size: 12px; color: var(--text-muted); margin-bottom: 8px;
+}
+.toggle-btn {
+  font-size: 12px; color: var(--accent); cursor: pointer;
+  background: none; border: none; font-family: inherit;
+  margin-top: 4px;
+}
+.progress-bar {
+  height: 4px; background: var(--bg-input); border-radius: 2px;
+  overflow: hidden; margin-top: 16px;
+}
+.progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), #8b5cf6);
+  transition: width 0.5s; width: 0%;
+}
+.result-box {
+  background: var(--bg-secondary); border: 1px solid var(--success);
+  border-radius: 10px; padding: 20px; margin-top: 16px;
+}
+.result-box h3 {
+  font-size: 14px; color: var(--success); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.result-content {
+  font-size: 14px; color: var(--text-primary); white-space: pre-wrap;
+  word-break: break-word; line-height: 1.8;
+}
+.empty-state {
+  text-align: center; padding: 40px; color: var(--text-muted);
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.session-list {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.session-item {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px; cursor: pointer;
+  transition: all 0.2s; display: flex; align-items: center;
+  justify-content: space-between;
+}
+.session-item:hover { border-color: var(--accent); }
+.session-info { flex: 1; }
+.session-title { font-size: 14px; font-weight: 500; }
+.session-time { font-size: 12px; color: var(--text-muted); }
+.log-area {
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; font-family: 'Consolas', monospace;
+  font-size: 12px; color: var(--text-secondary); max-height: 300px;
+  overflow-y: auto; white-space: pre-wrap;
+}
+.log-line { margin-bottom: 4px; }
+.log-line .ts { color: var(--text-muted); }
+.log-line .type { font-weight: 600; }
+.log-line .type-start { color: var(--accent); }
+.log-line .type-plan { color: #a78bfa; }
+.log-line .type-task_start { color: var(--warning); }
+.log-line .type-task_complete { color: var(--success); }
+.log-line .type-complete { color: var(--success); }
+.log-line .type-error { color: var(--error); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 768px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .row { flex-direction: column; }
+}
+.loading-spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>多智能体协作平台</h1>
+    <p>Multi-Agent Crew System powered by CrewAI - 任务分解 / 角色协作 / 流式输出</p>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <div class="panel">
+        <div class="panel-title">任务输入</div>
+        <div class="input-group">
+          <label>用户需求</label>
+          <textarea id="inputMessage" placeholder="请输入您需要多智能体协作完成的任务...">分析人工智能在教育领域的应用前景，包括技术趋势、主要应用场景和面临的挑战</textarea>
+        </div>
+        <div class="row">
+          <div class="input-group">
+            <label>LLM 模型</label>
+            <select id="modelSelect"><option value="">加载中...</option></select>
+          </div>
+          <div class="input-group">
+            <label>用户ID</label>
+            <input type="text" id="userId" value="web_user" />
+          </div>
+        </div>
+        <div class="input-group">
+          <label>知识库集合 (可选)</label>
+          <input type="text" id="collectionName" value="" placeholder="留空则不使用知识库" />
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+          <button class="btn btn-primary" id="runBtn" onclick="runCrew()">启动协作</button>
+        </div>
+      </div>
+
+      <div class="panel" id="progressPanel" style="display:none;">
+        <div class="panel-title">执行进度</div>
+        <div id="agentCards"></div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--text-muted);">
+          <span id="progressText">准备中...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+      </div>
+
+      <div class="panel" id="resultPanel" style="display:none;">
+        <div class="panel-title">最终结果</div>
+        <div class="result-box">
+          <h3>Reported by Reporter</h3>
+          <div class="result-content" id="resultContent"></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-title">智能体角色</div>
+        <div id="agentList">
+          <div class="empty-state"><div class="icon">...</div><div>加载中</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">执行日志</div>
+        <div class="log-area" id="logArea">
+          <div class="log-line"><span class="ts">[系统]</span> 等待任务启动...</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">历史会话</div>
+        <div class="session-list" id="sessionList">
+          <div class="empty-state"><div class="icon">...</div><div>暂无历史会话</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin + '/api/v1/crew';
+const AGENT_ICONS = {
+  planner: { icon: 'P', cls: 'icon-planner', name: '规划师' },
+  researcher: { icon: 'R', cls: 'icon-researcher', name: '研究员' },
+  executor: { icon: 'E', cls: 'icon-executor', name: '执行者' },
+  reviewer: { icon: 'V', cls: 'icon-reviewer', name: '审查员' },
+  reporter: { icon: 'T', cls: 'icon-reporter', name: '报告员' },
+};
+let currentSessionId = null;
+let agentRoles = [];
+
+// 初始化
+async function init() {
+  await Promise.all([loadAgents(), loadModels(), loadSessions()]);
+}
+
+async function loadAgents() {
+  try {
+    const resp = await fetch(API_BASE + '/agents');
+    const data = await resp.json();
+    agentRoles = data.data || [];
+    renderAgents();
+  } catch (e) { console.error('加载角色失败:', e); }
+}
+
+function renderAgents() {
+  const container = document.getElementById('agentList');
+  if (!agentRoles.length) {
+    container.innerHTML = '<div class="empty-state"><div>暂无角色</div></div>';
+    return;
+  }
+  container.innerHTML = agentRoles.map(r => {
+    const info = AGENT_ICONS[r.role] || { icon: '?', cls: '', name: r.role };
+    return `
+      <div class="agent-card" id="agent-${r.role}">
+        <div class="agent-header">
+          <div class="agent-role">
+            <div class="agent-icon ${info.cls}">${info.icon}</div>
+            <span>${info.name}</span>
+            <span style="color:var(--text-muted);font-size:12px;font-weight:400;">(${r.role})</span>
+          </div>
+          <span class="status-badge status-pending" id="status-${r.role}">待命</span>
+        </div>
+        <div class="agent-desc">${r.goal}</div>
+        <div class="agent-content" id="content-${r.role}" style="display:none;"></div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadModels() {
+  try {
+    const resp = await fetch(API_BASE + '/models');
+    const data = await resp.json();
+    const models = data.data || [];
+    const select = document.getElementById('modelSelect');
+    if (models.length === 0) {
+      select.innerHTML = '<option value="">无可用模型</option>';
+      return;
+    }
+    select.innerHTML = models.map(m =>
+      `<option value="${m.model_id}">${m.name || m.model_id}</option>`
+    ).join('');
+    // 默认选择第一个
+    if (models.length > 0) select.value = models[0].model_id;
+  } catch (e) {
+    console.error('加载模型失败:', e);
+    document.getElementById('modelSelect').innerHTML = '<option value="">加载失败</option>';
+  }
+}
+
+async function loadSessions() {
+  try {
+    const userId = document.getElementById('userId').value;
+    const resp = await fetch(API_BASE + '/sessions?user_id=' + userId + '&limit=10');
+    const data = await resp.json();
+    const sessions = data.data || [];
+    const container = document.getElementById('sessionList');
+    if (sessions.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div>暂无历史会话</div></div>';
+      return;
+    }
+    container.innerHTML = sessions.map(s => `
+      <div class="session-item" onclick="viewSession('${s.id}')">
+        <div class="session-info">
+          <div class="session-title">${s.title || '未命名会话'}</div>
+          <div class="session-time">${s.created_at || ''} · ${s.status}</div>
+        </div>
+        <span class="status-badge status-${s.status}">${s.status}</span>
+      </div>
+    `).join('');
+  } catch (e) { console.error('加载会话失败:', e); }
+}
+
+function log(type, content) {
+  const area = document.getElementById('logArea');
+  const ts = new Date().toLocaleTimeString('zh-CN');
+  const typeLabel = {
+    start: '开始', planning: '规划中', plan: '计划',
+    task_start: '任务开始', task_complete: '任务完成',
+    task_error: '任务错误', complete: '完成', error: '错误'
+  }[type] || type;
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="ts">[${ts}]</span> <span class="type type-${type}">${typeLabel}:</span> ${content.substring(0, 200)}`;
+  area.appendChild(line);
+  area.scrollTop = area.scrollHeight;
+}
+
+function updateAgentStatus(role, status, content) {
+  const statusEl = document.getElementById('status-' + role);
+  const cardEl = document.getElementById('agent-' + role);
+  const contentEl = document.getElementById('content-' + role);
+  if (!statusEl) return;
+
+  const statusMap = {
+    pending: { cls: 'status-pending', text: '待命' },
+    running: { cls: 'status-running', text: '执行中' },
+    completed: { cls: 'status-completed', text: '完成' },
+    failed: { cls: 'status-failed', text: '失败' },
+  };
+  const s = statusMap[status] || statusMap.pending;
+  statusEl.className = 'status-badge ' + s.cls;
+  statusEl.textContent = s.text;
+
+  cardEl.className = 'agent-card';
+  if (status === 'running') cardEl.classList.add('active');
+  else if (status === 'completed') cardEl.classList.add('done');
+  else if (status === 'failed') cardEl.classList.add('error');
+
+  if (content) {
+    contentEl.style.display = 'block';
+    contentEl.textContent = content;
+  }
+}
+
+function updateProgress(current, total) {
+  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPercent').textContent = pct + '%';
+  document.getElementById('progressText').textContent = `步骤 ${current}/${total}`;
+}
+
+async function runCrew() {
+  const inputMessage = document.getElementById('inputMessage').value.trim();
+  const modelId = document.getElementById('modelSelect').value;
+  const userId = document.getElementById('userId').value.trim();
+  const collectionName = document.getElementById('collectionName').value.trim();
+
+  if (!inputMessage) { alert('请输入任务需求'); return; }
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span> 执行中...';
+
+  // 重置 UI
+  document.getElementById('progressPanel').style.display = 'block';
+  document.getElementById('resultPanel').style.display = 'none';
+  document.getElementById('agentCards').innerHTML = '';
+  agentRoles.forEach(r => updateAgentStatus(r.role, 'pending'));
+
+  // 重置日志
+  document.getElementById('logArea').innerHTML = '';
+
+  try {
+    // 1. 创建会话
+    log('start', '创建多智能体会话...');
+    const createResp = await fetch(API_BASE + '/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        input_message: inputMessage,
+        title: inputMessage.substring(0, 50),
+        config: {
+          model_id: modelId,
+          collection_name: collectionName || undefined,
+          max_retries: 2,
+        }
+      })
+    });
+    const createData = await createResp.json();
+    if (createData.code !== 0) throw new Error(createData.msg || '创建失败');
+    currentSessionId = createData.data.session_id;
+    log('start', `会话已创建: ${currentSessionId.substring(0, 8)}...`);
+
+    // 2. SSE 流式执行
+    log('start', '开始流式执行...');
+
+    const sseResp = await fetch(API_BASE + `/sessions/${currentSessionId}/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const reader = sseResp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let totalTasks = 0;
+    let completedTasks = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const event = JSON.parse(line.substring(6));
+          handleEvent(event, { totalTasks, completedTasks });
+          if (event.type === 'plan' && event.tasks) {
+            totalTasks = event.tasks.length;
+          }
+          if (event.type === 'task_complete') {
+            completedTasks++;
+            updateProgress(completedTasks, totalTasks);
+          }
+          if (event.type === 'complete') {
+            showResult(event.content);
+            log('complete', '多智能体协作完成!');
+            break;
+          }
+          if (event.type === 'error') {
+            log('error', event.content);
+            break;
+          }
+        } catch (e) { /* skip parse errors */ }
+      }
+    }
+
+    // 刷新会话列表
+    await loadSessions();
+
+  } catch (e) {
+    log('error', e.message);
+    alert('执行失败: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '启动协作';
+  }
+}
+
+function handleEvent(event, state) {
+  const { type, role, content, tasks } = event;
+
+  switch (type) {
+    case 'start':
+      log('start', content);
+      break;
+    case 'planning':
+      log('planning', content);
+      break;
+    case 'plan':
+      log('plan', `任务分解完成, 共 ${tasks?.length || 0} 个步骤`);
+      if (tasks) {
+        const container = document.getElementById('agentCards');
+        container.innerHTML = tasks.map((t, i) => {
+          const info = AGENT_ICONS[t.role] || { icon: '?', cls: '', name: t.role };
+          return `
+            <div class="agent-card" id="card-${i}">
+              <div class="agent-header">
+                <div class="agent-role">
+                  <div class="agent-icon ${info.cls}">${info.icon}</div>
+                  <span>${info.name}</span>
+                  <span style="color:var(--text-muted);font-size:12px;">步骤 ${i+1}</span>
+                </div>
+                <span class="status-badge status-pending" id="card-status-${i}">待命</span>
+              </div>
+              <div class="agent-desc">${t.description.substring(0, 100)}...</div>
+              <div class="agent-content" id="card-content-${i}" style="display:none;"></div>
+            </div>
+          `;
+        }).join('');
+      }
+      break;
+    case 'task_start':
+      log('task_start', `[${role}] ${content}`);
+      // 更新对应卡片状态
+      const cards = document.querySelectorAll('[id^="card-"]');
+      cards.forEach((card, i) => {
+        const cardRole = tasks?.[i]?.role;
+        if (cardRole === role) {
+          const statusEl = document.getElementById(`card-status-${i}`);
+          if (statusEl) { statusEl.className = 'status-badge status-running'; statusEl.textContent = '执行中'; }
+          card.className = 'agent-card active';
+        }
+      });
+      // 同时更新左侧角色列表
+      updateAgentStatus(role, 'running');
+      break;
+    case 'task_complete':
+      log('task_complete', `[${role}] 完成`);
+      // 更新卡片
+      cards?.forEach((card, i) => {
+        const cardRole = event.tasks?.[i]?.role;
+        // 由于 event 中没有 tasks, 用 role 匹配
+      });
+      // 更新角色列表
+      updateAgentStatus(role, 'completed', content);
+      // 更新对应卡片
+      const allCards = document.querySelectorAll('[id^="card-"]');
+      allCards.forEach((card, i) => {
+        const desc = card.querySelector('.agent-desc')?.textContent || '';
+        // 简单匹配: 通过角色名在描述中查找
+      });
+      // 直接通过 role 查找并更新
+      document.querySelectorAll('.agent-card').forEach(card => {
+        const roleEl = card.querySelector('.agent-role span');
+        if (roleEl && roleEl.textContent === AGENT_ICONS[role]?.name) {
+          card.className = 'agent-card done';
+          const status = card.querySelector('.status-badge');
+          if (status) { status.className = 'status-badge status-completed'; status.textContent = '完成'; }
+          const contentEl = card.querySelector('.agent-content');
+          if (contentEl && content) { contentEl.style.display = 'block'; contentEl.textContent = content; }
+        }
+      });
+      break;
+    case 'task_error':
+      log('task_error', `[${role}] ${content}`);
+      updateAgentStatus(role, 'failed', content);
+      break;
+    case 'complete':
+      // 最终结果会在外面处理
+      break;
+    case 'error':
+      log('error', content);
+      break;
+  }
+}
+
+function showResult(content) {
+  document.getElementById('resultPanel').style.display = 'block';
+  document.getElementById('resultContent').textContent = content;
+  document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function viewSession(sessionId) {
+  try {
+    const resp = await fetch(API_BASE + `/sessions/${sessionId}`);
+    const data = await resp.json();
+    if (data.code !== 0) return;
+    const session = data.data;
+    currentSessionId = sessionId;
+
+    // 显示会话详情
+    document.getElementById('inputMessage').value = session.input_message || '';
+    document.getElementById('progressPanel').style.display = 'block';
+
+    if (session.output_message) {
+      showResult(session.output_message);
+    }
+
+    // 加载任务列表
+    const tasksResp = await fetch(API_BASE + `/sessions/${sessionId}/tasks`);
+    const tasksData = await tasksResp.json();
+    const tasks = tasksData.data || [];
+
+    const container = document.getElementById('agentCards');
+    container.innerHTML = tasks.map((t, i) => {
+      const info = AGENT_ICONS[t.agent_role] || { icon: '?', cls: '', name: t.agent_role };
+      return `
+        <div class="agent-card ${t.status === 'completed' ? 'done' : t.status === 'failed' ? 'error' : ''}">
+          <div class="agent-header">
+            <div class="agent-role">
+              <div class="agent-icon ${info.cls}">${info.icon}</div>
+              <span>${info.name}</span>
+              <span style="color:var(--text-muted);font-size:12px;">步骤 ${i+1}</span>
+            </div>
+            <span class="status-badge status-${t.status}">${t.status}</span>
+          </div>
+          <div class="agent-desc">${t.description.substring(0, 100)}...</div>
+          ${t.output_data ? `<div class="agent-content">${t.output_data.substring(0, 500)}</div>` : ''}
+          ${t.error_message ? `<div class="agent-content" style="color:var(--error);">${t.error_message}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    // 加载消息日志
+    const msgsResp = await fetch(API_BASE + `/sessions/${sessionId}/messages`);
+    const msgsData = await msgsResp.json();
+    const msgs = msgsData.data || [];
+    const logArea = document.getElementById('logArea');
+    logArea.innerHTML = '';
+    msgs.forEach(m => {
+      log('task_complete', `[${m.from_role}] ${m.content.substring(0, 150)}`);
+    });
+
+  } catch (e) {
+    console.error('查看会话失败:', e);
+  }
+}
+
+function clearAll() {
+  document.getElementById('inputMessage').value = '';
+  document.getElementById('progressPanel').style.display = 'none';
+  document.getElementById('resultPanel').style.display = 'none';
+  document.getElementById('logArea').innerHTML = '<div class="log-line"><span class="ts">[系统]</span> 等待任务启动...</div>';
+  agentRoles.forEach(r => updateAgentStatus(r.role, 'pending'));
+}
+
+// 启动
+init();
+</script>
+</body>
+</html>

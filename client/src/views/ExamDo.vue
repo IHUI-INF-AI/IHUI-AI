@@ -97,6 +97,7 @@ const timerId = ref<any>(null)
 const submitting = ref(false)
 const resultVisible = ref(false)
 const result = ref<any>(null)
+const recordId = ref<number>(0)
 
 function getTypeLabel(type: string) {
   const labels: Record<string, string> = {
@@ -150,7 +151,16 @@ async function loadDetail() {
   }
 }
 
-function handleStart() {
+async function handleStart() {
+  const id = Number(route.params.id)
+  if (!id) return
+  try {
+    const res = await examApi.startExam(id)
+    const data = res?.data
+    recordId.value = data?.data?.record_id || data?.record_id || 0
+  } catch {
+    /* startExam 失败时继续，submitExam 会返回错误 */
+  }
   started.value = true
   startTime.value = Date.now()
   remaining.value = paper.value?.duration || 60
@@ -177,7 +187,7 @@ async function handleSubmit() {
   const duration = Math.max(1, Math.round((Date.now() - startTime.value) / 60000))
   submitting.value = true
   try {
-    const res = await examApi.submit({ paper_id: id, answers: allAnswers, duration })
+    const res = await examApi.submitExam(recordId.value, allAnswers, duration)
     const data = res?.data
     result.value = data?.data || data || null
     resultVisible.value = true

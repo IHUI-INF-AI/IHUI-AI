@@ -45,5 +45,30 @@
         "excerpt": "我们正式启动合作伙伴计划，欢迎各类企业和服务商加入，共同推动AI技术的普及和应用。"
       }
     }
+  },
+  "newsList": {
+    "title": "资讯中心",
+    "desc": "获取最新教育动态、政策解读与行业资讯",
+    "viewHot": "查看热门",
+    "top": "置顶",
+    "hot": "热",
+    "official": "官方",
+    "read": "阅读",
+    "all": "全部"
+  },
+  "articleList": {
+    "featuredArticles": "精选文章",
+    "pageDesc": "深度好文 · 实战经验 · 行业洞察",
+    "top": "置顶",
+    "essence": "精",
+    "anonymous": "匿名",
+    "read": "阅读",
+    "like": "点赞",
+    "comment": "评论",
+    "searchArticle": "搜索文章",
+    "noArticle": "暂无文章",
+    "latest": "最新",
+    "hottest": "最热",
+    "essenceLabel": "精华"
   }
 }

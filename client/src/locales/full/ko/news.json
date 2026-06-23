@@ -53,5 +53,26 @@
     "title": "AI업데이트",
     "subtitle": "최신 업데이트, 제품 소식 및 업계 뉴스 알아보기",
     "minRead": "分钟阅读"
+  },
+  "newsList": {
+    "title": "정보 센터",
+    "desc": "최신 교육 동향, 정책 해석 및 업계 정보 확인",
+    "viewHot": "인기 보기",
+    "top": "상단",
+    "hot": "인기",
+    "official": "공식",
+    "read": "조회"
+  },
+  "articleList": {
+    "featuredArticles": "엄선된 글",
+    "pageDesc": "심층 글 · 실전 경험 · 업계 인사이트",
+    "top": "상단",
+    "essence": "정선",
+    "anonymous": "익명",
+    "read": "조회",
+    "like": "좋아요",
+    "comment": "댓글",
+    "searchArticle": "기사 검색",
+    "noArticle": "기사가 없습니다"
   }
 }

@@ -112,6 +112,18 @@ test('视觉回归 - 容器样式唯一（card/btn/input）', async ({ page }) =
 
 // 鉴权页面重定向验证:未登录访问需登录页面应跳转到登录页
 test.describe('鉴权页面重定向验证', () => {
+  // 每个测试前清除登录状态,防止残留 token 导致守卫误判
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem('user_token')
+      localStorage.removeItem('token')
+      localStorage.removeItem('login_expiry_time')
+      localStorage.removeItem('login_duration')
+      localStorage.removeItem('user_data')
+      sessionStorage.clear()
+    })
+  })
+
   const AUTH_PAGES = [
     { name: 'ai-team', path: '/ai-team', title: 'AI团队' },
     { name: 'top-up', path: '/top-up', title: '充值' },

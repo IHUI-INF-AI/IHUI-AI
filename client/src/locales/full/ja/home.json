@@ -87,5 +87,156 @@
     "dedicatedSupport": "専用サポート",
     "priorityResponse": "優先レスポンス",
     "advancedModelAccess": "高度なモデルアクセス"
+  },
+  "home": {
+    "input": {
+      "modelButton": "モデル",
+      "modelSwitch": "モデル",
+      "auto": "自動",
+      "manual": "手動",
+      "loading": "読み込み中...",
+      "noModelData": "{type}モデルのデータがありません",
+      "imageTab": "画像",
+      "videoTab": "動画",
+      "textTab": "テキスト",
+      "selectAuto": "auto",
+      "model": "モデル",
+      "tabs": {
+        "image": "画像",
+        "video": "動画",
+        "text": "テキスト",
+        "3d": "3D",
+        "voice": "音声",
+        "digitalHuman": "デジタルヒューマン",
+        "universal": "ユニバーサル",
+        "talk": "チャット",
+        "audio": "オーディオ",
+        "videoa": "デジタルヒューマン",
+        "other": "その他"
+      },
+      "apiAccess": "API対接"
+    },
+    "marquee": {
+      "kouzi": "扣子アイコン",
+      "bbxLogo": "百宝箱logo",
+      "brand4": "品牌アイコン",
+      "zhipu": "智谱清言",
+      "brand8": "品牌8",
+      "ali": "アリババクラウド",
+      "baidu": "百度文心",
+      "dbsfdx": "東北師範大学",
+      "gork": "Grok",
+      "huawei": "ファーウェイクラウド",
+      "jldx": "吉林大学",
+      "openai": "OpenAI",
+      "tencent": "テンセントクラウド",
+      "yuanbaoxiang": "元宝象",
+      "yushu": "宇樹科技"
+    },
+    "promotionModal": {
+      "title": "新しいメンバー特惠！",
+      "subtitle": "立即購読、获得双倍ポイント！",
+      "doublePoints": "2倍ポイント",
+      "credits": {
+        "starter": "Starter 获得 {total}（额外 {extra}）ポイント",
+        "basic": "Basic 获得 {total}（额外 {extra}）ポイント",
+        "pro": "Pro 获得 {total}（额外 {extra}）ポイント"
+      },
+      "hint": "立即購読，首月即可できる获得 {highlight}",
+      "primaryButton": "取得额外ポイント",
+      "secondaryLink": "我不必要免费ポイント",
+      "close": "閉じる"
+    },
+    "miniappModal": {
+      "qrAlt": "Qr Alt",
+      "scanTip": "Scan Tip",
+      "title": "Title"
+    },
+    "page1": {
+      "content": "Content",
+      "ctaPrimary": "Cta Primary",
+      "ctaSecondary": "Cta Secondary"
+    },
+    "page2": {
+      "advantages": {
+        "efficient": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "innovative": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "professional": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "reliable": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "subtitle": "Subtitle",
+        "title": "Title",
+        "titleEn": "Title En"
+      },
+      "content": "Content",
+      "features": {
+        "appStore": "App Store",
+        "contentCreation": "Content Creation",
+        "edu": "Edu",
+        "modelIntegration": "Model Integration",
+        "navigation": "Navigation"
+      },
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page3": {
+      "empty": {
+        "external": "External",
+        "platform": "Platform"
+      },
+      "subtitle": "Subtitle",
+      "tabs": {
+        "external": "External",
+        "platform": "Platform"
+      },
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page4": {
+      "content": "Content",
+      "subtitle": "Subtitle",
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page5": {
+      "content": "Content",
+      "joinText": "Join Text",
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "typewriter": {
+      "brand": "Brand",
+      "connect": "Connect",
+      "explore": "Explore"
+    },
+    "hardcoded": {
+      "aiNews": "AIニュース",
+      "hot": "人気",
+      "news": "ニュース"
+    },
+    "miniappBtn": "WeChatミニプログラム",
+    "wheelSensitivityLabel": "ホイール感度",
+    "marqueeSpeedLabel": "スクロール速度",
+    "clickToResume": "クリックしてスクロールを再開",
+    "clickToPause": "クリックしてスクロールを一時停止",
+    "resumeScroll": "再開",
+    "pauseScroll": "一時停止",
+    "sensitivityLow": "低",
+    "sensitivityMid": "中",
+    "sensitivityHigh": "高",
+    "speedSlow": "遅",
+    "speedMid": "中",
+    "speedFast": "速"
   }
 }

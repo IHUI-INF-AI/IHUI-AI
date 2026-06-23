@@ -33,12 +33,6 @@ export interface MemberProfile {
   bio?: string
   school?: string
   profession?: string
-  level?: number
-  vipLevel?: number
-  vipExpireTime?: string
-  pointTotal?: number
-  learnDays?: number
-  createTime?: string
 }
 
 export interface PointLog {
@@ -134,8 +128,6 @@ export const memberApi = {
   markWrongMastered: (id: number | string) =>
     import('@/api/exam').then((m) => m.examApi.markWrongMastered(Number(id))),
 
-  myAskList: (params?: PaginationParams) =>
-    http.get<ApiResponse<PaginationResponse<unknown>>>('/ask/my-list', { params }),
   myAskDetail: (id: string | number) => http.get<ApiResponse<unknown>>(`/ask/${id}`),
   myAskReply: (data: { askId: string | number; content: string }) =>
     http.post<ApiResponse<unknown>>('/ask/reply', data),
@@ -159,8 +151,6 @@ export const memberApi = {
   favoritesAdd: (id: string | number) => http.post<ApiResponse<unknown>>('/user/favorites', { id }),
   favoritesRemove: (id: string | number) => http.delete<ApiResponse<void>>(`/user/favorites/${id}`),
 
-  followList: (params?: PaginationParams) =>
-    http.get<ApiResponse<PaginationResponse<unknown>>>('/userFollow/list', { params }),
   fanList: (params?: PaginationParams) =>
     http.get<ApiResponse<PaginationResponse<unknown>>>('/userFans/list', { params }),
   follow: (id: string | number) => http.post<ApiResponse<void>>('/userFollow/' + id),

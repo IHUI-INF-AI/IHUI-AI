@@ -3,5 +3,13 @@
     "inputplaceholder": "input[placeholder*=",
     "nickname": "Nickname",
     "nickname2": "昵称"
+  },
+  "userPage": {
+    "feedback": "Feedback",
+    "noStudyContent": "No study content",
+    "views": " views",
+    "noTextContent": "No text content",
+    "noImageContent": "No image content",
+    "noVideoContent": "No video content"
   }
 }

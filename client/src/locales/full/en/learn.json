@@ -611,5 +611,27 @@
       "items": {}
     },
     "cta_section": {}
+  },
+  "learnRate": {
+    "reviews": "reviews",
+    "writeReview": "Write a review",
+    "rating": "Rating",
+    "content": "Content"
+  },
+  "learn": {
+    "hotRecommend": "Hot Recommendations",
+    "searchPlaceholder": {
+      "category": "Search Category",
+      "lesson": "Search Lesson",
+      "lessonTrash": "Search Trash Lessons",
+      "map": "Search Learning Map",
+      "order": "Search Order",
+      "orderInvoiceApplication": "Search Invoice Application",
+      "orderInvoiceTitle": "Search Invoice Title",
+      "report": "Search Report",
+      "signup": "Search Signup",
+      "topic": "Search Topic",
+      "topicCategory": "Search Topic Category"
+    }
   }
 }

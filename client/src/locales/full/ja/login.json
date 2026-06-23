@@ -158,5 +158,14 @@
     "goRegister": "Go Register",
     "hasAccount": "Has Account"
   },
-  "loginPopup": {}
+  "loginPopup": {},
+  "userLoginPopup": {
+    "welcomeBack": "おかえりなさい、ログインしてください",
+    "enterPhone": "電話番号を入力してください",
+    "invalidPhone": "電話番号の形式が正しくありません",
+    "codeSent": "認証コードを送信しました",
+    "codeSendFailed": "コード送信に失敗しました、再試行してください",
+    "loginSuccess": "ログイン成功",
+    "wechatLoginNotConfigured": "WeChatログインが設定されていません"
+  }
 }

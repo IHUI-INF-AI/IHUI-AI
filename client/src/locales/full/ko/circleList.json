@@ -1,0 +1,13 @@
+{
+  "circleList": {
+    "title": "관심 서클",
+    "subtitle": "발견 / 가입 / 교류",
+    "allCategories": "전체 카테고리",
+    "noCircles": "서클 없음",
+    "official": "공식",
+    "top": "고정",
+    "noDesc": "소개 없음",
+    "members": "멤버",
+    "posts": "게시물"
+  }
+}

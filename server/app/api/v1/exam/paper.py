@@ -1,4 +1,6 @@
-"""考试系统 - 试卷管理"""
+"""
+鑰冭瘯绯荤粺 - 鍒嗙敮鐩囬厤缃
+"""
 
 from datetime import datetime
 
@@ -15,6 +17,11 @@ router = APIRouter()
 
 def _uid() -> str:
     return current_user_id_or_guest()
+
+
+def _category_option(category: ExamCategory) -> dict:
+    return {"id": category.id, "pid": category.pid, "name": category.name}
+
 
 def _p_to_dict(p: ExamPaper) -> dict:
     return {
@@ -36,11 +43,18 @@ def _p_to_dict(p: ExamPaper) -> dict:
         "price": p.price,
         "status": p.status,
         "sort_order": p.sort_order,
+        "category": None,
         "create_time": p.created_at.isoformat() if p.created_at else None,
     }
 
 
-@router.get("/paper/list", summary="试卷列表")
+def _paper_with_category(p: ExamPaper, category_map: dict[int, dict]) -> dict:
+    payload = _p_to_dict(p)
+    payload["category"] = category_map.get(p.category_id or 0) if category_map else None
+    return payload
+
+
+@router.get("/paper/list", summary="鍒嗙敮鐩囬垪鍒楄〃")
 async def list_papers(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -60,6 +74,8 @@ async def list_papers(
                 q = q.filter(ExamPaper.difficulty == difficulty)
             if is_free is not None:
                 q = q.filter(ExamPaper.is_free == is_free)
+            categories = db.query(ExamCategory).filter(ExamCategory.is_show).order_by(ExamCategory.sort_order.asc()).all()
+            category_map = {category.id: _category_option(category) for category in categories}
             total = q.count()
             items = (
                 q.order_by(ExamPaper.sort_order.asc(), ExamPaper.id.desc())
@@ -67,26 +83,28 @@ async def list_papers(
                 .limit(limit)
                 .all()
             )
-            return success([_p_to_dict(i) for i in items], total=total)
+            return success([_paper_with_category(item, category_map) for item in items], total=total)
         except Exception as e:
             logger.error(f"exam paper list error: {e}")
             return error(str(e))
 
 
-@router.get("/paper/{pid}", summary="试卷详情")
+@router.get("/paper/{pid}", summary="鍒嗙敮鐩囧搧搴︾粍")
 async def get_paper(pid: int):
     with get_session() as db:
         try:
+            category = db.query(ExamCategory).filter(ExamCategory.is_show).order_by(ExamCategory.sort_order.asc()).first()
             p = db.query(ExamPaper).filter(ExamPaper.id == pid).first()
             if not p:
-                return error("试卷不存在", "404")
-            return success(_p_to_dict(p))
+                return error("鍒嗙敮鐩囦笉瀛樺湭", "404")
+            category_map = {category.id: _category_option(category)} if category else {}
+            return success(_paper_with_category(p, category_map))
         except Exception as e:
             logger.error(f"exam paper get error: {e}")
             return error(str(e))
 
 
-@router.post("/paper", summary="创建试卷")
+@router.post("/paper", summary="鍒涘缓鍒嗙敮鐩")
 async def create_paper(
     title: str = Query(..., min_length=1, max_length=200),
     description: str | None = None,
@@ -126,7 +144,7 @@ async def create_paper(
             return error(str(e))
 
 
-@router.put("/paper/{pid}", summary="修改试卷")
+@router.put("/paper/{pid}", summary="鍒ゆ柇鍒嗙敮鐩")
 async def update_paper(
     pid: int,
     title: str | None = None,
@@ -143,7 +161,7 @@ async def update_paper(
         try:
             p = db.query(ExamPaper).filter(ExamPaper.id == pid).first()
             if not p:
-                return error("试卷不存在", "404")
+                return error("鍒嗙敮鐩囦笉瀛樺湭", "404")
             if title:
                 p.title = title
             if description is not None:
@@ -168,25 +186,23 @@ async def update_paper(
             return error(str(e))
 
 
-@router.delete("/paper/{pid}", summary="删除试卷")
+@router.delete("/paper/{pid}", summary="鍒犻櫎鍒嗙敮鐩")
 async def delete_paper(pid: int):
     with get_session() as db:
         try:
             p = db.query(ExamPaper).filter(ExamPaper.id == pid).first()
             if not p:
-                return error("试卷不存在", "404")
+                return error("鍒嗙敮鐩囦笉瀛樺湭", "404")
             db.delete(p)
-            db.query(ExamQuestion).filter(ExamQuestion.paper_id == pid).delete()
+            db.query(ExamQuestion).filter(ExamQuestion.paper_id == pid).delete(synchronize_session=False)
+            db.flush()
             return success()
         except Exception as e:
             logger.error(f"exam paper delete error: {e}")
             return error(str(e))
 
 
-# ============ 题目管理 ============
-
-
-@router.get("/question/list", summary="题目列表")
+@router.get("/question/list", summary="鏈鍒嗙敮鐩囧垪鍒楄〃")
 async def list_questions(paper_id: int = Query(...)):
     with get_session() as db:
         try:
@@ -218,7 +234,7 @@ async def list_questions(paper_id: int = Query(...)):
             return error(str(e))
 
 
-@router.post("/question", summary="新增题目")
+@router.post("/question", summary="鏂板鍒嗙敮鐩囧")
 async def create_question(
     paper_id: int = Query(...),
     type: int = Query(..., ge=1, le=5),
@@ -248,13 +264,14 @@ async def create_question(
             db.query(ExamPaper).filter(ExamPaper.id == paper_id).update(
                 {ExamPaper.question_num: ExamPaper.question_num + 1}
             )
+            db.flush()
             return success({"id": q.id})
         except Exception as e:
             logger.error(f"exam question create error: {e}")
             return error(str(e))
 
 
-@router.put("/question/{qid}", summary="修改题目")
+@router.put("/question/{qid}", summary="淇鍒ゆ柇鍒嗙敮鐩")
 async def update_question(
     qid: int,
     content: str | None = None,
@@ -268,7 +285,7 @@ async def update_question(
         try:
             q = db.query(ExamQuestion).filter(ExamQuestion.id == qid).first()
             if not q:
-                return error("题目不存在", "404")
+                return error("鏈鍒嗙敮鐩囧笉瀛樺湭", "404")
             if content:
                 q.content = content
             if options is not None:
@@ -287,39 +304,41 @@ async def update_question(
             return error(str(e))
 
 
-@router.delete("/question/{qid}", summary="删除题目")
+@router.delete("/question/{qid}", summary="鍒犻櫎鏈鍒嗙敮鐩")
 async def delete_question(qid: int):
     with get_session() as db:
         try:
             q = db.query(ExamQuestion).filter(ExamQuestion.id == qid).first()
             if not q:
-                return error("题目不存在", "404")
+                return error("鏈鍒嗙敮鐩囧笉瀛樺湭", "404")
+            paper_id = q.paper_id
             db.delete(q)
-            db.query(ExamPaper).filter(ExamPaper.id == q.paper_id).update(
+            db.query(ExamPaper).filter(ExamPaper.id == paper_id).update(
                 {ExamPaper.question_num: ExamPaper.question_num - 1}
             )
+            db.flush()
             return success()
         except Exception as e:
             logger.error(f"exam question delete error: {e}")
             return error(str(e))
 
 
-# ============ 考试记录 ============
+# ============ 鑰冭瘯璁板綍 ============
 
 
-@router.post("/record/start", summary="开始考试")
+@router.post("/record/start", summary="寮濮嬫簮鑰")
 async def start_exam(paper_id: int = Query(...)):
     with get_session() as db:
         try:
             p = db.query(ExamPaper).filter(ExamPaper.id == paper_id).first()
             if not p:
-                return error("试卷不存在", "404")
+                return error("鍒嗙敮鐩囦笉瀛樺湭", "404")
             uid = _uid()
             r = ExamRecord(
                 paper_id=paper_id,
                 paper_title=p.title,
                 user_id=uid,
-                user_name="匿名用户",
+                user_name="",
                 total_score=p.total_score,
                 pass_score=p.pass_score,
                 status=0,
@@ -333,19 +352,19 @@ async def start_exam(paper_id: int = Query(...)):
             return error(str(e))
 
 
-@router.post("/record/submit", summary="提交答卷")
-async def submit_exam(record_id: int = Query(...), answers: str = Query(..., description="答案JSON")):
+@router.post("/record/submit", summary="鎻愪氦楗肩«")
+async def submit_exam(record_id: int = Query(...), answers: str = Query(..., description="绛旈JSON")):
     with get_session() as db:
         try:
             r = db.query(ExamRecord).filter(ExamRecord.id == record_id).first()
             if not r:
-                return error("记录不存在", "404")
+                return error("璁板綍涓嶅瓨鍦", "404")
             if r.status != 0:
-                return error("记录已提交", "400")
+                return error("璁板綍宸插彂鍑", "400")
             import json
 
             try:
-                ans_map = json.loads(answers)
+                ans_map = json.loads(answers or "{}")
             except Exception:
                 ans_map = {}
             questions = db.query(ExamQuestion).filter(ExamQuestion.paper_id == r.paper_id).all()
@@ -396,13 +415,14 @@ async def submit_exam(record_id: int = Query(...), answers: str = Query(..., des
                 p.attempt_num = (p.attempt_num or 0) + 1
                 if p.attempt_num > 0:
                     p.avg_score = ((p.avg_score or 0) * (p.attempt_num - 1) + score) / p.attempt_num
+            db.flush()
             return success({"score": score, "is_pass": r.is_pass, "correct_num": correct_num, "wrong_num": wrong_num})
         except Exception as e:
             logger.error(f"exam submit error: {e}")
             return error(str(e))
 
 
-@router.get("/record/list", summary="考试记录列表")
+@router.get("/record/list", summary="鑰冭瘯璁板綍鍒楄〃")
 async def list_records(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -411,13 +431,18 @@ async def list_records(
 ):
     with get_session() as db:
         try:
-            q = db.query(ExamRecord)
-            uid = user_id or _uid()
-            q = q.filter(ExamRecord.user_id == uid)
-            if paper_id:
+            q = db.query(ExamRecord).filter(ExamRecord.user_id == _uid())
+            if user_id:
+                q = q.filter(ExamRecord.user_id == user_id)
+            if paper_id is not None:
                 q = q.filter(ExamRecord.paper_id == paper_id)
             total = q.count()
-            items = q.order_by(ExamRecord.id.desc()).offset((page - 1) * limit).limit(limit).all()
+            items = (
+                q.order_by(ExamRecord.id.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+                .all()
+            )
             return success(
                 [
                     {
@@ -427,6 +452,7 @@ async def list_records(
                         "user_id": r.user_id,
                         "score": r.score,
                         "total_score": r.total_score,
+                        "pass_score": r.pass_score,
                         "is_pass": r.is_pass,
                         "status": r.status,
                         "correct_num": r.correct_num,
@@ -444,13 +470,13 @@ async def list_records(
             return error(str(e))
 
 
-@router.get("/record/{rid}", summary="考试记录详情")
+@router.get("/record/{rid}", summary="鑰冭瘯璁板綍璇︾粓")
 async def get_record(rid: int):
     with get_session() as db:
         try:
             r = db.query(ExamRecord).filter(ExamRecord.id == rid).first()
             if not r:
-                return error("记录不存在", "404")
+                return error("璁板綍涓嶅瓨鍦", "404")
             return success(
                 {
                     "id": r.id,
@@ -475,7 +501,7 @@ async def get_record(rid: int):
             return error(str(e))
 
 
-@router.get("/wrong/list", summary="错题本")
+@router.get("/wrong/list", summary="閿棰")
 async def wrong_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -510,21 +536,37 @@ async def wrong_list(
             return error(str(e))
 
 
-@router.put("/wrong/{wid}/master", summary="标记错题为已掌握")
+@router.put("/wrong/{wid}/master", summary="鏍囨敞閿棰涓宸茶鎸佺画")
 async def mark_mastered(wid: int):
     with get_session() as db:
         try:
             w = db.query(ExamWrongQuestion).filter(ExamWrongQuestion.id == wid).first()
             if not w:
-                return error("记录不存在", "404")
+                return error("璁板綍涓嶅瓨鍦", "404")
             w.is_mastered = True
-            return success()
+            db.flush()
+            return success({"id": w.id, "is_mastered": w.is_mastered})
         except Exception as e:
             logger.error(f"exam wrong master error: {e}")
             return error(str(e))
 
 
-@router.get("/category/list", operation_id="exam_paper_category_list", summary="考试分类列表")
+@router.delete("/wrong/{wid}", summary="鍒犻櫎閿棰")
+async def delete_wrong(wid: int):
+    with get_session() as db:
+        try:
+            w = db.query(ExamWrongQuestion).filter(ExamWrongQuestion.id == wid).first()
+            if not w:
+                return error("璁板綍涓嶅瓨鍦", "404")
+            db.delete(w)
+            db.flush()
+            return success({"deleted": wid})
+        except Exception as e:
+            logger.error(f"exam wrong delete error: {e}")
+            return error(str(e))
+
+
+@router.get("/category/list", operation_id="exam_paper_category_list", summary="鑰冭瘯鍒嗙垪鍒楄〃")
 async def category_list():
     with get_session() as db:
         try:
@@ -534,7 +576,7 @@ async def category_list():
                 .order_by(ExamCategory.sort_order.asc())
                 .all()
             )
-            return success([{"id": c.id, "pid": c.pid, "name": c.name, "sort_order": c.sort_order} for c in items])
+            return success([_category_option(item) for item in items])
         except Exception as e:
             logger.error(f"exam category list error: {e}")
             return error(str(e))

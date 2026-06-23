@@ -111,8 +111,9 @@ const SESSION_SHOWN_KEY = 'promotion-modal-session-shown'
 
 // 检查是否为主页面
 const isHomePage = () => {
-  const routeName = (route as RouteWithName).name
-  return routeName === 'home' || route.path === '/' || route.path === '/home'
+  if (!route) return false
+  const routeName = (route as RouteWithName)?.name
+  return routeName === 'home' || route?.path === '/' || route?.path === '/home'
 }
 
 // 检查当前会话是否已经显示过弹窗
@@ -204,8 +205,8 @@ const showModalIfNeeded = () => {
         if (import.meta.env.DEV) {
           logger.debug('[PromotionModal] Showing modal after page ready', {
             isHomePage: isHomePage(),
-            routeName: (route as RouteWithName).name,
-            routePath: route.path
+            routeName: (route as RouteWithName)?.name,
+            routePath: route?.path
           })
         }
       } else if (retryCount < MAX_RETRY) {
@@ -227,8 +228,8 @@ const showModalIfNeeded = () => {
         hasShownBefore: hasShownBefore(),
         hasShownInCurrentSession: hasShownInCurrentSession(),
         visible: visible.value,
-        routeName: (route as RouteWithName).name,
-        routePath: route.path
+        routeName: (route as RouteWithName)?.name,
+        routePath: route?.path
       })
     }
   }
@@ -244,7 +245,7 @@ const initModal = () => {
 }
 
 // 监听路由变化（包括路由名称和路径）
-watch([() => (route as RouteWithName).name, () => route.path], ([_newName, _newPath]) => {
+watch([() => (route as RouteWithName)?.name, () => route?.path], ([_newName, _newPath]) => {
   showModalIfNeeded()
 }, { immediate: true })
 
@@ -294,6 +295,7 @@ const handleGetCredits = () => {
   markAsShown()
   handleClose()
   // 跳转到VIP会员详情页面（选择套餐页面）
+  if (!router) return
   router.push('/vip/details').catch((error: any) => {
     // 忽略导航重复错误
     if (error instanceof Error && error.name !== 'NavigationDuplicated' && error.name !== 'NavigationRedirected') {
@@ -321,7 +323,7 @@ onMounted(() => {
         setTimeout(() => tryInit(attempt + 1), 200)
       } else {
         // 最后一次尝试
-        if (route.path === '/' || route.path === '/home') {
+        if (route?.path === '/' || route?.path === '/home') {
           initModal()
         }
       }

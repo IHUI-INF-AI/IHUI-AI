@@ -1102,7 +1102,8 @@
       "exportFailed": "Export failed",
       "loginFailed": "Login Failed",
       "actionFailed": "Operation Failed",
-      "removeFailed": "Removal failed"
+      "removeFailed": "Removal failed",
+      "jsonArrayError": "Options must be a JSON array, e.g. [\"A\",\"B\",\"C\",\"D\"]"
     },
     "messages": {
       "loadSuccess": "Loaded successfully",
@@ -1129,6 +1130,7 @@
     "backToLogin": "Back to Login",
     "next": "Next",
     "previous": "Previous",
+    "previousItem": "Previous",
     "toggleAnswer": "Toggle answer visibility",
     "toggleThinking": "Toggle thinking process",
     "voiceInput": "Voice input",
@@ -1619,6 +1621,8 @@
     "googleLogin": "Google Login",
     "appleLogin": "Apple Login",
     "feishuLogin": "Feishu Login",
+    "dingtalkLogin": "DingTalk Login",
+    "wecomLogin": "WeCom Login",
     "validation": {
       "unsafeChars": "Input contains unsafe characters",
       "invalidEmail": "Please enter a valid email address",
@@ -5571,6 +5575,8 @@
       "or": "Or",
       "alipayLogin": "Alipay Login",
       "feishuLogin": "Feishu Login",
+    "dingtalkLogin": "DingTalk Login",
+    "wecomLogin": "WeCom Login",
       "notice": "Notice",
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms Of Service",
@@ -17815,6 +17821,8 @@
     "tabAll": "All",
     "tabSystem": "System",
     "tabPrivate": "Private",
+    "tabFavorite": "Favorites",
+    "tabLike": "Likes",
     "typeSystem": "System Message",
     "typePrivate": "Private Message",
     "typeNotice": "Notice",

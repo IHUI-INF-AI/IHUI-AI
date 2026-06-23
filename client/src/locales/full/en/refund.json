@@ -74,5 +74,20 @@
       "processing": "Processing...",
       "rejected": "Rejected"
     }
+  },
+  "refundDetail": {
+    "backToList": "Back to Refund List",
+    "title": "Refund Detail",
+    "refundNo": "Refund No.",
+    "supplementEvidence": "Supplement Evidence (Multiple Files Supported)",
+    "refundInfo": "Refund Information",
+    "originalOrderNo": "Original Order No.",
+    "refundAmount": "Refund Amount",
+    "refundReason": "Refund Reason",
+    "refundDescription": "Refund Description",
+    "rejectReason": "Rejection Reason",
+    "applyTime": "Application Time",
+    "approveTime": "Approval Time",
+    "completeTime": "Completion Time"
   }
 }

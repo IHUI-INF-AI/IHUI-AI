@@ -63,5 +63,25 @@
     "viewStatistics": "查看統計",
     "income": "收入",
     "expense": "支出"
+  },
+  "transactionDetail": {
+    "txId": "交易ID",
+    "status": "狀態",
+    "user": "用戶",
+    "relatedOrder": "關聯訂單",
+    "desc": "描述",
+    "createTime": "建立時間"
+  },
+  "withdrawDialog": {
+    "availableBalance": "可提現餘額",
+    "amount": "提現金額",
+    "bankCard": "到帳銀行卡",
+    "noBankCard": "暫未綁定銀行卡",
+    "bindNow": "立即綁定",
+    "change": "更換",
+    "agreePrefix": "我已閱讀並同意",
+    "termsTitle": "《提現服務協議》",
+    "submit": "申請提現",
+    "submitting": "提交中..."
   }
 }

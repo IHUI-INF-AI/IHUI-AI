@@ -17,3 +17,5 @@ from app.models.oauth_models import *  # noqa: F401, F403
 from app.models.sys_models import *  # noqa: F401, F403
 from app.models.token_models import *  # noqa: F401, F403
 from app.models.app_content_models import *  # noqa: F401, F403
+from app.models.exam_models import *  # noqa: F401, F403
+

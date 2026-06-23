@@ -31,5 +31,11 @@
     "benefit10Two": "5% off",
     "benefit10Three": "20% off",
     "benefit11Title": "Join community service provider list"
+  },
+  "vipIntroducePopup": {
+    "loading": "Loading",
+    "noContinuousOptions": "No continuous purchase options available",
+    "trial": "Trial",
+    "noMonthlyOptions": "No monthly purchase options available"
   }
 }

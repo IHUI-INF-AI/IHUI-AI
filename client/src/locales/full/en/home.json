@@ -87,5 +87,157 @@
     "dedicatedSupport": "Dedicated Support",
     "priorityResponse": "Priority Response",
     "advancedModelAccess": "Advanced Model Access"
+  },
+  "home": {
+    "input": {
+      "modelButton": "Model",
+      "modelSwitch": "Model",
+      "auto": "Auto",
+      "manual": "Manual",
+      "loading": "Loading...",
+      "noModelData": "No {type} model data available",
+      "imageTab": "Image",
+      "videoTab": "Video",
+      "textTab": "Text",
+      "selectAuto": "auto",
+      "tabs": {
+        "image": "Image",
+        "video": "Video",
+        "text": "Text",
+        "3d": "3D",
+        "Voice": "Voice",
+        "digitalHuman": "Digital Human",
+        "universal": "Universal",
+        "talk": "Chat",
+        "audio": "Audio",
+        "videoa": "Digital Human",
+        "other": "Other",
+        "voice": "Voice"
+      },
+      "model": "Model",
+      "apiAccess": "Api Access"
+    },
+    "promotionModal": {
+      "close": "Close",
+      "title": "New Member Special!",
+      "subtitle": "Subscribe now and get double points!",
+      "doublePoints": "2x Points",
+      "primaryButton": "Get Extra Points",
+      "secondaryLink": "I don't need free points",
+      "credits": {
+        "starter": "Starter gets {total} (extra {extra}) points",
+        "basic": "Basic gets {total} (extra {extra}) points",
+        "pro": "Pro gets {total} (extra {extra}) points"
+      },
+      "hint": "Subscribe now to get {highlight} in the first month"
+    },
+    "marquee": {
+      "kouzi": "Kouzi Icon",
+      "bbxLogo": "BBX Logo",
+      "brand4": "Brand Icon",
+      "zhipu": "Zhipu Qingyan",
+      "brand8": "Brand 8",
+      "ali": "Alibaba Cloud",
+      "baidu": "Baidu ERNIE",
+      "dbsfdx": "Northeast Normal University",
+      "gork": "Grok",
+      "huawei": "Huawei Cloud",
+      "jldx": "Jilin University",
+      "openai": "OpenAI",
+      "tencent": "Tencent Cloud",
+      "yuanbaoxiang": "Yuanbaoxiang",
+      "yushu": "Unitree Robotics"
+    },
+    "hardcoded": {
+      "aiNews": "AI News",
+      "hot": "Hot",
+      "news": "News"
+    },
+    "miniappBtn": "WeChat Mini Program",
+    "wheelSensitivityLabel": "Wheel Sensitivity",
+    "marqueeSpeedLabel": "Scroll Speed",
+    "clickToResume": "Click to resume scrolling",
+    "clickToPause": "Click to pause scrolling",
+    "resumeScroll": "Resume",
+    "pauseScroll": "Pause",
+    "sensitivityLow": "Low",
+    "sensitivityMid": "Mid",
+    "sensitivityHigh": "High",
+    "speedSlow": "Slow",
+    "speedMid": "Mid",
+    "speedFast": "Fast",
+    "miniappModal": {
+      "qrAlt": "Qr Alt",
+      "scanTip": "Scan Tip",
+      "title": "Title"
+    },
+    "page1": {
+      "content": "Content",
+      "ctaPrimary": "Cta Primary",
+      "ctaSecondary": "Cta Secondary"
+    },
+    "page2": {
+      "advantages": {
+        "efficient": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "innovative": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "professional": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "reliable": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "subtitle": "Subtitle",
+        "title": "Title",
+        "titleEn": "Title En"
+      },
+      "content": "Content",
+      "features": {
+        "appStore": "App Store",
+        "contentCreation": "Content Creation",
+        "edu": "Edu",
+        "modelIntegration": "Model Integration",
+        "navigation": "Navigation"
+      },
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page3": {
+      "empty": {
+        "external": "External",
+        "platform": "Platform"
+      },
+      "subtitle": "Subtitle",
+      "tabs": {
+        "external": "External",
+        "platform": "Platform"
+      },
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page4": {
+      "content": "Content",
+      "subtitle": "Subtitle",
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "page5": {
+      "content": "Content",
+      "joinText": "Join Text",
+      "title": "Title",
+      "titleEn": "Title En"
+    },
+    "typewriter": {
+      "brand": "Brand",
+      "connect": "Connect",
+      "explore": "Explore"
+    }
   }
 }

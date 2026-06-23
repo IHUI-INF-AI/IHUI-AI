@@ -13,6 +13,9 @@
     "title": "标题",
     "content": "正文",
     "category": "分类",
-    "selectCategory": "选择分类 (可选)"
+    "selectCategory": "选择分类 (可选)",
+    "searchPlaceholder": "搜索问题...",
+    "titlePlaceholder": "一句话描述你的问题",
+    "contentPlaceholder": "详细说明..."
   }
 }

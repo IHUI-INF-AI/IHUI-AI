@@ -121,8 +121,10 @@ test.describe('组件交互检查', () => {
     // 找到搜索按钮
     const searchBtn = p.locator('button:has-text("搜索"), [aria-label*="搜索"], [aria-label*="search"], .search-btn, .header-search, .search-trigger').first()
     const searchBtnExists = await searchBtn.count()
+    // 移动端搜索按钮可能被隐藏,需检查可见性
+    const searchBtnVisible = searchBtnExists > 0 && await searchBtn.isVisible().catch(() => false)
 
-    if (searchBtnExists > 0) {
+    if (searchBtnVisible) {
       await searchBtn.click()
       await p.waitForTimeout(1000)
 

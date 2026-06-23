@@ -74,7 +74,7 @@ const columns: Column<any>[] = [
     dataKey: 'isFree',
     title: '资费',
     width: 100,
-    cellRenderer: ({ rowData: row }) => h(ElTag, { type: row?.isFree ? 'success' : 'warning' }, () => row?.isFree ? '免费' : '付费'),
+    cellRenderer: ({ rowData: row }) => h(ElTag, { type: row?.isFree ? 'success' : 'warning' }, h('span', {}, row?.isFree ? '免费' : '付费')),
   },
   { key: 'price', dataKey: 'price', title: '价格', width: 100 },
   {
@@ -82,7 +82,7 @@ const columns: Column<any>[] = [
     dataKey: 'status',
     title: '状态',
     width: 100,
-    cellRenderer: ({ rowData: row }) => h(ElTag, { type: row?.status === 1 ? 'success' : row?.status === 2 ? 'warning' : 'info' }, () => statusLabel(row?.status)),
+    cellRenderer: ({ rowData: row }) => h(ElTag, { type: row?.status === 1 ? 'success' : row?.status === 2 ? 'warning' : 'info' }, h('span', {}, statusLabel(row?.status))),
   },
   {
     key: 'actions',

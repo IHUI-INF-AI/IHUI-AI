@@ -31,5 +31,11 @@
     "benefit10Two": "9.5折",
     "benefit10Three": "8折",
     "benefit11Title": "入驻社区服务商名列"
+  },
+  "vipIntroducePopup": {
+    "loading": "加载中",
+    "noContinuousOptions": "暂无可用的连续购买选项",
+    "trial": "试用",
+    "noMonthlyOptions": "暂无可用的按月购买选项"
   }
 }

@@ -63,5 +63,25 @@
     "viewStatistics": "テーブル示統計",
     "income": "收入",
     "expense": "支出"
+  },
+  "transactionDetail": {
+    "txId": "取引ID",
+    "status": "ステータス",
+    "user": "ユーザー",
+    "relatedOrder": "関連注文",
+    "desc": "説明",
+    "createTime": "作成日時"
+  },
+  "withdrawDialog": {
+    "availableBalance": "引き出し可能残高",
+    "amount": "引き出し金額",
+    "bankCard": "受取銀行カード",
+    "noBankCard": "銀行カードが未登録",
+    "bindNow": "今すぐ登録",
+    "change": "変更",
+    "agreePrefix": "確認の上、同意しました",
+    "termsTitle": "《引き出しサービス規約》",
+    "submit": "引き出し申請",
+    "submitting": "送信中..."
   }
 }

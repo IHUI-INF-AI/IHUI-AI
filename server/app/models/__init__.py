@@ -61,6 +61,7 @@ from app.models.codegen_models import CodegenColumn, CodegenTable
 from app.models.context_models import UserAgentAudio, UserAgentContext, UserAgentImage
 from app.models.course_models import Course, CourseVideo, EducationalCourse, EducationPlatform
 from app.models.crew_models import CrewMessage, CrewSession, CrewTask
+from app.models.knowledge_models import KnowledgeChunk, KnowledgeDoc
 from app.models.education_ext_models import (
     ZhsCourseAudit,
     ZhsCoursePay,

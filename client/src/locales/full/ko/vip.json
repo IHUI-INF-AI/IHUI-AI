@@ -31,5 +31,8 @@
     "benefit10Two": "5% 할인",
     "benefit10Three": "20% 할인",
     "benefit11Title": "커뮤니티 서비스 제공자 등록"
+  },
+  "vipIntroducePopup": {
+    "loading": "로딩 중"
   }
 }
