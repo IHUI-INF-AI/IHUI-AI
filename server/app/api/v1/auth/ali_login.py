@@ -1,8 +1,12 @@
 # Alipay login endpoints.
 # Ported from P2 AliLoginController.java + AliLoginServiceImpl.java
+import base64
+from datetime import datetime
 from typing import Any
 
 import httpx
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 from fastapi import APIRouter, Query
 from loguru import logger
 
@@ -13,11 +17,43 @@ router = APIRouter(prefix="/login/ali", tags=["Auth: Alipay"])
 ALIPAY_GATEWAY = "https://openapi.alipay.com/gateway.do"
 
 
+def _build_sign(params: dict[str, Any]) -> str:
+    """构建支付宝网关 RSA2 (RSA-SHA256) 签名.
+
+    按照支付宝网关签名规则:
+    1. 过滤空值与 sign 字段
+    2. 按参数名 ASCII 字典序排序
+    3. 拼接成 key=value 字符串
+    4. 使用 RSA-SHA256 (PKCS1v15) 私钥签名
+    5. Base64 编码返回
+    """
+    private_key_pem = settings.ALI_LOGIN_PRIVATE_KEY
+    if not private_key_pem:
+        raise ValueError("ALI_LOGIN_PRIVATE_KEY is not configured")
+
+    # 1. 过滤空值与 sign, 按 key ASCII 字典序排序
+    sorted_items = sorted(
+        (k, v) for k, v in params.items() if k != "sign" and v not in (None, "")
+    )
+    # 2. 拼接待签名字符串
+    sign_string = "&".join(f"{k}={v}" for k, v in sorted_items)
+    # 3. 加载 PEM 格式私钥
+    private_key = serialization.load_pem_private_key(
+        private_key_pem.encode("utf-8"), password=None
+    )
+    # 4. RSA-SHA256 签名 (PKCS1v15)
+    signature = private_key.sign(
+        sign_string.encode("utf-8"),
+        padding.PKCS1v15(),
+        hashes.SHA256(),
+    )
+    # 5. Base64 编码
+    return base64.b64encode(signature).decode("utf-8")
+
+
 async def _ali_oauth_and_userinfo(code: str, is_web: bool = False) -> dict[str, Any]:
-    # Call Alipay OAuth + user info via HTTP (simplified, no SDK)
+    # Call Alipay OAuth + user info via HTTP with RSA2 signing.
     app_id = settings.ALI_LOGIN_APP_ID
-    # In production, use alipay-sdk-python for proper signing.
-    # This is a placeholder that documents the expected flow.
     logger.info("Alipay OAuth code exchange, is_web=" + str(is_web))
     try:
         # Step 1: Exchange auth_code for access_token
@@ -26,9 +62,12 @@ async def _ali_oauth_and_userinfo(code: str, is_web: bool = False) -> dict[str, 
             "method": "alipay.system.oauth.token",
             "charset": "utf-8",
             "sign_type": "RSA2",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "version": "1.0",
             "grant_type": "authorization_code",
             "code": code,
         }
+        oauth_params["sign"] = _build_sign(oauth_params)
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(ALIPAY_GATEWAY, params=oauth_params)
             body = resp.json()
@@ -42,8 +81,11 @@ async def _ali_oauth_and_userinfo(code: str, is_web: bool = False) -> dict[str, 
                 "method": "alipay.user.info.share",
                 "charset": "utf-8",
                 "sign_type": "RSA2",
-                "token": access_token,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "version": "1.0",
+                "auth_token": access_token,
             }
+            info_params["sign"] = _build_sign(info_params)
             resp2 = await client.post(ALIPAY_GATEWAY, params=info_params)
             body2 = resp2.json()
             user_resp = body2.get("alipay_user_info_share_response", {})

@@ -302,6 +302,7 @@ class Settings(BaseSettings):
     FEISHU_APP_SECRET: str = ""
     ALI_LOGIN_APP_ID: str = ""
     ALI_LOGIN_APP_SECRET: str = ""
+    ALI_LOGIN_PRIVATE_KEY: str = ""  # PEM 格式的 RSA2 应用私钥, 用于支付宝登录签名
 
     model_config = SettingsConfigDict(
         env_file=".env.production",

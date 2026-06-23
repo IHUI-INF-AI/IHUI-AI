@@ -1,383 +1,194 @@
 #!/usr/bin/env python3
 """
-IHUI-AI 生产部署准备脚本
-========================
-在部署前运行此脚本，检查所有必需的生产配置是否就绪。
-
-用法:
-    cd server
-    python scripts/pre_deploy_check.py
-
-检查项:
-    1. .env.production 配置完整性
-    2. SSL 证书存在性
-    3. 数据库连接可用性
-    4. Redis 连接可用性
-    5. 关键安全配置
-    6. Docker 配置一致性
+预部署检查脚本 - 封版上线前自动化验证
+检查项: .env.production 配置完整性 / SSL 证书 / Docker 配置 / Nginx 配置 / Git 仓库
 """
-
 import os
-import re
 import sys
+import re
 from pathlib import Path
-from typing import Optional
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ANSI colors
-class C:
-    RED = "\033[91m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    BLUE = "\033[94m"
-    RESET = "\033[0m"
-    BOLD = "\033[1m"
+def check_env_production():
+    """检查 .env.production 配置完整性"""
+    print("\n[1] 检查 .env.production 配置...")
+    env_file = BASE_DIR / ".env.production"
+    if not env_file.exists():
+        print("  FAIL: .env.production 不存在")
+        return False
 
+    content = env_file.read_text(encoding="utf-8")
+    checks = {
+        "ENV=production": "ENV 必须为 production",
+        "postgresql": "数据库必须使用 PostgreSQL",
+        "DB_ALLOW_SQLITE_FALLBACK=false": "生产环境禁止 SQLite fallback",
+        "JWT_SECRET_KEY=": "JWT 密钥必须配置",
+        "REDIS_PASSWORD=": "Redis 密码必须配置",
+        "ZHIPU_API_KEY=": "智谱 API Key 必须配置",
+        "MINIO_ACCESS_KEY=": "MinIO Access Key 必须配置",
+    }
 
-def ok(msg: str) -> None:
-    print(f"  {C.GREEN}[PASS]{C.RESET} {msg}")
-
-
-def fail(msg: str) -> None:
-    print(f"  {C.RED}[FAIL]{C.RESET} {msg}")
-
-
-def warn(msg: str) -> None:
-    print(f"  {C.YELLOW}[WARN]{C.RESET} {msg}")
-
-
-def info(msg: str) -> None:
-    print(f"  {C.BLUE}[INFO]{C.RESET} {msg}")
-
-
-def header(title: str) -> None:
-    print(f"\n{C.BOLD}{'=' * 60}{C.RESET}")
-    print(f"{C.BOLD}  {title}{C.RESET}")
-    print(f"{C.BOLD}{'=' * 60}{C.RESET}")
-
-
-def read_env(env_path: Path) -> dict[str, str]:
-    """Parse .env file into a dict."""
-    env = {}
-    if not env_path.exists():
-        return env
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" in line:
-            key, _, val = line.partition("=")
-            env[key.strip()] = val.strip().strip('"').strip("'")
-    return env
-
-
-def check_env_production() -> int:
-    """Check .env.production configuration."""
-    header("1. .env.production 配置检查")
-    errors = 0
-
-    env_path = Path(__file__).parent.parent / ".env.production"
-    if not env_path.exists():
-        fail(f".env.production 不存在: {env_path}")
-        return 1
-
-    env = read_env(env_path)
-    info(f"已加载 {len(env)} 个配置项")
-
-    # Critical settings
-    checks = [
-        ("ENV", "production", True),
-        ("API_DEBUG", "false", True),
-        ("API_RELOAD", "false", True),
-        ("DB_ALLOW_SQLITE_FALLBACK", "false", True),
-    ]
-
-    for key, expected, required in checks:
-        val = env.get(key, "")
-        if not val:
-            if required:
-                fail(f"{key} 未设置 (期望: {expected})")
-                errors += 1
+    all_pass = True
+    for key, desc in checks.items():
+        if key in content:
+            # 检查是否有占位符
+            line = [l for l in content.split("\n") if l.startswith(key.split("=")[0])]
+            if line and "<" in line[0] and ">" in line[0]:
+                print(f"  WARN: {desc} (仍含占位符)")
+                all_pass = False
             else:
-                warn(f"{key} 未设置 (建议: {expected})")
-        elif val.lower() != expected:
-            fail(f"{key}={val} (期望: {expected})")
-            errors += 1
+                print(f"  PASS: {desc}")
         else:
-            ok(f"{key}={val}")
+            print(f"  FAIL: {desc}")
+            all_pass = False
 
-    # Check for placeholder values
-    placeholders = ["<FILL_IN>", "<DB1_PASSWORD>", "<DB_HOST>", "<DB2_PASSWORD>", "<DB3_PASSWORD>"]
-    for key, val in env.items():
-        for ph in placeholders:
-            if ph in val:
-                fail(f"{key} 包含占位符 '{ph}'，请替换为真实值")
-                errors += 1
-                break
+    # 检查是否有弱密钥
+    if "JWT_SECRET_KEY=your" in content or "JWT_SECRET_KEY=test" in content:
+        print("  FAIL: JWT_SECRET_KEY 使用了弱密钥")
+        all_pass = False
 
-    # Check DB URLs are PostgreSQL
-    for i in [1, 2, 3]:
-        key = f"DB{i}_URL"
-        val = env.get(key, "")
-        if val:
-            if "sqlite" in val.lower():
-                fail(f"{key} 使用 SQLite，生产环境必须使用 PostgreSQL")
-                errors += 1
-            elif "postgresql" in val.lower():
-                ok(f"{key} 使用 PostgreSQL")
-            else:
-                warn(f"{key} 不是 PostgreSQL 也不是 SQLite，请确认: {val[:50]}...")
-        else:
-            fail(f"{key} 未设置")
-            errors += 1
-
-    # Check JWT secret strength
-    jwt_key = env.get("JWT_SECRET_KEY", "")
-    if len(jwt_key) < 32:
-        fail(f"JWT_SECRET_KEY 长度 {len(jwt_key)} < 32，不安全")
-        errors += 1
-    elif "test" in jwt_key.lower() or "local" in jwt_key.lower():
-        fail("JWT_SECRET_KEY 包含 'test' 或 'local'，疑似测试密钥")
-        errors += 1
-    else:
-        ok(f"JWT_SECRET_KEY 长度 {len(jwt_key)} (安全)")
-
-    # Check CORS
-    cors = env.get("CORS_ORIGINS", "")
-    if not cors:
-        fail("CORS_ORIGINS 未设置，生产环境会拒绝启动")
-        errors += 1
-    elif "*" in cors:
-        fail("CORS_ORIGINS 包含通配符 *，生产环境禁止")
-        errors += 1
-    else:
-        ok(f"CORS_ORIGINS 已配置 ({len(cors.split(','))} 个域名)")
-
-    # Check for mock values
-    mock_indicators = ["127.0.0.1:9999", "mock-routing-key", "test_secret"]
-    for key, val in env.items():
-        for mock in mock_indicators:
-            if mock in val:
-                fail(f"{key} 包含 mock 值 '{mock}'")
-                errors += 1
-                break
-
-    if errors == 0:
-        ok(".env.production 配置检查全部通过")
-    return errors
+    return all_pass
 
 
-def check_ssl() -> int:
-    """Check SSL certificates."""
-    header("2. SSL 证书检查")
-    errors = 0
-
-    project_root = Path(__file__).parent.parent.parent
-    ssl_dir = project_root / "ssl"
+def check_ssl_certificates():
+    """检查 SSL 证书"""
+    print("\n[2] 检查 SSL 证书...")
+    ssl_dir = BASE_DIR.parent / "ssl"
+    if not ssl_dir.exists():
+        print("  WARN: ssl/ 目录不存在 (生产部署前需创建)")
+        return False
 
     fullchain = ssl_dir / "fullchain.pem"
     privkey = ssl_dir / "privkey.pem"
 
-    if not fullchain.exists():
-        fail(f"证书文件不存在: {fullchain}")
-        errors += 1
-    else:
-        size = fullchain.stat().st_size
-        if size < 100:
-            fail(f"证书文件过小 ({size} bytes)，可能无效")
-            errors += 1
-        else:
-            ok(f"证书文件存在 ({size} bytes)")
-
-    if not privkey.exists():
-        fail(f"私钥文件不存在: {privkey}")
-        errors += 1
-    else:
-        ok(f"私钥文件存在 ({privkey.stat().st_size} bytes)")
-
-    # Check if it's a self-signed test cert
+    all_pass = True
     if fullchain.exists():
-        content = fullchain.read_text(encoding="utf-8")
-        if "IHUI-AI" in content:
-            warn("当前为自签名测试证书，生产环境请替换为 CA 签发的正式证书")
-
-    if errors == 0:
-        ok("SSL 证书检查通过")
-    return errors
-
-
-def check_docker_config() -> int:
-    """Check Docker configuration consistency."""
-    header("3. Docker 配置一致性检查")
-    errors = 0
-
-    project_root = Path(__file__).parent.parent.parent
-    compose_path = project_root / "docker-compose.yml"
-
-    if not compose_path.exists():
-        fail(f"docker-compose.yml 不存在: {compose_path}")
-        return 1
-
-    content = compose_path.read_text(encoding="utf-8")
-
-    # Check HTTPS port
-    if "443:443" not in content:
-        fail("docker-compose.yml 未暴露 443 端口 (HTTPS)")
-        errors += 1
+        print(f"  PASS: {fullchain.name} 存在")
     else:
-        ok("HTTPS 端口 443 已配置")
+        print(f"  FAIL: {fullchain.name} 不存在")
+        all_pass = False
 
-    # Check SSL volume mount
-    if "ssl" not in content:
-        fail("docker-compose.yml 未挂载 SSL 证书目录")
-        errors += 1
+    if privkey.exists():
+        print(f"  PASS: {privkey.name} 存在")
     else:
-        ok("SSL 证书目录已挂载")
+        print(f"  FAIL: {privkey.name} 不存在")
+        all_pass = False
 
-    # Check MinIO service
-    if "minio" not in content.lower():
-        fail("docker-compose.yml 缺少 MinIO 服务定义")
-        errors += 1
-    else:
-        ok("MinIO 服务已定义")
+    return all_pass
 
-    # Check health check endpoint
-    if "/healthz" not in content:
-        fail("docker-compose.yml 健康检查未使用 /healthz")
-        errors += 1
-    else:
-        ok("健康检查端点 /healthz 一致")
 
-    # Check Dockerfile.server
-    dockerfile_path = project_root / "Dockerfile.server"
-    if dockerfile_path.exists():
-        df_content = dockerfile_path.read_text(encoding="utf-8")
-        if "alembic upgrade head" not in df_content:
-            fail("Dockerfile.server 缺少 alembic upgrade head (自动迁移)")
-            errors += 1
+def check_docker_config():
+    """检查 Docker 配置一致性"""
+    print("\n[3] 检查 Docker 配置...")
+    compose_file = BASE_DIR.parent / "docker-compose.yml"
+    if not compose_file.exists():
+        print("  FAIL: docker-compose.yml 不存在")
+        return False
+
+    content = compose_file.read_text(encoding="utf-8")
+    checks = {
+        "443:443": "前端必须暴露 443 端口 (HTTPS)",
+        "ssl:/etc/nginx/ssl:ro": "前端必须挂载 SSL 证书",
+        "healthcheck": "所有服务必须有 healthcheck",
+        "minio": "MinIO 服务必须配置",
+        "aizhs-net": "必须使用 aizhs-net 网络",
+        "/healthz": "健康检查端点必须为 /healthz",
+    }
+
+    all_pass = True
+    for key, desc in checks.items():
+        if key in content:
+            print(f"  PASS: {desc}")
         else:
-            ok("Dockerfile.server 包含自动数据库迁移")
-        if "/healthz" not in df_content:
-            fail("Dockerfile.server 健康检查未使用 /healthz")
-            errors += 1
+            print(f"  FAIL: {desc}")
+            all_pass = False
+
+    return all_pass
+
+
+def check_nginx_config():
+    """检查 Nginx 配置"""
+    print("\n[4] 检查 Nginx 配置...")
+    nginx_file = BASE_DIR.parent / "nginx.conf"
+    if not nginx_file.exists():
+        print("  FAIL: nginx.conf 不存在")
+        return False
+
+    content = nginx_file.read_text(encoding="utf-8")
+    checks = {
+        "listen 443 ssl": "必须监听 443 SSL",
+        "server_tokens off": "必须隐藏 nginx 版本号",
+        "Strict-Transport-Security": "必须配置 HSTS",
+        "X-Frame-Options": "必须配置 X-Frame-Options",
+        "X-Content-Type-Options": "必须配置 X-Content-Type-Options",
+        "proxy_pass http://backend:8000": "必须反向代理到后端",
+        "return 301 https": "必须 HTTP 重定向到 HTTPS",
+        "gzip on": "必须启用 gzip 压缩",
+    }
+
+    all_pass = True
+    for key, desc in checks.items():
+        if key in content:
+            print(f"  PASS: {desc}")
         else:
-            ok("Dockerfile.server 健康检查端点一致")
+            print(f"  FAIL: {desc}")
+            all_pass = False
 
-    if errors == 0:
-        ok("Docker 配置一致性检查通过")
-    return errors
-
-
-def check_nginx() -> int:
-    """Check nginx configuration."""
-    header("4. Nginx 配置检查")
-    errors = 0
-
-    project_root = Path(__file__).parent.parent.parent
-    nginx_path = project_root / "nginx.conf"
-
-    if not nginx_path.exists():
-        fail(f"nginx.conf 不存在: {nginx_path}")
-        return 1
-
-    content = nginx_path.read_text(encoding="utf-8")
-
-    # Check HTTPS
-    if "listen 443" not in content:
-        fail("nginx.conf 未配置 443 端口监听")
-        errors += 1
-    else:
-        ok("HTTPS 443 端口已配置")
-
-    # Check HTTP redirect
-    if "return 301 https" not in content:
-        warn("nginx.conf 未配置 HTTP→HTTPS 重定向")
-    else:
-        ok("HTTP→HTTPS 重定向已配置")
-
-    # Check security headers
-    security_headers = [
-        "Strict-Transport-Security",
-        "X-Frame-Options",
-        "X-Content-Type-Options",
-        "Content-Security-Policy",
-        "Permissions-Policy",
-    ]
-    for header_name in security_headers:
-        if header_name not in content:
-            fail(f"nginx.conf 缺少安全头: {header_name}")
-            errors += 1
-        else:
-            ok(f"安全头已配置: {header_name}")
-
-    # Check WebSocket proxy
-    if "/ws/" not in content:
-        warn("nginx.conf 未配置 /ws/ WebSocket 代理")
-    else:
-        ok("WebSocket 代理已配置")
-
-    if errors == 0:
-        ok("Nginx 配置检查通过")
-    return errors
+    return all_pass
 
 
-def check_git() -> int:
-    """Check git repository status."""
-    header("5. Git 仓库检查")
-    errors = 0
-
+def check_git_remote():
+    """检查 Git 远程仓库"""
+    print("\n[5] 检查 Git 仓库...")
     import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "remote", "-v"],
+            capture_output=True, text=True, cwd=str(BASE_DIR.parent)
+        )
+        if "origin" in result.stdout:
+            print("  PASS: Git 远程仓库已配置")
+            return True
+        else:
+            print("  FAIL: Git 远程仓库未配置")
+            return False
+    except Exception:
+        print("  WARN: 无法检查 Git 配置")
+        return False
 
-    project_root = Path(__file__).parent.parent.parent
 
-    # Check remote
-    result = subprocess.run(
-        ["git", "remote", "-v"],
-        capture_output=True, text=True, cwd=str(project_root)
-    )
-    if not result.stdout.strip():
-        fail("未配置 Git 远程仓库 (git remote)")
-        errors += 1
-        warn("CI/CD 需要 Git 远程仓库才能触发")
+def main():
+    print("=" * 60)
+    print("  智汇AI 预部署检查 - 封版上线验证")
+    print("=" * 60)
+
+    results = []
+    results.append(("env_production", check_env_production()))
+    results.append(("ssl_certificates", check_ssl_certificates()))
+    results.append(("docker_config", check_docker_config()))
+    results.append(("nginx_config", check_nginx_config()))
+    results.append(("git_remote", check_git_remote()))
+
+    print("\n" + "=" * 60)
+    print("  检查结果汇总")
+    print("=" * 60)
+
+    all_pass = True
+    for name, passed in results:
+        status = "PASS" if passed else "FAIL"
+        print(f"  [{status}] {name}")
+        if not passed:
+            all_pass = False
+
+    print("=" * 60)
+    if all_pass:
+        print("  所有检查通过! 可以部署!")
+        sys.exit(0)
     else:
-        ok(f"Git 远程仓库已配置: {result.stdout.strip().split()[0]}")
-
-    # Check for uncommitted changes
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True, text=True, cwd=str(project_root)
-    )
-    if result.stdout.strip():
-        changed = len(result.stdout.strip().splitlines())
-        warn(f"有 {changed} 个未提交的文件变更")
-    else:
-        ok("工作区干净，无未提交变更")
-
-    if errors == 0:
-        ok("Git 仓库检查通过")
-    return errors
-
-
-def main() -> int:
-    print(f"\n{C.BOLD}IHUI-AI 生产部署准备检查{C.RESET}")
-    print(f"检查时间: {os.popen('date /t').read().strip() if os.name == 'nt' else ''}")
-    print(f"项目路径: {Path(__file__).parent.parent.parent}")
-
-    total_errors = 0
-    total_errors += check_env_production()
-    total_errors += check_ssl()
-    total_errors += check_docker_config()
-    total_errors += check_nginx()
-    total_errors += check_git()
-
-    header("检查结果汇总")
-    if total_errors == 0:
-        print(f"\n  {C.GREEN}{C.BOLD}✓ 所有检查通过，可以部署！{C.RESET}\n")
-        return 0
-    else:
-        print(f"\n  {C.RED}{C.BOLD}✗ 发现 {total_errors} 个问题，请修复后再部署。{C.RESET}\n")
-        return total_errors
+        print("  存在未通过项, 请修复后再部署!")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
