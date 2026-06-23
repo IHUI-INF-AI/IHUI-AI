@@ -1,4 +1,4 @@
-﻿import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
+import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
 
 const BASE = 'http://localhost:8888'
 const BACKEND = 'http://127.0.0.1:8000'
@@ -47,36 +47,31 @@ async function mockUserInfo(page: Page) {
   })
 }
 
-test('杞挱鍥鹃瑙堝姛鑳介獙璇?, async ({ page, request }) => {
+test('轮播图预览功能验证', async ({ page, request }) => {
   const token = await fetchToken(request)
-  test.skip(!token, '后端不可用，跳过测试')
+  expect(token).toBeTruthy()
   await mockUserInfo(page)
-  await setLoginState(page, token!)
+  await setLoginState(page, token)
 
-  await page.goto(`${BASE}`, { waitUntil: 'domcontentloaded' })
-
-
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
-  await page.goto(`${BASE}/admin/setting/carousel`, { waitUntil: 'domcontentloaded' })
-
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}/admin/setting/carousel`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
 
-  console.log(`杞挱鍥鹃〉闈RL: ${page.url()}`)
+  console.log(`轮播图页面URL: ${page.url()}`)
   expect(page.url()).toContain('/admin/setting/carousel')
 
-  // 鐐瑰嚮娣诲姞鎸夐挳
+  // 点击添加按钮
   const addBtn = page.locator('.el-button--primary').first()
   await addBtn.click()
   await page.waitForTimeout(2000)
 
-  // 楠岃瘉寮圭獥鎵撳紑
+  // 验证弹窗打开
   const dialogVisible = await page.locator('.el-dialog').isVisible().catch(() => false)
-  console.log(`寮圭獥鏄惁鍙: ${dialogVisible}`)
+  console.log(`弹窗是否可见: ${dialogVisible}`)
   expect(dialogVisible).toBe(true)
 
-  // 閫氳繃 JavaScript 璁剧疆 formData
+  // 通过 JavaScript 设置 formData
   await page.evaluate(() => {
     const el = document.querySelector('.el-dialog')
     if (!el) return
@@ -84,7 +79,7 @@ test('杞挱鍥鹃瑙堝姛鑳介獙璇?, async ({ page, request }) => {
     while (instance) {
       const setupState = instance.setupState
       if (setupState && setupState.formData && typeof setupState.onPreview === 'function') {
-        setupState.formData.title = '娴嬭瘯杞挱鍥?
+        setupState.formData.title = '测试轮播图'
         setupState.formData.image = 'https://example.com/test.jpg'
         setupState.formData.link = 'https://example.com'
         setupState.formData.status = 'on'
@@ -95,23 +90,23 @@ test('杞挱鍥鹃瑙堝姛鑳介獙璇?, async ({ page, request }) => {
   })
   await page.waitForTimeout(300)
 
-  // 楠岃瘉棰勮鎸夐挳鍙
-  const previewBtn = page.locator('.el-dialog__footer button').filter({ hasText: '棰勮' }).first()
+  // 验证预览按钮可见
+  const previewBtn = page.locator('.el-dialog__footer button').filter({ hasText: '预览' }).first()
   const previewBtnVisible = await previewBtn.isVisible().catch(() => false)
-  console.log(`棰勮鎸夐挳鏄惁鍙: ${previewBtnVisible}`)
+  console.log(`预览按钮是否可见: ${previewBtnVisible}`)
   expect(previewBtnVisible).toBe(true)
 
-  // 鐐瑰嚮棰勮鎸夐挳
+  // 点击预览按钮
   await previewBtn.click()
   await page.waitForTimeout(1500)
 
-  // 楠岃瘉棰勮寮圭獥鎵撳紑
-  const previewDialog = page.locator('.el-dialog').filter({ hasText: '杞挱鍥鹃瑙? })
+  // 验证预览弹窗打开
+  const previewDialog = page.locator('.el-dialog').filter({ hasText: '轮播图预览' })
   const previewDialogVisible = await previewDialog.isVisible().catch(() => false)
-  console.log(`棰勮寮圭獥鏄惁鍙: ${previewDialogVisible}`)
+  console.log(`预览弹窗是否可见: ${previewDialogVisible}`)
   expect(previewDialogVisible).toBe(true)
 
-  // 楠岃瘉棰勮鍐呭
+  // 验证预览内容
   const previewContent = await page.evaluate(() => ({
     hasPreviewCarousel: !!document.querySelector('.preview-carousel'),
     hasTitle: !!document.querySelector('.preview-carousel__title'),
@@ -119,61 +114,56 @@ test('杞挱鍥鹃瑙堝姛鑳介獙璇?, async ({ page, request }) => {
     hasImage: !!document.querySelector('.preview-carousel__image'),
     hasLink: !!document.querySelector('.preview-carousel__link'),
   }))
-  console.log(`棰勮鍐呭: ${JSON.stringify(previewContent)}`)
+  console.log(`预览内容: ${JSON.stringify(previewContent)}`)
   expect(previewContent.hasPreviewCarousel).toBe(true)
-  expect(previewContent.title).toContain('娴嬭瘯杞挱鍥?)
+  expect(previewContent.title).toContain('测试轮播图')
 
   await page.screenshot({ path: 'test-results/carousel-preview.png', fullPage: true })
 })
 
-test('淇濆瓨骞剁户缁紪杈戞寜閽獙璇?, async ({ page, request }) => {
+test('保存并继续编辑按钮验证', async ({ page, request }) => {
   const token = await fetchToken(request)
-  test.skip(!token, '后端不可用，跳过测试')
+  expect(token).toBeTruthy()
   await mockUserInfo(page)
-  await setLoginState(page, token!)
+  await setLoginState(page, token)
 
-  await page.goto(`${BASE}`, { waitUntil: 'domcontentloaded' })
-
-
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
-  await page.goto(`${BASE}/admin/aiworld/site`, { waitUntil: 'domcontentloaded' })
-
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}/admin/aiworld/site`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
 
-  // 鐐瑰嚮娣诲姞鎸夐挳
+  // 点击添加按钮
   const addBtn = page.locator('.el-button--primary').first()
   await addBtn.click()
   await page.waitForTimeout(2000)
 
-  // 楠岃瘉"淇濆瓨骞剁户缁紪杈?鎸夐挳瀛樺湪
-  const continueBtn = page.locator('.el-dialog__footer button').filter({ hasText: '淇濆瓨骞剁户缁紪杈? }).first()
+  // 验证"保存并继续编辑"按钮存在
+  const continueBtn = page.locator('.el-dialog__footer button').filter({ hasText: '保存并继续编辑' }).first()
   const continueBtnVisible = await continueBtn.isVisible().catch(() => false)
-  console.log(`淇濆瓨骞剁户缁紪杈戞寜閽槸鍚﹀彲瑙? ${continueBtnVisible}`)
+  console.log(`保存并继续编辑按钮是否可见: ${continueBtnVisible}`)
   expect(continueBtnVisible).toBe(true)
 
-  // 楠岃瘉涓変釜鎸夐挳閮藉瓨鍦細鍙栨秷銆佷繚瀛樺苟缁х画缂栬緫銆佷繚瀛?
+  // 验证三个按钮都存在：取消、保存并继续编辑、保存
   const allBtns = await page.evaluate(() => {
     const footer = document.querySelector('.el-dialog__footer')
     if (!footer) return []
     return Array.from(footer.querySelectorAll('button')).map(b => b.textContent?.trim())
   })
-  console.log(`寮圭獥搴曢儴鎵€鏈夋寜閽? ${JSON.stringify(allBtns)}`)
-  expect(allBtns).toContain('鍙栨秷')
-  expect(allBtns).toContain('淇濆瓨骞剁户缁紪杈?)
-  expect(allBtns).toContain('淇濆瓨')
+  console.log(`弹窗底部所有按钮: ${JSON.stringify(allBtns)}`)
+  expect(allBtns).toContain('取消')
+  expect(allBtns).toContain('保存并继续编辑')
+  expect(allBtns).toContain('保存')
 
   await page.screenshot({ path: 'test-results/save-continue-button.png', fullPage: true })
 })
 
-test('淇濆瓨骞剁户缁紪杈戝疄闄呬繚瀛橀獙璇?, async ({ page, request }) => {
+test('保存并继续编辑实际保存验证', async ({ page, request }) => {
   const token = await fetchToken(request)
-  test.skip(!token, '后端不可用，跳过测试')
+  expect(token).toBeTruthy()
   await mockUserInfo(page)
-  await setLoginState(page, token!)
+  await setLoginState(page, token)
 
-  // mock 鍒涘缓绔欑偣 API锛岃繑鍥炴垚鍔熷拰鏂?id
+  // mock 创建站点 API，返回成功和新 id
   let createCalled = false
   await page.route('**/admin/aiworld/site**', async (route) => {
     const method = route.request().method()
@@ -188,22 +178,17 @@ test('淇濆瓨骞剁户缁紪杈戝疄闄呬繚瀛橀獙璇?, async ({ page,
     }
   })
 
-  await page.goto(`${BASE}`, { waitUntil: 'domcontentloaded' })
-
-
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
-  await page.goto(`${BASE}/admin/aiworld/site`, { waitUntil: 'domcontentloaded' })
-
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}/admin/aiworld/site`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
 
-  // 鐐瑰嚮娣诲姞鎸夐挳
+  // 点击添加按钮
   const addBtn = page.locator('.el-button--primary').first()
   await addBtn.click()
   await page.waitForTimeout(2000)
 
-  // 閫氳繃 JavaScript 璁剧疆蹇呭～瀛楁
+  // 通过 JavaScript 设置必填字段
   await page.evaluate(() => {
     const el = document.querySelector('.el-dialog')
     if (!el) return
@@ -211,8 +196,8 @@ test('淇濆瓨骞剁户缁紪杈戝疄闄呬繚瀛橀獙璇?, async ({ page,
     while (instance) {
       const setupState = instance.setupState
       if (setupState && setupState.formData && typeof setupState.onPreview === 'function') {
-        setupState.formData.name = '娴嬭瘯绔欑偣'
-        setupState.formData.section = 'AI 瀵硅瘽'
+        setupState.formData.name = '测试站点'
+        setupState.formData.section = 'AI 对话'
         break
       }
       instance = instance.parent
@@ -220,27 +205,27 @@ test('淇濆瓨骞剁户缁紪杈戝疄闄呬繚瀛橀獙璇?, async ({ page,
   })
   await page.waitForTimeout(300)
 
-  // 鐐瑰嚮"淇濆瓨骞剁户缁紪杈?
-  const continueBtn = page.locator('.el-dialog__footer button').filter({ hasText: '淇濆瓨骞剁户缁紪杈? }).first()
+  // 点击"保存并继续编辑"
+  const continueBtn = page.locator('.el-dialog__footer button').filter({ hasText: '保存并继续编辑' }).first()
   await continueBtn.click()
   await page.waitForTimeout(2000)
 
-  // 楠岃瘉鍒涘缓 API 琚皟鐢?
-  console.log(`鍒涘缓API鏄惁琚皟鐢? ${createCalled}`)
+  // 验证创建 API 被调用
+  console.log(`创建API是否被调用: ${createCalled}`)
   expect(createCalled).toBe(true)
 
-  // 楠岃瘉寮圭獥浠嶇劧鎵撳紑锛堜繚瀛樺苟缁х画缂栬緫涓嶅叧闂脊绐楋級
+  // 验证弹窗仍然打开（保存并继续编辑不关闭弹窗）
   const dialogStillVisible = await page.locator('.el-dialog').isVisible().catch(() => false)
-  console.log(`淇濆瓨鍚庡脊绐楁槸鍚︿粛鐒舵墦寮€: ${dialogStillVisible}`)
+  console.log(`保存后弹窗是否仍然打开: ${dialogStillVisible}`)
   expect(dialogStillVisible).toBe(true)
 
-  // 楠岃瘉妯″紡鍒囨崲涓虹紪杈戯紙鏂板淇濆瓨鍚庡簲鍒囨崲涓虹紪杈戞ā寮忥級
+  // 验证模式切换为编辑（新增保存后应切换为编辑模式）
   const dialogTitle = await page.evaluate(() => {
     const title = document.querySelector('.el-dialog__title')
     return title?.textContent?.trim()
   })
-  console.log(`淇濆瓨鍚庡脊绐楁爣棰? ${dialogTitle}`)
-  expect(dialogTitle).toContain('缂栬緫')
+  console.log(`保存后弹窗标题: ${dialogTitle}`)
+  expect(dialogTitle).toContain('编辑')
 
   await page.screenshot({ path: 'test-results/save-continue-actual.png', fullPage: true })
 })

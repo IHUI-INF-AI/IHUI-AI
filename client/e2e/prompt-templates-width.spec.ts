@@ -7,8 +7,7 @@ test.describe('提示词模板库宽度', () => {
   test('打开提示词模板库后，容器/header/list 与 popper 同宽', async ({ page }) => {
     test.setTimeout(45000)
     await page.goto('/')
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(1000)
+    await page.waitForLoadState('networkidle')
 
     for (let i = 0; i < 4; i++) {
       await page.keyboard.press('Escape')

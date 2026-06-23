@@ -31,7 +31,6 @@ async function checkPageAtViewport(p: import('@playwright/test').Page, pageName:
   const issues: string[] = []
 
   await p.goto(path, { waitUntil: 'domcontentloaded' })
-  await p.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
   await p.waitForTimeout(2500)
 
   // 1. 检查水平溢出
