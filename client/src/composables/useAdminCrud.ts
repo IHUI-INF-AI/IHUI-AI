@@ -146,7 +146,7 @@ export function useAdminCrud(options: UseAdminCrudOptions) {
   /** P24.1: 提交批量编辑（接收组件传来的更新数据） */
   const onBatchEditSubmit = async (updateData: Record<string, any>) => {
     if (!Object.keys(updateData).length) {
-      ElMessage.warning('请至少选择一个要修改的字段')
+      ElMessage.warning(t('common.errors.selectFieldWarning'))
       return
     }
     submitting.value = true

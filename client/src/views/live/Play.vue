@@ -75,15 +75,15 @@
             >
               <div class="gift-icon">{{ g.icon || '🎁' }}</div>
               <div class="gift-name">{{ g.name }}</div>
-              <div class="gift-price">{{ g.price }} 积分</div>
+              <div class="gift-price">{{ g.price }} {{ t('livePlay.points') }}</div>
             </div>
           </div>
           <div v-else class="info-pane">
-            <h3>直播介绍</h3>
-            <p>{{ channel.description || '暂无介绍' }}</p>
-            <h3>统计数据</h3>
-            <p>观看:{{ channel.viewNum || 0 }}</p>
-            <p>点赞:{{ channel.likeNum || 0 }}</p>
+            <h3>{{ t('livePlay.liveIntro') }}</h3>
+            <p>{{ channel.description || t('livePlay.noIntro') }}</p>
+            <h3>{{ t('livePlay.statistics') }}</h3>
+            <p>{{ t('livePlay.views') }}:{{ channel.viewNum || 0 }}</p>
+            <p>{{ t('livePlay.likes') }}:{{ channel.likeNum || 0 }}</p>
           </div>
         </div>
       </div>
@@ -143,7 +143,7 @@ async function sendComment() {
   const content = newComment.value
   const item = {
     id: Date.now().toString(),
-    userName: '我',
+    userName: t('common.me'),
     content,
   }
   commentList.value.push(item)
@@ -159,7 +159,7 @@ async function sendComment() {
 async function sendGift(g: any) {
   try {
     await liveApi.giftSend({ channelId: id, giftId: g.id, count: 1 })
-    ElMessage.success(`送出 ${g.name} x1`)
+    ElMessage.success(t('livePlay.sentGift', { name: g.name }))
   } catch {
     ElMessage.error(t('common.errors.giftSendFailed'))
   }

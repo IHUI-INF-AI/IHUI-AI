@@ -31,7 +31,7 @@
         </div>
       </article>
     </div>
-    <el-empty v-else description="暂无资讯" />
+    <el-empty v-else :description="t('common.noData')" />
     <Pagination v-if="total > size" :current="current" :size="size" :total="total" @change="onPage" />
   </div>
 </template>

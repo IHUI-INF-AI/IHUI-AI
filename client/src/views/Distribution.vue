@@ -128,9 +128,9 @@
           </el-form-item>
           <el-form-item :label="t('distribution.withdrawDialog.method')" prop="method">
             <el-select v-model="withdrawForm.method" style="width: 100%">
-              <el-option label="支付宝" value="alipay" />
-              <el-option label="微信" value="wechat" />
-              <el-option label="银行卡" value="bank" />
+              <el-option :label="t('distribution.withdrawDialog.alipay')" value="alipay" />
+              <el-option :label="t('distribution.withdrawDialog.wechat')" value="wechat" />
+              <el-option :label="t('distribution.withdrawDialog.bankCard')" value="bank" />
             </el-select>
           </el-form-item>
           <el-form-item :label="t('distribution.withdrawDialog.account')" prop="account">

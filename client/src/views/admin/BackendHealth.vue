@@ -103,6 +103,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import echarts from '@/utils/echarts'
 import { useCleanup } from '@/composables/useCleanup'
+import { getUserToken } from '@/utils/request'
 
 const { t } = useI18n()
 
@@ -172,7 +173,12 @@ const fetchHealth = async () => {
   const t0 = performance.now()
   loading.value = true
   try {
-    const res = await fetch('/health')
+    const token = getUserToken()
+    const res = await fetch('/health', {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : '',
+      },
+    })
     const data = await res.json()
     healthData.value = data
     const latency = Math.round(performance.now() - t0)

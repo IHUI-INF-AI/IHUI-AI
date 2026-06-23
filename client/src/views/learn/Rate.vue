@@ -12,7 +12,7 @@
     </div>
 
     <div class="rate-list">
-      <el-empty v-if="!list.length" description="暂无评价" />
+      <el-empty v-if="!list.length" :description="t('common.noData')" />
       <div v-for="c in list" :key="c.id" class="rate-item">
         <div class="rate-head">
           <span class="rate-user">{{ c.userName }}</span>

@@ -430,3 +430,151 @@ async def get_wechat_qrcode(
     except Exception as e:
         logger.error(f"WeChat qrcode error: {e}")
         return error("获取小程序码失败,请稍后重试", "500")
+
+
+# ---------------------------------------------------------------------------
+# WeChat PC 扫码登录 (PC QR code login)
+# ---------------------------------------------------------------------------
+
+@router.get("/pc/wxCode", summary="微信PC扫码登录 - 获取授权页")
+async def wechat_pc_wx_code():
+    """微信PC扫码登录入口.
+
+    返回一个 HTML 页面, 内嵌微信开放平台扫码授权 iframe,
+    扫码成功后通过 postMessage 将登录结果通知父窗口.
+    """
+    app_id = settings.WX_PC_APPID or ""
+    redirect_uri = f"https://open.weixin.qq.com/connect/qrconnect?appid={app_id}&redirect_uri=&response_type=code&scope=snsapi_login&state=pc_login#wechat_redirect"
+
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>微信登录</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
+.login-container {{ background: #fff; border: 1px solid #e0e0e0; padding: 40px; text-align: center; }}
+.login-container h2 {{ margin-bottom: 20px; color: #333; font-size: 20px; }}
+.qrcode-wrapper {{ width: 300px; height: 400px; margin: 0 auto; }}
+.status {{ margin-top: 15px; color: #999; font-size: 14px; }}
+</style>
+</head>
+<body>
+<div class="login-container">
+  <h2>微信扫码登录</h2>
+  <div class="qrcode-wrapper">
+    <iframe src="{redirect_uri}" frameborder="0" width="300" height="400" id="wxFrame"></iframe>
+  </div>
+  <p class="status" id="status">请使用微信扫描二维码</p>
+</div>
+<script>
+window.addEventListener('message', function(event) {{
+  if (event.data && event.data.type === 'wx_login') {{
+    window.parent.postMessage(event.data, '*');
+  }}
+}});
+</script>
+</body>
+</html>"""
+    from fastapi import Response
+
+    return Response(content=html, media_type="text/html")
+
+
+@router.get("/pc/callback", summary="微信PC扫码登录回调")
+async def wechat_pc_callback(code: str = Query(..., description="微信授权码")):
+    """微信PC扫码登录回调, 用 code 换取用户信息并登录.
+
+    公开接口, 微信扫码授权后回调.
+    """
+    app_id = settings.WX_PC_APPID
+    secret = settings.WX_PC_SECRET
+
+    if not app_id or not secret:
+        logger.warning("WeChat PC login not configured (WX_PC_APPID/WX_PC_SECRET empty)")
+        return error("微信PC登录未配置")
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            # 1. 用 code 换 access_token
+            token_url = (
+                f"https://api.weixin.qq.com/sns/oauth2/access_token"
+                f"?appid={app_id}&secret={secret}&code={code}&grant_type=authorization_code"
+            )
+            token_resp = await client.get(token_url)
+            token_data = token_resp.json()
+
+            if "errcode" in token_data:
+                logger.error(f"WeChat PC token error: {token_data}")
+                return error(token_data.get("errmsg", "微信登录失败"))
+
+            access_token = token_data.get("access_token")
+            openid = token_data.get("openid")
+
+            # 2. 用 access_token 获取用户信息
+            user_url = (
+                f"https://api.weixin.qq.com/sns/userinfo"
+                f"?access_token={access_token}&openid={openid}"
+            )
+            user_resp = await client.get(user_url)
+            user_data = user_resp.json()
+
+            if "errcode" in user_data:
+                logger.error(f"WeChat PC userinfo error: {user_data}")
+                return error(user_data.get("errmsg", "获取用户信息失败"))
+
+            # 3. 查找或创建用户, 签发 JWT
+            unionid = user_data.get("unionid", "")
+            nickname = user_data.get("nickname", "")
+            avatar = user_data.get("headimgurl", "")
+
+            from app.database import get_session
+            from app.models.user_models import User, UserThirdPartyAccount
+
+            with get_session() as db:
+                user = None
+                # 先从第三方账号表查找绑定关系
+                tp_query = db.query(UserThirdPartyAccount).filter(
+                    UserThirdPartyAccount.platform == "wechat"
+                )
+                if unionid:
+                    tp = tp_query.filter(UserThirdPartyAccount.union_id == unionid).first()
+                else:
+                    tp = tp_query.filter(UserThirdPartyAccount.open_id == openid).first()
+
+                if tp:
+                    user = db.query(User).filter(User.uuid == tp.user_uuid).first()
+
+                if user:
+                    if nickname and not user.nickname:
+                        user.nickname = nickname
+                    if avatar and not user.avatar:
+                        user.avatar = avatar
+                    db.commit()
+                else:
+                    user = User(
+                        nickname=nickname or f"wx_{openid[:8]}",
+                        avatar=avatar,
+                    )
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+
+                    # 创建第三方账号绑定
+                    binding = UserThirdPartyAccount(
+                        user_uuid=user.uuid,
+                        open_id=openid,
+                        union_id=unionid,
+                        platform="wechat",
+                    )
+                    db.add(binding)
+                    db.commit()
+
+                jwt_token = create_access_token({"sub": user.uuid})
+
+            return success({"token": jwt_token, "user": {"uuid": user.uuid, "nickname": user.nickname, "avatar": user.avatar}})
+    except Exception as e:
+        logger.error(f"WeChat PC login error: {e}")
+        return error("微信登录失败,请稍后重试", "500")

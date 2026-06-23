@@ -566,6 +566,7 @@
     "share": "分享",
     "print": "Print",
     "noData": "暂无数据",
+    "me": "我",
     "unknown": "未知",
     "iteration": "迭代",
     "portalNav": {
@@ -3527,7 +3528,10 @@
       "method": "Method",
       "realName": "Real Name",
       "realNamePlaceholder": "Real Name Placeholder",
-      "title": "Title"
+      "title": "Title",
+      "alipay": "支付宝",
+      "wechat": "微信",
+      "bankCard": "银行卡"
     }
   },
   "distributionCompany": {
@@ -11659,7 +11663,11 @@
     "largeDocHint": "大型文档可能需要较长时间",
     "docLoadFailed": "文档加载失败",
     "tryDownload": "请尝试下载后使用本地软件打开",
-    "officeDoc": "Office 文档"
+    "officeDoc": "Office 文档",
+    "zoomOut": "缩小",
+    "reset": "重置",
+    "download": "下载",
+    "openInOfficeOnline": "在Office Online中打开"
   },
   "featureAppleLogin": {
     "appleLoginFailed": "Apple登录失败",
@@ -11872,11 +11880,23 @@
   },
   "viewerEnhancedPdfViewer": {
     "loadingPdf": "正在加载PDF...",
-    "pdfLoadFailed": "PDF加载失败"
+    "pdfLoadFailed": "PDF加载失败",
+    "prevPage": "上一页",
+    "zoomOut": "缩小",
+    "search": "搜索",
+    "download": "下载",
+    "fullscreen": "全屏"
   },
   "viewerImageViewer": {
     "loading": "加载中...",
-    "imageLoadFailed": "图片加载失败"
+    "imageLoadFailed": "图片加载失败",
+    "zoomOut": "缩小",
+    "reset": "重置",
+    "rotateLeft": "左旋转",
+    "rotateRight": "右旋转",
+    "fitScreen": "适应屏幕",
+    "fullscreen": "全屏",
+    "download": "下载"
   },
   "cmpVipLevelPopup": {
     "vipLevelMechanism": "会员等级升级机制",
@@ -11951,7 +11971,11 @@
     "purchased": "已购买"
   },
   "viewerMediaViewer": {
-    "mediaLoadFailed": "媒体加载失败"
+    "mediaLoadFailed": "媒体加载失败",
+    "playSpeed": "播放速度",
+    "loop": "循环",
+    "mute": "静音",
+    "download": "下载"
   },
   "featureGoogleLogin": {
     "googleLoginFailed": "Google登录失败"
@@ -14182,7 +14206,14 @@
     "liveNotFound": "直播不存在",
     "notLive": "主播未开播",
     "send": "发送",
-    "danmuPlaceholder": "发条弹幕..."
+    "danmuPlaceholder": "发条弹幕...",
+    "points": "积分",
+    "liveIntro": "直播介绍",
+    "noIntro": "暂无介绍",
+    "statistics": "统计数据",
+    "views": "观看",
+    "likes": "点赞",
+    "sentGift": "送出 {name} x1"
   },
   "memberArticle": {
     "myArticles": "我的文章",
@@ -14227,7 +14258,10 @@
   "userPage": {
     "feedback": "意见反馈",
     "noStudyContent": "暂无学习内容",
-    "views": "次观看"
+    "views": "次观看",
+    "noTextContent": "暂无文本内容",
+    "noImageContent": "暂无图片内容",
+    "noVideoContent": "暂无视频内容"
   },
   "p19PaymentMethods": {
     "title": "P19 支付方式",
@@ -14445,7 +14479,16 @@
     "backToList": "返回退款列表",
     "title": "退款详情",
     "refundNo": "退款单号",
-    "supplementEvidence": "补充凭证 (支持多文件)"
+    "supplementEvidence": "补充凭证 (支持多文件)",
+    "refundInfo": "退款信息",
+    "originalOrderNo": "原订单号",
+    "refundAmount": "退款金额",
+    "refundReason": "退款原因",
+    "refundDescription": "退款说明",
+    "rejectReason": "拒绝原因",
+    "applyTime": "申请时间",
+    "approveTime": "批准时间",
+    "completeTime": "完成时间"
   },
   "biDrilldown": {
     "detail": "明细",

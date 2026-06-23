@@ -1,3 +1,5 @@
+import { getUserToken } from '@/utils/request'
+
 const CHUNK_SIZE = 5 * 1024 * 1024
 
 interface ChunkInfo {
@@ -21,6 +23,10 @@ type ChunkCompleteCallback = (chunkIndex: number, totalChunks: number) => void
 class ChunkUploader {
   private uploads: Map<string, ChunkInfo> = new Map()
   private abortControllers: Map<string, AbortController> = new Map()
+  private getAuthHeaders(): Record<string, string> {
+    const token = getUserToken()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
 
   generateFileId(file: File): string {
     return `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).substr(2, 9)}`
@@ -126,7 +132,7 @@ class ChunkUploader {
   ): Promise<void> {
     const response = await fetch(`${url}/init`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
       body: JSON.stringify({
         fileId,
         fileName,
@@ -159,6 +165,7 @@ class ChunkUploader {
 
     const response = await fetch(`${url}/chunk`, {
       method: 'POST',
+      headers: { ...this.getAuthHeaders() },
       body: formData,
       signal
     })
@@ -175,7 +182,7 @@ class ChunkUploader {
   ): Promise<{ url: string }> {
     const response = await fetch(`${url}/complete`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
       body: JSON.stringify({ fileId, uploadId })
     })
 

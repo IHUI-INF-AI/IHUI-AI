@@ -63,6 +63,12 @@ test.describe('登录页 UI 交互', () => {
     await page.goto(`${FRONTEND}/login`, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(2000)
+    // 等待 JS 动态定位完成 (updateBrandTextSpacing 设置 inline 样式)
+    await page.waitForFunction(() => {
+      const el = document.querySelector('.login-left-brand') as HTMLElement | null
+      return el && el.style.position === 'fixed' && el.style.width !== ''
+    }, { timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(500)
     const text = await page.evaluate(() => document.body.innerText)
     expect(text.length, '页面有内容').toBeGreaterThan(100)
     const hasLogin = /登录|login/i.test(text)
@@ -224,7 +230,7 @@ test.describe('会员页 UI 交互', () => {
   test('会员页加载成功, 显示会员相关内容', async ({ page }) => {
     await page.goto(`${FRONTEND}/vip`, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(3000)
     const url = page.url()
     console.log(`[会员页] 当前 URL: ${url}`)
     expect(url).toContain('/vip')

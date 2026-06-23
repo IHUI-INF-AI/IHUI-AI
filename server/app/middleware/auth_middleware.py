@@ -133,6 +133,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request.state.user_id = user_uuid
         request.state.jwt_exp = payload.get("exp")
         request.state.jwt_iat = payload.get("iat")
+        request.state.jwt_payload = payload
 
         # 注入到 ContextVar, 让业务侧 _current_user_id() / current_user_id_or_guest() 也能读到
         try:

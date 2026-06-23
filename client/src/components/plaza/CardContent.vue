@@ -50,7 +50,7 @@
       <div class="date-text">{{ formatDateRange(info.createdAt, info.closingTime) }}</div>
       <div class="cycle">{{ t('cardContent.cycleTime') }}：{{ info.cycle || '' }}{{ cycleUnits[info.cycleUnit] || '' }}</div>
       <div v-if="type === 'dialog'" class="related-images">
-        <span class="field-label">{ t('plazaCardContent.relatedImages') }</span>
+        <span class="field-label">{{ t('plazaCardContent.relatedImages') }}</span>
         <div class="image-list">
           <img v-for="item in imageList" :key="item" class="image-item" :src="item" alt="图片" loading="lazy" />
         </div>

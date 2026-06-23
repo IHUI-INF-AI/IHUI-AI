@@ -261,7 +261,7 @@ async function sendMessage() {
       await streamFromSSE(text)
     } catch (e) {
       console.error('[Chat] 消息发送失败', e)
-      ElMessage.error('消息发送失败，请重试')
+      ElMessage.error(t('common.errors.messageSendFailed'))
     }
   }
 }

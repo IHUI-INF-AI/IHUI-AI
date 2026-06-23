@@ -304,6 +304,17 @@ class Settings(BaseSettings):
     ALI_LOGIN_APP_SECRET: str = ""
     ALI_LOGIN_PRIVATE_KEY: str = ""  # PEM 格式的 RSA2 应用私钥, 用于支付宝登录签名
 
+    # ===================================================================
+    # DINGTALK LOGIN (钉钉登录)
+    # ===================================================================
+    DINGTALK_API_HOST: str = "https://oapi.dingtalk.com"
+    DINGTALK_CORP_ID: str = ""
+    DINGTALK_APP_KEY: str = ""
+    DINGTALK_APP_SECRET: str = ""
+    DINGTALK_LOGIN_APP_ID: str = ""
+    DINGTALK_LOGIN_APP_SECRET: str = ""
+    DINGTALK_AGENT_ID: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env.production",
         env_file_encoding="utf-8",

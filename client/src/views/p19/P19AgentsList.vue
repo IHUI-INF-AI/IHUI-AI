@@ -48,7 +48,7 @@ async function load() {
     const r = await v2Agents.list({ page: 1, size: 20 })
     agents_.value = (r as any)?.data?.items || (r as any)?.data?.records || []
   } catch (e: any) {
-    ElMessage.error('加载智能体失败: ' + (e?.message || e))
+    ElMessage.error(t('common.errors.loadAgentsFailed') + ': ' + (e?.message || e))
   } finally {
     loading.value = false
   }
@@ -60,7 +60,7 @@ async function hit(agentId: number, _name: string) {
     answer.value = (r as any)?.data?.description || '[无回答]'
     answerVisible.value = true
   } catch (e: any) {
-    ElMessage.error('调用失败: ' + (e?.message || e))
+    ElMessage.error(t('common.errors.invokeFailed') + ': ' + (e?.message || e))
   }
 }
 

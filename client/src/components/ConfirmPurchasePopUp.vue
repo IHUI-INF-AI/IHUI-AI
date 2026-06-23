@@ -11,7 +11,7 @@
     <div class="purchase-popup">
       <!-- 头部 -->
       <div class="popup-header">
-        <h3 class="popup-title">{ t('cmpConfirmPurchasePopUp.vipPurchase') }</h3>
+        <h3 class="popup-title">{{ t('cmpConfirmPurchasePopUp.vipPurchase') }}</h3>
       </div>
 
       <!-- 产品信息 -->
@@ -70,6 +70,17 @@
 
 <script setup lang="ts">
 
+async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
+  const token = getUserToken()
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...((options.headers as Record<string, string>) || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+}
+
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -77,6 +88,7 @@ import { ref, computed, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { getUserToken } from '@/utils/request'
 
 interface DataInfo {
   amount: number
@@ -174,7 +186,7 @@ async function handlePayment() {
     }
 
     abortController = new AbortController()
-    const response = await fetch('/api/payment/createOrder', {
+    const response = await authFetch('/api/payment/createOrder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),

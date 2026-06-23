@@ -25,11 +25,11 @@
         <div class="sync-controls">
           <label class="sync-label">
             <input type="checkbox" v-model="syncScroll" />
-            <span>{ t('cmpPdfCompare.syncScroll') }</span>
+            <span>{{ t('cmpPdfCompare.syncScroll') }}</span>
           </label>
           <label class="sync-label">
             <input type="checkbox" v-model="syncZoom" />
-            <span>{ t('cmpPdfCompare.syncZoom') }</span>
+            <span>{{ t('cmpPdfCompare.syncZoom') }}</span>
           </label>
         </div>
       </div>
@@ -50,7 +50,7 @@
             @rendered="onViewerARendered"
           />
           <div v-else class="placeholder">
-            <span>{ t('cmpPdfCompare.selectPdfA') }</span>
+            <span>{{ t('cmpPdfCompare.selectPdfA') }}</span>
           </div>
         </div>
       </div>
@@ -78,7 +78,7 @@
             @rendered="onViewerBRendered"
           />
           <div v-else class="placeholder">
-            <span>{ t('cmpPdfCompare.selectPdfB') }</span>
+            <span>{{ t('cmpPdfCompare.selectPdfB') }}</span>
           </div>
         </div>
       </div>

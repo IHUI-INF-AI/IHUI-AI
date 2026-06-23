@@ -11,8 +11,8 @@
         <!-- 视图切换 -->
         <div class="view-toggle">
           <el-radio-group v-model="pageView" @change="handleViewChange">
-            <el-radio-button value="list">{ t('Feedback.feedbackRecords') }</el-radio-button>
-            <el-radio-button value="form">{ t('Feedback.submitFeedback') }</el-radio-button>
+            <el-radio-button value="list">{{ t('Feedback.feedbackRecords') }}</el-radio-button>
+            <el-radio-button value="form">{{ t('Feedback.submitFeedback') }}</el-radio-button>
           </el-radio-group>
         </div>
 
@@ -58,7 +58,7 @@
 
           <div v-if="listLoading" class="list-loading">
             <el-icon class="is-loading"><Loading /></el-icon>
-            <span>{ t('Feedback.loading') }</span>
+            <span>{{ t('Feedback.loading') }}</span>
           </div>
         </section>
 

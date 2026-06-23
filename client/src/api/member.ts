@@ -17,6 +17,7 @@
  */
 import http from '@/utils/request'
 import type { ApiResponse, PaginationParams, PaginationResponse } from '@/types'
+import type { Comment } from '@/api/community'
 
 export interface MemberProfile {
   id: string
@@ -51,10 +52,20 @@ export interface PointLog {
   createTime: string
 }
 
-export interface ExamSignUp {
-  id: string
-  examId: string
-  examName?: string
+export type { ExamPaper, ExamQuestion, ExamRecord } from '@/api/exam'
+
+export interface FollowUser {
+  id: string | number
+  userId: string
+  userName?: string
+  avatar?: string
+  isFollowing?: boolean
+}
+
+export interface MemberExamSignUp {
+  id: number
+  paperId: number
+  paperTitle?: string
   userId: string
   status: 'signing_up' | 'completed' | 'cancel_sign_up'
   score?: number
@@ -63,29 +74,14 @@ export interface ExamSignUp {
   passed?: boolean
   duration?: number
   startTime?: string
-  endTime?: string
+  submitTime?: string
 }
 
-export interface ExamRecord {
-  id: string
-  examId: string
-  examName?: string
-  paperId?: string
-  userId: string
-  answers?: Record<string, unknown>
-  score?: number
-  correctNum?: number
-  wrongNum?: number
-  duration?: number
-  status?: string
-  createTime: string
-}
-
-export interface ExamWrong {
-  id: string
-  examId: string
-  examName?: string
-  questionId: string
+export interface MemberExamWrong {
+  id: number
+  paperId: number
+  paperTitle?: string
+  questionId: number
   questionTitle?: string
   userAnswer?: string
   correctAnswer?: string
@@ -93,43 +89,7 @@ export interface ExamWrong {
   createTime: string
 }
 
-export interface FollowUser {
-  id: string
-  userId: string
-  userName: string
-  userAvatar?: string
-  bio?: string
-  followerNum?: number
-  followNum?: number
-  mutualFollow?: boolean
-  createTime: string
-}
-
-export interface Comment {
-  id: string
-  refType: 'course' | 'lesson' | 'ask' | 'circle' | 'live' | 'article'
-  refId: string
-  refTitle?: string
-  content: string
-  rating?: number
-  likeNum: number
-  replyNum: number
-  status?: string
-  createTime: string
-}
-
-export interface Certificate {
-  id: string
-  lessonId: string
-  lessonName?: string
-  userId: string
-  name: string
-  issueTime: string
-  image?: string
-}
-
 export const memberApi = {
-  // 账号
   profile: () => http.get<ApiResponse<MemberProfile>>('/user/profile'),
   updateProfile: (data: Partial<MemberProfile>) => http.put<ApiResponse<MemberProfile>>('/user/profile', data),
   uploadAvatar: (file: FormData) =>
@@ -137,7 +97,6 @@ export const memberApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
-  // 密码 / 安全
   changePassword: (data: { oldPwd: string; newPwd: string }) =>
     http.post<ApiResponse<void>>('/user/change-password', data),
   bindPhone: (data: { phone: string; code: string }) =>
@@ -145,23 +104,19 @@ export const memberApi = {
   bindEmail: (data: { email: string; code: string }) =>
     http.post<ApiResponse<void>>('/user/bind-email', data),
 
-  // 设置
   setting: () => http.get<ApiResponse<Record<string, unknown>>>('/user/setting'),
   updateSetting: (data: Record<string, unknown>) => http.put<ApiResponse<void>>('/user/setting', data),
 
-  // VIP
   vipList: () => http.get<ApiResponse<unknown[]>>('/user/vip/list'),
   vipBuy: (data: { level: number; payType: string }) =>
     http.post<ApiResponse<{ orderId: string }>>('/user/vip/buy', data),
 
-  // 积分
   pointAccount: () => http.get<ApiResponse<{ total: number; available: number; frozen: number; used: number; level: number }>>('/point/account'),
   pointLog: (params?: PaginationParams) =>
     http.get<ApiResponse<PaginationResponse<PointLog>>>('/point/log/list', { params }),
   pointTodaySign: () => http.post<ApiResponse<{ point: number; continuous: number }>>('/point/today-sign'),
-  pointSignStatus: () => http.get<ApiResponse<{ signed: boolean; continuous: number }>>('/point/sign-status'),
+  pointSignStatus: () => http.post<ApiResponse<{ signed: boolean; continuous: number }>>('/point/sign-status'),
 
-  // 学习记录
   learnRecord: (params?: PaginationParams) =>
     http.get<ApiResponse<PaginationResponse<unknown>>>('/user/video/log/list', { params }),
   learnRecordSave: (data: { lessonId: string; duration: number; progress: number }) =>
@@ -171,14 +126,55 @@ export const memberApi = {
       '/user/learn/stat'
     ),
 
-  // 考试 - 报名 / 记录 / 错题
-  examSignUp: (params?: PaginationParams) =>
-    http.get<ApiResponse<PaginationResponse<ExamSignUp>>>('/exam/sign-up/list', { params }),
-  examRecord: (params?: PaginationParams) =>
-    http.get<ApiResponse<PaginationResponse<ExamRecord>>>('/exam/record/list', { params }),
-  examWrongList: (params?: PaginationParams) =>
-    http.get<ApiResponse<PaginationResponse<ExamWrong>>>('/exam/wrong/list', { params }),
-  examWrongRemove: (id: string) => http.delete<ApiResponse<void>>(`/exam/wrong/${id}`),
+  signUps: (params?: Record<string, unknown>) => import('@/api/exam').then((m) => m.examApi.records(params)),
+  records: (params?: Record<string, unknown>) => import('@/api/exam').then((m) => m.examApi.records(params)),
+  recordDetail: (id: number | string) => import('@/api/exam').then((m) => m.examApi.recordDetail(Number(id))),
+  wrongList: (params?: Record<string, unknown>) => import('@/api/exam').then((m) => m.examApi.wrongList(params)),
+  markWrongMastered: (id: number | string) =>
+    import('@/api/exam').then((m) => m.examApi.markWrongMastered(Number(id))),
+
+  myAskList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/ask/my-list', { params }),
+  myAskDetail: (id: string | number) => http.get<ApiResponse<unknown>>(`/ask/${id}`),
+  myAskReply: (data: { askId: string | number; content: string }) =>
+    http.post<ApiResponse<unknown>>('/ask/reply', data),
+
+  circleList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/circle/list', { params }),
+  circleDynamicList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/circle/dynamic/list', { params }),
+  circleCreate: (data: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/circle/create', data),
+
+  articleList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/article/list', { params }),
+  articleDetail: (id: string | number) => http.get<ApiResponse<unknown>>(`/article/${id}`),
+
+  messageList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/message/list', { params }),
+  messageUnread: () => http.get<ApiResponse<{ unread: number }>>('/message/unread'),
+
+  favoritesList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/user/favorites', { params }),
+  favoritesAdd: (id: string | number) => http.post<ApiResponse<unknown>>('/user/favorites', { id }),
+  favoritesRemove: (id: string | number) => http.delete<ApiResponse<void>>(`/user/favorites/${id}`),
+
+  followList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/userFollow/list', { params }),
+  fanList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/userFans/list', { params }),
+  follow: (id: string | number) => http.post<ApiResponse<void>>('/userFollow/' + id),
+  unfollow: (id: string | number) => http.delete<ApiResponse<void>>('/userFollow/' + id),
+
+  commentList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/userComment/list', { params }),
+  commentCreate: (data: { refType: Comment['refType']; refId: string | number; content: string; rating?: number }) =>
+    http.post<ApiResponse<unknown>>('/userComment/create', data),
+
+  resourceList: (params?: PaginationParams) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/resource/list', { params }),
+  resourceDetail: (id: string | number) => http.get<ApiResponse<unknown>>(`/resource/${id}`),
+
+  certificateList: () => http.get<ApiResponse<Certificate[]>>('/user/certificate/list'),
 
   // 我的问答
   myAskList: (params?: PaginationParams) =>

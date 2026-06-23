@@ -8,6 +8,19 @@ import {
   normalizeApiResponse,
 } from '@/utils/api-response'
 import { logger } from '@/utils/logger'
+import { getUserToken } from '@/utils/request'
+
+async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
+  const token = getUserToken()
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...((options.headers as Record<string, string>) || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+}
+
 
 export interface AIModel {
   id: string
@@ -313,7 +326,7 @@ export const streamGenerateContent = async (
       (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')
     const url = `${baseUrl}${COZE_PATHS.ai.generateStream}`
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

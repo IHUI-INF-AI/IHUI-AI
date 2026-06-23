@@ -160,6 +160,7 @@ import { useCleanup } from '@/composables/useCleanup'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { getUserToken } from '@/utils/request'
 
 const { t } = useI18n()
 
@@ -304,9 +305,10 @@ async function refreshQrCode() {
   // 先关闭旧订单，避免产生多个未支付订单
   if (orderNo.value) {
     try {
+      const token = getUserToken()
       await fetch('/api/payment/closeOrder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
         body: JSON.stringify({ order_no: orderNo.value }),
       })
     } catch (err) {
@@ -396,9 +398,10 @@ async function createOrder() {
     openid: userInfo.openid,
   }
 
+  const token = getUserToken()
   const response = await fetch('/api/payment/createOrder', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
     body: JSON.stringify(params),
   })
 
@@ -467,9 +470,10 @@ async function getOrderStatus() {
     throw new Error(t('Payment.notLoggedOrNoOpenId'))
   }
 
+  const token = getUserToken()
   const response = await fetch('/api/payment/checkOrderStatus', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
     body: JSON.stringify({ openid: userInfo.openid }),
   })
 
@@ -501,9 +505,10 @@ function refreshUserInfo() {
     return
   }
 
+  const token = getUserToken()
   fetch('/api/user/getUserInfo', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
     body: JSON.stringify({ openid: userInfo.openid }),
   })
     .then((res) => {

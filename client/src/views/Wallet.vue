@@ -585,7 +585,7 @@ function resetFilters() {
   filterMaxAmount.value = null
   currentPage.value = 1
   loadTransactions()
-  toast.info('已重置筛选')
+  toast.info(t('common.messages.resetFilter'))
 }
 
 async function exportTx() {
@@ -600,15 +600,15 @@ async function exportTx() {
     a.download = `wallet_${userStore.userId || 'user_001'}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    toast.success('导出成功')
+    toast.success(t('common.exportSuccess'))
   } catch (_e) {
-    toast.error('导出失败')
+    toast.error(t('common.errors.exportFailed'))
   }
 }
 
 function handleRechargeSuccess() {
   showRecharge.value = false
-  toast.success('充值申请已提交')
+  toast.success(t('common.messages.rechargeSubmitted'))
   loadBalance()
   loadTransactions()
   loadSummary()
@@ -616,7 +616,7 @@ function handleRechargeSuccess() {
 
 function handleWithdrawSuccess() {
   showWithdraw.value = false
-  toast.success('提现申请已提交')
+  toast.success(t('common.messages.withdrawSubmitted'))
   loadBalance()
   loadTransactions()
   loadSummary()

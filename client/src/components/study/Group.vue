@@ -3,7 +3,7 @@
     <el-loading v-if="loading" />
     <div v-if="formInfo.binding" class="group-image">
       <div class="image-view">
-        <span>{ t('studyGroup.cover') }</span>
+        <span>{{ t('studyGroup.cover') }}</span>
         <img class="cover-img" :src="formInfo.binding" :alt="formInfo.title || '封面图片'" loading="lazy" />
       </div>
     </div>
@@ -12,9 +12,9 @@
     </div>
 
     <div class="video-form">
-      <div class="title">{ t('studyGroup.groupTitle') }</div>
+      <div class="title">{{ t('studyGroup.groupTitle') }}</div>
       <el-input v-model="formInfo.title" placeholder="请输入合集标题" class="mb12" />
-      <div class="title">{ t('studyGroup.groupDesc') }</div>
+      <div class="title">{{ t('studyGroup.groupDesc') }}</div>
       <el-input v-model="formInfo.content" type="textarea" :rows="4" placeholder="请输入合集描述" class="mb12" />
 
       <div class="sub-title">{{ t('study.selectTrack') }}</div>
@@ -134,12 +134,12 @@ function changeStage(obj: number) {
 
 function handleDelete() {
   loading.value = true
-  courseDelete([props.courseId]).then(() => { emit('goBack') }).catch(() => { ElMessage.error('操作失败') }).finally(() => { loading.value = false })
+  courseDelete([props.courseId]).then(() => { emit('goBack') }).catch(() => { ElMessage.error(t('common.errors.operationFailed')) }).finally(() => { loading.value = false })
 }
 
 function xiajia() {
   loading.value = true
-  delist(props.courseId).then(() => { emit('goBack') }).catch(() => { ElMessage.error('操作失败') }).finally(() => { loading.value = false })
+  delist(props.courseId).then(() => { emit('goBack') }).catch(() => { ElMessage.error(t('common.errors.operationFailed')) }).finally(() => { loading.value = false })
 }
 
 function submitGroup(type: string) {
@@ -158,7 +158,7 @@ function submitGroup(type: string) {
     addGroup(param as unknown as { name: string; description?: string }).then((res: ApiResponse<unknown>) => {
       emit('getGroupId', { id: res.data as string, title: formInfo.title })
       ElMessage.success(t('study.publishSuccessContinue'))
-    }).catch(() => { ElMessage.error('操作失败') }).finally(() => { loading.value = false })
+    }).catch(() => { ElMessage.error(t('common.errors.operationFailed')) }).finally(() => { loading.value = false })
   } else {
     param.id = props.courseId
     coursePut(param as unknown as { id: string; [key: string]: unknown }).then(() => {

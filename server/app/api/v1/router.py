@@ -38,6 +38,7 @@ from app.api.v1.auth.bindings import router as bindings_router
 
 # --- Captcha / Login ---
 from app.api.v1.auth.captcha import router as captcha_router
+from app.api.v1.auth.dingtalk import router as dingtalk_router
 from app.api.v1.auth.enterprise_wechat import router as enterprise_wechat_router
 from app.api.v1.auth.feishu import router as feishu_router
 
@@ -695,6 +696,7 @@ api_router.include_router(captcha_router, prefix="/auth", tags=["Captcha"])
 api_router.include_router(ali_login_router, prefix="/auth", tags=["Ali Login"])
 api_router.include_router(enterprise_wechat_router, prefix="/auth", tags=["Enterprise WeChat"])
 api_router.include_router(feishu_router, prefix="/auth", tags=["Feishu Auth"])
+api_router.include_router(dingtalk_router, prefix="/auth", tags=["DingTalk Auth"])
 
 # Personality
 if personality_router:

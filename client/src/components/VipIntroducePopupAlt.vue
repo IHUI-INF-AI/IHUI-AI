@@ -5,6 +5,18 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElLoading } from 'element-plus'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 import { useCleanup } from '@/composables/useCleanup'
+import { getUserToken } from '@/utils/request'
+
+async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
+  const token = getUserToken()
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...((options.headers as Record<string, string>) || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+}
 
 const { t } = useI18n()
 
@@ -40,7 +52,7 @@ function close() {
 async function handleOpen() {
   const loadingInstance = ElLoading.service({ text: '支付中...', background: 'var(--color-black-30)' })
   try {
-    const response = await fetch('/api/pay', {
+    const response = await authFetch('/api/pay', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

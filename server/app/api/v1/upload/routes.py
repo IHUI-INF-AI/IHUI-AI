@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from app.security import require_login
 from app.services.audit_service import log_action
 from app.services.database_service import (
     Session,
@@ -92,7 +93,8 @@ async def upload_chunk(
 async def confirm_chunk(
     uploadId: str = Form(...),  # noqa: 5
     chunkIndex: int = Form(...),  # noqa: 5
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_uuid: str = Depends(require_login)
 ):
     UploadService.update_upload_chunks(db, uploadId, chunkIndex)
     return {"success": True}
@@ -215,7 +217,8 @@ async def list_files(
     userId: str | None = Query(None),  # noqa: 5
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_uuid: str = Depends(require_login)
 ):
     files = UploadedFileService.get_all(db, userId, limit, offset)
     total = UploadedFileService.count(db, userId)
@@ -292,7 +295,8 @@ async def delete_file(file_id: str, request: Request, db: Session = Depends(get_
 @router.post("/share")
 async def create_share(
     data: ShareCreateRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_uuid: str = Depends(require_login)
 ):
     record = UploadedFileService.get_by_file_id(db, data.fileId)
     if not record:
@@ -363,7 +367,7 @@ async def download_shared_file(
 
 
 @router.delete("/share/{share_id}")
-async def delete_share(share_id: str, db: Session = Depends(get_db)):
+async def delete_share(share_id: str, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
     ShareService.delete(db, share_id)
     return {"success": True}
 
@@ -371,7 +375,8 @@ async def delete_share(share_id: str, db: Session = Depends(get_db)):
 @router.get("/shares")
 async def list_shares(
     userId: str | None = Query(None),  # noqa: 5
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_uuid: str = Depends(require_login)
 ):
     if userId:
         shares = ShareService.get_by_user(db, userId)

@@ -32,8 +32,8 @@ async function load() {
   loading.value = true
   try { form.value = (await adminApi.accountSecurity() as any)?.data || form.value } finally { loading.value = false }
 }
-function onViewLog() { ElMessage.info('查看登录日志') }
-function onSave() { ElMessage.success('已保存') }
+function onViewLog() { ElMessage.info(t('common.messages.viewLoginLog')) }
+function onSave() { ElMessage.success(t('common.messages.saved')) }
 onMounted(load)
 </script>
 

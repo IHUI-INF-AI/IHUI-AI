@@ -136,7 +136,7 @@ async function handleSignUp() {
       await learnApi.signUp(id)
       await loadLesson()
     } catch {
-      ElMessage.error('报名失败，请重试')
+      ElMessage.error(t('common.errors.enrollFailed'))
     }
   }
 }

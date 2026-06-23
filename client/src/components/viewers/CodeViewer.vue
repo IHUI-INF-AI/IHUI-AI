@@ -7,10 +7,10 @@
         <span class="language-badge">{{ language }}</span>
       </div>
       <div class="code-actions">
-        <button class="action-btn" @click="copyCode" title="复制代码">
+        <button class="action-btn" @click="copyCode" :title="t('common.copy')">
           {{ copied ? t('codeViewer.copied') : t('codeViewer.copy') }}
         </button>
-        <button class="action-btn" @click="toggleWrap" :class="{ active: wrapLines }" title="换行">
+        <button class="action-btn" @click="toggleWrap" :class="{ active: wrapLines }" :title="t('common.lineWrap')">
           {{ t('codeViewer.wrap') }}
         </button>
         <button class="action-btn" @click="downloadCode" :title="t('codeViewer.download')">⬇ {{ t('codeViewer.download') }}</button>

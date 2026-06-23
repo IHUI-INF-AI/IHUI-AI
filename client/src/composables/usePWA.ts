@@ -2,6 +2,19 @@
 import { ref, onMounted } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { logger } from '@/utils/logger'
+import { getUserToken } from '@/utils/request'
+
+async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
+  const token = getUserToken()
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...((options.headers as Record<string, string>) || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+}
+
 
 const isOnline = ref(navigator.onLine)
 const isInstalled = ref(false)
@@ -75,7 +88,7 @@ export function usePwa() {
       })
       pushSubscribed.value = true
       // 发送到后端
-      await fetch('/api/v1/push/subscribe', {
+      await authFetch('/api/v1/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sub),

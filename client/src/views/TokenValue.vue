@@ -117,7 +117,7 @@ const loadTokenData = async () => {
     await loadTokenBalance()
     await loadRecords()
   } catch {
-    ElMessage.error('数据加载失败，请刷新重试')
+    ElMessage.error(t('common.errors.dataLoadFailedRetry'))
   }
 }
 

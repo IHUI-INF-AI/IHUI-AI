@@ -421,7 +421,7 @@ const importTheme = async (file: File) => {
     }
     return false
   } catch {
-    ElMessage.error('导入失败')
+    ElMessage.error(t('common.errors.importFailed'))
     return false
   }
 }

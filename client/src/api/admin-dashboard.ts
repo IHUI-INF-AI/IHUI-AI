@@ -541,7 +541,7 @@ export async function getDashboardAll(): Promise<{
 
   // 整体为空时给一个轻提示(仅 dev 模式)
   if (!overview.ok && !monitor.ok && !timeline.ok && !modules.ok && import.meta.env.DEV) {
-    ElMessage.warning('Dashboard 数据全空,后端接口可能未对接,已显示占位。')
+    ElMessage.warning('仪表盘数据为空，请检查后端服务')
   }
 
   return { overview, monitor, timeline, modules }

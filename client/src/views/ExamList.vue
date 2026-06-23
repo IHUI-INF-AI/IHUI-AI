@@ -171,9 +171,9 @@ async function handleRemoveWrong(id: number) {
   try {
     await examApi.removeWrong(id)
     wrongs.value = wrongs.value.filter((w) => w.id !== id)
-    toast.success('已移除')
+    toast.success(t('common.messages.removed'))
   } catch {
-    toast.error('移除失败')
+    toast.error(t('common.errors.removeFailed'))
   }
 }
 

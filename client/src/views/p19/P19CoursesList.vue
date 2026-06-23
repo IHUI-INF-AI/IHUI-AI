@@ -33,7 +33,7 @@ async function load() {
     const r = await v2Courses.list({ page: 1, size: 20 })
     courses_.value = (r as any)?.data?.items || (r as any)?.data?.records || []
   } catch (e: any) {
-    ElMessage.error('加载课程失败: ' + (e?.message || e))
+    ElMessage.error(t('common.errors.loadCoursesFailed') + ': ' + (e?.message || e))
   } finally {
     loading.value = false
   }
@@ -42,9 +42,9 @@ async function load() {
 async function enroll(courseId: string) {
   try {
     await v2Courses.enroll(courseId)
-    ElMessage.success('报名成功')
+    ElMessage.success(t('common.messages.enrollSuccess'))
   } catch (e: any) {
-    ElMessage.error('报名异常: ' + (e?.message || e))
+    ElMessage.error(t('common.errors.enrollError') + ': ' + (e?.message || e))
   }
 }
 

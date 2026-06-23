@@ -98,7 +98,7 @@ const reload = async () => {
 
 const onSave = async () => {
   await adminApi.settingBaseSave(form)
-  ElMessage.success('保存成功')
+  ElMessage.success(t('common.messages.saveSuccess'))
 }
 
 onMounted(reload)

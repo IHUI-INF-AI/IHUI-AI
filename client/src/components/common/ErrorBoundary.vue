@@ -60,7 +60,7 @@ const handleReload = () => {
       <div class="error-icon">
         <AlertTriangle :size="48" />
       </div>
-      <h2 class="error-title">{ t('cmpErrorBoundary.pageError') }</h2>
+      <h2 class="error-title">{{ t('cmpErrorBoundary.pageError') }}</h2>
       <p class="error-message">{{ errorInfo?.message || t('errorBoundary.unknownError') }}</p>
       <div class="error-actions">
         <el-button type="primary" @click="handleRetry">

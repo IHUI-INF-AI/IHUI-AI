@@ -299,7 +299,7 @@ async def wx_refund_notify(
             order = get_order(out_trade_no)
             if order:
                 update_order_status(out_trade_no, status=2, payment_status=2)
-                logger.info(f"Refund processed: {out_trade_no}" "")
+                logger.info(f"Refund processed: {out_trade_no}")
 
         mark_payment_processed(
             out_trade_no, idem_key, result={"refund_status": refund_status, "processed_at": time.time()}

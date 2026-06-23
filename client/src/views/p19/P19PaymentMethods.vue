@@ -41,7 +41,7 @@ async function load() {
     const r = await getWalletInfo()
     balance.value = (r as any).data?.balance || 0
   } catch (e: any) {
-    ElMessage.error('加载余额失败: ' + (e?.message || e))
+    ElMessage.error(t('common.errors.loadBalanceFailed') + ': ' + (e?.message || e))
   } finally {
     loading.value = false
   }

@@ -3,7 +3,7 @@
     <div class="tab-list">
       <div v-if="showAll" :class="['tab-item', { active: all }]" @click="selectAllTab">
         <img class="tab-icon" :src="all ? 'https://file.aizhs.top/sys-backs/2025/08/16/sqb_20250816161049A277.png' : 'https://file.aizhs.top/sys-backs/2025/08/16/qqb_20250816161046A276.png'" alt="" loading="lazy" />
-        <span>{ t('plazaCategoryTab.all') }</span>
+        <span>{{ t('plazaCategoryTab.all') }}</span>
       </div>
       <div v-for="item in tabList" :key="item.id" :class="['tab-item', { active: tabValue.includes(item) }]"
         @click="select(item)">
@@ -17,7 +17,7 @@
     </div>
     <div v-if="addType" class="mask" @click="addType = false"></div>
     <div v-if="addType" class="add-dialog">
-      <div class="dialog-title">{ t('plazaCategoryTab.setCustomCategory') }</div>
+      <div class="dialog-title">{{ t('plazaCategoryTab.setCustomCategory') }}</div>
       <el-input v-model="value" maxlength="4" :placeholder="t('plazaCategoryTab.enterCategory')" class="dialog-input" />
       <el-button type="primary" class="dialog-btn" @click="add">{{ t('common.ok') }}</el-button>
     </div>

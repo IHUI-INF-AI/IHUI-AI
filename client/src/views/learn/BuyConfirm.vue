@@ -4,7 +4,7 @@
     <LearnBreadcrumb :items="breadcrumbItems" />
 
     <div v-loading="loading" class="content">
-      <el-empty v-if="!lesson.id" description="课程不存在" />
+      <el-empty v-if="!lesson.id" :description="t('common.noData')" />
       <div v-else class="confirm-wrap">
         <div class="lesson-card">
           <div class="cover">
@@ -93,7 +93,7 @@ async function handlePay() {
     if (orderId) {
       router.push({ path: '/learn/payment', query: { orderId } })
     } else {
-      ElMessage.error('订单创建失败')
+      ElMessage.error(t('common.errors.orderCreateFailed'))
     }
   } finally {
     submitting.value = false

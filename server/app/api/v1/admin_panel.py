@@ -218,15 +218,14 @@ class UserCreateReq(BaseModel):
 @user_router.post("", summary="新增用户")
 async def add_user(body: UserCreateReq):
     """对应 Java: POST /user"""
-    from passlib.context import CryptContext
+    from app.security import hash_password
 
-    pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
     with get_session() as db:
         if db.query(SysUser).filter(SysUser.user_name == body.userName).first():
             return fail("用户名已存在", code=400)
         u = SysUser(
             user_name=body.userName,
-            password=pwd.hash(body.password),
+            password=hash_password(body.password),
             nick_name=body.nickName,
             email=body.email,
             phonenumber=body.phone,
@@ -1769,7 +1768,6 @@ async def force_logout(tokenId: str):  # noqa: 24
 
 
 def register_routers(parent):
-    """把全部 Admin 管理路由挂到父 router."""
     parent.include_router(user_router)
     parent.include_router(role_router)
     parent.include_router(menu_router)
@@ -1783,3 +1781,8 @@ def register_routers(parent):
     parent.include_router(job_router)
     parent.include_router(job_log_router)
     parent.include_router(online_router)
+    try:
+        from app.api.v1.admin.exam.routes import router as exam_router
+        parent.include_router(exam_router)
+    except Exception as exc:  # pragma: no cover - optional admin exam module
+        raise ImportError("admin exam router is required for exam management pages") from exc

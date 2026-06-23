@@ -5,7 +5,8 @@ import { test, expect } from '@playwright/test'
 
 async function openFloatingChatAndToolbox(page: import('@playwright/test').Page) {
   await page.goto('/about')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(1000)
   for (let i = 0; i < 4; i++) {
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)

@@ -544,7 +544,7 @@ const onMtApprove = async () => {
     mtQueue.value = await fetchMtQueue('pending_review')
   } catch (e) {
     console.error('[I18nDashboard] 审批失败', e)
-    ElMessage.error('审批失败')
+    ElMessage.error(t('common.errors.approveFailed'))
   }
 }
 
@@ -556,7 +556,7 @@ const onMtReject = async () => {
     mtQueue.value = await fetchMtQueue('pending_review')
   } catch (e) {
     console.error('[I18nDashboard] 拒绝失败', e)
-    ElMessage.error('拒绝失败')
+    ElMessage.error(t('common.errors.rejectFailed'))
   }
 }
 
@@ -600,7 +600,7 @@ const onImport = async () => {
     }
   } catch (e) {
     console.error('[I18nDashboard] 导入后刷新失败', e)
-    ElMessage.error('导入后刷新失败')
+    ElMessage.error(t('common.errors.importRefreshFailed'))
   } finally {
     p12Loading.value = false
   }
@@ -660,7 +660,7 @@ const onBatchDelete = async () => {
     }
   } catch (e) {
     console.error('[I18nDashboard] 删除后刷新失败', e)
-    ElMessage.error('删除后刷新失败')
+    ElMessage.error(t('common.errors.deleteRefreshFailed'))
   } finally {
     p12Loading.value = false
   }
@@ -698,7 +698,7 @@ const onBatchPush = async () => {
     }
   } catch (e) {
     console.error('[I18nDashboard] 推送后刷新失败', e)
-    ElMessage.error('推送后刷新失败')
+    ElMessage.error(t('common.errors.pushRefreshFailed'))
   } finally {
     p12Loading.value = false
   }
@@ -762,7 +762,7 @@ onMounted(async () => {
     await refreshMtProviders()
   } catch (e) {
     console.error('[I18nDashboard] 数据加载失败', e)
-    ElMessage.error('数据加载失败')
+    ElMessage.error(t('common.errors.dataLoadFailed'))
   }
 })
 </script>

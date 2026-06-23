@@ -109,11 +109,42 @@ const rawAdminApi = {
   examQuestionJudgment: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/question/judgment', { params }),
   examQuestionFill: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/question/fill', { params }),
   examQuestionSubjective: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/question/subjective', { params }),
-  examAnswerList: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/answer/list', { params }),
-  examAnswerDetail: (id: string | number) => http.get<ApiResponse<unknown>>(`/admin/exam/answer/${id}`),
-  examAnswerMark: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/answer/mark', { params }),
+  examAnswerMarkSave: (id: string | number, payload: Record<string, unknown>) =>
+    http.post<ApiResponse<unknown>>(`/admin/exam/answer/${id}/mark`, payload),
+  examAnswerCreate: (payload: Record<string, unknown>) =>
+    http.post<ApiResponse<{ id: number }>>('/admin/exam/answer', payload),
+  examPaperCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/paper', payload),
+  examPaperUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/paper/${id}`, payload),
+  examPaperDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/paper/${id}`),
+  examPaperBatchDelete: (ids: (string | number)[]) =>
+    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/paper/batch-delete', { ids }),
+  examQuestionCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/question', payload),
+  examQuestionUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/question/${id}`, payload),
+  examQuestionDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/question/${id}`),
+  examQuestionBatchDelete: (ids: (string | number)[]) =>
+    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/question/batch-delete', { ids }),
+  examAnswerDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/answer/${id}`),
+  examAnswerBatchDelete: (ids: (string | number)[]) =>
+    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/answer/batch-delete', { ids }),
+  examPaperCategoryUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/paper/category/${id}`, payload),
+  examPaperCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/paper/category/${id}`),
+  examPaperCategoryBatchDelete: (ids: (string | number)[]) =>
+    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/paper/category/batch-delete', { ids }),
+  examQuestionCategoryUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/question/category/${id}`, payload),
+  examQuestionCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/question/category/${id}`),
+  examQuestionCategoryBatchDelete: (ids: (string | number)[]) =>
+    http.post<ApiResponse<{ success: number; failed: number }>>('/admin/exam/question/category/batch-delete', { ids }),
+  examChapterList: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/chapter/list', { params }),
+  examChapterGet: (id: string | number) => http.get<ApiResponse<unknown>>(`/admin/exam/chapter/${id}`),
+  examChapterCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/chapter', payload),
+  examChapterUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/chapter/${id}`, payload),
+  examChapterDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/chapter/${id}`),
+  examChapterSectionList: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/exam/chapter/section/list', { params }),
+  examChapterSectionGet: (id: string | number) => http.get<ApiResponse<unknown>>(`/admin/exam/chapter/section/${id}`),
+  examChapterSectionCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/chapter/section', payload),
+  examChapterSectionUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/chapter/section/${id}`, payload),
+  examChapterSectionDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/chapter/section/${id}`),
 
-  // === 直播 ===
   liveChannelList: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/live/channel/list', { params }),
   liveLecturerList: (params: ListParams = {}) => http.get<ApiResponse<PaginationResponse<unknown>>>('/admin/live/lecturer/list', { params }),
   liveCategoryList: (params: ListParams = {}) => http.get<ApiResponse<unknown[]>>('/admin/live/category/list', { params }),
@@ -200,7 +231,7 @@ const rawAdminApi = {
   // 考试/题库
   examQuestionCategoryCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/question/category', payload),
   examQuestionCategoryUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/question/category/${id}`, payload),
-  examQuestionCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/question/category/${id}`),
+
   examPaperCategoryCreate: (payload: Record<string, unknown>) => http.post<ApiResponse<unknown>>('/admin/exam/paper/category', payload),
   examPaperCategoryUpdate: (id: string | number, payload: Record<string, unknown>) => http.put<ApiResponse<unknown>>(`/admin/exam/paper/category/${id}`, payload),
   examPaperCategoryDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/exam/paper/category/${id}`),

@@ -47,22 +47,22 @@
         <span v-if="duration" class="media-duration">{{ formatTime(duration) }}</span>
       </div>
       <div class="media-actions">
-        <button class="action-btn" @click="togglePlaybackRate" title="播放速度">
+        <button class="action-btn" @click="togglePlaybackRate" :title="t('viewerMediaViewer.playSpeed')">
           {{ playbackRate }}x
         </button>
-        <button class="action-btn" @click="toggleLoop" :class="{ active: isLooping }" title="循环" aria-label="循环">
+        <button class="action-btn" @click="toggleLoop" :class="{ active: isLooping }" :title="t('viewerMediaViewer.loop')" :aria-label="t('viewerMediaViewer.loop')">
           🔁
         </button>
-        <button class="action-btn" @click="toggleMute" title="静音" aria-label="静音">
+        <button class="action-btn" @click="toggleMute" :title="t('viewerMediaViewer.mute')" :aria-label="t('viewerMediaViewer.mute')">
           {{ isMuted ? '🔇' : '🔊' }}
         </button>
-        <a :href="src" download class="action-btn download-btn" title="下载">⬇</a>
+        <a :href="src" download class="action-btn download-btn" :title="t('viewerMediaViewer.download')">⬇</a>
       </div>
     </div>
     
     <div v-if="error" class="error-overlay">
       <span class="error-icon">⚠️</span>
-      <span>{ t('viewerMediaViewer.mediaLoadFailed') }</span>
+      <span>{{ t('viewerMediaViewer.mediaLoadFailed') }}</span>
       <a :href="src" download class="download-link">{{ t('mediaViewer.downloadView') }}</a>
     </div>
   </div>

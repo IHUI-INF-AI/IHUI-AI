@@ -18,7 +18,7 @@
         </div>
         <div class="section">
           <h3 class="section-title">{{ t('learnTopicDetail.topicCourses') }}</h3>
-          <el-empty v-if="!lessons.length" description="暂无课程" />
+          <el-empty v-if="!lessons.length" :description="t('common.noData')" />
           <div v-else class="lesson-grid">
             <Rectangle
               v-for="l in lessons"

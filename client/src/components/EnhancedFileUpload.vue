@@ -26,7 +26,7 @@
         <p class="upload-text">{{ uploadText }}</p>
         <p class="upload-hint">{{ hint }}</p>
         <div v-if="folderMode" class="folder-mode-badge">
-          <el-tag size="small" type="info">{ t('cmpEnhancedFileUpload.folderMode') }</el-tag>
+          <el-tag size="small" type="info">{{ t('cmpEnhancedFileUpload.folderMode') }}</el-tag>
         </div>
       </div>
       

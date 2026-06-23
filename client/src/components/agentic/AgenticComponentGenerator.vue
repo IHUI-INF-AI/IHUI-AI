@@ -157,7 +157,7 @@ const handleCopy = () => {
 
   navigator.clipboard.writeText(code).then(() => {
     // 可以添加成功提示
-  }).catch(() => { ElMessage.error('复制失败') })
+  }).catch(() => { ElMessage.error(t('common.copyFailed')) })
 }
 
 const handleSave = () => {

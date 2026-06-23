@@ -139,7 +139,7 @@ const loadIncomeData = async () => {
     await loadIncomeOverview()
     await loadSettlements()
   } catch {
-    ElMessage.error('收益数据加载失败，请刷新重试')
+    ElMessage.error(t('common.errors.incomeLoadFailed'))
   }
 }
 

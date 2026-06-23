@@ -2,7 +2,7 @@
   <div @click.stop="handleClick">
     <div v-if="status.payCrowd === 1 && isVip && isVip > 0" class="vip-label">
       <img src="https://file.aizhs.top/sys-mini/default/vip_label.png" class="label-icon" alt="VIP标签" loading="lazy" />
-      <span class="label-title">{ t('studyVipBtns.vipFree') }</span>
+      <span class="label-title">{{ t('studyVipBtns.vipFree') }}</span>
     </div>
     <div v-if="status.payType === 0" class="vip-label">
       <img src="https://file.aizhs.top/sys-mini/default/mian_label.png" class="label-icon" alt="免费标签" loading="lazy" />

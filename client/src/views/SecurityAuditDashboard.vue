@@ -230,7 +230,7 @@ const onSimulateFailure = async () => {
     announce(t('securityAudit.simulatedFailures'), { politeness: 'assertive' })
   } catch (e) {
     console.error('[SecurityAudit] 模拟失败', e)
-    ElMessage.error('模拟失败')
+    ElMessage.error(t('common.errors.simulateFailed'))
   }
 }
 

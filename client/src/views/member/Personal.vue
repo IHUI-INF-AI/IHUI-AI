@@ -82,7 +82,7 @@ async function handleSave() {
   saving.value = true
   try {
     await memberApi.updateProfile(form.value)
-    ElMessage.success('保存成功')
+    ElMessage.success(t('common.messages.saveSuccess'))
   } finally {
     saving.value = false
   }
@@ -93,7 +93,7 @@ function handleBeforeUpload(file: File) {
   fd.append('file', file)
   memberApi.uploadAvatar(fd).then((res: any) => {
     form.value.avatar = res.data?.url
-  }).catch(() => { ElMessage.error('上传失败') })
+  }).catch(() => { ElMessage.error(t('common.errors.uploadFailed')) })
   return false
 }
 

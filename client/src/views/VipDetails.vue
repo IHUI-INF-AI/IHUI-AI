@@ -167,11 +167,11 @@ const choosePlan = (plan: 'monthly' | 'yearly') => {
 
   // 价格加载中或加载失败：禁止下单，避免用默认价格误扣费
   if (priceLoading.value) {
-    ElMessage.warning('价格加载中，请稍后再试')
+    ElMessage.warning(t('common.errors.priceLoading'))
     return
   }
   if (!priceLoaded.value) {
-    ElMessage.error('价格加载失败，请刷新页面重试')
+    ElMessage.error(t('common.errors.priceLoadFailed'))
     return
   }
 

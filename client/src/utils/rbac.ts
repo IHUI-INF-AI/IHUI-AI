@@ -1,3 +1,5 @@
+import request from '@/utils/request'
+
 interface User {
   user_id: string
   username: string
@@ -38,7 +40,7 @@ const API_BASE = '/api/rbac'
 
 class RbacService {
   async initialize(): Promise<void> {
-    await fetch(`${API_BASE}/init`, { method: 'POST' })
+    await request.post(`${API_BASE}/init`)
   }
 
   async createUser(data: {
@@ -47,60 +49,48 @@ class RbacService {
     password?: string
     display_name?: string
   }): Promise<User> {
-    const response = await fetch(`${API_BASE}/user/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-
-    if (!response.ok) {
+    try {
+      const response = await request.post(`${API_BASE}/user/create`, data)
+      return response.data.user
+    } catch {
       throw new Error('Failed to create user')
     }
-
-    const result = await response.json()
-    return result.user
   }
 
   async getUser(userId: string): Promise<User | null> {
-    const response = await fetch(`${API_BASE}/user/${userId}`)
-    
-    if (!response.ok) {
+    try {
+      const response = await request.get(`${API_BASE}/user/${userId}`)
+      return response.data.user
+    } catch {
       return null
     }
-
-    const data = await response.json()
-    return data.user
   }
 
   async assignRole(userId: string, roleId: string, assignedBy?: string): Promise<void> {
     const url = `${API_BASE}/user/${userId}/role/${roleId}${assignedBy ? `?assigned_by=${assignedBy}` : ''}`
-    const response = await fetch(url, { method: 'POST' })
-
-    if (!response.ok) {
+    try {
+      await request.post(url)
+    } catch {
       throw new Error('Failed to assign role')
     }
   }
 
   async getUserPermissions(userId: string): Promise<Permission[]> {
-    const response = await fetch(`${API_BASE}/user/${userId}/permissions`)
-    
-    if (!response.ok) {
+    try {
+      const response = await request.get(`${API_BASE}/user/${userId}/permissions`)
+      return response.data.permissions
+    } catch {
       return []
     }
-
-    const data = await response.json()
-    return data.permissions
   }
 
   async getRoles(): Promise<Role[]> {
-    const response = await fetch(`${API_BASE}/roles`)
-    
-    if (!response.ok) {
+    try {
+      const response = await request.get(`${API_BASE}/roles`)
+      return response.data.roles
+    } catch {
       return []
     }
-
-    const data = await response.json()
-    return data.roles
   }
 
   async createRole(data: {
@@ -108,50 +98,38 @@ class RbacService {
     display_name: string
     description?: string
   }): Promise<Role> {
-    const response = await fetch(`${API_BASE}/role/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-
-    if (!response.ok) {
+    try {
+      const response = await request.post(`${API_BASE}/role/create`, data)
+      return response.data.role
+    } catch {
       throw new Error('Failed to create role')
     }
-
-    const result = await response.json()
-    return result.role
   }
 
   async getRolePermissions(roleId: string): Promise<Permission[]> {
-    const response = await fetch(`${API_BASE}/role/${roleId}/permissions`)
-    
-    if (!response.ok) {
+    try {
+      const response = await request.get(`${API_BASE}/role/${roleId}/permissions`)
+      return response.data.permissions
+    } catch {
       return []
     }
-
-    const data = await response.json()
-    return data.permissions
   }
 
   async assignPermission(roleId: string, permissionId: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/role/${roleId}/permission/${permissionId}`, {
-      method: 'POST'
-    })
-
-    if (!response.ok) {
+    try {
+      await request.post(`${API_BASE}/role/${roleId}/permission/${permissionId}`)
+    } catch {
       throw new Error('Failed to assign permission')
     }
   }
 
   async getPermissions(): Promise<Permission[]> {
-    const response = await fetch(`${API_BASE}/permissions`)
-    
-    if (!response.ok) {
+    try {
+      const response = await request.get(`${API_BASE}/permissions`)
+      return response.data.permissions
+    } catch {
       return []
     }
-
-    const data = await response.json()
-    return data.permissions
   }
 
   async grantFileAccess(data: {
@@ -161,18 +139,12 @@ class RbacService {
     expires_in_hours?: number
   }, grantedBy?: string): Promise<FileAccess> {
     const url = `${API_BASE}/access/grant${grantedBy ? `?granted_by=${grantedBy}` : ''}`
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-
-    if (!response.ok) {
+    try {
+      const response = await request.post(url, data)
+      return response.data.access
+    } catch {
       throw new Error('Failed to grant access')
     }
-
-    const result = await response.json()
-    return result.access
   }
 
   async checkFileAccess(fileId: string, userId: string, permission: string): Promise<{
@@ -180,33 +152,27 @@ class RbacService {
     direct_access: boolean
     role_access: boolean
   }> {
-    const response = await fetch(
-      `${API_BASE}/access/check?file_id=${fileId}&user_id=${userId}&permission=${permission}`
-    )
-
-    if (!response.ok) {
+    try {
+      const response = await request.get(
+        `${API_BASE}/access/check?file_id=${fileId}&user_id=${userId}&permission=${permission}`
+      )
+      return response.data
+    } catch {
       return { has_access: false, direct_access: false, role_access: false }
     }
-
-    const data = await response.json()
-    return data
   }
 
   async getFileAccessList(fileId: string): Promise<FileAccess[]> {
-    const response = await fetch(`${API_BASE}/access/file/${fileId}`)
-    
-    if (!response.ok) {
+    try {
+      const response = await request.get(`${API_BASE}/access/file/${fileId}`)
+      return response.data.access_list
+    } catch {
       return []
     }
-
-    const data = await response.json()
-    return data.access_list
   }
 
   async revokeFileAccess(fileId: string, userId: string): Promise<void> {
-    await fetch(`${API_BASE}/access/file/${fileId}/user/${userId}`, {
-      method: 'DELETE'
-    })
+    await request.delete(`${API_BASE}/access/file/${fileId}/user/${userId}`)
   }
 
   hasPermission(user: User | null, permissionName: string): boolean {

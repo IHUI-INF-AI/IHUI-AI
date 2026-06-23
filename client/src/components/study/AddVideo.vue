@@ -232,7 +232,7 @@ function getVideoUrl() {
     fileName: fileName.value
   }).then((res: { data?: { url?: string } }) => {
     formInfo.videoPath = res.data?.url ?? ''
-  }).catch(() => { ElMessage.error('获取视频地址失败') })
+  }).catch(() => { ElMessage.error(t('common.errors.getVideoUrlFailed')) })
 }
 
 function submit(type: string) {
@@ -258,13 +258,13 @@ function submit(type: string) {
     addVideo(param as { title: string; url: string; cover?: string; description?: string }).then(() => {
       videoList.value.push({ ...formInfo })
       ok(videoList.value.length)
-    }).catch(() => { ElMessage.error('操作失败') }).finally(() => { loading.value = false })
+    }).catch(() => { ElMessage.error(t('common.errors.operationFailed')) }).finally(() => { loading.value = false })
   } else if (type === 'edit') {
     param.id = formInfo.id
     videoPut(param as { id: string; title?: string; url?: string; cover?: string; description?: string }).then(() => {
       ElMessage.success(t('study.editSuccessReview'))
       getEdit()
-    }).catch(() => { ElMessage.error('操作失败') }).finally(() => { loading.value = false })
+    }).catch(() => { ElMessage.error(t('common.errors.operationFailed')) }).finally(() => { loading.value = false })
   }
 }
 
@@ -297,7 +297,7 @@ function handleDelete() {
   videoDelete([formInfo.id]).then(() => {
     ElMessage.success(t('study.deleteSuccessReview'))
     getEdit()
-  }).catch(() => { ElMessage.error('操作失败') }).finally(() => { loading.value = false })
+  }).catch(() => { ElMessage.error(t('common.errors.operationFailed')) }).finally(() => { loading.value = false })
 }
 
 function shangjia() {

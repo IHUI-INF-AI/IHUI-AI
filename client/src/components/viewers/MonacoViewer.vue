@@ -20,12 +20,12 @@
     <div class="editor-container">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
-        <span>{ t('viewerMonacoViewer.loading') }</span>
+        <span>{{ t('viewerMonacoViewer.loading') }}</span>
       </div>
       
       <div v-else-if="error" class="error-state">
         <span class="error-icon">⚠️</span>
-        <span>{ t('viewerMonacoViewer.codeLoadFailed') }</span>
+        <span>{{ t('viewerMonacoViewer.codeLoadFailed') }}</span>
         <a :href="src" download class="download-link">{{ t('viewerMonacoViewer.downloadView') }}</a>
       </div>
       

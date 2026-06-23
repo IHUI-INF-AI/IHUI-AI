@@ -49,7 +49,7 @@ async function toggleFollow(u: any) {
     await memberApi.followToggle(u.userId)
     load()
   } catch {
-    ElMessage.error('操作失败，请重试')
+    ElMessage.error(t('common.errors.operationFailedRetry'))
   }
 }
 

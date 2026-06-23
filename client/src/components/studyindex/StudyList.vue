@@ -2,16 +2,16 @@
   <div class="study-list-block">
     <div v-if="loading" class="loading-wrapper">
       <el-icon class="is-loading"><Loading /></el-icon>
-      <span>{ t('studyIndexStudyList.loading') }</span>
+      <span>{{ t('studyIndexStudyList.loading') }}</span>
     </div>
 
     <div v-if="fromPage === 'home'" class="header-bar" style="padding-top: 5px">
       <div class="header-left">
         <img class="icon-blink" src="https://file.aizhs.top/sys-mini/xtk/new.png" alt="" loading="lazy" />
-        <span class="blink-text">{ t('studyIndexStudyList.latestCourses') }</span>
+        <span class="blink-text">{{ t('studyIndexStudyList.latestCourses') }}</span>
       </div>
       <div v-if="pageType === 'index'" class="header-right" @click="showMore">
-        <span class="right-text">{ t('studyIndexStudyList.viewMore') }</span>
+        <span class="right-text">{{ t('studyIndexStudyList.viewMore') }}</span>
         <img class="icon-right" src="https://file.aizhs.top/sys-mini/xtk/study_icon_right.png" alt="" loading="lazy" />
       </div>
     </div>
@@ -85,7 +85,7 @@
 
       <div v-if="pageType === 'study' && studyList.length > 0" class="no-more">
         <div class="line"></div>
-        <span class="no-more-text">{ t('studyIndexStudyList.noMore') }</span>
+        <span class="no-more-text">{{ t('studyIndexStudyList.noMore') }}</span>
         <div class="line"></div>
       </div>
 

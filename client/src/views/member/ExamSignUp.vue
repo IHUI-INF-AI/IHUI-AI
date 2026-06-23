@@ -30,7 +30,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/member'
+import { examApi } from '@/api/exam'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -47,12 +47,28 @@ function statusLabel(s?: string) {
   return s === 'completed' ? t('memberExamSignUp.completed') : s === 'cancel_sign_up' ? t('memberExamSignUp.cancelled') : t('memberExamSignUp.inProgress')
 }
 
+function toSignUpRow(record: any) {
+  return {
+    examId: record.paper_id ?? record.examId ?? record.id,
+    examName: record.paper_title ?? record.examName,
+    status: record.status === 2 ? 'completed' : record.status_name === '已完成' ? 'completed' : record.status_name === '已取消' ? 'cancel_sign_up' : 'signing_up',
+    score: record.score,
+    totalScore: record.total_score,
+    passScore: record.pass_score,
+    passed: record.is_pass ?? record.passed,
+    duration: record.cost_time ?? record.duration,
+    startTime: record.start_time ?? record.startTime,
+    submitTime: record.submit_time ?? record.submitTime,
+  }
+}
+
 async function load() {
   loading.value = true
   loadFailed.value = false
   try {
-    const res: any = await memberApi.examSignUp()
-    list.value = res.data?.items || res.data?.list || []
+    const res = await examApi.records({ page: 1, limit: 50 })
+    const records = ((res?.data?.data || res?.data?.list || res?.data || []) as any[])
+    list.value = records.map(toSignUpRow)
   } catch {
     loadFailed.value = true
     list.value = []

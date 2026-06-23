@@ -3,7 +3,7 @@
     <el-loading v-if="loading" />
     <div class="scroll-container" @scroll="onScroll">
       <div>
-        <span class="comment-title">{ t('studyComment.hotComments') }</span>
+        <span class="comment-title">{{ t('studyComment.hotComments') }}</span>
         <div v-for="item in commentList" :key="item.id || item.createdAt" class="comment-item">
           <div class="header">
             <img class="avatar" :src="item.avatar" :alt="item.username || '用户头像'" />

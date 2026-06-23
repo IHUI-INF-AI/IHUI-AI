@@ -266,14 +266,20 @@ class TenantRoutingMiddleware:
         if tid is None:
             # scope.get("state") 在 starlette 内部是 dict-like, 但裸 ASGI 不一定有
             state = scope.get("state")
-            if isinstance(state, dict):
-                jwt_payload = state.get("jwt_payload")
-                if isinstance(jwt_payload, dict):
-                    tid = _parse_tid(jwt_payload.get("tid"))
-                if tid is None:
-                    utid = state.get("user_tenant_id")
-                    if isinstance(utid, int) and utid >= 1:
-                        tid = utid
+            jwt_payload = None
+            user_tenant_id = None
+            if state is not None:
+                if isinstance(state, dict):
+                    jwt_payload = state.get("jwt_payload")
+                    user_tenant_id = state.get("user_tenant_id")
+                else:
+                    jwt_payload = getattr(state, "jwt_payload", None)
+                    user_tenant_id = getattr(state, "user_tenant_id", None)
+            if isinstance(jwt_payload, dict):
+                tid = _parse_tid(jwt_payload.get("tid"))
+            if tid is None:
+                if isinstance(user_tenant_id, int) and user_tenant_id >= 1:
+                    tid = user_tenant_id
 
         # 4) 严格模式: 缺 header → 400
         if tid is None:

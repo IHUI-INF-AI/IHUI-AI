@@ -71,10 +71,10 @@ export const examApi = {
 
   // 考试记录
   records: (params?: { page?: number; limit?: number }) => http.get('/exam/record/list', { params }),
+  recordDetail: (id: number) => http.get('/exam/record/{rid}', { params: { rid: id } }),
 
   // 错题本
   wrongList: (params?: { page?: number; limit?: number }) => http.get('/exam/wrong/list', { params }),
-
-  // 移除错题
-  removeWrong: (id: number) => http.delete('/exam/wrong', { params: { id } }),
+  markWrongMastered: (id: number) => http.put('/exam/wrong/{wid}/master', { params: { wid: id } }),
+  removeWrong: (id: number) => http.delete('/exam/wrong/' + id),
 }

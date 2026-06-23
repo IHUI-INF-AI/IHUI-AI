@@ -4,7 +4,7 @@
     <div class="head-content">
       <img class="back-btn" src="https://file.aizhs.top/sys-mini/default/back.svg" @click="goBack" />
       <img class="menu-btn" src="https://file.aizhs.top/sys-mini/backf2.png" @click="menu" />
-      <div class="title">{ t('plazaPlazaHead.plazaPublish') }</div>
+      <div class="title">{{ t('plazaPlazaHead.plazaPublish') }}</div>
     </div>
   </div>
 </template>

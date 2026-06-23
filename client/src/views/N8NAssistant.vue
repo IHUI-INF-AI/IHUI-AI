@@ -524,7 +524,7 @@ const scrollToBottom = () => {
 const copyContent = (content: string) => {
   navigator.clipboard.writeText(content).then(() => {
     ElMessage.success(t('n8nAssistant.copySuccess'))
-  }).catch(() => { ElMessage.error('复制失败') })
+  }).catch(() => { ElMessage.error(t('common.copyFailed')) })
 }
 
 const downloadImages = (index: number) => {

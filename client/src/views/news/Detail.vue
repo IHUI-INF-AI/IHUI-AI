@@ -49,8 +49,8 @@ async function load() {
   loading.value = true
   try { data.value = (await newsApi.detail(route.params.id as string))?.data || {} } finally { loading.value = false }
 }
-async function onLike() { try { await newsApi.like(data.value.id); liked.value = !liked.value; data.value.likeNum = (data.value.likeNum || 0) + (liked.value ? 1 : -1) } catch { ElMessage.error('操作失败') } }
-async function onFavorite() { try { await newsApi.favorite(data.value.id); favorited.value = !favorited.value } catch { ElMessage.error('操作失败') } }
+async function onLike() { try { await newsApi.like(data.value.id); liked.value = !liked.value; data.value.likeNum = (data.value.likeNum || 0) + (liked.value ? 1 : -1) } catch { ElMessage.error(t('common.errors.operationFailed')) } }
+async function onFavorite() { try { await newsApi.favorite(data.value.id); favorited.value = !favorited.value } catch { ElMessage.error(t('common.errors.operationFailed')) } }
 onMounted(load)
 </script>
 

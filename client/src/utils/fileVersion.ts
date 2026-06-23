@@ -1,3 +1,16 @@
+import { getUserToken } from '@/utils/request'
+
+async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
+  const token = getUserToken()
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...((options.headers as Record<string, string>) || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+}
+
 interface VersionInfo {
   version_id: string
   file_id: string
@@ -52,7 +65,7 @@ class FileVersionService {
       formData.append('changed_by', options.changedBy)
     }
 
-    const response = await fetch(`${API_BASE}/version/create`, {
+    const response = await authFetch(`${API_BASE}/version/create`, {
       method: 'POST',
       body: formData
     })
@@ -66,7 +79,7 @@ class FileVersionService {
   }
 
   async getVersions(fileId: string): Promise<VersionInfo[]> {
-    const response = await fetch(`${API_BASE}/version/list/${fileId}`)
+    const response = await authFetch(`${API_BASE}/version/list/${fileId}`)
     
     if (!response.ok) {
       throw new Error('Failed to get versions')
@@ -77,7 +90,7 @@ class FileVersionService {
   }
 
   async getVersion(versionId: string): Promise<Blob> {
-    const response = await fetch(`${API_BASE}/version/${versionId}`)
+    const response = await authFetch(`${API_BASE}/version/${versionId}`)
     
     if (!response.ok) {
       throw new Error('Failed to get version')
@@ -87,7 +100,7 @@ class FileVersionService {
   }
 
   async getCurrentVersion(fileId: string): Promise<VersionInfo | null> {
-    const response = await fetch(`${API_BASE}/version/current/${fileId}`)
+    const response = await authFetch(`${API_BASE}/version/current/${fileId}`)
     
     if (!response.ok) {
       return null
@@ -98,7 +111,7 @@ class FileVersionService {
   }
 
   async rollbackToVersion(versionId: string): Promise<VersionInfo> {
-    const response = await fetch(`${API_BASE}/version/rollback/${versionId}`, {
+    const response = await authFetch(`${API_BASE}/version/rollback/${versionId}`, {
       method: 'POST'
     })
 
@@ -111,7 +124,7 @@ class FileVersionService {
   }
 
   async deleteVersion(versionId: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/version/${versionId}`, {
+    const response = await authFetch(`${API_BASE}/version/${versionId}`, {
       method: 'DELETE'
     })
 
@@ -121,7 +134,7 @@ class FileVersionService {
   }
 
   async compareVersions(fileId: string, version1: number, version2: number): Promise<VersionComparison> {
-    const response = await fetch(
+    const response = await authFetch(
       `${API_BASE}/version/compare/${fileId}?version1=${version1}&version2=${version2}`
     )
 

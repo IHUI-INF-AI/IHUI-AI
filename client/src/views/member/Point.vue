@@ -34,7 +34,7 @@
       </div>
 
       <h3 class="block-title">{{ t('memberPoint.pointDetails') }}</h3>
-      <el-empty v-if="!list.length" description="暂无明细" />
+      <el-empty v-if="!list.length" :description="t('common.noData')" />
       <div v-else class="log-list">
         <div v-for="log in list" :key="log.id" class="log-item">
           <div class="log-info">
@@ -87,7 +87,7 @@ async function handleSign() {
     load()
   } catch (e) {
     console.error(e)
-    ElMessage.error('签到失败，请稍后重试')
+    ElMessage.error(t('common.errors.signFailed'))
   }
 }
 

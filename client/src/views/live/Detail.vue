@@ -1,7 +1,7 @@
 <template>
   <div class="live-detail-page page-container" v-loading="loading">
     <div v-if="!channel.id" class="empty">
-      <el-empty description="直播不存在" />
+      <el-empty :description="t('livePlay.liveNotFound')" />
     </div>
     <template v-else>
       <div class="hero">
@@ -79,7 +79,7 @@ async function toggleSubscribe() {
       channel.value.isSubscribed = true
     }
   } catch {
-    ElMessage.error('操作失败，请重试')
+    ElMessage.error(t('common.errors.operationFailedRetry'))
   }
 }
 
@@ -88,10 +88,10 @@ async function handleLike() {
   channel.value.likeNum = prev + 1
   try {
     await liveApi.like(id)
-    ElMessage.success('点赞成功')
+    ElMessage.success(t('common.messages.likeSuccess'))
   } catch {
     channel.value.likeNum = prev
-    ElMessage.error('点赞失败')
+    ElMessage.error(t('common.errors.likeFailed'))
   }
 }
 

@@ -6,6 +6,19 @@
 import { COZE_PATHS } from '@/config/backend-paths'
 import type { ApiResponse } from '@/types'
 import { logger } from '@/utils/logger'
+import { getUserToken } from '@/utils/request'
+
+async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
+  const token = getUserToken()
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...((options.headers as Record<string, string>) || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+}
+
 
 /**
  * 流式消息回调
@@ -65,7 +78,7 @@ export async function streamChat(
     if (typeof EventSource !== 'undefined' && !data.chat_history) {
       // EventSource仅支持GET请求，如果使用POST需要fallback到fetch
       // 这里使用fetch实现SSE
-      fetch(sseUrl, {
+      authFetch(sseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,7 +192,7 @@ export async function streamChat(
         .catch(reject)
     } else {
       // 使用fetch实现SSE（POST请求）
-      fetch(sseUrl, {
+      authFetch(sseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -297,7 +310,7 @@ export async function streamChat(
  */
 export async function chat(data: CozeStreamChatRequest): Promise<ApiResponse<unknown>> {
   try {
-    const response = await fetch(COZE_PATHS.chat, {
+    const response = await authFetch(COZE_PATHS.chat, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

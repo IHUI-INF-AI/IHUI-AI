@@ -182,7 +182,7 @@ const handleSubmit = async () => {
     })
   } catch (e) {
     console.error('[BecomeSupplier] 提交失败', e)
-    ElMessage.error('提交失败，请重试')
+    ElMessage.error(t('common.errors.submitFailedRetry'))
   }
 }
 

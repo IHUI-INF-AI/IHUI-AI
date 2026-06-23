@@ -7,7 +7,7 @@
         <span class="file-type">{{ modelType }}</span>
       </div>
       <div class="toolbar-right">
-        <a :href="src" download class="tool-btn" title="下载">{{ t('model3DViewer.download') }}</a>
+        <a :href="src" download class="tool-btn" :title="t('viewerImageViewer.download')">{{ t('model3DViewer.download') }}</a>
       </div>
     </div>
     
@@ -16,19 +16,19 @@
         <div class="placeholder-content">
           <div class="model-icon">🎮</div>
           <div class="model-title">{{ title }}</div>
-          <div class="model-message">{ t('viewerModel3DViewer.model3dFile') }</div>
+          <div class="model-message">{{ t('viewerModel3DViewer.model3dFile') }}</div>
           <div class="model-info">
             <div class="info-item">
-              <span class="info-label">{ t('viewerModel3DViewer.format') }</span>
+              <span class="info-label">{{ t('viewerModel3DViewer.format') }}</span>
               <span class="info-value">{{ modelType }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">{ t('viewerModel3DViewer.supportedFormat') }</span>
+              <span class="info-label">{{ t('viewerModel3DViewer.supportedFormat') }}</span>
               <span class="info-value">GLTF, GLB, OBJ, STL, FBX</span>
             </div>
           </div>
           <a :href="src" download class="download-btn">{{ t('model3DViewer.downloadView') }}</a>
-          <div class="model-hint">{ t('viewerModel3DViewer.useBlenderHint') }</div>
+          <div class="model-hint">{{ t('viewerModel3DViewer.useBlenderHint') }}</div>
         </div>
       </div>
     </div>

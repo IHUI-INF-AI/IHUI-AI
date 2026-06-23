@@ -93,7 +93,7 @@
               </div>
               <div class="dc-context-menu-item" @click="handleCopyQrcode">
                 <span class="dc-context-menu-icon">📋</span>
-                <span>{ t('DistributionCenter.copyImage') }</span>
+                <span>{{ t('DistributionCenter.copyImage') }}</span>
               </div>
               <div class="dc-context-menu-item" @click="handleShare">
                 <span class="dc-context-menu-icon">↗</span>

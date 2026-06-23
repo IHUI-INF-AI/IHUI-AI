@@ -62,8 +62,8 @@ onMounted(() => {
             <img src="https://file.aizhs.top/sys-mini/default/zuan_title.png" style="width: 55px; height: 55px" alt="zuan_title" loading="lazy" />
           </div>
           <div style="position: absolute; left: 0; bottom: 5px; display: flex; align-items: center; flex-direction: column; color: var(--color-red)">
-            <div>{ t('cmpVipLevelPopup.vipLevelMechanism') }</div>
-            <div>{ t('cmpVipLevelPopup.yuanToPoint') }</div>
+            <div>{{ t('cmpVipLevelPopup.vipLevelMechanism') }}</div>
+            <div>{{ t('cmpVipLevelPopup.yuanToPoint') }}</div>
           </div>
           <div class="avatar-section-wrapper">
             <img

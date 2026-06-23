@@ -1,4 +1,17 @@
 import { ref, computed } from 'vue'
+import { getUserToken } from '@/utils/request'
+
+async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
+  const token = getUserToken()
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...((options.headers as Record<string, string>) || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+}
+
 
 interface ShareLink {
   id: string
@@ -22,7 +35,7 @@ class FileShareService {
     maxDownloads?: number
     expiresIn?: number
   } = {}): Promise<ShareLink> {
-    const response = await fetch(`${API_BASE}/share`, {
+    const response = await authFetch(`${API_BASE}/share`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -55,7 +68,7 @@ class FileShareService {
   }
 
   async getShare(shareId: string): Promise<ShareLink | null> {
-    const response = await fetch(`${API_BASE}/share/${shareId}`)
+    const response = await authFetch(`${API_BASE}/share/${shareId}`)
     if (!response.ok) return null
     
     const data = await response.json()
@@ -73,7 +86,7 @@ class FileShareService {
   }
 
   async downloadShare(shareId: string, password?: string): Promise<Blob> {
-    const response = await fetch(`${API_BASE}/share/${shareId}/download`, {
+    const response = await authFetch(`${API_BASE}/share/${shareId}/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: password ? `password=${encodeURIComponent(password)}` : ''
@@ -88,13 +101,13 @@ class FileShareService {
   }
 
   async deleteShare(shareId: string): Promise<void> {
-    await fetch(`${API_BASE}/share/${shareId}`, { method: 'DELETE' })
+    await authFetch(`${API_BASE}/share/${shareId}`, { method: 'DELETE' })
     this.shares.value = this.shares.value.filter(s => s.id !== shareId)
   }
 
   async listShares(userId?: string): Promise<ShareLink[]> {
     const url = userId ? `${API_BASE}/shares?userId=${userId}` : `${API_BASE}/shares`
-    const response = await fetch(url)
+    const response = await authFetch(url)
     
     if (!response.ok) {
       return []

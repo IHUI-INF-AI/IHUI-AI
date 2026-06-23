@@ -39,43 +39,43 @@
 
     <el-card v-if="refund" class="info-card" :shadow="false">
       <template #header>
-        <span>退款信息</span>
+        <span>{{ t('refundDetail.refundInfo') }}</span>
       </template>
       <div class="info-grid">
         <div class="info-item">
-          <span class="info-label">退款单号</span>
+          <span class="info-label">{{ t('refundDetail.refundNo') }}</span>
           <span class="info-value">{{ refund.id }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">原订单号</span>
+          <span class="info-label">{{ t('refundDetail.originalOrderNo') }}</span>
           <span class="info-value">{{ refund.order_no }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">退款金额</span>
+          <span class="info-label">{{ t('refundDetail.refundAmount') }}</span>
           <span class="info-value amount">¥{{ formatAmount(refund.amount) }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">退款原因</span>
+          <span class="info-label">{{ t('refundDetail.refundReason') }}</span>
           <span class="info-value">{{ refund.reason }}</span>
         </div>
         <div v-if="refund.description" class="info-item full">
-          <span class="info-label">退款说明</span>
+          <span class="info-label">{{ t('refundDetail.refundDescription') }}</span>
           <span class="info-value">{{ refund.description }}</span>
         </div>
         <div v-if="refund.reject_reason" class="info-item full">
-          <span class="info-label">拒绝原因</span>
+          <span class="info-label">{{ t('refundDetail.rejectReason') }}</span>
           <span class="info-value reject">{{ refund.reject_reason }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">申请时间</span>
+          <span class="info-label">{{ t('refundDetail.applyTime') }}</span>
           <span class="info-value">{{ formatTime(refund.created_at) }}</span>
         </div>
         <div v-if="refund.approved_at" class="info-item">
-          <span class="info-label">批准时间</span>
+          <span class="info-label">{{ t('refundDetail.approveTime') }}</span>
           <span class="info-value">{{ formatTime(refund.approved_at) }}</span>
         </div>
         <div v-if="refund.completed_at" class="info-item">
-          <span class="info-label">完成时间</span>
+          <span class="info-label">{{ t('refundDetail.completeTime') }}</span>
           <span class="info-value">{{ formatTime(refund.completed_at) }}</span>
         </div>
       </div>
@@ -190,20 +190,20 @@ async function handleCancel() {
     )
     const res: any = await http.post(`/api/v1/refunds/${refund.value.id}/cancel`, { user_id: 'self' })
     if (res?.code === 0) {
-      toast.success('撤销成功')
+      toast.success(t('common.messages.revokeSuccess'))
       loadDetail()
     } else {
-      toast.error('撤销失败')
+      toast.error(t('common.messages.revokeFailed'))
     }
   } catch (e: any) {
     if (e !== 'cancel' && e?.message) {
-      toast.error('撤销失败')
+      toast.error(t('common.messages.revokeFailed'))
     }
   }
 }
 
 function onEvidenceUploaded() {
-  toast.success('凭证上传成功')
+  toast.success(t('common.messages.voucherUploadSuccess'))
   loadDetail()
 }
 

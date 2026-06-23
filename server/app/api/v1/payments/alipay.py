@@ -96,6 +96,10 @@ async def alipay_notify(request: Request):
     out_trade_no = params.get("out_trade_no")
     trade_status = params.get("trade_status")
     if trade_status in ("TRADE_SUCCESS", "TRADE_FINISHED") and out_trade_no:
+        order = get_order(out_trade_no)
+        if not order:
+            logger.error(f"Order not found: {out_trade_no}")
+            return "fail"
         update_order_status(
             out_trade_no,
             status=1,

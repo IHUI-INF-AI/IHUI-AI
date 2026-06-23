@@ -142,7 +142,7 @@
                         <el-icon class="text-item-arrow"><ArrowRight /></el-icon>
                       </div>
                     </div>
-                    <el-empty v-else description="暂无文本内容" />
+                    <el-empty v-else :description="t('userPage.noTextContent')" />
                   </div>
 
                   <!-- 图片内容 -->
@@ -153,7 +153,7 @@
                         <span class="study-image-title">{{ item.title }}</span>
                       </div>
                     </div>
-                    <el-empty v-else description="暂无图片内容" />
+                    <el-empty v-else :description="t('userPage.noImageContent')" />
                   </div>
 
                   <!-- 视频内容 -->
@@ -173,7 +173,7 @@
                         </div>
                       </div>
                     </div>
-                    <el-empty v-else description="暂无视频内容" />
+                    <el-empty v-else :description="t('userPage.noVideoContent')" />
                   </div>
 
                   <!-- 全部/默认 -->

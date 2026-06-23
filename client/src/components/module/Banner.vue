@@ -15,12 +15,16 @@
       </el-carousel-item>
     </el-carousel>
     <div v-else class="banner-empty">
-      <el-empty description="暂无轮播" />
+      <el-empty :description="t('common.noData')" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 withDefaults(
   defineProps<{
     carousel?: any[]

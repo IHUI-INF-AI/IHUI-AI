@@ -11,7 +11,7 @@
       <!-- 头部标题 -->
       <div class="login-header">
         <h2 class="login-title">{{ t('userComponents.loginPopup.login') || '登录' }}</h2>
-        <p class="login-subtitle">{ t('userLoginPopup.welcomeBack') }</p>
+        <p class="login-subtitle">{{ t('userLoginPopup.welcomeBack') }}</p>
       </div>
 
       <!-- 手机号 + 验证码表单 -->

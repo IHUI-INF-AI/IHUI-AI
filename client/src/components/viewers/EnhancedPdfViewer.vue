@@ -2,13 +2,13 @@
   <div class="enhanced-pdf-viewer">
     <div class="pdf-toolbar">
       <div class="toolbar-group">
-        <button class="tool-btn" @click="prevPage" :disabled="currentPage <= 1" title="上一页" aria-label="上一页">◀</button>
+        <button class="tool-btn" @click="prevPage" :disabled="currentPage <= 1" :title="t('viewerEnhancedPdfViewer.prevPage')" :aria-label="t('viewerEnhancedPdfViewer.prevPage')">◀</button>
         <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
         <button class="tool-btn" @click="nextPage" :disabled="currentPage >= totalPages" :title="t('enhancedPdfViewer.nextPage')" :aria-label="t('enhancedPdfViewer.nextPage')">▶</button>
       </div>
       
       <div class="toolbar-group">
-        <button class="tool-btn" @click="zoomOut" :disabled="scale <= 0.5" title="缩小" aria-label="缩小">−</button>
+        <button class="tool-btn" @click="zoomOut" :disabled="scale <= 0.5" :title="t('viewerEnhancedPdfViewer.zoomOut')" :aria-label="t('viewerEnhancedPdfViewer.zoomOut')">−</button>
         <span class="scale-display">{{ Math.round(scale * 100) }}%</span>
         <button class="tool-btn" @click="zoomIn" :disabled="scale >= 3" :title="t('enhancedPdfViewer.zoomIn')" :aria-label="t('enhancedPdfViewer.zoomIn')">+</button>
       </div>
@@ -21,15 +21,15 @@
           class="search-input"
           @keyup.enter="search"
         >
-        <button class="tool-btn" @click="search" title="搜索" aria-label="搜索">🔍</button>
+        <button class="tool-btn" @click="search" :title="t('viewerEnhancedPdfViewer.search')" :aria-label="t('viewerEnhancedPdfViewer.search')">🔍</button>
         <span v-if="searchResults.length > 0" class="search-info">
           {{ currentSearchIndex + 1 }} / {{ searchResults.length }}
         </span>
       </div>
       
       <div class="toolbar-group">
-        <button class="tool-btn" @click="toggleFullscreen" :title="t('enhancedPdfViewer.fullscreen')" aria-label="全屏">⛶</button>
-        <a :href="src" download class="tool-btn" title="下载">⬇</a>
+        <button class="tool-btn" @click="toggleFullscreen" :title="t('enhancedPdfViewer.fullscreen')" :aria-label="t('viewerEnhancedPdfViewer.fullscreen')">⛶</button>
+        <a :href="src" download class="tool-btn" :title="t('viewerEnhancedPdfViewer.download')">⬇</a>
       </div>
     </div>
     
@@ -37,7 +37,7 @@
       <div class="pdf-container" ref="containerRef">
         <div v-if="loading" class="loading-overlay">
           <div class="loading-spinner"></div>
-          <span>{ t('viewerEnhancedPdfViewer.loadingPdf') }</span>
+          <span>{{ t('viewerEnhancedPdfViewer.loadingPdf') }}</span>
         </div>
         
         <div v-else-if="error" class="error-overlay">

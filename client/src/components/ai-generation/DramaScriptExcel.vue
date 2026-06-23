@@ -54,7 +54,7 @@
                 type="success" 
                 style="margin-left: 8px;"
               >
-                {{ t('dramaScript.lastSaved', { time: formatTime(lastSavedTime, 'HH:mm:ss') }) }}
+                {{ t('dramaScript.lastSaved', { time: formatTime(lastSavedTime, 'HH:mm:ss') }}) }}
               </el-tag>
               <el-button
                 v-if="fragments.length > 0"

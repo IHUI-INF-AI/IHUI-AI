@@ -2,16 +2,16 @@
   <div class="model-list-block">
     <div v-if="loading" class="loading-wrapper">
       <el-icon class="is-loading"><Loading /></el-icon>
-      <span>{ t('studyIndexModelList.loading') }</span>
+      <span>{{ t('studyIndexModelList.loading') }}</span>
     </div>
 
     <div v-if="fromPage === 'home'" class="header-bar">
       <div class="header-left">
         <img class="icon-blink" src="https://file.aizhs.top/sys-mini/xtk/study_icon_blink.png" alt="" loading="lazy" />
-        <span class="blink-text">{ t('studyIndexModelList.recommendGroups') }</span>
+        <span class="blink-text">{{ t('studyIndexModelList.recommendGroups') }}</span>
       </div>
       <div v-if="pageType === 'index'" class="header-right" @click="showMore">
-        <span class="right-text">{ t('studyIndexModelList.viewMore') }</span>
+        <span class="right-text">{{ t('studyIndexModelList.viewMore') }}</span>
         <img class="icon-right" src="https://file.aizhs.top/sys-mini/xtk/study_icon_right.png" alt="" />
       </div>
     </div>
@@ -53,7 +53,7 @@
 
       <div v-if="pageType === 'model' && agentList.length > 0" class="no-more">
         <div class="line"></div>
-        <span class="no-more-text">{ t('studyIndexModelList.noMore') }</span>
+        <span class="no-more-text">{{ t('studyIndexModelList.noMore') }}</span>
         <div class="line"></div>
       </div>
 

@@ -6,7 +6,7 @@
       :more-link="`/learn/list?cid=${item.id}`"
     />
     <div v-loading="loading" class="big-row-content">
-      <el-empty v-if="!list.length" description="暂无课程" />
+      <el-empty v-if="!list.length" :description="t('common.noData')" />
       <BigRectangle
         v-for="b in list"
         :key="b.id"
@@ -19,8 +19,11 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import TabsBar from './TabsBar.vue'
 import BigRectangle from './BigRectangle.vue'
+
+const { t } = useI18n()
 
 defineProps<{
   item: { id: string | number; name: string; tags?: any[] }
