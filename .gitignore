@@ -131,6 +131,7 @@ storage/*
 !storage/edu-assets/spring-cloud-config/
 public/uploads
 backups
+backup
 artifacts
 .vscode
 .idea
