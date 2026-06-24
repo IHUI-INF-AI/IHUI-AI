@@ -166,10 +166,11 @@ describe('user API 函数', () => {
 
   // ============ 密码 / 验证码相关 ============
 
-  it('changePassword 调用 POST /user/change-password', async () => {
-    vi.mocked(request.post).mockResolvedValueOnce(ok(true))
+  it('changePassword 调用 PUT /api/v1/auth/profile/password', async () => {
+    // 2026-06-24 源码对齐后端: PUT /api/v1/auth/profile/password (Body: old_password, new_password)
+    vi.mocked(request.put).mockResolvedValueOnce(ok(true))
     const res = await userApi.changePassword({ oldPassword: 'old', newPassword: 'new' })
-    expect(request.post).toHaveBeenCalledWith('/user/change-password', { oldPassword: 'old', newPassword: 'new' })
+    expect(request.put).toHaveBeenCalledWith('/api/v1/auth/profile/password', { old_password: 'old', new_password: 'new' })
     expect(res.success).toBe(true)
   })
 
@@ -194,10 +195,11 @@ describe('user API 函数', () => {
     expect(res.success).toBe(true)
   })
 
-  it('updatePassword 调用 POST /user/update-password', async () => {
-    vi.mocked(request.post).mockResolvedValueOnce(ok(true))
+  it('updatePassword 调用 PUT /api/v1/auth/profile/password', async () => {
+    // 2026-06-24 源码对齐后端: PUT /api/v1/auth/profile/password (Body: old_password, new_password)
+    vi.mocked(request.put).mockResolvedValueOnce(ok(true))
     const res = await userApi.updatePassword({ oldPassword: 'old', newPassword: 'new' })
-    expect(request.post).toHaveBeenCalledWith('/user/update-password', { oldPassword: 'old', newPassword: 'new' })
+    expect(request.put).toHaveBeenCalledWith('/api/v1/auth/profile/password', { old_password: 'old', new_password: 'new' })
     expect(res.success).toBe(true)
   })
 
@@ -233,11 +235,13 @@ describe('user API 函数', () => {
     expect(res.success).toBe(true)
   })
 
-  it('logout 直接返回成功不调用 request', async () => {
+  it('logout 调用 POST /api/v1/auth/logout', async () => {
+    // 2026-06-24 源码恢复调用后端 /api/v1/auth/logout 使 token 加入黑名单
+    vi.mocked(request.post).mockResolvedValueOnce(ok(true))
     const res = await userApi.logout()
+    expect(request.post).toHaveBeenCalledWith('/api/v1/auth/logout', {})
     expect(res.success).toBe(true)
     expect(res.code).toBe(200)
-    expect(request.post).not.toHaveBeenCalled()
   })
 
   it('register 调用 POST /auth/register 并传递必填字段', async () => {

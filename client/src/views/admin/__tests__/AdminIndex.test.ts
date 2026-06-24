@@ -266,6 +266,7 @@ describe('views/admin/index.vue', () => {
     await flushPromises()
     const firstModule = wrapper.findAll('.module-item')[0]
     await firstModule.trigger('click')
-    expect(pushMock).toHaveBeenCalledWith('/admin/orders')
+    // 源码中第一个模块 orders 的 path 为 /admin/refund-audit
+    expect(pushMock).toHaveBeenCalledWith('/admin/refund-audit')
   })
 })

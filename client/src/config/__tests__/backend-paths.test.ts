@@ -243,8 +243,8 @@ describe('backend-paths.ts', () => {
 
     it('file 路径应该正确', () => {
       const f = COZE_PATHS.file
-      // 2026-06-24 修复: 上传路径对齐后端 upload/routes.py /api/upload/*
-      expect(f.uploadForm).toBe('/api/upload/single')
+      // 2026-06-24 修复: uploadForm 对齐后端 /cozeZhsApi/file/upload/form (content/file_upload.py)
+      expect(f.uploadForm).toBe('/cozeZhsApi/file/upload/form')
       expect(f.uploadBase64).toBe('/api/upload/base64')
       expect(f.uploadOctet('文件.txt')).toBe('/api/upload/octet?file_name=%E6%96%87%E4%BB%B6.txt')
       expect(f.uploadAgentExamine).toBe('/api/upload/agent-examine')
@@ -740,9 +740,10 @@ describe('backend-paths.ts', () => {
   describe('COURSES_API_PATHS', () => {
     it('应该包含正确的课程 API 路径', () => {
       const c = COURSES_API_PATHS
-      expect(c.list).toBe('/api/courses')
-      expect(c.byId('c1')).toBe('/api/courses/c1')
-      expect(c.categories).toBe('/api/courses/categories')
+      // 2026-06-24 修复: list/byId/categories 路径前缀对齐后端 /api/v1/courses/*
+      expect(c.list).toBe('/api/v1/courses/list')
+      expect(c.byId('c1')).toBe('/api/v1/courses/c1')
+      expect(c.categories).toBe('/api/v1/courses/categories')
       expect(c.my).toBe('/api/courses/my')
       expect(c.enroll('c1')).toBe('/api/courses/c1/enroll')
       expect(c.progress('c1')).toBe('/api/courses/c1/progress')
@@ -756,7 +757,8 @@ describe('backend-paths.ts', () => {
       const c = COURSE_PATHS
       expect(c.update).toBe('/course')
       expect(c.export).toBe('/course/export')
-      expect(c.delete('1,2')).toBe('/course/1,2')
+      // 2026-06-24 修复: delete 路径对齐后端 /api/v1/courses/{ids}
+      expect(c.delete('1,2')).toBe('/api/v1/courses/1,2')
     })
   })
 
