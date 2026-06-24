@@ -8,21 +8,21 @@
   html.dark {
     --el-text-color-primary: var(--color-gray-e5eaf3);
     --el-bg-color: var(--color-dark-bg-3);
-    --el-bg-color-page: var(--el-text-color-primary);
+    --el-bg-color-page: var(--color-dark-bg-3);
     --el-text-color-regular: var(--color-neutral-200);
     --el-text-color-secondary: var(--color-neutral-400);
-    --page-bg-color: var(--el-text-color-primary);
+    --page-bg-color: var(--color-dark-bg-3);
   }
 }
 
 @layer components {
   // 暗色模式：强制覆盖 Element Plus 主题变量
   :where(html.dark) {
-    --el-bg-color: var(--color-dark-bg-3, #0d0d0d);
-    --el-bg-color-page: var(--color-dark-bg-3, #0d0d0d);
-    --el-bg-color-overlay: var(--color-dark-bg-3, #0d0d0d);
-    --el-bg-color-hover: var(--color-dark-bg-5, #1a1a1a);
-    --page-bg-color: var(--color-dark-bg-3, #0d0d0d);
+    --el-bg-color: var(--color-dark-bg-3);
+    --el-bg-color-page: var(--color-dark-bg-3);
+    --el-bg-color-overlay: var(--color-dark-bg-3);
+    --el-bg-color-hover: var(--color-dark-bg-5);
+    --page-bg-color: var(--color-dark-bg-3);
   }
 
   // 暗色模式：Element Plus 主题色覆盖

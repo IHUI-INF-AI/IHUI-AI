@@ -156,6 +156,18 @@
       "hot": "熱門",
       "news": "資訊",
       "aiNews": "AI資訊"
-    }
+    },
+    "wheelSensitivityLabel": "滾輪靈敏度",
+    "marqueeSpeedLabel": "滾動速度",
+    "clickToResume": "點擊繼續滾動",
+    "clickToPause": "點擊暫停滾動",
+    "resumeScroll": "繼續滾動",
+    "pauseScroll": "暫停滾動",
+    "sensitivityLow": "低",
+    "sensitivityMid": "中",
+    "sensitivityHigh": "高",
+    "speedSlow": "慢",
+    "speedMid": "中",
+    "speedFast": "快"
   }
 }

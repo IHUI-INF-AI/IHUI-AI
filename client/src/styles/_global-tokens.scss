@@ -138,8 +138,8 @@ $border-unified-dark: #4c4d4f;
 $border-unified-dark-hover: #6c6e72;
 
 // 暗色模式专用 token
-$el-color-primary-dark: #409eff;
-$el-button-text-on-primary-dark: #ffffff;
+$el-color-primary-dark: #ffffff;
+$el-button-text-on-primary-dark: #000000;
 $fcd-send-btn-hover-light: #409eff;
 $fcd-send-btn-hover-dark: #66b1ff;
 $color-dark-text-primary: #e5eaf3;
@@ -182,6 +182,7 @@ $color-dark-text-primary: #e5eaf3;
 
 /* 亮色主题变量（最新规则）- 主色/主文为纯黑，强调按钮背景即纯黑 */
 :root {
+  --color-neutral-f7f8fa: #f7f8fa; /* 容器浅灰背景 */
   --el-bg-color: var(--color-neutral-f7f8fa); /* 容器浅灰 */
   --el-bg-color-page: var(--el-bg-color); /* 页面主背景 */
   --el-bg-color-hover: var(--el-bg-color); /* hover背景 */
@@ -374,4 +375,35 @@ $color-dark-text-primary: #e5eaf3;
   --z-notification: 9999;   /* 通知/提示 */
   --z-loading: 10000;       /* 全屏加载 */
   --z-max: 10003;           /* 最大层级（全屏覆盖） */
+}
+
+/* ============================================================
+ * 暗色模式变量定义 - html.dark 下统一覆盖
+ * 所有暗色变量在此统一定义，消除各处 fallback 写法
+ * 背景层级：数字越大越浅（1 最深，7 最浅）
+ * ============================================================ */
+html.dark {
+  /* 暗色背景层级 */
+  --color-dark-bg-1: #0d0d0d;
+  --color-dark-bg-3: #1a1a1a;
+  --color-dark-bg-4: #1f1f1f;
+  --color-dark-bg-5: #2d2d2d;
+  --color-dark-bg-6: #333333;
+  --color-dark-bg-7: #3d3d3d;
+
+  /* 灰色文字色阶（从命名 hex 值） */
+  --color-gray-e5eaf3: #e5eaf3;
+  --color-gray-cfd3dc: #cfd3dc;
+  --color-gray-a3a6ad: #a3a6ad;
+  --color-gray-8d9095: #8d9095;
+
+  /* 中性色 */
+  --color-neutral-4d: #4d4d4f;
+  --color-neutral-e6: #e6e6e6;
+  --color-neutral-200: #e5e7eb;
+  --color-neutral-400: #9ca3af;
+
+  /* 业务别名 - 暗色模式覆盖 */
+  --color-text-muted: #a3a6ad;
+  --color-gray-light: #2d2d2d;
 }

@@ -149,38 +149,6 @@ try {
       document.documentElement.setAttribute('data-theme', 'light')
     }
     
-    // 强制设置 CSS 变量，确保主题颜色正确应用
-    // 使用 utilities 层确保优先级
-    const forceThemeVariables = () => {
-      const style = document.createElement('style')
-      style.id = 'force-theme-variables'
-      if (preferDark) {
-        style.textContent = `
-          @layer utilities {
-            :root {
-              --el-bg-color: #1a1a1a;
-              --el-bg-color-page: #0f0f0f;
-              --el-bg-color-overlay: #1a1a1a;
-            }
-          }
-        `
-      } else {
-        style.textContent = `
-          @layer utilities {
-            :root {
-              --el-bg-color: #ffffff;
-              --el-bg-color-page: #f5f7fa;
-              --el-bg-color-overlay: #ffffff;
-            }
-          }
-        `
-      }
-      const oldStyle = document.getElementById('force-theme-variables')
-      if (oldStyle) oldStyle.remove()
-      document.head.appendChild(style)
-    }
-    forceThemeVariables()
-
     // 兜底修正可能遗留的绝对路径 APP.jpg，防止 file:// 访问报错
     patchAppImageSources()
   }

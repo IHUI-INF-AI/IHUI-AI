@@ -156,6 +156,18 @@
       "hot": "人気",
       "news": "ニュース",
       "aiNews": "AIニュース"
-    }
+    },
+    "wheelSensitivityLabel": "ホイール感度",
+    "marqueeSpeedLabel": "スクロール速度",
+    "clickToResume": "クリックしてスクロールを再開",
+    "clickToPause": "クリックしてスクロールを一時停止",
+    "resumeScroll": "再開",
+    "pauseScroll": "一時停止",
+    "sensitivityLow": "低",
+    "sensitivityMid": "中",
+    "sensitivityHigh": "高",
+    "speedSlow": "遅",
+    "speedMid": "中",
+    "speedFast": "速"
   }
 }

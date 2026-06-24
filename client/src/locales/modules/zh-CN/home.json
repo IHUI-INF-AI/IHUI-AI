@@ -148,6 +148,18 @@
       "hot": "热门",
       "news": "资讯",
       "aiNews": "AI资讯"
-    }
+    },
+    "wheelSensitivityLabel": "滚轮灵敏度",
+    "marqueeSpeedLabel": "滚动速度",
+    "clickToResume": "点击继续滚动",
+    "clickToPause": "点击暂停滚动",
+    "resumeScroll": "继续滚动",
+    "pauseScroll": "暂停滚动",
+    "sensitivityLow": "低",
+    "sensitivityMid": "中",
+    "sensitivityHigh": "高",
+    "speedSlow": "慢",
+    "speedMid": "中",
+    "speedFast": "快"
   }
 }

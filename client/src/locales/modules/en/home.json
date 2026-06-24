@@ -157,6 +157,18 @@
       "hot": "Hot",
       "news": "News",
       "aiNews": "AI News"
-    }
+    },
+    "wheelSensitivityLabel": "Wheel Sensitivity",
+    "marqueeSpeedLabel": "Scroll Speed",
+    "clickToResume": "Click to resume scrolling",
+    "clickToPause": "Click to pause scrolling",
+    "resumeScroll": "Resume",
+    "pauseScroll": "Pause",
+    "sensitivityLow": "Low",
+    "sensitivityMid": "Mid",
+    "sensitivityHigh": "High",
+    "speedSlow": "Slow",
+    "speedMid": "Mid",
+    "speedFast": "Fast"
   }
 }

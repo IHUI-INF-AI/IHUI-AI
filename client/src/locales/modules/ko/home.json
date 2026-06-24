@@ -193,6 +193,18 @@
       "hot": "인기",
       "news": "뉴스",
       "aiNews": "AI 뉴스"
-    }
+    },
+    "wheelSensitivityLabel": "휠 감도",
+    "marqueeSpeedLabel": "스크롤 속도",
+    "clickToResume": "클릭하여 스크롤 재개",
+    "clickToPause": "클릭하여 스크롤 일시정지",
+    "resumeScroll": "재개",
+    "pauseScroll": "일시정지",
+    "sensitivityLow": "낮음",
+    "sensitivityMid": "중간",
+    "sensitivityHigh": "높음",
+    "speedSlow": "느림",
+    "speedMid": "중간",
+    "speedFast": "빠름"
   }
 }

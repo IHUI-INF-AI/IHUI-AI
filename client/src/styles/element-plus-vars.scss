@@ -203,13 +203,12 @@
 }
 
 /* 暗色主题：背景必须用深色变量，不能引用 --el-text-color-primary（否则与下文文字色循环导致整页浅色） */
-/* 主文字色使用 _global-tokens 兜底，避免 --color-gray-e5eaf3 未定义导致黑字不可见 */
 html.dark {
   --el-bg-color: var(--color-dark-bg-3);
   --el-bg-color-page: var(--color-dark-bg-3);
   --el-bg-color-hover: var(--color-dark-bg-5);
   --el-bg-color-overlay: var(--color-dark-bg-3);
-  --el-text-color-primary: var(--color-gray-e5eaf3, #{gt.$color-dark-text-primary});
+  --el-text-color-primary: var(--color-gray-e5eaf3);
   --el-text-color-regular: var(--color-gray-cfd3dc);
   --el-text-color-secondary: var(--color-gray-a3a6ad);
   --el-text-color-placeholder: var(--color-gray-8d9095);

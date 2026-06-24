@@ -4,12 +4,12 @@
  * 强制所有元素在暗色模式下使用纯黑色背景
  */
 
-/* 强制覆盖 Element Plus 暗色主题变量：使用深色背景变量，避免与 --el-text-color-primary 循环导致整页浅色；字面量兜底保证有深色 */
+/* 强制覆盖 Element Plus 暗色主题变量：使用深色背景变量，避免与 --el-text-color-primary 循环导致整页浅色 */
 html.dark {
-  --el-bg-color: var(--color-dark-bg-3, #1a1a1a);
-  --el-bg-color-page: var(--color-dark-bg-3, #1a1a1a);
-  --el-bg-color-overlay: var(--color-dark-bg-3, #1a1a1a);
-  --el-bg-color-hover: var(--color-dark-bg-5, #2d2d2d);
+  --el-bg-color: var(--color-dark-bg-3);
+  --el-bg-color-page: var(--color-dark-bg-3);
+  --el-bg-color-overlay: var(--color-dark-bg-3);
+  --el-bg-color-hover: var(--color-dark-bg-5);
 }
 
 /* 强制所有主要容器和页面元素使用背景色；根与主容器用 @layer utilities 确保整页暗色不被覆盖 */

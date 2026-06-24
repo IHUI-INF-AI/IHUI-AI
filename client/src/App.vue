@@ -222,10 +222,6 @@ const { notification: globalNotification, install: installNotification } =
   useGlobalNotification()
 installNotification()
 
-const globalChat = useGlobalChat()
-globalChat.install()
-
-// AI 对话开关与 ref 注入
 const showAIChat = ref(false) // 性能优化:默认隐藏,避免 405KB 拖累首屏
 const useLegacyChat = ref(false)
 const showCommandPalette = ref(false)
@@ -244,6 +240,11 @@ const globalChatRef = ref<{
   currentSessionId?: { value: string | null }
   loadSessionMessages?: () => Promise<void>
 } | null>(null)
+// showAIChat 需先声明,再传入 useGlobalChat 作为 onMount 回调(触发 AIChat 组件挂载)
+const globalChat = useGlobalChat(() => {
+  showAIChat.value = true
+})
+globalChat.install()
 watch(floatingChatRef, r => globalChat.setFloatingChatRef(r), { immediate: true })
 
 // 全局加载状态(从 store 获取)
