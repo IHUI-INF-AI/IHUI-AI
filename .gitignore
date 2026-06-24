@@ -125,6 +125,10 @@ tor-specialist.toml
 local_uploads
 ssl
 storage
+storage/*
+!storage/README.md
+!storage/edu-assets/README.md
+!storage/edu-assets/spring-cloud-config/
 public/uploads
 backups
 artifacts
