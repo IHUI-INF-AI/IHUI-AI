@@ -39,12 +39,12 @@ describe('ai-community API', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch (e) {}
-      try { await f() } catch (e) {}
-      try { await f('1') } catch (e) {}
-      try { await f({ id: '1' }) } catch (e) {}
-      try { await f({ keyword: 'k' }) } catch (e) {}
-      try { await f({ page: 1, pageSize: 10 }) } catch (e) {}
+      try { await f({}) } catch { /* noop */ }
+      try { await f() } catch { /* noop */ }
+      try { await f('1') } catch { /* noop */ }
+      try { await f({ id: '1' }) } catch { /* noop */ }
+      try { await f({ keyword: 'k' }) } catch { /* noop */ }
+      try { await f({ page: 1, pageSize: 10 }) } catch { /* noop */ }
     }
   })
 
@@ -56,8 +56,8 @@ describe('ai-community API', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch (e) {}
-      try { await f() } catch (e) {}
+      try { await f({}) } catch { /* noop */ }
+      try { await f() } catch { /* noop */ }
     }
   })
 
@@ -66,7 +66,7 @@ describe('ai-community API', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch (e) {}
+      try { await f({}) } catch { /* noop */ }
     }
   })
 })

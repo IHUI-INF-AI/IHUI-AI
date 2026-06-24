@@ -77,11 +77,11 @@ describe('user-margin API', () => {
     ;(request.post as any).mockRejectedValue(new Error('fail'))
     ;(request.put as any).mockRejectedValue(new Error('fail'))
     ;(request.delete as any).mockRejectedValue(new Error('fail'))
-    try { await api.createUserMargin({}) } catch (e) {}
-    try { await api.updateUserMargin({}) } catch (e) {}
-    try { await api.exportUserMargin() } catch (e) {}
-    try { await api.getUserMarginById('1') } catch (e) {}
-    try { await api.getUserMarginList() } catch (e) {}
-    try { await api.deleteUserMargin('1') } catch (e) {}
+    try { await api.createUserMargin({}) } catch { /* noop */ }
+    try { await api.updateUserMargin({}) } catch { /* noop */ }
+    try { await api.exportUserMargin() } catch { /* noop */ }
+    try { await api.getUserMarginById('1') } catch { /* noop */ }
+    try { await api.getUserMarginList() } catch { /* noop */ }
+    try { await api.deleteUserMargin('1') } catch { /* noop */ }
   })
 })

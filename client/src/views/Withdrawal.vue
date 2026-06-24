@@ -240,7 +240,6 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
-import { useRoute } from 'vue-router'
 import { zhsWithdrawal, getWithdrawalRecords } from '@/api/withdrawal'
 import { getWithdrawConfig } from '@/api/commission'
 import type { WithdrawalRecord } from '@/api/withdrawal'
@@ -253,8 +252,6 @@ const { t } = useI18n()
 const authStore = useAuthStore() as ReturnType<typeof useAuthStore> & {
   fetchUserInfo: () => Promise<unknown>
 }
-const route = useRoute()
-
 const availableAmount = computed(() => authStore.balance || 0)
 const withdrawFormRef = ref<FormInstance>()
 const { loading, execute: executeApi } = useApiError({ showMessage: true })

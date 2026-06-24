@@ -20,7 +20,7 @@
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, reactive, onMounted, h } from 'vue'
-import { ElButton, ElTag, ElMessageBox, type Column } from 'element-plus'
+import { ElButton, ElMessageBox, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import { adminApi } from '@/api/admin'
 import AdminQuestionDialog from './QuestionDialog.vue'
@@ -142,7 +142,7 @@ async function onDialogSubmit(form: Record<string, any>) {
       if (!Array.isArray(options)) {
         throw new Error('options 需要是数组')
       }
-    } catch (error) {
+    } catch {
       ElMessage.error(t('common.errors.jsonArrayError'))
       return
     }

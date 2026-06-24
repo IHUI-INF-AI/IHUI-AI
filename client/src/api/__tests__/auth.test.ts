@@ -170,7 +170,7 @@ describe('auth', () => {
     const axiosMod = await import('axios')
     const origImpl = (axiosMod.default as any).request.getMockImplementation()
     ;(axiosMod.default as any).request.mockImplementation(() => Promise.reject(new Error('boom')))
-    try { await (api as any).fetchAudioText(file) } catch (_e) {}
+    try { await (api as any).fetchAudioText(file) } catch { /* noop */ }
     ;(axiosMod.default as any).request.mockImplementation(origImpl)
   })
 
@@ -181,7 +181,7 @@ describe('auth', () => {
       if (config && config.url && config.url.includes('login')) return Promise.reject(new Error('boom'))
       return Promise.resolve({ success: true })
     })
-    try { await (api as any).userLogin('138', 'p') } catch (_e) {}
+    try { await (api as any).userLogin('138', 'p') } catch { /* noop */ }
     ;(req.default as any).mockImplementation(origImpl)
   })
 })

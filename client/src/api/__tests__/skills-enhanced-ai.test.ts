@@ -38,12 +38,12 @@ describe('skills-enhanced-ai', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch (e) {}
-      try { await f() } catch (e) {}
-      try { await f('1') } catch (e) {}
-      try { await f({ content: 'c' }) } catch (e) {}
-      try { await f({ message: 'm' }) } catch (e) {}
-      try { await f({ query: 'q' }) } catch (e) {}
+      try { await f({}) } catch { /* noop */ }
+      try { await f() } catch { /* noop */ }
+      try { await f('1') } catch { /* noop */ }
+      try { await f({ content: 'c' }) } catch { /* noop */ }
+      try { await f({ message: 'm' }) } catch { /* noop */ }
+      try { await f({ query: 'q' }) } catch { /* noop */ }
     }
   })
 
@@ -53,8 +53,8 @@ describe('skills-enhanced-ai', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch (e) {}
-      try { await f() } catch (e) {}
+      try { await f({}) } catch { /* noop */ }
+      try { await f() } catch { /* noop */ }
     }
   })
 
@@ -64,7 +64,7 @@ describe('skills-enhanced-ai', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch (e) {}
+      try { await f({}) } catch { /* noop */ }
     }
   })
 })

@@ -44,7 +44,7 @@ describe('ai-proxy API', () => {
 
   it('getSupportedModels 错误', async () => {
     ;(request.get as any).mockRejectedValue(new Error('fail'))
-    try { await api.getSupportedModels() } catch (e) {}
+    try { await api.getSupportedModels() } catch { /* noop */ }
   })
 
   it('chatCompletions 正常', async () => {
@@ -54,7 +54,7 @@ describe('ai-proxy API', () => {
 
   it('chatCompletions 错误', async () => {
     ;(request.post as any).mockRejectedValue(new Error('fail'))
-    try { await api.chatCompletions({ model: 'm', messages: [] }) } catch (e) {}
+    try { await api.chatCompletions({ model: 'm', messages: [] }) } catch { /* noop */ }
   })
 
   it('chatCompletionsStream 正常', async () => {
@@ -79,7 +79,7 @@ describe('ai-proxy API', () => {
   it('chatCompletionsStream HTTP 错误', async () => {
     ;(globalThis as any).fetch = vi.fn(() => Promise.resolve({ ok: false, status: 500 })) as any
     const onEvent = vi.fn()
-    try { await api.chatCompletionsStream({ model: 'm', messages: [] }, onEvent) } catch (e) {}
+    try { await api.chatCompletionsStream({ model: 'm', messages: [] }, onEvent) } catch { /* noop */ }
     expect(onEvent).toHaveBeenCalled()
   })
 
@@ -103,7 +103,7 @@ describe('ai-proxy API', () => {
   it('chatCompletionsStream fetch 失败', async () => {
     ;(globalThis as any).fetch = vi.fn(() => Promise.reject(new Error('fail'))) as any
     const onEvent = vi.fn()
-    try { await api.chatCompletionsStream({ model: 'm', messages: [] }, onEvent) } catch (e) {}
+    try { await api.chatCompletionsStream({ model: 'm', messages: [] }, onEvent) } catch { /* noop */ }
     expect(onEvent).toHaveBeenCalled()
   })
 })

@@ -149,7 +149,7 @@ describe('services/api', () => {
         json: () => Promise.resolve({ code: 200, data: { ok: true } }),
       })
     }) as any
-    try { await request({ url: '/test' }) } catch (e) {}
+    try { await request({ url: '/test' }) } catch { /* noop */ }
   })
 
   it('getUserInfo', async () => {

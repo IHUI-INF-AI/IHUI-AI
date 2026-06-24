@@ -175,7 +175,6 @@ async function handleStart() {
 
 async function handleSubmit() {
   if (submitting.value) return
-  const id = Number(route.params.id)
   const allAnswers: Record<string, any> = {}
   for (const q of questions.value) {
     if (q.type === 'multiple') {

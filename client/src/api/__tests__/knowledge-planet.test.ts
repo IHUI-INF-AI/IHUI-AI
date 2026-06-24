@@ -37,9 +37,9 @@ describe('knowledge-planet API', () => {
 
   it('错误路径', async () => {
     ;(request as any).mockRejectedValue(new Error('fail'))
-    try { await api.getKnowledgePlanetInfo('1') } catch (e) {}
-    try { await api.information() } catch (e) {}
-    try { await api.getinformationListnews() } catch (e) {}
-    try { await api.getinformationList('1') } catch (e) {}
+    try { await api.getKnowledgePlanetInfo('1') } catch { /* noop */ }
+    try { await api.information() } catch { /* noop */ }
+    try { await api.getinformationListnews() } catch { /* noop */ }
+    try { await api.getinformationList('1') } catch { /* noop */ }
   })
 })

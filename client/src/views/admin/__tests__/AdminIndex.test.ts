@@ -61,6 +61,7 @@ const ElButtonStub = {
   name: 'ElButton',
   template: '<button class="el-button" :data-icon="iconName" @click="$emit(\'click\')"><slot /></button>',
   props: ['icon', 'type', 'loading', 'round'],
+  emits: ['click'],
   computed: {
     iconName() {
       // icon 是 { name: 'Refresh', ... } 之类的对象,取 name 作 data 属性

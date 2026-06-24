@@ -18,7 +18,7 @@
           <p class="hero-subtitle">
             {{ today }} · {{ pendingTodos }} {{ t('adminHome.pendingTodosUnit') }} · {{ systemStatus }} {{ t('adminHome.statusText') }}
             <span v-if="lastUpdated" class="hero-updated">
-              · {{ t('adminHome.updatedAt', { time: formatTime(lastUpdated) }}) }}
+              · {{ t('adminHome.updatedAt', { time: formatTime(lastUpdated) }) }}
             </span>
           </p>
         </div>

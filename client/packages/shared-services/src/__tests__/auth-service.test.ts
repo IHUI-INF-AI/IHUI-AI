@@ -33,7 +33,7 @@ describe('shared-services/auth-service', () => {
     })
 
     expect(capturedConfig).toMatchObject({
-      url: '/login/pwd/refreshToken',
+      url: '/api/v1/auth/refresh',
       method: 'POST',
       base: 2,
       headers: { 'platform-type': 'web' },

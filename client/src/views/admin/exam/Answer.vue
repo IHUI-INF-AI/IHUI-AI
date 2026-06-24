@@ -21,7 +21,7 @@
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, onMounted, h } from 'vue'
-import { ElButton, ElTag, ElMessage, ElMessageBox, type Column } from 'element-plus'
+import { ElTag, ElMessage, ElMessageBox, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import { adminApi } from '@/api/admin'
 import AdminAnswerDetailDialog from './AnswerDetailDialog.vue'

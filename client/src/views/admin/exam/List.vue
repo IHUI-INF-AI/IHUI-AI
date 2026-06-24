@@ -22,7 +22,6 @@ import { ref, reactive, onMounted, h } from 'vue'
 import { ElButton, ElTag, ElMessageBox, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import { adminApi } from '@/api/admin'
-import AdminPaperDialog from './PaperDialog.vue'
 
 const keyword = ref('')
 const page = ref(1)
@@ -164,31 +163,6 @@ async function handleDelete(row: any) {
       ElMessage.error(t('common.errors.deleteFailed'))
     }
   }
-}
-
-async function onDialogSubmit(form: Record<string, any>) {
-  const payload = {
-    title: form.title,
-    description: form.description,
-    category_id: Number(form.category_id),
-    cover: form.cover,
-    total_score: Number(form.total_score),
-    pass_score: Number(form.pass_score),
-    duration: Number(form.duration),
-    type: Number(form.type),
-    difficulty: Number(form.difficulty),
-    is_free: Boolean(form.is_free),
-    price: Number(form.price),
-    sort_order: Number(form.sort_order),
-  }
-  if (dialogMode.value === 'edit' && initialData.id) {
-    await adminApi.examPaperUpdate(initialData.id, payload)
-  } else {
-    await adminApi.examPaperCreate(payload)
-  }
-  dialogVisible.value = false
-  ElMessage.success(t('common.messages.saveSuccess'))
-  reload()
 }
 
 const onSearch = (k: string) => {

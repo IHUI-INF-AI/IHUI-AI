@@ -92,7 +92,7 @@ import SearchIcon from '@/components/common/SearchIcon.vue'
 import { getUserAndChildrenOrders } from '@/api/distribution'
 import { useApiError } from '@/composables/useApiError'
 import { useCleanup } from '@/composables/useCleanup'
-import { formatMoney, fenToYuan } from '@/utils/format'
+import { fenToYuan } from '@/utils/format'
 
 interface Order {
   id: string

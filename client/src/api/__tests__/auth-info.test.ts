@@ -77,11 +77,11 @@ describe('auth-info API', () => {
     ;(request.post as any).mockRejectedValue(new Error('fail'))
     ;(request.put as any).mockRejectedValue(new Error('fail'))
     ;(request.delete as any).mockRejectedValue(new Error('fail'))
-    try { await api.createAuthInfo({}) } catch (e) {}
-    try { await api.updateAuthInfo({}) } catch (e) {}
-    try { await api.exportAuthInfo() } catch (e) {}
-    try { await api.getAuthInfoById('1') } catch (e) {}
-    try { await api.getAuthInfoList() } catch (e) {}
-    try { await api.deleteAuthInfo('1') } catch (e) {}
+    try { await api.createAuthInfo({}) } catch { /* noop */ }
+    try { await api.updateAuthInfo({}) } catch { /* noop */ }
+    try { await api.exportAuthInfo() } catch { /* noop */ }
+    try { await api.getAuthInfoById('1') } catch { /* noop */ }
+    try { await api.getAuthInfoList() } catch { /* noop */ }
+    try { await api.deleteAuthInfo('1') } catch { /* noop */ }
   })
 })

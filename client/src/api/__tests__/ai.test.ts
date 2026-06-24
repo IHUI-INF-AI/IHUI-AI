@@ -31,7 +31,7 @@ vi.mock('@/config/backend-paths', () => ({
 const origDev = (import.meta as any).env?.DEV
 try {
   Object.defineProperty(import.meta, 'env', { value: { ...(origDev ? { DEV: false } : {}), DEV: false, VITE_AGENTS_SHOW_SAMPLE_WHEN_EMPTY: 'false', VITE_USE_REAL_API: 'false' }, configurable: true, writable: true })
-} catch (_) {}
+} catch { /* noop */ }
 
 // 同时设置 process.env.NODE_ENV
 ;(globalThis as any).process = { ...(globalThis as any).process, env: { ...((globalThis as any).process?.env || {}), NODE_ENV: 'production' } }

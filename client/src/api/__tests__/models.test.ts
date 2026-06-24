@@ -192,14 +192,14 @@ describe('models API', () => {
     ;(request.get as any)
       .mockRejectedValueOnce({ response: { status: 500 } })
       .mockRejectedValueOnce({ response: { status: 500 } })
-    try { await api.getAvailableModels() } catch (e) {}
+    try { await api.getAvailableModels() } catch { /* noop */ }
   })
 
   it('getAvailableModels 401 错误', async () => {
     ;(request.get as any)
       .mockRejectedValueOnce(new Error('fail'))
       .mockResolvedValueOnce({ data: { code: 401 } })
-    try { await api.getAvailableModels() } catch (e) {}
+    try { await api.getAvailableModels() } catch { /* noop */ }
   })
 
   it('getAvailableModels 模型 type=0/1/3/4/5', async () => {
