@@ -142,10 +142,19 @@ async def execute_session_ws(websocket: WebSocket, session_id: str):
     - {"type": "task_start", ...}
     - {"type": "task_complete", ...}
     - {"type": "complete", ...}
+
+    注意: 同步生成器用 anyio 线程池拉取, 避免阻塞事件循环.
     """
+    import anyio
+
     await websocket.accept()
     try:
-        for progress in crew_orchestrator.execute_session_streaming(session_id):
+        gen = crew_orchestrator.execute_session_streaming(session_id)
+        while True:
+            try:
+                progress = await anyio.to_thread.run_sync(next, gen)
+            except StopIteration:
+                break
             await websocket.send_json(progress)
             if progress.get("type") in ("complete", "error"):
                 break
@@ -167,9 +176,20 @@ async def execute_session_stream(session_id: str):
 
     返回 text/event-stream, 每条消息格式:
     data: {"type": "task_start", "role": "planner", ...}
+
+    注意: crew_orchestrator.execute_session_streaming 是同步生成器,
+    内部包含同步 LLM 调用 (httpx.Client), 会长时间阻塞.
+    此处用 anyio 线程池逐步拉取, 避免阻塞事件循环导致响应头无法发送.
     """
-    def event_generator():
-        for progress in crew_orchestrator.execute_session_streaming(session_id):
+    import anyio
+
+    async def event_generator():
+        gen = crew_orchestrator.execute_session_streaming(session_id)
+        while True:
+            try:
+                progress = await anyio.to_thread.run_sync(next, gen)
+            except StopIteration:
+                break
             yield f"data: {json.dumps(progress, ensure_ascii=False)}\n\n"
             if progress.get("type") in ("complete", "error"):
                 break

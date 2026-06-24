@@ -3,6 +3,7 @@ Unified configuration using Pydantic Settings.
 Reads from .env files and environment variables.
 """
 
+import os
 
 try:
     from pydantic import BaseSettings
@@ -316,7 +317,7 @@ class Settings(BaseSettings):
     DINGTALK_AGENT_ID: str = ""
 
     model_config = SettingsConfigDict(
-        env_file=".env.production",
+        env_file=".env.production" if os.getenv("ENV", "").lower() in ("production", "prod") else ".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",

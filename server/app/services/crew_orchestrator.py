@@ -364,6 +364,7 @@ class CrewOrchestrator:
             "2. 必须包含 reporter 作为最后一步\n"
             "3. 任务描述要具体, 结合用户需求\n"
             "4. 只返回 JSON 数组, 不要其他内容\n"
+            "5. 执行顺序必须遵循: planner 在前, reporter 在最后\n"
         )
 
         try:
@@ -401,8 +402,11 @@ class CrewOrchestrator:
                             "description": "汇总所有阶段结果,生成最终报告",
                             "expected_output": "完整的最终报告",
                         })
+                    # 强制按标准流水线顺序排序: planner 首位, reporter 末位
+                    order_map = {r: i for i, r in enumerate(agent_registry.get_execution_order())}
+                    normalized.sort(key=lambda x: order_map.get(x["role"], 99))
                     if normalized:
-                        logger.info(f"动态任务分解: {len(normalized)} 个任务")
+                        logger.info(f"动态任务分解: {len(normalized)} 个任务, 顺序: {[t['role'] for t in normalized]}")
                         return normalized
         except Exception as e:
             logger.warning(f"动态任务分解失败, 回退到固定计划: {e}")

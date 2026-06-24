@@ -7,6 +7,7 @@
 """
 
 import random
+import time
 
 import httpx
 from loguru import logger
@@ -18,6 +19,51 @@ SMS_CODE_PREFIX = "sms:code:"
 SMS_RATE_PREFIX = "sms:rate:"
 SMS_CODE_EXPIRE = 300  # 5 minutes
 SMS_RATE_EXPIRE = 3600  # 1 hour
+
+# 进程内内存降级存储 (Redis 不可用时使用, 仅开发/测试模式兜底).
+# 生产环境应使用真实 Redis, 此处仅作 fail-open 备份, 保证开发模式登录闭环可用.
+_memory_store: dict = {}
+
+
+def _store_code(phone: str, code: str, expire: int) -> None:
+    """存储验证码: 优先 Redis, 不可用时降级到进程内内存."""
+    key = f"{SMS_CODE_PREFIX}{phone}"
+    try:
+        set_key(key, code, ex=expire)
+    except Exception:
+        pass
+    # 同步写入内存, 作为 Redis 不可用时的降级备份
+    _memory_store[key] = (code, time.time() + expire)
+
+
+def _get_stored_code(phone: str) -> str | None:
+    """读取验证码: 优先 Redis, 不可用时降级到进程内内存."""
+    key = f"{SMS_CODE_PREFIX}{phone}"
+    try:
+        val = get_key(key)
+        if val:
+            return val
+    except Exception:
+        pass
+    # Redis 不可用, 从内存降级存储读取
+    entry = _memory_store.get(key)
+    if not entry:
+        return None
+    code, expire = entry
+    if time.time() > expire:
+        _memory_store.pop(key, None)
+        return None
+    return code
+
+
+def _delete_stored_code(phone: str) -> None:
+    """删除验证码: 同时清理 Redis 与内存降级存储."""
+    key = f"{SMS_CODE_PREFIX}{phone}"
+    try:
+        delete_key(key)
+    except Exception:
+        pass
+    _memory_store.pop(key, None)
 
 # 多档限速配置: (窗口秒数, 允许次数, 错误标签)
 RATE_TIERS = (
@@ -160,12 +206,12 @@ async def send_sms_code(phone: str) -> dict:
     key = f"{SMS_CODE_PREFIX}{phone}"
 
     # Check if code already sent recently
-    existing = get_key(key)
+    existing = _get_stored_code(phone)
     if existing:
         return {"success": False, "msg": "验证码已发送,请稍候"}
 
-    # Store code in Redis
-    set_key(key, code, ex=SMS_CODE_EXPIRE)
+    # Store code (优先 Redis, 不可用降级到进程内内存)
+    _store_code(phone, code, SMS_CODE_EXPIRE)
 
     # 发送策略: 真实密钥 → 阿里云; 有代理URL → 代理; 否则 → 开发模式(免费)
     ali_key = settings.ALI_SMS_ACCESS_KEY_ID or ""
@@ -181,7 +227,7 @@ async def send_sms_code(phone: str) -> dict:
 
     if not sent:
         # Clean up stored code if send failed
-        delete_key(key)
+        _delete_stored_code(phone)
         return {"success": False, "msg": "短信发送失败,请稍后重试"}
 
     # Only log phone number in production, not the code
@@ -191,11 +237,10 @@ async def send_sms_code(phone: str) -> dict:
 
 def verify_sms_code(phone: str, code: str) -> bool:
     """Verify SMS code. Returns True if valid, False otherwise."""
-    key = f"{SMS_CODE_PREFIX}{phone}"
-    stored = get_key(key)
+    stored = _get_stored_code(phone)
     if not stored:
         return False
     if stored == code:
-        delete_key(key)
+        _delete_stored_code(phone)
         return True
     return False
