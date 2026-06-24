@@ -19,11 +19,12 @@
   - admin_role_dept   角色-部门关联表
   - admin_job         定时任务表 (来自 admin-job)
   - admin_job_log     定时任务日志表 (来自 admin-job)
+  - admin_sms_template 短信模板表 (来自 auth_sms_temp)
 
 兼容: sys_models.py 从本文件导入 Sys* 别名, 保持旧代码向后兼容.
 """
 
-from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String
+from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Text
 
 from app.database import Base
 from app.utils.datetime_helper import utcnow

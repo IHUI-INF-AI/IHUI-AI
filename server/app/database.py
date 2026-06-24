@@ -206,6 +206,7 @@ AI_PROJECT_TABLES = {
     "admin_notice",
     "admin_job",
     "admin_job_log",
+    "admin_sms_template",
     # App content
     "ai_about_us",
     "ai_contact",

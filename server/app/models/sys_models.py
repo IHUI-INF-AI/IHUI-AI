@@ -23,6 +23,7 @@ from app.models.admin_models import (
     AdminRole,
     AdminRoleDept,
     AdminRoleMenu,
+    AdminSmsTemplate,
     AdminUser,
     AdminUserRole,
 )
@@ -46,6 +47,7 @@ SysNotice = AdminNotice
 SysPost = AdminPost
 SysJob = AdminJob
 SysJobLog = AdminJobLog
+SysSmsTemplate = AdminSmsTemplate
 
 __all__ = [
     "SysBaseMixin",
@@ -85,4 +87,5 @@ __all__ = [
     "AdminPost",
     "AdminJob",
     "AdminJobLog",
+    "AdminSmsTemplate",
 ]

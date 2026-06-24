@@ -170,6 +170,7 @@ from app.models.sys_models import (
     SysRole,
     SysRoleDept,
     SysRoleMenu,
+    SysSmsTemplate,
     SysUser,
     SysUserRole,
 )
