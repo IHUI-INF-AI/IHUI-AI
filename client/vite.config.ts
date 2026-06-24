@@ -1301,18 +1301,20 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             }
 
             // 精确路径映射 (端点名不同, 全等匹配)
+            // 注意: finance 子模块 (commission/distribution/withdrawal) 注册 prefix 均为 /finance,
+            // 实际路径为 /api/v1/finance/{endpoint}, 无中间段
             const exactMaps: Record<string, string> = {
               '/api-kou/course': '/api/v1/courses/create',
               '/api-kou/courseVideo': '/api/v1/courses/videos/create',
-              '/api-kou/flow/getStatistics': '/api/v1/finance/commission/summary',
-              '/api-kou/flow/orderList': '/api/v1/finance/commission/orders',
-              '/api-kou/flow/getTraderTeamByCenter': '/api/v1/finance/distribution/team/center',
-              '/api-kou/distribution/getSubordinates': '/api/v1/finance/distribution/subordinates',
-              '/api-kou/distribution/getUserAndChildrenOrders': '/api/v1/finance/distribution/user-and-children-orders',
-              '/api-kou/distribution/getUserCommissionDetail': '/api/v1/finance/distribution/commission-detail',
-              '/api-kou/zhsWithdrawal/withdrawal': '/api/v1/finance/withdrawal/apply',
-              '/api-kou/zhsWithdrawal/getWithdrawal': '/api/v1/finance/withdrawal/list',
-              '/api-kou/zhsWithdrawal/my-records': '/api/v1/finance/withdrawal/list',
+              '/api-kou/flow/getStatistics': '/api/v1/finance/summary',
+              '/api-kou/flow/orderList': '/api/v1/finance/orders',
+              '/api-kou/flow/getTraderTeamByCenter': '/api/v1/finance/team/center',
+              '/api-kou/distribution/getSubordinates': '/api/v1/finance/subordinates',
+              '/api-kou/distribution/getUserAndChildrenOrders': '/api/v1/finance/user-and-children-orders',
+              '/api-kou/distribution/getUserCommissionDetail': '/api/v1/finance/commission-detail',
+              '/api-kou/zhsWithdrawal/withdrawal': '/api/v1/finance/apply',
+              '/api-kou/zhsWithdrawal/getWithdrawal': '/api/v1/finance/list',
+              '/api-kou/zhsWithdrawal/my-records': '/api/v1/finance/list',
               '/api-kou/resource/selectsGoods': '/api/v1/resource/goods',
               '/api-kou/resource/fileUpload': '/api/v1/resource/file/upload',
               '/api-kou/resource/first/share/show': '/api/v1/resource/share',
@@ -1328,15 +1330,13 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             }
 
             // 前缀替换 (端点名相同, 按特异性排序)
+            // 注意: flow/distribution/zhsWithdrawal 已在 exactMaps 精确映射,
+            // 不再用前缀替换 (端点名前后端不同, 替换会导致路径不匹配)
             const prefixMaps: [RegExp, string][] = [
               [/^\/api-kou\/information/, '/api/v1/content/information'],
               [/^\/api-kou\/course\//, '/api/v1/courses/'],
               [/^\/api-kou\/courseVideo\//, '/api/v1/courses/videos/'],
               [/^\/api-kou\/categoryDictionary/, '/api/v1/category-dictionary'],
-              [/^\/api-kou\/flow\//, '/api/v1/finance/commission/'],
-              [/^\/api-kou\/distribution\//, '/api/v1/finance/distribution/'],
-              [/^\/api-kou\/zhsWithdrawal\//, '/api/v1/finance/withdrawal/'],
-              [/^\/api-kou\/zhs-withdrawal-flow\//, '/api/v1/finance/withdrawal/'],
               [/^\/api-kou\/userFeedback/, '/api/v1/feedback'],
               [/^\/api-kou\/resource\//, '/api/v1/resource/'],
               [/^\/api-kou\/kling\//, '/api/v1/chat/kling/'],
