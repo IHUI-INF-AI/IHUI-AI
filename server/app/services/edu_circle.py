@@ -247,7 +247,7 @@ def list_posts(
 ) -> Tuple[List[EduCirclePost], int]:
     filters = [EduCirclePost.circle_id == circle_id]
     if order_by == "hot":
-        order = desc(EduCirclePost.like_count + EduCirclePost.comment_count * 2)
+        order = desc(EduCirclePost.like_num + EduCirclePost.comment_num * 2)
     else:
         order = desc(EduCirclePost.created_at)
     items, total = paginate(

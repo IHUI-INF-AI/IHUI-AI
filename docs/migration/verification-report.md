@@ -1,6 +1,11 @@
 # verification-report · 阶段验收记录
 
-> **状态**:阶段 A + 阶段 B + 阶段 C 完成(2026-06-24)
+> **状态**:阶段 A + B + C + D + E 全部完成(2026-06-24)
+> **E 阶段真实验证**:
+>   - 8 个核心 edu endpoint curl 200 OK(ask/circle/live/learn/exam/resource/notification/member)
+>   - Vite dev server 200 OK(/edu + 4 个子路由)
+>   - Playwright e2e 24/24 全部 PASS(7.8s)
+>   - build:web 21s + build:h5 20s(5 端 build 完整)
 > **A 阶段**:✅ PASS(commit 229a07a)
 > **B 阶段(B14 自动化)**:✅ PASS(commit bef5fb8)
 >   - 39 个 edu ORM 模型

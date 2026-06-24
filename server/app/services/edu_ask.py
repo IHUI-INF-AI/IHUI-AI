@@ -139,7 +139,7 @@ def list_questions(
         )
 
     if order_by == "hot":
-        order = desc(EduAskQuestion.view_count + EduAskQuestion.answer_count * 5)
+        order = desc(EduAskQuestion.watch_num + EduAskQuestion.answer_num * 5)
     elif order_by == "unresolved":
         filters.append(EduAskQuestion.is_resolved == False)
         order = desc(EduAskQuestion.created_at)
@@ -296,7 +296,7 @@ def get_user_stats(db: Session, user_id: int) -> dict:
         )
     ).scalar() or 0
     total_view = db.execute(
-        select(func.coalesce(func.sum(EduAskQuestion.view_count), 0)).where(
+        select(func.coalesce(func.sum(EduAskQuestion.watch_num), 0)).where(
             EduAskQuestion.user_id == user_id
         )
     ).scalar() or 0
@@ -337,9 +337,15 @@ def get_hot_questions(db: Session, limit: int = 10) -> List[EduAskQuestion]:
     """Get hottest questions (by view + answer*5).
 
     Java source: StatisticsService.hotQuestions(Integer limit)
+    Phase E: returns ORM objects with Phase A fields injected via
+    inject_phase_a_fields (in edu_base.paginate wrapping).
     """
-    return list(db.execute(
+    from app.services.edu_base import inject_phase_a_fields
+    items = db.execute(
         select(EduAskQuestion)
-        .order_by(desc(EduAskQuestion.view_count + EduAskQuestion.answer_count * 5))
+        .order_by(desc(EduAskQuestion.watch_num + EduAskQuestion.answer_num * 5))
         .limit(limit)
-    ).scalars().all())
+    ).scalars().all()
+    for item in items:
+        inject_phase_a_fields(item)
+    return items

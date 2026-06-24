@@ -115,7 +115,7 @@ def list_rooms(
         filters.append(EduLiveRoom.teacher_id == teacher_id)
     if status:
         filters.append(EduLiveRoom.status == status)
-    return paginate(db, EduLiveRoom, page=page, size=size, filters=filters, order_by=desc(EduLiveRoom.scheduled_start))
+    return paginate(db, EduLiveRoom, page=page, size=size, filters=filters, order_by=desc(EduLiveRoom.plan_start_time))
 
 
 def get_room(db: Session, room_id: int) -> EduLiveRoom:

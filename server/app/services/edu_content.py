@@ -78,7 +78,7 @@ def list_articles(
         kw = f"%{keyword}%"
         filters.append(or_(EduContentArticle.title.ilike(kw), EduContentArticle.summary.ilike(kw), EduContentArticle.content.ilike(kw)))
     if order_by == "hot":
-        order = desc(EduContentArticle.view_count + EduContentArticle.like_count * 3)
+        order = desc(EduContentArticle.watch_num + EduContentArticle.like_num * 3)
     else:
         order = desc(EduContentArticle.created_at)
     return paginate(db, EduContentArticle, page=page, size=size, filters=filters, order_by=order)

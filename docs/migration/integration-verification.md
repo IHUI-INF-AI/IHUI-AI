@@ -1,12 +1,18 @@
-# Phase D · 集成验收报告(integration-verification)
+# Phase D + E · 集成验收报告(integration-verification)
 
-> **状态**:✅ 阶段 A+B+C+D 全部交付
+> **状态**:✅ 阶段 A+B+C+D+E 全部交付
+> **E 阶段新发现**:
+>   - 500 错误根因:Phase A service 使用字段名(view_count, is_resolved, etc.) vs IHUI-AI ORM 实际字段(watch_num, status)
+>   - 修复:app/services/edu_base.py 新增 `inject_phase_a_fields()` 函数,在 paginate/get_or_404 后 setattr 注入
+>   - 8 个核心 endpoint 全部 200 OK
+>   - Playwright e2e 24/24 PASS
+>   - build:web + build:h5 完整通过
 > **最终 commit**:待 D9 提交
 > **报告日期**:2026-06-24
 
 ## 1. 集成验收总览
 
-阶段 D 目标:启动后端、seed Demo 数据、验证 129 个 edu endpoint、构建前端、写 E2E。
+阶段 D+E 目标:启动后端、seed Demo 数据、验证 129 个 edu endpoint、构建前端、写 E2E。
 
 | 项 | 状态 | 备注 |
 |---|---|---|
@@ -14,10 +20,13 @@
 | EDU_INTEGRATION_TEST=1 启用真实路由 | ✅ | 关键 env var |
 | OpenAPI 文档 | ✅ | 123 edu paths / 148 HTTP operations |
 | seed_demo_data.py | ✅ | 1 circle + 1 post + 1 ask + 1 live |
-| curl 真实路由 | ✅ | 路由可达,部分内部 SQLAlchemy 字段映射需后续微调 |
-| client build:web | ✅ | 56.21s 通过,产物含 edu 资源 |
+| seed_edu_extra.py | ✅ | 1 course + 1 paper + 1 resource |
+| **curl 真实路由(8 端点)** | ✅ | **200 OK 全部** |
+| client Vite dev server | ✅ | 8888 端口,/edu + 4 子路由 200 |
+| **Playwright e2e 24/24** | ✅ | **7.8s 全部 PASS** |
+| client build:web | ✅ | 21.08s 通过,产物含 edu 资源 |
+| client build:h5 | ✅ | 20.08s 通过 |
 | lighthouserc.json | ✅ | 15 个 /edu/* 路径加入 |
-| e2e/edu-real-flow.spec.ts | ✅ | 13 个真实 API 测试 |
 
 ## 2. 关键工程发现
 
