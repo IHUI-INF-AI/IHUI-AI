@@ -112,12 +112,13 @@ const loadData = async () => {
   }
 }
 
-const renderChart = () => {
+const renderChart = async () => {
   if (!chartRef.value || !data.value?.trends || data.value.trends.length === 0) {
     return
   }
 
   if (!chartInstance) {
+    const echarts = await loadEcharts()
     chartInstance = echarts.init(chartRef.value)
   }
 
