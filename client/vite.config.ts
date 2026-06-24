@@ -1783,14 +1783,22 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         // P22-联调: /prod-api/login/pwd, /prod-api/auth, /prod-api/login/wechat 三个死代理已删除
         // (前端实际走 /login/pwd, /auth, /login/wechat 代理到 Python 后端)
         // 2026-06-19: 切到 Python 后端 (app/api/mock/__init__.py 已有 /prod-api/* 镜像路由)
+        // 2026-06-24: /prod-api/ai/* (BASE_URL2) 是 Java 时代遗留, 后端已迁移到 /api/v1/*
+        //   rewrite /prod-api/ai/* → /api/v1/*, 让 user/info, remote/agent/* 等到达真实路由
         '/prod-api': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           secure: false,
-          rewrite: (path: string) => path,
+          rewrite: (path: string) => {
+            // /prod-api/ai/* → /api/v1/* (BASE_URL2='/prod-api/ai' 遗留映射)
+            if (path.startsWith('/prod-api/ai/')) {
+              return path.replace(/^\/prod-api\/ai/, '/api/v1')
+            }
+            return path
+          },
           configure: (proxy: any, _options: any) => {
             proxy.on('error', (err: any, _req: any, _res: any) => {
-              console.log('prod-api ????:', err)
+              console.log('prod-api proxy error:', err)
             })
           },
         },
