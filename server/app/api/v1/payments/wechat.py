@@ -227,6 +227,27 @@ async def wx_pay_notify(
             # Get order info for commission processing
             order = get_order(out_trade_no)
             if order and order["status"] != 1:
+                # Amount verification: prevent forged low-amount payment
+                callback_amount = None
+                amount_obj = decrypted.get("amount")
+                if isinstance(amount_obj, dict):
+                    callback_amount = amount_obj.get("total")
+                if callback_amount is None:
+                    logger.error(
+                        f"WeChat notify missing amount: {out_trade_no}, "
+                        f"decrypted keys={list(decrypted.keys())}"
+                    )
+                    mark_payment_failed(out_trade_no, transaction_id, "Missing callback amount")
+                    return {"code": "FAIL", "message": "Missing amount"}
+
+                if int(callback_amount) != int(order["amount"]):
+                    logger.error(
+                        f"WeChat notify amount mismatch: {out_trade_no}, "
+                        f"callback={callback_amount}, order={order['amount']}"
+                    )
+                    mark_payment_failed(out_trade_no, transaction_id, "Amount mismatch")
+                    return {"code": "FAIL", "message": "Amount mismatch"}
+
                 update_order_status(out_trade_no, status=1, payment_status=1)
                 logger.info(f"Order paid: {out_trade_no}")
 
