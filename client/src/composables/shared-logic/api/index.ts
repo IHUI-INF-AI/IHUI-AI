@@ -47,9 +47,10 @@ export async function request<T = any>(options: RequestOptions): Promise<ApiResp
         timeout,
         success: (res: { data: unknown }) => {
           const result = res.data as ApiResponse<T>
-          if (result.code === 0 || result.code === 200) {
+          const codeNum = typeof result.code === 'string' ? parseInt(result.code, 10) : result.code
+          if (codeNum === 0 || codeNum === 200) {
             resolve(result)
-          } else if (result.code === 401) {
+          } else if (codeNum === 401) {
             handleUnauthorized()
             reject(new Error('Unauthorized'))
           } else {

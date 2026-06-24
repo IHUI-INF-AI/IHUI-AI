@@ -87,6 +87,7 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       title: 'routes.agents',
       description: 'seo.agents.desc',
       keywords: 'seo.agents.keywords',
+      requiresAuth: false, // 公开页面:未登录可访问,API 请求无 token 时静默拒绝而非跳转 /login
     },
   },
   {

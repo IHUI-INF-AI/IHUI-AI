@@ -836,8 +836,9 @@ function setupResponseInterceptor() {
             let newToken: string | null = null
             let newRefreshToken: string | null = null
 
-            // 先解析 data 字段
-            if (responseData?.code === 200 && responseData?.data) {
+            // 先解析 data 字段 (兼容后端 code="0"/"200" 字符串)
+            const refreshCodeNum = typeof responseData?.code === 'string' ? parseInt(responseData.code, 10) : responseData?.code
+            if ((refreshCodeNum === 200 || refreshCodeNum === 0) && responseData?.data) {
               if (typeof responseData.data === 'string') {
                 newToken = responseData.data
               } else if (typeof responseData.data === 'object' && responseData.data !== null) {

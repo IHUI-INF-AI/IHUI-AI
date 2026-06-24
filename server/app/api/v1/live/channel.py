@@ -64,7 +64,7 @@ async def list_channels(
 ):
     with get_session() as db:
         try:
-            q = db.query(LiveChannel).filter(not LiveChannel.deleted)
+            q = db.query(LiveChannel).filter(LiveChannel.deleted == False)
             if status is not None:
                 q = q.filter(LiveChannel.status == status)
             if category_id:
@@ -90,7 +90,7 @@ async def list_channels(
 async def get_channel(cid: int):
     with get_session() as db:
         try:
-            c = db.query(LiveChannel).filter(LiveChannel.id == cid, not LiveChannel.deleted).first()
+            c = db.query(LiveChannel).filter(LiveChannel.id == cid, LiveChannel.deleted == False).first()
             if not c:
                 return error("直播不存在", "404")
             c.view_num = (c.view_num or 0) + 1
@@ -304,4 +304,54 @@ async def category_list():
             return success([{"id": c.id, "name": c.name, "icon": c.icon, "sort_order": c.sort_order} for c in items])
         except Exception as e:
             logger.error(f"live category list error: {e}")
+            return error(str(e))
+
+
+@router.get("/channel/list/by-ids", summary="批量获取频道")
+async def list_channels_by_ids(ids: str = Query(..., description="逗号分隔的频道ID")):
+    with get_session() as db:
+        try:
+            id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
+            items = db.query(LiveChannel).filter(LiveChannel.id.in_(id_list), LiveChannel.deleted == False).all()
+            return success([_c_to_dict(c) for c in items], total=len(items))
+        except Exception as e:
+            logger.error(f"live channel list by ids error: {e}")
+            return error(str(e))
+
+
+@router.get("/channel/stream-info/{cid}", summary="获取频道流信息")
+async def get_stream_info(cid: int):
+    with get_session() as db:
+        try:
+            c = db.query(LiveChannel).filter(LiveChannel.id == cid, LiveChannel.deleted == False).first()
+            if not c:
+                return error("直播不存在", "404")
+            return success({
+                "id": c.id,
+                "push_url": c.push_url,
+                "pull_url": c.pull_url,
+                "play_url_hls": c.play_url_hls,
+                "play_url_rtmp": c.play_url_rtmp,
+                "play_url_flv": c.play_url_flv,
+                "status": c.status,
+                "is_record": c.is_record,
+                "record_url": c.record_url,
+            })
+        except Exception as e:
+            logger.error(f"live stream info error: {e}")
+            return error(str(e))
+
+
+@router.get("/channel/public", summary="公开获取频道信息")
+async def public_get_channel(cid: int = Query(..., description="频道ID")):
+    with get_session() as db:
+        try:
+            c = db.query(LiveChannel).filter(LiveChannel.id == cid, LiveChannel.deleted == False).first()
+            if not c:
+                return error("直播不存在", "404")
+            data = _c_to_dict(c)
+            data.pop("push_url", None)
+            return success(data)
+        except Exception as e:
+            logger.error(f"live public get error: {e}")
             return error(str(e))

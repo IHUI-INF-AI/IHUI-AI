@@ -220,6 +220,39 @@ AI_PROJECT_TABLES = {
     # VIP system
     "vip_level",
     "user_vip",
+    # Chat room (migrated from coze_zhs_py chat_room_socket)
+    "zhs_station_room",
+    "zhs_station_user",
+    "zhs_station_letter",
+    # Live (migrated from edu server)
+    "t_channel_lecturer",
+    "t_tencent_cloud_live_stream",
+    # Learn (migrated from edu server ihui-ai-edu-learn-service)
+    "t_lesson",
+    "t_lesson_chapter",
+    "t_lesson_chapter_section",
+    "t_lesson_category_relation",
+    "t_sign_up",
+    "t_record",
+    "t_record_log",
+    "lesson_task",
+    "t_rate",
+    "t_topic",
+    "t_topic_lesson",
+    "t_topic_topic_category_relation",
+    "t_topic_category",
+    "t_topic_category_relation",
+    "t_category",
+    "t_category_relation",
+    "homework",
+    "t_homework_record",
+    "t_certificate",
+    "t_certificate_template",
+    "t_certificate_serial_number",
+    "t_learn_map",
+    "t_learn_map_topic",
+    "lesson_access",
+    "t_exam_paper_record",
 }
 
 CENTER_TABLES = {

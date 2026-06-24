@@ -11,7 +11,7 @@
 import { test, expect } from '@playwright/test'
 
 const BASE = 'http://127.0.0.1:8888'
-const ROOT = 'g:/1/client'
+const ROOT = process.cwd()
 
 test.describe('P6-8 安全 HTTP 响应头', () => {
   test('首页携带 Content-Security-Policy', async ({ request }) => {

@@ -97,8 +97,9 @@ export function useBi() {
     loading.value = true
     error.value = null
     try {
-      const res = await http.get('/api/v1/bi/metrics') as unknown as { code?: number; message?: string; data?: BiMetric[] }
-      if (res?.code === 0) metrics.value = res.data ?? []
+      const res = await http.get('/api/v1/bi/metrics') as unknown as { code?: number | string; message?: string; data?: BiMetric[] }
+      const codeNum = typeof res?.code === 'string' ? parseInt(res.code, 10) : res?.code
+      if (codeNum === 0) metrics.value = res.data ?? []
     } catch (e: unknown) {
       error.value = (e as { message?: string })?.message || '加载指标失败'
     } finally {
@@ -110,8 +111,9 @@ export function useBi() {
     loading.value = true
     error.value = null
     try {
-      const res = await http.get('/api/v1/bi/dimensions') as unknown as { code?: number; message?: string; data?: BiDimension[] }
-      if (res?.code === 0) dimensions.value = res.data ?? []
+      const res = await http.get('/api/v1/bi/dimensions') as unknown as { code?: number | string; message?: string; data?: BiDimension[] }
+      const codeNum = typeof res?.code === 'string' ? parseInt(res.code, 10) : res?.code
+      if (codeNum === 0) dimensions.value = res.data ?? []
     } catch (e: unknown) {
       error.value = (e as { message?: string })?.message || '加载维度失败'
     } finally {
@@ -123,8 +125,9 @@ export function useBi() {
     loading.value = true
     error.value = null
     try {
-      const res = await http.post('/api/v1/bi/report', req) as unknown as { code?: number; message?: string; data?: BiReportResult }
-      if (res?.code === 0) {
+      const res = await http.post('/api/v1/bi/report', req) as unknown as { code?: number | string; message?: string; data?: BiReportResult }
+      const codeNum = typeof res?.code === 'string' ? parseInt(res.code, 10) : res?.code
+      if (codeNum === 0) {
         lastReport.value = res.data ?? null
         return res.data as BiReportResult
       }
@@ -149,8 +152,9 @@ export function useBi() {
     try {
       const res = await http.get('/api/v1/bi/drilldown', {
         params: { metric, dimension, value, days },
-      }) as unknown as { code?: number; message?: string; data?: BiDrilldownResult }
-      if (res?.code === 0) {
+      }) as unknown as { code?: number | string; message?: string; data?: BiDrilldownResult }
+      const codeNum = typeof res?.code === 'string' ? parseInt(res.code, 10) : res?.code
+      if (codeNum === 0) {
         lastDrilldown.value = res.data ?? null
         return res.data as BiDrilldownResult
       }
@@ -170,8 +174,9 @@ export function useBi() {
     try {
       const res = await http.get('/api/v1/bi/anomalies', {
         params: { metric, days, z_threshold: zThreshold },
-      }) as unknown as { code?: number; message?: string; data?: { anomalies: BiAnomaly[]; metric: string; days: number; z_threshold: number; count: number } }
-      if (res?.code === 0 && res.data) {
+      }) as unknown as { code?: number | string; message?: string; data?: { anomalies: BiAnomaly[]; metric: string; days: number; z_threshold: number; count: number } }
+      const codeNum = typeof res?.code === 'string' ? parseInt(res.code, 10) : res?.code
+      if (codeNum === 0 && res.data) {
         anomalies.value = res.data.anomalies
         anomalyMeta.value = {
           metric: res.data.metric,

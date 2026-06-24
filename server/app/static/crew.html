@@ -460,6 +460,19 @@ const AGENT_ICONS = {
 let currentSessionId = null;
 let agentRoles = [];
 let pickedFile = null;
+// 任务卡片索引: role -> 卡片序号, 用于更新进度区卡片状态
+let taskCardIndex = {};
+
+// XSS 防护: 转义 HTML 特殊字符
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // ===== 标签页切换 =====
 function switchTab(name, evt) {
@@ -541,7 +554,13 @@ async function loadModels() {
     select.innerHTML = models.map(m =>
       `<option value="${m.model_id}">${m.name || m.model_id}</option>`
     ).join('');
-    if (models.length > 0) select.value = models[0].model_id;
+    // 优先选中免费模型 (flash 或标记为免费的)
+    const freeModel = models.find(m =>
+      m.is_gratis === 1 || m.is_gratis === '1' ||
+      (m.model_id || '').toLowerCase().includes('flash') ||
+      (m.name || '').includes('免费')
+    );
+    select.value = (freeModel || models[0]).model_id;
   } catch (e) {
     console.error('加载模型失败:', e);
     document.getElementById('modelSelect').innerHTML = '<option value="">加载失败</option>';
@@ -560,13 +579,13 @@ async function loadSessions() {
       return;
     }
     container.innerHTML = sessions.map(s => `
-      <div class="session-item" onclick="viewSession('${s.id}')">
+      <div class="session-item" onclick="viewSession('${escapeHtml(s.id)}')">
         <div class="session-info">
           <div>
-            <div class="session-title">${s.title || '未命名会话'}</div>
-            <div class="session-time">${s.created_at || ''} · ${s.status}</div>
+            <div class="session-title">${escapeHtml(s.title || '未命名会话')}</div>
+            <div class="session-time">${escapeHtml(s.created_at || '')} · ${escapeHtml(s.status)}</div>
           </div>
-          <span class="status-badge status-${s.status}">${s.status}</span>
+          <span class="status-badge status-${escapeHtml(s.status)}">${escapeHtml(s.status)}</span>
         </div>
       </div>
     `).join('');
@@ -584,7 +603,7 @@ function log(type, content) {
   }[type] || type;
   const line = document.createElement('div');
   line.className = 'log-line';
-  line.innerHTML = `<span class="ts">[${ts}]</span> <span class="type type-${type}">${typeLabel}:</span> ${content.substring(0, 200)}`;
+  line.innerHTML = `<span class="ts">[${ts}]</span> <span class="type type-${escapeHtml(type)}">${typeLabel}:</span> ${escapeHtml(content.substring(0, 200))}`;
   area.appendChild(line);
   area.scrollTop = area.scrollHeight;
 }
@@ -618,6 +637,33 @@ function updateProgress(current, total) {
   document.getElementById('progressFill').style.width = pct + '%';
   document.getElementById('progressPercent').textContent = pct + '%';
   document.getElementById('progressText').textContent = `步骤 ${current}/${total}`;
+}
+
+// 更新进度区任务卡片状态 (与左侧角色列表区分)
+function updateTaskCardStatus(role, status, content) {
+  const idx = taskCardIndex[role];
+  if (idx === undefined) return;
+  const statusEl = document.getElementById('card-status-' + idx);
+  const cardEl = document.getElementById('card-' + idx);
+  const contentEl = document.getElementById('card-content-' + idx);
+  if (!statusEl) return;
+  const statusMap = {
+    pending: { cls: 'status-pending', text: '待命' },
+    running: { cls: 'status-running', text: '执行中' },
+    completed: { cls: 'status-completed', text: '完成' },
+    failed: { cls: 'status-failed', text: '失败' },
+  };
+  const s = statusMap[status] || statusMap.pending;
+  statusEl.className = 'status-badge ' + s.cls;
+  statusEl.textContent = s.text;
+  cardEl.className = 'agent-card';
+  if (status === 'running') cardEl.classList.add('active');
+  else if (status === 'completed') cardEl.classList.add('done');
+  else if (status === 'failed') cardEl.classList.add('error');
+  if (content) {
+    contentEl.style.display = 'block';
+    contentEl.textContent = content;
+  }
 }
 
 // ===== 执行协作 =====
@@ -725,9 +771,11 @@ function handleEvent(event) {
     case 'plan':
       log('plan', `任务分解完成, 共 ${tasks?.length || 0} 个步骤`);
       if (tasks) {
+        taskCardIndex = {}; // 重置映射
         const container = document.getElementById('agentCards');
         container.innerHTML = tasks.map((t, i) => {
           const info = AGENT_ICONS[t.role] || { icon: '?', cls: '', name: t.role };
+          taskCardIndex[t.role] = i; // role -> 卡片序号
           return `
             <div class="agent-card" id="card-${i}">
               <div class="agent-header">
@@ -738,7 +786,7 @@ function handleEvent(event) {
                 </div>
                 <span class="status-badge status-pending" id="card-status-${i}">待命</span>
               </div>
-              <div class="agent-desc">${(t.description || '').substring(0, 100)}</div>
+              <div class="agent-desc">${escapeHtml((t.description || '').substring(0, 100))}</div>
               <div class="agent-content" id="card-content-${i}" style="display:none;"></div>
             </div>
           `;
@@ -748,14 +796,17 @@ function handleEvent(event) {
     case 'task_start':
       log('task_start', `[${role}] ${content}`);
       updateAgentStatus(role, 'running');
+      updateTaskCardStatus(role, 'running');
       break;
     case 'task_complete':
       log('task_complete', `[${role}] 完成`);
       updateAgentStatus(role, 'completed', content);
+      updateTaskCardStatus(role, 'completed', content);
       break;
     case 'task_error':
       log('task_error', `[${role}] ${content}`);
       updateAgentStatus(role, 'failed', content);
+      updateTaskCardStatus(role, 'failed', content);
       break;
     case 'complete':
       break;
@@ -803,15 +854,15 @@ async function viewSession(sessionId) {
     detailEl.innerHTML = `
       <div class="input-group">
         <label>会话标题</label>
-        <div style="padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">${session.title || '未命名'}</div>
+        <div style="padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">${escapeHtml(session.title || '未命名')}</div>
       </div>
       <div class="input-group">
         <label>输入</label>
-        <div class="agent-content">${session.input_message || ''}</div>
+        <div class="agent-content">${escapeHtml(session.input_message || '')}</div>
       </div>
       <div class="input-group">
         <label>最终输出</label>
-        <div class="agent-content">${session.output_message || '(无输出)'}</div>
+        <div class="agent-content">${escapeHtml(session.output_message || '(无输出)')}</div>
       </div>
       <div class="input-group">
         <label>任务步骤 (${tasks.length})</label>
@@ -825,11 +876,11 @@ async function viewSession(sessionId) {
                   <span>${info.name}</span>
                   <span style="color:var(--text-muted);font-size:12px;">步骤 ${i+1}</span>
                 </div>
-                <span class="status-badge status-${t.status}">${t.status}</span>
+                <span class="status-badge status-${escapeHtml(t.status)}">${escapeHtml(t.status)}</span>
               </div>
-              <div class="agent-desc">${(t.description || '').substring(0, 120)}</div>
-              ${t.output_data ? `<div class="agent-content">${(t.output_data || '').substring(0, 400)}</div>` : ''}
-              ${t.error_message ? `<div class="agent-content" style="color:var(--error);">${t.error_message}</div>` : ''}
+              <div class="agent-desc">${escapeHtml((t.description || '').substring(0, 120))}</div>
+              ${t.output_data ? `<div class="agent-content">${escapeHtml((t.output_data || '').substring(0, 400))}</div>` : ''}
+              ${t.error_message ? `<div class="agent-content" style="color:var(--error);">${escapeHtml(t.error_message)}</div>` : ''}
             </div>
           `;
         }).join('')}
@@ -838,7 +889,7 @@ async function viewSession(sessionId) {
         <label>消息日志 (${msgs.length})</label>
         <div class="log-area" style="max-height:240px;">
           ${msgs.length === 0 ? '<div class="log-line"><span class="ts">[系统]</span> 无消息记录</div>' :
-            msgs.map(m => `<div class="log-line"><span class="ts">[${m.from_role || 'sys'}]</span> ${(m.content || '').substring(0, 150)}</div>`).join('')}
+            msgs.map(m => `<div class="log-line"><span class="ts">[${escapeHtml(m.from_role || 'sys')}]</span> ${escapeHtml((m.content || '').substring(0, 150))}</div>`).join('')}
         </div>
       </div>
     `;
@@ -935,8 +986,8 @@ async function kbSearch() {
     }
     container.innerHTML = results.map(r => `
       <div class="search-result">
-        <span class="score">分数: ${r.score.toFixed(4)}</span>
-        <div class="content">${r.content}</div>
+        <span class="score">分数: ${escapeHtml(r.score.toFixed(4))}</span>
+        <div class="content">${escapeHtml(r.content)}</div>
       </div>
     `).join('');
   } catch (e) {
@@ -967,11 +1018,11 @@ async function loadDocs() {
         <tbody>
           ${docs.map(d => `
             <tr>
-              <td>${d.id}</td>
-              <td>${d.title}</td>
-              <td>${d.chunk_count}</td>
-              <td>${(d.created_at || '').substring(0, 19)}</td>
-              <td><button class="btn btn-danger btn-sm" onclick="deleteDoc(${d.id})">删除</button></td>
+              <td>${escapeHtml(d.id)}</td>
+              <td>${escapeHtml(d.title)}</td>
+              <td>${escapeHtml(d.chunk_count)}</td>
+              <td>${escapeHtml((d.created_at || '').substring(0, 19))}</td>
+              <td><button class="btn btn-danger btn-sm" onclick="deleteDoc(${escapeHtml(d.id)})">删除</button></td>
             </tr>
           `).join('')}
         </tbody>

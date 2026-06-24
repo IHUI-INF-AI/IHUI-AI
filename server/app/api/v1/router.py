@@ -53,6 +53,13 @@ from app.api.v1.auth.user_sk import router as user_sk_router
 from app.api.v1.auth.username_login import router as username_login_router
 from app.api.v1.auth.wechat import router as wechat_router
 
+# --- SSO & JWT KeyPair (迁移自 edu Java 微服务) ---
+from app.api.v1.auth.keypair import router as keypair_router
+from app.api.v1.auth.sso import router as sso_router
+
+# --- Orders (通用订单管理, 迁移自 edu Java 微服务) ---
+from app.api.v1.orders import router as orders_router
+
 # --- Bots ---
 from app.api.v1.bots.bots import router as bots_router
 from app.api.v1.bots.chat import router as bots_chat_router
@@ -585,6 +592,14 @@ except Exception:
     test_router = None
     HAS_TEST = False
 
+# --- Learn 学习服务 (迁移自 edu server ihui-ai-edu-learn-service, 16模块/127端点) ---
+try:
+    from app.api.v1.learn import router as learn_router
+    HAS_LEARN = True
+except Exception:
+    learn_router = None
+    HAS_LEARN = False
+
 
 # Create main API router
 api_router = APIRouter()
@@ -603,6 +618,13 @@ api_router.include_router(wechat_router, tags=["WeChat Auth"])
 api_router.include_router(bindings_router, tags=["Account Bindings"])
 api_router.include_router(username_login_router, prefix="", tags=["Username Login"])
 api_router.include_router(user_sk_router, prefix="/auth", tags=["User SK"])
+
+# SSO & JWT KeyPair (迁移自 edu Java 微服务, 自带 /sso 和 /jwt 前缀)
+api_router.include_router(keypair_router, tags=["JWT KeyPair"])
+api_router.include_router(sso_router, tags=["SSO"])
+
+# Orders (通用订单管理, 自带 /order 前缀)
+api_router.include_router(orders_router, tags=["Order"])
 
 # User
 api_router.include_router(users_router, prefix="/user", tags=["Users"])
@@ -664,7 +686,7 @@ api_router.include_router(alipay_fund_router, prefix="/payments", tags=["Alipay 
 # Finance
 api_router.include_router(commission_router, prefix="/finance", tags=["Finance: Commission"])
 api_router.include_router(margin_router, prefix="/finance", tags=["Finance: Margin"])
-api_router.include_router(withdrawal_router, prefix="/finance", tags=["Finance: Withdrawal"])
+api_router.include_router(withdrawal_router, prefix="/finance/withdrawal", tags=["Finance: Withdrawal"])
 api_router.include_router(distribution_router, prefix="/finance", tags=["Finance: Distribution"])
 api_router.include_router(finance_fund_router, prefix="/finance", tags=["Finance: Fund"])
 
@@ -929,6 +951,10 @@ if service_catalog_router:
 # Test Page
 if test_router:
     api_router.include_router(test_router, tags=["Test"])
+
+# Learn 学习服务 (迁移自 edu server ihui-ai-edu-learn-service)
+if learn_router:
+    api_router.include_router(learn_router, tags=["Learn"])
 
 # --- Migrated from coze_zhs_py ---
 # Agent category sync (coze_zhs_py/api/category_sync_api.py)

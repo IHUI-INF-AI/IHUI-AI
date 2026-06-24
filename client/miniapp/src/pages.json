@@ -154,6 +154,13 @@
           "navigationBarTitleText": "发布作品",
           "navigationStyle": "custom"
         }
+      },
+      {
+        "path": "model-plaza/index",
+        "style": {
+          "navigationBarTitleText": "模型广场",
+          "navigationStyle": "custom"
+        }
       }
     ]
   },

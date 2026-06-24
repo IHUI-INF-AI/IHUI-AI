@@ -92,9 +92,11 @@ export function normalizeApiResponse<T>(response: any): { data: T | null; error:
     return { data: null, error: 'Invalid response format' }
   }
 
-  const res = response as { code?: number; data?: T; message?: string; success?: boolean }
+  const res = response as { code?: number | string; data?: T; message?: string; success?: boolean }
 
-  if (res.success === true || res.code === 200) {
+  // 转换 code 为数字 (后端可能返回字符串 "0"/"200")
+  const codeNum = typeof res.code === 'string' ? parseInt(res.code, 10) : res.code
+  if (res.success === true || codeNum === 200 || codeNum === 0) {
     return { data: res.data as T, error: null }
   }
 

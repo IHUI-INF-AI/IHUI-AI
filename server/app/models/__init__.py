@@ -49,6 +49,7 @@ from app.models.behavior_models import (
     BehaviorSensitive,
     BehaviorShare,
 )
+from app.models.chat_room_models import ChatLetter, ChatRoom, ChatRoomUser
 from app.models.circle_models import (
     Circle,
     CircleCategory,
@@ -62,6 +63,33 @@ from app.models.context_models import UserAgentAudio, UserAgentContext, UserAgen
 from app.models.course_models import Course, CourseVideo, EducationalCourse, EducationPlatform
 from app.models.crew_models import CrewMessage, CrewSession, CrewTask
 from app.models.knowledge_models import KnowledgeChunk, KnowledgeDoc
+from app.models.learn_models import (
+    Category,
+    CategoryRelation,
+    Certificate,
+    CertificateSerialNumber,
+    CertificateTemplate,
+    ExamPaperRecord,
+    Homework,
+    HomeworkRecord,
+    LearnMap,
+    LearnMapTopic,
+    Lesson,
+    LessonAccess,
+    LessonCategoryRelation,
+    LessonChapter,
+    LessonChapterSection,
+    LessonTask,
+    Rate,
+    Record,
+    RecordLog,
+    SignUp,
+    Topic,
+    TopicCategory,
+    TopicCategoryRelation,
+    TopicLesson,
+    TopicTopicCategoryRelation,
+)
 from app.models.education_ext_models import (
     ZhsCourseAudit,
     ZhsCoursePay,
@@ -90,11 +118,13 @@ from app.models.java_missing_models import (
     WxPayNotification,
 )
 from app.models.live_models import (
+    ChannelLecturer,
     LiveChannel,
     LiveChannelCategory,
     LiveComment,
     LiveGift,
     LiveSubscribe,
+    TencentCloudLiveStream,
 )
 from app.models.message_models import (
     Message,

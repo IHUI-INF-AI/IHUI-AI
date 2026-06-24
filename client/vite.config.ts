@@ -1770,7 +1770,9 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           target: BACKEND_TARGET, // Python 后端
           changeOrigin: true,
           secure: false,
-          rewrite: (path: string) => path, // 路径不重写, 原样转发
+          // 2026-06-24: /prod-api/ai/* (BASE_URL2) 是 Java 时代遗留, 后端已迁移到 /api/v1/*
+          // rewrite /prod-api/ai/* → /api/v1/*, 让 user/info, remote/agent/* 等到达真实路由
+          rewrite: (path: string) => path.replace(/^\/prod-api\/ai/, '/api/v1'),
           configure: (proxy: any, _options: any) => {
             proxy.on('error', (err: any, _req: any, _res: any) => {
               console.log('prod-api/ai 代理错误:', err)

@@ -22,16 +22,18 @@ export function normalizeApiResponse<T = unknown>(response: unknown): ApiRespons
     'code' in response &&
     'msg' in response
   ) {
-    const resp = response as { code?: number; msg?: string; data?: T; timestamp?: number }
-    // ⚠️ 重要：如果 code 是 401，说明需要 token，不应该返回 success
-    const code = resp.code ?? 200
-    // 兼容部分接口使用 code=10000 表示成功；同时仍需排除 401
-    const isSuccess = (code === 200 || code === 0 || code === 10000) && (code as number) !== 401
+    const resp = response as { code?: number | string; msg?: string; data?: T; timestamp?: number }
+    // 转换 code 为数字 (后端可能返回字符串 "0"/"200"/"400" 等)
+    const rawCode = resp.code ?? 200
+    const code: number = typeof rawCode === 'string' ? parseInt(rawCode, 10) : rawCode
+    // 兼容后端 code="0" (成功) / code=200 / code=10000 表示成功; 排除 401
+    const isSuccess = code === 200 || code === 0 || code === 10000
+    const isUnauthorized = code === 401
     return {
       code: code,
       message: resp.msg || '',
       data: resp.data as T,
-      success: isSuccess,
+      success: isSuccess && !isUnauthorized,
       timestamp: resp.timestamp || Date.now(),
     }
   }
@@ -59,12 +61,14 @@ export function normalizeApiResponse<T = unknown>(response: unknown): ApiRespons
     'message' in response &&
     'data' in response
   ) {
-    const resp = response as { code?: number; message?: string; data?: T; timestamp?: number }
+    const resp = response as { code?: number | string; message?: string; data?: T; timestamp?: number }
+    const rawCode = resp.code ?? 200
+    const code = typeof rawCode === 'string' ? parseInt(rawCode, 10) : rawCode
     return {
-      code: resp.code ?? 200,
+      code: code,
       message: resp.message || '',
       data: resp.data as T,
-      success: resp.code === 200 || resp.code === 0 || resp.code === 10000,
+      success: code === 200 || code === 0 || code === 10000,
       timestamp: resp.timestamp || Date.now(),
     }
   }

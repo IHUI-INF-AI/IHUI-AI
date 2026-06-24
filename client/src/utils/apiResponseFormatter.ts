@@ -13,11 +13,13 @@ export function normalizeApiResponse<T>(response: any): ApiResponse<T> {
     return { code: 500, msg: 'Invalid response format', data: undefined as T }
   }
 
-  const res = response as { code?: number; data?: T; message?: string; msg?: string; success?: boolean }
+  const res = response as { code?: number | string; data?: T; message?: string; msg?: string; success?: boolean }
 
-  if (res.success === true || res.code === 200 || res.code === 0) {
+  // 转换 code 为数字 (后端可能返回字符串 "0"/"200")
+  const codeNum = typeof res.code === 'string' ? parseInt(res.code, 10) : res.code
+  if (res.success === true || codeNum === 200 || codeNum === 0) {
     return {
-      code: res.code || 200,
+      code: codeNum || 200,
       data: res.data as T,
       msg: res.msg || res.message,
       success: true
@@ -25,7 +27,7 @@ export function normalizeApiResponse<T>(response: any): ApiResponse<T> {
   }
 
   return {
-    code: res.code || 500,
+    code: codeNum || 500,
     msg: res.msg || res.message || 'Unknown error',
     data: undefined as T,
     success: false

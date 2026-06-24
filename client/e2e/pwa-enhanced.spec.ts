@@ -12,12 +12,21 @@ import { test, expect } from '@playwright/test'
 import { readFileSync } from 'fs'
 
 const BASE_PROD = 'http://127.0.0.1:4173'
-const ROOT = 'g:/1/client'
+const ROOT = process.cwd()
 const SW_PATH = `${ROOT}/public/sw.js`
 const MANIFEST_PATH = `${ROOT}/public/manifest.webmanifest`
 
 function readText(path: string): string {
   return readFileSync(path, 'utf-8')
+}
+
+async function isProdServerAvailable(request: { get: (url: string) => Promise<{ status: () => number }> }): Promise<boolean> {
+  try {
+    const res = await request.get(BASE_PROD + '/')
+    return res.status() === 200
+  } catch {
+    return false
+  }
 }
 
 test.describe('P9-1 PWA 增强 - 源码审查', () => {
@@ -84,6 +93,11 @@ test.describe('P9-1 PWA 增强 - 源码审查', () => {
 
 test.describe('P9-1 PWA 增强 - 生产构建验证', () => {
   test('生产 sw.js HTTP 200 + 含 Background Sync', async ({ request }) => {
+    const available = await isProdServerAvailable(request)
+    if (!available) {
+      console.log('[P9-1] 生产预览服务器 4173 未运行，跳过生产构建验证')
+      test.skip(true, '生产预览服务器 4173 未运行')
+    }
     const res = await request.get(`${BASE_PROD}/sw.js`, { failOnStatusCode: false })
     expect(res.status(), 'sw.js 200').toBe(200)
     const text = await res.text()
@@ -94,6 +108,11 @@ test.describe('P9-1 PWA 增强 - 生产构建验证', () => {
   })
 
   test('生产 manifest.webmanifest 含 share_target', async ({ request }) => {
+    const available = await isProdServerAvailable(request)
+    if (!available) {
+      console.log('[P9-1] 生产预览服务器 4173 未运行，跳过生产构建验证')
+      test.skip(true, '生产预览服务器 4173 未运行')
+    }
     const res = await request.get(`${BASE_PROD}/manifest.webmanifest`, { failOnStatusCode: false })
     expect(res.status(), 'manifest 200').toBe(200)
     const text = await res.text()

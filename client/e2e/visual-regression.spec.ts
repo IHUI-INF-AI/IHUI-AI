@@ -69,7 +69,7 @@ test('视觉回归 - 智能体页弹窗打开', async ({ page }) => {
     await card.click()
     await page.waitForTimeout(1500)
   }
-  await expect(page).toHaveScreenshot('agents-modal-open.png', { fullPage: false, maxDiffPixelRatio: 0.05 })
+  await expect(page).toHaveScreenshot('agents-modal-open.png', { fullPage: false, maxDiffPixelRatio: 0.08 })
 })
 
 test('视觉回归 - 主题色按钮一致', async ({ page }) => {

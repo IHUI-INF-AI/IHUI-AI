@@ -59,7 +59,9 @@ export function useFetch<T>(
       }
 
       let result: T
-      if (response.data.code === 200 || response.data.code === 0) {
+      // 兼容后端 code="0"/"200" (字符串) 与 code=0/200 (数字)
+      const codeNum = typeof response.data.code === 'string' ? parseInt(response.data.code, 10) : response.data.code
+      if (codeNum === 200 || codeNum === 0) {
         result = response.data.data
       } else {
         throw new Error(response.data.message || 'Request failed')
@@ -179,7 +181,9 @@ export function usePaginatedFetch<T>(
         throw new Error('No response data')
       }
 
-      if (response.data.code === 200 || response.data.code === 0) {
+      // 兼容后端 code="0"/"200" (字符串) 与 code=0/200 (数字)
+      const pageCodeNum = typeof response.data.code === 'string' ? parseInt(response.data.code, 10) : response.data.code
+      if (pageCodeNum === 200 || pageCodeNum === 0) {
         const result = response.data.data
         data.value = result.list
         total.value = result.total

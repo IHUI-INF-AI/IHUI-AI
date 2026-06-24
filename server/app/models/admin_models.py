@@ -332,3 +332,19 @@ class AdminJobLog(Base):
     status = Column(String(1), default="0", comment="执行状态 (0正常 1失败)")
     exception_info = Column(String(2000), default="", comment="异常信息")
     create_time = Column(DateTime, default=utcnow, comment="创建时间")
+
+
+class AdminSmsTemplate(AdminBaseMixin, Base):
+    """短信模板表 admin_sms_template (迁移自历史项目 auth_sms_temp)."""
+
+    __tablename__ = "admin_sms_template"
+    __table_args__ = (Index("ix_admin_sms_template_status", "status"),)
+
+    template_id = _big_id("模板ID")
+    template_name = Column(String(100), nullable=False, comment="模板名称")
+    template_code = Column(String(100), nullable=False, comment="模板编码")
+    template_content = Column(Text, nullable=False, comment="模板内容")
+    template_type = Column(String(1), default="1", comment="模板类型: 1=验证码 2=通知 3=营销")
+    sign_name = Column(String(100), nullable=True, comment="签名名称")
+    status = Column(String(1), default="0", comment="状态: 0=启用 1=禁用")
+    remark = Column(String(500), nullable=True, comment="备注")

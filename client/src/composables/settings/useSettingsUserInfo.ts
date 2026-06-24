@@ -120,8 +120,9 @@ export function useSettingsUserInfo(options: UseSettingsUserInfoOptions = {}) {
       successMessage: t('user.messages.settings.avatarUploadSuccess'),
       errorMessage: t('user.messages.settings.avatarUploadFailed'),
       onSuccess: (response: any) => {
-        const res = response as { code?: number; data?: { url?: string } }
-        if (res.code === 0 && res.data?.url) {
+        const res = response as { code?: number | string; data?: { url?: string } }
+        const codeNum = typeof res.code === 'string' ? parseInt(res.code, 10) : res.code
+        if (codeNum === 0 && res.data?.url) {
           userInfo.avatar = res.data.url
         }
       },

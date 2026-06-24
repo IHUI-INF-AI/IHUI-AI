@@ -199,7 +199,9 @@ export function extractData<T = unknown>(response: ApiResponse<T>): T {
  * @returns 是否成功
  */
 export function isSuccessResponse<T = unknown>(response: ApiResponse<T>): boolean {
-  return response.success && response.code >= 200 && response.code < 300
+  // 兼容后端 code="0" (成功) / code=200 / code=10000
+  // response.code 已在 normalizeApiResponse 中转换为数字
+  return response.success && (response.code === 0 || (response.code >= 200 && response.code < 300))
 }
 
 /**

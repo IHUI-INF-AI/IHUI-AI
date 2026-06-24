@@ -22,7 +22,7 @@ from sqlalchemy import text
 from app.database import get_session
 from app.models.crew_models import CrewMessage, CrewSession, CrewTask
 from app.services.crew_agent_registry import agent_registry
-from app.services.crew_llm_adapter import create_crew_llm
+from app.services.crew_llm_adapter import create_crew_llm, get_available_models
 from app.services.crew_tools import get_default_tools
 
 # 检测 CrewAI 是否可用
@@ -33,6 +33,32 @@ try:
 except ImportError:
     _CREWAI_AVAILABLE = False
     logger.info("CrewAI 未安装, 多智能体将使用简化模式")
+
+# 默认免费模型 code (优先使用标记为免费的模型)
+DEFAULT_FREE_MODEL_CODE = "zhipu_glm4_flash"
+
+
+def _resolve_default_model_id() -> str:
+    """当用户未指定模型时, 自动选择一个可用的免费模型."""
+    try:
+        models = get_available_models()
+        if not models:
+            return ""
+        # 优先匹配预设的免费模型 code
+        for m in models:
+            if m.get("model_id") == DEFAULT_FREE_MODEL_CODE:
+                return m["model_id"]
+        # 回退: 优先选 flash/免费模型
+        for m in models:
+            mid = (m.get("model_id") or "").lower()
+            name = m.get("name") or ""
+            if "flash" in mid or "免费" in name:
+                return m["model_id"]
+        # 最终回退: 第一个可用模型
+        return models[0].get("model_id", "")
+    except Exception as e:
+        logger.warning(f"解析默认模型失败: {e}")
+        return ""
 
 
 class CrewOrchestrator:
@@ -96,7 +122,7 @@ class CrewOrchestrator:
         self, session_id: str, input_message: str, user_id: str, config: dict
     ) -> str:
         """使用 CrewAI 执行完整多智能体协作."""
-        model_id = config.get("model_id", "")
+        model_id = config.get("model_id", "") or _resolve_default_model_id()
         llm = create_crew_llm(model_id) if model_id else None
         tools = get_default_tools(
             collection_name=config.get("collection_name", ""),
@@ -158,7 +184,7 @@ class CrewOrchestrator:
         self, session_id: str, input_message: str, user_id: str, config: dict
     ) -> str:
         """简化模式: 顺序调用 LLM 模拟多角色协作."""
-        model_id = config.get("model_id", "")
+        model_id = config.get("model_id", "") or _resolve_default_model_id()
 
         # 动态任务分解 (如果配置了 model_id)
         if model_id:
@@ -239,78 +265,95 @@ class CrewOrchestrator:
             user_id = session.user_id
             config = json.loads(session.config) if session.config else {}
 
-        model_id = config.get("model_id", "")
+        model_id = config.get("model_id", "") or _resolve_default_model_id()
 
         yield {"type": "start", "content": "多智能体协作开始", "session_id": session_id}
 
-        # 动态任务分解
-        if model_id:
-            yield {"type": "planning", "content": "正在分析任务并制定执行计划..."}
-            task_plan = self._dynamic_plan_tasks(input_message, model_id)
-        else:
-            task_plan = self._plan_tasks(input_message)
-
-        yield {
-            "type": "plan",
-            "content": f"任务分解完成, 共 {len(task_plan)} 个步骤",
-            "tasks": [{"role": t["role"], "description": t["description"]} for t in task_plan],
-        }
-
-        context = {"input": input_message}
-        results = {}
-
-        for i, plan in enumerate(task_plan):
-            role = plan["role"]
-            cfg = agent_registry.get_role(role)
-            if not cfg:
-                continue
-
-            yield {
-                "type": "task_start",
-                "role": role,
-                "task_index": i,
-                "content": f"[{role}] 开始执行: {plan['description'][:80]}...",
-            }
-
-            task_id = self._create_task_record(session_id, i, role, plan["description"])
-            self._update_task_status(task_id, "running")
-
-            prompt = self._build_prompt(role, cfg, plan, context)
-
-            if role == "researcher":
-                rag_context = self._get_rag_context(input_message, config, user_id)
-                if rag_context:
-                    prompt += f"\n\n知识库参考信息:\n{rag_context}"
-
-            try:
-                llm = create_crew_llm(model_id) if model_id else None
-                if llm and hasattr(llm, "call"):
-                    messages = [{"role": "user", "content": prompt}]
-                    output = llm.call(messages)
-                else:
-                    output = f"[LLM 未配置, 跳过 {role} 角色]"
-            except Exception as e:
-                output = f"[{role} 执行失败: {e}]"
-                self._update_task_status(task_id, "failed", error=str(e))
-                yield {"type": "task_error", "role": role, "content": str(e)}
+        try:
+            # 动态任务分解
+            if model_id:
+                yield {"type": "planning", "content": "正在分析任务并制定执行计划..."}
+                task_plan = self._dynamic_plan_tasks(input_message, model_id)
             else:
-                self._update_task_status(task_id, "completed", output=output)
-
-            results[role] = output
-            context[role] = output
-            self._log_message(session_id, role, "next", output)
+                task_plan = self._plan_tasks(input_message)
 
             yield {
-                "type": "task_complete",
-                "role": role,
-                "task_index": i,
-                "content": output[:500] + "..." if len(output) > 500 else output,
+                "type": "plan",
+                "content": f"任务分解完成, 共 {len(task_plan)} 个步骤",
+                "tasks": [{"role": t["role"], "description": t["description"]} for t in task_plan],
             }
 
-        final_result = results.get("reporter", results.get("executor", "无结果"))
-        self._update_session_status(session_id, "completed", final_result)
+            context = {"input": input_message}
+            results = {}
 
-        yield {"type": "complete", "content": final_result, "session_id": session_id}
+            for i, plan in enumerate(task_plan):
+                role = plan["role"]
+                cfg = agent_registry.get_role(role)
+                if not cfg:
+                    continue
+
+                yield {
+                    "type": "task_start",
+                    "role": role,
+                    "task_index": i,
+                    "content": f"[{role}] 开始执行: {plan['description'][:80]}...",
+                }
+
+                task_id = self._create_task_record(session_id, i, role, plan["description"])
+                self._update_task_status(task_id, "running")
+
+                prompt = self._build_prompt(role, cfg, plan, context)
+
+                if role == "researcher":
+                    rag_context = self._get_rag_context(input_message, config, user_id)
+                    if rag_context:
+                        prompt += f"\n\n知识库参考信息:\n{rag_context}"
+
+                try:
+                    llm = create_crew_llm(model_id) if model_id else None
+                    if llm and hasattr(llm, "call"):
+                        messages = [{"role": "user", "content": prompt}]
+                        output = llm.call(messages)
+                    else:
+                        output = f"[LLM 未配置, 跳过 {role} 角色]"
+                except Exception as e:
+                    output = f"[{role} 执行失败: {e}]"
+                    self._update_task_status(task_id, "failed", error=str(e))
+                    yield {"type": "task_error", "role": role, "content": str(e)}
+                else:
+                    self._update_task_status(task_id, "completed", output=output)
+
+                results[role] = output
+                context[role] = output
+                self._log_message(session_id, role, "next", output)
+
+                yield {
+                    "type": "task_complete",
+                    "role": role,
+                    "task_index": i,
+                    "content": output[:500] + "..." if len(output) > 500 else output,
+                }
+
+            final_result = results.get("reporter", results.get("executor", "无结果"))
+            self._update_session_status(session_id, "completed", final_result)
+
+            yield {"type": "complete", "content": final_result, "session_id": session_id}
+        except Exception as e:
+            logger.error(f"流式执行异常: {e}")
+            self._update_session_status(session_id, "failed", str(e))
+            yield {"type": "error", "content": f"执行异常: {e}", "session_id": session_id}
+        finally:
+            # 确保会话状态不会卡在 running (如客户端断开导致生成器被 GC)
+            try:
+                with get_session() as db:
+                    s = db.query(CrewSession).filter(CrewSession.id == session_id).first()
+                    if s and s.status == "running":
+                        s.status = "failed"
+                        s.output_message = "执行被中断 (客户端断开或异常)"
+                        s.completed_at = datetime.now()
+                        db.commit()
+            except Exception:
+                pass
 
     def _plan_tasks(self, input_message: str) -> list[dict[str, str]]:
         """返回固定 5 步任务分解计划."""

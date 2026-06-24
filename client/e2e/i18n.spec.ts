@@ -12,7 +12,7 @@ import { join } from 'path'
 
 const BASE = 'http://127.0.0.1:8888'
 const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
-const ROOT = 'g:/1/client'
+const ROOT = process.cwd()
 
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf-8')) as Record<string, unknown>
