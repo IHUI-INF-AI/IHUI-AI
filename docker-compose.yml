@@ -10,19 +10,22 @@ services:
     image: aizhs-server:14.5
     container_name: aizhs-backend
     restart: unless-stopped
+    # 通过 env_file 注入完整生产配置 (server/.env.production)
+    # 避免在 environment 中逐项列举导致遗漏新增配置
+    env_file:
+      - ./server/.env.production
     environment:
+      # 以下变量需覆盖 env_file 中的值 (Docker 内部网络服务名)
       - DB1_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
       - DB2_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
       - DB3_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - JWT_SECRET_KEY=${JWT_SECRET}
-      - SESSION_SECRET_KEY=${SESSION_SECRET}
-      - ENV=production
-      - CORS_ORIGINS=https://${DOMAIN}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - MINIO_URL=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - MINIO_BUCKET=aizhs
+      - ENV=production
     depends_on:
       db:
         condition: service_healthy
