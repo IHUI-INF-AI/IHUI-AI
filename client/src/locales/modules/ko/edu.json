@@ -1,0 +1,296 @@
+{
+  "edu": {
+    "nav": {
+      "home": "교육 센터",
+      "learn": "내 강좌",
+      "exam": "내 시험",
+      "ask": "Q&A",
+      "circle": "서클",
+      "live": "라이브",
+      "member": "학생 프로필",
+      "point": "포인트",
+      "order": "내 주문",
+      "message": "메시지",
+      "notification": "알림",
+      "resource": "자료실",
+      "search": "검색",
+      "admin": "교육 관리"
+    },
+    "learn": {
+      "title": "강좌 학습",
+      "list": "강좌 목록",
+      "detail": "강좌 상세",
+      "chapter": "챕터",
+      "section": "섹션",
+      "progress": "진도",
+      "completed": "완료",
+      "notStarted": "미시작",
+      "inProgress": "학습 중",
+      "enroll": "수강 신청",
+      "enrolled": "수강 중",
+      "free": "무료",
+      "premium": "유료",
+      "students": "학생 수",
+      "lessons": "강의 수",
+      "duration": "시간(분)",
+      "rating": "평점",
+      "difficulty": {
+        "beginner": "초급",
+        "intermediate": "중급",
+        "advanced": "고급"
+      },
+      "homework": "과제",
+      "submitHomework": "제출",
+      "deadline": "마감",
+      "maxScore": "만점",
+      "certificate": "수료증",
+      "issueCertificate": "발급",
+      "myCertificates": "내 수료증",
+      "completionRate": "완료율"
+    },
+    "exam": {
+      "title": "시험 센터",
+      "papers": "시험지",
+      "questions": "문제",
+      "startExam": "시작",
+      "submitExam": "제출",
+      "examRecord": "응시 기록",
+      "score": "점수",
+      "passed": "합격",
+      "failed": "불합격",
+      "duration": "시험 시간(분)",
+      "totalScore": "총점",
+      "passScore": "합격점",
+      "remaining": "남은 시간",
+      "questionTypes": {
+        "single": "단일 선택",
+        "multi": "다중 선택",
+        "judge": "참/거짓",
+        "fill": "빈칸 채우기",
+        "essay": "서술형"
+      },
+      "wrongBook": "오답노트",
+      "addToWrongBook": "추가",
+      "markMastered": "마스터",
+      "autoGrading": "자동 채점 중..."
+    },
+    "ask": {
+      "title": "Q&A",
+      "questions": "질문 목록",
+      "myQuestions": "내 질문",
+      "createQuestion": "질문하기",
+      "questionTitle": "제목",
+      "questionContent": "내용",
+      "answers": "답변",
+      "postAnswer": "답변하기",
+      "bestAnswer": "최고 답변",
+      "adoptAnswer": "채택",
+      "viewCount": "조회수",
+      "answerCount": "답변수",
+      "hot": "인기",
+      "latest": "최신",
+      "unresolved": "미해결",
+      "resolved": "해결됨",
+      "tags": "태그",
+      "relatedCourse": "관련 강좌"
+    },
+    "circle": {
+      "title": "서클",
+      "circles": "서클 목록",
+      "myCircles": "내 서클",
+      "createCircle": "서클 만들기",
+      "joinCircle": "가입",
+      "leaveCircle": "탈퇴",
+      "members": "멤버",
+      "owner": "오너",
+      "admin": "관리자",
+      "member": "멤버",
+      "posts": "게시글",
+      "createPost": "글쓰기",
+      "category": "카테고리",
+      "categories": {
+        "class": "학급",
+        "interest": "관심사",
+        "study": "학습"
+      },
+      "isPublic": "공개",
+      "isPrivate": "비공개"
+    },
+    "live": {
+      "title": "라이브",
+      "rooms": "라이브 룸",
+      "joinLive": "참여",
+      "leaveLive": "나가기",
+      "startLive": "시작",
+      "endLive": "종료",
+      "scheduled": "예정",
+      "live": "진행 중",
+      "ended": "종료됨",
+      "cancelled": "취소됨",
+      "attendees": "참가자",
+      "playback": "다시보기",
+      "scheduledStart": "예정 시작",
+      "scheduledEnd": "예정 종료"
+    },
+    "member": {
+      "title": "학생 프로필",
+      "memberNo": "회원 번호",
+      "realName": "실명",
+      "school": "학교",
+      "grade": "학년",
+      "className": "반",
+      "studentNo": "학번",
+      "idCard": "신분증",
+      "memberType": "유형",
+      "memberTypes": {
+        "student": "학생",
+        "teacher": "교사",
+        "parent": "학부모"
+      },
+      "points": "포인트",
+      "level": "레벨",
+      "expireAt": "만료일",
+      "parents": "학부모",
+      "children": "자녀",
+      "bindParent": "학부모 연결"
+    },
+    "point": {
+      "title": "포인트",
+      "balance": "사용 가능",
+      "frozen": "동결",
+      "totalEarned": "누적 획득",
+      "totalSpent": "누적 사용",
+      "earn": "획득",
+      "spend": "사용",
+      "records": "내역",
+      "changeType": "유형",
+      "changeTypes": {
+        "earn": "획득",
+        "spend": "사용",
+        "freeze": "동결",
+        "unfreeze": "해제"
+      }
+    },
+    "order": {
+      "title": "내 주문",
+      "orderNo": "주문 번호",
+      "orderType": "유형",
+      "orderTypes": {
+        "course": "강좌",
+        "card": "카드",
+        "package": "패키지"
+      },
+      "totalAmount": "총액",
+      "paidAmount": "결제액",
+      "discountAmount": "할인",
+      "status": "상태",
+      "statuses": {
+        "pending": "결제 대기",
+        "paid": "결제 완료",
+        "cancelled": "취소됨",
+        "refunded": "환불됨"
+      },
+      "cancelOrder": "취소",
+      "refundOrder": "환불",
+      "payNow": "지금 결제"
+    },
+    "message": {
+      "title": "메시지",
+      "inbox": "받은 메시지",
+      "unread": "읽지 않음",
+      "markRead": "읽음 표시",
+      "sendMessage": "보내기",
+      "msgTypes": {
+        "system": "시스템",
+        "private": "개인",
+        "group": "그룹"
+      }
+    },
+    "notification": {
+      "title": "알림",
+      "channels": {
+        "in_app": "앱 내",
+        "sms": "SMS",
+        "email": "이메일",
+        "push": "푸시"
+      },
+      "templates": {
+        "homework": "과제",
+        "exam": "시험",
+        "live": "라이브",
+        "order": "주문"
+      }
+    },
+    "resource": {
+      "title": "자료실",
+      "categories": "카테고리",
+      "uploadResource": "업로드",
+      "fileType": "유형",
+      "fileSize": "크기",
+      "downloadCount": "다운로드 수",
+      "viewCount": "조회수",
+      "free": "무료",
+      "pointsRequired": "필요 포인트"
+    },
+    "search": {
+      "title": "검색",
+      "placeholder": "강좌/Q&A/자료 검색...",
+      "entityTypes": {
+        "course": "강좌",
+        "article": "기사",
+        "question": "Q&A",
+        "user": "사용자"
+      },
+      "noResults": "결과 없음"
+    },
+    "admin": {
+      "title": "교육 관리",
+      "dashboard": "대시보드",
+      "stats": {
+        "totalCourses": "총 강좌",
+        "totalStudents": "총 학생",
+        "totalRevenue": "총 수익",
+        "todayActive": "오늘 활성"
+      },
+      "menu": {
+        "course": "강좌 관리",
+        "chapter": "챕터 관리",
+        "section": "섹션 관리",
+        "exam": "시험지 관리",
+        "question": "문제 관리",
+        "ask": "Q&A 관리",
+        "circle": "서클 관리",
+        "live": "라이브 관리",
+        "order": "주문 관리",
+        "member": "학생 관리",
+        "point": "포인트 관리",
+        "message": "메시지 관리",
+        "notification": "알림 관리",
+        "resource": "자료 관리",
+        "search": "검색 관리",
+        "setting": "시스템 설정"
+      }
+    },
+    "common": {
+      "loading": "로딩 중...",
+      "noData": "데이터 없음",
+      "confirm": "확인",
+      "cancel": "취소",
+      "submit": "제출",
+      "save": "저장",
+      "delete": "삭제",
+      "edit": "편집",
+      "create": "생성",
+      "search": "검색",
+      "refresh": "새로고침",
+      "retry": "재시도",
+      "back": "뒤로",
+      "next": "다음",
+      "previous": "이전",
+      "success": "성공",
+      "error": "오류",
+      "required": "필수",
+      "optional": "선택"
+    }
+  }
+}

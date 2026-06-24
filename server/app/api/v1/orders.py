@@ -12,14 +12,17 @@
   - POST /auth-api/order/payment → /{order_id}/pay
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Query, Body
 from loguru import logger
+from sqlalchemy import select
 
 from app.core.current_user import current_user_id_or_guest
 from app.database import get_session
 from app.models.payment_models import Order
 from app.schemas.common import error, success
-from app.security import require_login
+from app.security import require_login, require_role
 
 router = APIRouter(prefix="/order", tags=["Order"])
 
@@ -27,6 +30,25 @@ router = APIRouter(prefix="/order", tags=["Order"])
 def _uid() -> str:
     """获取当前用户ID, 未登录返回 'guest'."""
     return current_user_id_or_guest()
+
+
+def _is_admin(db, user_uuid: str) -> bool:
+    """检查用户是否拥有 admin 角色 (用于跨用户/管理端操作的权限校验)."""
+    from app.models.sys_models import SysRole, SysUser, SysUserRole
+
+    stmt = (
+        select(SysUser.user_id)
+        .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
+        .join(SysRole, SysUserRole.role_id == SysRole.role_id)
+        .where(
+            SysUser.user_uuid == user_uuid,
+            SysRole.role_key == "admin",
+            SysRole.status == "0",
+            SysRole.del_flag == "0",
+        )
+        .limit(1)
+    )
+    return db.execute(stmt).scalar() is not None
 
 
 def _order_to_dict(o: Order) -> dict:
@@ -166,18 +188,26 @@ async def order_list(
     limit: int = Query(20, ge=1, le=100, description="每页条数"),
     status: int | None = Query(None, description="状态筛选: 0=待支付, 1=已支付, 2=已退款, 3=已取消"),
     user_id: str | None = Query(None, description="按用户筛选"),
+    user_uuid: str = Depends(require_login),
 ):
     """订单列表.
 
-    支持按状态和用户ID筛选, 分页返回. 不传 user_id 时返回全部订单 (管理端用途).
+    支持按状态和用户ID筛选, 分页返回.
+    - 未传 user_id: 默认返回当前登录用户的订单
+    - 传了 user_id 且与当前登录用户不同: 需要 admin 角色, 否则只能查看自己的订单
     """
     with get_session() as db:
         try:
+            # 权限校验: 跨用户查询需要 admin 角色
+            target_user_id = user_id or user_uuid
+            if user_id and user_id != user_uuid:
+                if not _is_admin(db, user_uuid):
+                    return error("无权查看其他用户的订单", "403000")
+
             q = db.query(Order)
             if status is not None:
                 q = q.filter(Order.status == status)
-            if user_id:
-                q = q.filter(Order.user_id == user_id)
+            q = q.filter(Order.user_id == target_user_id)
             total = q.count()
             items = (
                 q.order_by(Order.id.desc())
@@ -254,16 +284,21 @@ async def order_detail(
 @router.get("/{order_id}/amount", summary="下单后获取价格")
 async def order_amount(
     order_id: int,
+    user_uuid: str = Depends(require_login),
 ):
     """下单后获取订单价格.
 
     按订单ID查询并返回订单金额(分)及支付状态.
+    校验订单归属: 仅订单所有者或 admin 可查询.
     """
     with get_session() as db:
         try:
             order = db.query(Order).filter(Order.id == order_id).first()
             if not order:
                 return error("订单不存在", code="404000")
+            # 权限校验: 仅订单所有者或 admin 可查询
+            if order.user_id != user_uuid and not _is_admin(db, user_uuid):
+                return error("无权查看该订单", "403000")
             return success(
                 {
                     "id": order.id,
@@ -283,11 +318,11 @@ async def order_amount(
 async def update_order_status(
     order_id: int,
     status: int = Query(..., ge=0, le=3, description="订单状态: 0=待支付, 1=已支付, 2=已退款, 3=已取消"),
-    user_uuid: str = Depends(require_login),
+    user_uuid: str = Depends(require_role("admin")),
 ):
     """更新订单状态 (管理端).
 
-    需登录鉴权. 根据传入的状态值更新订单, 并在状态为已支付时记录支付时间.
+    需要 admin 角色权限. 根据传入的状态值更新订单, 并在状态为已支付时记录支付时间.
     """
     with get_session() as db:
         try:
@@ -298,14 +333,10 @@ async def update_order_status(
             order.status = status
             if status == 1:
                 # 已支付: 同步支付状态并记录支付时间
-                from datetime import datetime, timezone
-
                 order.payment_status = 1
                 order.paid_at = datetime.now(timezone.utc)
             elif status == 2:
                 # 已退款: 同步支付状态并记录退款时间
-                from datetime import datetime, timezone
-
                 order.payment_status = 2
                 order.refund_time = datetime.now(timezone.utc)
             db.commit()
@@ -340,10 +371,6 @@ async def pay_order(
             if order.status != 0:
                 return error("订单状态不允许支付")
 
-            # 更新订单支付方式
-            order.pay_type = pay_type
-            db.commit()
-
             if pay_type == "wechat":
                 from app.utils import wechat_pay_util as wx
 
@@ -360,9 +387,12 @@ async def pay_order(
                         out_trade_no=order.out_trade_no,
                         description="订单支付",
                     )
-                if result.get("prepay_id"):
-                    return success(result)
-                return error(result.get("message", "微信支付下单失败"))
+                if not result.get("prepay_id"):
+                    return error(result.get("message", "微信支付下单失败"))
+                # 支付网关成功后才更新并提交 pay_type
+                order.pay_type = pay_type
+                db.commit()
+                return success(result)
 
             elif pay_type == "alipay":
                 from app.utils import alipay_util as alipay
@@ -375,6 +405,9 @@ async def pay_order(
                     "product_code": "FAST_INSTANT_TRADE_PAY",
                 }
                 pay_url = alipay.build_signed_url(biz, method="alipay.trade.page.pay")
+                # 支付网关成功后才更新并提交 pay_type
+                order.pay_type = pay_type
+                db.commit()
                 return success(
                     {
                         "out_trade_no": order.out_trade_no,

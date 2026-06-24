@@ -3,5 +3,44 @@
 
 /* 把 Element Plus 样式放入 vendor 层，降低其优先级 */
 /* 这样项目代码的样式可以轻松覆盖 Element Plus 默认样式 */
-@import 'element-plus/dist/index.css' layer(vendor);
+/* 2026-06-24 优化: 改为按需引入，35 个实际用到的组件从 ~500KB 减到 ~174KB（节省 326KB） */
+/* 全量 import 注释保留作为对比基准，如需切回全量： */
+/* @import 'element-plus/dist/index.css' layer(vendor); */
+@import 'element-plus/theme-chalk/base.css' layer(vendor);
+@import 'element-plus/theme-chalk/display.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-alert.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-button.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-button-group.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-card.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-checkbox.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-col.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-descriptions.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-descriptions-item.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-dialog.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-divider.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-form.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-form-item.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-icon.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-image.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-input.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-input-number.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-loading.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-message.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-message-box.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-notification.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-option.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-progress.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-radio-button.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-radio-group.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-row.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-select.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-slider.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-statistic.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-step.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-steps.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-switch.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-table.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-table-column.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-tag.css' layer(vendor);
+@import 'element-plus/theme-chalk/el-upload.css' layer(vendor);
 @import 'element-plus/theme-chalk/dark/css-vars.css' layer(vendor);

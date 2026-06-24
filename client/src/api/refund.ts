@@ -201,8 +201,9 @@ export const auditRefund = withApiResponseHandler(
       const response = await request.post<RefundAuditResponse>(
         COZE_PATHS.payment.refund.audit(data.refundNo),
         {
-          action: data.action,
-          comment: data.comment,
+          approved: data.action === 'approve',
+          note: data.comment,
+          operator: '',
         }
       )
       return normalizeApiResponse(response)
@@ -221,7 +222,12 @@ export const processRefund = withApiResponseHandler(
     try {
       logger.info('Process refund:', refundNo)
       const response = await request.post<RefundRecord>(
-        COZE_PATHS.payment.refund.process(refundNo)
+        COZE_PATHS.payment.refund.process(refundNo),
+        {
+          approved: true,
+          note: '处理退款',
+          operator: '',
+        }
       )
       return normalizeApiResponse(response)
     } catch (error) {

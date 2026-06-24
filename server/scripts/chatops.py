@@ -10,7 +10,8 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import datetime, timedelta
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, parse_qs
@@ -46,7 +47,7 @@ INTENT_PATTERNS = {
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _init_db() -> None:
@@ -120,14 +121,30 @@ def _init_db() -> None:
     conn.close()
 
 
-_init_db()
 _conn_lock = threading.Lock()
+_db_ready = False
 
 
-def _conn() -> sqlite3.Connection:
+def _ensure_db() -> None:
+    global _db_ready
+    if not _db_ready:
+        _init_db()
+        _db_ready = True
+
+
+@contextmanager
+def _conn():
+    _ensure_db()
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
-    return c
+    try:
+        yield c
+        c.commit()
+    except Exception:
+        c.rollback()
+        raise
+    finally:
+        c.close()
 
 
 def parse_intent(message: str) -> Tuple[str, float]:
@@ -265,13 +282,10 @@ def execute_workflow(workflow_id: str, trigger_event: str) -> Dict[str, Any]:
     executed = []
     failed = []
     for action in actions:
-        try:
-            if action in SELF_HEAL_ACTIONS:
-                executed.append(action)
-            else:
-                executed.append(action)
-        except Exception as e:
-            failed.append({"action": action, "error": str(e)})
+        if action in SELF_HEAL_ACTIONS:
+            executed.append(action)
+        else:
+            failed.append({"action": action, "error": "unknown action"})
     duration = int((time.time() - start) * 1000)
     status = "completed" if not failed else "failed"
     with _conn_lock, _conn() as c:
@@ -369,7 +383,7 @@ def list_bots() -> List[Dict[str, Any]]:
 
 def get_chat_stats(hours: int = 24) -> Dict[str, Any]:
     """聊天统计"""
-    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
     with _conn_lock, _conn() as c:
         total = c.execute("""SELECT COUNT(*) as cnt FROM chat_messages
             WHERE timestamp >= ?""", (since,)).fetchone()["cnt"]
@@ -499,7 +513,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def serve() -> None:
-    srv = HTTPServer(("0.0.0.0", HTTP_PORT), _Handler)
+    srv = HTTPServer(("127.0.0.1", HTTP_PORT), _Handler)
     print(f"ChatOps service on :{HTTP_PORT}")
     srv.serve_forever()
 

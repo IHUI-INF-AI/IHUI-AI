@@ -189,7 +189,8 @@ async def list_token_flow_admin(
     with get_session() as db:
         q = db.query(OperateTokenFlow)
         if user_id:
-            q = q.filter(OperateTokenFlow.user_id == user_id)
+            # user_id 参数实为用户 UUID 字符串, 对应 user_uuid 字段
+            q = q.filter(OperateTokenFlow.user_uuid == user_id)
         if op_type is not None:
             q = q.filter(OperateTokenFlow.type == op_type)
         total = q.count()

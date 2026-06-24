@@ -937,7 +937,7 @@ $transition-slow: 0.5s;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     padding: 12px 16px;
-    box-shadow: none ;
+    box-shadow: none;
     transition: all $transition-normal ease;
     
     &:hover {

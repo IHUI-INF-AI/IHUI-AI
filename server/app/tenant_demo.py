@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 
-from sqlalchemy import text
+from sqlalchemy import MetaData, text
 from sqlalchemy.engine import Engine
 
 from app.core.tenant import (
@@ -59,25 +59,26 @@ def init_tenant_schema(tid: int, engine: Engine | None = None) -> None:
         # 1. 创建 schema (如果不存在)
         conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
 
-        # 2. 对每个 TenantBase 子类, 在该 schema 下创建表
-        #    排除 __tenant_skip_in_alembic__=True 的公共表
+        # 2. 用 to_metadata 复制表到目标 schema (线程安全, 不修改全局 Table.schema)
+        #    原 table.schema 保持不变, 副本带 schema 标签用于建表
+        tenant_md = MetaData()
         for tablename in list_tenant_tables(include_skipped=False):
             model_cls = get_tenant_models().get(tablename)
             if model_cls is None:
                 continue
             try:
-                table = model_cls.__table__
-                # 临时把 table.schema 改成 tenant_{tid}
-                orig_schema = table.schema
-                table.schema = schema
-                try:
-                    table.create(conn, checkfirst=True)
-                    logger.debug(f"  [OK] tenant_{tid}.{tablename}")
-                finally:
-                    table.schema = orig_schema
+                src_table = model_cls.__table__
+                if src_table is None:
+                    continue
+                src_table.to_metadata(tenant_md, schema=schema)
             except Exception as e:
                 logger.error(f"  [ERR] {tablename}: {e}")
                 raise
+
+        # 3. 在目标 schema 下创建所有表 (checkfirst=True 避免重复创建)
+        tenant_md.create_all(conn, checkfirst=True)
+        for tname in tenant_md.tables:
+            logger.debug(f"  [OK] {schema}.{tname}")
 
     logger.info(f"[OK] Tenant schema {schema} initialized")
 
@@ -148,7 +149,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
         if auth.startswith("Bearer "):
             token = auth[7:]
             try:
-                payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+                payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
                 tid = payload.get("tid")
             except Exception:
                 pass

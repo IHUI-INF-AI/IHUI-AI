@@ -22,6 +22,11 @@ vi.mock('@/utils/storage', () => ({
     setItem: vi.fn(),
     removeItem: vi.fn(),
   },
+  SecureStorageManager: {
+    getItem: vi.fn(),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+  },
   STORAGE_KEYS: {
     USER_TOKEN: 'user_token',
     TOKEN: 'token',

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="xuqiu-detail-page page-container">
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-container">
@@ -592,7 +592,7 @@ onMounted(() => {
   margin: 0 auto;
   padding: $desktop-page-padding;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }

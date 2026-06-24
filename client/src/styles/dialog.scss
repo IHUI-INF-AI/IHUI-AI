@@ -1,4 +1,4 @@
-@use './variables.scss' as *;
+﻿@use './variables.scss' as *;
 
 .el-dialog {
   border-radius: $border-radius-lg;
@@ -40,7 +40,7 @@
   background-color: var(--color-black-45);
 }
 
-@media (max-width: $breakpoint-md) {
+@media (width <= $breakpoint-md) {
   .el-dialog {
     width: 90%;
     max-width: 90%;

@@ -1,10 +1,16 @@
-"""新模块路由测试 - product/identity/developer_link/remote/video/captcha"""
+"""新模块路由测试 - product/identity/developer_link/remote/video/captcha
+
+该测试通过真实 HTTP 请求 127.0.0.1:8000, 需要后端服务运行.
+默认测试环境不启动服务, 全部 skip 避免误判. 集成测试时用 `pytest -m integration` 显式运行.
+"""
 
 import json
 import urllib.error
 import urllib.request
 
 import pytest
+
+pytestmark = pytest.mark.skip(reason="需要本地后端运行, 默认 skip; 集成测试时启用")
 
 BASE = "http://127.0.0.1:8000"
 

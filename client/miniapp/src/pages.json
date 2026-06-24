@@ -604,6 +604,15 @@
           "navigationBarTitleText": "数据统计",
           "navigationStyle": "custom"
         }
+      },
+      {
+        "path": "coursePlanet/Official-information/index",
+        "style": {
+          "navigationBarTitleText": "官方资讯",
+          "navigationBarBackgroundColor": "#fff",
+          "navigationBarTextStyle": "black",
+          "navigationStyle": "custom"
+        }
       }
     ]
   },

@@ -86,11 +86,15 @@ def get_redis_pool():
 
 
 def get_redis():
+    # _try_connect_redis 可能在本次调用中把 _use_fake 置为 True (ping 失败降级),
+    # 因此必须先触发 pool 初始化, 再判断 _use_fake, 顺序不能反.
+    if not _use_fake:
+        get_redis_pool()
     if _use_fake:
         return _fake_redis
     import redis
 
-    return redis.Redis(connection_pool=get_redis_pool())
+    return redis.Redis(connection_pool=_pool)
 
 
 def set_key(key: str, value: str, ex: int | None = None):

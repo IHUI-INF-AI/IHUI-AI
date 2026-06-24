@@ -27,7 +27,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="refresh" round>
           {{ t('adminHome.refreshData') }}
         </el-button>
-        <el-button :icon="Setting" @click="goTo('/admin/setting')" round>
+        <el-button :icon="Setting" @click="goTo('/admin/home')" round>
           {{ t('adminHome.systemSettings') }}
         </el-button>
       </div>
@@ -386,18 +386,18 @@ function statFor(key: string, formatter: (n: number) => string): string {
 }
 
 const modules = computed<Module[]>(() => [
-  { key: 'orders', name: t('adminCommon.admin.moduleNameOrders'), icon: markIcon(ShoppingCart), path: '/admin/orders', stat: statFor('orders', formatCount), tone: 'primary' },
-  { key: 'products', name: t('adminCommon.admin.moduleNameProducts'), icon: markIcon(Box), path: '/admin/products', stat: statFor('products', formatCount), tone: 'info' },
-  { key: 'users', name: t('adminCommon.admin.moduleNameUsers'), icon: markIcon(User), path: '/admin/users', stat: statFor('users', formatCount), tone: 'success' },
-  { key: 'agents', name: t('adminCommon.admin.moduleNameAgents'), icon: markIcon(ChatLineRound), path: '/admin/agents', stat: statFor('agents', formatCount), tone: 'primary' },
-  { key: 'distribution', name: t('adminCommon.admin.moduleNameDistribution'), icon: markIcon(Promotion), path: '/admin/distribution', stat: statFor('distribution', formatCount), tone: 'warning' },
-  { key: 'promotion', name: t('adminCommon.admin.moduleNamePromotion'), icon: markIcon(Promotion), path: '/admin/promotion', stat: statFor('promotion', formatCount), tone: 'danger' },
-  { key: 'content', name: t('adminCommon.admin.moduleNameContent'), icon: markIcon(Document), path: '/admin/content', stat: statFor('content', formatCount), tone: 'neutral' },
-  { key: 'feedback', name: t('adminCommon.admin.moduleNameFeedback'), icon: markIcon(Bell), path: '/admin/feedback', stat: statFor('feedback', formatCount), tone: 'warning' },
-  { key: 'analytics', name: t('adminCommon.admin.moduleNameAnalytics'), icon: markIcon(DataAnalysis), path: '/admin/analytics', stat: statFor('analytics', formatCount), tone: 'info' },
-  { key: 'webhook', name: 'Webhook', icon: markIcon(Connection), path: '/admin/webhook', stat: statFor('webhook', formatCount), tone: 'success' },
-  { key: 'tool', name: t('adminCommon.admin.moduleNameTool'), icon: markIcon(Tools), path: '/admin/tool', stat: statFor('tool', formatCount), tone: 'neutral' },
-  { key: 'settings', name: t('adminCommon.admin.moduleNameSettings'), icon: markIcon(Setting), path: '/admin/setting', stat: statFor('settings', n => n > 0 ? t('adminHome.moduleStatReady') : t('adminHome.moduleStatEmpty')), tone: 'neutral' },
+  { key: 'orders', name: t('adminCommon.admin.moduleNameOrders'), icon: markIcon(ShoppingCart), path: '/admin/refund-audit', stat: statFor('orders', formatCount), tone: 'primary' },
+  { key: 'products', name: t('adminCommon.admin.moduleNameProducts'), icon: markIcon(Box), path: '/admin/product-management', stat: statFor('products', formatCount), tone: 'info' },
+  { key: 'users', name: t('adminCommon.admin.moduleNameUsers'), icon: markIcon(User), path: '/admin/user-management', stat: statFor('users', formatCount), tone: 'success' },
+  { key: 'agents', name: t('adminCommon.admin.moduleNameAgents'), icon: markIcon(ChatLineRound), path: '/admin/agent-management', stat: statFor('agents', formatCount), tone: 'primary' },
+  { key: 'distribution', name: t('adminCommon.admin.moduleNameDistribution'), icon: markIcon(Promotion), path: '/admin/fund-management', stat: statFor('distribution', formatCount), tone: 'warning' },
+  { key: 'promotion', name: t('adminCommon.admin.moduleNamePromotion'), icon: markIcon(Promotion), path: '/admin/activity-management', stat: statFor('promotion', formatCount), tone: 'danger' },
+  { key: 'content', name: t('adminCommon.admin.moduleNameContent'), icon: markIcon(Document), path: '/admin/course-management', stat: statFor('content', formatCount), tone: 'neutral' },
+  { key: 'feedback', name: t('adminCommon.admin.moduleNameFeedback'), icon: markIcon(Bell), path: '/admin/feedback-management', stat: statFor('feedback', formatCount), tone: 'warning' },
+  { key: 'analytics', name: t('adminCommon.admin.moduleNameAnalytics'), icon: markIcon(DataAnalysis), path: '/admin/monitoring-dashboard', stat: statFor('analytics', formatCount), tone: 'info' },
+  { key: 'webhook', name: 'Webhook', icon: markIcon(Connection), path: '/admin/webhook-management', stat: statFor('webhook', formatCount), tone: 'success' },
+  { key: 'tool', name: t('adminCommon.admin.moduleNameTool'), icon: markIcon(Tools), path: '/admin/webhook-management', stat: statFor('tool', formatCount), tone: 'neutral' },
+  { key: 'settings', name: t('adminCommon.admin.moduleNameSettings'), icon: markIcon(Setting), path: '/admin/home', stat: statFor('settings', n => n > 0 ? t('adminHome.moduleStatReady') : t('adminHome.moduleStatEmpty')), tone: 'neutral' },
 ])
 
 /* ═══ 待办事项(本地,待对接 todo API) ═══
@@ -418,12 +418,12 @@ const todoDoneState = ref<Record<number, boolean>>({
 })
 
 const todos = computed<TodoItem[]>(() => [
-  { id: 1, title: t('adminCommon.admin.todoTitle1', { count: 12 }), priority: 'high', due: t('adminCommon.admin.todoDueToday', { time: '18:00' }), done: todoDoneState.value[1], link: '/admin/refund' },
-  { id: 2, title: t('adminCommon.admin.todoTitle2'), priority: 'high', due: t('adminCommon.admin.todoDueToday', { time: '20:00' }), done: todoDoneState.value[2], link: '/admin/feedback' },
-  { id: 3, title: t('adminCommon.admin.todoTitle3', { count: 5 }), priority: 'medium', due: t('adminCommon.admin.todoDueTomorrow', { time: '12:00' }), done: todoDoneState.value[3], link: '/admin/distribution' },
-  { id: 4, title: t('adminCommon.admin.todoTitle4'), priority: 'medium', due: t('adminCommon.admin.todoDueThisWeek'), done: todoDoneState.value[4], link: '/admin/products' },
-  { id: 5, title: t('adminCommon.admin.todoTitle5', { count: 28 }), priority: 'low', due: t('adminCommon.admin.todoDueNextWeek'), done: todoDoneState.value[5], link: '/admin/users' },
-  { id: 6, title: t('adminCommon.admin.todoTitle6', { month: 5 }), priority: 'low', due: t('adminCommon.admin.todoDueNextMonth', { day: 5 }), done: todoDoneState.value[6], link: '/admin/finance' },
+  { id: 1, title: t('adminCommon.admin.todoTitle1', { count: 12 }), priority: 'high', due: t('adminCommon.admin.todoDueToday', { time: '18:00' }), done: todoDoneState.value[1], link: '/admin/refund-audit' },
+  { id: 2, title: t('adminCommon.admin.todoTitle2'), priority: 'high', due: t('adminCommon.admin.todoDueToday', { time: '20:00' }), done: todoDoneState.value[2], link: '/admin/feedback-management' },
+  { id: 3, title: t('adminCommon.admin.todoTitle3', { count: 5 }), priority: 'medium', due: t('adminCommon.admin.todoDueTomorrow', { time: '12:00' }), done: todoDoneState.value[3], link: '/admin/fund-management' },
+  { id: 4, title: t('adminCommon.admin.todoTitle4'), priority: 'medium', due: t('adminCommon.admin.todoDueThisWeek'), done: todoDoneState.value[4], link: '/admin/product-management' },
+  { id: 5, title: t('adminCommon.admin.todoTitle5', { count: 28 }), priority: 'low', due: t('adminCommon.admin.todoDueNextWeek'), done: todoDoneState.value[5], link: '/admin/user-management' },
+  { id: 6, title: t('adminCommon.admin.todoTitle6', { month: 5 }), priority: 'low', due: t('adminCommon.admin.todoDueNextMonth', { day: 5 }), done: todoDoneState.value[6], link: '/admin/fund-management' },
 ])
 
 const pendingTodos = computed(() => todos.value.filter(td => !td.done).length)

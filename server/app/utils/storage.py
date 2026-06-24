@@ -16,24 +16,40 @@ from app.config import settings
 class BaseStorage:
     """存储基类."""
 
-    def upload_bytes(self, key: str, data: bytes) -> bool: ...
-    def presigned_url(self, key: str, expires: int = 3600) -> str | None: ...
-    def exists(self, key: str) -> bool: ...
-    def delete(self, key: str) -> bool: ...
+    def upload_bytes(self, key: str, data: bytes) -> bool:
+        raise NotImplementedError
+
+    def presigned_url(self, key: str, expires: int = 3600) -> str | None:
+        raise NotImplementedError
+
+    def exists(self, key: str) -> bool:
+        raise NotImplementedError
+
+    def delete(self, key: str) -> bool:
+        raise NotImplementedError
 
 
 class LocalStorage(BaseStorage):
     """本地磁盘回退 -- 适合开发 / 单机部署."""
 
     def __init__(self, base_dir: str):
-        self.base = Path(base_dir)
+        self.base = Path(base_dir).resolve()
         self.base.mkdir(parents=True, exist_ok=True)
 
     def _abs(self, key: str) -> Path:
-        # 防止路径穿越: 拒绝 ".."
-        if ".." in key or key.startswith("/"):
+        # 防止路径穿越: 拒绝 ".."、反斜杠、绝对路径
+        if not key or ".." in key or key.startswith("/") or key.startswith("\\"):
             raise ValueError(f"非法 key: {key}")
-        return self.base / key
+        # Windows 绝对路径检测 (如 C:\)
+        if len(key) >= 2 and key[1] == ":":
+            raise ValueError(f"非法 key: {key}")
+        resolved = (self.base / key).resolve()
+        # 校验解析后路径仍在 base 子树内
+        try:
+            resolved.relative_to(self.base)
+        except ValueError as e:
+            raise ValueError(f"非法 key (路径穿越): {key}") from e
+        return resolved
 
     def upload_bytes(self, key: str, data: bytes) -> bool:
         try:

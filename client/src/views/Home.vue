@@ -54,7 +54,6 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-left-animation"
             @click="goToXuqiu"
             :class="{ 'is-navigating': isNavigating }"
-            style="animation-delay: 0.1s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -102,7 +101,6 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-top-animation"
             @click="goToXuqiu"
             :class="{ 'is-navigating': isNavigating }"
-            style="animation-delay: 0.2s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -139,7 +137,6 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-right-animation"
             @click="goToXuqiu"
             :class="{ 'is-navigating': isNavigating }"
-            style="animation-delay: 0.3s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -170,7 +167,6 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-top-animation"
             @click="goToLearnAI"
             :class="{ 'is-navigating': isNavigating }"
-            style="animation-delay: 0.5s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -207,7 +203,6 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-right-animation"
             @click="goToXuqiu"
             :class="{ 'is-navigating': isNavigating }"
-            style="animation-delay: 0.6s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -258,7 +253,6 @@
                 'ihui-ai-fade-in-bottom-animation': true,
                 'is-navigating': isNavigating
               }"
-              style="animation-delay: 0.7s"
             >
               <div class="advantage-icon professional-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -288,7 +282,6 @@
                 'ihui-ai-fade-in-bottom-animation': true,
                 'is-navigating': isNavigating
               }"
-              style="animation-delay: 0.8s"
             >
               <div class="advantage-icon efficient-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -320,7 +313,6 @@
                 'ihui-ai-fade-in-bottom-animation': true,
                 'is-navigating': isNavigating
               }"
-              style="animation-delay: 0.9s"
             >
               <div class="advantage-icon reliable-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -350,7 +342,6 @@
                 'ihui-ai-fade-in-bottom-animation': true,
                 'is-navigating': isNavigating
               }"
-              style="animation-delay: 1.0s"
             >
               <div class="advantage-icon innovative-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -10,13 +10,17 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from collections import deque
 from pathlib import Path
 
 from fastapi import Request
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+
+from app.security import decode_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +52,7 @@ WRITE_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
 
 # 内存审计日志 (最近 N 条, 给前端展示或导出)
 _AUDIT_BUFFER: deque[dict] = deque(maxlen=5000)
+_AUDIT_BUFFER_LOCK = threading.Lock()
 _AUDIT_LOG_FILE: Path | None = None
 
 
@@ -79,8 +84,6 @@ def _extract_user(request: Request) -> str:
         return "anonymous"
     token = auth[7:]
     try:
-        from app.security import decode_access_token
-
         payload = decode_access_token(token)
         if payload:
             return payload.get("sub", "anonymous")
@@ -91,7 +94,13 @@ def _extract_user(request: Request) -> str:
 
 async def _write_audit(entry: dict) -> None:
     """异步写审计日志到文件 + 内存 buffer."""
-    _AUDIT_BUFFER.append(entry)
+    with _AUDIT_BUFFER_LOCK:
+        _AUDIT_BUFFER.append(entry)
+    await run_in_threadpool(_write_audit_sync, entry)
+
+
+def _write_audit_sync(entry: dict) -> None:
+    """同步写审计日志到文件 (在线程池中执行, 避免阻塞事件循环)."""
     log_file = _get_log_file()
     if log_file is None:
         return
@@ -118,7 +127,7 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # 跳过健康检查和 metrics (高频, 无审计价值)
-        if path in ("/healthz", "/ready", "/metrics", "/favicon.ico", "/openapi.json"):
+        if path in ("/healthz", "/health", "/ready", "/livez", "/metrics", "/docs", "/redoc", "/openapi.json", "/favicon.ico"):
             return await call_next(request)
 
         if not _is_sensitive(path, method):
@@ -171,7 +180,8 @@ def install_audit_log(app, enabled: bool = True) -> None:
 
 def get_recent_audits(limit: int = 100) -> list:
     """获取最近 N 条审计日志 (供管理后台展示)."""
-    return list(_AUDIT_BUFFER)[-limit:]
+    with _AUDIT_BUFFER_LOCK:
+        return list(_AUDIT_BUFFER)[-limit:]
 
 
 __all__ = [

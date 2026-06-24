@@ -13,5 +13,9 @@
       "order": "搜索订单",
       "lesson": "搜索课程"
     }
+  },
+  "moduleHot": {
+    "noRecommendation": "暂无推荐",
+    "refresh": "换一换"
   }
 }

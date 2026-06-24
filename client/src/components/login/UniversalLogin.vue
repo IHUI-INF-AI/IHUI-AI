@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="login-page-container">
     <div class="login-content login-page" :class="{ 'dark-mode': isDarkMode }">
       <!-- 登录表单 -->
@@ -5404,7 +5404,7 @@ cleanup.add(() => {
 
 /* 中等屏幕尺寸在93px-1023px）：确保定位正确 */
 /* 使用 CSS 变量控制尺寸和定位，确保可配置在*/
-@media (min-width: 993px) and (max-width: 1023px) {
+@media (width >= 993px) and (max-width: 1023px) {
   .login-content.login-page {
     /* 尺寸 - 使用 CSS 变量，带硬编码回退在*/
     width: var(--ulogin-content-width);
@@ -5440,7 +5440,7 @@ cleanup.add(() => {
 
 /* 桌面端：确保暗色模式也使用绝对定位到右侧 */
 /* 使用 CSS 变量控制尺寸和定位，确保可配置在*/
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
   .login-content.login-page {
     /* 尺寸 - 使用 CSS 变量，带硬编码回退在*/
     width: var(--ulogin-content-width);
@@ -5545,7 +5545,7 @@ cleanup.add(() => {
 }
 
 /* 移动端也显示欢迎图片 - 与桌面端一在*/
-@media (max-width: 992px) {
+@media (width <= 992px) {
 
   .welcome-svg,
   .login-brand .welcome-svg,
@@ -10000,7 +10000,7 @@ cleanup.add(() => {
   color: var(--el-text-color-secondary);
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
 
   .switch-to-account-link,
   .switch-to-phone-link,
@@ -10078,7 +10078,7 @@ cleanup.add(() => {
 }
 
 /* 响应式设在*/
-@media (max-width: 992px) {
+@media (width <= 992px) {
 
   /* 小屏幕时调整品牌跑马灯容器定位，确保仍然可见 */
   .brand-marquee-container {
@@ -10123,7 +10123,7 @@ cleanup.add(() => {
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
 
   /* 移动端调整品牌跑马灯容器定位 - 底部居中显示 */
   .brand-marquee-container {
@@ -10225,7 +10225,7 @@ cleanup.add(() => {
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .login-content.login-page {
     padding: 20px 16px 16px 16px;
     width: calc(100vw - 8px);
@@ -10325,7 +10325,7 @@ cleanup.add(() => {
   }
 }
 
-@media (max-width: 360px) {
+@media (width <= 360px) {
   .login-content.login-page {
     padding: 20px 12px 12px 12px;
     width: calc(100vw - 8px);
@@ -10938,7 +10938,7 @@ cleanup.add(() => {
 }
 
 /* 响应式调在- 1200px左右宽度适配，防止输入框超出容器 */
-@media (min-width: 1100px) and (max-width: 1300px) {
+@media (width >= 1100px) and (max-width: 1300px) {
   .verification-code-background-bar {
     padding: 0 16px;
     /* 固定左右内边在*/
@@ -10972,7 +10972,7 @@ cleanup.add(() => {
 }
 
 /* 响应式调在- 小屏幕时保持3:4比例，使用flex自动缩放 */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .verification-code-background-bar {
     height: auto;
     /* 自动高度，贴合输入框 */
@@ -11032,7 +11032,7 @@ cleanup.add(() => {
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .verification-code-background-bar {
     height: auto;
     /* 自动高度，贴合输入框 */

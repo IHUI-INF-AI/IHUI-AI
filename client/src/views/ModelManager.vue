@@ -625,17 +625,17 @@ main();`
 
 const goToApiTokens = () => {
   apiInfoDialogVisible.value = false
-  router.push('/api-tokens')
+  router.push('/key-management')
 }
 
 const goToApiDocs = () => {
   apiInfoDialogVisible.value = false
-  router.push('/api-docs')
+  router.push('/open/docs')
 }
 
 const goToApiStats = () => {
   apiInfoDialogVisible.value = false
-  router.push('/api-usage')
+  router.push('/open/dashboard')
 }
 
 onMounted(() => {

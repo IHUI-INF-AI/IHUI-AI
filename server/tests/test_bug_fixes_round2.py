@@ -251,8 +251,8 @@ class TestBug21SmsRateLimit:
 
         mock_redis = MagicMock()
         pipeline = MagicMock()
-        # 1 分钟档: 当前 1, 触发拒绝 (max=1, count>=1)
-        pipeline.execute.return_value = [0, 1]
+        # 1 分钟档: limit=1, count=2 (已发第 2 条, 超过上限 1) 触发拒绝
+        pipeline.execute.return_value = [0, 2]
         mock_redis.pipeline.return_value = pipeline
         with patch.object(sms_util, "get_redis", return_value=mock_redis):
             allowed, msg = sms_util.check_rate_limit("13800138000")

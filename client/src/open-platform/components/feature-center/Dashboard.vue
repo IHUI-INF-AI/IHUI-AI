@@ -138,7 +138,7 @@ const quickAccessItems = ref([
     title: t('openPlatform.dashboard.quickAccess.apiKey'),
     description: t('openPlatform.dashboard.quickAccess.apiKeyDesc'),
     icon: markRaw(Key),
-    path: '/api-tokens',
+    path: '/key-management',
   },
 ])
 
@@ -247,7 +247,7 @@ onMounted(() => {
   color: var(--el-text-color-primary);
 }
 
-html.dark .stat-card .stat-icon:hover {
+:where(html.dark) :where(.stat-card) :where(.stat-icon:hover) {
   background-color: var(--el-fill-color-dark);
 }
 

@@ -83,6 +83,9 @@ async function handleSave() {
   try {
     await memberApi.updateProfile(form.value)
     ElMessage.success(t('common.messages.saveSuccess'))
+  } catch (_e) {
+    // 保存失败时给用户明确反馈，避免「点保存没反应」
+    ElMessage.error(t('common.errors.saveFailed'))
   } finally {
     saving.value = false
   }

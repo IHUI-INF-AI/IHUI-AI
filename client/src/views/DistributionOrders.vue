@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="distribution-orders-page page-container">
     <!-- 页面头部 -->
     <div class="page-header radius-auto">
@@ -267,7 +267,7 @@ watch([currentPage, pageSize], () => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -303,7 +303,7 @@ watch([currentPage, pageSize], () => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }
@@ -320,7 +320,7 @@ watch([currentPage, pageSize], () => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }

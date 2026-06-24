@@ -852,14 +852,14 @@ $uc-transition-slow: 0.6s;
 // ============================================
 :deep(.user-info-card),
 :deep(.user-card) {
-  background: transparent ;
-  box-shadow: none ;
-  border: none ;
+  background: transparent;
+  box-shadow: none;
+  border: none;
 }
 
 :deep(.el-card) {
-  background: transparent ;
-  border: none ;
-  box-shadow: none ;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 </style>

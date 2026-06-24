@@ -3,19 +3,39 @@
 兼容: schemas/sys.py 从本文件导入 Sys* 别名, 保持旧代码向后兼容.
 """
 
+import re
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class AdminUserCreate(BaseModel):
     user_name: str
     nick_name: str
-    password: str | None = None
+    password: str | None = Field(default=None, min_length=8)
     phone: str | None = None
-    sex: str | None = "0"
+    sex: Literal["0", "1", "2"] | None = "0"
     email: str | None = None
     dept_id: int | None = None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return v
+        if not re.match(r"^1[3-9]\d{9}$", v):
+            raise ValueError("phone 格式不正确, 需为 11 位手机号")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return v
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("email 格式不正确")
+        return v
 
 
 class AdminUserOut(BaseModel):

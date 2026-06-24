@@ -1865,7 +1865,7 @@ watch(
         <div class="upload-dialog-content">
           <div class="upload-dialog-header">
             <h3>{{ t('hardcoded.edu_documentation.uploadDialogTitle') }}</h3>
-            <button class="close-btn" @click="showUploadDialog = false">&times;</button>
+            <button class="close-btn" @click="showUploadDialog = false" aria-label="关闭">&times;</button>
           </div>
           <div class="upload-form">
             <div class="form-item">
@@ -1940,7 +1940,7 @@ watch(
         <div class="upload-dialog-content edit-dialog">
           <div class="upload-dialog-header">
             <h3>{{ t('hardcoded.edu_documentation.editDialogTitle') }}</h3>
-            <button class="close-btn" @click="showEditDialog = false">&times;</button>
+            <button class="close-btn" @click="showEditDialog = false" aria-label="关闭">&times;</button>
           </div>
           <div class="upload-form">
             <div class="form-item">
@@ -3643,16 +3643,16 @@ $sidebar-width: 200px;
 // ============================================
 // 亮色模式适配
 // ============================================
-html:not(.dark) body .edu-docs-root {
+:where(html:not(.dark) body) .edu-docs-root {
   background: var(--el-fill-color-lighter);
 }
 
-html:not(.dark) body .edu-docs-root .glass-panel {
+:where(html:not(.dark) body) .edu-docs-root .glass-panel {
   background: var(--color-white-85);
   border-color: var(--border-unified-color);
 }
 
-html:not(.dark) body .edu-docs-root .cyber-btn {
+:where(html:not(.dark) body) .edu-docs-root .cyber-btn {
   border-color: var(--border-unified-color);
   color: var(--el-text-color-primary);
 
@@ -3748,20 +3748,20 @@ html:not(.dark) body .edu-docs-root .cyber-btn {
   }
 }
 
-html:not(.dark) body .edu-docs-root .doc-group {
+:where(html:not(.dark) body) .edu-docs-root .doc-group {
   border-bottom-color: var(--color-black-5);
 }
 
-html:not(.dark) body .edu-docs-root .doc-group-title {
+:where(html:not(.dark) body) .edu-docs-root .doc-group-title {
   color: var(--el-text-color-secondary);
   background: var(--color-green-glow);
 }
 
-html:not(.dark) body .edu-docs-root .search-hint {
+:where(html:not(.dark) body) .edu-docs-root .search-hint {
   color: var(--el-text-color-placeholder);
 }
 
-html:not(.dark) body .edu-docs-root .empty-hint {
+:where(html:not(.dark) body) .edu-docs-root .empty-hint {
   color: var(--el-text-color-placeholder);
 }
 
@@ -3771,7 +3771,7 @@ html:not(.dark) body .edu-docs-root .empty-hint {
   }
 }
 
-html:not(.dark) body .edu-docs-root .doc-list-resize-handle {
+:where(html:not(.dark) body) .edu-docs-root .doc-list-resize-handle {
   &::before {
     background: var(--color-black-10);
   }
@@ -3785,7 +3785,7 @@ html:not(.dark) body .edu-docs-root .doc-list-resize-handle {
   }
 }
 
-html:not(.dark) body .edu-docs-root .cyber-loader {
+:where(html:not(.dark) body) .edu-docs-root .cyber-loader {
   &__ring:nth-child(1) {
     border-top-color: var(--el-color-success);
   }
@@ -3799,7 +3799,7 @@ html:not(.dark) body .edu-docs-root .cyber-loader {
   }
 }
 
-html:not(.dark) body .edu-docs-root .loading-text {
+:where(html:not(.dark) body) .edu-docs-root .loading-text {
   color: var(--el-text-color-secondary);
 }
 
@@ -3807,7 +3807,7 @@ html:not(.dark) body .edu-docs-root .loading-text {
   color: var(--el-text-color-secondary);
 }
 
-html:not(.dark) body .edu-docs-root .docs-content {
+:where(html:not(.dark) body) .edu-docs-root .docs-content {
   &::before {
     background: var(--color-green-glow-3);
   }
@@ -3903,7 +3903,7 @@ html:not(.dark) body .edu-docs-root .docs-content {
   }
 }
 
-html:not(.dark) body .edu-docs-root .back-to-top.cyber-btn {
+:where(html:not(.dark) body) .edu-docs-root .back-to-top.cyber-btn {
   border-color: var(--border-unified-color);
   background: var(--color-white-80);
   color: var(--el-text-color-primary);
@@ -3917,7 +3917,7 @@ html:not(.dark) body .edu-docs-root .back-to-top.cyber-btn {
   }
 }
 
-html:not(.dark) body .edu-docs-root .fullscreen-btn {
+:where(html:not(.dark) body) .edu-docs-root .fullscreen-btn {
   background: var(--color-white-80);
   border-color: var(--border-unified-color);
   color: var(--el-text-color-secondary);
@@ -3929,7 +3929,7 @@ html:not(.dark) body .edu-docs-root .fullscreen-btn {
   }
 }
 
-html:not(.dark) body .edu-docs-root .exit-fullscreen-btn {
+:where(html:not(.dark) body) .edu-docs-root .exit-fullscreen-btn {
   background: var(--color-white-90);
   border-color: var(--color-green-50);
   color: var(--el-color-success);
@@ -3939,12 +3939,12 @@ html:not(.dark) body .edu-docs-root .exit-fullscreen-btn {
   }
 }
 
-html:not(.dark) body .edu-docs-root .docs-content.is-fullscreen {
+:where(html:not(.dark) body) .edu-docs-root .docs-content.is-fullscreen {
   background: var(--color-white-98);
 }
 
-html:not(.dark) body .edu-docs-root .iframe-loading-overlay,
-html:not(.dark) body .edu-docs-root .iframe-error-overlay {
+:where(html:not(.dark) body) .edu-docs-root .iframe-loading-overlay,
+:where(html:not(.dark) body) .edu-docs-root .iframe-error-overlay {
   background: var(--color-white-90);
 }
 
@@ -3952,7 +3952,7 @@ html:not(.dark) body .edu-docs-root .iframe-error-overlay {
   color: var(--el-text-color-secondary);
 }
 
-html:not(.dark) body .edu-docs-root .mobile-menu-btn {
+:where(html:not(.dark) body) .edu-docs-root .mobile-menu-btn {
   background: var(--color-white-90);
   border-color: var(--border-unified-color);
   color: var(--el-text-color-primary);
@@ -3960,7 +3960,7 @@ html:not(.dark) body .edu-docs-root .mobile-menu-btn {
 
 
 
-html:not(.dark) body .edu-docs-root .pulse-glow {
+:where(html:not(.dark) body) .edu-docs-root .pulse-glow {
   animation: pulse-glow-light 2s ease-in-out infinite;
 }
 
@@ -4089,7 +4089,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 
 /* 暗色下文档内容区：强制高对比度文字（覆盖 scoped 内的亮色变量） */
 :where(html.dark) body .edu-docs-root .docs-content {
-  background: var(--el-bg-color) ;
+  background: var(--el-bg-color);
   border-color: var(--el-border-color);
 }
 
@@ -4101,32 +4101,32 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content p,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content li,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content td {
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h1,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h2,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h3 {
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
   border-color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h4 {
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content table th {
   background: var(--color-white-6);
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content table td {
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
   border-bottom-color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content code {
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content pre {
@@ -4135,12 +4135,12 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content pre code {
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content blockquote,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content blockquote p {
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content a {
@@ -4157,11 +4157,11 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 }
 
 :where(html.dark) :where(body) :where(.edu-docs-root) .docs-content .markdown-content .legal-update {
-  color: var(--el-text-color-primary) ;
+  color: var(--el-text-color-primary);
 }
 
 :where(html.dark) body .edu-docs-root .docs-content.is-fullscreen {
-  background: var(--el-bg-color) ;
+  background: var(--el-bg-color);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content blockquote {

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="agents-create-container page-container">
     <!-- 深度背景系统 -->
     <div class="industrial-bg">
@@ -548,7 +548,7 @@ $glass-border-hover: var(--border-unified-color-hover);
     transition: all 0.25s ease;
 
     &:hover {
-      border-color: $industrial-border-hover ;
+      border-color: $industrial-border-hover;
       background: var(--color-black-40);
     }
 
@@ -562,31 +562,31 @@ $glass-border-hover: var(--border-unified-color-hover);
 
   :deep(.el-input__inner),
   :deep(.el-textarea__inner) {
-    color: $industrial-text ;
+    color: $industrial-text;
     font-size: 14px;
 
     &::placeholder {
-      color: $industrial-text-dim ;
+      color: $industrial-text-dim;
     }
   }
 
   :deep(.el-input__count) {
     background: transparent;
-    color: $industrial-text-dim ;
+    color: $industrial-text-dim;
   }
 
   :deep(.el-select__placeholder) {
-    color: $industrial-text-dim ;
+    color: $industrial-text-dim;
   }
 
   :deep(.el-select__selected-item) {
-    color: $industrial-text ;
+    color: $industrial-text;
   }
 
   :deep(.el-tag) {
     background: var(--color-white-10);
-    border-color: $industrial-border ;
-    color: $industrial-text ;
+    border-color: $industrial-border;
+    color: $industrial-text;
     border-radius: var(--global-border-radius);
   }
 }

@@ -2,6 +2,7 @@
  * 首页相关API
  */
 
+// 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
 import request from '@/utils/request'
 import { defaultCache } from '@/utils/requestCache'
 import type { ApiResponse } from '@/types'
@@ -10,7 +11,7 @@ import type { ApiResponse } from '@/types'
  * 获取首页数据
  */
 export async function getHomeData(): Promise<ApiResponse<unknown>> {
-  return request.get('/home/data')
+  return request.get('/api/v1/resource/home')
 }
 
 /**

@@ -30,16 +30,16 @@ const props = defineProps<{
 
 const showPopup = ref(true)
 const benefits = ref([
-  { id: 1, content: '享受大额分销资格，<b>入驻</b>社区服务商名列' },
-  { id: 2, content: '会员等级拉满，享受<b>全部</b>满级折扣等权益' },
-  { id: 3, content: '二级分销权益，快速扩张<b>团队</b>及收益，创办一人公司' },
-  { id: 4, content: '最新研发前沿<b>agentic</b>内测免费使用资格<b>一年</b>' },
-  { id: 5, content: '插队定制独家定制<b>agent</b>功能<b>8</b>折优惠' },
-  { id: 6, content: '创始人<b>一对一</b>随时答疑陪跑' },
-  { id: 7, content: '<b>AI</b>深度认知课/<b>AI</b>专家一对一陪跑教学/升维课程/深度商业课/流量全链路打法课程/免费观看' },
-  { id: 8, content: '<b>AI</b>+垂类账号孵化优先陪跑机会/加入<b>MCN</b>机会' },
-  { id: 9, content: '公司总部入驻及线下学习实操机会' },
-  { id: 10, content: '插队<b>AI</b>分身/<b>AI</b>客服定制开通' },
+  { id: 1, content: t('cmpVipIntroducePopupAlt.feature1') },
+  { id: 2, content: t('cmpVipIntroducePopupAlt.feature2') },
+  { id: 3, content: t('cmpVipIntroducePopupAlt.feature3') },
+  { id: 4, content: t('cmpVipIntroducePopupAlt.feature4') },
+  { id: 5, content: t('cmpVipIntroducePopupAlt.feature5') },
+  { id: 6, content: t('cmpVipIntroducePopupAlt.feature6') },
+  { id: 7, content: t('cmpVipIntroducePopupAlt.feature7') },
+  { id: 8, content: t('cmpVipIntroducePopupAlt.feature8') },
+  { id: 9, content: t('cmpVipIntroducePopupAlt.feature9') },
+  { id: 10, content: t('cmpVipIntroducePopupAlt.feature10') },
 ])
 const moreBenefitsText = ref(t('cmpVipIntroducePopupAlt.benefitsCount'))
 

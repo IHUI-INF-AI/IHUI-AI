@@ -175,8 +175,19 @@ export class ApiClient {
 
   /**
    * 统一处理token过期：刷新token并重试原始请求
+   * 注意：若当前请求本身就是刷新 token 接口返回 401，说明 refreshToken 也已失效，
+   * 直接清理并拒绝，避免再次调用 handleTokenExpired 形成递归死循环。
    */
   private async handleTokenExpired(response: AxiosResponse): Promise<AxiosResponse> {
+    // 防止刷新接口自身 401 导致递归死循环
+    if (response.config.url && response.config.url.includes(LOGIN_PWD_PATHS.refreshToken)) {
+      TokenManager.clearTokens()
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:expired'))
+      }
+      return Promise.reject(new Error('登录已过期，请重新登录'))
+    }
+
     try {
       const refreshToken = TokenManager.getRefreshToken()
       if (refreshToken) {
@@ -220,6 +231,8 @@ export class ApiClient {
       data: config.data,
       headers: config.headers,
       timeout: config.timeout || this.config.timeout,
+      // 透传 AbortSignal，支持请求取消
+      signal: config.signal,
     }
 
     try {
@@ -317,61 +330,66 @@ export class ApiClient {
   /**
    * GET请求
    */
-  async get<T>(url: string, params?: Record<string, unknown>, options?: { silent?: boolean }): Promise<ApiResponse<T>> {
+  async get<T>(url: string, params?: Record<string, unknown>, options?: { silent?: boolean; signal?: AbortSignal }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'GET',
       params,
       silent: options?.silent,
+      signal: options?.signal,
     })
   }
 
   /**
    * POST请求
    */
-  async post<T>(url: string, data?: unknown, options?: { silent?: boolean; headers?: Record<string, string> }): Promise<ApiResponse<T>> {
+  async post<T>(url: string, data?: unknown, options?: { silent?: boolean; headers?: Record<string, string>; signal?: AbortSignal }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'POST',
       data,
       silent: options?.silent,
       headers: options?.headers,
+      signal: options?.signal,
     })
   }
 
   /**
    * PUT请求
    */
-  async put<T>(url: string, data?: unknown, options?: { silent?: boolean }): Promise<ApiResponse<T>> {
+  async put<T>(url: string, data?: unknown, options?: { silent?: boolean; signal?: AbortSignal }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'PUT',
       data,
       silent: options?.silent,
+      signal: options?.signal,
     })
   }
 
   /**
    * DELETE请求
    */
-  async delete<T>(url: string, options?: { silent?: boolean; params?: Record<string, unknown> }): Promise<ApiResponse<T>> {
+  async delete<T>(url: string, options?: { silent?: boolean; params?: Record<string, unknown>; signal?: AbortSignal }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'DELETE',
       silent: options?.silent,
       params: options?.params,
+      signal: options?.signal,
     })
   }
 
   /**
    * PATCH请求
    */
-  async patch<T>(url: string, data?: unknown, options?: { silent?: boolean }): Promise<ApiResponse<T>> {
+  async patch<T>(url: string, data?: unknown, options?: { silent?: boolean; signal?: AbortSignal }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'PATCH',
       data,
       silent: options?.silent,
+      signal: options?.signal,
     })
   }
 

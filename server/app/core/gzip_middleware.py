@@ -52,6 +52,10 @@ class GzipMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
 
+        # Socket.IO 请求跳过压缩 (WebSocket/轮询, headers 可能不完整, 避免 KeyError)
+        if request.url.path.startswith("/socket.io"):
+            return response
+
         # 已被上游压缩, 跳过
         if response.headers.get("content-encoding"):
             return response

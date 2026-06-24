@@ -15,6 +15,8 @@
   - 演示定时任务
 """
 
+import os
+import secrets as _secrets
 import sys
 from pathlib import Path
 
@@ -312,8 +314,11 @@ def main():
 
         # 7. 用户 (admin/ry)
         if not db.query(SysUser).first():
-            admin_pwd = pwd.hash("admin123")
-            ry_pwd = pwd.hash("123456")
+            # 密码优先从环境变量读取, 未配置则生成随机密码 (避免硬编码弱密码).
+            admin_pwd_plain = os.getenv("SEED_ADMIN_PWD") or _secrets.token_urlsafe(12)
+            ry_pwd_plain = os.getenv("SEED_RY_PWD") or _secrets.token_urlsafe(12)
+            admin_pwd = pwd.hash(admin_pwd_plain)
+            ry_pwd = pwd.hash(ry_pwd_plain)
             db.add_all(
                 [
                     SysUser(
@@ -350,7 +355,10 @@ def main():
                 ]
             )
             db.commit()
-        print("[7/9] 用户: 2 条 (admin/admin123, ry/123456)")
+            # 打印密码供首次登录 (仅本次执行可见, 请妥善保存后清除日志)
+            print(f"[SEED] admin password: {admin_pwd_plain}")
+            print(f"[SEED] ry password: {ry_pwd_plain}")
+        print("[7/9] 用户: 2 条 (admin/ry)")
 
         # 8. 字典
         if not db.query(SysDictType).first():
@@ -536,7 +544,7 @@ def main():
             db.commit()
         print("[9/9] 通知/参数/任务: 已建")
 
-    print("\n✓ Seed 完成, 演示账号: admin/admin123, ry/123456")
+    print("\n✓ Seed 完成, 演示账号: admin / ry (密码见上方 [SEED] 输出或环境变量 SEED_ADMIN_PWD/SEED_RY_PWD)")
 
 
 if __name__ == "__main__":

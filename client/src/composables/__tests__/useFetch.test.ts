@@ -118,7 +118,7 @@ describe('useFetch.ts', () => {
       await execute()
 
       expect(data.value).toEqual({ name: 'func' })
-      expect(mockApiClient.get).toHaveBeenCalledWith('/api/func', expect.any(Object))
+      expect(mockApiClient.get).toHaveBeenCalledWith('/api/func', undefined, expect.any(Object))
     })
 
     // 测试 URL 为空字符串抛错
@@ -394,7 +394,9 @@ describe('useFetch.ts', () => {
       await fetch()
 
       expect(mockApiClient.get).toHaveBeenCalledWith(
-        expect.stringContaining('/api/func-list')
+        expect.stringContaining('/api/func-list'),
+        undefined,
+        expect.any(Object)
       )
     })
 

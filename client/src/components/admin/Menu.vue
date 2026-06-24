@@ -17,13 +17,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   User, Reading, EditPen, VideoCamera, ChatDotRound, Connection, Document,
   Collection, ShoppingCart, Trophy, Medal, Histogram, Lock, Setting, Search,
   OfficeBuilding, Promotion, ChatLineSquare, Bell, Picture, Key, Monitor,
+  DataAnalysis,
 } from '@element-plus/icons-vue'
+import http from '@/utils/request'
 
 interface MenuItem { path: string; title: string; icon?: any }
 interface MenuGroup { key: string; title: string; children: MenuItem[] }
@@ -126,6 +128,7 @@ const groups = computed<MenuGroup[]>(() => [
       { path: '/admin/search/hot', title: t('adminCommon.menu.item.searchHot'), icon: Search },
       { path: '/admin/aiworld/site', title: t('adminCommon.menu.item.aiworldSite'), icon: Connection },
       { path: '/admin/backend-health', title: t('adminCommon.menu.item.backendHealth'), icon: Monitor },
+      { path: '/admin/migration', title: t('adminCommon.menu.item.migration'), icon: DataAnalysis },
     ],
   },
 ])
@@ -151,6 +154,10 @@ const groups = computed<MenuGroup[]>(() => [
     transition: all 0.2s;
     &:hover { color: var(--el-bg-color); background: var(--color-white-8); }
     &.active { color: var(--el-bg-color); background: var(--el-color-primary); }
+  }
+
+  :where(.menu-badge) {
+    margin-left: auto;
   }
 }
 </style>

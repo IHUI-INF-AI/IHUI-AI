@@ -11,7 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { logger } from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { isLoginExpired } from '@/utils/login-duration'
+import { isExpiryTimePassed } from '@/utils/login-duration'
 
 /**
  * useLoginAuth 配置选项
@@ -52,7 +52,7 @@ export function useLoginAuth(options: UseLoginAuthOptions = {}) {
 
       // 检查登录是否过期
       const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-      const isExpired = expiryTime !== null && isLoginExpired(expiryTime)
+      const isExpired = expiryTime !== null && isExpiryTimePassed(expiryTime)
 
       // 检查用户数据
       const userData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)

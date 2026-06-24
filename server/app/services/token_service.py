@@ -17,8 +17,9 @@ OP_COMMISSION = 4
 def _log_flow(db, user_uuid, quantity, op_type, desc, token_free=0):
     from app.models.payment_models import OperateTokenFlow
 
+    # user_id 在 ZhsOperateTokenFlow 中为 Integer (用户数字 ID), 此处仅持有 UUID,
+    # 故只写 user_uuid, user_id 留空由调用方按需补齐.
     flow = OperateTokenFlow(
-        user_id=user_uuid,
         user_uuid=user_uuid,
         token_quantity=quantity,
         type=op_type,
@@ -99,7 +100,7 @@ def list_token_flows(
 
     with get_session() as db:
         q = db.query(OperateTokenFlow).filter(
-            OperateTokenFlow.user_id == user_uuid
+            OperateTokenFlow.user_uuid == user_uuid
         )
         if op_type is not None:
             q = q.filter(OperateTokenFlow.type == op_type)

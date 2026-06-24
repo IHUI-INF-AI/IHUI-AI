@@ -8,7 +8,7 @@
 // ⚠️ 启动优化：延迟加载 useAuthStore
 // import { useAuthStore } from '@/stores/auth'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { isLoginExpired } from '@/utils/login-duration'
+import { isExpiryTimePassed } from '@/utils/login-duration'
 import { deepEqual } from '@/utils/object-utils'
 import type { UserInfoData } from '@/api/user'
 import { logger } from '@/utils/logger'
@@ -63,7 +63,7 @@ function getAuthDataFromStorage(): {
                StorageManager.getItem<string>(STORAGE_KEYS.USER_TOKEN)
   const userData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
   const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-  const isExpired = expiryTime !== null && isLoginExpired(expiryTime)
+  const isExpired = expiryTime !== null && isExpiryTimePassed(expiryTime)
 
   return { token, userData, expiryTime, isExpired }
 }

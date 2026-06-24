@@ -9,6 +9,8 @@ import { logger } from '@/utils/logger'
 import { registerIcons } from '@/utils/element-plus-icons'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { createPersistedState } from '@/plugins/pinia-persist'
+// SVG 雪碧图注册 (vite-plugin-svg-icons) - 让 SvgIcon 组件的 <use xlink:href> 生效
+import 'virtual:svg-icons-register'
 // E2E/演示模式下过滤噪声日志，避免无关错误充斥控制台
 // 直接导入 fixLogger，文件内部会根据环境变量决定是否启用
 

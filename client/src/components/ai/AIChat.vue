@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- 悬浮模式：使用 Teleport 到 body -->
   <Teleport to="body" :disabled="mode === 'embedded'">
     <!-- 悬浮触发按钮（仅在 floating 模式下显示） -->
@@ -12480,7 +12480,7 @@ button.mini-delete-btn {
         grid-template-columns: repeat(6, 1fr);
         gap: 8px;
 
-        @media (max-width: 768px) {
+        @media (width <= 768px) {
           grid-template-columns: repeat(3, 1fr);
         }
 

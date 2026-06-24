@@ -50,7 +50,7 @@ export function useFetch<T>(
       isFetching.value = true
       error.value = null
 
-      const response = await apiClient.get<ApiResponse<T>>(currentUrl, {
+      const response = await apiClient.get<ApiResponse<T>>(currentUrl, undefined, {
         signal: abortController.signal,
       })
 
@@ -153,6 +153,9 @@ export function usePaginatedFetch<T>(
   const pageSize = ref(defaultPageSize)
   const isLoading = ref(false)
   const error = ref<Error | null>(null)
+  // 请求序号：用于竞态保护，仅最新请求的响应才会写入数据
+  let requestSeq = 0
+  let abortController: AbortController | null = null
 
   const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
 
@@ -171,11 +174,21 @@ export function usePaginatedFetch<T>(
     const currentUrl = getUrl()
     if (!currentUrl) return
 
+    // 取消上一次未完成的请求，并递增请求序号用于竞态保护
+    abortController?.abort()
+    abortController = new AbortController()
+    const currentSeq = ++requestSeq
+
     try {
       isLoading.value = true
       error.value = null
 
-      const response = await apiClient.get<ApiResponse<PaginatedResponse<T>>>(currentUrl)
+      const response = await apiClient.get<ApiResponse<PaginatedResponse<T>>>(currentUrl, undefined, {
+        signal: abortController.signal,
+      })
+
+      // 竞态保护：若期间发起了新请求，丢弃本次过期响应
+      if (currentSeq !== requestSeq) return
 
       if (!response.data) {
         throw new Error('No response data')
@@ -192,11 +205,16 @@ export function usePaginatedFetch<T>(
         throw new Error(response.data.message || 'Request failed')
       }
     } catch (e) {
+      // 过期请求或被取消的请求，不处理错误
+      if (currentSeq !== requestSeq) return
+      if (e instanceof Error && e.name === 'AbortError') return
       const err = e instanceof Error ? e : new Error(String(e))
       error.value = err
       onError?.(err)
     } finally {
-      isLoading.value = false
+      if (currentSeq === requestSeq) {
+        isLoading.value = false
+      }
     }
   }
 
@@ -224,7 +242,8 @@ export function usePaginatedFetch<T>(
   const refresh = () => fetch(page.value)
 
   onUnmounted(() => {
-    // Cleanup if needed
+    // 组件卸载时取消进行中的请求，避免回调操作已卸载组件
+    abortController?.abort()
   })
 
   if (immediate) {

@@ -12,7 +12,7 @@
 
 服务名: ZHS_PLATFORM_SERVICE_NAME (默认 zhs-platform)
 OTLP endpoint: OTEL_EXPORTER_OTLP_ENDPOINT (默认空 → 走 console)
-采样率: OTEL_TRACES_SAMPLER_ARG (默认 0.1 = 10%)
+采样率: ZHS_OTEL_SAMPLE_RATIO / ZHS_OTEL_SAMPLE_BUSINESS (由 _build_sampler 读取)
 """
 
 import asyncio
@@ -474,14 +474,13 @@ def setup_telemetry(app=None, engines=None):
 
     - 服务名: ZHS_PLATFORM_SERVICE_NAME (默认 zhs-platform)
     - OTLP endpoint: OTEL_EXPORTER_OTLP_ENDPOINT (默认空 → console exporter 调试)
-    - 采样率: OTEL_TRACES_SAMPLER_ARG (默认 0.1 = 10%)
+    - 采样率: ZHS_OTEL_SAMPLE_RATIO / ZHS_OTEL_SAMPLE_BUSINESS (由 _build_sampler 读取)
 
     失败时静默回退 (APM 是可观测性增强, 不应阻塞业务).
     """
     global _ENABLED, _TRACER
 
     service_name = os.getenv("ZHS_PLATFORM_SERVICE_NAME", "zhs-platform")
-    sample_ratio = float(os.getenv("OTEL_TRACES_SAMPLER_ARG", "0.1"))
     use_console = os.getenv("OTEL_CONSOLE_EXPORTER", "0") == "1"
 
     # 三种模式: 显式 console / 显式 OTLP / 都没设 → console
@@ -572,7 +571,7 @@ def setup_telemetry(app=None, engines=None):
             pass
 
         _ENABLED = True
-        logger.info(f"OpenTelemetry enabled: service={service_name} sample={sample_ratio}")
+        logger.info(f"OpenTelemetry enabled: service={service_name}")
         return _TRACER
     except Exception as e:
         logger.warning(f"OpenTelemetry init failed: {e}")

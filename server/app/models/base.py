@@ -1,6 +1,6 @@
 """Base model mixin."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import BigInteger, Column, DateTime, Integer
 
@@ -8,8 +8,8 @@ from sqlalchemy import BigInteger, Column, DateTime, Integer
 class TimestampMixin:
     """Mixin that adds created_at and updated_at columns."""
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class SoftDeleteMixin:
@@ -19,7 +19,7 @@ class SoftDeleteMixin:
 
     def set_deleted(self, when: datetime | None = None) -> None:
         """Mark this instance as deleted at the given timestamp (default: now)."""
-        self.deleted_at = when or datetime.utcnow()
+        self.deleted_at = when or datetime.now(timezone.utc)
 
     @property
     def is_deleted(self) -> bool:

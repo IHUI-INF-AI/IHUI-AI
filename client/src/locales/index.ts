@@ -26,7 +26,7 @@ export const languages = [
 export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko'
 
 // 核心模块列表 - 应用启动时加载
-const coreModules = ['common', 'navigation', 'header', 'auth', 'routes'] as const
+const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary'] as const
 
 // 异步模块列表 - 按需加载
 const asyncModules = [

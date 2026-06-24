@@ -1377,9 +1377,9 @@ html.dark .agents-content {
   color: var(--el-text-color-primary);
 }
 
-html.dark .agents-header .page-subtitle,
-html.dark .agents-header .page-meta,
-:where(html.dark) .agents-header .meta-text {
+:where(html.dark) :where(.agents-header) :where(.page-subtitle),
+:where(html.dark) :where(.agents-header) :where(.page-meta),
+:where(html.dark) :where(.agents-header) :where(.meta-text) {
   color: var(--el-text-color-secondary);
 }
 

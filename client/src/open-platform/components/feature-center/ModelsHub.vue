@@ -232,11 +232,11 @@ const { pagination, handlePageChange, handlePageSizeChange } = usePagination({
 
 // 模型操作
 const handleModelClick = (model: AIModelInfo) => {
-  router.push(`/api-documentation?section=models&model=${model.name}`)
+  router.push(`/open/documents?section=models&model=${model.name}`)
 }
 
 const handleViewApi = (model: AIModelInfo) => {
-  router.push(`/api-documentation?section=models&model=${model.name}`)
+  router.push(`/open/documents?section=models&model=${model.name}`)
 }
 
 const goToModelManager = () => {

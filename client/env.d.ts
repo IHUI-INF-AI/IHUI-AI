@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-svg-icons/client" />
 /// <reference path="./src/shims-vue.d.ts" />
 /// <reference path="./src/vue-module.d.ts" />
 /// <reference path="./src/auto-imports.d.ts" />
@@ -122,6 +123,100 @@ declare global {
     // Coze API
     readonly VITE_COZE_API_TOKEN?: string
     readonly VITE_COZE_WORKFLOW_ID?: string
+
+    // OAuth2.1 配置 (历史 admin-frontend 迁移)
+    readonly VITE_OAUTH2_TOKEN_ENDPOINT?: string
+    readonly VITE_OAUTH2_AUTHORIZATION_ENDPOINT?: string
+    readonly VITE_USE_OAUTH21?: string
+    // 兼容变量名 (TOKEN_URL / AUTHORIZATION_URL)
+    readonly VITE_OAUTH2_TOKEN_URL?: string
+    readonly VITE_OAUTH2_AUTHORIZATION_URL?: string
+
+    // 向后兼容变量 (历史 admin-frontend 迁移, 5处组件仍在使用)
+    readonly VUE_APP_TITLE?: string
+    readonly VUE_APP_BASE_API?: string
+    readonly VUE_APP_MAIN_APP_URL?: string
+    readonly VUE_APP_WEB_API_BASE?: string
+    readonly VUE_APP_WEB_URL?: string
+
+    // 管理端 API 基础路径
+    readonly VITE_ADMIN_API_BASE?: string
+    readonly VITE_BASE_API?: string
+    readonly VITE_APP_BASE_API?: string
+
+    // 代理路径配置
+    readonly VITE_KOU_PROXY_PATH?: string
+
+    // Web URL 配置
+    readonly VITE_WEB_URL?: string
+    readonly VITE_MAIN_APP_URL?: string
+    readonly VITE_MAIN_PROJECT_URL?: string
+
+    // LLM Chat URL
+    readonly VITE_LLM_CHAT_URL?: string
+
+    // 请求签名
+    readonly VITE_REQUEST_SIGNATURE_SECRET?: string
+    readonly VITE_REQUEST_SIGNATURE_APP_ID?: string
+
+    // ZHS Agent
+    readonly VITE_ENABLE_ZHS_AGENT_LIST?: string
+    readonly VITE_AGENTS_SHOW_SAMPLE_WHEN_EMPTY?: string
+    readonly VITE_IMAGE_PLACEHOLDER?: string
+
+    // 百度语音
+    readonly VITE_BAIDU_SPEECH_APP_ID?: string
+    readonly VITE_BAIDU_SPEECH_API_KEY?: string
+    readonly VITE_BAIDU_SPEECH_SECRET_KEY?: string
+    readonly VITE_WHISPER_API_ENDPOINT?: string
+
+    // 构建平台
+    readonly VITE_BUILD_PLATFORM?: string
+    readonly VITE_USE_VIZE?: string
+    readonly VITE_ENABLE_VISUALIZER?: string
+
+    // 开发服务器
+    readonly VITE_DEV_HOST?: string
+    readonly VITE_DEV_ORIGIN?: string
+    readonly VITE_DEV_HMR_HOST?: string
+    readonly VITE_DEV_HMR_PROTOCOL?: string
+
+    // 错误追踪
+    readonly VITE_ERROR_TRACKER_DSN?: string
+
+    // 钉钉登录
+    readonly VITE_DINGTALK_CORP_ID?: string
+    readonly VITE_DINGTALK_LOGIN_APP_ID?: string
+    readonly VITE_DINGTALK_REDIRECT_URI?: string
+
+    // 企业微信
+    readonly VITE_WORKWECHAT_ENABLED?: string
+    readonly VITE_WORKWECHAT_REDIRECT_URI?: string
+    readonly VITE_WORKWECHAT_SCOPE?: string
+    readonly VITE_WECOM_CORP_ID?: string
+
+    // Apple 登录
+    readonly VITE_APPLE_ENABLED?: string
+    readonly VITE_APPLE_SCOPE?: string
+
+    // 华为登录
+    readonly VITE_HUAWEI_ENABLED?: string
+    readonly VITE_HUAWEI_CLIENT_ID?: string
+    readonly VITE_HUAWEI_REDIRECT_URI?: string
+    readonly VITE_HUAWEI_SCOPE?: string
+
+    // 微信
+    readonly VITE_WECHAT_PC_APP_ID?: string
+    readonly VITE_WECHAT_PC_REDIRECT_URI?: string
+    readonly VITE_WECHAT_APP_ID?: string
+
+    // 支付宝
+    readonly VITE_ALIPAY_SCOPE?: string
+
+    // 飞书
+    readonly VITE_FEISHU_APP_ID?: string
+    readonly VITE_FEISHU_REDIRECT_URI?: string
+    readonly VITE_FEISHU_SCOPE?: string
   }
 
   interface ImportMeta {
@@ -195,3 +290,14 @@ declare const uni: {
 declare const plus: unknown
 
 declare function getCurrentPages(): Array<{ route?: string; options?: Record<string, unknown> }>
+
+// vite-plugin-svg-icons 虚拟模块声明（SVG 雪碧图注册）
+declare module 'virtual:svg-icons-register' {
+  const svgIconsRegister: unknown
+  export default svgIconsRegister
+}
+
+declare module 'virtual:svg-icons-names' {
+  const iconsNames: string[]
+  export default iconsNames
+}

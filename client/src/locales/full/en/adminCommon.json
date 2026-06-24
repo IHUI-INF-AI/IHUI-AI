@@ -238,7 +238,9 @@
         "settingAgreement": "Agreements",
         "settingCarousel": "Carousel Settings",
         "settingIndex": "Homepage Settings",
-        "backendHealth": "Backend Health"
+        "backendHealth": "Backend Health",
+        "migration": "Data Migration",
+        "notification": "Notifications"
       }
     },
     "admin": {

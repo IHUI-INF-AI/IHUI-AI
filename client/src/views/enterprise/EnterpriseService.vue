@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="enterprise-service-page" ref="pageRef" role="main">
     <!-- 跳过导航链接 - 无障碍 -->
     <a href="#main-content" class="skip-link">{{ t('enterpriseService.skipToMain') }}</a>
@@ -1293,11 +1293,11 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   *::before,
   *::after {
     /* stylelint-disable-next-line declaration-no-important */
-    animation-duration: 0.01ms ;
+    animation-duration: 0.01ms;
     /* stylelint-disable-next-line declaration-no-important */
-    animation-iteration-count: 1 ;
+    animation-iteration-count: 1;
     /* stylelint-disable-next-line declaration-no-important */
-    transition-duration: 0.01ms ;
+    transition-duration: 0.01ms;
   }
 
   .floating-particles,

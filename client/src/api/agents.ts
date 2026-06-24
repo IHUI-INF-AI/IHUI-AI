@@ -10,7 +10,7 @@ import {
   AGENTS_LEGACY_PATHS,
 } from '@/config/backend-paths'
 import { getAgentList, GUEST_AGENT_LIST_FALLBACK } from '@/services/api'
-import { findMockAgentById } from '@/api/payment'
+import { findMockAgentById } from '@/api/agent-plaza'
 import { cozeApiService } from '@/services/cozeApiService'
 import {
   withApiResponseHandler,

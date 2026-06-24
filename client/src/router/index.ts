@@ -30,7 +30,7 @@ import { addThirdPartyLoginRoutes } from './thirdPartyLoginRoutes'
 
 import { logger } from '../utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { isLoginExpired } from '@/utils/login-duration'
+import { isExpiryTimePassed } from '@/utils/login-duration'
 import { useAuthStore } from '@/stores/auth'
 import type { UserInfoData } from '@/api/user'
 import i18n from '@/locales'
@@ -56,6 +56,7 @@ import {
   indexRoutes,
   p19Routes,
   p20Routes,
+  eduRoutes,
 } from './modules'
 
 const routes: Array<RouteRecordRaw> = [
@@ -72,6 +73,7 @@ const routes: Array<RouteRecordRaw> = [
   ...indexRoutes,
   ...p19Routes,
   ...p20Routes,
+  ...eduRoutes,
 ]
 
 addThirdPartyLoginRoutes(routes)
@@ -180,7 +182,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
         StorageManager.getItem<string>(STORAGE_KEYS.USER_TOKEN)
 
       const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-      const isExpired = expiryTime !== null && isLoginExpired(expiryTime)
+      const isExpired = expiryTime !== null && isExpiryTimePassed(expiryTime)
 
       const userData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
 
@@ -315,7 +317,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
 
       if (authStore.isLoggedIn && authStore.token) {
         const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-        if (expiryTime === null || !isLoginExpired(expiryTime)) {
+        if (expiryTime === null || !isExpiryTimePassed(expiryTime)) {
           isLoggedIn = true
         }
       }
@@ -326,7 +328,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
           StorageManager.getItem<string>(STORAGE_KEYS.USER_TOKEN)
         if (token) {
           const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-          if (expiryTime === null || !isLoginExpired(expiryTime)) {
+          if (expiryTime === null || !isExpiryTimePassed(expiryTime)) {
             isLoggedIn = true
             if (!authStore.token) {
               authStore.token = token
@@ -377,7 +379,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
             | undefined
           if (thirdPartyAccounts?.accessToken) {
             const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-            if (expiryTime === null || !isLoginExpired(expiryTime)) {
+            if (expiryTime === null || !isExpiryTimePassed(expiryTime)) {
               isLoggedIn = true
               if (!authStore.token) {
                 authStore.token = thirdPartyAccounts.accessToken

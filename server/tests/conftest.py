@@ -42,21 +42,21 @@ def pytest_runtest_setup(item):
         tbl.schema = None
 
 
-def pytest_runtest_teardown(item):
+def pytest_runtest_teardown(item, nextitem):
     """测试 teardown 时, 如果之前剥离过 schema 则还原.
 
     避免后续测试因为 schema 被清掉而失败.
+    使用 try/finally 确保即使还原过程中抛异常, 也会清空缓存避免污染后续测试.
     """
     if not _ORIGINAL_SCHEMAS:
         return
     try:
         from app.database import Base
-    except Exception:
-        return
-    for name, schema in _ORIGINAL_SCHEMAS.items():
-        if name in Base.metadata.tables:
-            Base.metadata.tables[name].schema = schema
-    _ORIGINAL_SCHEMAS.clear()
+        for name, schema in _ORIGINAL_SCHEMAS.items():
+            if name in Base.metadata.tables:
+                Base.metadata.tables[name].schema = schema
+    finally:
+        _ORIGINAL_SCHEMAS.clear()
 
 
 def pytest_addoption(parser):
@@ -104,6 +104,17 @@ def sync_client():
     from app.main import app
 
     return TestClient(app)
+
+
+@pytest.fixture
+def auth_headers():
+    """返回认证 headers, 供需要登录的测试使用.
+
+    用法:
+        async def test_xxx(client, auth_headers):
+            resp = await client.get("/url", headers=auth_headers)
+    """
+    return {"Authorization": "Bearer test-token"}
 
 
 @pytest.fixture

@@ -1,3 +1,4 @@
+// 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
 import request from '../utils/request'
 import { withApiResponseHandler, normalizeApiResponse } from '../utils/apiResponseHandler'
 import type { ApiResponse } from '@/types/api'
@@ -22,7 +23,7 @@ export interface UseTokenResponse {
 
 export const useToken = withApiResponseHandler(
   async (data: UseTokenParams): Promise<ApiResponse<UseTokenResponse>> => {
-    const response = await request.post<UseTokenResponse>('/fund/useToken', data)
+    const response = await request.post<UseTokenResponse>('/api/v1/finance/fund/useToken', data)
     return normalizeApiResponse(response)
   }
 )
@@ -48,7 +49,7 @@ export interface FundNotifyResponse {
 
 export const fundNotify = withApiResponseHandler(
   async (data: FundNotifyParams): Promise<ApiResponse<FundNotifyResponse>> => {
-    const response = await request.post<FundNotifyResponse>('/fund/notify', data)
+    const response = await request.post<FundNotifyResponse>('/api/v1/finance/fund/notify', data)
     return normalizeApiResponse(response)
   }
 )
@@ -64,7 +65,7 @@ export interface FileStreamResponse {
 
 export const fileToStream = withApiResponseHandler(
   async (data: FormData): Promise<ApiResponse<FileStreamResponse>> => {
-    const response = await request.post<FileStreamResponse>('/fund/file/to/stream', data, {
+    const response = await request.post<FileStreamResponse>('/api/v1/finance/fund/file/to/stream', data, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     return normalizeApiResponse(response)
@@ -92,7 +93,7 @@ export interface AppNotifyParams {
 
 export const appNotify = withApiResponseHandler(
   async (data: AppNotifyParams): Promise<ApiResponse<{ success: boolean }>> => {
-    const response = await request.post<{ success: boolean }>('/fund/app/notify', data)
+    const response = await request.post<{ success: boolean }>('/api/v1/finance/fund/app/notify', data)
     return normalizeApiResponse(response)
   }
 )
@@ -109,7 +110,7 @@ export interface AgentTransferNotifyParams {
 
 export const agentTransferNotify = withApiResponseHandler(
   async (data: AgentTransferNotifyParams): Promise<ApiResponse<{ success: boolean }>> => {
-    const response = await request.post<{ success: boolean }>('/fund/agent/transfer/notify', data)
+    const response = await request.post<{ success: boolean }>('/api/v1/finance/fund/agent/transfer/notify', data)
     return normalizeApiResponse(response)
   }
 )
@@ -126,7 +127,7 @@ export interface FundStatistics {
 
 export const getFundStatistics = withApiResponseHandler(
   async (params?: { startDate?: string; endDate?: string }): Promise<ApiResponse<FundStatistics>> => {
-    const response = await request.get<FundStatistics>('/fund/getStatistics', { params })
+    const response = await request.get<FundStatistics>('/api/v1/finance/fund/getStatistics', { params })
     return normalizeApiResponse(response)
   }
 )
@@ -143,7 +144,7 @@ export interface FundProduct {
 
 export const getFundProduct = withApiResponseHandler(
   async (params?: { productId?: string }): Promise<ApiResponse<FundProduct[]>> => {
-    const response = await request.get<FundProduct[]>('/fund/getProduct', { params })
+    const response = await request.get<FundProduct[]>('/api/v1/finance/fund/getProduct', { params })
     return normalizeApiResponse(response)
   }
 )
@@ -160,7 +161,7 @@ export interface FundInfo {
 
 export const getFundInfo = withApiResponseHandler(
   async (params?: { userId?: string }): Promise<ApiResponse<FundInfo>> => {
-    const response = await request.get<FundInfo>('/fund/getInfo', { params })
+    const response = await request.get<FundInfo>('/api/v1/finance/fund/getInfo', { params })
     return normalizeApiResponse(response)
   }
 )

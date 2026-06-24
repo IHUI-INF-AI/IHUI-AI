@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="account-form-container">
     <el-form
       :model="formData"
@@ -251,9 +251,9 @@ html.dark .account-form-container,
 
   // 调整清除按钮显示在眼睛图标左侧
   .el-input :deep(.el-input__suffix-inner) {
-    display: flex ;
-    flex-direction: row-reverse ;
-    align-items: center ;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
     gap: 4px;
   }
 }

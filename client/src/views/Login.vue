@@ -1120,7 +1120,7 @@ $border-light: var(--el-border-color-lighter);
 // ============ 响应式设计 ============
 @media (width <= 992px) {
   .login-left-brand {
-    display: none ;
+    display: none;
   }
 
   .login-form-wrapper {

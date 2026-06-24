@@ -1,5 +1,8 @@
-// Tailwind CSS 4 入口 (新语法: @import "tailwindcss" 替代 v3 的 @tailwind base/components/utilities)
+// Tailwind CSS 4 入口 (新语法: @use "tailwindcss" 替代 v3 的 @tailwind base/components/utilities)
+// Tailwind v4 配置迁移：v3 tailwind.config.js 已废弃 (2026-06-24 封版删除)，
+// 主题配置改为 Tailwind v4 推荐的 CSS-first 方式，在 .css 文件中通过 @theme 块声明。
 @use "tailwindcss";
+
 @use './variables.scss' as *;
 @use './_global-tokens.scss' as *;
 @use './_global-ui.scss' as *;
@@ -159,8 +162,9 @@ html {
     overflow: visible;
   }
 
-  // 统一容器类（包含 container 关键字）的满宽与动态内边距
-  [class*="container"]:not(.app-container, .home-container, .ai-world-page__container, .logo-container, .form-container, .account-form-container, .phone-form-container, .icon-container, .chat-input-container, .prompt-templates-container) {
+  // 统一容器类（class 名以 container 结尾）的满宽与动态内边距
+  // 收窄到 [class$="container"]（结尾匹配）避免误伤 container-v2 / icon-container-bordered 等内部类
+  [class$="container"]:not(.app-container, .home-container, .ai-world-page__container, .logo-container, .form-container, .account-form-container, .phone-form-container, .icon-container, .chat-input-container, .prompt-templates-container) {
     width: 100%;
     max-width: 100%;
     margin-left: 0;
@@ -307,10 +311,10 @@ html {
 }
 
 @layer components {
-  // 输入区域特殊圆角：确?input-area 容器的底部圆角不被全局样式覆盖
+  // 输入区域特殊圆角：确保 input-area 容器的底部圆角不被全局样式覆盖
   :where(.floating-chat-dialog-wrapper) :where(.input-area),
   .input-area[data-v-c9cec757],
-  div[class*="input-area"] {
+  div[class$="input-area"] {
     border-bottom-left-radius: var(--global-border-radius);
     border-bottom-right-radius: var(--global-border-radius);
     -webkit-border-bottom-left-radius: var(--global-border-radius);
@@ -320,7 +324,7 @@ html {
   // 输入包装容器圆角
   :where(.floating-chat-dialog-wrapper) :where(.input-wrapper),
   .input-wrapper[data-v-c9cec757],
-  :where(div[class*="input-wrapper"]):not(.username-input-wrapper, .phone-input-wrapper, [class*="login"]) {
+  :where(div[class$="input-wrapper"]):not(.username-input-wrapper, .phone-input-wrapper, [class*="login"]) {
     border-radius: var(--global-border-radius);
     -webkit-border-radius: var(--global-border-radius);
     -moz-border-radius: var(--global-border-radius);
@@ -330,7 +334,7 @@ html {
   // chat-input 圆角
   :where(.floating-chat-dialog-wrapper) :where(.chat-input),
   .chat-input[data-v-c9cec757],
-  div[class*="chat-input"] {
+  div[class$="chat-input"] {
     border-radius: var(--global-border-radius);
     -webkit-border-radius: var(--global-border-radius);
     -moz-border-radius: var(--global-border-radius);

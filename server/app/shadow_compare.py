@@ -93,9 +93,8 @@ class ShadowCompareAggregator:
         self.window_sec = window_sec
         self.interval_sec = interval_sec
         self._task: asyncio.Task | None = None
-        self._stop = (
-            asyncio.Event() if asyncio.get_event_loop_policy().__class__.__name__ != "DefaultEventLoopPolicy" else None
-        )
+        # _stop 统一在 start() 中创建, 避免在无事件循环时构造 asyncio.Event
+        self._stop: asyncio.Event | None = None
         self._last_report: CompareBucket | None = None
         self._reports: list[CompareBucket] = []
         self._max_reports = 100
@@ -134,7 +133,7 @@ class ShadowCompareAggregator:
         """跑一次窗口聚合 (同步, 方便测试)."""
         now = time.time()
         window_start = now - self.window_sec
-        history = self.router._history
+        history = self.router.get_history_snapshot()
         # 只看 [last_idx, end) 区间增量 (避免重复计算)
         new_records = history[self._last_history_idx :]
         self._last_history_idx = len(history)

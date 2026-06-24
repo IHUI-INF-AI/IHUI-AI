@@ -224,7 +224,8 @@ describe('backend-paths.ts', () => {
 
     it('chat 路径应该正确', () => {
       expect(COZE_PATHS.chat).toBe('/cozeZhsApi/chat')
-      expect(COZE_PATHS.chatStream).toBe('/cozeZhsApi/chat/stream')
+      // 2026-06-24 联调: chatStream 对齐后端 /api/v1/chat/message/stream
+      expect(COZE_PATHS.chatStream).toBe('/api/v1/chat/message/stream')
     })
 
     it('n8n 路径应该正确', () => {
@@ -242,10 +243,11 @@ describe('backend-paths.ts', () => {
 
     it('file 路径应该正确', () => {
       const f = COZE_PATHS.file
-      expect(f.uploadForm).toBe('/cozeZhsApi/file/upload/form')
-      expect(f.uploadBase64).toBe('/cozeZhsApi/file/upload/base64')
-      expect(f.uploadOctet('文件.txt')).toBe('/cozeZhsApi/file/upload/octet?file_name=%E6%96%87%E4%BB%B6.txt')
-      expect(f.uploadAgentExamine).toBe('/cozeZhsApi/file/agent-examine')
+      // 2026-06-24 修复: 上传路径对齐后端 upload/routes.py /api/upload/*
+      expect(f.uploadForm).toBe('/api/upload/single')
+      expect(f.uploadBase64).toBe('/api/upload/base64')
+      expect(f.uploadOctet('文件.txt')).toBe('/api/upload/octet?file_name=%E6%96%87%E4%BB%B6.txt')
+      expect(f.uploadAgentExamine).toBe('/api/upload/agent-examine')
       expect(f.list).toBe('/cozeZhsApi/file/list')
       expect(f.download('a b.txt')).toBe('/cozeZhsApi/file/download/a%20b.txt')
       expect(f.byId('f1')).toBe('/cozeZhsApi/file/f1')
@@ -276,14 +278,15 @@ describe('backend-paths.ts', () => {
       expect(p.alipayCreate).toBe('/cozeZhsApi/payment/alipay/create')
       expect(p.wechatCreate).toBe('/cozeZhsApi/payment/wechat/create')
       expect(p.cardCreate).toBe('/cozeZhsApi/payment/card/create')
+      // 2026-06-24 联调: refund 路径对齐后端 /api/v1/refunds 真实路由
       const r = p.refund
-      expect(r.apply).toBe('/cozeZhsApi/payment/refund/apply')
-      expect(r.list).toBe('/cozeZhsApi/payment/refund/list')
-      expect(r.byRefundNo('r1')).toBe('/cozeZhsApi/payment/refund/r1')
-      expect(r.cancel('r1')).toBe('/cozeZhsApi/payment/refund/r1/cancel')
-      expect(r.status('r1')).toBe('/cozeZhsApi/payment/refund/r1/status')
-      expect(r.audit('r1')).toBe('/cozeZhsApi/payment/refund/r1/audit')
-      expect(r.process('r1')).toBe('/cozeZhsApi/payment/refund/r1/process')
+      expect(r.apply).toBe('/api/v1/refunds')
+      expect(r.list).toBe('/api/v1/refunds')
+      expect(r.byRefundNo('r1')).toBe('/api/v1/refunds/r1')
+      expect(r.cancel('r1')).toBe('/api/v1/refunds/r1/cancel')
+      expect(r.status('r1')).toBe('/api/v1/refunds/r1')
+      expect(r.audit('r1')).toBe('/api/v1/refunds/r1/review')
+      expect(r.process('r1')).toBe('/api/v1/refunds/r1/review')
     })
 
     it('userAgentContext 路径应该正确', () => {
@@ -545,9 +548,10 @@ describe('backend-paths.ts', () => {
   // 钱包路径
   describe('WALLET_PATHS', () => {
     it('应该包含正确的钱包路径', () => {
-      expect(WALLET_PATHS.info).toBe('/api/wallet/info')
-      expect(WALLET_PATHS.transactions).toBe('/api/wallet/transactions')
-      expect(WALLET_PATHS.withdraw).toBe('/api/wallet/withdraw')
+      // 2026-06-24 联调: 对齐后端 compat_routes.py /api/v1/wallet/* 真实路由
+      expect(WALLET_PATHS.info).toBe('/api/v1/wallet/balance')
+      expect(WALLET_PATHS.transactions).toBe('/api/v1/wallet/transactions')
+      expect(WALLET_PATHS.withdraw).toBe('/api/v1/wallet/withdraw')
     })
   })
 
@@ -569,13 +573,13 @@ describe('backend-paths.ts', () => {
   describe('API_V1_PATHS', () => {
     it('应该包含正确的 API v1 路径', () => {
       const a = API_V1_PATHS
-      expect(a.chat.process).toBe('/api/v1/chat/process')
+      expect(a.chat.process).toBe('/api/v1/chat/message')
       expect(a.model.switch).toBe('/api/v1/model/switch')
       expect(a.tools.navigation).toBe('/api/v1/tools/navigation')
       expect(a.agent.upload).toBe('/api/v1/agent/upload')
-      expect(a.news.list).toBe('/api/v1/news/list')
-      expect(a.news.detail('n1')).toBe('/api/v1/news/n1')
-      expect(a.news.detail(123)).toBe('/api/v1/news/123')
+      expect(a.news.list).toBe('/api/v1/content/news')
+      expect(a.news.detail('n1')).toBe('/api/v1/content/news/n1')
+      expect(a.news.detail(123)).toBe('/api/v1/content/news/123')
     })
   })
 

@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ReviewUpdateReq(BaseModel):
@@ -19,14 +19,14 @@ class ReviewUpdateResp(BaseModel):
 class ConvListReq(BaseModel):
     bot_id: str
     user_id: str
-    limit: int | None = 10
-    offset: int | None = 0
+    limit: int | None = Field(default=10, ge=1, le=100)
+    offset: int | None = Field(default=0, ge=0)
 
 
 class MsgListReq(BaseModel):
     conversation_id: str
-    limit: int | None = 10
-    offset: int | None = 0
+    limit: int | None = Field(default=10, ge=1, le=100)
+    offset: int | None = Field(default=0, ge=0)
 
 
 class FeedbackReq(BaseModel):

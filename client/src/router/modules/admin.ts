@@ -89,6 +89,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       description: 'seo.adminMobileDashboard.desc',
       keywords: 'seo.adminMobileDashboard.keywords',
       requiresAuth: true,
+      requiresAdmin: true,
     },
   },
   {
@@ -444,6 +445,8 @@ export const adminRoutes: Array<RouteRecordRaw> = [
     children: [
       { path: '', redirect: '/admin/home' },
       { path: 'home', name: 'adminHome', component: safeImport(() => import('@/views/admin/home/Index.vue'), 'adminHome'), meta: { title: 'routes.adminHome' } },
+      { path: 'migration', name: 'adminMigration', component: safeImport(() => import('@/views/admin/MigrationAdmin.vue'), 'adminMigration'), meta: { title: 'routes.adminMigration' } },
+      { path: 'notification', name: 'adminNotification', component: safeImport(() => import('@/views/admin/NotificationCenter.vue'), 'adminNotification'), meta: { title: 'routes.adminNotification' } },
       { path: 'member/list', name: 'adminMemberList', component: safeImport(() => import('@/views/admin/member/List.vue'), 'adminMemberList'), meta: { title: 'routes.adminMemberList' } },
       { path: 'member/unaudited', name: 'adminMemberUnaudited', component: safeImport(() => import('@/views/admin/member/Unaudited.vue'), 'adminMemberUnaudited'), meta: { title: 'routes.adminMemberUnaudited' } },
       { path: 'member/group', name: 'adminMemberGroup', component: safeImport(() => import('@/views/admin/member/Group.vue'), 'adminMemberGroup'), meta: { title: 'routes.adminMemberGroup' } },
@@ -509,6 +512,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       { path: 'setting/agreement', name: 'adminSettingAgreement', component: safeImport(() => import('@/views/admin/setting/Agreement.vue'), 'adminSettingAgreement'), meta: { title: 'routes.adminSettingAgreement' } },
       { path: 'search/hot', name: 'adminSearchHot', component: safeImport(() => import('@/views/admin/search/Hot.vue'), 'adminSearchHot'), meta: { title: 'routes.adminSearchHot' } },
       { path: 'aiworld/site', name: 'adminAiworldSite', component: safeImport(() => import('@/views/admin/aiworld/Site.vue'), 'adminAiworldSite'), meta: { title: 'routes.adminAiworldSite' } },
+      { path: 'sms/template', name: 'adminSmsTemplate', component: safeImport(() => import('@/views/admin/sms/Template.vue'), 'adminSmsTemplate'), meta: { title: 'routes.adminSmsTemplate' } },
     ],
   },
 ]

@@ -266,14 +266,14 @@ const stats = ref<StatCard[]>([
 ])
 
 const quickActions = ref<QuickAction[]>([
-  { key: 'users', label: t('adminClassicHome.actionUsers'), icon: markIcon(User), path: '/admin/user', tone: 'primary' },
-  { key: 'orders', label: t('adminClassicHome.actionOrders'), icon: markIcon(ShoppingCart), path: '/admin/order', tone: 'success', badge: t('adminClassicHome.badgeNew') },
-  { key: 'agents', label: t('adminClassicHome.actionAgents'), icon: markIcon(ChatLineRound), path: '/admin/agent', tone: 'info' },
-  { key: 'data', label: t('adminClassicHome.actionData'), icon: markIcon(DataAnalysis), path: '/admin/data', tone: 'warning' },
-  { key: 'promotion', label: t('adminClassicHome.actionPromotion'), icon: markIcon(Promotion), path: '/admin/promotion', tone: 'danger' },
-  { key: 'docs', label: t('adminClassicHome.actionDocs'), icon: markIcon(Document), path: '/admin/content', tone: 'neutral' },
-  { key: 'tools', label: t('adminClassicHome.actionTools'), icon: markIcon(Tools), path: '/admin/tool', tone: 'neutral' },
-  { key: 'settings', label: t('adminClassicHome.actionSettings'), icon: markIcon(Setting), path: '/admin/setting', tone: 'neutral' },
+  { key: 'users', label: t('adminClassicHome.actionUsers'), icon: markIcon(User), path: '/admin/user-management', tone: 'primary' },
+  { key: 'orders', label: t('adminClassicHome.actionOrders'), icon: markIcon(ShoppingCart), path: '/admin/refund-audit', tone: 'success', badge: t('adminClassicHome.badgeNew') },
+  { key: 'agents', label: t('adminClassicHome.actionAgents'), icon: markIcon(ChatLineRound), path: '/admin/agent-management', tone: 'info' },
+  { key: 'data', label: t('adminClassicHome.actionData'), icon: markIcon(DataAnalysis), path: '/admin/monitoring-dashboard', tone: 'warning' },
+  { key: 'promotion', label: t('adminClassicHome.actionPromotion'), icon: markIcon(Promotion), path: '/admin/activity-management', tone: 'danger' },
+  { key: 'docs', label: t('adminClassicHome.actionDocs'), icon: markIcon(Document), path: '/admin/course-management', tone: 'neutral' },
+  { key: 'tools', label: t('adminClassicHome.actionTools'), icon: markIcon(Tools), path: '/admin/webhook-management', tone: 'neutral' },
+  { key: 'settings', label: t('adminClassicHome.actionSettings'), icon: markIcon(Setting), path: '/admin/home', tone: 'neutral' },
 ])
 
 const systemStatus = ref<StatusItem[]>([

@@ -1,7 +1,7 @@
 <template>
   <div class="study-tip">
     <div class="tip-content">
-      <img class="icon-tip" src="https://file.aizhs.top/sys-mini/xtk/study_icon_tip.png" loading="lazy" />
+      <img class="icon-tip" src="https://file.aizhs.top/sys-mini/xtk/study_icon_tip.png" alt="" loading="lazy" />
       <div class="scroll-container">
         <div class="tip-text-wrapper">
           <span class="tip-text">{{ t('studyIndexStudyTip.studyTip') }}</span>

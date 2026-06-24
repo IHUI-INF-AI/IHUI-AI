@@ -148,6 +148,8 @@ export interface RequestConfig {
   headers?: Record<string, string>
   /** 重试次数 */
   retryCount?: number
+  /** AbortController 信号，用于取消请求 */
+  signal?: AbortSignal
 }
 
 /**

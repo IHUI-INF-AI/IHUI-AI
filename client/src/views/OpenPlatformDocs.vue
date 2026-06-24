@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="open-platform-docs page-container">
     <div class="docs-layout">
       <!-- 左侧目录 -->
@@ -677,7 +677,7 @@ const startResize = (e: MouseEvent) => {
     transition: none; // 拖拽时禁用过渡动画
   }
 
-  @media (max-width: $desktop-breakpoint-sm) {
+  @media (width <= $desktop-breakpoint-sm) {
     position: fixed;
     z-index: var(--z-dropdown);
     box-shadow: var(--global-box-shadow);
@@ -951,7 +951,7 @@ const startResize = (e: MouseEvent) => {
   min-width: 0;
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  @media (max-width: $desktop-breakpoint-sm) {
+  @media (width <= $desktop-breakpoint-sm) {
     padding: 16px;
 
     // 使用 CSS 变量和选择器特异性替代 
@@ -989,7 +989,7 @@ const startResize = (e: MouseEvent) => {
     font-weight: 700;
     color: var(--el-text-color-primary);
 
-    @media (max-width: $desktop-breakpoint-sm) {
+    @media (width <= $desktop-breakpoint-sm) {
       font-size: 24px;
     }
   }
@@ -1025,7 +1025,7 @@ const startResize = (e: MouseEvent) => {
 
   // 扁平化设计：无阴影
   
-  @media (max-width: $desktop-breakpoint-md) {
+  @media (width <= $desktop-breakpoint-md) {
     display: none;
   }
 }

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="n8n-assistant-page">
     <!-- Deep Background System -->
     <div class="cyber-background">
@@ -1773,9 +1773,9 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 // ELEMENT PLUS OVERRIDES
 // ============================================
 :deep(.el-select-dropdown) {
-  background: $surface-medium ;
+  background: $surface-medium;
   border: var(--unified-border);
-  border-radius: var(--global-border-radius) ;
+  border-radius: var(--global-border-radius);
 
   .el-select-dropdown__item {
     color: $text-secondary;

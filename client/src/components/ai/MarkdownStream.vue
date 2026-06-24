@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div ref="containerRef" class="markdown-stream-container" :class="containerClass">
     <MarkdownRender v-if="shouldRender" ref="markdownRenderRef" :content="content" :nodes="nodes"
       :enable-mermaid="enableMermaid" :enable-katex="enableKatex" :custom-components="resolvedCustomComponents"
@@ -574,26 +574,26 @@ defineExpose({
       // 图像生成结果会被渲染?figure.text-center > div.relative.inline-block > img.max-w-96...
       // 这里统一?markdown 容器宽度自适应，强制使?100% 宽度
       figure.text-center {
-        width: 100% ;
-        max-width: 100% ;
+        width: 100%;
+        max-width: 100%;
         margin-left: 0;
         margin-right: 0;
 
         >.relative.inline-block {
-          width: 100% ;
-          max-width: 100% ;
+          width: 100%;
+          max-width: 100%;
           display: block;
         }
 
         img {
-          width: 100% ;
-          max-width: 100% ;
-          height: auto ;
+          width: 100%;
+          max-width: 100%;
+          height: auto;
           display: block;
         }
 
         .max-w-96 {
-          max-width: 100% ;
+          max-width: 100%;
         }
       }
     }
@@ -637,7 +637,7 @@ defineExpose({
 }
 
 :deep(img.max-w-96) {
-  max-width: 100% ;
+  max-width: 100%;
 }
 
 @keyframes rotating {

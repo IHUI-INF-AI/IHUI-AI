@@ -54,7 +54,7 @@ def init_database():
             visit_models,
         )
     except ImportError as e:
-        logger.warning(f"模型导入警告: {e}")
+        logger.warning(f"模型导入警告 (部分模型可能未注册, Base.metadata 可能不完整): {e}")
 
     # 统计表数量
     tables = list(Base.metadata.tables.keys())
@@ -94,7 +94,8 @@ def init_database():
                         table.create(bind=conn, checkfirst=True)
                         conn.commit()
                         created += 1
-                    except Exception:
+                    except Exception as e:
+                        logger.error(f"create table {table.name} failed: {e}")
                         skipped += 1
                     finally:
                         conn.close()
@@ -123,8 +124,8 @@ def init_database():
                                 conn.execute(text(f'ALTER TABLE {pure_name} ADD COLUMN {col_name} {sqlite_type}'))
                                 conn.commit()
                             added_cols += 1
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug(f"add column skipped (table={pure_name}, col={col_name}): {e}")
                 if added_cols:
                     logger.info(f"[{eng_name}] (SQLite) 补齐 {added_cols} 列")
             else:

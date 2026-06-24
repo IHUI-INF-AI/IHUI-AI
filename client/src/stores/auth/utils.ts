@@ -1,5 +1,5 @@
 import { getStoredData } from '@/utils/request'
-import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { StorageManager, SecureStorageManager, STORAGE_KEYS } from '@/utils/storage'
 import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
 import type { LoginResponseData, RawUserInfo } from './types'
 
@@ -174,9 +174,14 @@ export const buildUserFromLoginResponse = (
 }
 
 export const clearAuthStorage = () => {
+  // 清理 localStorage
   StorageManager.removeItem(STORAGE_KEYS.USER_TOKEN)
   StorageManager.removeItem(STORAGE_KEYS.TOKEN)
   StorageManager.removeItem(STORAGE_KEYS.USER_DATA)
   StorageManager.removeItem(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
   StorageManager.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
+  // 同步清理 sessionStorage(SecureStorageManager)，否则登出后刷新页面会从 sessionStorage 恢复 token 导致静默重新登录
+  SecureStorageManager.removeItem(STORAGE_KEYS.USER_TOKEN)
+  SecureStorageManager.removeItem(STORAGE_KEYS.TOKEN)
+  SecureStorageManager.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
 }

@@ -22,10 +22,10 @@
       </div>
       <div class="article-foot">
         <el-button @click="onLike" :type="liked ? 'primary' : 'default'">
-          <el-icon><Star /></el-icon> 点赞 ({{ data.likeNum || 0 }})
+          <el-icon><Star /></el-icon> {{ t('articleDetail.like') }} ({{ data.likeNum || 0 }})
         </el-button>
         <el-button @click="onFavorite" :type="favorited ? 'primary' : 'default'">
-          <el-icon><Collection /></el-icon> 收藏 ({{ data.favoriteNum || 0 }})
+          <el-icon><Collection /></el-icon> {{ t('articleDetail.favorite') }} ({{ data.favoriteNum || 0 }})
         </el-button>
         <el-button @click="$router.back()">{{ t('articleDetail.backToList') }}</el-button>
       </div>

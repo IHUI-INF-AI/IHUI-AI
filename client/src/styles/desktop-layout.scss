@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 桌面端布局样式规范
  * 统一管理桌面端页面的尺寸、间距、响应式布局等
  */
@@ -39,7 +39,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
   margin: 0;
 
   // 响应式内边距
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 
@@ -71,11 +71,11 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
     margin: 0 0 8px 0;
 
     // 响应式字体大小
-    @media (max-width: $desktop-breakpoint-sm) {
+    @media (width <= $desktop-breakpoint-sm) {
       font-size: 20px;
     }
 
-    @media (max-width: $desktop-breakpoint-xs) {
+    @media (width <= $desktop-breakpoint-xs) {
       font-size: 18px;
     }
 
@@ -90,7 +90,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
     color: var(--el-text-color-secondary);
     margin: 0;
 
-    @media (max-width: $desktop-breakpoint-xs) {
+    @media (width <= $desktop-breakpoint-xs) {
       font-size: 12px;
     }
   }
@@ -107,7 +107,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
   border-radius: var(--global-border-radius);
 
   // 响应式内边距
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }
@@ -122,12 +122,12 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
   gap: $desktop-card-gap;
 
   // 响应式列数
-  @media (max-width: $desktop-breakpoint-sm) {
+  @media (width <= $desktop-breakpoint-sm) {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 16px;
   }
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     grid-template-columns: 1fr;
     gap: 12px;
   }
@@ -142,7 +142,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
   overflow-x: auto;
 
   // 确保表格在小屏幕上可以横向滚动
-  @media (max-width: $desktop-breakpoint-sm) {
+  @media (width <= $desktop-breakpoint-sm) {
     -webkit-overflow-scrolling: touch;
   }
 }
@@ -159,7 +159,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
   background-color: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: 16px;
   }
 
@@ -181,7 +181,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
 
 // 隐藏类
 .hide-on-mobile {
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     &[class*="hide-on-mobile"] {
       display: none;
     }
@@ -189,7 +189,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
 }
 
 .hide-on-desktop {
-  @media (min-width: $desktop-breakpoint-xs + 1px) {
+  @media (width >= $desktop-breakpoint-xs + 1px) {
     &[class*="hide-on-desktop"] {
       display: none;
     }
@@ -202,7 +202,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
     display: none;
   }
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     &[class*="show-on-mobile"] {
       display: block;
     }
@@ -210,7 +210,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
 }
 
 .show-on-desktop {
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     &[class*="show-on-desktop"] {
       display: none;
     }

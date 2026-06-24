@@ -307,13 +307,81 @@ async def change_password(
         db.close()
 
 
+@router.put("/profile/phone", summary="Change phone number (rebind)")
+async def change_phone(
+    new_phone: str = Body(...),
+    code: str = Body(...),
+    user_uuid: str = Depends(require_login),
+):
+    """换绑手机号: 校验短信验证码后更新手机号."""
+    from app.database import SessionFactory2
+    from app.models.user_models import User, UserAuthInfo
+    from app.utils.sms_util import verify_sms_code
+
+    if not verify_sms_code(new_phone, code):
+        return error("短信验证码错误或已过期", "400")
+
+    db = SessionFactory2()
+    try:
+        user = db.query(User).filter(User.uuid == user_uuid).first()
+        if not user:
+            return error("User not found", "404")
+        auth = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user_uuid).first()
+        if auth:
+            auth.phone = new_phone
+        else:
+            auth = UserAuthInfo(user_uuid=user_uuid, phone=new_phone)
+            db.add(auth)
+        db.commit()
+        return success(msg="手机号已更新")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Change phone error: {e}")
+        return error("手机号更新失败", "500")
+    finally:
+        db.close()
+
+
+@router.put("/profile/email", summary="Set or update email")
+async def set_email(
+    email: str = Body(...),
+    user_uuid: str = Depends(require_login),
+):
+    """设置或更新邮箱地址."""
+    from app.database import SessionFactory2
+    from app.models.user_models import User
+
+    if "@" not in email or len(email) < 5:
+        return error("邮箱格式不正确", "400")
+
+    db = SessionFactory2()
+    try:
+        user = db.query(User).filter(User.uuid == user_uuid).first()
+        if not user:
+            return error("User not found", "404")
+        user.email = email
+        db.commit()
+        return success(msg="邮箱已更新")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Set email error: {e}")
+        return error("邮箱更新失败", "500")
+    finally:
+        db.close()
+
+
+@router.get("/health", summary="Auth service health check")
+async def auth_health():
+    """认证服务健康检查端点."""
+    return success({"status": "ok", "service": "auth"})
+
+
 @router.get("/profile", summary="Get personal profile with roles and posts")
 async def get_profile(user_uuid: str = Depends(require_login)):
     """Get detailed profile including roles and posts."""
     from app.database import SessionFactory2, get_session
     from app.models.sys_models import SysRole, SysUser, SysUserRole
     from app.models.user_models import User, UserAuthInfo, UserMargin
-
     # Fetch center-db user info
     with get_session(factory=SessionFactory2) as db2:
         user = db2.query(User).filter(User.uuid == user_uuid).first()

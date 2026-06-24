@@ -83,7 +83,7 @@
             <div v-for="e in examData" :key="e.id" class="exam-item">
               <p class="exam-title">{{ e.title }}</p>
               <p class="exam-time">{{ e.startTime }} ~ {{ e.endTime }}</p>
-              <el-button size="small" type="primary" @click="$router.push(`/exam/detail/${e.id}`)">{{ t('indexHome.signUp') }}</el-button>
+              <el-button size="small" type="primary" @click="$router.push(`/exam/${e.id}`)">{{ t('indexHome.signUp') }}</el-button>
             </div>
           </div>
         </div>

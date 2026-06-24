@@ -1,0 +1,16 @@
+{
+  "migrationAdmin": {
+    "title": "数据迁移管理",
+    "healthCheck": "系统健康检查",
+    "batchList": "迁移批次列表",
+    "running": "运行中",
+    "failed": "失败",
+    "execute": "执行",
+    "restart": "重新开始",
+    "details": "明细",
+    "validate": "校验",
+    "rollback": "回滚",
+    "validationResult": "校验结果:",
+    "close": "关闭"
+  }
+}

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="vip-page page-container">
     <!-- 滚动进度指示器 -->
     <div class="scroll-progress-bar" :style="{ transform: `scaleX(${scrollProgress})` }"></div>
@@ -894,7 +894,6 @@ $accent-highlight: var(--el-text-color-secondary);
     overflow: hidden;
 
     &:hover {
-      box-shadow: var(--global-box-shadow);
       transform: translateY(-1px);
     }
 
@@ -989,9 +988,14 @@ $accent-highlight: var(--el-text-color-secondary);
   color: $brand-primary;
 }
 
-// ============ 脉冲发光 ============
+// ============ 脉冲发光（扁平化：原 keyframes 0/50/100% box-shadow 全相同，现改为 transform 缩放呼吸）============
 .pulse-glow {
-  animation: pulseGlow 2s ease-in-out infinite;
+  animation: pulseScale 2s ease-in-out infinite;
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
 }
 
 // ============ 磁吸按钮 ============
@@ -1039,8 +1043,7 @@ $accent-highlight: var(--el-text-color-secondary);
 }
 
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: var(--global-box-shadow); }
-  50% { box-shadow: var(--global-box-shadow); }
+  /* 死代码已删除：原 0/50/100% 三个 box-shadow 全部相同，扁平化设计要求移除 box-shadow 深度效果 */
 }
 
 @keyframes rippleExpand {
@@ -1399,13 +1402,11 @@ $accent-highlight: var(--el-text-color-secondary);
           display: flex;
           align-items: center;
           gap: 8px;
-          box-shadow: var(--global-box-shadow);
         }
       }
 
       &.selected {
         border-color: $brand-primary;
-        box-shadow: var(--global-box-shadow);
       }
 
       .plan-header {
@@ -1556,8 +1557,6 @@ $accent-highlight: var(--el-text-color-secondary);
       position: relative;
 
       &:hover {
-        box-shadow: var(--global-box-shadow);
-
         .quote-icon {
           transform: scale(1.1);
         }
@@ -1689,10 +1688,6 @@ $accent-highlight: var(--el-text-color-secondary);
           background: $brand-primary;
           color: var(--el-bg-color-page);
           border: none;
-
-          &:hover {
-            box-shadow: var(--global-box-shadow);
-          }
         }
 
         &.ghost {
@@ -1934,11 +1929,11 @@ html.dark .cta-btn.primary {
   }
 
   .benefits-grid {
-    grid-template-columns: 1fr ;
+    grid-template-columns: 1fr;
   }
 
   .pricing-cards {
-    grid-template-columns: 1fr ;
+    grid-template-columns: 1fr;
 
     .pricing-card.recommended {
       transform: none;
@@ -1946,7 +1941,7 @@ html.dark .cta-btn.primary {
   }
 
   .testimonials-grid {
-    grid-template-columns: 1fr ;
+    grid-template-columns: 1fr;
   }
 
   .cta-content {

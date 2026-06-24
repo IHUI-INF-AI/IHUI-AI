@@ -252,52 +252,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/edit-profile').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.businessLicense') }}</div>
-                <div class="setting-description">{{ t('settings.desc.businessLicense') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/business-license').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.icpRecord') }}</div>
-                <div class="setting-description">{{ t('settings.desc.icpRecord') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/icp-record').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.modelRecord') }}</div>
-                <div class="setting-description">{{ t('settings.desc.modelRecord') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/model-record').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=profile').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -312,7 +267,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/usage-rules').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/docs?doc=terms-of-service').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -327,7 +282,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/app-permission').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=privacy').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -342,7 +297,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/my-ai-model').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=developer').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -351,28 +306,13 @@
 
             <div class="setting-item">
               <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.recruitment') }}</div>
-                <div class="setting-description">{{ t('settings.desc.recruitment') }}</div>
+                <div class="setting-label">{{ t('settings.labels.privacySettings') }}</div>
+                <div class="setting-description">{{ t('settings.desc.privacySettings') }}</div>
               </div>
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/recruitment').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.myCompany') }}</div>
-                <div class="setting-description">{{ t('settings.desc.myCompany') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/my-company').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=privacy').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -403,21 +343,6 @@
                 <button
                   class="action-btn ripple-btn"
                   @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/about').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.privacySettings') }}</div>
-                <div class="setting-description">{{ t('settings.desc.privacySettings') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/privacy-settings').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -1283,7 +1208,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.changePassword.title') }}</h3>
-            <button @click="showPasswordDialog = false" class="close-btn">&times;</button>
+            <button @click="showPasswordDialog = false" class="close-btn" aria-label="关闭">&times;</button>
           </div>
           <div class="dialog-content">
             <div class="form-group">
@@ -1364,7 +1289,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.clearData.title') }}</h3>
-            <button @click="closeClearDataDialog" class="close-btn">&times;</button>
+            <button @click="closeClearDataDialog" class="close-btn" aria-label="关闭">&times;</button>
           </div>
           <div class="dialog-content">
             <p>{{ t('settings.dialogs.clearData.tip') }}</p>
@@ -1402,7 +1327,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.deleteAccount.title') }}</h3>
-            <button @click="closeDeleteAccountDialog" class="close-btn">&times;</button>
+            <button @click="closeDeleteAccountDialog" class="close-btn" aria-label="关闭">&times;</button>
           </div>
           <div class="dialog-content">
             <p>{{ t('settings.dialogs.deleteAccount.tip') }}</p>
@@ -1444,7 +1369,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.contact.title') }}</h3>
-            <button @click="showContactDialog = false" class="close-btn">&times;</button>
+            <button @click="showContactDialog = false" class="close-btn" aria-label="关闭">&times;</button>
           </div>
           <div class="dialog-content contact-dialog-content">
             <div class="contact-item">
@@ -1487,7 +1412,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.miniapp.title') }}</h3>
-            <button @click="showMiniappDialog = false" class="close-btn">&times;</button>
+            <button @click="showMiniappDialog = false" class="close-btn" aria-label="关闭">&times;</button>
           </div>
           <div class="dialog-content miniapp-dialog-content">
             <img

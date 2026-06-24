@@ -1,0 +1,296 @@
+{
+  "edu": {
+    "nav": {
+      "home": "教育中心",
+      "learn": "我的课程",
+      "exam": "我的考试",
+      "ask": "问答",
+      "circle": "圈子",
+      "live": "直播",
+      "member": "学员档案",
+      "point": "积分",
+      "order": "我的订单",
+      "message": "消息中心",
+      "notification": "通知",
+      "resource": "资源库",
+      "search": "搜索",
+      "admin": "教育后台"
+    },
+    "learn": {
+      "title": "课程学习",
+      "list": "课程列表",
+      "detail": "课程详情",
+      "chapter": "章节",
+      "section": "小节",
+      "progress": "学习进度",
+      "completed": "已完成",
+      "notStarted": "未开始",
+      "inProgress": "学习中",
+      "enroll": "报名",
+      "enrolled": "已报名",
+      "free": "免费",
+      "premium": "付费",
+      "students": "学员数",
+      "lessons": "课时",
+      "duration": "时长(分钟)",
+      "rating": "评分",
+      "difficulty": {
+        "beginner": "入门",
+        "intermediate": "中级",
+        "advanced": "高级"
+      },
+      "homework": "作业",
+      "submitHomework": "提交作业",
+      "deadline": "截止时间",
+      "maxScore": "满分",
+      "certificate": "证书",
+      "issueCertificate": "颁发证书",
+      "myCertificates": "我的证书",
+      "completionRate": "完成度"
+    },
+    "exam": {
+      "title": "考试中心",
+      "papers": "试卷",
+      "questions": "题目",
+      "startExam": "开始考试",
+      "submitExam": "提交答卷",
+      "examRecord": "考试记录",
+      "score": "得分",
+      "passed": "已通过",
+      "failed": "未通过",
+      "duration": "考试时长(分钟)",
+      "totalScore": "总分",
+      "passScore": "及格分",
+      "remaining": "剩余时间",
+      "questionTypes": {
+        "single": "单选题",
+        "multi": "多选题",
+        "judge": "判断题",
+        "fill": "填空题",
+        "essay": "论述题"
+      },
+      "wrongBook": "错题本",
+      "addToWrongBook": "加入错题本",
+      "markMastered": "标记掌握",
+      "autoGrading": "自动判分中..."
+    },
+    "ask": {
+      "title": "问答",
+      "questions": "问题列表",
+      "myQuestions": "我的提问",
+      "createQuestion": "提问",
+      "questionTitle": "问题标题",
+      "questionContent": "问题内容",
+      "answers": "回答",
+      "postAnswer": "回答问题",
+      "bestAnswer": "最佳回答",
+      "adoptAnswer": "采纳为最佳答案",
+      "viewCount": "浏览数",
+      "answerCount": "回答数",
+      "hot": "热门问题",
+      "latest": "最新",
+      "unresolved": "未解决",
+      "resolved": "已解决",
+      "tags": "标签",
+      "relatedCourse": "相关课程"
+    },
+    "circle": {
+      "title": "圈子",
+      "circles": "圈子列表",
+      "myCircles": "我加入的圈子",
+      "createCircle": "创建圈子",
+      "joinCircle": "加入",
+      "leaveCircle": "退出",
+      "members": "成员",
+      "owner": "圈主",
+      "admin": "管理员",
+      "member": "成员",
+      "posts": "帖子",
+      "createPost": "发帖",
+      "category": "类型",
+      "categories": {
+        "class": "班级圈",
+        "interest": "兴趣圈",
+        "study": "学习圈"
+      },
+      "isPublic": "公开",
+      "isPrivate": "私密"
+    },
+    "live": {
+      "title": "直播",
+      "rooms": "直播间",
+      "joinLive": "加入直播",
+      "leaveLive": "退出直播",
+      "startLive": "开始直播",
+      "endLive": "结束直播",
+      "scheduled": "未开始",
+      "live": "直播中",
+      "ended": "已结束",
+      "cancelled": "已取消",
+      "attendees": "参会者",
+      "playback": "回放",
+      "scheduledStart": "预定开始时间",
+      "scheduledEnd": "预定结束时间"
+    },
+    "member": {
+      "title": "学员档案",
+      "memberNo": "会员号",
+      "realName": "真实姓名",
+      "school": "学校",
+      "grade": "年级",
+      "className": "班级",
+      "studentNo": "学号",
+      "idCard": "身份证号",
+      "memberType": "会员类型",
+      "memberTypes": {
+        "student": "学员",
+        "teacher": "教师",
+        "parent": "家长"
+      },
+      "points": "积分",
+      "level": "等级",
+      "expireAt": "会员到期",
+      "parents": "家长",
+      "children": "子女",
+      "bindParent": "绑定家长"
+    },
+    "point": {
+      "title": "积分",
+      "balance": "可用积分",
+      "frozen": "冻结积分",
+      "totalEarned": "累计获得",
+      "totalSpent": "累计消费",
+      "earn": "获取积分",
+      "spend": "消费积分",
+      "records": "积分明细",
+      "changeType": "变更类型",
+      "changeTypes": {
+        "earn": "获得",
+        "spend": "消费",
+        "freeze": "冻结",
+        "unfreeze": "解冻"
+      }
+    },
+    "order": {
+      "title": "我的订单",
+      "orderNo": "订单号",
+      "orderType": "订单类型",
+      "orderTypes": {
+        "course": "课程订单",
+        "card": "学习卡订单",
+        "package": "套餐订单"
+      },
+      "totalAmount": "订单总额",
+      "paidAmount": "实付金额",
+      "discountAmount": "优惠金额",
+      "status": "状态",
+      "statuses": {
+        "pending": "待支付",
+        "paid": "已支付",
+        "cancelled": "已取消",
+        "refunded": "已退款"
+      },
+      "cancelOrder": "取消订单",
+      "refundOrder": "申请退款",
+      "payNow": "立即支付"
+    },
+    "message": {
+      "title": "消息中心",
+      "inbox": "收件箱",
+      "unread": "未读",
+      "markRead": "标记已读",
+      "sendMessage": "发送消息",
+      "msgTypes": {
+        "system": "系统消息",
+        "private": "私信",
+        "group": "群消息"
+      }
+    },
+    "notification": {
+      "title": "通知",
+      "channels": {
+        "in_app": "站内",
+        "sms": "短信",
+        "email": "邮件",
+        "push": "推送"
+      },
+      "templates": {
+        "homework": "作业通知",
+        "exam": "考试通知",
+        "live": "直播通知",
+        "order": "订单通知"
+      }
+    },
+    "resource": {
+      "title": "资源库",
+      "categories": "资源分类",
+      "uploadResource": "上传资源",
+      "fileType": "文件类型",
+      "fileSize": "文件大小",
+      "downloadCount": "下载次数",
+      "viewCount": "浏览次数",
+      "free": "免费",
+      "pointsRequired": "所需积分"
+    },
+    "search": {
+      "title": "搜索",
+      "placeholder": "搜索课程/问答/资源...",
+      "entityTypes": {
+        "course": "课程",
+        "article": "文章",
+        "question": "问答",
+        "user": "用户"
+      },
+      "noResults": "未找到相关结果"
+    },
+    "admin": {
+      "title": "教育后台",
+      "dashboard": "概览",
+      "stats": {
+        "totalCourses": "课程总数",
+        "totalStudents": "学员总数",
+        "totalRevenue": "总收入",
+        "todayActive": "今日活跃"
+      },
+      "menu": {
+        "course": "课程管理",
+        "chapter": "章节管理",
+        "section": "小节管理",
+        "exam": "试卷管理",
+        "question": "题目管理",
+        "ask": "问答管理",
+        "circle": "圈子管理",
+        "live": "直播管理",
+        "order": "订单管理",
+        "member": "学员管理",
+        "point": "积分管理",
+        "message": "消息管理",
+        "notification": "通知管理",
+        "resource": "资源管理",
+        "search": "搜索管理",
+        "setting": "系统设置"
+      }
+    },
+    "common": {
+      "loading": "加载中...",
+      "noData": "暂无数据",
+      "confirm": "确认",
+      "cancel": "取消",
+      "submit": "提交",
+      "save": "保存",
+      "delete": "删除",
+      "edit": "编辑",
+      "create": "创建",
+      "search": "搜索",
+      "refresh": "刷新",
+      "retry": "重试",
+      "back": "返回",
+      "next": "下一步",
+      "previous": "上一步",
+      "success": "操作成功",
+      "error": "操作失败",
+      "required": "必填项",
+      "optional": "可选项"
+    }
+  }
+}

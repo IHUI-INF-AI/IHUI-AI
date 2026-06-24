@@ -16,20 +16,20 @@
             <el-tag size="small">{{ q.score }}分</el-tag>
           </div>
           <div class="answer-row">
-            <span class="label">学生答案</span>
+            <span class="label">{{ t('answerDetail.studentAnswer') }}</span>
             <span class="value">{{ q.userAnswer || '未作答' }}</span>
           </div>
           <div class="answer-row">
-            <span class="label">正确答案</span>
+            <span class="label">{{ t('answerDetail.correctAnswer') }}</span>
             <span class="value right">{{ q.correctAnswer }}</span>
           </div>
           <div class="mark-row">
-            <span class="label">评分</span>
+            <span class="label">{{ t('answerDetail.score') }}</span>
             <el-input-number v-model="markScores[q.id]" :min="0" :max="Number(q.score) || 100" :step="0.5" :precision="1" size="small" />
             <span class="max-score">/ {{ q.score }}</span>
           </div>
           <div class="mark-row">
-            <span class="label">评语</span>
+            <span class="label">{{ t('answerDetail.comment') }}</span>
             <el-input v-model="markComments[q.id]" type="textarea" :rows="2" placeholder="请输入评分评语" />
           </div>
         </div>

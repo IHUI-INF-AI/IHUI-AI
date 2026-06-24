@@ -9,7 +9,8 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import datetime, timedelta
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -25,7 +26,7 @@ COST_CATEGORIES = ["compute", "storage", "network", "service", "support"]
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _init_db() -> None:
@@ -97,14 +98,30 @@ def _init_db() -> None:
     conn.close()
 
 
-_init_db()
 _conn_lock = threading.Lock()
+_db_ready = False
 
 
-def _conn() -> sqlite3.Connection:
+def _ensure_db() -> None:
+    global _db_ready
+    if not _db_ready:
+        _init_db()
+        _db_ready = True
+
+
+@contextmanager
+def _conn():
+    _ensure_db()
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
-    return c
+    try:
+        yield c
+        c.commit()
+    except Exception:
+        c.rollback()
+        raise
+    finally:
+        c.close()
 
 
 def record_cost(provider: str, resource_type: str, resource_id: str,
@@ -240,7 +257,7 @@ def save_recommendation(rec: Dict[str, Any]) -> str:
 
 def get_cost_by_provider(hours: int = 24) -> List[Dict[str, Any]]:
     """按云厂商统计成本"""
-    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT provider, SUM(cost_amount) as total_cost,
             COUNT(*) as record_count, COUNT(DISTINCT resource_id) as resources
@@ -253,7 +270,7 @@ def get_cost_by_provider(hours: int = 24) -> List[Dict[str, Any]]:
 
 def get_cost_by_tenant(hours: int = 24) -> List[Dict[str, Any]]:
     """按租户归因"""
-    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT tenant, service, SUM(cost_amount) as total_cost
             FROM cost_records WHERE timestamp >= ?
@@ -286,7 +303,7 @@ def check_budget(budget_name: str, budget_amount: float,
     with _conn_lock, _conn() as c:
         current = c.execute("""SELECT COALESCE(SUM(cost_amount), 0) as total
             FROM cost_records WHERE timestamp >= ?""",
-            ((datetime.utcnow() - timedelta(days=30)).isoformat() + "Z",)).fetchone()["total"]
+            ((datetime.now(timezone.utc) - timedelta(days=30)).isoformat().replace("+00:00", "Z"),)).fetchone()["total"]
     used_pct = (current / budget_amount * 100) if budget_amount else 0
     status = "ok"
     if used_pct >= 100:
@@ -435,7 +452,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def serve() -> None:
-    srv = HTTPServer(("0.0.0.0", HTTP_PORT), _Handler)
+    srv = HTTPServer(("127.0.0.1", HTTP_PORT), _Handler)
     print(f"FinOps service on :{HTTP_PORT}")
     srv.serve_forever()
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="share-page">
     <!-- 深度背景系统 -->
     <div class="share-page__background">
@@ -1331,13 +1331,13 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     :deep(.el-form-item__label) {
-      width: 100% ;
+      width: 100%;
       text-align: left;
       margin-bottom: 8px;
     }
 
     :deep(.el-form-item__content) {
-      margin-left: 0 ;
+      margin-left: 0;
     }
   }
 }

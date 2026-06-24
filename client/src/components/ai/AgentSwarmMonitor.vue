@@ -133,7 +133,7 @@
                           >{{ JSON.stringify(tool.result, null, 2) }}</pre
                         >
                         <p v-if="tool.error" class="error-text" style="margin-top: 5px">
-                          错误: {{ tool.error }}
+                          {{ t('agentSwarmMonitor.errorLabel') }} {{ tool.error }}
                         </p>
                       </div>
                     </el-collapse-item>
@@ -178,7 +178,7 @@
                             result.reflection.improvements.length > 0
                           "
                         >
-                          <strong>改进建议:</strong>
+                          <strong>{{ t('agentSwarmMonitor.suggestions') }}</strong>
                           <ul>
                             <li v-for="(imp, idx) in result.reflection.improvements" :key="idx">
                               {{ imp }}
@@ -229,7 +229,7 @@
                     {{ result.status }}
                   </el-tag>
                   <span v-if="result.execution_time" style="margin-left: 10px">
-                    执行时间: {{ result.execution_time }}ms
+                    {{ t('agentSwarmMonitor.executionTime') }} {{ result.execution_time }}ms
                   </span>
                   <span v-if="result.tokens_used" style="margin-left: 10px">
                     Tokens: {{ result.tokens_used }}

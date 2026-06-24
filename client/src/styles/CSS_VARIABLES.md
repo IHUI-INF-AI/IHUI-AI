@@ -104,7 +104,6 @@
 --color-black-2: rgba(0, 0, 0, 0.02);
 --color-black-3: rgba(0, 0, 0, 0.03);
 --color-black-04: rgba(0, 0, 0, 0.04);
---color-black-4: rgba(0, 0, 0, 0.04);
 --color-black-5: rgba(0, 0, 0, 0.05);
 --color-black-6: rgba(0, 0, 0, 0.06);
 --color-black-8: rgba(0, 0, 0, 0.08);
@@ -173,12 +172,14 @@
 
 ## 阴影变量
 
-```css
-/* 亮色模式 */
---global-box-shadow: 0 2px 8px （--color-black-6）;
+> **扁平化设计**（2026-06-24 封版统一）：所有 `--global-box-shadow` 已改为 `none`。如需为单元素恢复阴影，请使用 `border` 或 `outline` 替代。
 
-/* 暗色模式 */
---global-box-shadow: 0 2px 8px （--color-black-30）;
+```css
+/* 扁平化：投影统一移除 */
+--global-box-shadow: none;
+--el-box-shadow: var(--global-box-shadow);
+--el-box-shadow-light: var(--global-box-shadow);
+--el-box-shadow-dark: var(--global-box-shadow);
 ```
 
 ## 间距变量

@@ -41,7 +41,6 @@ env/
 .env.local
 .env.production
 .env.development
-.env.production.template
 .env.vapid
 config/observability.prod.env
 config/staging.env

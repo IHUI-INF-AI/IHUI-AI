@@ -5,9 +5,16 @@ type FrameRequestCallback = (time: number) => number
 
 const mockStore: Record<string, string> = {}
 
+// 使用 vi.hoisted 创建共享可变状态，避免在测试内部嵌套 vi.mock（hoisting 导致并行执行 flaky）
+const { darkModeState } = vi.hoisted(() => ({
+  darkModeState: {
+    themeMode: 'light' as string,
+  },
+}))
+
 vi.mock('@/stores/darkMode', () => ({
   useDarkModeStore: vi.fn(() => ({
-    themeMode: 'light',
+    get themeMode() { return darkModeState.themeMode },
     setThemeMode: vi.fn(),
   })),
 }))
@@ -27,6 +34,7 @@ describe('themeShortcutManager', () => {
   beforeEach(async () => {
     Object.keys(mockStore).forEach(k => delete mockStore[k])
     vi.clearAllMocks()
+    darkModeState.themeMode = 'light'
 
     mockWindow = {
       addEventListener: vi.fn(),
@@ -407,13 +415,6 @@ describe('themeShortcutManager', () => {
   describe('keydown handlers', () => {
     it('should handle toggle-dark shortcut', async () => {
       const { initThemeShortcut, themeShortcutManager } = await import('../themeShortcutManager')
-      const mockSetThemeMode = vi.fn()
-      vi.mock('@/stores/darkMode', () => ({
-        useDarkModeStore: vi.fn(() => ({
-          themeMode: 'light',
-          setThemeMode: mockSetThemeMode,
-        })),
-      }))
       initThemeShortcut()
       const keydownHandler = (mockWindow.addEventListener as ReturnType<typeof vi.fn>).mock.calls.find(
         (call: any[]) => call[0] === 'keydown'
@@ -693,12 +694,7 @@ describe('themeShortcutManager', () => {
   // 各种 toggle-high-contrast 分支
   describe('toggle-high-contrast branches', () => {
     it('should toggle from light to high-contrast-light', async () => {
-      vi.mock('@/stores/darkMode', () => ({
-        useDarkModeStore: vi.fn(() => ({
-          themeMode: 'light',
-          setThemeMode: vi.fn(),
-        })),
-      }))
+      darkModeState.themeMode = 'light'
       vi.resetModules()
       const { initThemeShortcut, themeShortcutManager } = await import('../themeShortcutManager')
       themeShortcutManager.setNotificationCallback(vi.fn())
@@ -712,12 +708,7 @@ describe('themeShortcutManager', () => {
     })
 
     it('should toggle from dark to high-contrast-dark', async () => {
-      vi.mock('@/stores/darkMode', () => ({
-        useDarkModeStore: vi.fn(() => ({
-          themeMode: 'dark',
-          setThemeMode: vi.fn(),
-        })),
-      }))
+      darkModeState.themeMode = 'dark'
       vi.resetModules()
       const { initThemeShortcut, themeShortcutManager } = await import('../themeShortcutManager')
       themeShortcutManager.setNotificationCallback(vi.fn())
@@ -731,12 +722,7 @@ describe('themeShortcutManager', () => {
     })
 
     it('should toggle from high-contrast-light to light', async () => {
-      vi.mock('@/stores/darkMode', () => ({
-        useDarkModeStore: vi.fn(() => ({
-          themeMode: 'high-contrast-light',
-          setThemeMode: vi.fn(),
-        })),
-      }))
+      darkModeState.themeMode = 'high-contrast-light'
       vi.resetModules()
       const { initThemeShortcut, themeShortcutManager } = await import('../themeShortcutManager')
       themeShortcutManager.setNotificationCallback(vi.fn())
@@ -750,12 +736,7 @@ describe('themeShortcutManager', () => {
     })
 
     it('should toggle from high-contrast-dark to dark', async () => {
-      vi.mock('@/stores/darkMode', () => ({
-        useDarkModeStore: vi.fn(() => ({
-          themeMode: 'high-contrast-dark',
-          setThemeMode: vi.fn(),
-        })),
-      }))
+      darkModeState.themeMode = 'high-contrast-dark'
       vi.resetModules()
       const { initThemeShortcut, themeShortcutManager } = await import('../themeShortcutManager')
       themeShortcutManager.setNotificationCallback(vi.fn())
@@ -772,12 +753,7 @@ describe('themeShortcutManager', () => {
   // toggle-dark 在 high-contrast-dark 模式下应切到 light
   describe('toggle-dark from high-contrast-dark', () => {
     it('should switch to light when current mode is high-contrast-dark', async () => {
-      vi.mock('@/stores/darkMode', () => ({
-        useDarkModeStore: vi.fn(() => ({
-          themeMode: 'high-contrast-dark',
-          setThemeMode: vi.fn(),
-        })),
-      }))
+      darkModeState.themeMode = 'high-contrast-dark'
       vi.resetModules()
       const { initThemeShortcut, themeShortcutManager } = await import('../themeShortcutManager')
       themeShortcutManager.setNotificationCallback(vi.fn())

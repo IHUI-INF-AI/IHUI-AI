@@ -219,7 +219,10 @@ class CanaryController:
           3. 租户黑名单 (v1_tenants) → v1
           4. 按 strategy 决定
         """
-        tid = int(tenant_id) if tenant_id is not None else 1
+        try:
+            tid = int(tenant_id) if tenant_id is not None else 1
+        except (ValueError, TypeError):
+            tid = 1
 
         with self._lock:
             enabled = self._enabled
@@ -253,6 +256,7 @@ class CanaryController:
         elif strategy == CanaryStrategy.RANDOM:
             v = self._random_decision(v2_ratio)
         elif strategy == CanaryStrategy.STICKY_TENANT:
+            # 当前实现等同 HASH, 一致性哈希环待实现
             v = self._hash_decision(tid, v2_ratio)  # 同 hash
         elif strategy == CanaryStrategy.ROUND_ROBIN:
             v = self._rr_decision(v2_ratio)

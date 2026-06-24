@@ -109,7 +109,7 @@
   min-width: 200px;
   padding: 20px;
   height: 68px;
-  font-family: "Galano Grotesque", Poppins, Montserrat, sans-serif;
+  font-family: var(--font-family-chinese);
   font-style: normal;
   font-size: 18px;
   font-weight: 600;

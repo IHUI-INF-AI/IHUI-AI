@@ -1,3 +1,4 @@
+// 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
 import request from '@/utils/request'
 import type { ApiResponse, PaginationResponse } from '@/types'
 import {
@@ -80,7 +81,7 @@ export const createWithdrawal = withApiResponseHandler(
     open_id?: string
     order_ids: string // 结算记录ID列表，逗号分隔
   }): Promise<ApiResponse<{ id: string; amount: number; settlement_updated: number }>> => {
-    const response = await request.post('/agentWithdrawalDetail', {
+    const response = await request.post('/api/v1/agents/apply', {
       ...data,
       amount: data.amount, // 前端传元，后端会转换为分
     })

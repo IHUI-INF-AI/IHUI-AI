@@ -17,7 +17,7 @@
     <div class="video-scroll" @scroll="onScroll">
       <div class="video-list">
         <div v-for="(item, index) in videoList" :key="item.id" class="video-item" @click="clickVideo(item, index)">
-          <img class="video-cover" :src="item.binding" loading="lazy" />
+          <img class="video-cover" :src="item.binding" alt="视频封面" loading="lazy" />
           <div class="video-info">
             <VipBtns v-if="pay" :pay="pay" @showPay="showPay(item)" />
             <span class="date">{{ item.createdAt }}</span>

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <Teleport to="body">
     <!-- 悬浮触发按钮 -->
     <Transition name="fade">
@@ -7385,7 +7385,7 @@ defineExpose({
     
     .el-progress {
       .el-progress-bar__outer {
-        height: 10px ;
+        height: 10px;
         border-radius: var(--global-border-radius);
       }
       

@@ -1,0 +1,8 @@
+{
+    "client_type": "jwt",
+    "client_id": "1270645422734",
+    "coze_www_base": "https://www.coze.cn",
+    "coze_api_base": "https://api.coze.cn",
+    "private_key": "",
+    "public_key_id": "W8whaGpCucqxkpows_QWd426-QdAUX5A1QjjVnyhDkI"
+}

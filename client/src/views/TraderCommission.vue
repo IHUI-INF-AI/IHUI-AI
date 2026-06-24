@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="trader-commission-page page-container">
     <!-- 页面头部 -->
     <div class="page-header radius-auto">
@@ -256,7 +256,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -277,11 +277,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (max-width: $desktop-breakpoint-sm) {
+  @media (width <= $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -296,7 +296,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -311,7 +311,7 @@ onMounted(() => {
   align-items: flex-start;
   gap: 24px;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     flex-direction: column;
     padding: 24px;
   }
@@ -362,7 +362,7 @@ onMounted(() => {
   gap: 16px;
   margin-left: 24px;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     align-items: stretch;
     margin-left: 0;
     margin-top: 16px;

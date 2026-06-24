@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="recharge-page">
     <!-- 深度背景系统 -->
     <div class="page-bg">
@@ -471,7 +471,7 @@ $glow-white: var(--color-white-15);
   margin-bottom: 24px;
 
   :deep(.user-info-card) {
-    background: $surface-glass ;
+    background: $surface-glass;
     border: var(--unified-border);
     backdrop-filter: blur(20px);
   }

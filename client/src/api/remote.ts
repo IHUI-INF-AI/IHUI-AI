@@ -1,7 +1,7 @@
 import request from '../utils/request'
 import { withApiResponseHandler, normalizeApiResponse } from '../utils/apiResponseHandler'
 import type { ApiResponse } from '@/types/api'
-import type { AgentInfo, AgentListOptions } from './payment'
+import type { AgentInfo, AgentListOptions } from './agent-plaza'
 import type {
   AgentTaskMessageApproveParams,
   AgentTaskMessageApproveResponse,

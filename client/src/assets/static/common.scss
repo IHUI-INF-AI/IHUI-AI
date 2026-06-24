@@ -1,4 +1,4 @@
-/* 公共样式类 */
+﻿/* 公共样式类 */
 
 /* Web 端全局适配样式 */
 html, body {
@@ -33,7 +33,7 @@ main.container {
 }
 
 /* 响应式适配 */
-@media (min-width: 751px) {
+@media (width >= 751px) {
   #app {
     max-width: 100%;
     box-shadow: none;

@@ -181,7 +181,13 @@ class ResponseMasker:
                     total += n
             return new_data, total
         if isinstance(data, list):
-            return [self._apply_recursive(v, key, rule)[0] for v in data], total
+            new_list = []
+            list_total = 0
+            for v in data:
+                nv, n = self._apply_recursive(v, key, rule)
+                new_list.append(nv)
+                list_total += n
+            return new_list, list_total
         return data, 0
 
     def mask(self, data: Any) -> Any:

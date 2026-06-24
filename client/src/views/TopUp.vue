@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="top-up-page page-container">
     <!-- Loading 遮罩层 -->
     <div v-if="loading" class="loading-mask">
@@ -228,7 +228,7 @@ const handleTopUp = async () => {
   margin: 0 auto;
   position: relative;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -283,9 +283,9 @@ const handleTopUp = async () => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (max-width: $desktop-breakpoint-sm) { font-size: 20px; }
+  @media (width <= $desktop-breakpoint-sm) { font-size: 20px; }
 
-  @media (max-width: $desktop-breakpoint-xs) { font-size: 18px; }
+  @media (width <= $desktop-breakpoint-xs) { font-size: 18px; }
 }
 
 .title-icon {
@@ -298,7 +298,7 @@ const handleTopUp = async () => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (max-width: $desktop-breakpoint-xs) { font-size: 12px; }
+  @media (width <= $desktop-breakpoint-xs) { font-size: 12px; }
 }
 
 .user-info-section,
@@ -311,7 +311,7 @@ const handleTopUp = async () => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (max-width: $desktop-breakpoint-xs) { padding: 16px; }
+  @media (width <= $desktop-breakpoint-xs) { padding: 16px; }
 }
 
 .section-title {
@@ -326,7 +326,7 @@ const handleTopUp = async () => {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     grid-template-columns: repeat(2, 1fr);
   }
 }

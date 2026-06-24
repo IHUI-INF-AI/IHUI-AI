@@ -251,8 +251,13 @@ class TokenBucketRateLimit:
             return False
 
     async def aacquire(self, n: int = 1) -> bool:
-        """异步版 (不阻塞)."""
-        return self.acquire(n)
+        """异步版 (可能短暂阻塞, 内部用 threading.Lock).
+
+        用 run_in_threadpool 包装同步 acquire, 避免在事件循环线程中阻塞。
+        """
+        from starlette.concurrency import run_in_threadpool
+
+        return await run_in_threadpool(self.acquire, n)
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -285,6 +290,8 @@ def rate_limit(name: str, capacity: int = 100, refill_rate: float = 10.0, on_rej
             async def async_wrapper(*args, **kwargs):
                 if not limiter.acquire():
                     if on_reject:
+                        if asyncio.iscoroutinefunction(on_reject):
+                            return await on_reject()
                         return on_reject()
                     raise RuntimeError(f"rate limit exceeded for '{name}'")
                 return await func(*args, **kwargs)

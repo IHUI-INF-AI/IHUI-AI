@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin Mobile Responsive Global Styles
  * 管理端移动端全局响应式样式
  * 容器样式走 .admin-layout 唯一全局设定，使用 CSS 变量控制
@@ -18,7 +18,7 @@
 }
 
 /* ===== Mobile Overrides ===== */
-@media (max-width: 767px) {
+@media (width <= 767px) {
   .admin-layout {
     --admin-navbar-height: var(--admin-mobile-navbar-height);
     --admin-content-padding: var(--admin-mobile-content-padding);
@@ -208,7 +208,7 @@
 }
 
 /* ===== Tablet Overrides ===== */
-@media (min-width: 768px) and (max-width: 1023px) {
+@media (width >= 768px) and (max-width: 1023px) {
   .admin-layout {
     --admin-sidebar-width: 180px;
   }
@@ -257,7 +257,7 @@
 }
 
 /* ===== Landscape Phone ===== */
-@media (max-width: 767px) and (orientation: landscape) {
+@media (width <= 767px) and (orientation: landscape) {
   .admin-layout .admin-app-main {
     padding: 8px;
   }

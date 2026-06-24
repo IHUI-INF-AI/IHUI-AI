@@ -1,0 +1,296 @@
+{
+  "edu": {
+    "nav": {
+      "home": "教育センター",
+      "learn": "マイコース",
+      "exam": "マイ試験",
+      "ask": "Q&A",
+      "circle": "サークル",
+      "live": "ライブ",
+      "member": "受講生プロフィール",
+      "point": "ポイント",
+      "order": "マイ注文",
+      "message": "メッセージ",
+      "notification": "通知",
+      "resource": "リソース",
+      "search": "検索",
+      "admin": "教育管理"
+    },
+    "learn": {
+      "title": "コース学習",
+      "list": "コース一覧",
+      "detail": "コース詳細",
+      "chapter": "チャプター",
+      "section": "セクション",
+      "progress": "進捗",
+      "completed": "完了",
+      "notStarted": "未開始",
+      "inProgress": "学习中",
+      "enroll": "登録",
+      "enrolled": "登録済み",
+      "free": "無料",
+      "premium": "有料",
+      "students": "受講生",
+      "lessons": "レッスン",
+      "duration": "時間(分)",
+      "rating": "評価",
+      "difficulty": {
+        "beginner": "初級",
+        "intermediate": "中級",
+        "advanced": "上級"
+      },
+      "homework": "宿題",
+      "submitHomework": "提出",
+      "deadline": "締切",
+      "maxScore": "満点",
+      "certificate": "証明書",
+      "issueCertificate": "発行",
+      "myCertificates": "私の証明書",
+      "completionRate": "完了率"
+    },
+    "exam": {
+      "title": "試験センター",
+      "papers": "試験問題",
+      "questions": "問題",
+      "startExam": "開始",
+      "submitExam": "提出",
+      "examRecord": "受験記録",
+      "score": "得点",
+      "passed": "合格",
+      "failed": "不合格",
+      "duration": "試験時間(分)",
+      "totalScore": "総点",
+      "passScore": "合格点",
+      "remaining": "残り時間",
+      "questionTypes": {
+        "single": "単一選択",
+        "multi": "複数選択",
+        "judge": "正誤",
+        "fill": "穴埋め",
+        "essay": "記述"
+      },
+      "wrongBook": "間違い帳",
+      "addToWrongBook": "追加",
+      "markMastered": "マスター",
+      "autoGrading": "自動採点中..."
+    },
+    "ask": {
+      "title": "Q&A",
+      "questions": "質問一覧",
+      "myQuestions": "私の質問",
+      "createQuestion": "質問する",
+      "questionTitle": "タイトル",
+      "questionContent": "内容",
+      "answers": "回答",
+      "postAnswer": "回答する",
+      "bestAnswer": "ベストアンサー",
+      "adoptAnswer": "採用",
+      "viewCount": "閲覧数",
+      "answerCount": "回答数",
+      "hot": "人気",
+      "latest": "最新",
+      "unresolved": "未解決",
+      "resolved": "解決済み",
+      "tags": "タグ",
+      "relatedCourse": "関連コース"
+    },
+    "circle": {
+      "title": "サークル",
+      "circles": "サークル一覧",
+      "myCircles": "マイサークル",
+      "createCircle": "作成",
+      "joinCircle": "参加",
+      "leaveCircle": "退出",
+      "members": "メンバー",
+      "owner": "オーナー",
+      "admin": "管理者",
+      "member": "メンバー",
+      "posts": "投稿",
+      "createPost": "投稿",
+      "category": "カテゴリ",
+      "categories": {
+        "class": "クラス",
+        "interest": "趣味",
+        "study": "学習"
+      },
+      "isPublic": "公開",
+      "isPrivate": "非公開"
+    },
+    "live": {
+      "title": "ライブ",
+      "rooms": "ライブ配信",
+      "joinLive": "参加",
+      "leaveLive": "退出",
+      "startLive": "開始",
+      "endLive": "終了",
+      "scheduled": "予定",
+      "live": "配信中",
+      "ended": "終了",
+      "cancelled": "キャンセル",
+      "attendees": "参加者",
+      "playback": "再生",
+      "scheduledStart": "開始予定",
+      "scheduledEnd": "終了予定"
+    },
+    "member": {
+      "title": "受講生プロフィール",
+      "memberNo": "会員番号",
+      "realName": "本名",
+      "school": "学校",
+      "grade": "学年",
+      "className": "クラス",
+      "studentNo": "学籍番号",
+      "idCard": "身分証",
+      "memberType": "タイプ",
+      "memberTypes": {
+        "student": "学生",
+        "teacher": "教師",
+        "parent": "保護者"
+      },
+      "points": "ポイント",
+      "level": "レベル",
+      "expireAt": "有効期限",
+      "parents": "保護者",
+      "children": "子供",
+      "bindParent": "保護者紐付け"
+    },
+    "point": {
+      "title": "ポイント",
+      "balance": "利用可能",
+      "frozen": "凍結",
+      "totalEarned": "累計獲得",
+      "totalSpent": "累計消費",
+      "earn": "獲得",
+      "spend": "消費",
+      "records": "明細",
+      "changeType": "種別",
+      "changeTypes": {
+        "earn": "獲得",
+        "spend": "消費",
+        "freeze": "凍結",
+        "unfreeze": "解除"
+      }
+    },
+    "order": {
+      "title": "マイ注文",
+      "orderNo": "注文番号",
+      "orderType": "タイプ",
+      "orderTypes": {
+        "course": "コース",
+        "card": "カード",
+        "package": "パッケージ"
+      },
+      "totalAmount": "合計",
+      "paidAmount": "実払",
+      "discountAmount": "割引",
+      "status": "ステータス",
+      "statuses": {
+        "pending": "支払い待ち",
+        "paid": "支払い済み",
+        "cancelled": "キャンセル",
+        "refunded": "返金済み"
+      },
+      "cancelOrder": "キャンセル",
+      "refundOrder": "返金",
+      "payNow": "今すぐ支払う"
+    },
+    "message": {
+      "title": "メッセージ",
+      "inbox": "受信箱",
+      "unread": "未読",
+      "markRead": "既読",
+      "sendMessage": "送信",
+      "msgTypes": {
+        "system": "システム",
+        "private": "個人",
+        "group": "グループ"
+      }
+    },
+    "notification": {
+      "title": "通知",
+      "channels": {
+        "in_app": "アプリ内",
+        "sms": "SMS",
+        "email": "メール",
+        "push": "プッシュ"
+      },
+      "templates": {
+        "homework": "宿題",
+        "exam": "試験",
+        "live": "ライブ",
+        "order": "注文"
+      }
+    },
+    "resource": {
+      "title": "リソース",
+      "categories": "カテゴリ",
+      "uploadResource": "アップロード",
+      "fileType": "タイプ",
+      "fileSize": "サイズ",
+      "downloadCount": "ダウンロード数",
+      "viewCount": "閲覧数",
+      "free": "無料",
+      "pointsRequired": "必要ポイント"
+    },
+    "search": {
+      "title": "検索",
+      "placeholder": "コース/Q&A/リソースを検索...",
+      "entityTypes": {
+        "course": "コース",
+        "article": "記事",
+        "question": "Q&A",
+        "user": "ユーザー"
+      },
+      "noResults": "結果が見つかりません"
+    },
+    "admin": {
+      "title": "教育管理",
+      "dashboard": "ダッシュボード",
+      "stats": {
+        "totalCourses": "コース総数",
+        "totalStudents": "受講生総数",
+        "totalRevenue": "総収入",
+        "todayActive": "本日のアクティブ"
+      },
+      "menu": {
+        "course": "コース管理",
+        "chapter": "チャプター管理",
+        "section": "セクション管理",
+        "exam": "試験管理",
+        "question": "問題管理",
+        "ask": "Q&A管理",
+        "circle": "サークル管理",
+        "live": "ライブ管理",
+        "order": "注文管理",
+        "member": "受講生管理",
+        "point": "ポイント管理",
+        "message": "メッセージ管理",
+        "notification": "通知管理",
+        "resource": "リソース管理",
+        "search": "検索管理",
+        "setting": "システム設定"
+      }
+    },
+    "common": {
+      "loading": "読み込み中...",
+      "noData": "データなし",
+      "confirm": "確認",
+      "cancel": "キャンセル",
+      "submit": "送信",
+      "save": "保存",
+      "delete": "削除",
+      "edit": "編集",
+      "create": "作成",
+      "search": "検索",
+      "refresh": "更新",
+      "retry": "再試行",
+      "back": "戻る",
+      "next": "次へ",
+      "previous": "前へ",
+      "success": "成功",
+      "error": "エラー",
+      "required": "必須",
+      "optional": "任意"
+    }
+  }
+}

@@ -4,11 +4,9 @@ Reads from .env files and environment variables.
 """
 
 import os
+from typing import Any
 
-try:
-    from pydantic import BaseSettings
-except ImportError:
-    from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -165,11 +163,35 @@ class Settings(BaseSettings):
     LUYALA_API_KEY: str = ""
     TENCENT_SECRET_ID: str = ""
     TENCENT_SECRET_KEY: str = ""
+    # TBox 事件通知 HMAC 签名密钥 (用于校验 X-Signature 头)
+    TBOX_NOTIFY_SECRET: str = ""
     BAIDU_API_KEY: str = ""
     SUNO_API_KEY: str = ""
     SORA2_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     BAILIAN_APP_ID: str = ""
+    # 智谱 API Key (兼容 GLM_API_KEY)
+    ZHIPU_API_KEY: str = ""
+    # 火山引擎 Volc App Key (豆包实时语音)
+    VOLC_APP_KEY: str = ""
+    # 特殊智能体ID列表 (逗号分隔, 使用特殊扣费规则)
+    SPECIAL_BOT_IDS: str = ""
+    # 聊天室系统管理员UUID
+    CHAT_ROOM_ADMIN_UUID: str = ""
+    # n8n Token 计算单位
+    N8N_TOKEN_COUNTING_UNIT: int = 3
+    # AI 智能体历史记录数
+    AI_AGENT_USE_HISTORY: int = 10
+    # AI 水印图片路径
+    AI_WATERMARK_PATH: str = ""
+    # 豆包图像生成 API URL
+    DOUBAO_IMAGE_API_URL: str = ""
+    # 短信API基础URL (历史 coze_zhs_py 迁移)
+    SMS_API_BASE_URL: str = ""
+    # 文件上传基础URL
+    FILE_UPLOAD_BASE_URL: str = ""
+    # 文件上传URL
+    FILE_UPLOAD_URL: str = ""
 
     # Google OAuth
     # Google OAuth 客户端 ID (支持多 client, 逗号分隔, 校验 aud 用)
@@ -186,12 +208,72 @@ class Settings(BaseSettings):
     VIDEO_ROOT: str = "/data/videos"
 
     # ===================================================================
-    # OBJECT STORAGE (OSS / S3)
+    # OBJECT STORAGE (OSS / S3 / Tencent COS)
     # ===================================================================
     OSS_ENDPOINT: str = ""
     OSS_ACCESS_KEY_ID: str = ""
     OSS_ACCESS_KEY_SECRET: str = ""
     OSS_BUCKET: str = ""
+    OSS_VISIT_PATH: str = ""  # 阿里云 OSS 访问域名 (如 https://yjs-learning.oss-cn-guangzhou.aliyuncs.com/)
+
+    # 腾讯云 COS 对象存储 (历史 ihui-ai-edu-oss-service 迁移)
+    TENCENT_COS_SECRET_ID: str = ""
+    TENCENT_COS_SECRET_KEY: str = ""
+    TENCENT_COS_BUCKET: str = ""  # 如 learning-1331526801
+    TENCENT_COS_REGION: str = ""  # 如 ap-shanghai
+    TENCENT_COS_VISIT_PATH: str = ""  # https://learning-1331526801.cos.ap-shanghai.myqcloud.com
+    TENCENT_COS_CDN_VISIT_PATH: str = ""  # https://lcdn.space-iot.net
+
+    # 文件存储模式: Local / AliYun / Minio / TencentCOS
+    OSS_FILE_MODE: str = "AliYun"
+    OSS_FILE_ROOT_PATH: str = "cloud-learning"
+    LOCAL_FILE_DIR: str = "/tmp/filetmp"
+
+    # ===================================================================
+    # TENCENT LIVE (腾讯云直播 - 历史 ihui-ai-edu-live-service 迁移)
+    # ===================================================================
+    TENCENT_LIVE_SECRET_ID: str = ""
+    TENCENT_LIVE_SECRET_KEY: str = ""
+    TENCENT_LIVE_ENDPOINT: str = "live.ap-guangzhou.tencentcloudapi.com"
+    TENCENT_LIVE_REGION: str = "ap-guangzhou"
+    TENCENT_LIVE_PUSH_DOMAIN: str = ""  # 如 push.chawind.com
+    TENCENT_LIVE_PULL_DOMAIN: str = ""  # 如 http://pull.chawind.com
+    TENCENT_LIVE_CALLBACK_KEY: str = ""  # 如 learningLive
+
+    # ===================================================================
+    # NOTIFICATION EMAIL (业务通知邮件 - 历史 ihui-ai-edu-notification-service 迁移)
+    # 与告警 SMTP 分开, 用于业务通知 (注册/订单/课程等)
+    # ===================================================================
+    NOTIFY_SMTP_HOST: str = ""  # 如 smtp.exmail.qq.com
+    NOTIFY_SMTP_PORT: int = 465
+    NOTIFY_SMTP_USER: str = ""  # 如 notice@chawind.com
+    NOTIFY_SMTP_PASSWORD: str = ""
+    NOTIFY_SMTP_PROTOCOL: str = "smtps"
+    NOTIFY_SMTP_DEFAULT_ENCODING: str = "utf-8"
+    NOTIFY_EMAIL_FROM: str = ""  # 发件人地址, 默认同 NOTIFY_SMTP_USER
+
+    # ===================================================================
+    # 253 SMS PLATFORM (253短信平台 - 历史 ihui-ai-edu-notification-service 迁移)
+    # ===================================================================
+    SMS_253_URL: str = "http://smssh1.253.com/msg/send/json"
+    SMS_253_ACCOUNT: str = ""
+    SMS_253_PASSWORD: str = ""
+    SMS_253_TEMPLATE: str = "Your verification code is: "
+    # 无锡物业短信 (备用通道)
+    SMS_WUXI_API_HOST: str = ""
+    SMS_WUXI_CLIENT_ID: str = ""
+    SMS_WUXI_CLIENT_SECRET: str = ""
+    SMS_WUXI_PREFIX: str = "[Notice]"
+    SMS_WUXI_REGISTER_TEMPLATE: str = "Your verification code is %s, valid for 5 minutes."
+
+    # ===================================================================
+    # MESSAGE QUEUE (消息队列 - 历史 RocketMQ 替代方案)
+    # 使用 Redis Stream 作为轻量消息队列 (无需额外部署 RabbitMQ)
+    # ===================================================================
+    MQ_ENABLED: bool = False  # 是否启用消息队列
+    MQ_BACKEND: str = "redis_stream"  # redis_stream / rabbitmq
+    MQ_REDIS_STREAM_PREFIX: str = "learning_"  # 历史 topic.prefix
+    MQ_RABBIT_URL: str = ""  # RabbitMQ 连接串 (如使用 rabbitmq 后端)
 
     # ===================================================================
     # ALIYUN SMS
@@ -228,19 +310,20 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 60
     SESSION_SECRET_KEY: str = ""
     CHAT_ROOM_ADMIN_UUID: str = ""
+    # 内网调用签名密钥 (用于校验 SSO uuid_login 等内部端点的 X-Internal-Auth 头)
+    INTERNAL_AUTH_KEY: str = ""
 
     # ===================================================================
     # SMS
     # ===================================================================
-    SMS_API_BASE_URL: str = ""
+    # SMS_API_BASE_URL 已在 AI Providers 部分定义
     SMS_VERIFY_ENDPOINT: str = "/ai/login/pwd/smsVerify"
     SMS_CODE_VERIFY_ENDPOINT: str = "/ai/login/pwd/verify"
 
     # ===================================================================
     # FILE UPLOAD
     # ===================================================================
-    FILE_UPLOAD_BASE_URL: str = ""
-    FILE_UPLOAD_URL: str = ""
+    # FILE_UPLOAD_BASE_URL 和 FILE_UPLOAD_URL 已在 AI Providers 部分定义
     FILE_UPLOAD_NETWORK_URL: str = ""
 
     # ===================================================================
@@ -322,6 +405,16 @@ class Settings(BaseSettings):
         case_sensitive=True,
         extra="ignore",
     )
+
+    def model_post_init(self, __context: Any) -> None:
+        """启动后校验: SESSION_SECRET_KEY 为空时回退到 JWT_SECRET_KEY.
+
+        避免会话签名密钥默认空字符串导致的安全风险。
+        生产环境应由 .env 显式配置; 此处仅作兜底, 防止启动后 SESSION_SECRET_KEY 仍为空。
+        """
+        super().model_post_init(__context)
+        if not self.SESSION_SECRET_KEY:
+            self.SESSION_SECRET_KEY = self.JWT_SECRET_KEY
 
 
 # Global settings instance

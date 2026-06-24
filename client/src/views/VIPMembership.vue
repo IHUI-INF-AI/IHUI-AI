@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="vip-page">
     <!-- 深度背景系统 -->
     <div class="vip-page__background">
@@ -1054,7 +1054,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
 
 // ============ Element Plus 弹窗覆盖 ============
 :deep(.el-dialog) {
-  background: $gray-800 ;
+  background: $gray-800;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
 
@@ -1065,7 +1065,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
     .el-dialog__title {
       font-size: 20px;
       font-weight: 700;
-      color: $gray-100 ;
+      color: $gray-100;
     }
   }
 

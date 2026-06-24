@@ -1,4 +1,4 @@
-.agent-detail-container {
+﻿.agent-detail-container {
   width: 100%;
   padding: 20px;
   flex: 1;
@@ -274,7 +274,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .agent-detail-container {
     padding: 12px;
 

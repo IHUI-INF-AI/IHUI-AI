@@ -179,7 +179,7 @@ class TestBug31SoftDeleteMixin:
 
     def test_set_deleted_marks_timestamp(self):
         """验证 set_deleted 逻辑: 直接调用函数并检查 datetime 写入."""
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
 
         from app.models.base import SoftDeleteMixin
 
@@ -189,9 +189,10 @@ class TestBug31SoftDeleteMixin:
 
         inst = T()
         # 直接调用 set_deleted, 检查其内部行为
-        before = datetime.utcnow() - timedelta(seconds=1)
+        # set_deleted 内部用 datetime.now(timezone.utc) (aware), 测试也用 aware 比较
+        before = datetime.now(timezone.utc) - timedelta(seconds=1)
         inst.set_deleted()
-        after = datetime.utcnow() + timedelta(seconds=1)
+        after = datetime.now(timezone.utc) + timedelta(seconds=1)
         # deleted_at 必须在 before..after 之间
         assert inst.deleted_at is not None
         assert before <= inst.deleted_at <= after

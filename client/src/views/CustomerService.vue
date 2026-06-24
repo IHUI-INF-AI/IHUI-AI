@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="customer-service-page page-container">
     <!-- 页面头部 -->
     <div class="page-header radius-auto">
@@ -107,7 +107,7 @@ onMounted(() => {
   max-width: 1400px;
   margin: 0 auto;
 
-  @media (max-width: $desktop-breakpoint-xs) {
+  @media (width <= $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }

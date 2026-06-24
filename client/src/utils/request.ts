@@ -322,6 +322,8 @@ const service: AxiosInstance = axios.create({
 
 // Token刷新锁，防止并发刷新
 let isRefreshing = false
+// 刷新失败已处理标志：防止刷新接口 401 弹窗与外层 catch 弹窗重复
+let refreshFailedHandled = false
 const failedQueue: Array<{
   resolve: (value: any) => void
   reject: (reason: any) => void
@@ -440,7 +442,7 @@ function setupRequestInterceptor() {
           logger.debug('Production environment /api using direct connection', { url: config.url })
         } else {
           // 定义需要代理的路径前缀（开发环境或相对 base 时保持相对路径由代理/网关处理）
-          const proxyPaths = ['/api', '/api-kou', '/auth', '/message', '/prod-api', COZE_PREFIX, '/login']
+          const proxyPaths = ['/api', '/api-kou', '/auth', '/message', '/prod-api', COZE_PREFIX, '/login', '/admin', '/remote', '/ihui-ai-api']
           const isProxyPath = proxyPaths.some(path => config.url?.startsWith(path))
           if (isProxyPath) {
             logger.debug('Detected proxy path, using relative path', { url: config.url })
@@ -710,6 +712,8 @@ function setupResponseInterceptor() {
           LOGIN_PWD_PATHS.refreshToken,
         ].filter(Boolean) as string[]
         if (refreshEndpointHints.some(p => config.url?.includes(p))) {
+          // 标记刷新失败已处理，避免外层 catch 再次弹出重复的会话过期对话框
+          refreshFailedHandled = true
           const clearAndRedirect = () => {
             StorageManager.removeItem(STORAGE_KEYS.USER_DATA)
             StorageManager.removeItem(STORAGE_KEYS.TOKEN)
@@ -965,31 +969,34 @@ function setupResponseInterceptor() {
               logger.debug('[request] auth store not initialized')
             }
 
-            // 显示重新登录提示
-            ElMessageBox.confirm(
+            // 仅当刷新接口 401 分支未处理过弹窗时，才显示重新登录提示，避免重复弹窗
+            if (!refreshFailedHandled) {
+              refreshFailedHandled = true
+              ElMessageBox.confirm(
 
-              i18nT('auth.sessionExpiredMessage'),
+                i18nT('auth.sessionExpiredMessage'),
 
-              i18nT('auth.sessionExpiredTitle'),
-              {
+                i18nT('auth.sessionExpiredTitle'),
+                {
 
-                confirmButtonText: i18nT('auth.relogin'),
+                  confirmButtonText: i18nT('auth.relogin'),
 
-                cancelButtonText: i18nT('common.cancel'),
-                type: 'warning',
-              }
-            )
-              .then(() => {
-                if (typeof window !== 'undefined') {
-                  window.location.href = '/login'
+                  cancelButtonText: i18nT('common.cancel'),
+                  type: 'warning',
                 }
-              })
-              .catch(() => {
-                // 用户取消，仍然跳转到登录页
-                if (typeof window !== 'undefined') {
-                  window.location.href = '/login'
-                }
-              })
+              )
+                .then(() => {
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/login'
+                  }
+                })
+                .catch(() => {
+                  // 用户取消，仍然跳转到登录页
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/login'
+                  }
+                })
+            }
 
             // 清空失败队列
             failedQueue.forEach(prom => {
@@ -1000,6 +1007,8 @@ function setupResponseInterceptor() {
             return Promise.reject(refreshError)
           } finally {
             isRefreshing = false
+            // 重置标志，供下次刷新流程使用
+            refreshFailedHandled = false
           }
         } else {
           // 正在刷新Token，将请求加入队列等待

@@ -49,6 +49,7 @@
                   :key="idx"
                   :src="img"
                   class="item-image-thumb"
+                  alt="缩略图"
                   loading="lazy"
                 />
                 <span v-if="item.images.length > 3" class="more-images">+{{ item.images.length - 3 }}</span>

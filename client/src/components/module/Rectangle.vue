@@ -57,7 +57,7 @@ const props = withDefaults(
 
 function formatPrice(p: number | undefined): string {
   const v = p || 0
-  return v === 0 ? '免费' : `¥${formatMoney(v)}`
+  return v === 0 ? t('module.free') : `¥${formatMoney(v)}`
 }
 
 const phraseTag = computed(() => {

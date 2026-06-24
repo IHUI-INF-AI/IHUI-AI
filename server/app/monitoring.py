@@ -100,15 +100,20 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:
+            # 用路由模板而非原始 URL, 避免 ID 类路径导致标签基数爆炸
+            _route = request.scope.get("route")
+            _endpoint = _route.path if hasattr(_route, "path") else request.url.path
             REQUEST_COUNT.labels(
                 method=request.method,
-                endpoint=request.url.path,
+                endpoint=_endpoint,
                 status="500",
             ).inc()
             ACTIVE_CONNECTIONS.dec()
             raise
         duration = time.perf_counter() - start
-        endpoint = request.url.path
+        # 用路由模板而非原始 URL, 避免 /api/users/123 /api/users/456 各创一个标签
+        route = request.scope.get("route")
+        endpoint = route.path if hasattr(route, "path") else request.url.path
         REQUEST_COUNT.labels(
             method=request.method,
             endpoint=endpoint,
@@ -138,7 +143,11 @@ SQL_TRACK = {}
 
 
 def _extract_table(statement: str) -> str:
-    """从 SQL 抽取主表名(粗略)."""
+    """从 SQL 抽取主表名(粗略).
+
+    注意: 粗略解析, 对 CTE / 子查询 / 多表 JOIN 可能误判。
+    仅用于 Prometheus 标签聚合, 不影响业务逻辑。
+    """
     if not statement:
         return "unknown"
     s = statement.strip().lower()
@@ -232,25 +241,6 @@ def install_sql_events(engines: dict):
             event.listen(engine, "after_cursor_execute", _after_cursor_execute)
         except Exception:
             pass
-
-
-def bind_engine_labels(engines: dict):
-    """为每个 connection 的 context 标记 engine label(通过 on_checkout 钩子)."""
-    from sqlalchemy import event
-
-    def _on_checkout(dbapi_conn, conn_record, conn_proxy):
-        try:
-            ctx = conn_proxy.connection if hasattr(conn_proxy, "connection") else None
-        except Exception:
-            return
-        for _label, eng in engines.items():
-            if ctx and getattr(ctx, "engine", None) is eng:
-                # 留作 before_cursor 时回填
-                pass
-
-    for _label, engine in engines.items():
-        with contextlib.suppress(Exception):
-            event.listen(engine, "checkout", _on_checkout)
 
 
 # ---------------------------------------------------------------------------

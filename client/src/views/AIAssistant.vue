@@ -482,12 +482,12 @@ const chatContainer = ref<HTMLElement | null>(null)
 // API 入口方法
 // =============================================
 const handleModelApiClick = (modelName: string) => {
-  router.push('/api-docs?model=' + encodeURIComponent(modelName))
+  router.push('/open/docs?model=' + encodeURIComponent(modelName))
 }
 
 const handleCurrentModelApiClick = () => {
   if (selectedModel.value) {
-    router.push('/api-docs?model=' + encodeURIComponent(selectedModel.value))
+    router.push('/open/docs?model=' + encodeURIComponent(selectedModel.value))
   }
 }
 
@@ -700,7 +700,9 @@ function connectWebSocket() {
 
   const wsBaseUrl = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
   const wsHost = window.location.host
-  const wsUrl = `${wsBaseUrl}${wsHost}/cozeZhsApi/chat-room/ws`
+  // 2026-06-24 修复: 后端 chat_room.py WS 路由为 /ws/room/{room_id}, 非 /cozeZhsApi/chat-room/ws
+  // 修复: 之前用未定义的 roomName, 改为已定义的 roomId (route.query.roomId)
+  const wsUrl = `${wsBaseUrl}${wsHost}/ws/room/${roomId.value || 'default'}`
 
   logger.info('[ChatRoom] Connecting WebSocket:', wsUrl)
 
@@ -1961,7 +1963,7 @@ html.dark .ai-assistant-page {
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .page-header {
     padding: 12px 16px;
   }

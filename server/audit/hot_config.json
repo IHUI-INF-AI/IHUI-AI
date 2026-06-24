@@ -1,0 +1,30 @@
+{
+  "TEST_KEY_R1": {
+    "default": "v1",
+    "value": "v1",
+    "updated_at": 1782300190.3513138,
+    "updater": "user",
+    "desc": ""
+  },
+  "TEST_KEY_R2": {
+    "default": 1,
+    "value": 1,
+    "updated_at": 1782300190.3548965,
+    "updater": "user",
+    "desc": ""
+  },
+  "TEST_WATCH_R1": {
+    "default": "first",
+    "value": "second",
+    "updated_at": 1782300190.3579433,
+    "updater": "user",
+    "desc": ""
+  },
+  "TEST_NOOP_R1": {
+    "default": "v1",
+    "value": "v1",
+    "updated_at": 1782300190.3624954,
+    "updater": "user",
+    "desc": ""
+  }
+}

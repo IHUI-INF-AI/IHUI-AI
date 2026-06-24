@@ -168,10 +168,10 @@ class TestWorkflows(unittest.TestCase):
             c.execute("UPDATE workflows SET enabled = 1 WHERE id = ?", (wid,))
 
     def test_execute_with_failure(self):
-        # 添加不存在的 action
+        # 添加不存在的 action, 应判定为失败
         wid = co.create_workflow("fail-test", "t", ["valid_action"])
         result = co.execute_workflow(wid, "test")
-        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["status"], "failed")
 
     def test_self_heal_actions(self):
         for action in co.SELF_HEAL_ACTIONS:

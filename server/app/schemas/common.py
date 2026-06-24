@@ -7,7 +7,7 @@ Migrates from P1's R class and P2's AjaxResult to unified Pydantic models.
 
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.error_codes import ErrorCode, http_status_for
 
@@ -38,7 +38,7 @@ class PageRequest(BaseModel):
     """Pagination query parameters."""
 
     page: int = 1
-    limit: int = 20
+    limit: int = Field(default=20, ge=1, le=200)
 
 
 # ---------------------------------------------------------------------------

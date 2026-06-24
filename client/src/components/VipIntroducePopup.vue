@@ -158,7 +158,7 @@ onMounted(() => {
           <div class="title-section">
             <img class="title-icon" src="https://file.aizhs.top/sys-mini/default/xing.png" alt="star" loading="lazy" />
             <span class="main-title">
-              <span class="purple-text">{{ getSelectedTokenDisplay }}</span> 智汇值 / 月
+              <span class="purple-text">{{ getSelectedTokenDisplay }}</span> {{ t('vipIntroducePopup.pointsPerMonth') }}
             </span>
           </div>
 

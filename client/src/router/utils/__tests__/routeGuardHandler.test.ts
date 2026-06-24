@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RouteGuardHandler, createRouteGuardHandler, createMainGuard, type RouteGuardConfig } from '../routeGuardHandler'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { isLoginExpired } from '@/utils/login-duration'
+import { isExpiryTimePassed } from '@/utils/login-duration'
 import { hasAnyRedirectFlag, redirectFlagManager } from '../redirectFlagManager'
 import { detectRedirectLoop, logGuardStart } from '../routeDiagnostics'
 import { isAuthStateValid, restoreAuthStateAtomically } from '../authStateRestore'
@@ -26,7 +26,7 @@ vi.mock('@/utils/storage', () => ({
 
 // mock 登录过期检查
 vi.mock('@/utils/login-duration', () => ({
-  isLoginExpired: vi.fn(() => false),
+  isExpiryTimePassed: vi.fn(() => false),
 }))
 
 // mock 日志
@@ -143,7 +143,7 @@ describe('routeGuardHandler', () => {
     sessionStorageMock.clear()
     // 重置所有mock的默认实现
     vi.mocked(StorageManager.getItem).mockReturnValue(null)
-    vi.mocked(isLoginExpired).mockReturnValue(false)
+    vi.mocked(isExpiryTimePassed).mockReturnValue(false)
     vi.mocked(hasAnyRedirectFlag).mockReturnValue(false)
     vi.mocked(detectRedirectLoop).mockReturnValue(false)
     vi.mocked(isAuthStateValid).mockReturnValue(false)
@@ -447,7 +447,7 @@ describe('routeGuardHandler', () => {
         if (key === STORAGE_KEYS.LOGIN_EXPIRY_TIME) return Date.now() - 1000
         return null
       })
-      vi.mocked(isLoginExpired).mockReturnValue(true)
+      vi.mocked(isExpiryTimePassed).mockReturnValue(true)
 
       const to = createMockRoute('/dashboard')
       const from = createMockRoute('/')
@@ -471,7 +471,7 @@ describe('routeGuardHandler', () => {
         if (key === STORAGE_KEYS.LOGIN_EXPIRY_TIME) return Date.now() - 1000
         return null
       })
-      vi.mocked(isLoginExpired).mockReturnValue(true)
+      vi.mocked(isExpiryTimePassed).mockReturnValue(true)
 
       const to = createMockRoute('/dashboard')
       const from = createMockRoute('/')

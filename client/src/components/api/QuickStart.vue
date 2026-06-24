@@ -128,15 +128,15 @@ const copyCode = async () => {
 }
 
 const goToTokens = () => {
-  router.push('/api-tokens')
+  router.push('/key-management')
 }
 
 const goToDocs = () => {
-  router.push('/api-docs')
+  router.push('/open/docs')
 }
 
 const goToConsole = () => {
-  router.push('/api-console')
+  router.push('/open/apis')
 }
 </script>
 

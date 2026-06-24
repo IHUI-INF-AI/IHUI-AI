@@ -378,6 +378,21 @@ const rawAdminApi = {
   aiworldSiteDelete: (id: string | number) => http.delete<ApiResponse<void>>(`/admin/aiworld/site/${id}`),
   aiworldSiteBatchDelete: (ids: (string | number)[]) =>
     http.post<ApiResponse<{ success: number; failed: number }>>('/admin/aiworld/site/batch-delete', { ids }),
+
+  // === 短信模板管理 (直接调用后端 /api/v1/sms/template, 迁移自 auth_sms_temp) ===
+  // 2026-06-24 修复: 路径缺少 /api 前缀, 导致不被任何代理捕获, 返回 SPA index.html
+  smsTemplateList: (params: ListParams = {}) =>
+    http.get<ApiResponse<PaginationResponse<unknown>>>('/api/v1/sms/template/list', { params }),
+  smsTemplateDetail: (id: string | number) =>
+    http.get<ApiResponse<unknown>>(`/api/v1/sms/template/${id}`),
+  smsTemplateCreate: (payload: Record<string, unknown>) =>
+    http.post<ApiResponse<unknown>>('/api/v1/sms/template', payload),
+  smsTemplateUpdate: (payload: Record<string, unknown>) =>
+    http.put<ApiResponse<unknown>>('/api/v1/sms/template', payload),
+  smsTemplateChangeStatus: (templateId: string | number, status: string | number) =>
+    http.put<ApiResponse<unknown>>('/api/v1/sms/template/changeStatus', { templateId, status }),
+  smsTemplateDelete: (ids: (string | number)[]) =>
+    http.delete<ApiResponse<void>>(`/api/v1/sms/template/${ids.join(',')}`),
 }
 
 // Proxy 运行时通过 normalizeApiResponse 把 AxiosResponse 解包为 ApiResponse，

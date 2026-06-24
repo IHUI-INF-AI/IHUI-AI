@@ -47,9 +47,9 @@ def upgrade() -> None:
 
     created = [t for t in added if t in target_tables]
     if created:
-        logger.info(repr(rev) + ': created ' + str(len(created)) + ' tables: ' + str(created))
+        logger.info(repr(revision) + ': created ' + str(len(created)) + ' tables: ' + str(created))
     else:
-        logger.info(repr(rev) + ': no new tables (all ' + str(len(target_tables)) + ' already exist)')
+        logger.info(repr(revision) + ': no new tables (all ' + str(len(target_tables)) + ' already exist)')
 
 
 def downgrade() -> None:
@@ -65,6 +65,6 @@ def downgrade() -> None:
     for table_name in target_tables:
         try:
             op.drop_table(table_name)
-            logger.info(repr(rev) + ': dropped ' + str(table_name))
+            logger.info(repr(revision) + ': dropped ' + str(table_name))
         except Exception as e:
-            logger.warning(repr(rev) + ': could not drop ' + str(table_name) + ': ' + str(e))
+            logger.warning(repr(revision) + ': could not drop ' + str(table_name) + ': ' + str(e))

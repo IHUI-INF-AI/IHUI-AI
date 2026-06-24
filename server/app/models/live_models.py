@@ -134,6 +134,28 @@ class ChannelLecturer(TimestampMixin, Base):
     channel_id = Column(BigInteger, nullable=False, comment="频道id")
 
 
+class Lecturer(TimestampMixin, Base):
+    """讲师 (迁移自 edu server t_lecturer).
+
+    字段来源: H:\\edu client\\fix_lecturer_table.sql 修复脚本中添加的字段.
+    - job_title / mobile / description / image / user_id 为修复脚本补全字段
+    - name 为讲师基础标识字段
+    """
+
+    __tablename__ = "t_lecturer"
+    __table_args__ = (
+        Index("idx_lecturer_user", "user_id"),
+    )
+
+    id = id_column(comment="主键id")
+    name = Column(String(100), nullable=True, comment="讲师姓名")
+    job_title = Column(String(255), nullable=True, comment="头衔")
+    mobile = Column(String(50), nullable=True, comment="联系电话")
+    description = Column(Text, nullable=True, comment="介绍")
+    image = Column(String(500), nullable=True, comment="头像")
+    user_id = Column(BigInteger, nullable=True, comment="用户ID")
+
+
 class TencentCloudLiveStream(TimestampMixin, Base):
     """腾讯云直播流信息 (迁移自 edu server t_tencent_cloud_live_stream)"""
 

@@ -10,7 +10,8 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -28,7 +29,7 @@ PLAYBOOK_STATUS = ["draft", "active", "paused", "deprecated"]
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _init_db() -> None:
@@ -109,14 +110,30 @@ def _init_db() -> None:
     conn.close()
 
 
-_init_db()
 _conn_lock = threading.Lock()
+_db_ready = False
 
 
-def _conn() -> sqlite3.Connection:
+def _ensure_db() -> None:
+    global _db_ready
+    if not _db_ready:
+        _init_db()
+        _db_ready = True
+
+
+@contextmanager
+def _conn():
+    _ensure_db()
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
-    return c
+    try:
+        yield c
+        c.commit()
+    except Exception:
+        c.rollback()
+        raise
+    finally:
+        c.close()
 
 
 def add_threat_intel(ioc_type: str, ioc_value: str, threat_type: str,
@@ -298,7 +315,7 @@ def create_soc_alert(severity: str, threat_type: str, title: str,
 
 def analyze_threat_landscape(hours: int = 24) -> Dict[str, Any]:
     """威胁态势分析"""
-    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
     with _conn_lock, _conn() as c:
         total_events = c.execute("""SELECT COUNT(*) as cnt FROM security_events
             WHERE timestamp >= ?""", (since,)).fetchone()["cnt"]
@@ -436,7 +453,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def serve() -> None:
-    srv = HTTPServer(("0.0.0.0", HTTP_PORT), _Handler)
+    srv = HTTPServer(("127.0.0.1", HTTP_PORT), _Handler)
     print(f"SOC service on :{HTTP_PORT}")
     srv.serve_forever()
 

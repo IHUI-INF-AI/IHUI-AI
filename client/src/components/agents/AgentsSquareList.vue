@@ -172,7 +172,7 @@ import {
   getAgentCollect,
   getAgentLike,
   type AgentInfo,
-} from '@/api/payment'
+} from '@/api/agent-plaza'
 import type { Agent } from '@/api/agents'
 import choucangActive from '@/assets/images/choucang_active.png'
 import likeActive from '@/assets/images/like_active.png'

@@ -199,3 +199,9 @@ export function updateThemePreset(
 export function deleteThemePreset(id: string): Promise<ApiResponse<void>> {
   return request.delete(USER_SETTINGS_PATHS.themePresetById(id))
 }
+
+// 获取协议内容 (用户协议/隐私政策/服务条款等)
+// 2026-06-24 联调: 修复 agreement/Index.vue 导入错误, 后端端点待实现, 页面有 404 容错
+export function getAgreement(params: { type: string }): Promise<ApiResponse<{ title?: string; content?: string }>> {
+  return request.get(USER_SETTINGS_PATHS.agreement(params.type), { skip404Toast: true } as import('axios').AxiosRequestConfig)
+}

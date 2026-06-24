@@ -46,7 +46,7 @@ class BannerOut(BaseModel):
 
 
 class FeedbackCreate(BaseModel):
-    content: str
+    content: str = Field(..., max_length=2000)
     images: str | None = None
     type: str | None = None
 

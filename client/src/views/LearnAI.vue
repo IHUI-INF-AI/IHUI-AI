@@ -1830,14 +1830,14 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
 /* 全部 hero 按钮：禁用磁吸位移，避免容器扩大，行为统一 */
 .hero-actions .hero-action-edu {
-  transform: none ;
+  transform: none;
   transition: background-color 0.2s, border-color 0.2s;
   will-change: auto;
 }
 
 .hero-actions .hero-action-edu:hover,
 .hero-actions .hero-action-edu:active {
-  transform: none ;
+  transform: none;
 }
 
 .ai-section {

@@ -378,7 +378,7 @@
           <div class="sidebar-section ai-tools-section glass-card scroll-reveal" style="--delay: 0.4s">
             <h3 class="section-title">
               <span class="title-indicator"></span>
-              热门AI工具
+              {{ t('aiCommunity.tools.hotTools') }}
             </h3>
             <div class="ai-tools-list">
               <div class="ai-tool-item ripple-btn" @click="openTool('https://midjourney.com')">
@@ -819,7 +819,7 @@ const handleComment = (creation: AICreation) => {
 }
 
 const handleCreatorClick = (creatorId: string) => {
-  router.push(`/user/${creatorId}`).catch(() => {})
+  router.push(`/user`).catch(() => {})
 }
 
 const handleFollow = async (creator: Creator) => {
@@ -2788,7 +2788,7 @@ html.dark .btn-luxe {
 // 响应式设计
 // ============================================
 
-@media (max-width: 1200px) {
+@media (width <= 1200px) {
   .main-section .main-container {
     flex-direction: column;
   }
@@ -2805,7 +2805,7 @@ html.dark .btn-luxe {
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .hero-section {
     padding: 40px 20px 28px;
 
@@ -2921,21 +2921,21 @@ html.dark .btn-luxe {
 // ============================================
 
 :deep(.el-dropdown-menu) {
-  background: var(--bg-elevated) ;
+  background: var(--bg-elevated);
   border: var(--unified-border);
-  border-radius: var(--global-border-radius) ;
+  border-radius: var(--global-border-radius);
 
   .el-dropdown-menu__item {
-    color: var(--text-secondary) ;
+    color: var(--text-secondary);
     transition: all $transition-fast ;
 
     &:hover {
-      background: var(--glass-bg-hover) ;
-      color: var(--text-primary) ;
+      background: var(--glass-bg-hover);
+      color: var(--text-primary);
     }
 
     &.is-selected {
-      color: var(--text-primary) ;
+      color: var(--text-primary);
       font-weight: 500;
     }
   }

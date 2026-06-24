@@ -284,19 +284,19 @@ interface QuickLink {
 
 // 操作
 const handleCategoryClick = (category: Category) => {
-  router.push(`/api-documentation?section=${category.section}`)
+  router.push(`/open/documents?section=${category.section}`)
 }
 
 const handleQuickLink = (link: QuickLink) => {
-  router.push(`/api-documentation?section=${link.section}`)
+  router.push(`/open/documents?section=${link.section}`)
 }
 
 const goToApiDocumentation = () => {
-  router.push('/api-documentation')
+  router.push('/open/documents')
 }
 
 const goToApiTokens = () => {
-  router.push('/api-tokens')
+  router.push('/key-management')
 }
 </script>
 

@@ -18,7 +18,6 @@
 """
 
 import contextlib
-import gc
 import os
 import time
 from datetime import UTC, datetime
@@ -188,9 +187,6 @@ async def cleanup_connections(user_uuid: str = Depends(require_role("admin"))):
         for conn_id in stale_ids:
             await connection_manager.disconnect(conn_id)
             cleaned += 1
-
-        # 强制 GC
-        gc.collect()
 
         after_count = len(connection_manager._connections)
         return success(
@@ -404,16 +400,16 @@ async def get_connections(user_uuid: str = Depends(require_role("admin"))):
                     rooms.append(room_id)
 
             # 查找该连接绑定的用户
-            user_uuid = ""
+            conn_user_uuid = ""
             for uid, members in connection_manager._user_map.items():
                 if conn_id in members:
-                    user_uuid = uid
+                    conn_user_uuid = uid
                     break
 
             connections.append(
                 {
                     "conn_id": conn_id,
-                    "user_uuid": user_uuid,
+                    "user_uuid": conn_user_uuid,
                     "rooms": rooms,
                     "connected_at": hb,
                     "last_heartbeat": hb,

@@ -514,7 +514,8 @@ async function loadBalance() {
       balance.value = res.data
     }
   } catch (_e) {
-    // 静默失败
+    // 余额加载失败时提示用户，避免显示 0 余额造成误解
+    toast.error(t('common.errors.loadFailed'))
   }
 }
 
@@ -525,7 +526,7 @@ async function loadSummary() {
       summary.value = res.data
     }
   } catch (_e) {
-    // 静默失败
+    toast.error(t('common.errors.loadFailed'))
   }
 }
 
@@ -536,11 +537,15 @@ async function loadTrend() {
       trendPoints.value = res.data.trend
     }
   } catch (_e) {
-    // 静默失败
+    toast.error(t('common.errors.loadFailed'))
   }
 }
 
+// 请求序号：用于 loadTransactions 竞态保护，仅最新请求的响应才会写入数据
+let txRequestSeq = 0
+
 async function loadTransactions() {
+  const currentSeq = ++txRequestSeq
   loading.value = true
   loadError.value = null
   try {
@@ -562,6 +567,8 @@ async function loadTransactions() {
       params.max_amount = Math.round(filterMaxAmount.value * 100)
     }
     const res: any = await http.get('/api/v1/wallet/transactions', { params })
+    // 竞态保护：若期间发起了新请求，丢弃本次过期响应
+    if (currentSeq !== txRequestSeq) return
     if (res?.code === 0) {
       transactions.value = res.data.list
       total.value = res.data.total
@@ -571,10 +578,14 @@ async function loadTransactions() {
       announce('交易记录加载失败', { politeness: 'assertive' })
     }
   } catch (e: any) {
+    if (currentSeq !== txRequestSeq) return
     loadError.value = e?.message || '加载失败'
     announce(`交易记录加载失败：${e?.message || '未知错误'}`, { politeness: 'assertive' })
   } finally {
-    loading.value = false
+    // 仅当本次是最新请求时才重置 loading，避免被过期请求提前重置
+    if (currentSeq === txRequestSeq) {
+      loading.value = false
+    }
   }
 }
 

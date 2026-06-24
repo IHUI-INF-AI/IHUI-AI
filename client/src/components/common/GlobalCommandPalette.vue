@@ -140,12 +140,17 @@ interface TranslatedCommand extends Command {
   label: string
 }
 
-const commands = computed<TranslatedCommand[]>(() => 
-  commandDefinitions.map(cmd => ({
-    ...cmd,
-    label: t(cmd.labelKey)
-  }))
-)
+const commands = computed<TranslatedCommand[]>(() => {
+  // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404
+  // 隐藏社区 v2 (后端社区在 /api/v1/circle/* 和 /api/v1/ask/*, 非 /api/v2/community/*)
+  const HIDDEN_COMMAND_IDS = ['nav-community']
+  return commandDefinitions
+    .filter(cmd => !HIDDEN_COMMAND_IDS.includes(cmd.id))
+    .map(cmd => ({
+      ...cmd,
+      label: t(cmd.labelKey)
+    }))
+})
 
 const filteredCommands = computed(() => {
   if (!searchQuery.value) return commands.value

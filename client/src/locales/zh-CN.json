@@ -1520,6 +1520,7 @@
     "adminRefundAudit": "退款审核后台",
     "adminProductManagement": "产品管理",
     "adminAiworldSite": "AI世界站点管理",
+    "adminSmsTemplate": "短信模板管理",
     "aiAgenticDashboard": "智能体仪表板",
     "aiApiTest": "AI接口测试",
     "aiAgentManagement": "AI智能体管理",
@@ -2290,7 +2291,8 @@
       "imageGeneration": "AI图片生成",
       "musicCreation": "AI音乐创作",
       "videoGeneration": "AI视频生成",
-      "writingAssistant": "AI写作助手"
+      "writingAssistant": "AI写作助手",
+      "hotTools": "热门AI工具"
     }
   },
   "community": {
@@ -8567,7 +8569,13 @@
     "toolResults": "工具Results",
     "reflection": "Reflection",
     "corrected": "Corrected",
-    "correctedResult": "Corrected结果"
+    "correctedResult": "Corrected结果",
+    "quality": "质量:",
+    "efficiency": "效率:",
+    "errors": "错误:",
+    "suggestions": "改进建议:",
+    "executionTime": "执行时间:",
+    "errorLabel": "错误:"
   },
   "model": {
     "capabilities": {
@@ -11822,7 +11830,17 @@
   "cmpVipIntroducePopupAlt": {
     "benefitsCount": "............约 <b>20</b> 项权益, 且持续增加 ↑",
     "paySuccess": "支付成功",
-    "payFailed": "支付失败或已取消"
+    "payFailed": "支付失败或已取消",
+    "feature1": "享受大额分销资格，<b>入驻</b>社区服务商名列",
+    "feature2": "会员等级拉满，享受<b>全部</b>满级折扣等权益",
+    "feature3": "二级分销权益，快速扩张<b>团队</b>及收益，创办一人公司",
+    "feature4": "最新研发前沿<b>agentic</b>内测免费使用资格<b>一年</b>",
+    "feature5": "插队定制独家定制<b>agent</b>功能<b>8</b>折优惠",
+    "feature6": "创始人<b>一对一</b>随时答疑陪跑",
+    "feature7": "<b>AI</b>深度认知课/<b>AI</b>专家一对一陪跑教学/升维课程/深度商业课/流量全链路打法课程/免费观看",
+    "feature8": "<b>AI</b>+垂类账号孵化优先陪跑机会/加入<b>MCN</b>机会",
+    "feature9": "公司总部入驻及线下学习实操机会",
+    "feature10": "插队<b>AI</b>分身/<b>AI</b>客服定制开通"
   },
   "adminFAQList": {
     "pinned": "已置顶",
@@ -12154,6 +12172,23 @@
       "eventSent": "Event Sent",
       "historyCleared": "History Cleared",
       "subscriptionDeleted": "Subscription Deleted"
+    },
+    "sms": {
+      "searchPlaceholder": "搜索模板名称或编码",
+      "templateName": "模板名称",
+      "templateCode": "模板编码",
+      "templateContent": "模板内容",
+      "templateType": "模板类型",
+      "typeVerify": "验证码",
+      "typeNotice": "通知",
+      "typeMarketing": "营销",
+      "signName": "签名名称",
+      "status": "状态",
+      "statusEnabled": "启用",
+      "statusDisabled": "禁用",
+      "remark": "备注",
+      "createTime": "创建时间",
+      "toggleStatus": "切换状态"
     }
   },
   "audit": {
@@ -14563,7 +14598,9 @@
     "article": "文章",
     "anonymousAuthor": "匿名作者",
     "backToList": "返回列表",
-    "read": "阅读"
+    "read": "阅读",
+    "like": "点赞",
+    "favorite": "收藏"
   },
   "learnHomework": {
     "course": "课程",
@@ -14709,7 +14746,8 @@
     "loading": "加载中",
     "noContinuousOptions": "暂无可用的连续购买选项",
     "trial": "试用",
-    "noMonthlyOptions": "暂无可用的按月购买选项"
+    "noMonthlyOptions": "暂无可用的按月购买选项",
+    "pointsPerMonth": "智汇值 / 月"
   },
   "vipPrivateAdvisory": {
     "joinUs": "加入我们"
@@ -14752,5 +14790,13 @@
       "image": "图片",
       "video": "视频"
     }
+  },
+  "agreementPage": {
+    "loading": "加载中...",
+    "contentNotConfigured": "协议内容未配置"
+  },
+  "module": {
+    "courseCover": "课程封面",
+    "free": "免费"
   }
 }

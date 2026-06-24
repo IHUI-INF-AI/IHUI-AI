@@ -1,0 +1,296 @@
+{
+  "edu": {
+    "nav": {
+      "home": "Education Center",
+      "learn": "My Courses",
+      "exam": "My Exams",
+      "ask": "Q&A",
+      "circle": "Circles",
+      "live": "Live",
+      "member": "Student Profile",
+      "point": "Points",
+      "order": "My Orders",
+      "message": "Messages",
+      "notification": "Notifications",
+      "resource": "Resources",
+      "search": "Search",
+      "admin": "Education Admin"
+    },
+    "learn": {
+      "title": "Course Learning",
+      "list": "Course List",
+      "detail": "Course Detail",
+      "chapter": "Chapter",
+      "section": "Section",
+      "progress": "Progress",
+      "completed": "Completed",
+      "notStarted": "Not Started",
+      "inProgress": "In Progress",
+      "enroll": "Enroll",
+      "enrolled": "Enrolled",
+      "free": "Free",
+      "premium": "Premium",
+      "students": "Students",
+      "lessons": "Lessons",
+      "duration": "Duration (min)",
+      "rating": "Rating",
+      "difficulty": {
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "advanced": "Advanced"
+      },
+      "homework": "Homework",
+      "submitHomework": "Submit",
+      "deadline": "Deadline",
+      "maxScore": "Max Score",
+      "certificate": "Certificate",
+      "issueCertificate": "Issue",
+      "myCertificates": "My Certificates",
+      "completionRate": "Completion"
+    },
+    "exam": {
+      "title": "Exam Center",
+      "papers": "Papers",
+      "questions": "Questions",
+      "startExam": "Start",
+      "submitExam": "Submit",
+      "examRecord": "Records",
+      "score": "Score",
+      "passed": "Passed",
+      "failed": "Failed",
+      "duration": "Duration (min)",
+      "totalScore": "Total Score",
+      "passScore": "Pass Score",
+      "remaining": "Remaining",
+      "questionTypes": {
+        "single": "Single Choice",
+        "multi": "Multi Choice",
+        "judge": "True/False",
+        "fill": "Fill in Blank",
+        "essay": "Essay"
+      },
+      "wrongBook": "Wrong Book",
+      "addToWrongBook": "Add",
+      "markMastered": "Mastered",
+      "autoGrading": "Auto-grading..."
+    },
+    "ask": {
+      "title": "Q&A",
+      "questions": "Questions",
+      "myQuestions": "My Questions",
+      "createQuestion": "Ask",
+      "questionTitle": "Title",
+      "questionContent": "Content",
+      "answers": "Answers",
+      "postAnswer": "Answer",
+      "bestAnswer": "Best Answer",
+      "adoptAnswer": "Adopt",
+      "viewCount": "Views",
+      "answerCount": "Answers",
+      "hot": "Hot",
+      "latest": "Latest",
+      "unresolved": "Unresolved",
+      "resolved": "Resolved",
+      "tags": "Tags",
+      "relatedCourse": "Related Course"
+    },
+    "circle": {
+      "title": "Circles",
+      "circles": "All Circles",
+      "myCircles": "My Circles",
+      "createCircle": "Create Circle",
+      "joinCircle": "Join",
+      "leaveCircle": "Leave",
+      "members": "Members",
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "posts": "Posts",
+      "createPost": "Create Post",
+      "category": "Category",
+      "categories": {
+        "class": "Class",
+        "interest": "Interest",
+        "study": "Study"
+      },
+      "isPublic": "Public",
+      "isPrivate": "Private"
+    },
+    "live": {
+      "title": "Live",
+      "rooms": "Rooms",
+      "joinLive": "Join",
+      "leaveLive": "Leave",
+      "startLive": "Start",
+      "endLive": "End",
+      "scheduled": "Scheduled",
+      "live": "Live",
+      "ended": "Ended",
+      "cancelled": "Cancelled",
+      "attendees": "Attendees",
+      "playback": "Playback",
+      "scheduledStart": "Scheduled Start",
+      "scheduledEnd": "Scheduled End"
+    },
+    "member": {
+      "title": "Student Profile",
+      "memberNo": "Member No",
+      "realName": "Real Name",
+      "school": "School",
+      "grade": "Grade",
+      "className": "Class",
+      "studentNo": "Student No",
+      "idCard": "ID Card",
+      "memberType": "Type",
+      "memberTypes": {
+        "student": "Student",
+        "teacher": "Teacher",
+        "parent": "Parent"
+      },
+      "points": "Points",
+      "level": "Level",
+      "expireAt": "Expires",
+      "parents": "Parents",
+      "children": "Children",
+      "bindParent": "Bind Parent"
+    },
+    "point": {
+      "title": "Points",
+      "balance": "Balance",
+      "frozen": "Frozen",
+      "totalEarned": "Earned",
+      "totalSpent": "Spent",
+      "earn": "Earn",
+      "spend": "Spend",
+      "records": "Records",
+      "changeType": "Type",
+      "changeTypes": {
+        "earn": "Earn",
+        "spend": "Spend",
+        "freeze": "Freeze",
+        "unfreeze": "Unfreeze"
+      }
+    },
+    "order": {
+      "title": "My Orders",
+      "orderNo": "Order No",
+      "orderType": "Type",
+      "orderTypes": {
+        "course": "Course",
+        "card": "Card",
+        "package": "Package"
+      },
+      "totalAmount": "Total",
+      "paidAmount": "Paid",
+      "discountAmount": "Discount",
+      "status": "Status",
+      "statuses": {
+        "pending": "Pending",
+        "paid": "Paid",
+        "cancelled": "Cancelled",
+        "refunded": "Refunded"
+      },
+      "cancelOrder": "Cancel",
+      "refundOrder": "Refund",
+      "payNow": "Pay Now"
+    },
+    "message": {
+      "title": "Messages",
+      "inbox": "Inbox",
+      "unread": "Unread",
+      "markRead": "Mark Read",
+      "sendMessage": "Send",
+      "msgTypes": {
+        "system": "System",
+        "private": "Private",
+        "group": "Group"
+      }
+    },
+    "notification": {
+      "title": "Notifications",
+      "channels": {
+        "in_app": "In-app",
+        "sms": "SMS",
+        "email": "Email",
+        "push": "Push"
+      },
+      "templates": {
+        "homework": "Homework",
+        "exam": "Exam",
+        "live": "Live",
+        "order": "Order"
+      }
+    },
+    "resource": {
+      "title": "Resources",
+      "categories": "Categories",
+      "uploadResource": "Upload",
+      "fileType": "Type",
+      "fileSize": "Size",
+      "downloadCount": "Downloads",
+      "viewCount": "Views",
+      "free": "Free",
+      "pointsRequired": "Points Required"
+    },
+    "search": {
+      "title": "Search",
+      "placeholder": "Search courses/Q&A/resources...",
+      "entityTypes": {
+        "course": "Course",
+        "article": "Article",
+        "question": "Q&A",
+        "user": "User"
+      },
+      "noResults": "No results found"
+    },
+    "admin": {
+      "title": "Education Admin",
+      "dashboard": "Dashboard",
+      "stats": {
+        "totalCourses": "Total Courses",
+        "totalStudents": "Total Students",
+        "totalRevenue": "Total Revenue",
+        "todayActive": "Today's Active"
+      },
+      "menu": {
+        "course": "Courses",
+        "chapter": "Chapters",
+        "section": "Sections",
+        "exam": "Papers",
+        "question": "Questions",
+        "ask": "Q&A",
+        "circle": "Circles",
+        "live": "Live",
+        "order": "Orders",
+        "member": "Members",
+        "point": "Points",
+        "message": "Messages",
+        "notification": "Notifications",
+        "resource": "Resources",
+        "search": "Search",
+        "setting": "Settings"
+      }
+    },
+    "common": {
+      "loading": "Loading...",
+      "noData": "No data",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "save": "Save",
+      "delete": "Delete",
+      "edit": "Edit",
+      "create": "Create",
+      "search": "Search",
+      "refresh": "Refresh",
+      "retry": "Retry",
+      "back": "Back",
+      "next": "Next",
+      "previous": "Previous",
+      "success": "Success",
+      "error": "Error",
+      "required": "Required",
+      "optional": "Optional"
+    }
+  }
+}

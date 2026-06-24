@@ -39,7 +39,7 @@
       <el-col :span="12">
         <el-card>
           <h3 class="p20-chart-title">{{ t('p20Dashboard.courseCategory') }}</h3>
-          <div ref="coursePieEl" class="p20-chart"></div>
+          <div class="p20-chart"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -68,12 +68,10 @@ const cards = ref<Array<{ label: string; value: string }>>([])
 const revenueChartEl = ref<HTMLDivElement>()
 const orderPieEl = ref<HTMLDivElement>()
 const agentBarEl = ref<HTMLDivElement>()
-const coursePieEl = ref<HTMLDivElement>()
 
 let revenueChart: echarts.ECharts | null = null
 let orderPie: echarts.ECharts | null = null
 let agentBar: echarts.ECharts | null = null
-const _coursePie: echarts.ECharts | null = null
 
 // 缓存最近一次加载的数据，供暗色模式切换时重新渲染
 let lastOrderRecords: OrderRecord[] = []
@@ -128,6 +126,8 @@ function genMockRevenueTrend(): { dates: string[]; values: number[] } {
 
 function renderRevenueChart() {
   if (!revenueChartEl.value) return
+  // 先释放旧实例，避免暗色模式切换等重复调用导致 ECharts 实例泄漏
+  revenueChart?.dispose()
   revenueChart = echarts.init(revenueChartEl.value)
   const { dates, values } = genMockRevenueTrend()
   revenueChart.setOption({
@@ -149,6 +149,8 @@ function renderRevenueChart() {
 
 function renderOrderPie(records: OrderRecord[]) {
   if (!orderPieEl.value) return
+  // 先释放旧实例，避免重复 init 泄漏
+  orderPie?.dispose()
   orderPie = echarts.init(orderPieEl.value)
   // 按状态分组
   const buckets: Record<string, number> = {}
@@ -172,6 +174,8 @@ function renderOrderPie(records: OrderRecord[]) {
 
 function renderAgentBar(records: AgentRecord[]) {
   if (!agentBarEl.value) return
+  // 先释放旧实例，避免重复 init 泄漏
+  agentBar?.dispose()
   agentBar = echarts.init(agentBarEl.value)
   const top = records.slice(0, 8).map(a => ({
     name: a.name || a.code || 'unnamed',

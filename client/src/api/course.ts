@@ -4,6 +4,7 @@
  * 注意：此文件用于管理后台的课程管理，与courses.ts（用户端课程）不同
  */
 
+// 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
 import request from '@/utils/request'
 import type { ApiResponse, PaginationParams, PaginationResponse } from '@/types'
 import { withApiResponseHandler, normalizeApiResponse } from '@/utils/api-response'
@@ -44,7 +45,7 @@ export interface CourseListParams extends PaginationParams {
 
 export const createCourse = withApiResponseHandler(
   async (data: Course): Promise<ApiResponse<Course>> => {
-    const response = await request.post<Course>('/course', data)
+    const response = await request.post<Course>('/api/v1/courses/create', data)
     return normalizeApiResponse(response)
   }
 )
@@ -58,7 +59,7 @@ export const updateCourse = withApiResponseHandler(
 
 export const getCourseList = withApiResponseHandler(
   async (params?: CourseListParams): Promise<ApiResponse<PaginationResponse<Course>>> => {
-    const response = await request.get('/course/list', { params })
+    const response = await request.get('/api/v1/courses/list', { params })
     interface CourseListResponse {
       list: Course[]
       total: number
@@ -88,7 +89,7 @@ export const getCourseList = withApiResponseHandler(
 
 export const getCourseDetail = withApiResponseHandler(
   async (id: string): Promise<ApiResponse<Course>> => {
-    const response = await request.get<Course>(`/course/${id}`)
+    const response = await request.get<Course>(`/api/v1/courses/${id}`)
     return normalizeApiResponse(response)
   }
 )
@@ -96,7 +97,7 @@ export const getCourseDetail = withApiResponseHandler(
 export const deleteCourse = withApiResponseHandler(
   async (ids: string | string[]): Promise<ApiResponse<null>> => {
     const idsString = Array.isArray(ids) ? ids.join(',') : ids
-    const response = await request.delete<null>(`/course/${idsString}`)
+    const response = await request.delete<null>(`/api/v1/courses/${idsString}`)
     return normalizeApiResponse(response)
   }
 )

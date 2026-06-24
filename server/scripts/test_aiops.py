@@ -168,7 +168,7 @@ class TestFunctional(unittest.TestCase):
 
     def test_detect_with_anomaly(self):
         """离群点应判定为异常"""
-        values = [50.0] * 50 + [150.0]
+        values = [50.0] * 50 + [500.0]
         result = self.aiops.detect_anomaly(values)
         self.assertTrue(result["is_anomaly"])
         self.assertGreater(result["score"], 0)

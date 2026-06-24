@@ -1,4 +1,4 @@
-// 响应式断点变?
+﻿// 响应式断点变?
 $screen-xs: 480px;
 $screen-sm: 576px;
 $screen-md: 768px;
@@ -7,64 +7,64 @@ $screen-xl: 1200px;
 $screen-xxl: 1600px;
 
 // 响应式工具类
-@media (max-width: $screen-xs) {
+@media (width <= $screen-xs) {
   .hidden-xs {
-    display: none ;
+    display: none;
   }
 }
 
-@media (max-width: $screen-sm) {
+@media (width <= $screen-sm) {
   .hidden-sm {
-    display: none ;
+    display: none;
   }
 }
 
-@media (max-width: $screen-md) {
+@media (width <= $screen-md) {
   .hidden-md {
-    display: none ;
+    display: none;
   }
 }
 
-@media (max-width: $screen-lg) {
+@media (width <= $screen-lg) {
   .hidden-lg {
-    display: none ;
+    display: none;
   }
 }
 
-@media (max-width: $screen-xl) {
+@media (width <= $screen-xl) {
   .hidden-xl {
-    display: none ;
+    display: none;
   }
 }
 
 // 移动端优先的响应式工具类
-@media (min-width: $screen-xs) {
+@media (width >= $screen-xs) {
   .visible-xs {
-    display: block ;
+    display: block;
   }
 }
 
-@media (min-width: $screen-sm) {
+@media (width >= $screen-sm) {
   .visible-sm {
-    display: block ;
+    display: block;
   }
 }
 
-@media (min-width: $screen-md) {
+@media (width >= $screen-md) {
   .visible-md {
-    display: block ;
+    display: block;
   }
 }
 
-@media (min-width: $screen-lg) {
+@media (width >= $screen-lg) {
   .visible-lg {
-    display: block ;
+    display: block;
   }
 }
 
-@media (min-width: $screen-xl) {
+@media (width >= $screen-xl) {
   .visible-xl {
-    display: block ;
+    display: block;
   }
 }
 
@@ -107,7 +107,7 @@ $screen-xxl: 1600px;
 }
 
 // 超大屏幕优化
-@media (min-width: $screen-xxl) {
+@media (width >= $screen-xxl) {
   .page-container {
     max-width: 100%;
   }

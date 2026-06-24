@@ -3,6 +3,7 @@
 Chaos Engineering 平台
 P2-28: 故障场景库 (50+ 场景), 爆炸半径控制, 自动实验, 安全保障
 """
+import hashlib
 import json
 import os
 import random
@@ -10,7 +11,8 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import datetime, timedelta
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -94,7 +96,7 @@ FAULT_SCENARIOS = {
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _init_db() -> None:
@@ -158,14 +160,31 @@ def _init_db() -> None:
     conn.close()
 
 
-_init_db()
 _conn_lock = threading.Lock()
+_db_ready = False
 
 
-def _conn() -> sqlite3.Connection:
+def _ensure_db() -> None:
+    global _db_ready
+    if not _db_ready:
+        _init_db()
+        _db_ready = True
+        init_scenario_library()
+
+
+@contextmanager
+def _conn():
+    _ensure_db()
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
-    return c
+    try:
+        yield c
+        c.commit()
+    except Exception:
+        c.rollback()
+        raise
+    finally:
+        c.close()
 
 
 def init_scenario_library() -> None:
@@ -179,9 +198,6 @@ def init_scenario_library() -> None:
                     VALUES (?,?,?,?,?,?,?,?)""",
                     (str(uuid.uuid4()), _now(), sid, category, name,
                      name, dmin, dmax))
-
-
-init_scenario_library()
 
 
 def list_scenarios(category: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -252,9 +268,11 @@ def run_experiment(experiment_id: str) -> Dict[str, Any]:
     start = time.time()
     guards = json.loads(exp["guards"] or "[]")
     triggered_guards = []
+    seed = int(hashlib.md5(str(experiment_id).encode()).hexdigest()[:8], 16)
+    rng = random.Random(seed)
     for g in guards:
-        # 模拟 guard 评估
-        if random.random() < 0.1:  # 10% 概率触发
+        # 模拟 guard 评估 (确定性种子, 保证可复现)
+        if rng.random() < 0.1:  # 10% 概率触发
             gid = str(uuid.uuid4())
             triggered_guards.append({"name": g.get("name", "guard"),
                                       "type": g.get("type", "steady_state")})
@@ -272,7 +290,7 @@ def run_experiment(experiment_id: str) -> Dict[str, Any]:
     observations = {
         "duration_actual": duration_actual,
         "guards_triggered": triggered_guards,
-        "system_impact": random.choice(["minimal", "moderate", "significant"]),
+        "system_impact": rng.choice(["minimal", "moderate", "significant"]),
     }
     with _conn_lock, _conn() as c:
         c.execute("""INSERT INTO experiment_runs
@@ -423,7 +441,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def serve() -> None:
-    srv = HTTPServer(("0.0.0.0", HTTP_PORT), _Handler)
+    srv = HTTPServer(("127.0.0.1", HTTP_PORT), _Handler)
     print(f"Chaos service on :{HTTP_PORT}")
     srv.serve_forever()
 

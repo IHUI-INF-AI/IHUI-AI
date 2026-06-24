@@ -1,4 +1,4 @@
-// User.vue 样式文件
+﻿// User.vue 样式文件
 // ?User.vue 中提取的样式代码
 
 // 主容?- 现代化设?
@@ -160,7 +160,7 @@
         background: var(--el-fill-color-light);
         color: var(--el-text-color-primary);
         font-weight: 700;
-        font-family: var(--font-family-chinese) ;
+        font-family: var(--font-family-chinese);
         transform: translate3d(0, 0, 0);
 
         .nav-icon {
@@ -222,12 +222,12 @@
 .user-content {
   flex: 1;
   min-width: 0;
-  width: 100% ;
-  max-width: 100% ;
-  margin: 0 ;
-  padding: 0 ;
-  box-sizing: border-box ;
-  overflow-x: hidden ;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
 
   .content-wrapper {
     .page-header {
@@ -240,7 +240,7 @@
         margin: 0 0 4px; // 缩小标题下边?
         letter-spacing: -0.5px;
         line-height: 1.2;
-        font-family: var(--font-family-chinese) ;
+        font-family: var(--font-family-chinese);
         animation: fadeInDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
@@ -321,7 +321,7 @@
         margin: 0 0 12px;
         font-size: 24px;
         font-weight: 700;
-        font-family: var(--font-family-chinese) ;
+        font-family: var(--font-family-chinese);
       }
 
       .user-meta {
@@ -348,7 +348,7 @@
             font-weight: 700;
             color: var(--el-text-color-primary);
             margin-bottom: 4px;
-            font-family: var(--font-family-chinese) ;
+            font-family: var(--font-family-chinese);
           }
 
           .stat-label {
@@ -440,7 +440,7 @@
     letter-spacing: -0.5px;
     position: relative;
     padding-bottom: 12px;
-    font-family: var(--font-family-chinese) ;
+    font-family: var(--font-family-chinese);
 
     &::after {
       content: '';
@@ -474,12 +474,12 @@
     margin: 0 0 24px;
     padding-bottom: 12px;
     border-bottom: var(--unified-border-bottom);
-    font-family: var(--font-family-chinese) ;
+    font-family: var(--font-family-chinese);
   }
 }
 
 .profile-form {
-  max-width: 100% ;
+  max-width: 100%;
   width: 100%;
 
   :deep(.el-form-item) {
@@ -583,7 +583,7 @@
             color: var(--el-text-color-primary);
             margin-bottom: clamp(4px, 1vw, 8px);
             font-size: clamp(14px, 2vw, 16px);
-            font-family: var(--font-family-chinese) ;
+            font-family: var(--font-family-chinese);
           }
 
           .device-meta {
@@ -697,7 +697,7 @@
   font-weight: 700;
   color: var(--el-text-color-primary);
   font-size: clamp(14px, 2vw, 16px);
-  font-family: var(--font-family-chinese) ;
+  font-family: var(--font-family-chinese);
 }
 
 .favorite-desc,
@@ -774,7 +774,7 @@
   font-weight: 700;
   color: var(--el-text-color-primary);
   font-size: clamp(14px, 2vw, 16px);
-  font-family: var(--font-family-chinese) ;
+  font-family: var(--font-family-chinese);
 }
 
 .examine-desc {
@@ -885,7 +885,7 @@
           font-weight: 700;
           font-size: clamp(14px, 2vw, 16px);
           color: var(--el-text-color-primary);
-          font-family: var(--font-family-chinese) ;
+          font-family: var(--font-family-chinese);
         }
       }
 
@@ -1310,7 +1310,7 @@
             color: var(--el-text-color-primary);
             margin-bottom: clamp(4px, 1vw, 8px);
             letter-spacing: -0.5px;
-            font-family: var(--font-family-chinese) ;
+            font-family: var(--font-family-chinese);
           }
 
           .stat-label {
@@ -1356,7 +1356,7 @@
         font-size: clamp(20px, 3vw, 28px);
         font-weight: 700;
         color: var(--el-text-color-primary);
-        font-family: var(--font-family-chinese) ;
+        font-family: var(--font-family-chinese);
       }
     }
   }
@@ -1395,7 +1395,7 @@
           font-weight: 700;
           color: var(--el-text-color-primary);
           font-size: clamp(11px, 1.6vw, 13px);
-          font-family: var(--font-family-chinese) ;
+          font-family: var(--font-family-chinese);
           flex-shrink: 0;
         }
 
@@ -1404,7 +1404,7 @@
           font-size: clamp(13px, 1.8vw, 15px);
           color: var(--el-text-color-primary);
           font-weight: 700;
-          font-family: var(--font-family-chinese) ;
+          font-family: var(--font-family-chinese);
           min-width: 0;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1436,7 +1436,7 @@
       .consumption-value {
         font-size: clamp(20px, 3vw, 28px);
         font-weight: 700;
-        font-family: var(--font-family-chinese) ;
+        font-family: var(--font-family-chinese);
 
         &.primary {
           color: var(--el-text-color-primary);
@@ -1472,7 +1472,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      padding: 12px ;
+      padding: 12px;
 
       .nav-header {
         display: flex;

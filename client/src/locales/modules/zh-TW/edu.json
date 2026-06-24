@@ -1,0 +1,296 @@
+{
+  "edu": {
+    "nav": {
+      "home": "教育中心",
+      "learn": "我的課程",
+      "exam": "我的考試",
+      "ask": "問答",
+      "circle": "圈子",
+      "live": "直播",
+      "member": "學員檔案",
+      "point": "積分",
+      "order": "我的訂單",
+      "message": "訊息中心",
+      "notification": "通知",
+      "resource": "資源庫",
+      "search": "搜尋",
+      "admin": "教育後台"
+    },
+    "learn": {
+      "title": "課程學習",
+      "list": "課程列表",
+      "detail": "課程詳情",
+      "chapter": "章節",
+      "section": "小節",
+      "progress": "學習進度",
+      "completed": "已完成",
+      "notStarted": "未開始",
+      "inProgress": "學習中",
+      "enroll": "報名",
+      "enrolled": "已報名",
+      "free": "免費",
+      "premium": "付費",
+      "students": "學員數",
+      "lessons": "課時",
+      "duration": "時長(分鐘)",
+      "rating": "評分",
+      "difficulty": {
+        "beginner": "入門",
+        "intermediate": "中級",
+        "advanced": "高級"
+      },
+      "homework": "作業",
+      "submitHomework": "提交作業",
+      "deadline": "截止時間",
+      "maxScore": "滿分",
+      "certificate": "證書",
+      "issueCertificate": "頒發證書",
+      "myCertificates": "我的證書",
+      "completionRate": "完成度"
+    },
+    "exam": {
+      "title": "考試中心",
+      "papers": "試卷",
+      "questions": "題目",
+      "startExam": "開始考試",
+      "submitExam": "提交答卷",
+      "examRecord": "考試記錄",
+      "score": "得分",
+      "passed": "已通過",
+      "failed": "未通過",
+      "duration": "考試時長(分鐘)",
+      "totalScore": "總分",
+      "passScore": "及格分",
+      "remaining": "剩餘時間",
+      "questionTypes": {
+        "single": "單選題",
+        "multi": "多選題",
+        "judge": "判斷題",
+        "fill": "填空題",
+        "essay": "論述題"
+      },
+      "wrongBook": "錯題本",
+      "addToWrongBook": "加入錯題本",
+      "markMastered": "標記掌握",
+      "autoGrading": "自動判分中..."
+    },
+    "ask": {
+      "title": "問答",
+      "questions": "問題列表",
+      "myQuestions": "我的提問",
+      "createQuestion": "提問",
+      "questionTitle": "問題標題",
+      "questionContent": "問題內容",
+      "answers": "回答",
+      "postAnswer": "回答問題",
+      "bestAnswer": "最佳回答",
+      "adoptAnswer": "採納為最佳答案",
+      "viewCount": "瀏覽數",
+      "answerCount": "回答數",
+      "hot": "熱門問題",
+      "latest": "最新",
+      "unresolved": "未解決",
+      "resolved": "已解決",
+      "tags": "標籤",
+      "relatedCourse": "相關課程"
+    },
+    "circle": {
+      "title": "圈子",
+      "circles": "圈子列表",
+      "myCircles": "我加入的圈子",
+      "createCircle": "創建圈子",
+      "joinCircle": "加入",
+      "leaveCircle": "退出",
+      "members": "成員",
+      "owner": "圈主",
+      "admin": "管理員",
+      "member": "成員",
+      "posts": "帖子",
+      "createPost": "發帖",
+      "category": "類型",
+      "categories": {
+        "class": "班級圈",
+        "interest": "興趣圈",
+        "study": "學習圈"
+      },
+      "isPublic": "公開",
+      "isPrivate": "私密"
+    },
+    "live": {
+      "title": "直播",
+      "rooms": "直播間",
+      "joinLive": "加入直播",
+      "leaveLive": "退出直播",
+      "startLive": "開始直播",
+      "endLive": "結束直播",
+      "scheduled": "未開始",
+      "live": "直播中",
+      "ended": "已結束",
+      "cancelled": "已取消",
+      "attendees": "參會者",
+      "playback": "回放",
+      "scheduledStart": "預定開始時間",
+      "scheduledEnd": "預定結束時間"
+    },
+    "member": {
+      "title": "學員檔案",
+      "memberNo": "會員號",
+      "realName": "真實姓名",
+      "school": "學校",
+      "grade": "年級",
+      "className": "班級",
+      "studentNo": "學號",
+      "idCard": "身份證號",
+      "memberType": "會員類型",
+      "memberTypes": {
+        "student": "學員",
+        "teacher": "教師",
+        "parent": "家長"
+      },
+      "points": "積分",
+      "level": "等級",
+      "expireAt": "會員到期",
+      "parents": "家長",
+      "children": "子女",
+      "bindParent": "綁定家長"
+    },
+    "point": {
+      "title": "積分",
+      "balance": "可用積分",
+      "frozen": "凍結積分",
+      "totalEarned": "累計獲得",
+      "totalSpent": "累計消費",
+      "earn": "獲取積分",
+      "spend": "消費積分",
+      "records": "積分明細",
+      "changeType": "變更類型",
+      "changeTypes": {
+        "earn": "獲得",
+        "spend": "消費",
+        "freeze": "凍結",
+        "unfreeze": "解凍"
+      }
+    },
+    "order": {
+      "title": "我的訂單",
+      "orderNo": "訂單號",
+      "orderType": "訂單類型",
+      "orderTypes": {
+        "course": "課程訂單",
+        "card": "學習卡訂單",
+        "package": "套餐訂單"
+      },
+      "totalAmount": "訂單總額",
+      "paidAmount": "實付金額",
+      "discountAmount": "優惠金額",
+      "status": "狀態",
+      "statuses": {
+        "pending": "待支付",
+        "paid": "已支付",
+        "cancelled": "已取消",
+        "refunded": "已退款"
+      },
+      "cancelOrder": "取消訂單",
+      "refundOrder": "申請退款",
+      "payNow": "立即支付"
+    },
+    "message": {
+      "title": "訊息中心",
+      "inbox": "收件箱",
+      "unread": "未讀",
+      "markRead": "標記已讀",
+      "sendMessage": "發送訊息",
+      "msgTypes": {
+        "system": "系統訊息",
+        "private": "私信",
+        "group": "群訊息"
+      }
+    },
+    "notification": {
+      "title": "通知",
+      "channels": {
+        "in_app": "站內",
+        "sms": "簡訊",
+        "email": "郵件",
+        "push": "推送"
+      },
+      "templates": {
+        "homework": "作業通知",
+        "exam": "考試通知",
+        "live": "直播通知",
+        "order": "訂單通知"
+      }
+    },
+    "resource": {
+      "title": "資源庫",
+      "categories": "資源分類",
+      "uploadResource": "上傳資源",
+      "fileType": "檔案類型",
+      "fileSize": "檔案大小",
+      "downloadCount": "下載次數",
+      "viewCount": "瀏覽次數",
+      "free": "免費",
+      "pointsRequired": "所需積分"
+    },
+    "search": {
+      "title": "搜尋",
+      "placeholder": "搜尋課程/問答/資源...",
+      "entityTypes": {
+        "course": "課程",
+        "article": "文章",
+        "question": "問答",
+        "user": "用戶"
+      },
+      "noResults": "未找到相關結果"
+    },
+    "admin": {
+      "title": "教育後台",
+      "dashboard": "概覽",
+      "stats": {
+        "totalCourses": "課程總數",
+        "totalStudents": "學員總數",
+        "totalRevenue": "總收入",
+        "todayActive": "今日活躍"
+      },
+      "menu": {
+        "course": "課程管理",
+        "chapter": "章節管理",
+        "section": "小節管理",
+        "exam": "試卷管理",
+        "question": "題目管理",
+        "ask": "問答管理",
+        "circle": "圈子管理",
+        "live": "直播管理",
+        "order": "訂單管理",
+        "member": "學員管理",
+        "point": "積分管理",
+        "message": "訊息管理",
+        "notification": "通知管理",
+        "resource": "資源管理",
+        "search": "搜尋管理",
+        "setting": "系統設定"
+      }
+    },
+    "common": {
+      "loading": "載入中...",
+      "noData": "暫無資料",
+      "confirm": "確認",
+      "cancel": "取消",
+      "submit": "提交",
+      "save": "儲存",
+      "delete": "刪除",
+      "edit": "編輯",
+      "create": "建立",
+      "search": "搜尋",
+      "refresh": "重新整理",
+      "retry": "重試",
+      "back": "返回",
+      "next": "下一步",
+      "previous": "上一步",
+      "success": "操作成功",
+      "error": "操作失敗",
+      "required": "必填項",
+      "optional": "可選項"
+    }
+  }
+}

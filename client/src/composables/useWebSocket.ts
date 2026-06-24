@@ -65,6 +65,8 @@ export function useWebSocket(config: WebSocketConfig) {
 
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  // 主动断开标志：disconnect() 置 true，onclose 据此跳过自动重连，避免卸载后重连泄漏
+  let manualClose = false
 
   /**
    * 连接 WebSocket
@@ -75,6 +77,8 @@ export function useWebSocket(config: WebSocketConfig) {
     }
 
     try {
+      // 新连接重置主动断开标志
+      manualClose = false
       status.value = WebSocketStatus.CONNECTING
       // 统一从 localStorage 取 token 拼到 URL (后端 @ws_require_auth 要求 ?token=)
       const token = localStorage.getItem(STORAGE_KEYS.USER_TOKEN) || ''
@@ -127,6 +131,11 @@ export function useWebSocket(config: WebSocketConfig) {
         stopHeartbeat()
         config.onClose?.()
 
+        // 主动断开时不自动重连，避免组件卸载后仍后台重连导致回调操作已卸载组件
+        if (manualClose) {
+          return
+        }
+
         // 自动重连
         if (reconnectAttempts.value < (config.maxReconnectAttempts || 5)) {
           reconnect()
@@ -142,6 +151,8 @@ export function useWebSocket(config: WebSocketConfig) {
    * 断开连接
    */
   const disconnect = () => {
+    // 标记为主动断开，阻止 onclose 触发自动重连
+    manualClose = true
     if (reconnectTimer) {
       clearTimeout(reconnectTimer)
       reconnectTimer = null
@@ -149,6 +160,11 @@ export function useWebSocket(config: WebSocketConfig) {
     stopHeartbeat()
 
     if (ws.value) {
+      // 先清除回调引用，避免 close() 异步触发 onclose 时仍执行业务回调
+      ws.value.onopen = null
+      ws.value.onmessage = null
+      ws.value.onerror = null
+      ws.value.onclose = null
       ws.value.close()
       ws.value = null
     }

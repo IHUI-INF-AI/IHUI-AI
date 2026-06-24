@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import tempfile
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.config import settings
@@ -33,6 +33,7 @@ from app.metrics_business import (
     HLS_TRANSCODE_SECONDS,
     record_cache,
 )
+from app.security import require_login
 from app.utils.redis_util import get_redis
 from app.utils.response import fail, success
 from app.utils.storage import get_storage
@@ -160,6 +161,9 @@ def _ffmpeg_trim(src: str, start: float, dur: float, fmt: str = "mp4") -> bytes:
                 "pipe:1",
             ]
             proc = subprocess.run(cmd2, capture_output=True, timeout=60, check=False)
+            if proc.returncode != 0:
+                logger.error(f"ffmpeg 转码回退失败: {proc.stderr.decode('utf-8', 'ignore')[:500]}")
+                return b""
         return proc.stdout
     except Exception as e:
         logger.error(f"ffmpeg 切片失败: {e}")
@@ -177,7 +181,7 @@ async def _ffmpeg_trim_async(src: str, start: float, dur: float, fmt: str = "mp4
 
 
 @router.post("/preload", summary="预读视频指定时间段")
-async def preload_video(req: PreloadReq):
+async def preload_video(req: PreloadReq, user_uuid: str = Depends(require_login)):
     """对应 Java: POST /api/video/preload
 
     请求体: { "videoId": "xxx", "videoPath": "可选", "startSeconds": 60, "preloadSeconds": 10 }
@@ -199,7 +203,7 @@ async def preload_video(req: PreloadReq):
     try:
         cached_url = r.get(cache_key)
     except Exception:
-        logger.warning("Unexpected error in line 173")
+        logger.warning("Redis 读取预读缓存失败")
         pass
     if cached_url:
         return success(
@@ -234,7 +238,7 @@ async def preload_video(req: PreloadReq):
     try:
         r.setex(cache_key, PRELOAD_TTL, presigned)
     except Exception:
-        logger.warning("Unexpected error in line 205")
+        logger.warning("Redis 写入预读缓存失败")
         pass
 
     return success(
@@ -257,7 +261,7 @@ async def preload_video(req: PreloadReq):
 
 
 @router.post("/breakpoint/load", summary="从断点位置加载视频")
-async def load_from_breakpoint(req: BreakpointReq):
+async def load_from_breakpoint(req: BreakpointReq, user_uuid: str = Depends(require_login)):
     """对应 Java: POST /api/video/breakpoint/load"""
     if req.breakpointSeconds < 0:
         return fail("breakpointSeconds 必须 >= 0", code=400)
@@ -302,7 +306,7 @@ async def load_from_breakpoint(req: BreakpointReq):
 
 
 @router.post("/breakpoint/update", summary="上报当前播放位置")
-async def update_breakpoint(req: BreakpointUpdateReq):
+async def update_breakpoint(req: BreakpointUpdateReq, user_uuid: str = Depends(require_login)):
     """对应 Java: POST /api/video/breakpoint/update -- 存 Redis"""
     r = get_redis()
     key = f"zhs:video:breakpoint:{req.userId}:{req.videoId}"
@@ -314,11 +318,15 @@ async def update_breakpoint(req: BreakpointUpdateReq):
 
 
 @router.get("/breakpoint/get", summary="查询断点")
-async def get_breakpoint(userId: str, videoId: str):  # noqa: 39
+async def get_breakpoint(userId: str, videoId: str, user_uuid: str = Depends(require_login)):  # noqa: 39
     """配套查询: GET /api/video/breakpoint/get?userId=&videoId="""
     r = get_redis()
     key = f"zhs:video:breakpoint:{userId}:{videoId}"
-    val = r.get(key)
+    try:
+        val = r.get(key)
+    except Exception:
+        logger.warning("Redis 读取播放断点失败")
+        return success({"breakpointSeconds": 0, "currentOffset": 0})
     if not val:
         return success({"breakpointSeconds": 0, "currentOffset": 0})
     if isinstance(val, bytes):
@@ -435,7 +443,7 @@ def _rewrite_m3u8(content: str, ts_url_map: dict) -> str:
 
 
 @router.post("/hls/transcode", summary="HLS 多码率转码 (生成 master.m3u8 + .ts)")
-async def transcode_hls(req: HlsTranscodeReq):
+async def transcode_hls(req: HlsTranscodeReq, user_uuid: str = Depends(require_login)):
     """对应 Java: POST /api/video/hls/transcode
 
     流程:
@@ -457,7 +465,7 @@ async def transcode_hls(req: HlsTranscodeReq):
     try:
         cached = r.get(cache_key)
     except Exception:
-        logger.warning("Unexpected error in line 400")
+        logger.warning("Redis 读取 HLS 缓存失败")
         pass
     if cached:
         record_cache("hls_master", hit=True)
@@ -545,7 +553,7 @@ async def transcode_hls(req: HlsTranscodeReq):
             r.setex(cache_key, HLS_CACHE_TTL, master_url)
             r.setex(cache_key + ":content", HLS_CACHE_TTL, master_content)
         except Exception:
-            logger.warning("Unexpected error in line 479")
+            logger.warning("Redis 写入 HLS 缓存失败")
             pass
 
         # 业务指标
@@ -571,7 +579,7 @@ async def transcode_hls(req: HlsTranscodeReq):
 
 
 @router.get("/hls/manifest/{videoId}", summary="取 HLS master.m3u8 文本 (含 .ts 预签名 URL)")
-async def get_hls_manifest(videoId: str):  # noqa: 28
+async def get_hls_manifest(videoId: str, user_uuid: str = Depends(require_login)):  # noqa: 28
     """GET /api/video/hls/manifest/{videoId} -- 纯文本, 前端 hls.js 直接加载."""
     r = get_redis()
     cache_key = f"zhs:video:hls:{videoId}"
@@ -579,7 +587,7 @@ async def get_hls_manifest(videoId: str):  # noqa: 28
     try:
         content = r.get(cache_key + ":content")
     except Exception:
-        logger.warning("Unexpected error in line 510")
+        logger.warning("Redis 读取 HLS manifest 失败")
         pass
     if not content:
         from fastapi import Response
@@ -591,7 +599,7 @@ async def get_hls_manifest(videoId: str):  # noqa: 28
 
 
 @router.get("/hls/playlist/{videoId}/{bitrate}", summary="取单档 m3u8 文本")
-async def get_hls_playlist(videoId: str, bitrate: str):  # noqa: 28
+async def get_hls_playlist(videoId: str, bitrate: str, user_uuid: str = Depends(require_login)):  # noqa: 28
     """GET /api/video/hls/playlist/{videoId}/{1080p|720p|480p}"""
     from fastapi import Response
 
@@ -605,6 +613,6 @@ async def get_hls_playlist(videoId: str, bitrate: str):  # noqa: 28
             text = (storage.base / key).read_text(encoding="utf-8")
             return Response(content=text, media_type="application/vnd.apple.mpegurl")
         except Exception:
-            logger.warning("Unexpected error in line 532")
+            logger.warning("读取本地 m3u8 文件失败")
             pass
     return Response(status_code=404, content="#EXTM3U\n# not readable\n")

@@ -139,6 +139,20 @@ async def wallet_export(request: Request):
     return success(data={"url": ""})
 
 
+@router.post("/api/v1/wallet/withdraw", summary="钱包提现申请")
+async def wallet_withdraw(request: Request):
+    # 2026-06-24 联调: 前端 WALLET_PATHS.withdraw 已调用, 后端补齐对接端点
+    # 真实提现逻辑由订单/支付模块处理, 此处返回受理成功占位, 避免生产环境 404
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    amount = float(body.get("amount", 0) or 0)
+    if amount <= 0:
+        return error("提现金额必须大于 0", "400")
+    return success(data={"orderId": "", "amount": amount, "status": "pending"})
+
+
 # ==================== dashboard ====================
 
 @router.get("/api/v1/dashboard/mobile", summary="移动端仪表盘")

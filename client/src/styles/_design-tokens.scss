@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // 设计令牌系统 - 统一变量管理
 // Design Tokens - Single Source of Truth
 // ============================================
@@ -664,11 +664,11 @@ $z-toast: 1080 !default;
 // 最小宽度查询（移动端优先）
 @mixin min-width($breakpoint) {
   @if map.has-key($breakpoints, $breakpoint) {
-    @media (min-width: map.get($breakpoints, $breakpoint)) {
+    @media (width >= map.get($breakpoints, $breakpoint)) {
       @content;
     }
   } @else if meta.type-of($breakpoint) == number {
-    @media (min-width: $breakpoint) {
+    @media (width >= $breakpoint) {
       @content;
     }
   } @else {
@@ -679,11 +679,11 @@ $z-toast: 1080 !default;
 // 最大宽度查询（桌面端优先）
 @mixin max-width($breakpoint) {
   @if map.has-key($breakpoints, $breakpoint) {
-    @media (max-width: map.get($breakpoints, $breakpoint) - 1px) {
+    @media (width <= map.get($breakpoints, $breakpoint) - 1px) {
       @content;
     }
   } @else if meta.type-of($breakpoint) == number {
-    @media (max-width: $breakpoint - 1px) {
+    @media (width <= $breakpoint - 1px) {
       @content;
     }
   } @else {
@@ -693,31 +693,31 @@ $z-toast: 1080 !default;
 
 // 设备类型快捷混合宏
 @mixin mobile-only {
-  @media (max-width: #{$breakpoint-tablet - 1px}) {
+  @media (width <= #{$breakpoint-tablet - 1px}) {
     @content;
   }
 }
 
 @mixin tablet-only {
-  @media (min-width: $breakpoint-tablet) and (max-width: #{$breakpoint-tablet-lg - 1px}) {
+  @media (width >= $breakpoint-tablet) and (max-width: #{$breakpoint-tablet-lg - 1px}) {
     @content;
   }
 }
 
 @mixin tablet-up {
-  @media (min-width: $breakpoint-tablet) {
+  @media (width >= $breakpoint-tablet) {
     @content;
   }
 }
 
 @mixin laptop-up {
-  @media (min-width: $breakpoint-laptop) {
+  @media (width >= $breakpoint-laptop) {
     @content;
   }
 }
 
 @mixin desktop-up {
-  @media (min-width: $breakpoint-desktop) {
+  @media (width >= $breakpoint-desktop) {
     @content;
   }
 }

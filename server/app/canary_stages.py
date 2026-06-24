@@ -26,12 +26,16 @@
 
 from __future__ import annotations
 
+import datetime
 import json
+import logging
 import os
 import threading
 import time
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 阶段定义
@@ -139,7 +143,8 @@ class CanaryStageController:
             try:
                 with open(state_file, encoding="utf-8") as f:
                     self._state = CanaryState.from_dict(json.load(f))
-            except Exception:
+            except Exception as e:
+                logger.error(f"canary state file corrupt, reset to initial: {e}")
                 self._state = CanaryState()
         else:
             self._state = CanaryState()
@@ -253,20 +258,16 @@ class CanaryStageController:
         """建议 136: auto_rollback 自动发告警 (告警服务 + Prometheus 状态).
 
         三路并行通知, 失败不影响主流程:
-          1. alert_service.push_alert (钉钉/微信/飞书/邮件) - 同步推, 失败隔离
+          1. alert_service.push_alert (钉钉/微信/飞书/邮件) - 失败隔离
           2. zhs_canary_rollback_active gauge (Prometheus 抓, alertmanager 触发规则)
           3. 结构化日志 (Loki 检索)
 
         设计权衡:
-          - 同步推告警 (不是后台线程) 是为了:
-            1. 测试可重入, 避免线程时序
-            2. 紧急回滚场景, 告警需及时发出, 不被线程调度延迟
-            3. push_alert 内部已有 4s timeout 防护
           - 失败 try/except 隔离, 不阻塞主流程
+          - 若已在事件循环中 (async 上下文), 用 ensure_future 调度后台任务,
+            避免 asyncio.run 抛 RuntimeError; 否则才用 asyncio.run
         """
-        import logging
-
-        # 1. 钉钉/微信/飞书/邮件 (best effort, 同步推 + 失败隔离)
+        # 1. 钉钉/微信/飞书/邮件 (best effort, 失败隔离)
         try:
             import asyncio
 
@@ -277,15 +278,24 @@ class CanaryStageController:
                 f"**原因**: {reason}\n"
                 f"**回滚前**: {ev.from_stage}\n"
                 f"**回滚后**: {ev.to_stage}\n"
-                f"**时间**: {__import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()}\n"
+                f"**时间**: {datetime.datetime.now(datetime.timezone.utc).isoformat()}\n"
                 f"**事件类型**: {ev.event_type}\n"
             )
             try:
-                asyncio.run(push_alert(title, message, severity="critical"))
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop is not None:
+                    # 已在事件循环中, 调度后台任务, 避免 asyncio.run 崩溃
+                    asyncio.ensure_future(push_alert(title, message, severity="critical"))
+                else:
+                    # 无事件循环: 用 wait_for 限制 push_alert 最长 3s, 避免阻塞调用方
+                    asyncio.run(asyncio.wait_for(push_alert(title, message, severity="critical"), timeout=3.0))
             except Exception as e:
-                logging.getLogger(__name__).debug(f"canary alert push inner failed: {e}")
+                logger.debug(f"canary alert push inner failed: {e}")
         except Exception as e:
-            logging.getLogger(__name__).debug(f"canary auto_rollback notify skipped: {e}")
+            logger.debug(f"canary auto_rollback notify skipped: {e}")
 
         # 2. Prometheus gauge (建议 136) - alertmanager 规则 ZHSRollbackActive 用
         try:
@@ -297,7 +307,7 @@ class CanaryStageController:
             pass
 
         # 3. 结构化日志 (Loki 检索)
-        logging.getLogger(__name__).warning(
+        logger.warning(
             f"[canary auto_rollback] from={ev.from_stage} to={ev.to_stage} reason={reason}"
         )
 

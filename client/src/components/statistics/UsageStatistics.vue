@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getUsageStatistics, type UsageStatistics } from '@/api/statistics'
 import { useDarkModeStore } from '@/stores/darkMode'
@@ -215,6 +215,21 @@ watch(
 
 onMounted(() => {
   loadData()
+})
+
+// 窗口尺寸变化时自适应图表
+const handleResize = () => {
+  chartInstance?.resize()
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  chartInstance?.dispose()
+  chartInstance = null
 })
 </script>
 

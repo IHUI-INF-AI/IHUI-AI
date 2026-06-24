@@ -80,7 +80,7 @@ async def lifespan(app: FastAPI):
         from app.database import ENGINES
         from app.telemetry import is_telemetry_enabled, setup_telemetry
 
-        setup_telemetry(engines=ENGINES)
+        setup_telemetry(app=app, engines=ENGINES)
         if is_telemetry_enabled():
             logger.info("OpenTelemetry APM enabled (see /metrics for pool, X-Trace-Id for trace)")
     except Exception as e:
@@ -193,13 +193,28 @@ def create_app() -> FastAPI:
     )
 
     # CORS
+    # 2026-06-24 联调: 修复开发环境 allow_origins=["*"] + allow_credentials=True 不安全组合
+    # - 生产环境: 必须显式配置 CORS_ORIGINS, 禁止通配符 (已有校验)
+    # - 开发环境: CORS_ORIGINS 为空时回退到本地开发端口列表, 而非通配符 "*"
     raw_origins = settings.CORS_ORIGINS.strip() if settings.CORS_ORIGINS else ""
-    origins = [o.strip() for o in raw_origins.split(",") if o.strip()] if raw_origins else ["*"]
+    origins = [o.strip() for o in raw_origins.split(",") if o.strip()] if raw_origins else []
     if settings.ENV.lower() in ("production", "prod"):
         if not raw_origins:
             raise RuntimeError("CORS_ORIGINS is required in production")
-        if "*" in origins and True:
+        if "*" in origins:
             raise RuntimeError("CORS wildcard '*' is not allowed in production")
+    elif not origins:
+        # 开发环境回退: 本地前端端口 (8888 dev / 4173 preview) + 常用调试端口
+        _dev_origins = [
+            "http://localhost:8888",
+            "http://127.0.0.1:8888",
+            "http://localhost:4173",
+            "http://127.0.0.1:4173",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+        origins = _dev_origins
+        logger.info(f"CORS: dev origins fallback enabled ({len(origins)} origins)")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -211,6 +226,15 @@ def create_app() -> FastAPI:
     # Prometheus metrics middleware
     with suppress(Exception):
         app.add_middleware(PrometheusMiddleware)
+
+    # Trace ID middleware (X-Trace-Id response header, 与日志/trace 串联)
+    # 必须在 create_app() 中注册, 不能在 lifespan 中注册 (中间件栈在启动前构建)
+    try:
+        from app.telemetry import TraceIdMiddleware
+
+        app.add_middleware(TraceIdMiddleware)
+    except Exception as e:
+        logger.warning(f"TraceIdMiddleware registration failed: {e}")
 
     # API 版本协商中间件 (Accept header)
     try:
@@ -244,6 +268,17 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register gzip middleware: {e}")
 
+    # XSS 防护中间件 (HTML-escape 请求参数/JSON body, 防止跨站脚本攻击)
+    # 2026-06-24 联调: 文件已存在 app/middleware/xss.py 但未注册, 现补齐注册
+    # 注册在最外层 (后注册 = 先执行), 确保所有下游中间件/路由看到的是清理后的输入
+    try:
+        from app.middleware.xss import XSSMiddleware
+
+        app.add_middleware(XSSMiddleware)
+        logger.info("XSS middleware registered")
+    except Exception as e:
+        logger.error(f"Failed to register XSS middleware: {e}")
+
     # 优雅停机 (SIGTERM/SIGINT)
     try:
         from app.core.graceful_shutdown import install_graceful_shutdown
@@ -253,20 +288,20 @@ def create_app() -> FastAPI:
         logger.debug(f"graceful_shutdown 注册失败 (Windows dev 可忽略): {e}")
 
     # Import and mount routers
-    try:
-        from app.api.v1.router import api_router
+    # 主 API router 注册失败必须 raise (核心路由不可缺失, 静默吞掉会导致服务无路由可用)
+    from app.api.v1.router import api_router
 
-        app.include_router(api_router, prefix="/api/v1")
-        logger.info("API v1 router registered")
-        # 2026-06-21 联调: 注册前端兼容路由 (i18n-v2/wallet/dashboard/refunds/security)
-        try:
-            from app.api.v1.compat_routes import router as compat_router
-            app.include_router(compat_router, prefix="/api/v1")
-            logger.info("Compatibility routes registered")
-        except Exception as e:
-            logger.error(f"Failed to register compat routes: {e}")
+    app.include_router(api_router, prefix="/api/v1")
+    logger.info("API v1 router registered")
+    # 2026-06-21 联调: 注册前端兼容路由 (i18n-v2/wallet/dashboard/refunds/security)
+    # 2026-06-24 修复: compat_routes.py 中路径已含 /api/v1 前缀, 此处不能再加 prefix,
+    #   否则路径变为 /api/v1/api/v1/wallet/* 导致 404
+    try:
+        from app.api.v1.compat_routes import router as compat_router
+        app.include_router(compat_router)
+        logger.info("Compatibility routes registered")
     except Exception as e:
-        logger.error(f"Failed to register API router: {e}")
+        logger.error(f"Failed to register compat routes: {e}")
 
     # Legacy /api/<domain>/ paths (migrated from client/backend).
     # These routers are mounted at the original prefixes with real
@@ -294,10 +329,10 @@ def create_app() -> FastAPI:
         app.include_router(_version_router, prefix="/api/version", tags=["Legacy Version"])
         app.include_router(_rbac_router, prefix="/api/rbac", tags=["Legacy RBAC"])
         app.include_router(_audit_router, prefix="/api/audit", tags=["Legacy Audit"])
-        app.include_router(_cs_router, prefix="/api/customer-service", tags=["Legacy CS"])
+        app.include_router(_cs_router, prefix="/api/v1/customer_service", tags=["Legacy CS"])
         app.include_router(
             _ticket_router,
-            prefix="/api/zhs_api_ticket",
+            prefix="/api/v1/customer_service/ticket",
             tags=["Legacy Tickets"],
         )
         app.include_router(_agent_router, tags=["Legacy Agent"])
@@ -346,6 +381,16 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register health router: {e}")
 
+    # Socket.IO 服务挂载 (2026-06-24 修复: 文件已存在但未挂载, 前端 useTaskWebSocket/AgentSwarmMonitor 无法连接)
+    # socketio_app 是 ASGIApp, 需用 app.mount 挂载到 /socket.io 路径
+    try:
+        from app.api.socketio_chat import socketio_app as _sio_app, router as _sio_router
+        app.include_router(_sio_router)
+        app.mount("/socket.io", _sio_app)
+        logger.info("Socket.IO service mounted at /socket.io")
+    except Exception as e:
+        logger.error(f"Failed to mount Socket.IO service: {e}")
+
     # API v2 实验性端点 (仅保留元数据, 其余 v2 空壳已清理)
     try:
         from app.api.v2 import router as v2_router
@@ -354,6 +399,14 @@ def create_app() -> FastAPI:
         logger.info("API v2 router registered (experimental: /api/v2/info, /ping)")
     except Exception as e:
         logger.error(f"Failed to register v2 router: {e}")
+
+    # admin 迁移管理 (P0 配套: Web 触发 ETL)
+    try:
+        from app.api.admin_migration import router as admin_migration_router
+        app.include_router(admin_migration_router)
+        logger.info("Admin migration router registered (/api/admin/migration/*)")
+    except Exception as e:
+        logger.error(f"Failed to register admin migration router: {e}")
 
     # v2 auth 路由 (转发到 v1 真实逻辑, 必须在 mock catch-all 之前注册)
     try:
@@ -550,7 +603,7 @@ def create_app() -> FastAPI:
         )
 
     # Local upload file service (MinIO fallback)
-    local_uploads_dir = os.path.join(os.path.dirname(__file__), "..", "local_uploads")
+    local_uploads_dir = str(_PROJECT_ROOT / "local_uploads")
     os.makedirs(local_uploads_dir, exist_ok=True)
     app.mount(
         "/local_uploads",
@@ -572,7 +625,6 @@ def create_app() -> FastAPI:
         for _alias, _filename in _HTML_ALIASES.items():
             _path = os.path.join(static_dir, _filename)
             if os.path.isfile(_path):
-                _fname = _filename
                 _fpath = _path
 
                 async def _serve_html(request: Request, __fp: str = _fpath):
@@ -613,6 +665,8 @@ def create_app() -> FastAPI:
             logger.warning(f"Schema strip failed: {e}")
 
     # Dev mode (SQLite) auto-create tables, avoid frontend testing without DB
+    # 注意: 建表必须在路由注册之后执行 -- 部分 model 通过 router 模块导入时才注册到
+    # Base.metadata, 提前建表会遗漏这些表。此处位于路由注册之后, 确保所有 model 已加载。
     if os.environ.get("AUTO_CREATE_SCHEMA", "0") == "1":
         try:
             import app.models as _models  # noqa: F401  trigger model imports for app variable

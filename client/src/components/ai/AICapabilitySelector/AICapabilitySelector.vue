@@ -50,7 +50,7 @@ import type {
 import type { AIModelInfo } from '@/api/aiModelInfo'
 import type { Agent } from '@/api/agents'
 import { getAIModelList } from '@/api/aiModelInfo'
-import { getAgentList, type AgentInfo } from '@/api/payment'
+import { getAgentList, type AgentInfo } from '@/api/agent-plaza'
 
 // Props
 const props = withDefaults(
@@ -863,7 +863,7 @@ html.dark .ai-capability-selector__backdrop {
   border-bottom-color: var(--el-border-color-lighter);
 }
 
-html.dark .ai-capability-selector__backdrop .ai-capability-selector__header::before {
+:where(html.dark) :where(.ai-capability-selector__backdrop) :where(.ai-capability-selector__header::before) {
   background: var(--el-text-color-primary);
 }
 

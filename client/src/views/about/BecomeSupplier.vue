@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="become-supplier-page">
     <div class="container">
       <!-- 头部 -->
@@ -442,13 +442,13 @@ const handleReset = () => formRef.value?.resetFields()
   .el-input .el-input__wrapper,
   .el-input__wrapper {
     border: var(--unified-border);
-    box-shadow: none ;
+    box-shadow: none;
   }
 
   .el-textarea .el-textarea__inner,
   .el-textarea__inner {
     border: var(--unified-border);
-    box-shadow: none ;
+    box-shadow: none;
   }
   .el-input__inner, .el-textarea__inner { color: var(--el-text-color-primary); font-family: var(--font-family-mono); }
 }
@@ -496,7 +496,7 @@ html.dark .become-supplier-page {
   p { color: var(--el-text-color-regular); }
 }
 
-html.dark .become-supplier-page .section-label::after {
+:where(html.dark) :where(.become-supplier-page) :where(.section-label::after) {
   background: var(--el-border-color);
 }
 
@@ -562,7 +562,7 @@ html.dark .become-supplier-page :deep(.tech-form) {
   .el-input .el-input__wrapper,
   .el-input__wrapper,
   .el-textarea .el-textarea__inner,
-  .el-textarea__inner { border-color: var(--border-unified-color) ; }
+  .el-textarea__inner { border-color: var(--border-unified-color); }
   .el-input__inner, .el-textarea__inner { color: var(--el-text-color-primary); }
 }
 

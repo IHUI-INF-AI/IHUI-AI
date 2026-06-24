@@ -1,4 +1,4 @@
-/* 
+﻿/* 
  * 全局响应式字体系?
  * 使用 clamp() 函数实现流畅的字体自适应
  * 基于移动端优先的设计理念
@@ -130,47 +130,47 @@ small,
 // ============================================
 
 .text-xs {
-  font-size: var(--font-size-xs) ;
+  font-size: var(--font-size-xs);
 }
 
 .text-sm {
-  font-size: var(--font-size-sm) ;
+  font-size: var(--font-size-sm);
 }
 
 .text-base {
-  font-size: var(--font-size-base-responsive) ;
+  font-size: var(--font-size-base-responsive);
 }
 
 .text-lg {
-  font-size: var(--font-size-lg) ;
+  font-size: var(--font-size-lg);
 }
 
 .text-xl {
-  font-size: var(--font-size-xl) ;
+  font-size: var(--font-size-xl);
 }
 
 .text-2xl {
-  font-size: var(--font-size-2xl) ;
+  font-size: var(--font-size-2xl);
 }
 
 .text-3xl {
-  font-size: var(--font-size-3xl) ;
+  font-size: var(--font-size-3xl);
 }
 
 .text-4xl {
-  font-size: var(--font-size-4xl) ;
+  font-size: var(--font-size-4xl);
 }
 
 .text-5xl {
-  font-size: var(--font-size-5xl) ;
+  font-size: var(--font-size-5xl);
 }
 
 .text-6xl {
-  font-size: var(--font-size-6xl) ;
+  font-size: var(--font-size-6xl);
 }
 
 .text-7xl {
-  font-size: var(--font-size-7xl) ;
+  font-size: var(--font-size-7xl);
 }
 
 // ============================================
@@ -259,7 +259,7 @@ small,
 // 移动端特殊优?
 // ============================================
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   :root {
     /* 移动端进一步缩小最小字体，确保可读?*/
     --font-size-xs: 10px;
@@ -285,7 +285,7 @@ small,
 // 平板端优?
 // ============================================
 
-@media (min-width: 481px) and (max-width: 768px) {
+@media (width >= 481px) and (max-width: 768px) {
   :root {
     --font-size-base-responsive: clamp(15px, 3vw, 16px);
   }
@@ -295,7 +295,7 @@ small,
 // 桌面端优?
 // ============================================
 
-@media (min-width: 769px) {
+@media (width >= 769px) {
   :root {
     /* 桌面端使用更大的基础字体 */
     --font-size-base-responsive: clamp(16px, 1.2vw, 18px);
@@ -306,7 +306,7 @@ small,
 // 超大屏幕优化
 // ============================================
 
-@media (min-width: 1920px) {
+@media (width >= 1920px) {
   :root {
     /* 超大屏幕限制最大字体，避免过度放大 */
     --font-size-5xl: clamp(40px, 4vw, 56px);
@@ -323,28 +323,28 @@ small,
 .card-title,
 .section-title,
 .page-title {
-  font-size: var(--font-size-2xl) ;
+  font-size: var(--font-size-2xl);
   line-height: var(--line-height-tight);
 }
 
 /* 副标?*/
 .subtitle,
 .section-subtitle {
-  font-size: var(--font-size-lg) ;
+  font-size: var(--font-size-lg);
   line-height: var(--line-height-normal);
 }
 
 /* 按钮文字 */
 .btn-text {
-  font-size: var(--font-size-base-responsive) ;
+  font-size: var(--font-size-base-responsive);
 }
 
 /* 导航链接 */
 .nav-link {
-  font-size: var(--font-size-base-responsive) ;
+  font-size: var(--font-size-base-responsive);
 }
 
 /* 页脚文字 */
 .footer-text {
-  font-size: var(--font-size-sm) ;
+  font-size: var(--font-size-sm);
 }

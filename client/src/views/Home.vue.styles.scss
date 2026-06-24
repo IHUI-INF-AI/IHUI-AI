@@ -1,6 +1,43 @@
+// sass:list 模块必须在所有规则之前 @use（Sass 强制）
+@use "sass:list";
+
 /* 网格背景移除：不再绘制格子，保持纯色背景 */
 .circuit-background {
   display: none;
+}
+
+/* ============================================================================
+ * 暗色模式共用选择器 mixin
+ * ----------------------------------------------------------------------------
+ * 项目通过 4 种方式进入暗色状态：
+ *   1. <html class="dark">
+ *   2. <body class="dark-background">
+ *   3. <html class="dark-background">
+ *   4. 任意祖先元素 .dark-content
+ * 通过 mixin 抽象出"任意选择器 × 4 种暗色状态"的选择器组合，
+ * 配合 :where() 包裹使特异性归零，遵守 CSS 优先级规范。
+ *
+ * 用法 1（按 ID）：    @include dark-page-section(#first-page) { color: white; }
+ * 用法 2（按 class）： @include dark-page-section(.page-section) { color: white; }
+ * 用法 3（多选 ID）：  @include dark-page-section(#first-page, #second-page) { ... }
+ * 用法 4（无参）：    @include dark-page-section() { color: white; }  // 仅 4 套顶层选择器
+ * ============================================================================ */
+@mixin dark-page-section($selectors...) {
+  $output: ();
+  @if list.length($selectors) == 0 {
+    // 无参：仅 4 套顶层暗色状态
+    $output: ':where(html.dark), body.dark-background, html.dark-background, .dark-content';
+  } @else {
+    @each $sel in $selectors {
+      $output: list.append($output, ':where(html.dark) :where(#{$sel})', comma);
+      $output: list.append($output, 'body.dark-background #{$sel}', comma);
+      $output: list.append($output, 'html.dark-background #{$sel}', comma);
+      $output: list.append($output, '.dark-content #{$sel}', comma);
+    }
+  }
+  #{$output} {
+    @content;
+  }
 }
 
 /* 首页容器 - CSS 变量，使用 CSS 变量控制 */
@@ -96,28 +133,12 @@ html.dark .main-content {
   color: var(--page-color);
 }
 
-/* 暗色模式页面背景 */
-:where(html.dark) :where(#first-page),
-:where(html.dark) :where(#second-page),
-:where(html.dark) :where(#third-page),
-:where(html.dark) :where(#fourth-page),
-:where(html.dark) :where(#fifth-page),
-body.dark-background #first-page,
-body.dark-background #second-page,
-body.dark-background #third-page,
-body.dark-background #fourth-page,
-body.dark-background #fifth-page,
-html.dark-background #first-page,
-html.dark-background #second-page,
-html.dark-background #third-page,
-html.dark-background #fourth-page,
-html.dark-background #fifth-page,
-.dark-content #first-page,
-.dark-content #second-page,
-.dark-content #third-page,
-.dark-content #fourth-page,
-.dark-content #fifth-page {
+/* 暗色模式页面背景：4 套选择器合并为单一 mixin 调用 */
+@include dark-page-section(#first-page, #second-page, #third-page, #fourth-page, #fifth-page) {
   --page-bg: var(--el-bg-color);
+  background-color: var(--el-bg-color);
+  background-image: none;
+  color: var(--el-color-white);
 }
 
 .page-section,
@@ -127,33 +148,6 @@ html.dark-background #fifth-page,
   box-shadow: none;
 }
 
-
-
-/* 暗色模式：每个分页容器自身绘制格子背? */
-:where(html.dark) :where(#first-page),
-:where(html.dark) :where(#second-page),
-:where(html.dark) :where(#third-page),
-:where(html.dark) :where(#fourth-page),
-:where(html.dark) :where(#fifth-page),
-body.dark-background #first-page,
-body.dark-background #second-page,
-body.dark-background #third-page,
-body.dark-background #fourth-page,
-body.dark-background #fifth-page,
-html.dark-background #first-page,
-html.dark-background #second-page,
-html.dark-background #third-page,
-html.dark-background #fourth-page,
-html.dark-background #fifth-page,
-.dark-content #first-page,
-.dark-content #second-page,
-.dark-content #third-page,
-.dark-content #fourth-page,
-.dark-content #fifth-page {
-  background-color: var(--el-bg-color); /* 暗色模式：纯黑背? */
-  background-image: none; /* 移除暗色网格/光点叠加 */
-  color: var(--el-color-white); /* 直接使用白色文字 */
-}
 
 
 /* 已删除分页过渡层 */
@@ -203,11 +197,8 @@ html.dark-background #fifth-page,
   overflow: visible; /* 覆盖全局?overflow-x: hidden */
 }
 
-/* 暗色模式?.page-section 强制使用纯黑色背? */
-html.dark .page-section,
-body.dark-background .page-section,
-html.dark-background .page-section,
-.dark-content .page-section {
+/* 暗色模式 .page-section 强制使用纯黑色背景 */
+@include dark-page-section('.page-section') {
   background-color: var(--el-bg-color);
   background: var(--el-bg-color);
 }
@@ -1070,11 +1061,8 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   overflow: visible; /* 覆盖全局?overflow-x: hidden，允许旋转的卡片完整显示 */
 }
 
-/* 暗色模式?.page-content 强制使用纯黑色背? */
-html.dark .page-content,
-body.dark-background .page-content,
-html.dark-background .page-content,
-.dark-content .page-content {
+/* 暗色模式 .page-content 强制使用纯黑色背景 */
+@include dark-page-section('.page-content') {
   background-color: var(--el-bg-color);
   background: var(--el-bg-color);
 }
@@ -1293,6 +1281,13 @@ p {
   pointer-events: none;
 }
 
+/* 功能卡片 stagger 动画延迟：替代 Home.vue 模板内联 style="animation-delay" */
+:where(#second-page) .features-grid > .feature-card:nth-child(1) { animation-delay: 0.1s; }
+:where(#second-page) .features-grid > .feature-card:nth-child(2) { animation-delay: 0.2s; }
+:where(#second-page) .features-grid > .feature-card:nth-child(3) { animation-delay: 0.3s; }
+:where(#second-page) .features-grid > .feature-card:nth-child(4) { animation-delay: 0.5s; }
+:where(#second-page) .features-grid > .feature-card:nth-child(5) { animation-delay: 0.6s; }
+
 :where(html:not(.dark)) :where(#second-page) .features-grid .feature-card {
   background: var(--color-white-80);
   border: var(--unified-border);
@@ -1509,7 +1504,6 @@ p {
   -webkit-backdrop-filter: blur(12px);
   min-height: 180px;
   max-width: 100%;
-  box-shadow: var(--global-box-shadow);
 }
 
 :where(html:not(.dark)) :where(#second-page) .advantage-card {
@@ -1522,8 +1516,13 @@ p {
   background: var(--color-white-6);
   border: var(--unified-border);
   color: var(--el-color-white);
-  box-shadow: var(--global-box-shadow);
 }
+
+/* 优势卡片 stagger 动画延迟：替代 Home.vue 模板内联 style="animation-delay" */
+:where(#second-page) .advantages-grid > .advantage-card:nth-child(1) { animation-delay: 0.7s; }
+:where(#second-page) .advantages-grid > .advantage-card:nth-child(2) { animation-delay: 0.8s; }
+:where(#second-page) .advantages-grid > .advantage-card:nth-child(3) { animation-delay: 0.9s; }
+:where(#second-page) .advantages-grid > .advantage-card:nth-child(4) { animation-delay: 1.0s; }
 
 :where(#second-page) .advantage-card::before {
   content: '';
@@ -2515,7 +2514,6 @@ html.dark .brand-welcome-text {
 
   &:hover {
     border-color: var(--el-border-color);
-    box-shadow: var(--global-box-shadow);
 
     .feature-icon {
       color: $accent-blue;
@@ -2531,11 +2529,10 @@ html.dark .brand-welcome-text {
 html.dark .feature-card {
   background: var(--color-white-3);
   border-color: var(--color-white-8);
-  
+
   &:hover {
     border-color: var(--color-white-15);
     background: var(--color-white-6);
-    box-shadow: var(--global-box-shadow);
   }
 }
 

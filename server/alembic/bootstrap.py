@@ -5,17 +5,8 @@ from pathlib import Path
 # 确保能 import app
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# 强制 import 所有 model，让 Base.metadata 完整收集
+# 强制 import 所有 model，让 Base.metadata 完整收集.
+# 复用 app/models/__init__.py 的完整导入清单, 避免漏掉新增模型导致 autogenerate 误判.
 from app.database import Base  # noqa: F401
-from app.models.user_models import *  # noqa: F401, F403
-from app.models.agent_models import *  # noqa: F401, F403
-from app.models.agent_settlement import *  # noqa: F401, F403
-from app.models.activity_models import *  # noqa: F401, F403
-from app.models.payment_models import *  # noqa: F401, F403
-from app.models.course_models import *  # noqa: F401, F403
-from app.models.oauth_models import *  # noqa: F401, F403
-from app.models.sys_models import *  # noqa: F401, F403
-from app.models.token_models import *  # noqa: F401, F403
-from app.models.app_content_models import *  # noqa: F401, F403
-from app.models.exam_models import *  # noqa: F401, F403
+import app.models  # noqa: F401
 

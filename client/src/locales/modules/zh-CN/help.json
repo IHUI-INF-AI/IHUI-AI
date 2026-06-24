@@ -1,0 +1,16 @@
+{
+  "help": {
+    "title": "帮助中心",
+    "subtitle": "我们随时为您提供帮助",
+    "faq": "常见问题",
+    "refundPolicy": "根据我们的退款政策：",
+    "refundContact": "如需退款，请联系客服处理。",
+    "contactWays": "您可以通过以下方式联系我们：",
+    "workHours": "客服工作时间：周一至周五 9:00-18:00",
+    "quickEntry": "快速入口",
+    "courseCenter": "课程中心",
+    "personalCenter": "个人中心",
+    "feedback": "意见反馈",
+    "aboutUs": "关于我们"
+  }
+}

@@ -1,7 +1,7 @@
 """VIP management routes."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -137,14 +137,17 @@ async def subscribe_vip(
     body: SubscribeRequest,
     user_uuid: str = Depends(require_login),
 ):
-    """Create a new VIP subscription for the current user.
+    """Create a pending VIP subscription order for the current user.
 
-    If the user already has an active subscription that hasn't expired,
-    the new subscription starts after the existing one ends.
+    安全修复: 不再直接激活 VIP, 仅创建待支付订单 (status=0, payment_status=0).
+    VIP 状态在支付回调 /api/v1/orders/pay_callback 成功后激活.
+    前端拿到返回的 out_trade_no / amount 后发起支付.
     """
     db = SessionFactory2()
     try:
-        from app.models.user_models import UserVip, VipLevel
+        from app.models.payment_models import Order
+        from app.models.user_models import VipLevel
+        from app.utils.order_generator import order_generator
 
         level = (
             db.query(VipLevel)
@@ -157,56 +160,41 @@ async def subscribe_vip(
         if not level:
             return error("VIP level not found or disabled", "404")
 
-        # Determine start time: extend existing active subscription or start now
-        now = datetime.utcnow()
-        existing = (
-            db.query(UserVip)
-            .filter(
-                UserVip.user_uuid == user_uuid,
-                UserVip.status == 1,
-                UserVip.end_time > now,
-            )
-            .order_by(UserVip.end_time.desc())
-            .first()
+        # 生成商户订单号并创建待支付订单 (status=0 pending, payment_status=0 unpaid)
+        # order_type=2 (identity) 表示 VIP 身份订单, product_id 记录 vip_level_id
+        out_trade_no = order_generator.generate()
+        order = Order(
+            user_id=user_uuid,
+            out_trade_no=out_trade_no,
+            amount=level.price,
+            status=0,
+            payment_status=0,
+            product_id=str(level.id),
+            order_type=2,
+            pay_type="wechat",
         )
-        start_time = existing.end_time if existing else now
-        end_time = start_time + timedelta(days=level.duration_days)
-
-        # Build a simple order ID
-        import uuid as _uuid
-
-        order_id = f"VIP-{_uuid.uuid4().hex[:16].upper()}"
-
-        record = UserVip(
-            user_uuid=user_uuid,
-            vip_level_id=level.id,
-            level_value=level.level_value,
-            start_time=start_time,
-            end_time=end_time,
-            status=1,
-            order_id=order_id,
-        )
-        db.add(record)
-
-        # Update User.is_vip flag
-        from app.models.user_models import User
-
-        db.query(User).filter(User.uuid == user_uuid).update({"is_vip": 1})
-
+        db.add(order)
         db.commit()
-        db.refresh(record)
+        db.refresh(order)
+
+        # 注意: 此处不创建 UserVip 记录, 也不设置 user.is_vip=1.
+        # VIP 状态在支付回调 /api/v1/orders/pay_callback 成功后激活:
+        #   - 创建 UserVip 记录 (status=1, start_time/end_time 按 duration_days 计算)
+        #   - 更新 User.is_vip=1
 
         return success(
             {
-                "order_id": order_id,
+                "order_id": order.id,
+                "out_trade_no": out_trade_no,
                 "vip_level_id": level.id,
                 "level_name": level.level_name,
-                "start_time": str(start_time),
-                "end_time": str(end_time),
+                "amount": level.price,
                 "price": level.price,
                 "duration_days": level.duration_days,
+                "status": order.status,
+                "payment_status": order.payment_status,
             },
-            msg="VIP subscription created",
+            msg="VIP 订单已创建, 请完成支付后激活 VIP",
         )
     except Exception as e:
         db.rollback()
@@ -222,7 +210,7 @@ async def check_vip(user_uuid: str = Depends(require_login)):
     try:
         from app.models.user_models import UserVip, VipLevel
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         record = (
             db.query(UserVip)
             .filter(

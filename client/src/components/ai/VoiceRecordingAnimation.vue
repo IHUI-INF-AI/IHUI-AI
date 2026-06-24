@@ -2027,7 +2027,7 @@ html.dark .circle-1::after {
   opacity: 0.7;
 }
 
-html.dark .circle-1 .lines svg {
+:where(html.dark) :where(.circle-1) :where(.lines) :where(svg) {
   stroke: var(--el-text-color-primary);
   opacity: 0.6;
 }
@@ -2226,7 +2226,7 @@ html.dark .circle-2::after {
 }
 
 /* 暗色模式下的麦克风图标 - 使用纯白色 */
-html.dark .voice-recording-animation .icon-1 path {
+:where(html.dark) :where(.voice-recording-animation) :where(.icon-1) :where(path) {
   fill: var(--el-bg-color);
   filter: none;
 }
@@ -2329,7 +2329,7 @@ html.dark .voice-recording-animation .icon-1 path {
 }
 
 /* 暗色模式下的 footer 文本 - 高对比度浅色 */
-html.dark .voice-recording-animation .card footer p {
+:where(html.dark) :where(.voice-recording-animation) :where(.card) :where(footer) :where(p) {
   /* 使用高对比度的浅色渐变 */
   background: linear-gradient(135deg, var(--color-text-light) 0%, var(--el-text-color-primary) 50%, var(--color-text-light) 100%);
   -webkit-background-clip: text;
@@ -2559,7 +2559,7 @@ html.dark .voice-recording-animation .card footer p {
 }
 
 /* 暗色模式下 hover footer 文本 - 进一步增强对比度 */
-html.dark .voice-recording-animation .wrap:hover footer p {
+:where(html.dark) :where(.voice-recording-animation) :where(.wrap:hover) :where(footer) :where(p) {
   transform: translateY(-4px) translateZ(20px);
 
   /* 使用更亮的文本颜色 */

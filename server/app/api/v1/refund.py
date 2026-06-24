@@ -1,38 +1,50 @@
 """退款流程加固 - 后端 API.
 
-新增端点:
-- POST /api/v1/refunds           申请退款 (已有, 加固)
+端点:
+- POST /api/v1/refunds           申请退款
 - GET  /api/v1/refunds/:id       查询退款详情
 - GET  /api/v1/refunds           查询用户退款列表
 - POST /api/v1/refunds/:id/evidence  上传退款凭证
 - POST /api/v1/refunds/:id/cancel   撤销退款申请
+- POST /api/v1/refunds/:id/review   审核退款 (管理员)
+- GET  /api/v1/refunds/stats/summary  退款统计 (管理员)
 
-加固点:
-- 退款状态机: pending -> reviewing -> approved/rejected -> completed/failed
-- 凭证上传: 图片/PDF, OSS 存储
-- 时间线: 每个状态变更记录
-- 重试: 退款回调失败自动重试 3 次
-- 通知: 状态变更推送钉钉/邮件
+持久化: DB (zhs_refund / zhs_refund_timeline).
 """
 from __future__ import annotations
 
 import enum
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
-from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
+from sqlalchemy import func as sa_func, select
+from sqlalchemy.orm import Session
 
-router = APIRouter(prefix="/api/v1/refunds", tags=["refunds"])
+from app.database import get_session
+from app.models.payment_models import Order, Refund, RefundTimeline
+from app.security import require_login, require_role
 
-# 内存存储 (生产用 DB)
-_refund_store: dict[str, dict] = {}
+router = APIRouter(prefix="/refunds", tags=["refunds"])
+
 _evidence_dir = Path(os.environ.get("REFUND_EVIDENCE_DIR", "/tmp/refund_evidence"))
 _evidence_dir.mkdir(parents=True, exist_ok=True)
+
+# 文件上传限制
+_ALLOWED_CONTENT_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "application/pdf",
+}
+_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB
+_FILENAME_SAFE = re.compile(r"[^A-Za-z0-9._-]")
 
 
 class RefundStatus(str, enum.Enum):
@@ -75,76 +87,193 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _add_timeline(refund: dict, action: str, operator: str, note: str = "") -> None:
-    refund.setdefault("timeline", []).append({
-        "ts": _now_iso(),
-        "action": action,
-        "operator": operator,
-        "note": note,
-        "status_from": refund.get("status"),
-    })
-
-
 def _can_transition(from_status: RefundStatus, to_status: RefundStatus) -> bool:
     return to_status in ALLOWED_TRANSITIONS.get(from_status, set())
 
 
-@router.post("")
-async def create_refund(req: RefundCreateRequest) -> dict:
-    """申请退款."""
-    refund_id = f"RF{uuid.uuid4().hex[:12].upper()}"
-    refund = {
-        "id": refund_id,
-        "order_no": req.order_no,
-        "reason": req.reason,
-        "amount": req.amount,
-        "description": req.description,
-        "status": RefundStatus.PENDING.value,
-        "created_at": _now_iso(),
-        "updated_at": _now_iso(),
-        "retry_count": 0,
-        "evidence": [],
+def _add_timeline(
+    db: Session,
+    refund_id: str,
+    action: str,
+    operator: str,
+    note: str = "",
+    status_from: str = "",
+) -> None:
+    """写入退款时间线. status_from 应为变更前的旧状态."""
+    timeline = RefundTimeline(
+        refund_id=refund_id,
+        action=action,
+        operator=operator,
+        note=note,
+        status_from=status_from,
+    )
+    db.add(timeline)
+
+
+def _refund_to_dict(refund: Refund) -> dict:
+    """序列化 Refund ORM 对象为 dict (含 evidence 解析)."""
+    try:
+        evidence = json.loads(refund.evidence or "[]")
+    except (json.JSONDecodeError, TypeError):
+        evidence = []
+    return {
+        "id": refund.refund_id,
+        "user_id": refund.user_id,
+        "order_no": refund.order_no,
+        "reason": refund.reason,
+        "amount": refund.amount,
+        "description": refund.description,
+        "status": refund.status,
+        "retry_count": refund.retry_count,
+        "evidence": evidence,
+        "created_at": refund.created_at.isoformat() if refund.created_at else None,
+        "updated_at": refund.updated_at.isoformat() if refund.updated_at else None,
     }
-    _add_timeline(refund, "create", "user", "申请已提交")
-    _refund_store[refund_id] = refund
-    return {"code": 0, "data": refund, "message": "申请已提交, 等待审核"}
+
+
+def _timeline_to_dict(t: RefundTimeline) -> dict:
+    return {
+        "ts": t.created_at.isoformat() if t.created_at else None,
+        "action": t.action,
+        "operator": t.operator,
+        "note": t.note,
+        "status_from": t.status_from,
+    }
+
+
+def _sanitize_filename(name: str) -> str:
+    """清洗文件名, 仅保留安全字符."""
+    safe = _FILENAME_SAFE.sub("_", name).strip("._-")
+    return safe or "file"
+
+
+def _is_admin(user_uuid: str) -> bool:
+    """检查用户是否拥有 admin 角色."""
+    from app.models.sys_models import SysRole, SysUser, SysUserRole
+
+    with get_session() as db:
+        stmt = (
+            select(SysUser.user_id)
+            .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
+            .join(SysRole, SysUserRole.role_id == SysRole.role_id)
+            .where(
+                SysUser.user_uuid == user_uuid,
+                SysRole.role_key == "admin",
+                SysRole.status == "0",
+                SysRole.del_flag == "0",
+            )
+            .limit(1)
+        )
+        return db.execute(stmt).first() is not None
+
+
+@router.post("")
+async def create_refund(
+    req: RefundCreateRequest,
+    user_uuid: str = Depends(require_login),
+) -> dict:
+    """申请退款."""
+    with get_session() as db:
+        # 校验订单存在且属于该用户
+        order = db.execute(
+            select(Order)
+            .where(Order.out_trade_no == req.order_no, Order.user_id == user_uuid)
+            .limit(1)
+        ).scalar_one_or_none()
+        if not order:
+            raise HTTPException(404, "订单不存在或不属于当前用户")
+
+        refund_id = f"RF{uuid.uuid4().hex[:12].upper()}"
+        refund = Refund(
+            refund_id=refund_id,
+            user_id=user_uuid,
+            order_no=req.order_no,
+            reason=req.reason,
+            amount=req.amount,
+            description=req.description,
+            status=RefundStatus.PENDING.value,
+            retry_count=0,
+            evidence="[]",
+        )
+        db.add(refund)
+        # 新建退款单, status_from 为空
+        _add_timeline(db, refund_id, "create", user_uuid, "申请已提交", status_from="")
+        db.commit()
+        db.refresh(refund)
+        return {"code": 0, "data": _refund_to_dict(refund), "message": "申请已提交, 等待审核"}
 
 
 @router.get("/{refund_id}")
-async def get_refund(refund_id: str) -> dict:
-    """查询退款详情."""
-    refund = _refund_store.get(refund_id)
-    if not refund:
-        raise HTTPException(404, "退款单不存在")
-    return {"code": 0, "data": refund}
+async def get_refund(
+    refund_id: str,
+    user_uuid: str = Depends(require_login),
+) -> dict:
+    """查询退款详情 (含时间线)."""
+    with get_session() as db:
+        refund = db.execute(
+            select(Refund).where(Refund.refund_id == refund_id).limit(1)
+        ).scalar_one_or_none()
+        if not refund:
+            raise HTTPException(404, "退款单不存在")
+        # 非 admin 只能查自己的退款
+        if refund.user_id != user_uuid and not _is_admin(user_uuid):
+            raise HTTPException(403, "无权查看该退款单")
+        timeline_rows = (
+            db.execute(
+                select(RefundTimeline)
+                .where(RefundTimeline.refund_id == refund_id)
+                .order_by(RefundTimeline.created_at)
+            )
+            .scalars()
+            .all()
+        )
+        data = _refund_to_dict(refund)
+        data["timeline"] = [_timeline_to_dict(t) for t in timeline_rows]
+        return {"code": 0, "data": data}
 
 
 @router.get("")
 async def list_refunds(
     user_id: Optional[str] = None,
     status: Optional[str] = None,
-    page: int = 1,
-    page_size: int = 20,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    user_uuid: str = Depends(require_login),
 ) -> dict:
-    """查询用户退款列表."""
-    items = list(_refund_store.values())
-    if user_id:
-        items = [r for r in items if r.get("user_id") == user_id]
-    if status:
-        items = [r for r in items if r.get("status") == status]
-    items.sort(key=lambda r: r.get("created_at", ""), reverse=True)
-    total = len(items)
-    start = (page - 1) * page_size
-    end = start + page_size
-    return {
-        "code": 0,
-        "data": {
-            "list": items[start:end],
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-        },
-    }
+    """查询用户退款列表. 非 admin 只能查自己的退款."""
+    with get_session() as db:
+        is_admin = _is_admin(user_uuid)
+        stmt = select(Refund)
+        # 非 admin 强制只查自己; admin 可通过 user_id 过滤
+        if not is_admin:
+            stmt = stmt.where(Refund.user_id == user_uuid)
+        elif user_id:
+            stmt = stmt.where(Refund.user_id == user_id)
+        if status:
+            stmt = stmt.where(Refund.status == status)
+
+        count_stmt = select(sa_func.count()).select_from(stmt.subquery())
+        total = db.execute(count_stmt).scalar() or 0
+
+        rows = (
+            db.execute(
+                stmt.order_by(Refund.created_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+            .scalars()
+            .all()
+        )
+        items = [_refund_to_dict(r) for r in rows]
+        return {
+            "code": 0,
+            "data": {
+                "list": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+            },
+        }
 
 
 @router.post("/{refund_id}/evidence")
@@ -152,48 +281,87 @@ async def upload_evidence(
     refund_id: str,
     file: UploadFile = File(...),
     description: str = Form(""),
+    user_uuid: str = Depends(require_login),
 ) -> dict:
     """上传退款凭证."""
-    refund = _refund_store.get(refund_id)
-    if not refund:
-        raise HTTPException(404, "退款单不存在")
-    if refund["status"] in [RefundStatus.COMPLETED.value, RefundStatus.CANCELLED.value]:
-        raise HTTPException(400, "已结束退款单不允许上传凭证")
+    # 校验文件类型
+    if file.content_type not in _ALLOWED_CONTENT_TYPES:
+        raise HTTPException(400, f"不支持的文件类型: {file.content_type}")
 
-    # 保存文件
-    ext = Path(file.filename or "image.png").suffix
-    filename = f"{refund_id}_{uuid.uuid4().hex[:8]}{ext}"
-    file_path = _evidence_dir / filename
-    content = await file.read()
-    file_path.write_bytes(content)
+    with get_session() as db:
+        refund = db.execute(
+            select(Refund).where(Refund.refund_id == refund_id).limit(1)
+        ).scalar_one_or_none()
+        if not refund:
+            raise HTTPException(404, "退款单不存在")
+        if refund.user_id != user_uuid:
+            raise HTTPException(403, "无权操作该退款单")
+        if refund.status in [RefundStatus.COMPLETED.value, RefundStatus.CANCELLED.value]:
+            raise HTTPException(400, "已结束退款单不允许上传凭证")
 
-    evidence_entry = {
-        "id": uuid.uuid4().hex[:8],
-        "filename": file.filename,
-        "stored_path": str(file_path),
-        "size": len(content),
-        "description": description,
-        "uploaded_at": _now_iso(),
-    }
-    refund.setdefault("evidence", []).append(evidence_entry)
-    refund["updated_at"] = _now_iso()
-    _add_timeline(refund, "evidence_upload", "user", f"上传凭证: {file.filename}")
-    return {"code": 0, "data": evidence_entry, "message": "凭证已上传"}
+        # 读取并校验大小
+        content = await file.read()
+        if len(content) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(400, "文件大小超过 10MB 限制")
+
+        # 清洗文件名并保存
+        original_name = _sanitize_filename(file.filename or "file")
+        ext = Path(original_name).suffix
+        stored_name = f"{refund_id}_{uuid.uuid4().hex[:8]}{ext}"
+        file_path = _evidence_dir / stored_name
+        file_path.write_bytes(content)
+
+        evidence_entry = {
+            "id": uuid.uuid4().hex[:8],
+            "filename": original_name,
+            "stored_path": str(file_path),
+            "size": len(content),
+            "content_type": file.content_type,
+            "description": description,
+            "uploaded_at": _now_iso(),
+        }
+        try:
+            evidence_list = json.loads(refund.evidence or "[]")
+        except (json.JSONDecodeError, TypeError):
+            evidence_list = []
+        evidence_list.append(evidence_entry)
+        refund.evidence = json.dumps(evidence_list, ensure_ascii=False)
+        # 状态未变更, status_from 记录当前状态
+        _add_timeline(
+            db,
+            refund_id,
+            "evidence_upload",
+            user_uuid,
+            f"上传凭证: {original_name}",
+            status_from=refund.status,
+        )
+        db.commit()
+        return {"code": 0, "data": evidence_entry, "message": "凭证已上传"}
 
 
 @router.post("/{refund_id}/cancel")
-async def cancel_refund(refund_id: str, user_id: str = Body(..., embed=True)) -> dict:
+async def cancel_refund(
+    refund_id: str,
+    user_uuid: str = Depends(require_login),
+) -> dict:
     """撤销退款申请."""
-    refund = _refund_store.get(refund_id)
-    if not refund:
-        raise HTTPException(404, "退款单不存在")
-    current = RefundStatus(refund["status"])
-    if not _can_transition(current, RefundStatus.CANCELLED):
-        raise HTTPException(400, f"当前状态 {current.value} 不允许撤销")
-    refund["status"] = RefundStatus.CANCELLED.value
-    refund["updated_at"] = _now_iso()
-    _add_timeline(refund, "cancel", user_id, "用户撤销")
-    return {"code": 0, "data": refund, "message": "已撤销"}
+    with get_session() as db:
+        refund = db.execute(
+            select(Refund).where(Refund.refund_id == refund_id).limit(1)
+        ).scalar_one_or_none()
+        if not refund:
+            raise HTTPException(404, "退款单不存在")
+        if refund.user_id != user_uuid:
+            raise HTTPException(403, "无权操作该退款单")
+        current = RefundStatus(refund.status)
+        if not _can_transition(current, RefundStatus.CANCELLED):
+            raise HTTPException(400, f"当前状态 {current.value} 不允许撤销")
+        old_status = refund.status
+        refund.status = RefundStatus.CANCELLED.value
+        _add_timeline(db, refund_id, "cancel", user_uuid, "用户撤销", status_from=old_status)
+        db.commit()
+        db.refresh(refund)
+        return {"code": 0, "data": _refund_to_dict(refund), "message": "已撤销"}
 
 
 @router.post("/{refund_id}/review")
@@ -201,33 +369,49 @@ async def review_refund(
     refund_id: str,
     approved: bool = Body(..., embed=True),
     note: str = Body("", embed=True),
-    operator: str = Body("admin", embed=True),
+    user_uuid: str = Depends(require_role("admin")),
 ) -> dict:
-    """审核退款 (后台用)."""
-    refund = _refund_store.get(refund_id)
-    if not refund:
-        raise HTTPException(404, "退款单不存在")
-    current = RefundStatus(refund["status"])
-    target = RefundStatus.APPROVED if approved else RefundStatus.REJECTED
-    if not _can_transition(current, target):
-        raise HTTPException(400, f"状态 {current.value} 无法转为 {target.value}")
-    refund["status"] = target.value
-    refund["updated_at"] = _now_iso()
-    _add_timeline(refund, "review", operator, note or ("审核通过" if approved else "审核拒绝"))
-    return {"code": 0, "data": refund, "message": "审核完成"}
+    """审核退款 (管理员)."""
+    with get_session() as db:
+        refund = db.execute(
+            select(Refund).where(Refund.refund_id == refund_id).limit(1)
+        ).scalar_one_or_none()
+        if not refund:
+            raise HTTPException(404, "退款单不存在")
+        current = RefundStatus(refund.status)
+        target = RefundStatus.APPROVED if approved else RefundStatus.REJECTED
+        if not _can_transition(current, target):
+            raise HTTPException(400, f"状态 {current.value} 无法转为 {target.value}")
+        old_status = refund.status
+        refund.status = target.value
+        _add_timeline(
+            db,
+            refund_id,
+            "review",
+            user_uuid,
+            note or ("审核通过" if approved else "审核拒绝"),
+            status_from=old_status,
+        )
+        db.commit()
+        db.refresh(refund)
+        return {"code": 0, "data": _refund_to_dict(refund), "message": "审核完成"}
 
 
 @router.get("/stats/summary")
-async def refund_stats() -> dict:
-    """退款统计 (供监控)."""
-    counter: dict[str, int] = {}
-    for r in _refund_store.values():
-        s = r.get("status", "unknown")
-        counter[s] = counter.get(s, 0) + 1
-    return {
-        "code": 0,
-        "data": {
-            "total": len(_refund_store),
-            "by_status": counter,
-        },
-    }
+async def refund_stats(
+    user_uuid: str = Depends(require_role("admin")),
+) -> dict:
+    """退款统计 (管理员, 供监控)."""
+    with get_session() as db:
+        rows = db.execute(
+            select(Refund.status, sa_func.count()).group_by(Refund.status)
+        ).all()
+        counter = {status or "unknown": cnt for status, cnt in rows}
+        total = sum(counter.values())
+        return {
+            "code": 0,
+            "data": {
+                "total": total,
+                "by_status": counter,
+            },
+        }

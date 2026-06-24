@@ -63,7 +63,8 @@
   background: var(--el-bg-color);
 }
 
-html.dark .card-grid .card-item {
+// 暗色模式卡片：使用 :where() 包裹降低特异性
+:where(html.dark) :where(.card-grid) :where(.card-item) {
   background: var(--el-bg-color);
 }
 

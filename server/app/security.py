@@ -303,12 +303,16 @@ def _get_dept_ids_with_children(db, dept_id: int) -> list:
     """Return dept_id and all descendant dept_ids using the ancestors path.
 
     SysDept.ancestors stores the full path like '0,100,101'.
-    A child whose ancestors contains str(dept_id) is a descendant.
+    A child whose ancestors contains str(dept_id) as a complete segment is a descendant.
+    使用精确段匹配避免 dept_id=1 误匹配 100/11/21 等。
     """
+    from sqlalchemy import func
+
     from app.models.sys_models import SysDept
 
+    # 在 ancestors 两端补逗号后精确匹配 ,dept_id, 段, 避免子串误匹配
     stmt = select(SysDept.dept_id).where(
-        SysDept.ancestors.like(f"%{dept_id}%"),
+        func.concat(",", SysDept.ancestors, ",").like(f"%,{dept_id},%"),
         SysDept.status == "0",
         SysDept.del_flag == "0",
     )

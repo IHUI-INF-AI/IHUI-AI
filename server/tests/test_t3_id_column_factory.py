@@ -114,7 +114,9 @@ def test_payment_models_assign_id_after_flush_sqlite(model_class, tmp_path):
                 elif model_class is WithdrawalFlow:
                     obj = WithdrawalFlow(user_id="u-t3", amount=100, status=0)
                 elif model_class is OperateTokenFlow:
-                    obj = OperateTokenFlow(user_id="u-t3", token_quantity=50, type=1)
+                    # OperateTokenFlow 已合并为 ZhsOperateTokenFlow, user_id 为 Integer,
+                    # 此处用 user_uuid (String) 携带测试标识.
+                    obj = OperateTokenFlow(user_uuid="u-t3", token_quantity=50, type=1)
                 else:
                     pytest.skip(f"unsupported {model_class.__name__}")
                 db.add(obj)

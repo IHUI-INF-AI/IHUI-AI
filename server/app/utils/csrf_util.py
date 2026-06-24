@@ -33,6 +33,14 @@ def _secret() -> bytes:
             return k.encode("utf-8")
     except Exception:
         pass  # intentionally ignored
+    # 生产环境必须显式配置密钥, 禁止使用默认弱密钥
+    import os
+
+    env = os.getenv("ENV", "dev").lower()
+    if env in ("production", "prod", "staging"):
+        raise RuntimeError(
+            "[CSRF] 生产环境必须配置 JWT_SECRET_KEY, 禁止使用默认 CSRF 密钥"
+        )
     return b"zhs-csrf-default-secret-key"
 
 
@@ -114,13 +122,18 @@ async def csrf_protect(request: Request) -> None:
 
 def set_csrf_cookie(response: Response, user_uuid: str = "anon") -> str:
     """生成 CSRF token + 写入 cookie, 返回前端应回传的 token 字符串."""
+    import os
+
     token, cookie_val = generate_csrf_token(user_uuid)
+    # 生产环境强制 secure, 开发环境允许 False (本地 HTTP 调试)
+    env = os.getenv("ENV", "dev").lower()
+    secure = env in ("production", "prod", "staging")
     response.set_cookie(
         key=CSRF_COOKIE_NAME,
         value=cookie_val,
         max_age=CSRF_TOKEN_TTL,
         httponly=False,  # 前端 JS 需可读
-        secure=False,  # 生产建议 True
+        secure=secure,
         samesite="lax",
         path="/",
     )

@@ -236,7 +236,7 @@ class TenantBase(Base):
             from app.core.tenant import get_tenant_schema_name
 
             schema = get_tenant_schema_name(tid)
-        except (ValueError, Exception):
+        except Exception:
             schema = "public"
         new_meta = MetaData()
         with _tenant_models_lock:

@@ -31,33 +31,41 @@ def _resolve_db_url(url: str, fallback_db_index: int) -> str:
     env = os.getenv("ENV", "dev").lower()
     if env in ("production", "prod", "staging"):
         # 生产环境必须连 PostgreSQL, 不降级
-        try:
-            from sqlalchemy import text
+        from sqlalchemy import text
 
+        try:
             test_engine = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 2})
             with test_engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            test_engine.dispose()
             return url
         except Exception as e:
             raise RuntimeError(
                 f"[DB] 生产环境 (ENV={env}) PostgreSQL 不可用, 拒绝降级到 SQLite. "
                 f"请检查 PostgreSQL 连接: {e}"
             ) from e
+        finally:
+            try:
+                test_engine.dispose()
+            except Exception:
+                pass
     # dev/test 环境: 尝试快速 ping 数据库, 失败则降级到 SQLite
-    try:
-        from sqlalchemy import text
+    from sqlalchemy import text
 
+    try:
         test_engine = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 2})
         with test_engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        test_engine.dispose()
         return url
     except Exception:
         # 降级到 SQLite (仅 dev/test 环境)
         sqlite_path = os.path.abspath(f".zhs_db_fallback_{fallback_db_index}.sqlite")
         logger.warning(f"[DB Fallback] postgresql unavailable, using SQLite: {sqlite_path}")
         return f"sqlite:///{sqlite_path}"
+    finally:
+        try:
+            test_engine.dispose()
+        except Exception:
+            pass
 
 
 def _build_engine(url: str, pool_size: int, max_overflow: int, pool_recycle: int, pre_ping: bool, fallback_idx: int):

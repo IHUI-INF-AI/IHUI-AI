@@ -171,7 +171,9 @@ export const COZE_PATHS = {
     byId: (id: string) => `${COZE}/ai/models/${id}`,
   },
   chat: `${COZE}/chat`,
-  chatStream: `${COZE}/chat/stream`,
+  // 2026-06-24 修复: 后端 coze SSE 端点在 /api/v1/chat/message/stream (coze.py prefix=/chat, 路由 /message/stream)
+  // 不走 /cozeZhsApi 代理, 直接用 /api/v1 前缀
+  chatStream: '/api/v1/chat/message/stream',
   n8n: {
     workflows: `${COZE}/n8n/workflows`,
   },
@@ -183,11 +185,12 @@ export const COZE_PATHS = {
     reviews: (id: string) => `${COZE}/agent/${id}/reviews`,
   },
   file: {
-    uploadForm: `${COZE}/file/upload/form`,
-    uploadBase64: `${COZE}/file/upload/base64`,
+    // 2026-06-24 修复: 后端文件上传在 /api/upload/single (upload/routes.py), 非 /cozeZhsApi/file/upload/form
+    uploadForm: '/api/upload/single',
+    uploadBase64: '/api/upload/base64',
     uploadOctet: (fileName: string) =>
-      `${COZE}/file/upload/octet?file_name=${encodeURIComponent(fileName)}`,
-    uploadAgentExamine: `${COZE}/file/agent-examine`,
+      `/api/upload/octet?file_name=${encodeURIComponent(fileName)}`,
+    uploadAgentExamine: '/api/upload/agent-examine',
     list: `${COZE}/file/list`,
     download: (filename: string) => `${COZE}/file/download/${encodeURIComponent(filename)}`,
     byId: (fileId: string) => `${COZE}/file/${fileId}`,
@@ -215,13 +218,13 @@ export const COZE_PATHS = {
     wechatCreate: `${COZE}/payment/wechat/create`,
     cardCreate: `${COZE}/payment/card/create`,
     refund: {
-      apply: `${COZE}/payment/refund/apply`,
-      list: `${COZE}/payment/refund/list`,
-      byRefundNo: (refundNo: string) => `${COZE}/payment/refund/${refundNo}`,
-      cancel: (refundNo: string) => `${COZE}/payment/refund/${refundNo}/cancel`,
-      status: (refundNo: string) => `${COZE}/payment/refund/${refundNo}/status`,
-      audit: (refundNo: string) => `${COZE}/payment/refund/${refundNo}/audit`,
-      process: (refundNo: string) => `${COZE}/payment/refund/${refundNo}/process`,
+      apply: `/api/v1/refunds`,
+      list: `/api/v1/refunds`,
+      byRefundNo: (refundNo: string) => `/api/v1/refunds/${refundNo}`,
+      cancel: (refundNo: string) => `/api/v1/refunds/${refundNo}/cancel`,
+      status: (refundNo: string) => `/api/v1/refunds/${refundNo}`,
+      audit: (refundNo: string) => `/api/v1/refunds/${refundNo}/review`,
+      process: (refundNo: string) => `/api/v1/refunds/${refundNo}/review`,
     },
   },
   userAgentContext: {
@@ -430,10 +433,14 @@ export const CUSTOMER_SERVICE_PATHS = {
 } as const
 
 // ==================== 钱包（8080） ====================
+// 2026-06-24 联调: 对齐后端 compat_routes.py /api/v1/wallet/* 真实路由
+// - info → balance (后端提供 balance 端点, 返回余额信息)
+// - transactions → transactions (后端已提供)
+// - withdraw → withdraw (后端补齐, 见 compat_routes.py)
 export const WALLET_PATHS = {
-  info: '/api/wallet/info',
-  transactions: '/api/wallet/transactions',
-  withdraw: '/api/wallet/withdraw',
+  info: '/api/v1/wallet/balance',
+  transactions: '/api/v1/wallet/transactions',
+  withdraw: '/api/v1/wallet/withdraw',
 } as const
 
 // ==================== 社区 / 工具 / 内容（8080） ====================
@@ -453,11 +460,11 @@ export const COMMUNITY_PATHS = {
 } as const
 
 export const API_V1_PATHS = {
-  chat: { process: '/api/v1/chat/process' },
+  chat: { process: '/api/v1/chat/message' },
   model: { switch: '/api/v1/model/switch' },
   tools: { navigation: '/api/v1/tools/navigation' },
   agent: { upload: '/api/v1/agent/upload' },
-  news: { list: '/api/v1/news/list', detail: (id: string | number) => `/api/v1/news/${id}` },
+  news: { list: '/api/v1/content/news', detail: (id: string | number) => `/api/v1/content/news/${id}` },
 } as const
 
 // 2026-06-21 联调: 子路径对齐后端 v1/tools (list/categories/upload) + v2/tools (detail/hot/favorite)
@@ -569,10 +576,11 @@ export const AGENT_CATEGORY_PATHS = {
   create: '/agentCategory',
 } as const
 
+// 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
 export const COURSES_API_PATHS = {
-  list: '/api/courses',
-  byId: (id: string) => `/api/courses/${id}`,
-  categories: '/api/courses/categories',
+  list: '/api/v1/courses/list',
+  byId: (id: string) => `/api/v1/courses/${id}`,
+  categories: '/api/v1/courses/categories',
   my: '/api/courses/my',
   enroll: (courseId: string) => `/api/courses/${courseId}/enroll`,
   progress: (courseId: string) => `/api/courses/${courseId}/progress`,
@@ -583,7 +591,7 @@ export const COURSES_API_PATHS = {
 export const COURSE_PATHS = {
   update: '/course',
   export: '/course/export',
-  delete: (ids: string) => `/course/${ids}`,
+  delete: (ids: string) => `/api/v1/courses/${ids}`,
 } as const
 
 export const MOBILE_ORDERS_PATHS = {
@@ -712,4 +720,6 @@ export const USER_SETTINGS_PATHS = {
   themeSync: '/user/settings/theme/sync',
   themePresets: '/user/settings/theme/presets',
   themePresetById: (id: string) => `/user/settings/theme/presets/${id}`,
+  // 2026-06-24 联调: 协议详情页 (agreement/Index.vue) 调用, 后端待实现, 页面有 404 容错
+  agreement: (type: string) => `/api/v1/settings/agreement/${type}`,
 } as const

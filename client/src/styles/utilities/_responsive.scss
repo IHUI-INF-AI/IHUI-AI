@@ -1,29 +1,29 @@
-// 响应式工具类 (Responsive Utilities)
+﻿// 响应式工具类 (Responsive Utilities)
 
 @use '../variables.scss' as *;
 
-@media (max-width: $breakpoint-sm) {
+@media (width <= $breakpoint-sm) {
   .d-sm-none { display: none; }
   .d-sm-block { display: block; }
 }
 
-@media (min-width: $breakpoint-md) {
+@media (width >= $breakpoint-md) {
   .d-md-block { display: block; }
   .d-md-flex { display: flex; }
 }
 
-@media (min-width: $breakpoint-lg) {
+@media (width >= $breakpoint-lg) {
   .d-lg-block { display: block; }
   .d-lg-flex { display: flex; }
 }
 
-@media (min-width: $breakpoint-xl) {
+@media (width >= $breakpoint-xl) {
   .d-xl-block { display: block; }
   .d-xl-flex { display: flex; }
 }
 
 // 额外的响应式工具类（兼容 Tailwind）
-@media (min-width: 640px) {
+@media (width >= 640px) {
   .sm\:block { display: block; }
   .sm\:inline-block { display: inline-block; }
   .sm\:hidden { display: none; }

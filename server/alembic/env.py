@@ -40,7 +40,8 @@ def run_migrations_online() -> None:
       2. 否则默认用 engine1 (生产 PG).
     """
     injected_url = config.get_main_option("sqlalchemy.url")
-    if injected_url and not injected_url.startswith("postgres"):
+    if injected_url:
+        # 显式注入的 URL 优先, 无论方言 (sqlite/postgres/...) 都用它
         from sqlalchemy import create_engine
         connectable = create_engine(injected_url, pool_pre_ping=True)
     else:

@@ -1,0 +1,8 @@
+{
+  "notificationCenter": {
+    "title": "通知中心",
+    "markAllRead": "全部已读",
+    "all": "全部",
+    "unread": "未读"
+  }
+}

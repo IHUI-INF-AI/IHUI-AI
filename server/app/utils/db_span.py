@@ -46,8 +46,8 @@ def _get_slow_threshold_ms() -> float:
         v = hot_get("SLOW_QUERY_MS")
         if v is not None:
             return float(v)
-    except Exception:
-        logger.warning("Caught unexpected exception")
+    except Exception as e:
+        logger.warning(f"hot_config load failed: {e}")
     return DEFAULT_SLOW_QUERY_MS
 
 

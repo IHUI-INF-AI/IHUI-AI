@@ -15,11 +15,11 @@ const props = defineProps<{
 const isServicePopupVisible = ref(false)
 const showPopup = ref(true)
 const benefits = ref([
-  { id: 1, content: '<b>权益一:顶流人脉资源圈链接机会</b>', color: 'var(--color-rgba-255--79--79-0-6-)' },
-  { id: 2, content: '<b>权益二:优质创业项目分享</b>', color: 'var(--color-rgba-255--79--79-0-7-)' },
-  { id: 3, content: '<b>权益三:对接资本权益</b>', color: 'var(--color-rgba-255--79--79-0-8-)' },
-  { id: 4, content: '<b>权益四:AI圈技术大佬交流学习机会</b>', color: 'var(--color-rgba-255--79--79-0-9-)' },
-  { id: 5, content: '<b>权益五:AI开源技术共享</b>', color: 'var(--color-rgba-255--79--79-1-)' },
+  { id: 1, content: t('vipPrivateAdvisory.benefit1'), color: 'var(--color-rgba-255--79--79-0-6-)' },
+  { id: 2, content: t('vipPrivateAdvisory.benefit2'), color: 'var(--color-rgba-255--79--79-0-7-)' },
+  { id: 3, content: t('vipPrivateAdvisory.benefit3'), color: 'var(--color-rgba-255--79--79-0-8-)' },
+  { id: 4, content: t('vipPrivateAdvisory.benefit4'), color: 'var(--color-rgba-255--79--79-0-9-)' },
+  { id: 5, content: t('vipPrivateAdvisory.benefit5'), color: 'var(--color-rgba-255--79--79-1-)' },
 ])
 
 function close() {

@@ -10,20 +10,24 @@ import time
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.concurrency import run_in_threadpool
 from loguru import logger
 from pydantic import BaseModel
 from sqlalchemy import text
 
+from app.config import settings
 from app.database import get_session
+from app.security import decode_access_token, require_login
 from app.services.token_service import check_user_token as check_user_token_sufficient
 
-router = APIRouter(prefix="/ihui-ai-api/llm", tags=["LLM-Mini"])
+router = APIRouter(prefix="", tags=["LLM-Mini"])
 
 TEMPERATURE = 0.7
 MAX_TOKENS = 2000
 LLM_TIMEOUT = 60
-STREAM_DELAY = 0.02
+# 人为流式延迟 (秒). 默认 0 不延迟, 可通过 settings.LLM_STREAM_DELAY 覆盖.
+STREAM_DELAY = float(getattr(settings, "LLM_STREAM_DELAY", 0) or 0)
 
 SQL_GET_LLM_CONFIG = """
 SELECT id, code, type, name, model_code, img, url, access_key,
@@ -40,9 +44,8 @@ LIMIT 1
 """
 
 
-@router.get("/models-unify", summary="查询统一大模型信息列表")
-async def list_unify_models():
-    """完整查询 zhs_ai_model_info_unify 表(兼容 /ihui-ai-api/llm/models-unify)."""
+def _list_unify_models_sync() -> dict:
+    """同步查询 zhs_ai_model_info_unify 表."""
     with get_session() as db:
         try:
             rows = db.execute(text("""
@@ -58,6 +61,12 @@ async def list_unify_models():
         except Exception as e:
             logger.error(f"查询统一大模型列表失败: {e}")
             return {"code": 1, "data": [], "message": str(e)}
+
+
+@router.get("/models-unify", summary="查询统一大模型信息列表")
+async def list_unify_models(user_uuid: str = Depends(require_login)):
+    """完整查询 zhs_ai_model_info_unify 表(兼容 /ihui-ai-api/llm/models-unify)."""
+    return await run_in_threadpool(_list_unify_models_sync)
 
 
 class ClientRequest(BaseModel):
@@ -358,8 +367,24 @@ async def _ws_send(websocket: WebSocket, **kwargs):
 
 
 @router.websocket("/ws")
-async def ws_chat(websocket: WebSocket):
-    """WebSocket 流式 LLM 端点(/ihui-ai-api/llm/ws)."""
+async def ws_chat(websocket: WebSocket, token: str = Query("")):
+    """WebSocket 流式 LLM 端点(/ihui-ai-api/llm/ws).
+
+    安全: 通过 query 参数 token 验证 JWT, 验证失败以 4401 关闭, 不接受连接.
+    user_uuid 从 JWT sub claim 取, 不再信任客户端消息体.
+    """
+    # 验证 JWT (accept 前关闭连接, 客户端拿不到握手响应)
+    if not token:
+        await websocket.close(code=4401)
+        return
+    payload = decode_access_token(token)
+    if not payload:
+        await websocket.close(code=4401)
+        return
+    user_uuid = payload.get("sub")
+    if not user_uuid:
+        await websocket.close(code=4401)
+        return
     await websocket.accept()
     logger.info("LLM-Mini WebSocket 连接已建立")
     err_ev = "system.error"
@@ -381,7 +406,6 @@ async def ws_chat(websocket: WebSocket):
 
             prompt = message.get("prompt") or message.get("content", "")
             model_id = message.get("model_id") or message.get("model", "")
-            user_uuid = message.get("user_uuid", "")
             chat_id = message.get("chat_id", "")
             zidingyican = message.get("zidingyican", [])
             files = message.get("files", [])
@@ -392,16 +416,16 @@ async def ws_chat(websocket: WebSocket):
             if not model_id:
                 await _ws_send(websocket, code=400, event=err_ev, role="system", msg_type="error", content="缺少 model 或 model_id")
                 continue
-            if user_uuid:
-                try:
-                    token_check = check_user_token_sufficient(user_uuid, min_tokens=1000)
-                    if not token_check.get("sufficient"):
-                        await _ws_send(websocket, code=400, event=err_ev, bot_id=model_id, role="system", msg_type="error", content=token_check.get("reason", "Token 余额不足"), chat_id=chat_id, conversation_id=chat_id)
-                        continue
-                except Exception as e:
-                    logger.warning(f"Token 校验异常(不阻断): {e}")
+            # user_uuid 来自 JWT, 不再从消息体取; 校验 token 余额
+            try:
+                token_check = check_user_token_sufficient(user_uuid, min_tokens=1000)
+                if not token_check.get("sufficient"):
+                    await _ws_send(websocket, code=400, event=err_ev, bot_id=model_id, role="system", msg_type="error", content=token_check.get("reason", "Token 余额不足"), chat_id=chat_id, conversation_id=chat_id)
+                    continue
+            except Exception as e:
+                logger.warning(f"Token 校验异常(不阻断): {e}")
 
-            cfg = get_effective_config(model_id, zidingyican if zidingyican else None)
+            cfg = await run_in_threadpool(get_effective_config, model_id, zidingyican if zidingyican else None)
             if not cfg:
                 await _ws_send(websocket, code=404, event=err_ev, bot_id=model_id, role="system", msg_type="error", content="模型配置不存在", chat_id=chat_id, conversation_id=chat_id)
                 continue
@@ -438,9 +462,9 @@ async def ws_chat(websocket: WebSocket):
 
 
 @router.post("/chat", summary="HTTP 非流式 LLM 端点")
-async def http_chat(req: ClientRequest):
+async def http_chat(req: ClientRequest, user_uuid: str = Depends(require_login)):
     """HTTP 非流式 LLM 端点(/ihui-ai-api/llm/chat)."""
-    cfg = get_effective_config(req.model_id, req.zidingyican)
+    cfg = await run_in_threadpool(get_effective_config, req.model_id, req.zidingyican)
     if not cfg:
         raise HTTPException(status_code=404, detail="模型配置不存在")
     messages = build_messages(req.prompt, req.files)

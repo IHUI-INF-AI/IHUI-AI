@@ -10,6 +10,7 @@ const adminModules = [
   'exam', 'learn', 'circle', 'comment', 'org', 'member', 'article',
   'setting', 'adminAuth', 'resource', 'point', 'live', 'message',
   'certificate', 'ask', 'search', 'account', 'adminCommon',
+  'migrationAdmin', 'notificationCenter', 'answerDetail',
 ]
 
 // 路由路径前缀到 i18n 模块的映射
@@ -55,9 +56,11 @@ const pathModuleMap: Array<{ prefix: string; module: string }> = [
   { prefix: '/settlement-stats', module: 'cmpindex' },
   { prefix: '/dashboard', module: 'dashboard' },
   { prefix: '/learn-ai', module: 'learn' },
+  { prefix: '/learn', module: 'learn' },
   { prefix: '/live', module: 'live' },
   { prefix: '/vip', module: 'vip' },
   { prefix: '/footer', module: 'footer' },
+  { prefix: '/support/document-center', module: 'help' },
   { prefix: '/app', module: 'app' },
 ]
 

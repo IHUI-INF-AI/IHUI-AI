@@ -384,7 +384,7 @@ const handleVote = (faqId: string, isHelpful: boolean) => {
 
 // 联络矩阵方法（从 Help.vue 融合）
 const goToFeedback = () => router.push('/feedback')
-const goToApiDocs = () => router.push('/api-docs')
+const goToApiDocs = () => router.push('/open/docs')
 // 在线客服：跳转客服中心页（含在线对话、工单、FAQ）
 const openCustomService = () => router.push('/customer-service')
 

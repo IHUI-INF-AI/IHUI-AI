@@ -23,6 +23,7 @@ import asyncio
 import contextlib
 import hashlib
 import json
+import logging
 import os
 import random
 import time
@@ -31,6 +32,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 配置
@@ -292,6 +295,8 @@ class ShadowRouter:
         self._history: list[ShadowCompare] = []
         self._history_max = 1000
         self._lock = asyncio.Lock()
+        # 后台比对 task 引用集合, 防止被 GC 回收
+        self._pending_tasks: set = set()
 
     def should_shadow(self) -> bool:
         """本请求是否要打影子."""
@@ -346,6 +351,12 @@ class ShadowRouter:
 
         # 2) 跑影子请求 (后台 task, 不阻塞)
         async def _shadow_then_compare():
+            # 主请求返回 None 时无法比对, 跳过并记录
+            if main_resp is None:
+                logger.warning(
+                    f"[shadow] main_resp is None, skip compare: endpoint={endpoint} tenant_id={tenant_id}"
+                )
+                return None
             try:
                 t0 = time.time()
                 shadow_resp = await asyncio.wait_for(shadow_fn(*args_shadow, **kwargs_shadow), timeout=timeout)
@@ -362,8 +373,10 @@ class ShadowRouter:
                 await self._record(cmp)
                 return cmp
 
-        # 影子异步启动 (主流程不等)
-        asyncio.create_task(_shadow_then_compare())
+        # 影子异步启动 (主流程不等); 保留 task 引用防止被 GC 回收
+        task = asyncio.create_task(_shadow_then_compare())
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
 
         # 即刻返回 (主响应继续走)
         return ShadowCompare(
@@ -401,6 +414,13 @@ class ShadowRouter:
                 }
             )
         return out
+
+    def get_history_snapshot(self) -> list[ShadowCompare]:
+        """返回 _history 的浅拷贝快照 (供外部聚合器增量读取, 避免直接访问私有属性).
+
+        返回 list(self._history) 的副本, 调用方对其修改不影响内部状态.
+        """
+        return list(self._history)
 
     def get_stats(self) -> dict:
         """聚合统计 (近 history_max 次)."""

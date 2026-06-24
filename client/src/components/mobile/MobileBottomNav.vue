@@ -56,38 +56,44 @@ const openAIChat = () => {
 
 // 导航项 - 整合Ai-WXMiniVue的导航结构；图标经代理加载避免 CORB
 const tabbarBase = 'https://file.aizhs.top/sys-mini/tabbar'
-const navItems = computed(() => [
-  {
-    path: '/tools',
-    label: t('data.mobile_bottom_nav.AI应用商店'),
-    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_1.png`, true),
-    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_1_act.png`, true)
-  },
-  {
-    path: '/plaza',
-    label: t('data.mobile_bottom_nav.广场1'),
-    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_2.png`, true),
-    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_2_act.png`, true)
-  },
-  {
-    path: '/chat',
-    label: t('data.mobile_bottom_nav.智汇AI2'),
-    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_3.png`, true),
-    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_3_act.png`, true)
-  },
-  {
-    path: '/share',
-    label: t('data.mobile_bottom_nav.动态3'),
-    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_4.png`, true),
-    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_4_act.png`, true)
-  },
-  {
-    path: '/user',
-    label: t('data.mobile_bottom_nav.我的4'),
-    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_5.png`, true),
-    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_5_act.png`, true)
-  }
-])
+const navItems = computed(() => {
+  const items = [
+    {
+      path: '/tools',
+      label: t('data.mobile_bottom_nav.AI应用商店'),
+      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_1.png`, true),
+      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_1_act.png`, true)
+    },
+    {
+      path: '/plaza',
+      label: t('data.mobile_bottom_nav.广场1'),
+      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_2.png`, true),
+      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_2_act.png`, true)
+    },
+    {
+      path: '/chat',
+      label: t('data.mobile_bottom_nav.智汇AI2'),
+      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_3.png`, true),
+      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_3_act.png`, true)
+    },
+    {
+      path: '/share',
+      label: t('data.mobile_bottom_nav.动态3'),
+      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_4.png`, true),
+      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_4_act.png`, true)
+    },
+    {
+      path: '/user',
+      label: t('data.mobile_bottom_nav.我的4'),
+      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_5.png`, true),
+      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_5_act.png`, true)
+    }
+  ]
+  // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404
+  // 隐藏工具 v2 (后端工具在 /api/v1/tools/* 且仅3个端点, 非 /api/v2/tools/*)
+  const HIDDEN_PATHS = ['/tools']
+  return items.filter(item => !HIDDEN_PATHS.includes(item.path))
+})
 
 // 判断路由是否激活
 const isActive = (path: string): boolean => {

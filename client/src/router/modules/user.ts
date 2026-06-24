@@ -196,6 +196,7 @@ export const userRoutes: Array<RouteRecordRaw> = [
     },
   },
   {
+    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (用户设置, 后端无 /user/settings/* 路由)
     path: '/settings',
     name: 'settings',
     component: safeImport(
@@ -207,6 +208,8 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: 'seo.settings.desc',
       keywords: 'seo.settings.keywords',
       requiresAuth: true,
+      hidden: true,
+      disabledReason: '功能升级中',
     },
   },
   {

@@ -16,13 +16,14 @@
     ws_deduper.remember(msg_id="abc-123", result=result)
 """
 
+import logging
 import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
-logger = logging.getLogger(__name__) if False else __import__("logging").getLogger(__name__)  # noqa: F821
+logger = logging.getLogger(__name__)
 
 DEFAULT_TTL_SEC = 300.0
 DEFAULT_MAX_ENTRIES = 100_000

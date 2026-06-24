@@ -33,12 +33,15 @@ from app.models.app_content_models import (
 )
 from app.models.ask_models import (
     AskAnswer,
+    AskAnswerExt,
     AskCategory,
+    AskCategoryRelation,
     AskComment,
     AskFavorite,
     AskLike,
     AskQuestion,
     AskQuestionCategory,
+    AskQuestionExt,
 )
 from app.models.behavior_models import (
     BehaviorComment,
@@ -53,6 +56,8 @@ from app.models.chat_room_models import ChatLetter, ChatRoom, ChatRoomUser
 from app.models.circle_models import (
     Circle,
     CircleCategory,
+    CircleCategoryBind,
+    CircleCategoryRelation,
     CircleMember,
     CirclePost,
     CirclePostComment,
@@ -103,13 +108,28 @@ from app.models.education_ext_models import (
     ZhsUserVideoLog,
 )
 from app.models.exam_models import (
+    Exam,
     ExamCategory,
+    ExamCategoryRelation,
+    ExamChapter,
+    ExamChapterSection,
     ExamPaper,
     ExamQuestion,
     ExamRecord,
     ExamWrongQuestion,
+    PaperCategory,
+    PaperCategoryRelation,
+    PaperPaperCategoryRelation,
+    PaperQuestion,
+    PaperQuestionRule,
+    Question,
+    QuestionAndCategoryRelation,
+    QuestionCategory,
+    QuestionCategoryRelation,
+    SignUp,
 )
 from app.models.identity_models import OAuthPrivateKey, TboxBean, ZhsIdentity, ZhsOrganization
+from app.models.id_mapping import IdMapping
 from app.models.java_missing_models import (
     AiBotSites,
     PaymentCallback,
@@ -119,6 +139,7 @@ from app.models.java_missing_models import (
 )
 from app.models.live_models import (
     ChannelLecturer,
+    Lecturer,
     LiveChannel,
     LiveChannelCategory,
     LiveComment,
@@ -132,6 +153,23 @@ from app.models.message_models import (
     MessageReadLog,
     MessageTemplate,
 )
+from app.models.member_models import (
+    EduCheckIn,
+    EduCheckInRecord,
+    EduFollow,
+    EduMember,
+    EduMemberCompany,
+    EduMemberCompanyMemberRelation,
+    EduMemberCompanyType,
+    EduMemberGroup,
+    EduMemberGroupMemberRelation,
+    EduMemberLevel,
+    EduMemberLevelRelation,
+    EduMemberPost,
+    EduMemberPostMemberRelation,
+    EduMemberTag,
+    EduMemberTagMemberRelation,
+)
 from app.models.notification_models import (
     Notification,
     NotificationChannel,
@@ -139,7 +177,21 @@ from app.models.notification_models import (
     NotificationSubscription,
 )
 from app.models.oauth_models import OAuthApp, OAuthSession, OAuthUser
-from app.models.payment_models import CommissionFlow, OperateTokenFlow, Order, WithdrawalFlow
+from app.models.payment_models import (
+    CommissionFlow,
+    IdentityProportion,
+    InvoiceApplication,
+    InvoiceTitle,
+    OperateTokenFlow,
+    Order,
+    OrderItem,
+    OrderPayment,
+    Payment,
+    PaymentConfig,
+    Refund,
+    RefundTimeline,
+    WithdrawalFlow,
+)
 from app.models.point_models import (
     PointAccount,
     PointExchange,

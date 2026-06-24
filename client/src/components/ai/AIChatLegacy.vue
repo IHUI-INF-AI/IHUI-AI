@@ -441,9 +441,9 @@
                   </el-button>
                 </template>
                 <div class="reasoning-chain">
-                  <div 
-                    v-for="(step, index) in reasoningChain" 
-                    :key="index" 
+                  <div
+                    v-for="step in reasoningChain"
+                    :key="step.step"
                     class="reasoning-step"
                     :data-step="step.step"
                   >

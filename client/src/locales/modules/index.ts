@@ -15,7 +15,7 @@ export type SupportedLocale = typeof supportedLocales[number]
 export const coreModules = ["common","navigation","header","auth","routes"] as const
 
 // 异步模块列表
-export const asyncModules = ["home","open","openPlatform","openPlatformDocs","dashboard","agentCategory","agentExamine","settlement","agentIncome","agentDetail","orderDetail","orders","models","knowledgeDetail","toolsStore","aiWorld","aiCommunity","community","voiceInput","wxUserCenter","wxMiniprogram","wxLogin","webOnlyFeature","desktopExperience","qrScanner","mobileOptimized","systemTray","desktopSettings","qrCode","unifiedQRLogin","register","app","errorBoundary","connectionStatus","pwa","tour","progress","markdown","commandPalette","aiGeneration","footer","developer","workspace","purchase","apiTest","settlementStats","cmpindex","dramaScript"] as const
+export const asyncModules = ["home","open","openPlatform","openPlatformDocs","dashboard","agentCategory","agentExamine","settlement","agentIncome","agentDetail","orderDetail","orders","models","knowledgeDetail","toolsStore","aiWorld","aiCommunity","community","voiceInput","wxUserCenter","wxMiniprogram","wxLogin","webOnlyFeature","desktopExperience","qrScanner","mobileOptimized","systemTray","desktopSettings","qrCode","unifiedQRLogin","register","app","errorBoundary","connectionStatus","pwa","tour","progress","markdown","commandPalette","aiGeneration","footer","developer","workspace","purchase","apiTest","settlementStats","cmpindex","dramaScript","edu"] as const
 
 // 已加载的模块缓存
 const loadedModules = new Map<string, Set<string>>()

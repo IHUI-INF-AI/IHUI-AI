@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 class AgentCreate(BaseModel):
     """Create agent."""
 
-    agent_id: str = Field(..., description="Agent ID")
+    agent_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]{1,64}$", description="Agent ID")
     agent_name: str = Field(..., max_length=200)
     agent_description: str | None = None
     agent_avatar: str | None = None

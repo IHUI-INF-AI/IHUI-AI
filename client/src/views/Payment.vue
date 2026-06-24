@@ -193,6 +193,10 @@ const paymentRetryCount = ref(0)
 const MAX_PAYMENT_RETRY = 2
 // 防重复点击锁：支付进行中禁止再次点击
 const isPaying = ref(false)
+// 组件挂载状态标志：await 后判断，避免操作已卸载组件状态
+let isMounted = true
+// 轮询进行中标志：防止 setInterval 触发的 async 重叠执行
+let isChecking = false
 
 // 统一清理：组件卸载时自动执行所有注册的清理函数
 const cleanup = useCleanup()
@@ -441,8 +445,14 @@ function stopOrderPolling() {
 }
 
 async function checkOrderStatus() {
+  // 防止 setInterval 触发的 async 重叠执行：上一次请求未完成则跳过本次
+  if (isChecking) return
+  isChecking = true
   try {
     const result = await getOrderStatus()
+
+    // 组件已卸载则不再操作状态
+    if (!isMounted) return
 
     if (result.code === 0) {
       const orderData = result.data
@@ -460,7 +470,10 @@ async function checkOrderStatus() {
       }
     }
   } catch (error) {
+    if (!isMounted) return
     logger.error('Failed to check order status:', error)
+  } finally {
+    isChecking = false
   }
 }
 
@@ -526,6 +539,7 @@ function refreshUserInfo() {
 }
 
 cleanup.add(() => {
+  isMounted = false
   stopOrderPolling()
   stopQrCountdown()
   if (navTimer !== null) {

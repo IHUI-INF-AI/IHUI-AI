@@ -1,4 +1,4 @@
-// 设计系统工具类
+﻿// 设计系统工具类
 // 基于 Google Agentic AI IDE 理念，提供可复用的工具类
 
 @use './variables.scss' as *;
@@ -277,28 +277,28 @@
 // 响应式工具类 (Responsive Utilities)
 // ============================================
 
-@media (max-width: $breakpoint-sm) {
+@media (width <= $breakpoint-sm) {
   .d-sm-none { display: none; }
   .d-sm-block { display: block; }
 }
 
-@media (min-width: $breakpoint-md) {
+@media (width >= $breakpoint-md) {
   .d-md-block { display: block; }
   .d-md-flex { display: flex; }
 }
 
-@media (min-width: $breakpoint-lg) {
+@media (width >= $breakpoint-lg) {
   .d-lg-block { display: block; }
   .d-lg-flex { display: flex; }
 }
 
-@media (min-width: $breakpoint-xl) {
+@media (width >= $breakpoint-xl) {
   .d-xl-block { display: block; }
   .d-xl-flex { display: flex; }
 }
 
 // 额外的响应式工具类（兼容 Tailwind）
-@media (min-width: 640px) {
+@media (width >= 640px) {
   .sm\:block { display: block; }
   .sm\:inline-block { display: inline-block; }
   .sm\:hidden { display: none; }
@@ -750,7 +750,7 @@
   &.cols-2 {
     grid-template-columns: repeat(2, 1fr);
 
-    @media (max-width: 768px) {
+    @media (width <= 768px) {
       grid-template-columns: 1fr;
     }
   }
@@ -759,11 +759,11 @@
   &.cols-3 {
     grid-template-columns: repeat(3, 1fr);
 
-    @media (max-width: 1024px) {
+    @media (width <= 1024px) {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width: 640px) {
+    @media (width <= 640px) {
       grid-template-columns: 1fr;
     }
   }
@@ -772,15 +772,15 @@
   &.cols-4 {
     grid-template-columns: repeat(4, 1fr);
 
-    @media (max-width: 1200px) {
+    @media (width <= 1200px) {
       grid-template-columns: repeat(3, 1fr);
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width: 640px) {
+    @media (width <= 640px) {
       grid-template-columns: 1fr;
     }
   }
@@ -821,7 +821,7 @@
     }
   }
 
-  @media (max-width: 1024px) {
+  @media (width <= 1024px) {
     grid-template-columns: repeat(2, 1fr);
 
     .bento-item.span-3 {
@@ -829,7 +829,7 @@
     }
   }
 
-  @media (max-width: 640px) {
+  @media (width <= 640px) {
     grid-template-columns: 1fr;
 
     .bento-item.span-2,
@@ -1231,13 +1231,13 @@
   &.stacked {
     flex-direction: column;
     
-    @media (min-width: 640px) {
+    @media (width >= 640px) {
       flex-direction: row;
     }
   }
 
   // 响应式：小屏幕变为纵向堆叠
-  @media (max-width: 480px) {
+  @media (width <= 480px) {
     flex-direction: column;
     width: 100%;
 

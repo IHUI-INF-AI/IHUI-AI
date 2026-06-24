@@ -512,11 +512,11 @@ html.dark {
 .open-platform-container .hero-actions .cta-btn:active,
 .open-platform-container .hero-actions .cta-btn:focus,
 .open-platform-container .hero-actions .cta-btn:focus-visible {
-  transform: none ;
-  outline: none ;
-  overflow: hidden ;
-  /* 焦点环改为内凹，不增加按钮外缘，避免出现“向右拉长”的视觉 */
-  box-shadow: none ;
+  transform: none;
+  outline: none;
+  overflow: hidden;
+  /* 焦点环改为内凹，不增加按钮外缘，避免出现"向右拉长"的视觉 */
+  box-shadow: none;
 }
 .open-platform-container .hero-actions .cta-btn:focus-visible {
   outline: 2px solid var(--op-btn-primary-bg);

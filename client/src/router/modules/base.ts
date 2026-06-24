@@ -127,8 +127,8 @@ export const baseRoutes: Array<RouteRecordRaw> = [
           template: `
             <div class="not-found-container" style="padding:40px; text-align:center;">
               <h1 style="font-size:48px; margin:20px 0; color:var(--el-text-color-primary);">404</h1>
-              <p style="font-size:16px; color:var(--el-text-color-secondary); margin:20px 0;">{{ $t('routes.notFound') }}</p>
-              <button style="padding:10px 16px; background:var(--el-color-primary); color:var(--el-color-white); border:none; border-radius:var(--global-border-radius); cursor:pointer; font-size:14px;" onclick="location.href='/'">{{ $t('errorBoundary.goHome') }}</button>
+              <p style="font-size:16px; color:var(--el-text-color-secondary); margin:20px 0;">页面未找到</p>
+              <button style="padding:10px 16px; background:var(--el-color-primary); color:var(--el-color-white); border:none; border-radius:var(--global-border-radius); cursor:pointer; font-size:14px;" onclick="location.href='/'">返回首页</button>
             </div>
           `,
         } as unknown as import('vue').DefineComponent)

@@ -9,6 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # 要删除的目录（运行时产物）
+# 注意: 不删除 "logs" 目录, 因为 ops 脚本 (chatops/finops/soc/zero_trust/chaos/ai_testing)
+# 的 SQLite 数据库存放在 logs/ 下; 日志文件由 FILES 中的 "*.log" 单独清理
 DIRS = [
     "__pycache__",
     ".pytest_cache",
@@ -19,7 +21,6 @@ DIRS = [
     "build",
     "dist",
     "*.egg-info",
-    "logs",
     "tmp",
     "audit",
     "pw-output",
@@ -42,8 +43,6 @@ FILES = [
     "test_*.log",
 ]
 
-removed = 0
-
 
 def safe_remove(path: Path) -> bool:
     """安全删除：捕获权限错误继续执行"""
@@ -58,35 +57,42 @@ def safe_remove(path: Path) -> bool:
         return False
 
 
-# 删除目录
-for dir_pattern in DIRS:
-    if "*" in dir_pattern:
-        # 通配符匹配
-        for p in ROOT.glob(f"**/{dir_pattern}"):
+def main() -> None:
+    removed = 0
+
+    # 删除目录
+    for dir_pattern in DIRS:
+        if "*" in dir_pattern:
+            # 通配符匹配
+            for p in ROOT.glob(f"**/{dir_pattern}"):
+                if p.exists():
+                    if safe_remove(p):
+                        print(f"✓ 删除目录: {p.relative_to(ROOT)}")
+                        removed += 1
+        else:
+            p = ROOT / dir_pattern
             if p.exists():
                 if safe_remove(p):
-                    print(f"✓ 删除目录: {p.relative_to(ROOT)}")
+                    print(f"✓ 删除目录: {dir_pattern}")
                     removed += 1
-    else:
-        p = ROOT / dir_pattern
-        if p.exists():
-            if safe_remove(p):
-                print(f"✓ 删除目录: {dir_pattern}")
-                removed += 1
 
-# 删除文件
-for file_pattern in FILES:
-    if "*" in file_pattern:
-        for p in ROOT.glob(f"**/{file_pattern}"):
-            if p.exists() and p.is_file():
+    # 删除文件
+    for file_pattern in FILES:
+        if "*" in file_pattern:
+            for p in ROOT.glob(f"**/{file_pattern}"):
+                if p.exists() and p.is_file():
+                    if safe_remove(p):
+                        print(f"✓ 删除文件: {p.relative_to(ROOT)}")
+                        removed += 1
+        else:
+            p = ROOT / file_pattern
+            if p.exists():
                 if safe_remove(p):
-                    print(f"✓ 删除文件: {p.relative_to(ROOT)}")
+                    print(f"✓ 删除文件: {file_pattern}")
                     removed += 1
-    else:
-        p = ROOT / file_pattern
-        if p.exists():
-            if safe_remove(p):
-                print(f"✓ 删除文件: {file_pattern}")
-                removed += 1
 
-print(f"\n清理完成: 共删除 {removed} 项")
+    print(f"\n清理完成: 共删除 {removed} 项")
+
+
+if __name__ == "__main__":
+    main()

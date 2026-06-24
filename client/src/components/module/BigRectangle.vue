@@ -43,7 +43,7 @@ const defaultCover = computed(() => {
     encodeURIComponent(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">' +
         `<rect width="320" height="180" fill="${bgColor}"/>` +
-        `<text x="160" y="95" text-anchor="middle" fill="${textColor}" font-size="14" font-family="sans-serif">课程封面</text>` +
+        `<text x="160" y="95" text-anchor="middle" fill="${textColor}" font-size="14" font-family="sans-serif">${t('module.courseCover')}</text>` +
         '</svg>'
     )
   )
@@ -56,7 +56,7 @@ withDefaults(
 
 function formatPrice(p: number | undefined): string {
   const v = p || 0
-  return v === 0 ? '免费' : `¥${formatMoney(v)}`
+  return v === 0 ? t('module.free') : `¥${formatMoney(v)}`
 }
 </script>
 

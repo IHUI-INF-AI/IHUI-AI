@@ -218,8 +218,8 @@ const getLineX = (_index: number): number => {
 @media (prefers-reduced-motion: reduce) {
   .text-group,
   .simple-clip-text {
-    animation: none ;
-    opacity: 1 ;
+    animation: none;
+    opacity: 1;
   }
 }
 

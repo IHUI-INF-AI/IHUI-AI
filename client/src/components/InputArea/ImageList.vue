@@ -5,6 +5,7 @@
         @click="removeImage(index)"
         :src="'/images/common/close_input.svg'"
         class="imgs_list_close"
+        alt="关闭"
       />
       <div
         style="
@@ -34,6 +35,7 @@
           item.fileType && item.fileType == 'document' ? '/images/common/file.svg' : item.imgUrl
         "
         class="imgs_list_item_img"
+        alt="图片"
       />
     </div>
   </div>

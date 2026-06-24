@@ -1,15 +1,13 @@
-/**
+﻿/**
  * 前端样式Bug修复
  * 修复常见的样式问题：溢出、按钮尺寸、文本溢出等
  */
 
 /* ==================== 全局修复 ==================== */
 
-/* 隐藏所有 Element Plus 弹出框的三角箭头 - 使用 utilities 层 */
-@layer utilities {
-  .el-popper__arrow {
-    display: none;
-  }
+/* 隐藏所有 Element Plus 弹出框的三角箭头（不依赖 @layer，SCSS 解析更稳） */
+.el-popper__arrow {
+  display: none;
 }
 
 /* 防止页面水平滚动 */
@@ -220,7 +218,7 @@ img {
 
 /* ==================== admin 移动端适配 ==================== */
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   :where(.el-dialog) {
     margin-top: 5vh;
     margin-bottom: 5vh;

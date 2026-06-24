@@ -1,3 +1,4 @@
+// 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
 import { COZE_PATHS } from '@/config/backend-paths'
 import request from '@/utils/request'
 import type { ApiResponse, PaginationParams, PaginationResponse } from '@/types'
@@ -91,7 +92,7 @@ export interface AgentSearchParams extends PaginationParams {
 export const getAgent = withApiResponseHandler(
   async (id: string): Promise<ApiResponse<AgentDetail>> => {
     // 注释：已移除开发环境 mock 逻辑，现在调用后端API获取真实智能体详情
-    const response = await request.get<AgentDetail>(`/agents/${id}`)
+    const response = await request.get<AgentDetail>(`/api/v1/agents/${id}`)
     return normalizeApiResponse(response)
   }
 )
@@ -99,7 +100,7 @@ export const getAgent = withApiResponseHandler(
 export const createAgent = withApiResponseHandler(
   async (params: AgentCreateParams): Promise<ApiResponse<Agent>> => {
     // 注释：已移除开发环境 mock 逻辑，现在调用后端API创建智能体
-    const response = await request.post<Agent>('/agents', params)
+    const response = await request.post<Agent>('/api/v1/agents/create', params)
     return normalizeApiResponse(response)
   }
 )
@@ -116,7 +117,7 @@ export const deleteAgent = withApiResponseHandler(
   async (agentIds: string | string[]): Promise<ApiResponse<null>> => {
     // 注释：已移除开发环境 mock 逻辑，现在调用后端API删除智能体
     const idsString = Array.isArray(agentIds) ? agentIds.join(',') : agentIds
-    const response = await request.delete<null>(`/agents/${idsString}`)
+    const response = await request.delete<null>(`/api/v1/agents/${idsString}`)
     return normalizeApiResponse(response)
   }
 )

@@ -247,8 +247,8 @@ $color-dark-text-primary: #e5eaf3;
   --app-text-muted: var(--el-text-color-secondary);
   --app-divider: var(--el-border-color);
 
-  /* 全局投影 - 唯一设定：亮色模式 2px 微弱浅灰 */
-  --global-box-shadow: 0 2px 8px var(--color-black-6);
+  /* 全局投影 - 扁平化设计：封版统一改为 none，原值 0 2px 8px var(--color-black-6) 已废弃 */
+  --global-box-shadow: none;
   --el-box-shadow: var(--global-box-shadow);
   --el-box-shadow-light: var(--global-box-shadow);
   --el-box-shadow-dark: var(--global-box-shadow);
@@ -292,7 +292,6 @@ $color-dark-text-primary: #e5eaf3;
   --color-black-2: rgba(0, 0, 0, 0.02);
   --color-black-3: rgba(0, 0, 0, 0.03);
   --color-black-04: rgba(0, 0, 0, 0.04);
-  --color-black-4: rgba(0, 0, 0, 0.04);
   --color-black-5: rgba(0, 0, 0, 0.05);
   --color-black-6: rgba(0, 0, 0, 0.06);
   --color-black-8: rgba(0, 0, 0, 0.08);

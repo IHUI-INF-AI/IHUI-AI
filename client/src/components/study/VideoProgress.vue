@@ -7,7 +7,7 @@
         <div class="progress-content">
           <div class="progress-title">
             <div class="title-row">
-              <img src="https://file.aizhs.top/sys-mini/default/sikao.png" class="title-icon" loading="lazy" />
+              <img src="https://file.aizhs.top/sys-mini/default/sikao.png" class="title-icon" alt="" loading="lazy" />
               <span>{{ t('studyVideoProgress.videoUploading') }}</span>
               <div class="loader-container">
                 <div class="loader-dot"></div>

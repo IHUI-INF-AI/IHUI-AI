@@ -51,6 +51,7 @@
               v-if="form.type === 'image'"
               :src="form.contentUrl"
               class="preview-image"
+              alt="预览图片"
               @error="handlePreviewError"
               loading="lazy"
             />

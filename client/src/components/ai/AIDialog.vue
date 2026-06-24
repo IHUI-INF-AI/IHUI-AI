@@ -605,7 +605,7 @@ const handleModelItemClick = (modelCode: string): void => {
 // API入口点击
 const handleModelApiClick = (modelCode: string): void => {
    
-  router.push({ path: '/api-docs', query: { model: modelCode } } as any)
+  router.push({ path: '/open/docs', query: { model: modelCode } } as any)
 }
 
 const handleModelCheckboxChange = (modelCode: string, checked: boolean): void => {

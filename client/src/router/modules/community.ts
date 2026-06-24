@@ -56,6 +56,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
     },
   } as RouteRecordRaw,
   {
+    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (社区 v2, 后端社区在 /api/v1/circle/* 和 /api/v1/ask/*)
     path: '/ai-community',
     name: 'aiCommunity',
     component: safeImport(
@@ -67,6 +68,8 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: '智汇AI社区，提供AI对话交互功能',
       keywords: 'AI社区,智汇AI,对话,AI助手',
       requiresAuth: false,
+      hidden: true,
+      disabledReason: '功能升级中',
     },
   },
   {

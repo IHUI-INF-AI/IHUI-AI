@@ -247,7 +247,7 @@ v.$text-primary: var(--el-text-color-primary);
   }
 
   &.status-cancelled {
-    background: var(--color-black-4);
+    background: var(--color-black-04);
     border: var(--unified-border);
 
     .status-icon { background: var(--el-text-color-placeholder); }

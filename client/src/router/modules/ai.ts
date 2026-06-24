@@ -313,6 +313,7 @@ export const aiRoutes: Array<RouteRecordRaw> = [
     },
   },
   {
+    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (收藏功能, 后端无 /ai/favorites 路由)
     path: '/favorites',
     name: 'favorites',
     component: safeImport(
@@ -324,6 +325,8 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: '查看和管理收藏的内容',
       keywords: '收藏,管理',
       requiresAuth: true,
+      hidden: true,
+      disabledReason: '功能升级中',
     },
   },
   {
@@ -425,6 +428,7 @@ export const aiRoutes: Array<RouteRecordRaw> = [
     },
   },
   {
+    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (内容生成 v2, 后端内容在 /api/v1/content/*)
     path: '/ai-generation',
     name: 'aiGeneration',
     component: safeImport(
@@ -436,6 +440,8 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: 'AI图像、视频、3D模型生成平台',
       keywords: 'AI生成,图像生成,视频生成,3D模型',
       requiresAuth: false,
+      hidden: true,
+      disabledReason: '功能升级中',
     },
   },
   {
@@ -453,6 +459,7 @@ export const aiRoutes: Array<RouteRecordRaw> = [
     },
   },
   {
+    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (工具 v2, 后端工具在 /api/v1/tools/* 且仅3个端点)
     path: '/tools',
     name: 'tools',
     component: safeImport(
@@ -464,6 +471,8 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: 'AI工具集合',
       keywords: 'AI工具,工具集合',
       requiresAuth: false,
+      hidden: true,
+      disabledReason: '功能升级中',
     },
   },
 ]

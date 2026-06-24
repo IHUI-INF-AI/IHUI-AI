@@ -40,7 +40,7 @@ class TenantMetadataBuilder:
             from app.core.tenant import get_tenant_schema_name
 
             schema = get_tenant_schema_name(tenant_id)
-        except ValueError:
+        except (ValueError, TypeError):
             schema = "public"
 
         new_meta = MetaData()

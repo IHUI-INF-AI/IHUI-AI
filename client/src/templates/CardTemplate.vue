@@ -1,4 +1,4 @@
-<!-- 
+﻿<!-- 
   卡片组件模板
   适用于：信息展示、列表项、功能卡片等
   
@@ -216,7 +216,7 @@ function handleClick(event: MouseEvent) {
 }
 
 // 响应式
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .card-template {
     --card-padding: 12px;
   }

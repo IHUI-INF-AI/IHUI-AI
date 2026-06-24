@@ -1,6 +1,6 @@
 import type { RouteLocationNormalized, NavigationGuardNext, Router } from 'vue-router'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { isLoginExpired } from '@/utils/login-duration'
+import { isExpiryTimePassed } from '@/utils/login-duration'
 import { logger } from '@/utils/logger'
 import {
   setRedirectFlag,
@@ -164,7 +164,7 @@ export class RouteGuardHandler {
 
       if (authStore.isLoggedIn && authStore.token) {
         const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-        if (expiryTime === null || !isLoginExpired(expiryTime)) {
+        if (expiryTime === null || !isExpiryTimePassed(expiryTime)) {
           isLoggedIn = true
         }
       }
@@ -175,7 +175,7 @@ export class RouteGuardHandler {
 
         if (token) {
           const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-          if (expiryTime === null || !isLoginExpired(expiryTime)) {
+          if (expiryTime === null || !isExpiryTimePassed(expiryTime)) {
             isLoggedIn = true
 
             const isLoginPage = to.path === '/login' || to.path === '/register'

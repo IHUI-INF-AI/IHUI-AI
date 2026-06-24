@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 通用样式文件
  * 迁移自 Ai-WXMiniVue/src/static/css/common.scss
  */
@@ -86,7 +86,7 @@ $top-bar-height: $status-bar-height + $nav-bar-height;
 }
 
 // 响应式设计
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .container {
     padding: 0 $spacing-base;
   }

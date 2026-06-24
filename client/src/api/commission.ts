@@ -1,3 +1,4 @@
+// 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
 import request from '@/utils/request'
 import type { ApiResponse, PaginationParams, PaginationResponse } from '@/types/api'
 import type { Commission, WithdrawRecord } from '@/types/user'
@@ -42,7 +43,7 @@ export function getCommissionList(
     endTime?: string
   }
 ): Promise<ApiResponse<PaginationResponse<Commission>>> {
-  return request.get('/commission/list', { params })
+  return request.get('/api/v1/finance/list', { params })
 }
 
 // 获取邀请用户列表

@@ -20,7 +20,7 @@ import logging
 import os
 import threading
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class LlmCostMeter:
         self._lock = threading.Lock()
         self._pricing: dict[str, dict[str, float]] = {m: dict(p) for m, p in DEFAULT_PRICING.items()}
         self._log_path = log_path
-        self._records: list[CostRecord] = []
+        self._records: deque[CostRecord] = deque(maxlen=10000)
         # 按 (model, day) / (tenant, day) 聚合
         self._by_model_day: dict[tuple, float] = defaultdict(float)
         self._by_tenant_day: dict[tuple, float] = defaultdict(float)
@@ -127,23 +127,33 @@ class LlmCostMeter:
         trace_id: str = "",
     ) -> CostRecord:
         """记录一次 LLM 调用. 若超 cap 返回的 record.cost_usd 仍为真实值, 但 rejected 计数 +1."""
-        cost = self.calc_cost(model, prompt_tokens, completion_tokens)
         rejected = False
         with self._lock:
+            # cost 计算 + cap 判断 + 记录写入合并为单次临界区, 避免两次加锁间的 race.
+            # 注意: 不可在此处调用 self.calc_cost (它内部也会获取 self._lock, 不可重入会死锁),
+            # 因此把定价查找与成本计算内联.
+            p = self._pricing.get(model)
+            if p is None:
+                logger.warning(f"llm_cost: unknown model {model!r}, cost=0")
+                cost = 0.0
+            else:
+                cost = (prompt_tokens / 1000.0) * p["prompt"] + (completion_tokens / 1000.0) * p["completion"]
+                cost = round(cost, 6)
+
             if self._cap_per_call is not None and cost > self._cap_per_call:
                 self._rejected += 1
                 rejected = True
-        rec = CostRecord(
-            model=model,
-            prompt_tokens=int(prompt_tokens),
-            completion_tokens=int(completion_tokens),
-            cost_usd=cost,
-            tenant_id=tenant_id,
-            user_id=user_id,
-            call_id=call_id,
-            trace_id=trace_id,
-        )
-        with self._lock:
+
+            rec = CostRecord(
+                model=model,
+                prompt_tokens=int(prompt_tokens),
+                completion_tokens=int(completion_tokens),
+                cost_usd=cost,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                call_id=call_id,
+                trace_id=trace_id,
+            )
             self._records.append(rec)
             self._total_calls += 1
             self._total_cost += cost

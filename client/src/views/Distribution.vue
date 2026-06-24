@@ -439,7 +439,7 @@ html.dark .distribution-page :deep(.tech-table) {
   td.el-table__cell { border-bottom-color: var(--border-unified-color); color: var(--el-text-color-regular); }
 }
 
-html.dark .distribution-page .entity-cell img { border-color: var(--border-unified-color); }
+:where(html.dark) :where(.distribution-page) :where(.entity-cell) :where(img) { border-color: var(--border-unified-color); }
 
 :where(html.dark) .distribution-page .status-tag { border-color: var(--border-unified-color); color: var(--el-text-color-secondary); }
 

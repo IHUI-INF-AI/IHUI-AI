@@ -474,7 +474,7 @@ const allMenuItems = computed<MenuItems[]>(() => {
   }
   // 菜单项配置 - 所有项目都展开为独立按钮，根据可用宽度动态显示
   // 排序策略：核心功能优先，次要功能放后面（放不下时自动进入"更多功能"）
-  return [
+  const items: MenuItems[] = [
     // === 核心功能 ===
     {
       key: 'home',
@@ -566,6 +566,11 @@ const allMenuItems = computed<MenuItems[]>(() => {
       handler: goToBecomeSupplier,
     },
   ]
+
+  // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404
+  // 隐藏社区 v2 (后端社区在 /api/v1/circle/* 和 /api/v1/ask/*, 非 /api/v2/community/*)
+  const HIDDEN_MENU_KEYS = ['aiCommunity']
+  return items.filter(item => !HIDDEN_MENU_KEYS.includes(item.key))
 })
 
 // 设置菜单项引用
@@ -1843,7 +1848,7 @@ html.dark .dropdown-menu {
   color: var(--color-white-95);
 }
 
-html.dark .header-nav-dropdown .dropdown-item:hover {
+:where(html.dark) :where(.header-nav-dropdown) :where(.dropdown-item:hover) {
   color: var(--el-color-primary-light-3);
 }
 
@@ -1956,7 +1961,7 @@ html.dark .dropdown-item {
 }
 
 // 响应式布局优化 - 通过 CSS 变量覆盖
-@media (max-width: 991px) {
+@media (width <= 991px) {
   .main-menu-items {
     gap: 3px;
     // 覆盖 CSS 变量实现响应式
@@ -1967,13 +1972,13 @@ html.dark .dropdown-item {
   }
 }
 
-@media (max-width: 767px) {
+@media (width <= 767px) {
   .main-menu-items {
     display: none;
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .dropdown-item {
     padding: 8px 12px;
     font-size: 13px;
@@ -1981,7 +1986,7 @@ html.dark .dropdown-item {
 }
 
 // 高分辨率屏幕优化 - 通过 CSS 变量覆盖
-@media (min-width: 1920px) {
+@media (width >= 1920px) {
   .main-menu-items {
     gap: 6px;
     // 覆盖 CSS 变量实现响应式

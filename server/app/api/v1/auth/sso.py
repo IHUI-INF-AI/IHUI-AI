@@ -12,17 +12,19 @@ SSO (单点登录) 路由.
   - POST /sso/member/create 创建会员 (创建 User + UserAuthInfo)
 """
 
+import ipaddress
 import uuid as _uuid
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query, Request
 from loguru import logger
 from sqlalchemy import select
 
+from app.config import settings
 from app.database import SessionFactory2, get_session
 from app.models.sys_models import SysUser
 from app.models.user_models import User, UserAuthInfo
 from app.schemas.common import error, success
-from app.security import create_access_token, hash_password, require_login, verify_password
+from app.security import create_access_token, hash_password, require_role, verify_password
 from app.services import auth_service
 
 router = APIRouter(prefix="/sso", tags=["SSO"])
@@ -31,6 +33,20 @@ router = APIRouter(prefix="/sso", tags=["SSO"])
 def _generate_uuid() -> str:
     """生成 32 位无连字符 UUID (与 User.uuid 格式一致)."""
     return str(_uuid.uuid4()).replace("-", "")
+
+
+def _is_internal_ip(ip: str) -> bool:
+    """判断 IP 是否为内网地址 (loopback / private)."""
+    try:
+        addr = ipaddress.ip_address(ip)
+        return addr.is_private or addr.is_loopback
+    except ValueError:
+        return False
+
+
+def _token_expires_in_seconds() -> int:
+    """返回 access token 实际过期秒数 (与 settings.JWT_EXPIRE_MINUTES 一致)."""
+    return settings.JWT_EXPIRE_MINUTES * 60
 
 
 @router.post("/admin/login", summary="管理员 SSO 登录")
@@ -78,7 +94,7 @@ async def admin_login(username: str = Body(...), password: str = Body(...)):
                 {
                     "access_token": token,
                     "token_type": "Bearer",
-                    "expires_in": 7200,
+                    "expires_in": _token_expires_in_seconds(),
                     "user": {
                         "user_id": sys_user.user_id,
                         "uuid": sys_user.user_uuid,
@@ -121,19 +137,40 @@ async def member_login(phone: str = Body(...), password: str = Body(...)):
 
 
 @router.post("/uuid/login", summary="UUID 直接登录")
-async def uuid_login(uuid: str = Body(..., embed=True)):
+async def uuid_login(request: Request, uuid: str = Body(..., embed=True)):
     """UUID 直接登录.
 
     通过用户 UUID 直接获取用户信息并签发 token,
     适用于已认证场景下的免密登录 (如第三方系统对接).
 
+    安全限制:
+      - 仅允许内网 IP 调用 (loopback / private)
+      - 必须携带 X-Internal-Auth 头, 且与 settings.INTERNAL_AUTH_KEY 匹配
+
     Args:
+        request: FastAPI Request (用于读取 client host / header)
         uuid: 用户 UUID (对应 User.uuid)
 
     Returns:
         成功: {access_token, token_type, expires_in, user}
         失败: 错误信息
     """
+    # 安全校验: 仅允许内网调用 + 内部签名密钥
+    client_ip = request.client.host if request.client else ""
+    if not _is_internal_ip(client_ip):
+        logger.warning("SSO uuid login rejected: non-internal ip={}, uuid={}", client_ip, uuid)
+        return error("UUID 登录仅允许从内网调用", "403000")
+
+    internal_auth_key = settings.INTERNAL_AUTH_KEY
+    if not internal_auth_key:
+        logger.warning("SSO uuid login rejected: INTERNAL_AUTH_KEY not configured")
+        return error("UUID 登录内部密钥未配置, 已禁用", "403000")
+
+    provided_key = request.headers.get("X-Internal-Auth", "")
+    if not provided_key or provided_key != internal_auth_key:
+        logger.warning("SSO uuid login rejected: invalid X-Internal-Auth, ip={}, uuid={}", client_ip, uuid)
+        return error("UUID 登录内部密钥校验失败", "403000")
+
     if not uuid:
         return error("uuid 不能为空", "400000")
     try:
@@ -146,12 +183,12 @@ async def uuid_login(uuid: str = Body(..., embed=True)):
                 return error("用户不存在或已被禁用", "401000")
 
             token = create_access_token(subject=user.uuid)
-            logger.info("SSO uuid login success: uuid={}", uuid)
+            logger.info("SSO uuid login success: uuid={}, ip={}", uuid, client_ip)
             return success(
                 {
                     "access_token": token,
                     "token_type": "Bearer",
-                    "expires_in": 7200,
+                    "expires_in": _token_expires_in_seconds(),
                     "user": {
                         "uuid": user.uuid,
                         "phone": user.phone or "",
@@ -174,18 +211,18 @@ async def admin_create(
     password: str = Body(...),
     nickname: str = Body(None),
     role_ids: list = Body(None),
-    user_uuid: str = Depends(require_login),
+    user_uuid: str = Depends(require_role("admin")),
 ):
     """创建管理员账号.
 
-    需要登录态. 创建 SysUser 记录并可选分配角色.
+    需要 admin 角色权限. 创建 SysUser 记录并可选分配角色.
 
     Args:
         username: 管理员用户名 (唯一)
         password: 管理员密码 (明文, 服务端 bcrypt 哈希后存储)
         nickname: 管理员昵称 (可选, 默认同 username)
         role_ids: 角色 ID 列表 (可选, 用于分配角色)
-        user_uuid: 当前登录用户 UUID (由 require_login 注入)
+        user_uuid: 当前登录用户 UUID (由 require_role("admin") 注入, 已校验 admin 角色)
 
     Returns:
         成功: {user_id, uuid, username, nickname}

@@ -238,7 +238,9 @@
         "settingAgreement": "协议设置",
         "settingCarousel": "轮播图设置",
         "settingIndex": "首页设置",
-        "backendHealth": "后端健康"
+        "backendHealth": "后端健康",
+        "migration": "数据迁移",
+        "notification": "通知中心"
       }
     },
     "admin": {

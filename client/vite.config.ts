@@ -6,10 +6,17 @@ import type { ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
+import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 import fs from 'fs'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { baiduSpeechPlugin } from './vite-plugins/baiduSpeechPlugin'
 import { aiWorldPlugin } from './vite-plugins/aiWorldPlugin'
+import { handleDeletedFilesHMR } from './vite-plugins/handleDeletedFilesHMR'
+import { forceNumericHostBanner } from './vite-plugins/forceNumericHostBanner'
+import { productionCSPOptimizer } from './vite-plugins/productionCSPOptimizer'
+import { monitoringEndpoints } from './vite-plugins/monitoringEndpoints'
+import { pwaManifestMiddleware } from './vite-plugins/pwaManifestMiddleware'
+import { mockDataPlugin } from './vite-plugins/mockDataPlugin'
 import { DEV_CSP_STRING, PROD_CSP_STRING, CSP_REPORT_URL, REPORT_TO_HEADER } from './config/csp'
 import { BACKEND_URL, FRONTEND_PORT, FRONTEND_URL } from './config/ports'
 
@@ -668,203 +675,17 @@ const filterSassWarnings = () => {
   }
 }
 
-// ????????HMR????????
-const handleDeletedFilesHMR = () => {
-  return {
-    name: 'handle-deleted-files-hmr',
-    configureServer(server: ViteDevServer) {
-      // ????????HMR??
-      server.ws.on('connection', socket => {
-        socket.on('message', data => {
-          // ????????????????[0xc001d766b0 ...]??xc00bddb3b0??
-          if (typeof data === 'string') {
-            // ???????????????
-            if (
-              /^\[0x[0-9a-fA-F]+(\s+0x[0-9a-fA-F]+)*\]$/.test(data) ||
-              /^0x[0-9a-fA-F]+(\s+0x[0-9a-fA-F]+)*$/.test(data)
-            ) {
-              // ????????????
-              return
-            }
-            try {
-              const msg = JSON.parse(data)
-              // ????????????
-              if (msg.type === 'update' && msg.updates) {
-                msg.updates = msg.updates.filter((update: any) => {
-                  if (update.path && update.path.includes('Down.vue')) {
-                    return false
-                  }
-                  return true
-                })
-                // ????????????????
-                if (msg.updates.length === 0) {
-                  return
-                }
-              }
-            } catch {
-              // ?JSON????????
-            }
-          }
-        })
-      })
-    },
-  }
-}
+// 以下 6 个 dev 中间件已拆分到 vite-plugins/ 目录（2026-06-24 封版重构）：
+//   - handleDeletedFilesHMR           -> vite-plugins/handleDeletedFilesHMR.ts
+//   - forceNumericHostBanner          -> vite-plugins/forceNumericHostBanner.ts
+//   - productionCSPOptimizer          -> vite-plugins/productionCSPOptimizer.ts
+//   - monitoringEndpoints             -> vite-plugins/monitoringEndpoints.ts
+//   - pwaManifestMiddleware           -> vite-plugins/pwaManifestMiddleware.ts
+//   - mockDataPlugin                  -> vite-plugins/mockDataPlugin.ts
+// 保留在 vite.config.ts 内的 filterSassWarnings 函数含 7 个独立中间件职责（Sass 警告过滤 +
+// HTTP 安全头 + favicon 重定向 + openclaw sessions mock + ai-world HTML 注入 + /html/* 静态 +
+// MIME/CORS 兜底），整体紧耦合共享 console.warn 重写，暂不拆分。
 
-const forceNumericHostBanner = () => {
-  return {
-    name: 'force-numeric-host-banner',
-    configureServer(server: ViteDevServer) {
-      const original = server.printUrls.bind(server)
-      server.printUrls = () => {
-        try {
-          const port = server.config.server?.port || 8888
-          const protocol = server.config.server?.https ? 'https' : 'http'
-          const local = `${protocol}://127.0.0.1:${port}/`
-          const network = (server.resolvedUrls?.network || []).map(u =>
-            u.replace('localhost', '127.0.0.1')
-          )
-          server.resolvedUrls = {
-            local: [local],
-            network: network.length ? network : [local],
-            open: [local],
-          } as any
-        } catch {}
-        original()
-      }
-    },
-  }
-}
-
-// ????CSP???? - ??localhost??27.0.0.1??
-const productionCSPOptimizer = () => {
-  return {
-    name: 'production-csp-optimizer',
-    transformIndexHtml(html: string, context: any) {
-      // ??????????context.server?????????
-      if (context.server) {
-        return html // ???????
-      }
-
-      // ??CSP meta??????????????????
-      // ???????????????????meta??
-      const cspRegex =
-        /<meta\s+http-equiv=["']Content-Security-Policy["'][\s\S]*?content=["']([\s\S]*?)["']\s*\/?>/i
-      const match = html.match(cspRegex)
-
-      if (!match || !match[1]) {
-        return html // ????CSP????????
-      }
-
-      let cspContent = match[1]
-      const originalTag = match[0]
-
-      // ??????????????????
-      cspContent = cspContent.replace(/\s+/g, ' ').trim()
-
-      // ?????????????img-src, connect-src, frame-src??
-      // 1. ?? http://localhost:* ??http://127.0.0.1:* ??????????
-      cspContent = cspContent.replace(/\s*https?:\/\/(localhost|127\.0\.0\.1)(:\*|:\d+)?/gi, '')
-      // 2. ?? ws://localhost:* ??ws://127.0.0.1:* ??
-      cspContent = cspContent.replace(/\s*(ws|wss):\/\/(localhost|127\.0\.0\.1)(:\*|:\d+)?/gi, '')
-      // 3. ??????? localhost:* ??127.0.0.1:* ??????????????
-      cspContent = cspContent.replace(/\s*(localhost|127\.0\.0\.1)(:\*|:\d+)?/gi, '')
-
-      // ????????????????
-      cspContent = cspContent.replace(/\s+/g, ' ').replace(/;\s*;/g, ';').trim()
-
-      // ?????????????????
-      cspContent = cspContent.replace(/\s*;\s*/g, '; ').replace(/;\s*$/, '')
-
-      // ????meta??
-      const newTag = `<meta http-equiv="Content-Security-Policy" content="${cspContent}">`
-
-      // ????CSP??
-      const newHtml = html.replace(originalTag, newTag)
-
-      return newHtml
-    },
-  }
-}
-
-// Monitoring endpoints: dev server receives /api/csp-report (CSP violation)
-// and /api/rum (Web Vitals), writing to logs/ for local inspection.
-// Production forwards via nginx log_format (see nginx-production.conf).
-const monitoringEndpoints = () => {
-  const logDir = resolve(__dirname, 'logs')
-  try { if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true }) } catch (_) {}
-  const appendLog = (file: string, line: string) => {
-    try { fs.appendFileSync(resolve(logDir, file), line + '\n', 'utf-8') } catch (_) {}
-  }
-  const readBody = (req: any): Promise<string> => new Promise((resolveBody) => {
-    let data = ''
-    req.on('data', (chunk: Buffer | string) => { data += chunk.toString('utf-8') })
-    req.on('end', () => resolveBody(data))
-  })
-  return {
-    name: 'monitoring-endpoints',
-    apply: 'serve',
-    configureServer(server: ViteDevServer) {
-      server.middlewares.use(async (req, res, next) => {
-        const url = req.url || ''
-        if (url.split('?')[0] !== '/api/csp-report') return next()
-        if (req.method !== 'POST') return next()
-        try {
-          const body = await readBody(req)
-          appendLog('csp-report.log', `[${new Date().toISOString()}] ${body}`)
-          res.statusCode = 204
-          res.end()
-        } catch (_err) {
-          res.statusCode = 400
-          res.end('bad request')
-        }
-      })
-      server.middlewares.use(async (req, res, next) => {
-        const url = req.url || ''
-        if (url.split('?')[0] !== '/api/rum') return next()
-        if (req.method !== 'POST') return next()
-        try {
-          const body = await readBody(req)
-          appendLog('rum.log', `[${new Date().toISOString()}] ${body}`)
-          res.statusCode = 204
-          res.end()
-        } catch (_err) {
-          res.statusCode = 400
-          res.end('bad request')
-        }
-      })
-    },
-  }
-}
-
-// P6-4 PWA：dev server 不识别 .webmanifest 后缀
-// 加中间件强制 application/manifest+json MIME，否则浏览器安装 PWA 失败
-const pwaManifestMiddleware = () => {
-  return {
-    name: 'pwa-manifest-middleware',
-    apply: 'serve' as const,
-    configureServer(server: ViteDevServer) {
-      server.middlewares.use((req, res, next) => {
-        if (req.headers?.upgrade === 'websocket') return next()
-        const url = (req.url || '').split('?')[0]
-        if (url === '/manifest.webmanifest' || url === '/manifest.json') {
-          const filePath = resolve(__dirname, 'public', url.replace(/^\//, ''))
-          try {
-            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-              res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8')
-              res.setHeader('Cache-Control', 'public, max-age=3600')
-              fs.createReadStream(filePath).pipe(res)
-              return
-            }
-          } catch (_e) {
-            // 文件不存在则走 Vite 自身处理
-          }
-        }
-        next()
-      })
-    },
-  }
-}
 
 // https://vitejs.dev/config/
 
@@ -874,30 +695,7 @@ const pwaManifestMiddleware = () => {
 // 改端口只改 client/config/ports.ts 一个文件, vite.config.ts 不再持有端口字面量
 const BACKEND_TARGET = BACKEND_URL
 
-// P14.4 mock-data 中间件:dev server 期间将 /mock-data/*.json 指向 public/mock-data/
-function mockDataPlugin() {
-  return {
-    name: 'mock-data-static',
-    apply: 'serve',
-    configureServer(server: ViteDevServer) {
-      server.middlewares.use(async (req, res, next) => {
-        const url = (req.url || '').split('?')[0]
-        if (!url.startsWith('/mock-data/') || !url.endsWith('.json')) return next()
-        const fileName = url.replace('/mock-data/', '')
-        const filePath = resolve(__dirname, 'public/mock-data', fileName)
-        if (!fs.existsSync(filePath)) return next()
-        try {
-          const content = fs.readFileSync(filePath, 'utf-8')
-          res.setHeader('Content-Type', 'application/json; charset=utf-8')
-          res.setHeader('Cache-Control', 'no-cache')
-          res.end(content)
-        } catch (_err) {
-          next()
-        }
-      })
-    },
-  }
-}
+// P14.4 mock-data 中间件已拆分到 vite-plugins/mockDataPlugin.ts（见 L678 注释）
 
 export default defineConfig(async ({ mode, command }): Promise<import('vite').UserConfig> => {
   // ??????????
@@ -1106,6 +904,13 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         // include: [/^[A-Z][a-zA-Z0-9]*\.vue$/],  // 临时注释：排查 Element Plus 组件无法解析问题
       }),
       // ??????????- ??????????
+      // SVG 雪碧图插件 - 配合 src/components/auth/SvgIcon.vue 使用
+      createSvgIconsPlugin({
+        iconDirs: [resolve(process.cwd(), 'src/assets/icons/svg')],
+        symbolId: 'icon-[name]',
+        inject: 'body-last',
+        customDomId: '__svg__icons__dom__',
+      }),
       enableVisualizer &&
         visualizer({
           filename: 'dist/visualizer-stats.html',
@@ -1308,6 +1113,8 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
               '/api-kou/courseVideo': '/api/v1/courses/videos/create',
               '/api-kou/flow/getStatistics': '/api/v1/finance/summary',
               '/api-kou/flow/orderList': '/api/v1/finance/orders',
+              // 2026-06-24 修复: 补充 /flow/list 映射, 否则走兜底原样转发后端 404
+              '/api-kou/flow/list': '/api/v1/finance/flow/list',
               '/api-kou/flow/getTraderTeamByCenter': '/api/v1/finance/team/center',
               '/api-kou/distribution/getSubordinates': '/api/v1/finance/subordinates',
               '/api-kou/distribution/getUserAndChildrenOrders': '/api/v1/finance/user-and-children-orders',
@@ -1321,7 +1128,7 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
               '/api-kou/resource/first/share': '/api/v1/resource/share',
               '/api-kou/resource/getCoursePlanet': '/api/v1/resource/planets/course',
               '/api-kou/kling/generate/video': '/api/v1/chat/kling/video/generate',
-              '/api-kou/bot/sites/kind': '/api/v1/api/ai-bot-sites/categories',
+              '/api-kou/bot/sites/kind': '/api/v1/ai-bot-sites/categories',
               '/api-kou/zhs_activity/get': '/api/v1/content/activity/list',
               '/api-kou/login/getWxCode': '/api/v1/auth/wechat/pc/wxCode',
             }
@@ -1340,10 +1147,13 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
               [/^\/api-kou\/userFeedback/, '/api/v1/feedback'],
               [/^\/api-kou\/resource\//, '/api/v1/resource/'],
               [/^\/api-kou\/kling\//, '/api/v1/chat/kling/'],
-              [/^\/api-kou\/bot\/sites\//, '/api/v1/api/ai-bot-sites/'],
+              [/^\/api-kou\/bot\/sites\//, '/api/v1/ai-bot-sites/'],
               [/^\/api-kou\/userVideoLog/, '/api/v1/user-video-log'],
               [/^\/api-kou\/userVideoComment/, '/api/v1/user-video-comment'],
               [/^\/api-kou\/zhs_activity/, '/api/v1/content/activity'],
+              [/^\/api-kou\/exam\//, '/api/v1/exam/'],
+              [/^\/api-kou\/courseAudit/, '/api/v1/course-audit'],
+              [/^\/api-kou\/product_identity/, '/api/v1/product_identity'],
             ]
             for (const [re, repl] of prefixMaps) {
               if (re.test(cleanPath)) {
@@ -1487,13 +1297,14 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         },
         // 管理后台 /admin API 代理
         // 2026-06-18: 项目从 Java(RuoYi) 迁移到 Python(FastAPI)
-        // P22-联调: rewrite 改为 /api/v2/admin, v2_admin.py 有完整的 200+ admin 端点 (含 27 实体 CRUD)
-        // 前端调用 /admin/*，后端真实路径为 /api/v2/admin/*，通过 rewrite 桥接
+        // 2026-06-24: rewrite 改为 /api/v1, 后端 admin_panel.py 在 /api/v1/* 下 (RuoYi 风格 user/role/menu 等)
+        // 前端调用 /admin/*，后端真实路径为 /api/v1/*，通过 rewrite 桥接
+        // 注: 前端 admin.ts 有 Proxy fallback, 后端 404 时自动回退到 seedData
         '/admin': {
           target: BACKEND_TARGET,
           changeOrigin: true,
-          // P22-联调: 改为 /api/v2/admin, v2_admin.py 有完整的 200+ admin 端点 (含 27 实体 CRUD)
-          rewrite: (path: string) => path.replace(/^\/admin/, '/api/v2/admin'),
+          // rewrite 到 /api/v1, 后端 admin_panel 在 v1 下
+          rewrite: (path: string) => path.replace(/^\/admin/, '/api/v1'),
           // /admin-ruoyi 是前端路由，不代理到后端
           // 页面导航请求(Accept: text/html)是前端 SPA 路由,不代理到后端,交给 vite SPA fallback 返回 index.html
           // 这样直接访问/刷新 /admin/xxx 页面不会被代理转发为 API 请求
@@ -1524,10 +1335,20 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         },
         // P22-联调: v1→v2 rewrite 已删除, v1/v2 路由在后端并存
         // 客服 WebSocket：ws://localhost:8888/customer-service/chat -> Python 8000
+        // 2026-06-24 修复: 加 bypass 只代理 WebSocket 升级请求, HTTP 请求交给 SPA fallback
+        //   否则前端路由 /customer-service 的 GET 会被代理到后端返回 404
         '/customer-service': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           ws: true,
+          bypass: (req: any) => {
+            // 只放行 WebSocket 升级请求, HTTP 请求返回 undefined 交给 Vite SPA 处理
+            const upgrade = req.headers?.upgrade
+            if (upgrade && typeof upgrade === 'string' && upgrade.toLowerCase() === 'websocket') {
+              return undefined // 代理到后端
+            }
+            return req.url // 交给 Vite SPA fallback
+          },
           configure: (proxy: any) => {
             proxy.on('error', (err: any) => console.log('客服 WebSocket 代理错误:', err))
           },
@@ -1719,11 +1540,19 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         // ihui-ai-api 网关代理, 2026-06-20 切到 Python 后端 (v1/llm/ws.py 已实现 3 端点)
         // 2026-06-21 修复: /ihui-ai-api/* 重写到 /api/v1/* (后端真实路径)
         // /ihui-ai-api/user-sk 已有上方更具体的规则优先匹配, 不受影响
+        // 2026-06-24 修复: 补充 ws:true, AIChat.vue 的 ws://host/ihui-ai-api/llm/ws 才能代理到后端
         '/ihui-ai-api': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           secure: false,
+          ws: true,
           rewrite: (path) => path.replace('/ihui-ai-api', '/api/v1'),
+        },
+        // remote 代理: 前端调用 /remote/*, 后端真实路径 /api/v1/remote/*
+        '/remote': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/remote/, '/api/v1/remote'),
         },
         // ai-bot.cn 资源 - 重写到 /ai-world/ 静态目录
         // 注意: target 指向 Vite 自身 (FRONTEND_URL), 是历史遗留的"自代理"配置
@@ -1804,17 +1633,19 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             })
           },
         },
-        // Python 后端 (base: 3) - cozeZhsApi，代理到生产环境 zca.aizhs.top（点赞/收藏等接口）
+        // Python 后端 (base: 3) - cozeZhsApi，代理到本地 Python 后端
+        // 后端真实路由在 /api/v1/cozeZhsApi/* (file_upload/category_sync/stock)
         // 视频合成等 WebSocket 全路径：wss://zca.aizhs.top/cozeZhsApi/dashscope/video-synthesis/ws
         '/cozeZhsApi': {
           target: BACKEND_TARGET,
           changeOrigin: true,
-          secure: false, // ??????HTTPS??
-          rewrite: (path: string) => path,
+          secure: false,
+          // rewrite 加 /api/v1 前缀, 对齐后端 /api/v1/cozeZhsApi/* 真实路由
+          rewrite: (path: string) => path.replace(/^\/cozeZhsApi/, '/api/v1/cozeZhsApi'),
           ws: true, // 开启 WebSocket 代理，否则 /cozeZhsApi/dashscope/video-synthesis/ws 无法连上
           configure: (proxy: any, _options: any) => {
             proxy.on('error', (err: any, _req: any, _res: any) => {
-              console.log('FastAPI??API????:', err)
+              console.log('FastAPI cozeZhsApi 代理错误:', err)
             })
           },
         },

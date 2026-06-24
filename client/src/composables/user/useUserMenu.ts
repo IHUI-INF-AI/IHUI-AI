@@ -71,24 +71,32 @@ export function useUserMenu(options: UseUserMenuOptions = {}) {
   )
 
   // 菜单项配置
-  const menuItems = computed<MenuItem[]>(() => [
-    { index: 'profile', label: t('user.menu.profile'), icon: markIcon(User), badge: 0 },
-    { index: 'security', label: t('user.menu.security'), icon: markIcon(Lock), badge: 0 },
-    { index: 'messages', label: t('user.menu.messages'), icon: markIcon(Bell), badge: 0 },
-    { index: 'privacy', label: t('user.menu.privacy'), icon: markIcon(Settings), badge: 0 },
-    { index: 'settings', label: t('user.menu.settings'), icon: markIcon(Wrench), badge: 0 },
-    { index: 'orders', label: t('user.menu.orders'), icon: markIcon(FileText), badge: 0 },
-    { index: 'upload', label: t('user.menu.uploadAgent'), icon: markIcon(FileText), badge: 0 },
-    { index: 'favorites', label: t('user.menu.favorites'), icon: markIcon(FileText), badge: 0 },
-    { index: 'purchases', label: t('user.menu.purchases'), icon: markIcon(FileText), badge: 0 },
-    { index: 'examine', label: t('user.menu.examine'), icon: markIcon(FileText), badge: 0 },
-    { index: 'statistics', label: t('user.menu.statistics'), icon: markIcon(BarChart3), badge: 0 },
-    { index: 'developer', label: t('user.menu.developer'), icon: markIcon(FileText), badge: 0 },
-    { index: 'purchases-records', label: t('user.menu.purchaseRecords'), icon: markIcon(FileText), badge: 0 },
-    { index: 'api-service', label: t('user.menu.apiService'), icon: markIcon(Key), badge: 0 },
-    { index: 'benefits', label: t('user.menu.benefits', '会员权益'), icon: markIcon(Trophy), badge: 0 },
-    { index: 'study', label: t('user.menu.study', '学习'), icon: markIcon(BookOpen), badge: 0 },
-  ])
+  const menuItems = computed<MenuItem[]>(() => {
+    const items: MenuItem[] = [
+      { index: 'profile', label: t('user.menu.profile'), icon: markIcon(User), badge: 0 },
+      { index: 'security', label: t('user.menu.security'), icon: markIcon(Lock), badge: 0 },
+      { index: 'messages', label: t('user.menu.messages'), icon: markIcon(Bell), badge: 0 },
+      { index: 'privacy', label: t('user.menu.privacy'), icon: markIcon(Settings), badge: 0 },
+      { index: 'settings', label: t('user.menu.settings'), icon: markIcon(Wrench), badge: 0 },
+      { index: 'orders', label: t('user.menu.orders'), icon: markIcon(FileText), badge: 0 },
+      { index: 'upload', label: t('user.menu.uploadAgent'), icon: markIcon(FileText), badge: 0 },
+      { index: 'favorites', label: t('user.menu.favorites'), icon: markIcon(FileText), badge: 0 },
+      { index: 'purchases', label: t('user.menu.purchases'), icon: markIcon(FileText), badge: 0 },
+      { index: 'examine', label: t('user.menu.examine'), icon: markIcon(FileText), badge: 0 },
+      { index: 'statistics', label: t('user.menu.statistics'), icon: markIcon(BarChart3), badge: 0 },
+      { index: 'developer', label: t('user.menu.developer'), icon: markIcon(FileText), badge: 0 },
+      { index: 'purchases-records', label: t('user.menu.purchaseRecords'), icon: markIcon(FileText), badge: 0 },
+      { index: 'api-service', label: t('user.menu.apiService'), icon: markIcon(Key), badge: 0 },
+      { index: 'benefits', label: t('user.menu.benefits', '会员权益'), icon: markIcon(Trophy), badge: 0 },
+      { index: 'study', label: t('user.menu.study', '学习'), icon: markIcon(BookOpen), badge: 0 },
+    ]
+    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404
+    // - developer: 开发者中心 (后端只有 /api/v1/developerLink/*, 完全不同模块)
+    // - settings: 用户设置 (后端无 /user/settings/* 路由)
+    // - favorites: 收藏功能 (后端无 /ai/favorites 路由)
+    const HIDDEN_MENUS: MenuType[] = ['developer', 'settings', 'favorites']
+    return items.filter(item => !HIDDEN_MENUS.includes(item.index))
+  })
 
   // 页面标题和描述配置
   const PAGE_TITLES: Record<MenuType, string> = {

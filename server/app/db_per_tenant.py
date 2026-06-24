@@ -98,6 +98,22 @@ def _evict_lru() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _get_pool_config(base_engine: Engine) -> tuple[int, int, int]:
+    """从 settings 读取池配置 (避免访问 SQLAlchemy pool 私有属性).
+
+    根据 base_engine 匹配 ENGINES 字典, 返回对应的 (pool_size, max_overflow, pool_recycle)。
+    """
+    from app.config import settings
+    from app.database import ENGINES
+
+    if base_engine is ENGINES.get("center"):
+        return settings.DB2_POOL_SIZE, settings.DB2_MAX_OVERFLOW, settings.DB2_POOL_RECYCLE
+    if base_engine is ENGINES.get("course"):
+        return settings.DB3_POOL_SIZE, settings.DB3_MAX_OVERFLOW, settings.DB3_POOL_RECYCLE
+    # 默认 DB1 (ai)
+    return settings.DB1_POOL_SIZE, settings.DB1_MAX_OVERFLOW, settings.DB1_POOL_RECYCLE
+
+
 def get_tenant_engine(base_engine: Engine, tenant_id: int) -> Engine:
     """获取 tenant 专属 engine (带 schema_translate_map).
 
@@ -142,9 +158,7 @@ def get_tenant_engine(base_engine: Engine, tenant_id: int) -> Engine:
         # 仅非 SQLite 加 pool 参数
         if not url_str.startswith("sqlite"):
             try:
-                pool_size = getattr(base_engine.pool, "_pool_size", 5)
-                max_overflow = getattr(base_engine.pool, "_max_overflow", 10)
-                pool_recycle = getattr(base_engine.pool, "_recycle", 3600)
+                pool_size, max_overflow, pool_recycle = _get_pool_config(base_engine)
                 kwargs.update(
                     {
                         "pool_size": pool_size,
@@ -251,6 +265,10 @@ def get_tenant_session_for_current(engine_name: str = "ai"):
     db = sm()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         with contextlib.suppress(Exception):
             db.close()

@@ -433,8 +433,8 @@ onMounted(() => getData())
 
   .btn-primary-tech {
     /* 浅色模式：深色底 + 白字（ 覆盖全局 button 文字色） */
-    background: var(--color-dark-bg-4) ;
-    color: var(--el-bg-color) ;
+    background: var(--color-dark-bg-4);
+    color: var(--el-bg-color);
     border: none;
     padding: 16px 32px;
     border-radius: var(--global-border-radius);
@@ -452,8 +452,8 @@ onMounted(() => getData())
     }
 
     &:hover {
-      background: var(--el-color-primary) ;
-      color: var(--el-bg-color) ;
+      background: var(--el-color-primary);
+      color: var(--el-bg-color);
       transform: translateY(-2px);
     }
   }
@@ -481,12 +481,12 @@ onMounted(() => getData())
 
 /* 深色模式：发布按钮保持深色底 + 白字（ 覆盖全局） */
 :where(html.dark) .plaza-page .page-header .btn-primary-tech {
-  background: var(--color-dark-bg-4) ;
-  color: var(--el-bg-color) ;
+  background: var(--color-dark-bg-4);
+  color: var(--el-bg-color);
 }
 :where(html.dark) .plaza-page .page-header .btn-primary-tech:hover {
-  background: var(--el-color-primary) ;
-  color: var(--el-bg-color) ;
+  background: var(--el-color-primary);
+  color: var(--el-bg-color);
 }
 
 .console-section {
@@ -755,22 +755,22 @@ html.dark .empty-action-btn {
     font-family: var(--font-family-mono);
     font-size: 11px;
     font-weight: 800;
-    color: var(--el-text-color-placeholder) ;
+    color: var(--el-text-color-placeholder);
     letter-spacing: 1px;
   }
 
   .el-input__wrapper,
   .el-textarea__inner,
   .el-select__wrapper {
-    background: var(--el-fill-color-extra-light) ;
+    background: var(--el-fill-color-extra-light);
     border: var(--unified-border);
-    border-radius: var(--global-border-radius) ;
-    box-shadow: none ;
+    border-radius: var(--global-border-radius);
+    box-shadow: none;
   }
 
   .el-input__inner,
   .el-textarea__inner {
-    color: var(--el-text-color-primary) ;
+    color: var(--el-text-color-primary);
     font-family: var(--font-family-mono);
   }
 
@@ -949,11 +949,11 @@ html.dark .empty-action-btn {
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech span,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech .el-icon {
-  color: var(--el-bg-color) ;
+  color: var(--el-bg-color);
 }
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover span,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover .el-icon {
-  color: var(--el-bg-color) ;
+  color: var(--el-bg-color);
 }
 </style>

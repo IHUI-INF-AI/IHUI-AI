@@ -9,7 +9,7 @@ class CourseCreate(BaseModel):
     title: str = Field(..., max_length=200)
     subtitle: str | None = None
     content: str | None = None
-    stage: int | None = 0
+    stage: int | None = Field(default=0, ge=0, le=100)
 
 
 class CourseUpdate(BaseModel):

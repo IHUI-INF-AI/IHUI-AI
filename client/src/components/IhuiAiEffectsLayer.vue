@@ -162,13 +162,13 @@ const handleImageError = (event: Event) => {
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none ; /* 不拦截点击事件 */
+  pointer-events: none; /* 不拦截点击事件 */
   z-index: var(--z-dropdown);
   overflow: hidden;
 
   /* 所有子元素也不拦截点击 */
   * {
-    pointer-events: none ;
+    pointer-events: none;
   }
 }
 
@@ -191,7 +191,7 @@ const handleImageError = (event: Event) => {
   height: auto;
   object-fit: cover;
   opacity: 0.15;
-  pointer-events: none ; /* 不拦截点击事件 */
+  pointer-events: none; /* 不拦截点击事件 */
 }
 
 .ihui-ai-bg-feature {
@@ -202,7 +202,7 @@ const handleImageError = (event: Event) => {
   height: auto;
   object-fit: cover;
   opacity: 0.1;
-  pointer-events: none ; /* 不拦截点击事件 */
+  pointer-events: none; /* 不拦截点击事件 */
 }
 
 /* 动画层 */

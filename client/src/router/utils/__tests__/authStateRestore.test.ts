@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { isLoginExpired } from '@/utils/login-duration'
+import { isExpiryTimePassed } from '@/utils/login-duration'
 
 // Mock 存储工具
 vi.mock('@/utils/storage', () => ({
@@ -22,7 +22,7 @@ vi.mock('@/utils/storage', () => ({
 
 // Mock 登录时长工具
 vi.mock('@/utils/login-duration', () => ({
-  isLoginExpired: vi.fn(() => false),
+  isExpiryTimePassed: vi.fn(() => false),
 }))
 
 // Mock 日志工具
@@ -138,7 +138,7 @@ describe('authStateRestore', () => {
         if (key === STORAGE_KEYS.LOGIN_EXPIRY_TIME) return 12345
         return null
       })
-      vi.mocked(isLoginExpired).mockReturnValue(true)
+      vi.mocked(isExpiryTimePassed).mockReturnValue(true)
 
       const { restoreAuthStateAtomically } = await import('../authStateRestore')
       const result = await restoreAuthStateAtomically()
@@ -279,7 +279,7 @@ describe('authStateRestore', () => {
         if (key === STORAGE_KEYS.LOGIN_EXPIRY_TIME) return null
         return null
       })
-      vi.mocked(isLoginExpired).mockReturnValue(false)
+      vi.mocked(isExpiryTimePassed).mockReturnValue(false)
 
       const { isAuthStateValid } = await import('../authStateRestore')
       expect(isAuthStateValid()).toBe(true)
@@ -298,7 +298,7 @@ describe('authStateRestore', () => {
         if (key === STORAGE_KEYS.LOGIN_EXPIRY_TIME) return 12345
         return null
       })
-      vi.mocked(isLoginExpired).mockReturnValue(true)
+      vi.mocked(isExpiryTimePassed).mockReturnValue(true)
 
       const { isAuthStateValid } = await import('../authStateRestore')
       expect(isAuthStateValid()).toBe(false)

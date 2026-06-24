@@ -146,6 +146,26 @@ export const healthCheck = async (): Promise<{
   return request.get(AUTH_PATHS.health)
 }
 
+// ==================== 第三方登录（admin 后台） ====================
+
+/**
+ * 钉钉 OAuth 回调登录
+ * - 入参：{ code, state } 由钉钉回调 URL 提供
+ * - 后端：POST /auth/dingtalk/login
+ */
+export function dingTalkLogin(payload: { code: string; state?: string }) {
+  return request.post('/auth/dingtalk/login', payload)
+}
+
+/**
+ * 企业微信 OAuth 回调登录
+ * - 入参：{ code, state, appId } 由企业微信回调 URL 提供
+ * - 后端：POST /auth/workwechat/login
+ */
+export function workWeChatLogin(payload: { code: string; state?: string; appId?: string }) {
+  return request.post('/auth/workwechat/login', payload)
+}
+
 // ==================== 从 api/login.ts 迁移的额外功能 ====================
 
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'

@@ -21,11 +21,11 @@ from pathlib import Path
 PG_HOST = "localhost"
 PG_PORT = "5432"
 PG_USER = "postgres"
-PG_PASSWORD = "postgres"  # 修改为你的密码
+PG_PASSWORD = os.getenv("PG_PASSWORD", "postgres")  # 可通过环境变量覆盖, 避免硬编码
 PG_DB = "zhs_platform"
 
-# SQLite 数据库路径
-SQLITE_PATH = "G:/IHUI-AI/server/data/zhs_dev.sqlite"
+# SQLite 数据库路径 (默认相对脚本所在目录, 可通过环境变量覆盖)
+SQLITE_PATH = os.getenv("SQLITE_PATH", str(Path(__file__).parent / "data" / "zhs_dev.sqlite"))
 
 # .env 文件路径
 ENV_FILE = "G:/IHUI-AI/server/.env"
@@ -36,7 +36,7 @@ def check_postgresql():
     try:
         result = subprocess.run(
             ["psql", "--version"],
-            capture_output=True, text=True, shell=True
+            capture_output=True, text=True
         )
         if result.returncode == 0:
             print(f"✅ PostgreSQL 已安装: {result.stdout.strip()}")
@@ -66,7 +66,7 @@ def install_postgresql():
     try:
         result = subprocess.run(
             ["winget", "install", "PostgreSQL.PostgreSQL.16"],
-            capture_output=True, text=True, shell=True
+            capture_output=True, text=True
         )
         if result.returncode == 0:
             print("✅ PostgreSQL 安装成功 (winget)")
@@ -78,7 +78,7 @@ def install_postgresql():
     try:
         result = subprocess.run(
             ["choco", "install", "postgresql16"],
-            capture_output=True, text=True, shell=True
+            capture_output=True, text=True
         )
         if result.returncode == 0:
             print("✅ PostgreSQL 安装成功 (chocolatey)")
@@ -108,7 +108,7 @@ def create_database():
             ["psql", "-h", PG_HOST, "-p", PG_PORT, "-U", PG_USER,
              "-d", "postgres", "-tAc",
              f"SELECT 1 FROM pg_database WHERE datname='{PG_DB}'"],
-            capture_output=True, text=True, env=env, shell=True
+            capture_output=True, text=True, env=env
         )
         if result.returncode == 0 and "1" in result.stdout:
             print(f"✅ 数据库 {PG_DB} 已存在")
@@ -122,7 +122,7 @@ def create_database():
             ["psql", "-h", PG_HOST, "-p", PG_PORT, "-U", PG_USER,
              "-d", "postgres", "-c",
              f"CREATE DATABASE {PG_DB}"],
-            capture_output=True, text=True, env=env, shell=True
+            capture_output=True, text=True, env=env
         )
         if result.returncode == 0:
             print(f"✅ 数据库 {PG_DB} 创建成功")
@@ -150,7 +150,7 @@ def create_schemas():
                 ["psql", "-h", PG_HOST, "-p", PG_PORT, "-U", PG_USER,
                  "-d", PG_DB, "-c",
                  f"CREATE SCHEMA IF NOT EXISTS {schema}"],
-                capture_output=True, text=True, env=env, shell=True
+                capture_output=True, text=True, env=env
             )
             if result.returncode == 0:
                 print(f"  ✅ Schema {schema}")
