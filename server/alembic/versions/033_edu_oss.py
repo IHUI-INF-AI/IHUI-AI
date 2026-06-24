@@ -1,22 +1,16 @@
-﻿"""Reserved alembic migration for edu business domain tables.
+"""Create edu edu_oss tables.
 
-Domain: Edu Oss
 Revision ID: 033_edu_oss
 Revises: 032_edu_notification
-Create Date: 2026-06-24 (Phase A reserved)
+Create Date: 2026-06-24 (Phase B)
 
-NOTE: This is a Phase A placeholder migration. It does NOT yet create any
-tables. The actual table DDL is ported from edu Java MySQL schema during
-Phase B, one domain per PR.
-
-Tables reserved for this migration:
-  edu_oss_file, edu_oss_chunk, edu_oss_upload_session
+Tables created: edu_oss_file, edu_oss_upload_session
 """
 import logging
 
 from alembic import op
 
-
+# revision identifiers
 revision = "033_edu_oss"
 down_revision = "032_edu_notification"
 branch_labels = None
@@ -27,11 +21,50 @@ logger = logging.getLogger("alembic.033_edu_oss")
 
 
 def upgrade() -> None:
-    """Phase A placeholder: no schema changes yet."""
-    logger.info("033_edu_oss: placeholder migration, no changes applied")
-    pass
+    """Create edu_oss tables using SQLAlchemy metadata."""
+    from sqlalchemy import inspect
+
+    from app.config import settings
+    from app.database import Base
+    import app.models  # noqa: F401  - ensure all models registered
+    import app.models.edu_models  # noqa: F401  - ensure edu models registered
+
+    bind = op.get_bind()
+    inspector = inspect(bind)
+
+    target_tables = ['edu_oss_file', 'edu_oss_upload_session']
+
+    # For single-tenant mode, strip schema
+    if not settings.MULTI_TENANT_ENABLED:
+        for table in Base.metadata.tables.values():
+            if table.schema:
+                table.schema = None
+
+    before = set(inspector.get_table_names())
+    Base.metadata.create_all(bind=bind, checkfirst=True)
+    after = set(inspector.get_table_names())
+    added = sorted(after - before)
+
+    created = [t for t in added if t in target_tables]
+    if created:
+        logger.info(repr(rev) + ': created ' + str(len(created)) + ' tables: ' + str(created))
+    else:
+        logger.info(repr(rev) + ': no new tables (all ' + str(len(target_tables)) + ' already exist)')
 
 
 def downgrade() -> None:
-    """Phase A placeholder: no schema changes to revert."""
-    pass
+    """Drop edu_oss tables (Phase B: drops are safe as data is recoverable)."""
+    from app.config import settings
+    from app.database import Base
+    import app.models  # noqa: F401
+    import app.models.edu_models  # noqa: F401
+
+    bind = op.get_bind()
+    target_tables = ['edu_oss_file', 'edu_oss_upload_session']
+
+    for table_name in target_tables:
+        try:
+            op.drop_table(table_name)
+            logger.info(repr(rev) + ': dropped ' + str(table_name))
+        except Exception as e:
+            logger.warning(repr(rev) + ': could not drop ' + str(table_name) + ': ' + str(e))

@@ -46,6 +46,7 @@ from app.api.v1.auth.feishu import router as feishu_router
 from app.api.v1.auth.google import router as google_router
 from app.api.v1.auth.login import router as login_router
 from app.api.v1.auth.oauth import router as oauth_router
+from app.api.v1.auth.coze_oauth import router as coze_oauth_router
 from app.api.v1.auth.sms import router as sms_router
 
 # --- Auth (User SK) ---
@@ -59,6 +60,9 @@ from app.api.v1.auth.sso import router as sso_router
 
 # --- Orders (通用订单管理, 迁移自 edu Java 微服务) ---
 from app.api.v1.orders import router as orders_router
+
+# --- Member 会员域 (EduMember / Company / Tag / Post / Group / Level / CheckIn / Follow) ---
+from app.api.v1.member import router as member_router
 
 # --- Bots ---
 from app.api.v1.bots.bots import router as bots_router
@@ -205,6 +209,9 @@ except Exception:
 # --- Remote Device ---
 from app.api.v1.remote import router as remote_router
 from app.api.v1.remote import third_router as remote_third_router
+
+# --- Refund 退款流程 ---
+from app.api.v1.refund import router as refund_router
 
 # --- Stock Analyse ---
 from app.api.v1.stock.analyse import router as stock_analyse_router
@@ -406,15 +413,6 @@ except Exception:
     education_platform_router = None
     HAS_EDU_PLATFORM = False
 
-# --- Education Exam 教育考试模块 ---
-try:
-    from app.api.v1.education import router as education_exam_router
-
-    HAS_EDU_EXAM = True
-except Exception:
-    education_exam_router = None
-    HAS_EDU_EXAM = False
-
 # --- Course Audit 课程审核 ---
 try:
     from app.api.v1.course_audit import router as course_audit_router
@@ -495,22 +493,6 @@ try:
 except Exception:
     user_agent_image_router = None
     HAS_USER_AGENT_IMAGE = False
-
-# --- Schedule 日程管理(内联)---
-try:
-    from app.api.v1.schedule import router as schedule_router
-    HAS_SCHEDULE = True
-except Exception:
-    schedule_router = None
-    HAS_SCHEDULE = False
-
-# --- Ranking 排行榜(内联)---
-try:
-    from app.api.v1.ranking import router as ranking_router
-    HAS_RANKING = True
-except Exception:
-    ranking_router = None
-    HAS_RANKING = False
 
 # --- Video Preload 视频预读 ---
 try:
@@ -614,6 +596,7 @@ api_router.include_router(login_router, tags=["Authentication"])
 api_router.include_router(sms_router, prefix="/auth", tags=["SMS"])
 api_router.include_router(google_router, prefix="/auth", tags=["Google OAuth"])
 api_router.include_router(oauth_router, prefix="/auth", tags=["OAuth"])
+api_router.include_router(coze_oauth_router, tags=["Coze OAuth"])
 api_router.include_router(wechat_router, tags=["WeChat Auth"])
 api_router.include_router(bindings_router, tags=["Account Bindings"])
 api_router.include_router(username_login_router, prefix="", tags=["Username Login"])
@@ -625,6 +608,16 @@ api_router.include_router(sso_router, tags=["SSO"])
 
 # Orders (通用订单管理, 自带 /order 前缀)
 api_router.include_router(orders_router, tags=["Order"])
+
+# Refund 退款流程 (自带 /refunds 前缀)
+api_router.include_router(refund_router, tags=["Refund"])
+
+# Member 会员域 (自带 /member 前缀)
+api_router.include_router(member_router, tags=["Member"])
+
+# Dual-Write 双写期管理 (自带 /dual-write 前缀)
+# 2026-06-24 修复: dual_write_router 模块文件不存在, 注释掉死代码引用避免启动 NameError
+# api_router.include_router(dual_write_router, tags=["Dual-Write"])
 
 # User
 api_router.include_router(users_router, prefix="/user", tags=["Users"])
@@ -872,10 +865,6 @@ if category_dict_router:
 if education_platform_router:
     api_router.include_router(education_platform_router, tags=["Education Platform"])
 
-# Education Exam
-if education_exam_router:
-    api_router.include_router(education_exam_router, prefix="/education/exam", tags=["Education Exam"])
-
 # Course Audit
 if course_audit_router:
     api_router.include_router(course_audit_router, tags=["Course Audit"])
@@ -991,3 +980,8 @@ api_router.include_router(resource_watermark_router, tags=["Resource Watermark"]
 from app.api.v1.admin_panel import register_routers as _register_admin_panel  # noqa: E402
 
 _register_admin_panel(api_router)
+
+# --- Edu 业务域聚合 (迁移自 edu Java 23 个 Spring Cloud 微服务) ---
+from app.api.v1.edu import register_routers as _register_edu_panel  # noqa: E402
+
+_register_edu_panel(api_router)

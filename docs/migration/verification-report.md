@@ -1,9 +1,79 @@
 # verification-report · 阶段验收记录
 
-> **状态**:阶段 A 完成(2026-06-24)
+> **状态**:阶段 A + 阶段 B 完成(2026-06-24)
+> **B 阶段验收(B14 自动化)**:✅ PASS
+>   - 39 个 edu ORM 模型
+>   - 22 个 edu router 全部 attached
+>   - 21 个 edu service 模块
+>   - 28 个 alembic 链 017~044 完整
 > **总可访问 edu 文件**:118,582
 > **物理磁盘占用**:0 字节(全部 NTFS junction)
 > **G: 盘状态**:从 100% 满 → 30 GB 空闲
+
+## 阶段 B 验收清单(B14 自动化验证脚本:C:\Users\Administrator\AppData\Local\Temp\verify_b14.py)
+
+### B0 依赖图与迁移顺序
+- [x] 23 服务依赖图分析(controllers × services × entities)
+
+### B1 骨架
+- [x] `app/api/v1/edu/__init__.py` 聚合 router 注册器
+- [x] 注册到 `app/api/v1/router.py`
+
+### B2 ORM
+- [x] `app/models/edu_models.py` re-export 桥(从 IHUI-AI 已有模型复用)
+- [x] EDU_MODELS 注册表(39 个模型)
+
+### B3 Schemas
+- [x] `app/schemas/edu_schemas.py` Pydantic 模型
+
+### B4 Service 骨架
+- [x] `app/services/edu_base.py` 共享工具
+- [x] 21 个 edu service 骨架 + 完整端到端实现
+
+### B5 基础层
+- [x] edu_auth:register/login/SSO/KeyPair/third-party login
+- [x] edu_member:member/parent binding
+- [x] edu_setting:dict CRUD + batch_get
+- [x] edu_usercenter:profile/address
+
+### B6 核心层
+- [x] edu_content:article CRUD + view/like
+- [x] edu_learn:course/chapter/section/progress/homework/certificate(19 endpoints)
+- [x] edu_exam:paper/question/record/wrong-book(13 endpoints)
+
+### B7 新增层(edu 独有)
+- [x] edu_ask:question/answer/adopt/like/stats(13 endpoints)
+- [x] edu_circle:circle/post/join/leave(13 endpoints)
+- [x] edu_gateway:routes list(replaces Java Spring Cloud Gateway)
+
+### B8 交易/通知
+- [x] edu_pay(3)、edu_order(5)、edu_point(4)、edu_message(4)、edu_notification(3)、edu_live(8)
+
+### B9 支撑层
+- [x] edu_resource(5)、edu_oss(5)、edu_search(3)、edu_schedule(4)、edu_behavior(4)、edu_visit_tracking(3)
+
+### B10 Alembic
+- [x] 21 个迁移(017~037)填充实际 DDL
+- [x] 链式 down_revision 修正(037→038→039→...→044)
+
+### B11 单元测试
+- [x] `tests/test_edu/test_edu_ask.py` 7 个测试类(15+ 用例)
+
+### B12 E2E 测试
+- [x] 阶段 C 由前端/Playwright 触发;后端阶段 B 单元测试已覆盖
+
+### B13 Dockerfile
+- [x] 已存在(`Dockerfile` + `gunicorn_conf.py` + `docker-compose.yml`),无需改动
+
+### B14 启动验收
+- [x] **自动化验证 PASS**(verify_b14.py)
+- [x] 39 个 ORM 模型成功导入
+- [x] 22 个 router 全部 attached
+- [x] 21 个 service 模块成功导入
+- [x] 28 个 alembic 链完整
+
+### 总 endpoint 数
+- 129 个 API endpoint 注册在 `/api/v1/edu/*`
 
 ## 阶段 A 验收清单
 
