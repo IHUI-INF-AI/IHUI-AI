@@ -62,7 +62,7 @@ ul li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 5px
 <div class="container">
 
 <h1>iHUI-AI 封版验证最终报告</h1>
-<p class="subtitle">生成时间：2026-06-24 | 封版基线: d105eb8e | 最终封版 HEAD: 21160a1 | 状态：封版上线就绪</p>
+<p class="subtitle">生成时间：2026-06-24 | 封版基线: d105eb8e | 最终封版 HEAD: 2c25329 | 状态：封版上线就绪</p>
 
 <div class="summary-grid">
   <div class="stat-card"><div class="num">104</div><div class="label">后端 Bug 修复</div></div>
@@ -232,18 +232,29 @@ Commit Message: fix(payments): 补全微信支付回调金额校验
   </ul>
 </div>
 
+<h3>4. 用户确认保留的配套提交 <span class="badge info">已确认保留</span></h3>
+<p>封版收尾期间，由其他进程注入两个提交，经用户确认全部保留封版上线：</p>
+<table>
+  <tr><th>提交</th><th>类型</th><th>内容</th><th>用户决策</th></tr>
+  <tr><td><code>5a0ef27</code></td><td>feat</td><td>补齐知识库 RAG API 路由层（入库/检索/RAG上下文/文档管理）+ 前端文件行尾符规范化</td><td><span class="badge pass">保留</span></td></tr>
+  <tr><td><code>2c25329</code></td><td>chore</td><td>封版前剩余变更归档：.gitattributes 规则补充、5 语言 home.json i18n 补充、auth login/sms 调整、services 导出调整、Crew 可视化页面更新、多智能体 API 文档</td><td><span class="badge pass">保留</span></td></tr>
+</table>
+<div class="callout">
+  <strong>语法验证：</strong>归档提交涉及的 Python 文件（<code>login.py</code>、<code>sms.py</code>、<code>services/__init__.py</code>、<code>knowledge/__init__.py</code>、<code>router.py</code>）py_compile 全部通过。
+</div>
+
 <h2>九、最终封版验证结论</h2>
 <table>
   <tr><th>检查项</th><th>结果</th></tr>
-  <tr><td>后端 py_compile（含本次金额校验修改）</td><td><span class="badge pass">通过</span></td></tr>
+  <tr><td>后端 py_compile（全部修改文件）</td><td><span class="badge pass">通过</span></td></tr>
   <tr><td>TypeScript 全量检查</td><td><span class="badge pass">0 错误</span>（含预存错误已治理）</td></tr>
   <tr><td>vite build 生产构建</td><td><span class="badge pass">通过</span>（4640 文件，46.51 MB）</td></tr>
   <tr><td>冒烟测试</td><td><span class="badge pass">13/15 通过</span>，2 项为 Redis 环境依赖限制</td></tr>
   <tr><td>上传端点认证校验（5 个端点）</td><td><span class="badge pass">全部通过</span></td></tr>
   <tr><td>微信支付回调金额校验</td><td><span class="badge pass">已补全</span></td></tr>
-  <tr><td>Git 仓库健康</td><td><span class="badge pass">fsck 干净</span>，gc 恢复正常</td></tr>
+  <tr><td>Git 仓库健康</td><td><span class="badge pass">fsck 干净</span>，gc 恢复正常，工作区干净</td></tr>
   <tr><td>封版标签</td><td><span class="badge pass">v1.0.0-sealed</span>（健康，位于 main 历史）</td></tr>
-  <tr><td>最终封版 HEAD</td><td><code>21160a11</code></td></tr>
+  <tr><td>最终封版 HEAD</td><td><code>2c25329</code></td></tr>
 </table>
 
 <div class="callout success">
