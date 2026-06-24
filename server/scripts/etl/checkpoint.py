@@ -42,10 +42,6 @@ class MigrationCheckpoint(Base):
 
 
 def get_checkpoint(batch_id: str, source_table: str) -> MigrationCheckpoint | None:
-    from app.database import get_session
-
-    from app.database import get_session
-
     with get_session() as db:
         return (
             db.query(MigrationCheckpoint)

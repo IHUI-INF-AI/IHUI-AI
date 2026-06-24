@@ -51,7 +51,8 @@ import { ref, onMounted, nextTick, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import * as echarts from '@/utils/echarts'
+import { loadEcharts } from '@/utils/echarts-lazy'
+import type { ECharts } from '@/utils/echarts'
 import { adminApi } from '@/api/admin'
 import { getAdminOrders } from '@/api/admin-orders'
 import { v2Agents } from '@/api/v2-business'
@@ -69,9 +70,9 @@ const revenueChartEl = ref<HTMLDivElement>()
 const orderPieEl = ref<HTMLDivElement>()
 const agentBarEl = ref<HTMLDivElement>()
 
-let revenueChart: echarts.ECharts | null = null
-let orderPie: echarts.ECharts | null = null
-let agentBar: echarts.ECharts | null = null
+let revenueChart: ECharts | null = null
+let orderPie: ECharts | null = null
+let agentBar: ECharts | null = null
 
 // 缓存最近一次加载的数据，供暗色模式切换时重新渲染
 let lastOrderRecords: OrderRecord[] = []
@@ -260,7 +261,9 @@ function onResize() {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 异步加载 echarts 库（节省首屏 ~739KB），首次加载完成后会缓存供后续页面使用
+  await loadEcharts()
   loadAll()
   cleanup.addEventListener(window, 'resize', onResize as EventListener)
   cleanup.add(() => {

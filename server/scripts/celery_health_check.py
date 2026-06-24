@@ -139,7 +139,8 @@ def _verify_task_has_retry(task_name: str) -> tuple[bool, str]:
     if "." not in task_name:
         return False, "task 名称格式不合法"
     module_name, func_name = task_name.rsplit(".", 1)
-    module_path = SERVER_DIR / module_name.replace(".", "/") + ".py"
+    rel_path = Path(*module_name.split("."))  # Path("app/tasks/reconcile_tasks")
+    module_path = SERVER_DIR / (str(rel_path) + ".py")
     if not module_path.exists():
         return False, f"模块文件不存在: {module_path}"
     content = module_path.read_text(encoding="utf-8")

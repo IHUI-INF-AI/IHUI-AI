@@ -98,8 +98,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
-import echarts from '@/utils/echarts'
-import type { ECharts } from 'echarts'
+import { loadEcharts } from '@/utils/echarts-lazy'
+import type { ECharts } from '@/utils/echarts'
 import { useDarkModeStore } from '@/stores/darkMode'
 
 const darkModeStore = useDarkModeStore()
@@ -159,8 +159,9 @@ const getScorePercentage = (value: number, metric: string): number => {
   return Math.min(100, (value / threshold.poor) * 100)
 }
 
-const initTrendChart = (): void => {
+const initTrendChart = async (): Promise<void> => {
   if (!trendChartRef.value) return
+  const echarts = await loadEcharts()
 
   trendChart = echarts.init(trendChartRef.value)
   const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`)
@@ -182,8 +183,9 @@ const initTrendChart = (): void => {
   })
 }
 
-const initDistributionChart = (): void => {
+const initDistributionChart = async (): Promise<void> => {
   if (!distributionChartRef.value) return
+  const echarts = await loadEcharts()
 
   distributionChart = echarts.init(distributionChartRef.value)
   distributionChart.setOption({
@@ -203,8 +205,9 @@ const initDistributionChart = (): void => {
   })
 }
 
-const initScoreChart = (): void => {
+const initScoreChart = async (): Promise<void> => {
   if (!scoreChartRef.value) return
+  const echarts = await loadEcharts()
 
   scoreChart = echarts.init(scoreChartRef.value)
   scoreChart.setOption({

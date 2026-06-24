@@ -117,8 +117,8 @@ const { t } = useI18n()
 import { ref, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { WarningFilled, CircleCloseFilled, CircleCheckFilled, DataAnalysis } from '@element-plus/icons-vue'
-import echarts from '@/utils/echarts'
-import type { ECharts } from 'echarts'
+import { loadEcharts } from '@/utils/echarts-lazy'
+import type { ECharts } from '@/utils/echarts'
 import { formatDateTime as _formatTime } from '@/utils/format'
 import { useDarkModeStore } from '@/stores/darkMode'
 
