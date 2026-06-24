@@ -278,7 +278,7 @@ body {
             </div>
             <div class="input-group">
               <label>用户ID</label>
-              <input type="text" id="userId" value="web_user" />
+              <input type="text" id="userId" value="web_user" onchange="syncUserId()" />
             </div>
           </div>
           <div class="input-group">
@@ -419,8 +419,8 @@ body {
         <div class="panel">
           <div class="panel-title">会话列表</div>
           <div class="input-group">
-            <label>用户ID</label>
-            <input type="text" id="historyUserId" value="web_user" />
+            <label>用户ID (与协作页共用)</label>
+            <input type="text" id="historyUserId" value="web_user" onchange="syncUserId()" />
           </div>
           <div class="actions" style="justify-content:flex-start;">
             <button class="btn btn-sm" onclick="loadSessions()">刷新</button>
@@ -468,8 +468,25 @@ function switchTab(name, evt) {
   const btn = evt.currentTarget || evt.target;
   btn.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'history') loadSessions();
+  if (name === 'history') {
+    syncUserId();
+    loadSessions();
+  }
   if (name === 'knowledge') loadDocs();
+}
+
+// 统一用户ID: 协作页 userId 与历史页 historyUserId 双向同步
+function syncUserId() {
+  const a = document.getElementById('userId');
+  const b = document.getElementById('historyUserId');
+  if (a && b && a.value !== b.value) {
+    // 以当前焦点所在输入框为准 (触发 onchange 的那个)
+    b.value = a.value;
+  }
+}
+
+function getUserId() {
+  return (document.getElementById('userId') || {}).value || 'web_user';
 }
 
 // ===== 初始化 =====
@@ -533,7 +550,7 @@ async function loadModels() {
 
 async function loadSessions() {
   try {
-    const userId = (document.getElementById('historyUserId') || document.getElementById('userId')).value;
+    const userId = getUserId();
     const resp = await fetch(API_BASE + '/sessions?user_id=' + userId + '&limit=20');
     const data = await resp.json();
     const sessions = data.data || [];
