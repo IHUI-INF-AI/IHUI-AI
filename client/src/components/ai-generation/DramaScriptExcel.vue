@@ -6834,8 +6834,8 @@ defineExpose({
       padding: 4px;
       
       .el-button {
-        color: white;
-        
+        color: var(--el-bg-color-page);
+
         &:hover {
           background: var(--color-white-20);
         }
@@ -7239,7 +7239,7 @@ defineExpose({
           right: 0;
           padding: 6px 8px;
           background: var(--color-black-75);
-          color: white;
+          color: var(--el-bg-color-page);
           font-size: 12px;
           text-align: center;
           font-family: var(--font-family-mono);
@@ -9117,7 +9117,7 @@ defineExpose({
   transform: translate(-50%, -50%);
   padding: 12px 24px;
   background: var(--color-black-80);
-  color: white;
+  color: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
   font-size: 14px;
   z-index: var(--z-notification);

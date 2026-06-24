@@ -529,7 +529,7 @@ defineExpose({
 
   input:checked + .checkmark::after {
     content: "\2713";
-    color: white;
+    color: var(--el-bg-color);
     font-size: 12px;
   }
 }

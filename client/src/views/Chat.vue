@@ -383,13 +383,17 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   width: 36px; height: 36px;
   border-radius: 50%;
   background: var(--el-color-primary);
-  color: white;
+  color: var(--el-color-white);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
   font-weight: 600;
   flex-shrink: 0;
+}
+
+html.dark .message-avatar {
+  color: var(--color-dark-bg-1);
 }
 .message-item.ai .message-avatar { background: var(--el-color-success); }
 .message-body { display: flex; flex-direction: column; gap: 4px; }
@@ -460,7 +464,8 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   cursor: pointer;
   font-size: 13px;
 }
-.send-btn { background: var(--el-color-primary); color: white; }
+.send-btn { background: var(--el-color-primary); color: var(--el-color-white); }
+html.dark .send-btn { color: var(--color-dark-bg-1); }
 .send-btn:disabled { background: var(--el-fill-color-dark); cursor: not-allowed; }
 .send-btn:hover:not(:disabled) { background: var(--el-color-primary); }
 .clear-btn { background: var(--el-fill-color-dark); color: var(--el-text-color-primary); }

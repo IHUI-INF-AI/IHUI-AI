@@ -1639,9 +1639,15 @@ html.dark {
     padding: 4px;
     background: hsl(var(--muted));
     border-radius: var(--global-border-radius);
+    --tab-item-hover-bg: hsl(var(--background));
+    --tab-item-active-bg: hsl(var(--background));
+    --tab-item-active-border: var(--border-unified-color);
 
     html.dark & {
       background: hsl(0 0% 12%);
+      --tab-item-hover-bg: hsl(0 0% 18%);
+      --tab-item-active-bg: hsl(0 0% 18%);
+      --tab-item-active-border: hsl(0 0% 25%);
     }
 
     &__item {
@@ -1662,23 +1668,21 @@ html.dark {
 
       &:hover:not(:where(&--active)) {
         color: var(--el-text-color-primary);
-        background: hsl(var(--background));
+        background: var(--tab-item-hover-bg);
 
         html.dark & {
           color: hsl(var(--foreground));
-          background: hsl(0 0% 18%);
         }
       }
 
       &--active {
         color: var(--el-text-color-primary);
-        background: hsl(var(--background));
+        background: var(--tab-item-active-bg);
         border: var(--unified-border);
 
         html.dark & {
           color: hsl(var(--foreground));
-          background: hsl(0 0% 18%);
-          border-color: hsl(0 0% 25%);
+          border-color: var(--tab-item-active-border);
         }
       }
     }
