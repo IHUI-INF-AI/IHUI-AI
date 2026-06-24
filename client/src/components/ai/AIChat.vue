@@ -8499,8 +8499,13 @@ watch(
 
 // 生命周期
 onMounted(async () => {
-  loadModels()
-  try { await loadAgents() } catch (e) { console.error(e) }
+  // 未登录时跳过所有后端 API 调用,避免触发 401 整页重定向销毁组件
+  // UI 骨架仍可正常渲染,用户登录后可手动刷新或重新打开浮窗加载数据
+  const isLoggedIn = authStore.isLoggedIn
+  if (isLoggedIn) {
+    loadModels()
+    try { await loadAgents() } catch (e) { console.error(e) }
+  }
 
   // 初始化语音识别服务（根据网络环境自动配置）
   initializeSpeechService()
@@ -8511,7 +8516,7 @@ onMounted(async () => {
   }
 
   // 大模型模式下加载所选模型的历史
-  if (currentAIMode.value === 'model' && selectedModel.value) {
+  if (isLoggedIn && currentAIMode.value === 'model' && selectedModel.value) {
     loadModelChatHistory()
   }
 
@@ -8519,8 +8524,8 @@ onMounted(async () => {
   const history = StorageManager.getItem<Array<{ id: string; title: string; messages: ChatMessage[]; createTime: string }>>('floating-chat-history') || []
   conversationHistory.value = history
 
-  // 异步加载后端对话历史
-  if (enableBackendSync.value) {
+  // 异步加载后端对话历史（需登录）
+  if (isLoggedIn && enableBackendSync.value) {
     loadBackendConversations()
   }
 

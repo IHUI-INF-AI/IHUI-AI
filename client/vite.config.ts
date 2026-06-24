@@ -1269,17 +1269,88 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             })
           },
         },
-        // base: 1 智能体列表等接口, 2026-06-20 切到 Python 后端 (v1_api_kou.py, 40 端点)
+        // base: 1 智能体列表等接口, 对接 Python 后端真实路由
         '/api-kou': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           secure: false,
-          // /api-kou/admin/aiworld/* → /api/v2/admin/aiworld/* (AI世界站点管理走 v2_admin.py 真实端点)
-          // 其他 /api-kou/* 保持原路径 (走 v1_api_kou.py 或 mock 兜底)
+          // /api-kou/* → /api/v1/* 真实路由映射
+          // 精确路径映射 (端点名不同) + 前缀替换 (端点名相同)
           rewrite: (path: string) => {
-            if (path.startsWith('/api-kou/admin/aiworld/')) {
+            const cleanPath = path.split('?')[0]
+            const query = path.includes('?') ? '?' + path.split('?').slice(1).join('?') : ''
+
+            // AI世界站点管理走 v2_admin.py
+            if (cleanPath.startsWith('/api-kou/admin/aiworld/')) {
               return path.replace(/^\/api-kou\/admin/, '/api/v2/admin')
             }
+
+            // 路径重组 (需要调整路径段顺序)
+            const restructureMaps: [RegExp, string][] = [
+              // /course/delist/{ids} → /courses/{ids}/delist
+              [/^\/api-kou\/course\/delist\/(.+)$/, '/api/v1/courses/$1/delist'],
+              // /courseVideo/issue/{ids} → /courses/videos/{ids}/issue
+              [/^\/api-kou\/courseVideo\/issue\/(.+)$/, '/api/v1/courses/videos/$1/issue'],
+              // /kling/video/info/{id} → /chat/kling/task/{id}
+              [/^\/api-kou\/kling\/video\/info\/(.+)$/, '/api/v1/chat/kling/task/$1'],
+            ]
+            for (const [re, repl] of restructureMaps) {
+              if (re.test(cleanPath)) {
+                return cleanPath.replace(re, repl) + query
+              }
+            }
+
+            // 精确路径映射 (端点名不同, 全等匹配)
+            const exactMaps: Record<string, string> = {
+              '/api-kou/course': '/api/v1/courses/create',
+              '/api-kou/courseVideo': '/api/v1/courses/videos/create',
+              '/api-kou/flow/getStatistics': '/api/v1/finance/commission/summary',
+              '/api-kou/flow/orderList': '/api/v1/finance/commission/orders',
+              '/api-kou/flow/getTraderTeamByCenter': '/api/v1/finance/distribution/team/center',
+              '/api-kou/distribution/getSubordinates': '/api/v1/finance/distribution/subordinates',
+              '/api-kou/distribution/getUserAndChildrenOrders': '/api/v1/finance/distribution/user-and-children-orders',
+              '/api-kou/distribution/getUserCommissionDetail': '/api/v1/finance/distribution/commission-detail',
+              '/api-kou/zhsWithdrawal/withdrawal': '/api/v1/finance/withdrawal/apply',
+              '/api-kou/zhsWithdrawal/getWithdrawal': '/api/v1/finance/withdrawal/list',
+              '/api-kou/zhsWithdrawal/my-records': '/api/v1/finance/withdrawal/list',
+              '/api-kou/resource/selectsGoods': '/api/v1/resource/goods',
+              '/api-kou/resource/fileUpload': '/api/v1/resource/file/upload',
+              '/api-kou/resource/first/share/show': '/api/v1/resource/share',
+              '/api-kou/resource/first/share': '/api/v1/resource/share',
+              '/api-kou/resource/getCoursePlanet': '/api/v1/resource/planets/course',
+              '/api-kou/kling/generate/video': '/api/v1/chat/kling/video/generate',
+              '/api-kou/bot/sites/kind': '/api/v1/api/ai-bot-sites/categories',
+              '/api-kou/zhs_activity/get': '/api/v1/content/activity/list',
+              '/api-kou/login/getWxCode': '/api/v1/auth/wechat/pc/wxCode',
+            }
+            if (exactMaps[cleanPath]) {
+              return exactMaps[cleanPath] + query
+            }
+
+            // 前缀替换 (端点名相同, 按特异性排序)
+            const prefixMaps: [RegExp, string][] = [
+              [/^\/api-kou\/information/, '/api/v1/content/information'],
+              [/^\/api-kou\/course\//, '/api/v1/courses/'],
+              [/^\/api-kou\/courseVideo\//, '/api/v1/courses/videos/'],
+              [/^\/api-kou\/categoryDictionary/, '/api/v1/category-dictionary'],
+              [/^\/api-kou\/flow\//, '/api/v1/finance/commission/'],
+              [/^\/api-kou\/distribution\//, '/api/v1/finance/distribution/'],
+              [/^\/api-kou\/zhsWithdrawal\//, '/api/v1/finance/withdrawal/'],
+              [/^\/api-kou\/zhs-withdrawal-flow\//, '/api/v1/finance/withdrawal/'],
+              [/^\/api-kou\/userFeedback/, '/api/v1/feedback'],
+              [/^\/api-kou\/resource\//, '/api/v1/resource/'],
+              [/^\/api-kou\/kling\//, '/api/v1/chat/kling/'],
+              [/^\/api-kou\/bot\/sites\//, '/api/v1/api/ai-bot-sites/'],
+              [/^\/api-kou\/userVideoLog/, '/api/v1/user-video-log'],
+              [/^\/api-kou\/userVideoComment/, '/api/v1/user-video-comment'],
+              [/^\/api-kou\/zhs_activity/, '/api/v1/content/activity'],
+            ]
+            for (const [re, repl] of prefixMaps) {
+              if (re.test(cleanPath)) {
+                return path.replace(re, repl)
+              }
+            }
+
             return path
           },
           configure: (proxy: any, _options: any) => {
