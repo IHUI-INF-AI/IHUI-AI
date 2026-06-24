@@ -85,14 +85,9 @@ import { getBehaviorStatistics, type BehaviorStatistics } from '@/api/statistics
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useApiError } from '@/composables/useApiError'
 import { useChartConfig } from '@/composables/useChartConfig'
-// 按需加载echarts，减少初始包体积
-import * as echarts from 'echarts/core'
-import { BarChart } from 'echarts/charts'
-import { TitleComponent, TooltipComponent, GridComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-
-// 注册所需组件
-echarts.use([BarChart, TitleComponent, TooltipComponent, GridComponent, CanvasRenderer])
+// 2026-06-24 优化：echarts 改为按需动态加载，首屏不再打包 echarts 库
+import { loadEcharts } from '@/utils/echarts-lazy'
+import type { ECharts } from '@/utils/echarts'
 
 const { t } = useI18n()
 
@@ -105,7 +100,7 @@ const { loading, execute: executeApi } = useApiError({ showMessage: false })
 const { getChartColors, getBaseChartOption, getXAxisConfig, getYAxisConfig } = useChartConfig()
 const data = ref<BehaviorStatistics | null>(null)
 const hourChartRef = ref<HTMLDivElement | null>(null)
-let hourChartInstance: echarts.ECharts | null = null
+let hourChartInstance: ECharts | null = null
 
 const formatNumber = (num: number): string => {
   if (num >= 1000000) {
@@ -130,12 +125,13 @@ const loadData = async () => {
   }
 }
 
-const renderHourChart = () => {
+const renderHourChart = async () => {
   if (!hourChartRef.value || !data.value?.activeHours || data.value.activeHours.length === 0) {
     return
   }
 
   if (!hourChartInstance) {
+    const echarts = await loadEcharts()
     hourChartInstance = echarts.init(hourChartRef.value)
   }
 

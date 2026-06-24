@@ -210,4 +210,8 @@ onBeforeUnmount(() => {
     }
   }
 
-  .chart-ca
+  .chart-card {
+    margin-top: 20px;
+  }
+}
+</style>

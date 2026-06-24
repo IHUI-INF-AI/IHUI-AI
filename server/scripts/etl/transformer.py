@@ -102,13 +102,29 @@ def _resolve_id_lookup(
     """把 H 盘 Long 外键替换为 G 盘 String(64) UUID.
 
     通过 id_mapping 缓存查, 查不到则生成新 UUID 并记录映射.
+
+    key 命名兼容: id_lookup 的 key 可以是 G 盘字段名 (推荐, 配合 field_map),
+    也可以是 H 盘字段名 (历史 BATCHES 写法兼容). 这里先按 key 查 row,
+    如果不在, 再尝试 field_map 反向 (key 当作 h_field) 查 row.
     """
     if not task.id_lookup:
         return row
-    for g_field, source_table in task.id_lookup.items():
-        if g_field not in row or row[g_field] is None:
+    # 构建反向 field_map: g_field -> h_field
+    reverse_field_map: dict[str, str] = {v: k for k, v in task.field_map.items()}
+    for lookup_key, source_table in task.id_lookup.items():
+        # 1) 直接按 lookup_key 查 (key 是 G 盘字段名, 或 H/G 同名)
+        actual_field = lookup_key if lookup_key in row else None
+        # 2) fallback: lookup_key 当 H 盘字段名, 找对应的 g_field
+        if actual_field is None and lookup_key in reverse_field_map:
+            g_field = reverse_field_map[lookup_key]
+            if g_field in row:
+                actual_field = g_field
+        # 3) 兜底: lookup_key 直接就是 H 盘字段名, 但 field_map 没反向
+        if actual_field is None and lookup_key in row:
+            actual_field = lookup_key
+        if actual_field is None or row[actual_field] is None:
             continue
-        old_id = int(row[g_field])
+        old_id = int(row[actual_field])
         cache_key = (source_table, old_id) if source_table else (task.source_table, old_id)
         # 优先查缓存
         new_uuid = mapping_cache.get(cache_key)
@@ -117,7 +133,11 @@ def _resolve_id_lookup(
             new_uuid = _to_uuid()
             mapping_cache[cache_key] = new_uuid
             # 持久化: 延迟到 batch 提交时批量写, 避免单行失败导致映射缺失
-        row[g_field] = new_uuid
+        # 写回 row 时, 如果 lookup_key 是 G 盘字段名, 直接写; 否则写 H 盘字段名
+        target_field = lookup_key if lookup_key in row else (
+            reverse_field_map[lookup_key] if lookup_key in reverse_field_map else lookup_key
+        )
+        row[target_field] = new_uuid
     return row
 
 
