@@ -19,8 +19,23 @@ from app.utils.sms_util import send_sms_code
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+async def _json_body(request: Request) -> dict:
+    """从 request 解析 JSON body, 失败返回空 dict.
+
+    用于让认证端点同时兼容 Query 参数与 JSON Body 两种传参方式
+    (前端统一发 JSON Body, 后端历史签名只收 Query).
+    """
+    try:
+        return await request.json()
+    except Exception:
+        return {}
+
+
 @router.post("/login", summary="Password login")
-async def login(phone: str = Query(...), password: str = Query(None)):
+async def login(request: Request, phone: str = Query(None), password: str = Query(None)):
+    body = await _json_body(request)
+    phone = phone or body.get("phone")
+    password = password or body.get("password")
     if not phone:
         return error("Phone number required", "400")
     track_funnel("login", "login_submit", channel="password")
@@ -43,7 +58,10 @@ async def login(phone: str = Query(...), password: str = Query(None)):
 
 
 @router.post("/login/sms", summary="SMS code login")
-async def login_sms(phone: str = Query(...), code: str = Query(...)):
+async def login_sms(request: Request, phone: str = Query(None), code: str = Query(None)):
+    body = await _json_body(request)
+    phone = phone or body.get("phone")
+    code = code or body.get("code")
     if not phone or not code:
         return error("Phone and code required", "400")
     track_funnel("login", "login_submit", channel="sms")
@@ -59,10 +77,15 @@ async def login_sms(phone: str = Query(...), code: str = Query(...)):
 
 @router.post("/register", summary="Register new user")
 async def register(
-    phone: str = Query(...),
-    password: str = Query(...),
+    request: Request,
+    phone: str = Query(None),
+    password: str = Query(None),
     nickname: str = Query(None),
 ):
+    body = await _json_body(request)
+    phone = phone or body.get("phone")
+    password = password or body.get("password")
+    nickname = nickname or body.get("nickname")
     track_event("user_register_attempt", user_id=phone, channel="password")
     try:
         result = auth_service.register_user(phone, password, nickname)
@@ -79,7 +102,7 @@ async def register(
 
 
 @router.post("/refresh", summary="Refresh access token (rotate)")
-async def refresh_token(refresh_token: str = Query(...)):
+async def refresh_token(request: Request, refresh_token: str = Query(None)):
     """使用 refresh token 轮转颁发新 access + refresh.
 
     安全机制 (Bug-53 rotate_refresh):
@@ -92,6 +115,8 @@ async def refresh_token(refresh_token: str = Query(...)):
       - refresh 有效期 7 天, access 有效期 JWT_EXPIRE_MINUTES
       - 客户端应监控 access 剩余时间, 提前 ~5 分钟调用 refresh
     """
+    body = await _json_body(request)
+    refresh_token = refresh_token or body.get("refresh_token") or body.get("refreshToken")
     from app.config import settings
     from app.utils.refresh_rotation import rotate_refresh
 
@@ -143,7 +168,9 @@ async def check_phone_exists(phone: str):
 
 
 @router.post("/sms/code", summary="Send SMS verification code")
-async def send_code(phone: str = Query(...)):
+async def send_code(request: Request, phone: str = Query(None)):
+    body = await _json_body(request)
+    phone = phone or body.get("phone")
     logger.info(f"SMS code requested for: {phone}")
     result = await send_sms_code(phone)
     if not result["success"]:
