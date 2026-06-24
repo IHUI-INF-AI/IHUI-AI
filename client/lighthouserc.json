@@ -21,6 +21,20 @@ ci:
       - http://localhost:3000/
       - http://localhost:3000/login
       - http://localhost:3000/ai-app-store
+      - http://localhost:3000/edu
+      - http://localhost:3000/edu/learn
+      - http://localhost:3000/edu/ask
+      - http://localhost:3000/edu/circle
+      - http://localhost:3000/edu/live
+      - http://localhost:3000/edu/member
+      - http://localhost:3000/edu/point
+      - http://localhost:3000/edu/order
+      - http://localhost:3000/edu/message
+      - http://localhost:3000/edu/notification
+      - http://localhost:3000/edu/resource
+      - http://localhost:3000/edu/search
+      - http://localhost:3000/edu/exam
+      - http://localhost:3000/admin/edu
   
   assert:
     assertions:
