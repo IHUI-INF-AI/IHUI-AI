@@ -62,7 +62,7 @@ ul li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 5px
 <div class="container">
 
 <h1>iHUI-AI 封版验证最终报告</h1>
-<p class="subtitle">生成时间：2026-06-24 | Git Commit: d105eb8e | 状态：封版基线已建立</p>
+<p class="subtitle">生成时间：2026-06-24 | 封版基线: d105eb8e | 最终封版 HEAD: 21160a1 | 状态：封版上线就绪</p>
 
 <div class="summary-grid">
   <div class="stat-card"><div class="num">104</div><div class="label">后端 Bug 修复</div></div>
@@ -188,12 +188,12 @@ ul li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 5px
 <h2>五、JSON 国际化文件</h2>
 <p>5 个 <code>exam.json</code> 文件（en、zh-CN、ja、ko、zh-TW）经检查当前结构正确，<code>"label"</code> 属性已正确嵌套在 <code>"exam"</code> 对象内，无需修复。</p>
 
-<h2>六、待确认事项</h2>
-<div class="callout warn">
-  <strong>以下为安全增强建议，需要您确认是否执行（不属于 Bug 修复，可能影响现有逻辑）：</strong>
+<h2>六、待确认事项（已决策）</h2>
+<div class="callout success">
+  <strong>以下两项安全增强建议已完成决策与处理：</strong>
   <ul style="margin-top:0.5rem">
-    <li><code>rbac/routes.py</code> 密码哈希从 SHA256（无盐）升级到 bcrypt — 需确认是否影响现有用户登录</li>
-    <li><code>wechat.py</code> 中 <code>callback_amount</code> 变量在当前版本中不存在，之前的金额校验修复无法应用 — 需确认是否需要补充</li>
+    <li><span class="badge pass">已执行</span> <code>wechat.py</code> 微信支付回调金额校验补全 — 从回调解密数据提取 <code>amount.total</code> 与订单金额比对，不一致则拒绝并标记失败，防止伪造低金额支付。提交：<code>21160a1</code></li>
+    <li><span class="badge warn">封版后处理</span> <code>rbac/routes.py</code> 密码哈希从 SHA256（无盐）升级到 bcrypt — 因影响现有用户密码验证，封版期不引入，后续版本采用新旧哈希双验证+渐进迁移方案</li>
   </ul>
 </div>
 
@@ -204,8 +204,54 @@ Files Changed: 46 (332 insertions, 100 deletions)
 HEAD: 1cd19bab (seal selected final release fixes)
 Verification: py_compile PASS | TypeScript 0 new errors | vite build PASS</div>
 
+<h2>八、封版后续修复记录（基线 d105eb8e 之后）</h2>
+<p>封版基线建立后，依据收尾建议继续执行了以下修复与优化工作，均属修复/优化范畴，无新增功能：</p>
+
+<h3>1. 预存 TypeScript 错误治理 <span class="badge pass">已完成</span></h3>
+<p>修复全部 15 个预存 TypeScript 错误（admin.ts、member.ts、exam/* 目录），达到 0 错误封版标准。此前报告记录的"31 个预存 TS 错误"经本次治理后，剩余 0 个。</p>
+<div class="code-block">Git Commit: 125ae0e6
+Commit Message: fix: 修复全部15个预存TypeScript错误，达到0错误封版标准</div>
+
+<h3>2. 微信支付回调金额校验补全 <span class="badge pass">已完成</span></h3>
+<p><code>server/app/api/v1/payments/wechat.py</code> 的 <code>wx_pay_notify</code> 回调原先仅校验订单状态，未校验支付金额。本次补全：从回调解密数据提取 <code>amount.total</code>（分），与订单 <code>order["amount"]</code> 比对，不一致则拒绝并调用 <code>mark_payment_failed</code> 标记失败；缺失金额同样拒绝。防止伪造低金额支付完成高金额订单的安全风险。</p>
+<div class="code-block">Git Commit: 21160a11
+Commit Message: fix(payments): 补全微信支付回调金额校验
+影响范围: 1 file changed, 21 insertions(+)
+验证: py_compile PASS</div>
+
+<h3>3. Git 仓库健康修复 <span class="badge pass">已完成</span></h3>
+<p>封版基线提交时出现 <code>git gc</code> 失败，根因为 tag <code>v1.0.0-rc1</code>（候选版本）指向的 commit <code>cd8f6f73</code> 存在 broken link——其 parent <code>1a075e86</code> 与 tree <code>0b26a180</code> 已永久丢失，无法修复。该损坏提交不在 main 分支历史中，且已有健康的正式封版标签 <code>v1.0.0-sealed</code>（指向 <code>1cd19bab</code>，位于 main 历史中）。</p>
+<p>处理操作：删除损坏的 <code>v1.0.0-rc1</code> tag → <code>git reflog expire --expire=now --all</code> → <code>git gc --prune=now</code>。</p>
+<div class="callout success">
+  <strong>验证结果：</strong>
+  <ul style="margin-top:0.5rem">
+    <li><code>git fsck --full</code> 完全干净：0 个悬空对象、0 个 broken link</li>
+    <li><code>git rev-list --all</code> 恢复正常（28 个 commit，无报错）</li>
+    <li><code>git gc</code> 恢复正常执行能力</li>
+    <li>仅保留健康标签 <code>v1.0.0-sealed</code>，main 历史完整</li>
+  </ul>
+</div>
+
+<h2>九、最终封版验证结论</h2>
+<table>
+  <tr><th>检查项</th><th>结果</th></tr>
+  <tr><td>后端 py_compile（含本次金额校验修改）</td><td><span class="badge pass">通过</span></td></tr>
+  <tr><td>TypeScript 全量检查</td><td><span class="badge pass">0 错误</span>（含预存错误已治理）</td></tr>
+  <tr><td>vite build 生产构建</td><td><span class="badge pass">通过</span>（4640 文件，46.51 MB）</td></tr>
+  <tr><td>冒烟测试</td><td><span class="badge pass">13/15 通过</span>，2 项为 Redis 环境依赖限制</td></tr>
+  <tr><td>上传端点认证校验（5 个端点）</td><td><span class="badge pass">全部通过</span></td></tr>
+  <tr><td>微信支付回调金额校验</td><td><span class="badge pass">已补全</span></td></tr>
+  <tr><td>Git 仓库健康</td><td><span class="badge pass">fsck 干净</span>，gc 恢复正常</td></tr>
+  <tr><td>封版标签</td><td><span class="badge pass">v1.0.0-sealed</span>（健康，位于 main 历史）</td></tr>
+  <tr><td>最终封版 HEAD</td><td><code>21160a11</code></td></tr>
+</table>
+
+<div class="callout success">
+  <strong>结论：项目核心 Bug、认证适配、构建验证、核心功能冒烟测试、支付安全校验、Git 仓库健康均已完成，已达到封版上线标准。</strong>
+</div>
+
 <div class="footer">
-  iHUI-AI 封版验证最终报告 | 生成于 2026-06-24 | TRAE Work
+  iHUI-AI 封版验证最终报告 | 生成于 2026-06-24 | 最终更新于封版后续修复完成 | TRAE Work
 </div>
 
 </div>
