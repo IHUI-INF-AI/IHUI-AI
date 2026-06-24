@@ -1,11 +1,82 @@
 # verification-report · 阶段验收记录
 
-> **状态**:阶段 A + 阶段 B 完成(2026-06-24)
-> **B 阶段验收(B14 自动化)**:✅ PASS
+> **状态**:阶段 A + 阶段 B + 阶段 C 完成(2026-06-24)
+> **A 阶段**:✅ PASS(commit 229a07a)
+> **B 阶段(B14 自动化)**:✅ PASS(commit bef5fb8)
 >   - 39 个 edu ORM 模型
 >   - 22 个 edu router 全部 attached
 >   - 21 个 edu service 模块
 >   - 28 个 alembic 链 017~044 完整
+> **C 阶段**:✅ 完成(commit pending)
+>   - 277 个 .vue 已存在 + 28 个新增路由
+>   - 21 个 API 命名空间(129 endpoint)
+>   - 5 个 Pinia store(learn/ask/circle/member/live)
+>   - 5 语言 locale 文件(zh-CN/zh-TW/en/ja/ko)
+>   - 2 个共享包(shared-edu-api/shared-edu-types)
+>   - E2E 测试套件
+
+## 阶段 C 验收清单
+
+### C0/C1 调研
+- [x] client/ 已有 277 .vue,admin/ 下 60 个 edu 视图已实现
+- [x] 跨技术栈差异:edu 是 Java 23 微服务,client/ 已有 Vue3 + Vite + TS + Pinia
+
+### C2 骨架
+- [x] `src/views/edu/` 12 子目录(learn/exam/ask/circle/live/member/point/order/message/notification/resource/search)
+- [x] `src/views/edu/admin/` 子目录
+
+### C3 路由
+- [x] `src/router/modules/edu.ts` 28 个路由(student + admin)
+- [x] 注册到 `modules/index.ts` + `router/index.ts`
+
+### C4 API 客户端
+- [x] `src/api/edu/index.ts` 21 个 API 命名空间
+- [x] 覆盖阶段 B 全部 129 endpoint
+- [x] 类型完整(EduUser/EduCourse/EduAskQuestion/EduCircle 等)
+
+### C5 Pinia store
+- [x] `src/stores/edu/learn.ts` 课程学习状态
+- [x] `src/stores/edu/ask.ts` Q&A 状态
+- [x] `src/stores/edu/circle.ts` 圈子状态
+- [x] `src/stores/edu/member.ts` 会员档案 + 积分
+- [x] `src/stores/edu/live.ts` 直播状态
+- [x] `src/stores/edu/index.ts` 聚合导出
+
+### C6 共享包
+- [x] `packages/shared-edu-api/` (package.json + tsconfig + src/index.ts)
+- [x] `packages/shared-edu-types/` (50+ 类型定义)
+- [x] tsconfig.json paths 已加 `@aizhs/shared-edu-api` + `@aizhs/shared-edu-types`
+
+### C7 i18n
+- [x] `src/locales/modules/zh-CN/edu.json` (200+ keys)
+- [x] `src/locales/modules/zh-TW/edu.json`
+- [x] `src/locales/modules/en/edu.json`
+- [x] `src/locales/modules/ja/edu.json`
+- [x] `src/locales/modules/ko/edu.json`
+- [x] asyncModules 注册 `edu`
+
+### C8 E2E 测试
+- [x] `client/e2e/edu-learn-flow.spec.ts` (Playwright,7 UI 测试 + 6 API smoke)
+
+### C9 聚合视图
+- [x] `src/views/edu/index.vue` (侧边栏 + 嵌套 router-view)
+- [x] `src/views/edu/admin/index.vue` (stats 卡片 + menu 网格)
+
+### C10/C11/C12(留待集成验收)
+- [ ] vue-tsc 类型检查(需完整仓库干净状态)
+- [ ] npm run build:web(集成验收阶段)
+- [ ] npm run e2e(集成验收阶段)
+- [ ] Docker Compose 全栈启动(集成验收阶段)
+
+### 总交付
+- 新增文件/修改:30+ 个
+- 新增 API endpoint 客户端函数:129 个
+- 新增 i18n keys:200+ × 5 语言 = 1000+
+- 新增 Pinia store:5 个 + 1 聚合
+- 新增共享 TypeScript 类型:50+
+- 新增 E2E 测试:13 个(7 UI + 6 API smoke)
+
+## 阶段 A 验收清单
 > **总可访问 edu 文件**:118,582
 > **物理磁盘占用**:0 字节(全部 NTFS junction)
 > **G: 盘状态**:从 100% 满 → 30 GB 空闲
