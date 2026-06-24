@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.security import hash_password
 from app.services.database_service import (
     FileAccessService,
     PermissionService,
@@ -61,8 +62,7 @@ async def create_user(data: UserCreate, db: Session = Depends(get_db)):
 
     hashed_password = None
     if data.password:
-        import hashlib
-        hashed_password = hashlib.sha256(data.password.encode()).hexdigest()
+        hashed_password = hash_password(data.password)
 
     user = UserService.create(
         db, user_id, data.username, data.email, hashed_password, data.display_name
