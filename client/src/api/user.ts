@@ -570,7 +570,11 @@ export const register = withApiResponseHandler(
 // 修改密码
 export const updatePassword = withApiResponseHandler(
   async (data: { oldPassword: string; newPassword: string }): Promise<ApiResponse<boolean>> => {
-    const response = await request.post<boolean>('/user/update-password', data)
+    // 2026-06-24 修复: 对齐后端 PUT /api/v1/auth/profile/password (Body: old_password, new_password)
+    const response = await request.put<boolean>('/api/v1/auth/profile/password', {
+      old_password: data.oldPassword,
+      new_password: data.newPassword,
+    })
     return normalizeApiResponse(response)
   }
 )
