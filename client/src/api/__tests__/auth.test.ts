@@ -101,8 +101,8 @@ describe('auth', () => {
   })
 
   it('login 登录', async () => {
-    await callFn((api as any).login, { identifier: 'u', password: 'p' })
-    await callFn((api as any).login, { identifier: 'u', password: 'p', captcha: 'c', uuid: 'u-1' })
+    await callFn((api as any).login, { username: 'u', password: 'p' })
+    await callFn((api as any).login, { username: 'u', password: 'p', captcha: 'c', uuid: 'u-1' })
   })
 
   it('refreshToken 刷新', async () => {

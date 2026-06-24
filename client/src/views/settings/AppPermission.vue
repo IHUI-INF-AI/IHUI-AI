@@ -36,7 +36,7 @@ import {
   ChatLineRound,
   Bell,
   Monitor,
-} from '@/lib/lucide-fallback'
+} from '@element-plus/icons-vue'
 
 const permissionList = [
   {

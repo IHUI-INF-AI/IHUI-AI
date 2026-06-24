@@ -145,7 +145,7 @@
     font-size: inherit;
   }
 
-  &:active {
+  html:not(.dark) &:active {
     background-color: var(--el-color-primary);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
 

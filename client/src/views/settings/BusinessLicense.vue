@@ -9,7 +9,20 @@
           :preview-teleported="true"
           fit="contain"
           hide-on-click-modal
-        />
+        >
+          <template #error>
+            <div class="business-license__placeholder">
+              <el-icon :size="48"><Picture /></el-icon>
+              <p>营业执照图片暂未提供</p>
+              <p class="business-license__placeholder-sub">如需查看，请联系客服或前往小程序端查看</p>
+            </div>
+          </template>
+          <template #placeholder>
+            <div class="business-license__loading">
+              <el-icon :size="32" class="is-loading"><Loading /></el-icon>
+            </div>
+          </template>
+        </el-image>
       </div>
     </SettingsPageLayout>
   </div>
@@ -17,6 +30,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Picture, Loading } from '@element-plus/icons-vue'
 import SettingsPageLayout from './SettingsPageLayout.vue'
 
 const licenseImage = ref('/static/images/businessLicense.png')
@@ -48,5 +62,34 @@ const previewList = ref([licenseImage.value])
   display: block;
   border-radius: 8px;
   cursor: pointer;
+}
+
+.business-license__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  color: var(--el-text-color-secondary);
+  background-color: var(--el-fill-color-light);
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.business-license__placeholder-sub {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.business-license__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: var(--el-text-color-secondary);
 }
 </style>

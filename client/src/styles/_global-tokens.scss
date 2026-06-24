@@ -198,6 +198,12 @@ $color-dark-text-primary: #e5eaf3;
   /* 纯白色 token - 亮色模式为白色，暗色模式在 html.dark 中覆盖 */
   --color-white: #ffffff;
 
+  /* 对比色 token - 自动适配 primary 背景上的文字/图标颜色
+   * 亮色：primary=#000 → 对比色=#fff（黑底白字）
+   * 暗色：primary=#fff → 对比色=#000（白底黑字）
+   * 凡在 primary 背景上放置文字/图标时，必须使用此变量 */
+  --color-on-primary: #ffffff;
+
   /* 中性色阶 - 亮色模式（暗色模式在 html.dark 中覆盖） */
   --color-neutral-100: #f5f7fa; /* 浅灰背景，组件常用 */
   --color-neutral-300: #c0c4cc; /* 中灰文字/边框 */
@@ -444,6 +450,9 @@ html.dark {
 
   /* 纯白色 token - 暗色模式覆盖为浅色文字色（用于白底文字、白色背景场景） */
   --color-white: var(--color-gray-e5eaf3);
+
+  /* 对比色 token - 暗色模式：primary=白色 → 对比色=黑色 */
+  --color-on-primary: #000000;
 
   /* 中性色阶 - 暗色模式覆盖 */
   --color-neutral-100: var(--color-dark-bg-5); /* 浅灰背景 → 深灰背景 */

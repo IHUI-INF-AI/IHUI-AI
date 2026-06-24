@@ -28,7 +28,7 @@ export interface RegisterRequest {
 }
 
 export interface LoginRequest {
-  identifier: string // 用户名或邮箱
+  username: string // 用户名
   password: string
   remember?: boolean
   captcha?: string // 验证码
@@ -83,7 +83,7 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
   return request.post(
     AUTH_PATHS.login,
     {
-      username: data.identifier,
+      username: data.username,
       password: data.password,
       code: data.captcha ?? '',
       uuid: data.uuid ?? '',

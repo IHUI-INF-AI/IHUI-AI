@@ -36,6 +36,10 @@ async def login(request: Request, phone: str = Query(None), password: str = Quer
     body = await _json_body(request)
     phone = phone or body.get("phone")
     password = password or body.get("password")
+    # 兼容前端传 username 字段: 若无 phone 但有 username, 用 username 作为登录标识
+    username = body.get("username") if not phone else None
+    if not phone and username:
+        phone = username  # login_by_password 查 phone 字段, 前端 username 可能是手机号
     if not phone:
         return error("Phone number required", "400")
     track_funnel("login", "login_submit", channel="password")
@@ -135,6 +139,12 @@ async def refresh_token(request: Request, refresh_token: str = Query(None)):
         "token_type": "Bearer",
         "expires_in": settings.JWT_EXPIRE_MINUTES * 60,
         "refresh_expires_in": 7 * 24 * 60 * 60,
+        # camelCase 别名: 前端 axios 拦截器期望 camelCase 字段名
+        "accessToken": new_access,
+        "refreshToken": new_refresh,
+        "tokenType": "Bearer",
+        "expiresIn": settings.JWT_EXPIRE_MINUTES * 60,
+        "refreshExpiresIn": 7 * 24 * 60 * 60,
     })
 
 

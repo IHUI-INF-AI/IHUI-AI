@@ -26,17 +26,7 @@ const route = useRoute() as ReturnType<typeof useRoute> & {
 const { goHome, goBack } = useNavigation()
 
 onMounted(() => {
-  try {
-    const msg = `404 Not Found: ${route.fullPath}`
-    const err = new Error(msg)
-    const ev = new ErrorEvent('error', { error: err, message: msg })
-    window.dispatchEvent(ev)
-  } catch (error) {
-    // ErrorEvent创建失败，已在上层处理，这里静默处理
-    if (import.meta.env.DEV) {
-      logger.debug('[NotFound] ErrorEvent dispatch failed:', error)
-    }
-  }
+  // 404 页面正常展示，不触发 ErrorEvent 避免被 ErrorBoundary 拦截
 })
 </script>
 

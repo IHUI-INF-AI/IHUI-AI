@@ -104,25 +104,19 @@ def _resolve_id_lookup(
     通过 id_mapping 缓存查, 查不到则生成新 UUID 并记录映射.
 
     key 命名兼容: id_lookup 的 key 可以是 G 盘字段名 (推荐, 配合 field_map),
-    也可以是 H 盘字段名 (历史 BATCHES 写法兼容). 这里先按 key 查 row,
-    如果不在, 再尝试 field_map 反向 (key 当作 h_field) 查 row.
+    也可以是 H 盘字段名 (历史 BATCHES 写法兼容).
+
+    解析 row 中实际字段名的算法:
+      1) 直接按 lookup_key 查 row (G 盘字段名, 或 H/G 同名)
+      2) fallback: lookup_key 当 H 盘字段名, 查 field_map 反向找 G 盘字段名
+      3) fallback: lookup_key 当 H 盘字段名, 但没被 field_map 重命名 (此时 row 应还在 field_map 前,
+         但 _resolve_id_lookup 在 field_map 之后调用, 此场景不该发生)
     """
     if not task.id_lookup:
         return row
-    # 构建反向 field_map: g_field -> h_field
-    reverse_field_map: dict[str, str] = {v: k for k, v in task.field_map.items()}
     for lookup_key, source_table in task.id_lookup.items():
-        # 1) 直接按 lookup_key 查 (key 是 G 盘字段名, 或 H/G 同名)
-        actual_field = lookup_key if lookup_key in row else None
-        # 2) fallback: lookup_key 当 H 盘字段名, 找对应的 g_field
-        if actual_field is None and lookup_key in reverse_field_map:
-            g_field = reverse_field_map[lookup_key]
-            if g_field in row:
-                actual_field = g_field
-        # 3) 兜底: lookup_key 直接就是 H 盘字段名, 但 field_map 没反向
-        if actual_field is None and lookup_key in row:
-            actual_field = lookup_key
-        if actual_field is None or row[actual_field] is None:
+        actual_field = _resolve_field_name(lookup_key, row, task.field_map)
+        if actual_field is None or row.get(actual_field) is None:
             continue
         old_id = int(row[actual_field])
         cache_key = (source_table, old_id) if source_table else (task.source_table, old_id)
@@ -133,12 +127,24 @@ def _resolve_id_lookup(
             new_uuid = _to_uuid()
             mapping_cache[cache_key] = new_uuid
             # 持久化: 延迟到 batch 提交时批量写, 避免单行失败导致映射缺失
-        # 写回 row 时, 如果 lookup_key 是 G 盘字段名, 直接写; 否则写 H 盘字段名
-        target_field = lookup_key if lookup_key in row else (
-            reverse_field_map[lookup_key] if lookup_key in reverse_field_map else lookup_key
-        )
-        row[target_field] = new_uuid
+        row[actual_field] = new_uuid
     return row
+
+
+def _resolve_field_name(lookup_key: str, row: dict[str, Any], field_map: dict[str, str]) -> str | None:
+    """根据 lookup_key 在 row 中找到实际字段名.
+
+    1) lookup_key 已在 row 中 → 直接返回
+    2) lookup_key 是 H 盘字段名, field_map 重命名后变 G 盘 → 返回 G 盘字段名
+    3) 都查不到 → 返回 None
+    """
+    if lookup_key in row:
+        return lookup_key
+    # lookup_key 可能是 H 盘字段名, field_map[lookup_key] 是 G 盘字段名
+    g_field = field_map.get(lookup_key)
+    if g_field and g_field in row:
+        return g_field
+    return None
 
 
 def transform_row(

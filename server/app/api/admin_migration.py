@@ -11,22 +11,23 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import sys
-import threading
-import uuid
-from collections import deque
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from scripts.etl.checkpoint import MigrationCheckpoint
 from scripts.etl.config import BATCHES
+from app.config import settings
 from app.database import get_session
+from app.models.message_models import Message
+from app.security import require_login, require_role
 from app.services import id_mapping_service
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin/migration", tags=["Admin Migration"])
 
 SERVER_DIR = Path(__file__).resolve().parents[3]  # server/
+
+# 站内信接收方 (admin) UUID, 多副本必须一致.
+# 优先级: 环境变量 (运维显式覆盖) > settings.NOTIFY_RECIPIENT_UUID (Pydantic .env) > 默认固定 UUID
+NOTIFY_RECIPIENT_UUID = (
+    os.getenv("NOTIFY_RECIPIENT_UUID")
+    or settings.NOTIFY_RECIPIENT_UUID
+    or "00000000-0000-0000-0000-000000000001"
+)
+
+# 站内信最大保留数 (FIFO 淘汰).
+# 优先级: 环境变量 > settings.NOTIFY_MAX > 默认 1000
+NOTIFY_MAX = int(
+    os.getenv("NOTIFY_MAX")
+    or str(settings.NOTIFY_MAX)
+    or "1000"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +86,7 @@ class VerifyResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("/batches", summary="列出所有迁移批次")
-async def list_batches() -> list[BatchInfo]:
+async def list_batches(_: str = Depends(require_role("admin"))) -> list[BatchInfo]:
     out: list[BatchInfo] = []
     for b in BATCHES:
         with get_session() as db:
@@ -213,7 +230,7 @@ async def rollback_batch(batch_id: str, confirm: bool = False) -> dict:
 
 
 @router.get("/checkpoints/{batch_id}", summary="查询批次内所有 checkpoint")
-async def list_checkpoints(batch_id: str) -> list[dict]:
+async def list_checkpoints(batch_id: str, _: str = Depends(require_role("admin"))) -> list[dict]:
     with get_session() as db:
         rows = (
             db.query(MigrationCheckpoint)
@@ -299,6 +316,7 @@ class BatchResolveReq(BaseModel):
 async def lookup_id_mapping(
     source_table: str = Query(..., description="H 盘表名, 如 t_member"),
     old_id: int = Query(..., description="H 盘 Long 主键"),
+    _: str = Depends(require_role("admin")),
 ):
     new_uuid = id_mapping_service.get_new_id(source_table, old_id)
     if not new_uuid:
@@ -345,33 +363,73 @@ async def batch_resolve_id_mapping(req: BatchResolveReq):
 
 
 @router.get("/id-mapping/stats", summary="按批次汇总映射统计")
-async def get_migration_stats() -> list[dict[str, Any]]:
+async def get_migration_stats(_: str = Depends(require_role("admin"))) -> list[dict[str, Any]]:
     return id_mapping_service.get_migration_stats()
 
 
 # ---------------------------------------------------------------------------
-# 站内信: 对账 / 迁移告警 (P1.6)
+# 站内信: 对账 / 迁移告警 (P1.6 + 047 持久化)
 # ---------------------------------------------------------------------------
-# 内存存储, 服务重启后清空 (轻量方案, 无需新增 model)
-# 已读状态也存内存, 适合 admin 单点使用场景
-# 容量上限 1000 条, FIFO 淘汰
-
-_NOTIFY_MAX = 1000
-_notify_lock = threading.Lock()
+# 047 迁移后改为 DB 持久化 (复用 message 表, user_id 指向 admin 接收方 UUID).
+# 重启 / 多 worker / 多 pod 全共享, 解决之前 deque 内存方案的数据丢失问题.
+#
+# 容量控制: 1000 条 (FIFO 淘汰), 用 SQL 删除最旧的多余记录.
+# 接收方: NOTIFY_RECIPIENT_UUID (环境变量可覆盖, 默认固定 admin UUID).
 
 
 @dataclass
 class NotifyItem:
-    id: str
-    title: str
-    body: str
+    """站内信数据传输对象 (与 Message 表一一对应, 序列化用)."""
+    id: str = ""  # Message.id 是 BigInteger, 序列化为 str 避免前端 JS 大数溢出
+    title: str = ""
+    body: str = ""
     level: Literal["info", "warn", "error"] = "info"
     source: str = "migration"  # migration / reconcile / dual_write
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     read: bool = False
+    read_time: str | None = None
 
 
-_notify_queue: deque[NotifyItem] = deque(maxlen=_NOTIFY_MAX)
+def _to_notify_item(m: Message) -> NotifyItem:
+    """Message ORM → NotifyItem 转换. content 即 body, sender_name 存 source."""
+    return NotifyItem(
+        id=str(m.id) if m.id is not None else "",
+        title=m.title or "",
+        body=m.content or "",
+        level=(m.sender_id or "info") if m.sender_id in ("info", "warn", "error") else "info",
+        source=m.sender_name or "migration",
+        created_at=(m.created_at or datetime.utcnow()).isoformat()
+        if isinstance(m.created_at, datetime) else str(m.created_at),
+        read=bool(m.is_read),
+        read_time=m.read_time.isoformat() if m.read_time else None,
+    )
+
+
+def _trim_notify_queue() -> None:
+    """站内信总数超 NOTIFY_MAX 时, 删最旧的非置顶条目 (FIFO 淘汰)."""
+    with get_session() as db:
+        # 统计当前条数 (只算站内信, type=system_notice)
+        total = (
+            db.query(Message)
+            .filter(Message.user_id == NOTIFY_RECIPIENT_UUID)
+            .filter(Message.type == "system_notice")
+            .count()
+        )
+        if total <= NOTIFY_MAX:
+            return
+        # 取超出部分最旧的 id, 删除 (非置顶优先)
+        overflow = total - NOTIFY_MAX
+        oldest = (
+            db.query(Message)
+            .filter(Message.user_id == NOTIFY_RECIPIENT_UUID)
+            .filter(Message.type == "system_notice")
+            .filter(Message.is_top.is_(False))
+            .order_by(Message.created_at.asc())
+            .limit(overflow)
+            .all()
+        )
+        for m in oldest:
+            db.delete(m)
 
 
 def push_notification(
@@ -380,16 +438,29 @@ def push_notification(
     level: Literal["info", "warn", "error"] = "info",
     source: str = "migration",
 ) -> NotifyItem:
-    """写入一条告警 (供后端内部调用, 如 run_reconcile_task 检测到不平衡时)."""
-    item = NotifyItem(
-        id=str(uuid.uuid4()),
-        title=title,
-        body=body,
-        level=level,
-        source=source,
-    )
-    with _notify_lock:
-        _notify_queue.append(item)
+    """写入一条告警到 message 表 (供后端内部调用, 如 run_reconcile_task).
+
+    容量超限自动 FIFO 淘汰, 保证表不会无限增长.
+    """
+    with get_session() as db:
+        m = Message(
+            user_id=NOTIFY_RECIPIENT_UUID,
+            type="system_notice",
+            title=title,
+            content=body,
+            sender_id=level,  # 复用 sender_id 存 level (info/warn/error)
+            sender_name=source,  # 复用 sender_name 存 source (migration/reconcile/...)
+            is_read=False,
+            is_top=(level == "error"),  # error 级别置顶
+        )
+        db.add(m)
+        db.flush()
+        item = _to_notify_item(m)
+    # 容量控制: 提交后单独 session 删 (避免 session 内删除的并发问题)
+    try:
+        _trim_notify_queue()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"push_notification: FIFO 淘汰失败: {e}")
     return item
 
 
@@ -404,53 +475,95 @@ class PushNotifyReq(BaseModel):
 async def list_notifications(
     only_unread: bool = Query(False, description="只返回未读"),
     limit: int = Query(50, ge=1, le=200),
+    _: str = Depends(require_login),
 ) -> dict[str, Any]:
-    with _notify_lock:
-        items = list(_notify_queue)
-    if only_unread:
-        items = [n for n in items if not n.read]
-    items = items[-limit:][::-1]  # 最新的在前
-    unread_count = sum(1 for n in _notify_queue if not n.read)
+    with get_session() as db:
+        q = (
+            db.query(Message)
+            .filter(Message.user_id == NOTIFY_RECIPIENT_UUID)
+            .filter(Message.type == "system_notice")
+        )
+        if only_unread:
+            q = q.filter(Message.is_read.is_(False))
+        # 置顶优先, 然后时间倒序
+        q = q.order_by(Message.is_top.desc(), Message.created_at.desc())
+        msgs = q.limit(limit).all()
+        items = [_to_notify_item(m) for m in msgs]
+        # 未读总数
+        unread = (
+            db.query(Message)
+            .filter(Message.user_id == NOTIFY_RECIPIENT_UUID)
+            .filter(Message.type == "system_notice")
+            .filter(Message.is_read.is_(False))
+            .count()
+        )
     return {
         "code": 0,
         "data": {
             "items": [asdict(n) for n in items],
-            "total": len(_notify_queue),
-            "unread_count": unread_count,
+            "total": len(items),
+            "unread_count": unread,
         },
         "msg": "ok",
     }
 
 
 @router.get("/notify/unread-count", summary="未读条数 (供菜单红点)")
-async def unread_count() -> dict[str, Any]:
-    with _notify_lock:
-        unread = sum(1 for n in _notify_queue if not n.read)
+async def unread_count(_: str = Depends(require_login)) -> dict[str, Any]:
+    with get_session() as db:
+        unread = (
+            db.query(Message)
+            .filter(Message.user_id == NOTIFY_RECIPIENT_UUID)
+            .filter(Message.type == "system_notice")
+            .filter(Message.is_read.is_(False))
+            .count()
+        )
     return {"code": 0, "data": {"unread_count": unread}, "msg": "ok"}
 
 
 @router.post("/notify/{notify_id}/read", summary="标记单条已读")
-async def mark_read(notify_id: str) -> dict[str, Any]:
-    with _notify_lock:
-        for n in _notify_queue:
-            if n.id == notify_id:
-                n.read = True
-                return {"code": 0, "msg": "ok"}
-    raise HTTPException(status_code=404, detail="通知不存在")
+async def mark_read(notify_id: str, _: str = Depends(require_login)) -> dict[str, Any]:
+    """notify_id 是 Message.id (BigInteger) 的 str 表示."""
+    try:
+        nid = int(notify_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail=f"notify_id 格式错误: {notify_id}")
+    with get_session() as db:
+        m = (
+            db.query(Message)
+            .filter(Message.id == nid)
+            .filter(Message.user_id == NOTIFY_RECIPIENT_UUID)
+            .filter(Message.type == "system_notice")
+            .first()
+        )
+        if m is None:
+            raise HTTPException(status_code=404, detail="通知不存在")
+        if not m.is_read:
+            m.is_read = True
+            m.read_time = datetime.utcnow()
+    return {"code": 0, "msg": "ok"}
 
 
 @router.post("/notify/read-all", summary="全部标记已读")
-async def mark_all_read() -> dict[str, Any]:
-    with _notify_lock:
-        count = 0
-        for n in _notify_queue:
-            if not n.read:
-                n.read = True
-                count += 1
-    return {"code": 0, "data": {"marked": count}, "msg": "ok"}
+async def mark_all_read(_: str = Depends(require_login)) -> dict[str, Any]:
+    with get_session() as db:
+        # 一次 UPDATE 批量标记, 比逐条 SET 性能好
+        from sqlalchemy import update  # 局部 import 避免污染顶部
+
+        result = (
+            db.execute(
+                update(Message)
+                .where(Message.user_id == NOTIFY_RECIPIENT_UUID)
+                .where(Message.type == "system_notice")
+                .where(Message.is_read.is_(False))
+                .values(is_read=True, read_time=datetime.utcnow())
+            )
+        )
+        marked = result.rowcount or 0
+    return {"code": 0, "data": {"marked": marked}, "msg": "ok"}
 
 
 @router.post("/notify", summary="手动创建一条告警 (供运维 / 任务回调使用)")
-async def create_notification(req: PushNotifyReq) -> dict[str, Any]:
+async def create_notification(req: PushNotifyReq, _: str = Depends(require_role("admin"))) -> dict[str, Any]:
     item = push_notification(req.title, req.body, req.level, req.source)
     return {"code": 0, "data": asdict(item), "msg": "ok"}

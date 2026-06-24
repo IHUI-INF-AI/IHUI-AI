@@ -432,6 +432,10 @@ def create_app() -> FastAPI:
         mock_on = True
     else:
         mock_on = _env not in ("production", "prod")
+    # Phase D integration verification: skip mock to let real edu routers respond
+    if _os.environ.get("EDU_INTEGRATION_TEST", "").lower() in ("1", "true", "yes"):
+        mock_on = False
+        logger.info("EDU_INTEGRATION_TEST=1, mock routes forcibly disabled")
     try:
         from app.api.mock import api_router, coze_router, from_fastapi_router, prod_router
 

@@ -12,7 +12,20 @@
           :preview-teleported="true"
           fit="contain"
           hide-on-click-modal
-        />
+        >
+          <template #error>
+            <div class="model-record__placeholder">
+              <el-icon :size="48"><Picture /></el-icon>
+              <p>模型备案图片 {{ Number(index) + 1 }} 暂未提供</p>
+              <p class="model-record__placeholder-sub">如需查看，请联系客服或前往小程序端查看</p>
+            </div>
+          </template>
+          <template #placeholder>
+            <div class="model-record__loading">
+              <el-icon :size="32" class="is-loading"><Loading /></el-icon>
+            </div>
+          </template>
+        </el-image>
       </div>
     </SettingsPageLayout>
   </div>
@@ -20,6 +33,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Picture, Loading } from '@element-plus/icons-vue'
 import SettingsPageLayout from './SettingsPageLayout.vue'
 
 const imageList = ref([
@@ -60,5 +74,34 @@ const imageList = ref([
   &:last-child {
     margin-bottom: 0;
   }
+}
+
+.model-record__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  color: var(--el-text-color-secondary);
+  background-color: var(--el-fill-color-light);
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.model-record__placeholder-sub {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.model-record__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: var(--el-text-color-secondary);
 }
 </style>

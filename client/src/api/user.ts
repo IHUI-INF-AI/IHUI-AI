@@ -314,7 +314,11 @@ export const purchaseVip = withApiResponseHandler(
 // 修改密码
 export const changePassword = withApiResponseHandler(
   async (data: { oldPassword: string; newPassword: string }): Promise<ApiResponse<boolean>> => {
-    const response = await request.post<boolean>('/user/change-password', data)
+    // 2026-06-24 修复: 对齐后端 PUT /api/v1/auth/profile/password (Body: old_password, new_password)
+    const response = await request.put<boolean>('/api/v1/auth/profile/password', {
+      old_password: data.oldPassword,
+      new_password: data.newPassword,
+    })
     return normalizeApiResponse(response)
   }
 )
@@ -450,6 +454,8 @@ export const cancelAccountDeletion = withApiResponseHandler(
 /**
  * 用户登录
  * @deprecated 请使用 `@/api/services/auth.service` 中的 `login` 函数
+ * 与 src/api/auth.ts 中 login 同形: POST /auth/login, body: username, password, code, uuid
+ * 2026-06-24 修正：参数名由 phone 改为 username，与实际 API 协议对齐
  */
 export const login = withApiResponseHandler(
   async (data: {

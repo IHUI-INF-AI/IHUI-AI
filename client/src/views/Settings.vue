@@ -267,7 +267,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/docs?doc=terms-of-service').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/usage-rules').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -282,7 +282,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=privacy').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/app-permission').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -313,6 +313,66 @@
                 <button
                   class="action-btn ripple-btn"
                   @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=privacy').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">{{ t('settings.labels.businessLicense') }}</div>
+                <div class="setting-description">{{ t('settings.desc.businessLicense') }}</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/business-license').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">{{ t('settings.labels.icpRecord') }}</div>
+                <div class="setting-description">{{ t('settings.desc.icpRecord') }}</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/icp-record').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">{{ t('settings.labels.modelRecord') }}</div>
+                <div class="setting-description">{{ t('settings.desc.modelRecord') }}</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/model-record').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">更换手机号</div>
+                <div class="setting-description">更换账号绑定的手机号</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/change-phone').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -1191,7 +1251,7 @@
               <div class="setting-control">
                 <button
                   class="danger-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); openDeleteAccountDialog() }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/account-cancel').catch(() => {}) }"
                 >
                   {{ t('settings.actions.deleteAccount') }}
                 </button>

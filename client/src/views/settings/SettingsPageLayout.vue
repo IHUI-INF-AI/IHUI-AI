@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft } from '@/lib/lucide-fallback'
+import { ArrowLeft } from '@element-plus/icons-vue'
 
 const props = defineProps<{
   title?: string

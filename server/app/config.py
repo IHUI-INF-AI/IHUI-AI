@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     ALIPAY_GATEWAY: str = "https://openapi.alipay.com/gateway.do"
     ALIPAY_PRIVATE_KEY_PATH: str = "/ai_zhs/cert/appSecretRSA2048.txt"
     ALIPAY_PUBLIC_KEY_PATH: str = "/ai_zhs/cert/alipayPublicKey_RSA2.txt"
+    # 支持直接配置密钥字符串 (历史 edu server 迁移, 优先于文件路径)
+    ALIPAY_MERCHANT_PRIVATE_KEY: str = ""
+    ALIPAY_PUBLIC_KEY: str = ""
+    ALIPAY_SIGN_TYPE: str = "RSA2"
     ALIPAY_NOTIFY_URL: str = ""
     ALIPAY_RETURN_URL: str = ""
 
@@ -398,6 +402,15 @@ class Settings(BaseSettings):
     DINGTALK_LOGIN_APP_ID: str = ""
     DINGTALK_LOGIN_APP_SECRET: str = ""
     DINGTALK_AGENT_ID: str = ""
+
+    # ===================================================================
+    # NOTIFICATION (站内信 - P1 封版 047)
+    # ===================================================================
+    # admin 接收方 UUID (站内信推送统一进他的 inbox, 多副本必须一致)
+    # 默认值: 00000000-0000-0000-0000-000000000001 (固定 admin UUID)
+    NOTIFY_RECIPIENT_UUID: str = "00000000-0000-0000-0000-000000000001"
+    # 站内信最大保留数 (FIFO 淘汰, 默认 1000)
+    NOTIFY_MAX: int = 1000
 
     model_config = SettingsConfigDict(
         env_file=".env.production" if os.getenv("ENV", "").lower() in ("production", "prod") else ".env",

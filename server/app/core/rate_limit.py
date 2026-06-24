@@ -6,6 +6,8 @@
 - 文件上传: 10 次/分钟/IP
 - 支付: 10 次/分钟/IP
 - SSE/流式: 30 次/分钟/IP
+- admin 站内信推送 (POST): 30 次/分钟/IP (防止运维误推爆量)
+- admin 站内信查询 (GET): 120 次/分钟/IP (供前端 30s 轮询红点)
 - 默认: 60 次/分钟/IP
 
 如需分布式限流,请改用 Redis + slowapi,本文件保留进程内 fallback.
@@ -23,7 +25,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 
-# 路径前缀 -> (次数, 窗口秒)
+# 路径前缀 -> (次数, 窗口秒) - 全局限流
+# 注意: 顺序敏感, 更具体的前缀应放在前面 (例如 /api/admin/migration/notify 必须在 /api/admin/migration 之前)
 PATH_LIMITS: tuple[tuple[str, int, int], ...] = (
     ("/api/v1/auth/login", 5, 60),
     ("/api/v1/auth/register", 5, 60),
@@ -35,14 +38,32 @@ PATH_LIMITS: tuple[tuple[str, int, int], ...] = (
     ("/api/v1/order/pay", 10, 60),
     ("/api/v1/chat/stream", 30, 60),
     ("/api/v1/ai/stream", 30, 60),
+    # admin/migration 通用 (兜底)
+    ("/api/admin/migration", 60, 60),
+)
+
+# 路径前缀 + 方法 -> (次数, 窗口秒) - 更细粒度限流 (覆写 PATH_LIMITS)
+# 用于区分 GET (前端轮询, 较宽松) vs POST (运维推送, 较严格)
+METHOD_LIMITS: tuple[tuple[str, str, int, int], ...] = (
+    # admin 站内信: POST 写入限流 (防误推爆量), GET 查询较宽松 (供前端 30s 轮询)
+    ("/api/admin/migration/notify", "POST", 30, 60),
+    ("/api/admin/migration/notify", "GET", 120, 60),
 )
 
 DEFAULT_LIMIT = (60, 60)  # 60 次 / 60 秒
 WHITELIST_PATHS = ("/healthz", "/ready", "/metrics", "/openapi.json", "/docs", "/redoc")
 
 
-def _match_limit(path: str) -> tuple[int, int]:
-    """根据路径返回 (次数, 窗口秒)."""
+def _match_limit(path: str, method: str) -> tuple[int, int]:
+    """根据路径+方法返回 (次数, 窗口秒).
+
+    优先级: METHOD_LIMITS (路径+方法) > PATH_LIMITS (路径) > DEFAULT_LIMIT
+    """
+    # 1. 路径+方法 (最细)
+    for prefix, m, count, window in METHOD_LIMITS:
+        if method == m and path.startswith(prefix):
+            return count, window
+    # 2. 路径
     for prefix, count, window in PATH_LIMITS:
         if path.startswith(prefix):
             return count, window
@@ -80,10 +101,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         ip = _client_ip(request)
-        limit, window = _match_limit(path)
+        method = request.method
+        limit, window = _match_limit(path, method)
         now = time.time()
 
-        bucket = _request_log[ip][path]
+        bucket = _request_log[ip][f"{method}:{path}"]
         # 清理窗口外的记录
         while bucket and now - bucket[0] > window:
             bucket.popleft()

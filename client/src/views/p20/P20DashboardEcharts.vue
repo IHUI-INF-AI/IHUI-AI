@@ -125,8 +125,9 @@ function genMockRevenueTrend(): { dates: string[]; values: number[] } {
   return { dates, values }
 }
 
-function renderRevenueChart() {
+async function renderRevenueChart() {
   if (!revenueChartEl.value) return
+  const echarts = await loadEcharts()
   // 先释放旧实例，避免暗色模式切换等重复调用导致 ECharts 实例泄漏
   revenueChart?.dispose()
   revenueChart = echarts.init(revenueChartEl.value)
@@ -148,8 +149,9 @@ function renderRevenueChart() {
   })
 }
 
-function renderOrderPie(records: OrderRecord[]) {
+async function renderOrderPie(records: OrderRecord[]) {
   if (!orderPieEl.value) return
+  const echarts = await loadEcharts()
   // 先释放旧实例，避免重复 init 泄漏
   orderPie?.dispose()
   orderPie = echarts.init(orderPieEl.value)
@@ -173,8 +175,9 @@ function renderOrderPie(records: OrderRecord[]) {
   })
 }
 
-function renderAgentBar(records: AgentRecord[]) {
+async function renderAgentBar(records: AgentRecord[]) {
   if (!agentBarEl.value) return
+  const echarts = await loadEcharts()
   // 先释放旧实例，避免重复 init 泄漏
   agentBar?.dispose()
   agentBar = echarts.init(agentBarEl.value)

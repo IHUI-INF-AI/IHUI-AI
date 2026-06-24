@@ -212,6 +212,111 @@ export const userRoutes: Array<RouteRecordRaw> = [
       disabledReason: '功能升级中',
     },
   },
+  // ============ 设置与合规子页面（多端互通，对齐 miniapp pagesA/settings）============
+  {
+    path: '/settings/business-license',
+    name: 'settingsBusinessLicense',
+    component: safeImport(
+      () =>
+        import(/* webpackChunkName: "settings-business-license" */ '@/views/settings/BusinessLicense.vue'),
+      'BusinessLicense'
+    ),
+    meta: {
+      title: '营业执照',
+      description: '查看平台营业执照信息',
+      keywords: '营业执照,合规,智汇AI',
+      requiresAuth: false,
+    },
+  },
+  {
+    path: '/settings/icp-record',
+    name: 'settingsIcpRecord',
+    component: safeImport(
+      () => import(/* webpackChunkName: "settings-icp-record" */ '@/views/settings/IcpRecord.vue'),
+      'IcpRecord'
+    ),
+    meta: {
+      title: 'ICP备案',
+      description: '查看平台ICP备案信息',
+      keywords: 'ICP备案,合规,智汇AI',
+      requiresAuth: false,
+    },
+  },
+  {
+    path: '/settings/model-record',
+    name: 'settingsModelRecord',
+    component: safeImport(
+      () =>
+        import(/* webpackChunkName: "settings-model-record" */ '@/views/settings/ModelRecord.vue'),
+      'ModelRecord'
+    ),
+    meta: {
+      title: '模型备案',
+      description: '查看生成式人工智能服务模型备案信息',
+      keywords: '模型备案,合规,智汇AI',
+      requiresAuth: false,
+    },
+  },
+  {
+    path: '/settings/usage-rules',
+    name: 'settingsUsageRules',
+    component: safeImport(
+      () =>
+        import(/* webpackChunkName: "settings-usage-rules" */ '@/views/settings/UsageRules.vue'),
+      'UsageRules'
+    ),
+    meta: {
+      title: '使用规范',
+      description: '查看平台使用规范与条款',
+      keywords: '使用规范,服务条款,智汇AI',
+      requiresAuth: false,
+    },
+  },
+  {
+    path: '/settings/app-permission',
+    name: 'settingsAppPermission',
+    component: safeImport(
+      () =>
+        import(/* webpackChunkName: "settings-app-permission" */ '@/views/settings/AppPermission.vue'),
+      'AppPermission'
+    ),
+    meta: {
+      title: '应用权限说明',
+      description: '查看应用所需权限说明',
+      keywords: '应用权限,隐私,智汇AI',
+      requiresAuth: false,
+    },
+  },
+  {
+    path: '/settings/account-cancel',
+    name: 'settingsAccountCancel',
+    component: safeImport(
+      () =>
+        import(/* webpackChunkName: "settings-account-cancel" */ '@/views/settings/AccountCancel.vue'),
+      'AccountCancel'
+    ),
+    meta: {
+      title: '账号注销',
+      description: '申请注销账号',
+      keywords: '账号注销,注销,智汇AI',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/settings/change-phone',
+    name: 'settingsChangePhone',
+    component: safeImport(
+      () =>
+        import(/* webpackChunkName: "settings-change-phone" */ '@/views/settings/ChangePhone.vue'),
+      'ChangePhone'
+    ),
+    meta: {
+      title: '更换手机号',
+      description: '更换绑定的手机号',
+      keywords: '更换手机号,手机号,智汇AI',
+      requiresAuth: true,
+    },
+  },
   {
     path: '/key-management',
     name: 'keyManagement',

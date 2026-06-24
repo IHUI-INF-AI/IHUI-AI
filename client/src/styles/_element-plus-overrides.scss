@@ -185,7 +185,7 @@
 
 :where(.el-pagination .el-pager li.is-active) {
   background: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--el-button-text-color);
   border: var(--el-border-width-primary) solid var(--el-color-primary);
 }
 

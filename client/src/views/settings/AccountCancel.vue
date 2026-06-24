@@ -246,7 +246,7 @@ async function onSubmit() {
   const phone = (inputPhone.value || '').trim()
   const code = (smsCode.value || '').trim()
   try {
-    const res = await sendTextMsgNew(phone, code) as Record<string, unknown>
+    const res = await sendTextMsgNew(phone, code) as unknown as Record<string, unknown>
     const resData = (res?.data as Record<string, unknown>) || res
     const codeNum = resData?.code
     const isSuccess = codeNum === 200 || codeNum === 0 || codeNum === '200'

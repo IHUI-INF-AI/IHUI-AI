@@ -185,8 +185,10 @@ export const COZE_PATHS = {
     reviews: (id: string) => `${COZE}/agent/${id}/reviews`,
   },
   file: {
-    // 2026-06-24 修复: 后端文件上传在 /api/upload/single (upload/routes.py), 非 /cozeZhsApi/file/upload/form
-    uploadForm: '/api/upload/single',
+    // 2026-06-24 修复: 使用 /cozeZhsApi/file/upload/form (content/file_upload.py)
+    // 该端点返回 {code, message, url} 格式, 与前端 adaptUploadResponse 适配函数匹配
+    // /api/upload/single 返回 {success, fileId, fileName} 格式不匹配
+    uploadForm: '/cozeZhsApi/file/upload/form',
     uploadBase64: '/api/upload/base64',
     uploadOctet: (fileName: string) =>
       `/api/upload/octet?file_name=${encodeURIComponent(fileName)}`,

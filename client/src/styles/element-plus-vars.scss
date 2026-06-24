@@ -254,9 +254,9 @@ html.dark {
   /* 按钮变量 - 暗色模式（主按钮白底黑字，仅 _global-tokens 写死） */
   --el-button-text-color: #{gt.$el-button-text-on-primary-dark};
   --el-button-bg-color: var(--el-color-primary);
-  --el-button-hover-text-color: var(--el-text-color-primary);
+  --el-button-hover-text-color: #{gt.$el-button-text-on-primary-dark};
   --el-button-hover-bg-color: var(--color-text-muted);
-  --el-button-active-text-color: var(--el-text-color-primary);
+  --el-button-active-text-color: #{gt.$el-button-text-on-primary-dark};
   --el-button-active-bg-color: var(--el-text-color-placeholder);
   --el-mask-color: transparent;
   --el-mask-color-extra-light: transparent;

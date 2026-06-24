@@ -11,13 +11,20 @@
       >
         <el-icon v-if="m.icon" :size="16"><component :is="m.icon" /></el-icon>
         <span>{{ m.title }}</span>
+        <!-- 站内信未读红点 (P1 封版) -->
+        <span
+          v-if="m.badgeKey === 'notify' && unreadCount > 0"
+          class="menu-badge"
+          :class="{ 'menu-badge-dot': unreadCount === 0, 'menu-badge-num': unreadCount > 0 }"
+          :title="`${unreadCount} 条未读`"
+        >{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
       </router-link>
     </div>
   </nav>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   User, Reading, EditPen, VideoCamera, ChatDotRound, Connection, Document,
@@ -25,12 +32,15 @@ import {
   OfficeBuilding, Promotion, ChatLineSquare, Bell, Picture, Key, Monitor,
   DataAnalysis,
 } from '@element-plus/icons-vue'
-import http from '@/utils/request'
+import { useNotifyBadge } from '@/composables/useNotifyBadge'
 
-interface MenuItem { path: string; title: string; icon?: any }
+interface MenuItem { path: string; title: string; icon?: unknown; badgeKey?: 'notify' }
 interface MenuGroup { key: string; title: string; children: MenuItem[] }
 
 const { t } = useI18n()
+
+// 站内信红点 (P1 封版: 每 30s 轮询一次)
+const { unreadCount } = useNotifyBadge()
 
 const groups = computed<MenuGroup[]>(() => [
   {
@@ -111,6 +121,7 @@ const groups = computed<MenuGroup[]>(() => [
   },
   {
     key: 'message', title: t('adminCommon.menu.group.message'), children: [
+      { path: '/admin/notification', title: t('adminCommon.menu.item.notification'), icon: Bell, badgeKey: 'notify' },
       { path: '/admin/message/announcement', title: t('adminCommon.menu.item.messageAnnouncement'), icon: Bell },
     ],
   },
@@ -156,8 +167,25 @@ const groups = computed<MenuGroup[]>(() => [
     &.active { color: var(--el-bg-color); background: var(--el-color-primary); }
   }
 
-  :where(.menu-badge) {
+  /* 站内信未读红点 (P1 封版) -- 扁平化, 纯背景色 + 边框 */
+  .menu-badge {
     margin-left: auto;
+    min-width: 18px; height: 18px;
+    padding: 0 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 9px;
+    font-size: 11px; font-weight: 600;
+    line-height: 1;
+    background: var(--el-color-danger);
+    color: var(--el-bg-color);
+    border: 1px solid var(--el-color-danger);
+  }
+  .menu-badge-dot {
+    min-width: 8px; width: 8px; height: 8px;
+    padding: 0; border-radius: 50%;
+  }
+  .menu-badge-num {
+    /* 数字徽章, 维持长方形药丸 */
   }
 }
 </style>

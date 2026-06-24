@@ -2165,22 +2165,22 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           --amb-bg-dark: var(--el-color-primary);
           --amb-border-color-dark: var(--el-color-primary);
 
-          color: var(--el-color-white);
+          color: var(--el-bg-color-page);
           box-shadow: var(--global-box-shadow);
 
           .agent-mode-text {
-            color: var(--el-color-white);
+            color: var(--el-bg-color-page);
           }
 
           :deep(.el-icon) {
-            color: var(--el-color-white);
+            color: var(--el-bg-color-page);
           }
 
           &:hover {
             --amb-bg-dark: var(--el-color-primary);
             --amb-border-color-dark: var(--el-color-primary);
 
-            color: var(--el-color-white);
+            color: var(--el-bg-color-page);
           }
         }
 

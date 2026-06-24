@@ -198,7 +198,7 @@ async function onVerifyOld() {
   const p = (currentPhone.value || '').trim()
   const code = (oldCode.value || '').trim()
   try {
-    const res = await sendTextMsgNew(p, code) as Record<string, unknown>
+    const res = await sendTextMsgNew(p, code) as unknown as Record<string, unknown>
     const resData = (res?.data as Record<string, unknown>) || res
     const codeNum = resData?.code
     const isSuccess = codeNum === 200 || codeNum === 0 || codeNum === '200'
@@ -253,7 +253,7 @@ async function onSubmit() {
   submitting.value = true
   const loading = ElLoading.service({ text: '提交中...' })
   try {
-    const res = await editPhone(newPhoneVal, newCodeVal, uuid) as Record<string, unknown>
+    const res = await editPhone(newPhoneVal, newCodeVal, uuid) as unknown as Record<string, unknown>
     loading.close()
     const resData = (res?.data as Record<string, unknown>) || res
     const code = resData?.code

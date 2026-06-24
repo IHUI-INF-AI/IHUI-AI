@@ -20,13 +20,14 @@ from collections import deque
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from loguru import logger
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.config import settings
 from app.database import get_session
+from app.security import decode_access_token, require_login, require_role
 from app.services.token_utils_service import check_user_token_sufficient
 
 # Mini 版暴露的工具方法
@@ -177,11 +178,11 @@ async def invoke_via_langchain(cfg: Dict[str, Any], messages: List[Dict[str, str
 
 # ----------------- HTTP 接口 -----------------
 @router.post("/chat", summary="LLM HTTP 非流式（完整版）")
-async def http_chat(request: ChatRequest):
-    if request.user_uuid:
-        tc = await check_user_token_sufficient(request.user_uuid, min_token=1000)
-        if not tc.get("sufficient"):
-            raise HTTPException(status_code=402, detail=tc.get("reason", "Token 余额不足"))
+async def http_chat(request: ChatRequest, user_uuid: str = Depends(require_login)):
+    # 用认证后的 user_uuid 替代客户端可伪造的 request.user_uuid
+    tc = await check_user_token_sufficient(user_uuid, min_token=1000)
+    if not tc.get("sufficient"):
+        raise HTTPException(status_code=402, detail=tc.get("reason", "Token 余额不足"))
     cfg = get_effective_config(request.model_id, request.zidingyican)
     if not cfg:
         raise HTTPException(status_code=404, detail="当前不存在")
@@ -217,13 +218,13 @@ async def http_chat(request: ChatRequest):
 
 
 @router.post("/chat/stream", summary="LLM HTTP SSE 流式（完整版）")
-async def http_chat_stream(request: ChatRequest):
+async def http_chat_stream(request: ChatRequest, user_uuid: str = Depends(require_login)):
     """SSE 流式接口（通过 EventSourceResponse 或 StreamingResponse）"""
     from fastapi.responses import StreamingResponse
-    if request.user_uuid:
-        tc = await check_user_token_sufficient(request.user_uuid, min_token=1000)
-        if not tc.get("sufficient"):
-            raise HTTPException(status_code=402, detail=tc.get("reason", "Token 余额不足"))
+    # 用认证后的 user_uuid 替代客户端可伪造的 request.user_uuid
+    tc = await check_user_token_sufficient(user_uuid, min_token=1000)
+    if not tc.get("sufficient"):
+        raise HTTPException(status_code=402, detail=tc.get("reason", "Token 余额不足"))
     cfg = get_effective_config(request.model_id, request.zidingyican)
     if not cfg:
         raise HTTPException(status_code=404, detail="当前不存在")
@@ -247,6 +248,13 @@ async def http_chat_stream(request: ChatRequest):
 # ----------------- WebSocket 流式 -----------------
 @router.websocket("/ws/{client_id}")
 async def ws_chat_full(websocket: WebSocket, client_id: str):
+    # WebSocket 认证: 从 query 参数取 token, 验证后才 accept
+    token = websocket.query_params.get("token", "")
+    payload = decode_access_token(token) if token else None
+    if not payload:
+        await websocket.close(code=4401)  # 自定义认证失败码
+        return
+    ws_user_uuid = payload.get("sub", "")
     await websocket.accept()
     if not await manager.add(client_id, websocket):
         await websocket.close(code=1013)
@@ -271,7 +279,7 @@ async def ws_chat_full(websocket: WebSocket, client_id: str):
 
             prompt = msg.get("prompt") or msg.get("content", "")
             model_id = msg.get("model_id") or msg.get("model", "")
-            user_uuid = msg.get("user_uuid", "")
+            # 用认证后的 ws_user_uuid 替代客户端可伪造的 msg.user_uuid
             chat_id = msg.get("chat_id", "")
             files = msg.get("files", [])
             zidingyican = msg.get("zidingyican", [])
@@ -280,8 +288,8 @@ async def ws_chat_full(websocket: WebSocket, client_id: str):
             if not prompt or not model_id:
                 await push_event(websocket, event=err_ev, msg_type="error", content="缺少 prompt 或 model_id", chat_id=chat_id)
                 continue
-            if user_uuid:
-                tc = await check_user_token_sufficient(user_uuid, min_token=1000)
+            if ws_user_uuid:
+                tc = await check_user_token_sufficient(ws_user_uuid, min_token=1000)
                 if not tc.get("sufficient"):
                     await push_event(websocket, event=err_ev, msg_type="error", content=tc.get("reason", "Token 余额不足"), chat_id=chat_id)
                     continue
@@ -332,7 +340,7 @@ async def ws_chat_full(websocket: WebSocket, client_id: str):
                         await asyncio.sleep(STREAM_DELAY)
                 if thinking_buf.strip():
                     await push_event(websocket, event=ev_think, bot_id=model_id, msg_type="thinking_summary", content=thinking_buf.strip(), chat_id=chat_id)
-                await push_event(websocket, event=ev_done, bot_id=model_id, msg_type="answer", content=answer_buf, chat_id=chat_id, detail={"user_uuid": user_uuid, "session_id": client_id})
+                await push_event(websocket, event=ev_done, bot_id=model_id, msg_type="answer", content=answer_buf, chat_id=chat_id, detail={"user_uuid": ws_user_uuid, "session_id": client_id})
             except Exception as e:
                 logger.error("[WS full] 流式错误: %s", e)
                 await push_event(websocket, event=err_ev, msg_type="error", content=str(e), chat_id=chat_id)
@@ -350,7 +358,7 @@ async def ws_chat_full(websocket: WebSocket, client_id: str):
 
 # ----------------- 管理端点 -----------------
 @router.get("/connections")
-async def list_connections():
+async def list_connections(_: str = Depends(require_role("admin"))):
     return {
         "code": 0, "data": {
             "active": len(manager.active),

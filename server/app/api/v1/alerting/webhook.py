@@ -16,9 +16,11 @@ import hmac
 import json
 import time
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from loguru import logger
 from pydantic import BaseModel, Field
+
+from app.security import require_login, require_role
 
 router = APIRouter(prefix="/api/v1/alerting", tags=["Alerting Webhook"])
 
@@ -160,14 +162,14 @@ def _is_silenced(labels: dict[str, str]) -> bool:
 
 
 @router.get("/history", summary="Query alert history")
-def get_history(limit: int = 50):
+def get_history(limit: int = 50, _: str = Depends(require_login)):
     """查询最近 N 条告警记录 (按时间倒序)."""
     sorted_hist = sorted(_alert_history, key=lambda x: x["received_at"], reverse=True)
     return {"total": len(_alert_history), "items": sorted_hist[:limit]}
 
 
 @router.post("/silence", summary="Add silence rule")
-def add_silence(rule: dict):
+def add_silence(rule: dict, _: str = Depends(require_role("admin"))):
     """添加静默规则.
 
     body: {"matchers": {"alertname": "X", "team": "pay"}, "expires_at": 1234567890, "comment": "..."}
@@ -181,7 +183,7 @@ def add_silence(rule: dict):
 
 
 @router.get("/silence", summary="List silence rules")
-def list_silences():
+def list_silences(_: str = Depends(require_login)):
     """列出所有静默规则 (按时间排序)."""
     now = time.time()
     active = [s for s in _silences if s.get("expires_at", 0) > now]
@@ -189,7 +191,7 @@ def list_silences():
 
 
 @router.delete("/silence/{silence_id}", summary="Remove silence rule")
-def remove_silence(silence_id: int):
+def remove_silence(silence_id: int, _: str = Depends(require_role("admin"))):
     """删除静默规则."""
     if 0 <= silence_id < len(_silences):
         removed = _silences.pop(silence_id)

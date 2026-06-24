@@ -4056,7 +4056,7 @@ html.dark {
 // 暗色模式发送按钮 - 使用 CSS 变量替代 
 :where(html.dark) .ai-dialog {
   // 暗色模式下覆盖发送按钮颜色
-  --aic-send-btn-color: var(--aic-send-btn-color);
+  --aic-send-btn-color: var(--el-bg-color-page);
   
   .input-actions {
     .send-btn {

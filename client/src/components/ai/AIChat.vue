@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <!-- 悬浮模式：使用 Teleport 到 body -->
   <Teleport to="body" :disabled="mode === 'embedded'">
     <!-- 悬浮触发按钮（仅在 floating 模式下显示） -->
@@ -11830,6 +11830,10 @@ cleanup.add(() => {
       // 仪表板 - 主色（总览入口）
       &.dashboard {
         background: var(--el-color-primary);
+
+        svg {
+          color: var(--el-bg-color-page);
+        }
       }
 
       // 记忆系统 - 紫色（代表知识和智慧）

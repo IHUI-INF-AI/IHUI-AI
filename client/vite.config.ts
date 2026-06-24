@@ -17,6 +17,7 @@ import { productionCSPOptimizer } from './vite-plugins/productionCSPOptimizer'
 import { monitoringEndpoints } from './vite-plugins/monitoringEndpoints'
 import { pwaManifestMiddleware } from './vite-plugins/pwaManifestMiddleware'
 import { mockDataPlugin } from './vite-plugins/mockDataPlugin'
+import { elementPlusOnDemand } from './vite-plugins/elementPlusOnDemand'
 import { DEV_CSP_STRING, PROD_CSP_STRING, CSP_REPORT_URL, REPORT_TO_HEADER } from './config/csp'
 import { BACKEND_URL, FRONTEND_PORT, FRONTEND_URL } from './config/ports'
 
@@ -829,6 +830,9 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
       handleDeletedFilesHMR(),
       // P14.4 种子数据 mock-data 中间件
       mockDataPlugin(),
+      // 2026-06-24 优化：把 setup 里的 `import { ElXxx } from 'element-plus'` 改写为按需路径
+      // unplugin-vue-components 只处理模板 <el-xxx> 标签，setup 里的 import 需要此插件兜底
+      elementPlusOnDemand(),
       // ?????? API ???????? VITE_BAIDU_SPEECH_* ??????      baiduSpeechPlugin(),
       // ????Vue?Element Plus?API - ????????????
       AutoImport({
