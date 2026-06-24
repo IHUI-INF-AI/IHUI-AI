@@ -1637,7 +1637,7 @@ html.dark {
     display: inline-flex;
     gap: 4px;
     padding: 4px;
-    background: hsl(var(--muted, 0 0% 96%));
+    background: hsl(var(--muted));
     border-radius: var(--global-border-radius);
 
     html.dark & {
@@ -1657,26 +1657,26 @@ html.dark {
       white-space: nowrap;
 
       html.dark & {
-        color: hsl(var(--muted-foreground, 0 0% 64%));
+        color: hsl(var(--muted-foreground));
       }
 
       &:hover:not(:where(&--active)) {
         color: var(--el-text-color-primary);
-        background: hsl(var(--background, 0 0% 100%));
+        background: hsl(var(--background));
 
         html.dark & {
-          color: hsl(var(--foreground, 0 0% 98%));
+          color: hsl(var(--foreground));
           background: hsl(0 0% 18%);
         }
       }
 
       &--active {
         color: var(--el-text-color-primary);
-        background: hsl(var(--background, 0 0% 100%));
+        background: hsl(var(--background));
         border: var(--unified-border);
 
         html.dark & {
-          color: hsl(var(--foreground, 0 0% 98%));
+          color: hsl(var(--foreground));
           background: hsl(0 0% 18%);
           border-color: hsl(0 0% 25%);
         }

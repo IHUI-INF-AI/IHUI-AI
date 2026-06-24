@@ -239,16 +239,16 @@ html {
 }
 
 @layer base {
-  // 文本选中颜色
+  // 文本选中颜色 - 使用主色浅色背景确保选中状态可见
   ::selection,
   ::-webkit-selection {
-    background-color: var(--el-bg-color);
+    background-color: var(--el-color-primary-light-9);
     color: inherit;
   }
 
-  html.dark ::selection,
-  html.dark ::-webkit-selection {
-    background-color: var(--el-bg-color);
+  :where(html.dark) ::selection,
+  :where(html.dark) ::-webkit-selection {
+    background-color: var(--el-color-primary-light-8);
     color: inherit;
   }
 

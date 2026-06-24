@@ -74,7 +74,7 @@
   padding: 16px 24px;
   background: var(--el-bg-color-overlay, var(--color-white-95));
   border-radius: var(--global-border-radius, 8px);
-  box-shadow: 0 4px 20px var(--color-black-15);
+  box-shadow: var(--global-box-shadow);
   animation: theme-loader-fade-in 0.2s ease-out forwards;
 }
 
@@ -84,7 +84,7 @@
 
 html.dark .theme-loader {
   background: var(--color-black-90);
-  box-shadow: 0 4px 20px var(--color-black-40);
+  box-shadow: var(--global-box-shadow);
 }
 
 html.high-contrast-light .theme-loader {

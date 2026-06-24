@@ -338,10 +338,10 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   width: 10px; height: 10px; border-radius: 50%;
   display: inline-block;
 }
-.status-connected { background: var(--el-color-success); box-shadow: 0 0 8px var(--el-color-success); }
-.status-connecting { background: var(--el-color-warning); box-shadow: 0 0 8px var(--el-color-warning); }
+.status-connected { background: var(--el-color-success); box-shadow: none; }
+.status-connecting { background: var(--el-color-warning); box-shadow: none; }
 .status-disconnected { background: var(--el-text-color-secondary); }
-.status-error { background: var(--el-color-danger); box-shadow: 0 0 8px var(--el-color-danger); }
+.status-error { background: var(--el-color-danger); box-shadow: none; }
 .status-text { font-size: 14px; color: var(--el-text-color-secondary); }
 
 .model-tag {

@@ -215,15 +215,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { echarts } from '@/plugins/echarts'
 import { tourEventBus, type TourEventType, type EventHistoryEntry, type EventBusStats } from '@/services/tourEventBus'
 import { formatDateTime as formatTime } from '@/utils/format'
+import { useDarkModeStore } from '@/stores/darkMode'
 
 const { t } = useI18n()
+const darkModeStore = useDarkModeStore()
 
 const chartRef = ref<HTMLElement>()
 let chart: echarts.ECharts | null = null
@@ -373,6 +375,16 @@ const formatEventType = (type: TourEventType | TourEventType[] | '*') => {
   if (Array.isArray(type)) return type.join(', ')
   return type
 }
+
+// 监听暗色模式变化，重新渲染图表以更新颜色
+watch(
+  () => darkModeStore.isDarkMode,
+  () => {
+    if (chart) {
+      updateChart()
+    }
+  }
+)
 
 onMounted(() => {
   if (chartRef.value) {

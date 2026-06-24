@@ -232,7 +232,7 @@ const teamMembers = computed(() => [
     right: -10%;
     width: 80%;
     height: 80%;
-    background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.02);
+    background: rgb(var(--el-color-primary-rgb), 0.02);
     filter: blur(80px);
   }
 

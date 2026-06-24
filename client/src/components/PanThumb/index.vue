@@ -74,7 +74,7 @@ export default {
   left: 95%;
   margin: -4px 0 0 -4px;
   background: radial-gradient(ellipse at center, rgba(14, 14, 14, 1) 0%, rgba(125, 126, 125, 1) 100%);
-  box-shadow: 0 0 1px var(--color-white-90);
+  box-shadow: none;
 } */
 
 .pan-info {
@@ -83,7 +83,7 @@ export default {
   height: inherit;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: inset 0 0 0 5px var(--color-black-5);
+  box-shadow: none;
 }
 
 .pan-info h3 {

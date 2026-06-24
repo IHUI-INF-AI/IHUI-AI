@@ -551,7 +551,7 @@ getUserInfo()
 .payment-container {
   width: 100%;
   max-width: 480px;
-  background: white;
+  background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   padding: 32px;
   box-shadow: var(--global-box-shadow);

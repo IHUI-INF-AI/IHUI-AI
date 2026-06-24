@@ -144,6 +144,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useToast } from '@/composables/useToast'
+import { useDarkModeStore } from '@/stores/darkMode'
 import http from '@/utils/request'
 
 interface Headline {
@@ -166,6 +167,7 @@ interface ForecastPoint {
 }
 
 const toast = useToast()
+const darkModeStore = useDarkModeStore()
 const lastUpdate = ref('--')
 const headline = ref<Headline[]>([])
 const trend = ref<TrendPoint[]>([])
@@ -191,7 +193,11 @@ const metricUnit = computed(() => {
 
 const trendPath = computed(() => buildPath(trend.value, true))
 const trendLine = computed(() => buildPath(trend.value, false))
-const trendStrokeColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--el-text-color-primary').trim() || '#000')
+const trendStrokeColor = computed(() => {
+  // 依赖 isDarkMode 以便暗色模式切换时重新读取 CSS 变量
+  const _isDark = darkModeStore.isDarkMode
+  return getComputedStyle(document.documentElement).getPropertyValue('--el-text-color-primary').trim() || 'var(--el-text-color-primary)'
+})
 
 function buildPath(points: TrendPoint[], fill: boolean): string {
   if (!points.length) return ''

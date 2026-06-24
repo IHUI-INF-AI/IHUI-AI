@@ -3995,13 +3995,13 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
   &:hover {
     border-color: var(--el-color-success);
     color: var(--el-color-success);
-    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.12);
+    background: rgb(var(--el-color-success-rgb), 0.12);
   }
 
   &.active {
     border-color: var(--el-color-success);
     color: var(--el-color-success);
-    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.18);
+    background: rgb(var(--el-color-success-rgb), 0.18);
   }
 
   &--float {
@@ -4028,7 +4028,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 
   .doc-group-title {
     color: var(--el-text-color-secondary);
-    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.12);
+    background: rgb(var(--el-color-success-rgb), 0.12);
     border-bottom-color: var(--color-white-6);
   }
 
@@ -4042,7 +4042,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 
   .doc-list-item.active .toc-link {
     color: var(--el-color-success);
-    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.15);
+    background: rgb(var(--el-color-success-rgb), 0.15);
   }
 
   .doc-list-item:hover .toc-link {
@@ -4056,7 +4056,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 
   .toc-item.active .toc-link {
     color: var(--el-color-success);
-    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.15);
+    background: rgb(var(--el-color-success-rgb), 0.15);
   }
 
   .toc-item .toc-link:hover {
@@ -4075,7 +4075,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
   }
 
   .doc-list-resize-handle:hover {
-    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.1);
+    background: rgb(var(--el-color-success-rgb), 0.1);
   }
 
   .doc-list-resize-handle:hover::before {
@@ -4094,7 +4094,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 }
 
 :where(html.dark) body .edu-docs-root .docs-content::before {
-  background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.25);
+  background: rgb(var(--el-color-success-rgb), 0.25);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content,
@@ -4199,7 +4199,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 :where(html.dark) body .edu-docs-root .exit-fullscreen-btn:hover {
   border-color: var(--el-color-success);
   color: var(--el-color-success);
-  background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.12);
+  background: rgb(var(--el-color-success-rgb), 0.12);
 }
 
 :where(html.dark) body .edu-docs-root .mobile-menu-btn {

@@ -167,7 +167,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { ElMessage } from 'element-plus'
 import echarts from '@/utils/echarts'
@@ -177,6 +177,7 @@ import { useTourPermissions } from '@/composables/useTourPermissions'
 import { monitoringWebSocket } from '@/utils/monitoring-websocket'
 import { getUserToken } from '@/utils/request'
 import { tourMonitoringI18n } from '@/locales/tour-i18n'
+import { useDarkModeStore } from '@/stores/darkMode'
 
 const t = (key: string) => {
   const keys = key.split('.')
@@ -187,6 +188,7 @@ const t = (key: string) => {
   return typeof result === 'string' ? result : key
 }
 const { canManageAlerts, canViewMonitoring } = useTourPermissions()
+const darkModeStore = useDarkModeStore()
 
 const timeRange = ref('1h')
 const showRuleDialog = ref(false)
@@ -345,6 +347,16 @@ const initWebSocket = async () => {
     wsConnected.value = false
   }
 }
+
+// 监听暗色模式变化，重新渲染图表以更新颜色
+watch(
+  () => darkModeStore.isDarkMode,
+  () => {
+    if (chart) {
+      updateChart()
+    }
+  }
+)
 
 onMounted(() => {
   if (!canViewMonitoring.value) return

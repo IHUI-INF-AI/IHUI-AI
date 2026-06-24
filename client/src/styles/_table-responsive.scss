@@ -130,7 +130,7 @@
       background: var(--el-bg-color);
       
       &:hover {
-        box-shadow: 0 2px 8px var(--color-black-10);
+        box-shadow: var(--global-box-shadow);
       }
     }
     

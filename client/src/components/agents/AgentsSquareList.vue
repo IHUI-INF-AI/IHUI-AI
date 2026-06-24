@@ -746,7 +746,6 @@ async function toggleLike(item: AgentInfo) {
   padding: 8px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  background-color: var(--el-bg-color);
   background: var(--el-bg-color);
   transition: border-color 0.2s ease, background-color 0.2s ease;
   box-sizing: border-box;
@@ -754,19 +753,16 @@ async function toggleLike(item: AgentInfo) {
 
   &:hover {
     border: var(--unified-border);
-    background-color: var(--el-fill-color-light);
     background: var(--el-fill-color-light);
   }
 }
 
-html.dark .agents-square-list__card {
-  background-color: var(--color-white-4);
+:where(html.dark) .agents-square-list__card {
   background: var(--color-white-4);
   border-color: var(--border-unified-color);
 }
 
-html.dark .agents-square-list__card:hover {
-  background-color: var(--color-white-8);
+:where(html.dark) .agents-square-list__card:hover {
   background: var(--color-white-8);
   border-color: var(--border-unified-color-hover);
 }
@@ -893,9 +889,8 @@ html.dark .agents-square-list__card:hover {
   line-height: 1;
   padding: 4px 8px;
   border-radius: var(--global-border-radius);
-  border: none;
-  /* 用内阴影代替描边，圆角更顺滑、避免锯齿 */
-  box-shadow: inset 0 0 0 1px var(--border-unified-color);
+  /* 扁平化设计：使用 border 代替内阴影描边 */
+  border: 1px solid var(--border-unified-color);
   background: var(--el-bg-color);
   color: var(--el-text-color-secondary);
   overflow: hidden;

@@ -194,6 +194,42 @@ $color-dark-text-primary: #e5eaf3;
   --color-gray-fafafa: #fafafa;
   --el-fill-color-lighter: #f5f5f5;
   --el-fill-color-light: #f0f0f0;
+
+  /* 纯白色 token - 亮色模式为白色，暗色模式在 html.dark 中覆盖 */
+  --color-white: #ffffff;
+
+  /* 中性色阶 - 亮色模式（暗色模式在 html.dark 中覆盖） */
+  --color-neutral-100: #f5f7fa; /* 浅灰背景，组件常用 */
+  --color-neutral-300: #c0c4cc; /* 中灰文字/边框 */
+  --color-neutral-500: #909399; /* 常规灰文字 */
+  --color-neutral-600: #606266; /* 次要文字 */
+  --color-neutral-700: #303133; /* 主要文字 */
+  --color-neutral-800: #1a1a1a; /* 深色背景 */
+
+  /* 灰阶文字色 - 亮色模式（暗色模式在 html.dark 中覆盖） */
+  --color-gray-303133: #303133; /* Element Plus 主要文字色 */
+  --color-gray-606266: #606266; /* Element Plus 常规文字色 */
+  --color-gray-a8abb2: #a8abb2; /* Element Plus 占位文字色 */
+  --color-gray-c0c4cc: #c0c4cc; /* Element Plus 禁用文字色 */
+  --color-gray-f0f2f5: #f0f2f5; /* Element Plus 填充色 */
+  --color-gray-a1a1a1: #a1a1a1; /* 暗灰文字 */
+  --color-gray-f8f9fa: #f8f9fa; /* 极浅灰背景 */
+  --color-gray-1e1e1e: #1e1e1e; /* 代码块深色背景 */
+  --color-gray-909399: #909399; /* 中灰文字 */
+
+  /* 语义色 - 亮色模式（暗色模式在 html.dark 中覆盖） */
+  --color-success: #67c23a;
+  --color-danger-variant: #f56c6c;
+  --color-neutral-b3: #b3b3b3;
+  --ai-gray-1: #e5e7eb;
+  --color-border-light: #e4e7ed;
+
+  /* 品牌色透明度变体 - 补充组件引用 */
+  --color-blue-2196f3: #2196f3;
+  --color-blue-rgba-22-132-252-18: rgba(22, 132, 252, 0.18);
+  --color-purple-light-60: rgba(128, 0, 255, 0.6);
+  --color-cyan-b2d4fc-fade: rgba(178, 212, 252, 0.5);
+  --color-rgba-5--122--255--0-4-: rgba(5, 122, 255, 0.4);
 }
 
 /* ============================================================
@@ -406,4 +442,40 @@ html.dark {
   /* 业务别名 - 暗色模式覆盖 */
   --color-text-muted: #a3a6ad;
   --color-gray-light: #2d2d2d;
+
+  /* 纯白色 token - 暗色模式覆盖为浅色文字色（用于白底文字、白色背景场景） */
+  --color-white: var(--color-gray-e5eaf3);
+
+  /* 中性色阶 - 暗色模式覆盖 */
+  --color-neutral-100: var(--color-dark-bg-5); /* 浅灰背景 → 深灰背景 */
+  --color-neutral-300: var(--color-gray-a3a6ad); /* 中灰文字 → 暗色中灰 */
+  --color-neutral-500: var(--color-gray-8d9095); /* 常规灰文字 → 暗色灰 */
+  --color-neutral-600: var(--color-gray-cfd3dc); /* 次要文字 → 暗色浅灰 */
+  --color-neutral-700: var(--color-gray-e5eaf3); /* 主要文字 → 暗色亮灰 */
+  --color-neutral-800: #0d0d0d; /* 深色背景 → 更深 */
+
+  /* 灰阶文字色 - 暗色模式覆盖 */
+  --color-gray-303133: var(--color-gray-e5eaf3); /* 暗色主要文字 */
+  --color-gray-606266: var(--color-gray-cfd3dc); /* 暗色常规文字 */
+  --color-gray-a8abb2: var(--color-gray-8d9095); /* 暗色占位文字 */
+  --color-gray-c0c4cc: var(--color-gray-a3a6ad); /* 暗色禁用文字 */
+  --color-gray-f0f2f5: var(--color-dark-bg-5); /* 暗色填充色 */
+  --color-gray-a1a1a1: var(--color-gray-8d9095); /* 暗色暗灰 */
+  --color-gray-f8f9fa: var(--color-dark-bg-4); /* 暗色极浅灰背景 */
+  --color-gray-1e1e1e: var(--color-dark-bg-3); /* 暗色代码块背景 */
+  --color-gray-909399: var(--color-gray-a3a6ad); /* 暗色中灰 */
+
+  /* 语义色 - 暗色模式覆盖（略调亮以保证对比度） */
+  --color-success: #85ce61;
+  --color-danger-variant: #f78989;
+  --color-neutral-b3: var(--color-gray-a3a6ad);
+  --ai-gray-1: var(--color-dark-bg-5);
+  --color-border-light: var(--color-dark-bg-6);
+
+  /* 品牌色透明度变体 - 暗色模式（提高透明度保证可见性） */
+  --color-blue-2196f3: #64b5f6;
+  --color-blue-rgba-22-132-252-18: rgba(100, 181, 246, 0.25);
+  --color-purple-light-60: rgba(179, 136, 255, 0.6);
+  --color-cyan-b2d4fc-fade: rgba(144, 202, 249, 0.5);
+  --color-rgba-5--122--255--0-4-: rgba(100, 181, 246, 0.5);
 }

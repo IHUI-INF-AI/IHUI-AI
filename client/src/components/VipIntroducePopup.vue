@@ -493,7 +493,7 @@ onMounted(() => {
   padding: 13px 15px;
   margin: 12px 0 10px;
   position: relative;
-  box-shadow: inset 0 -3px 10px 0 var(--color-white-80);
+  box-shadow: none;
   cursor: pointer;
 }
 

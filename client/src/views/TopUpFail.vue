@@ -166,7 +166,7 @@ const createRipple = (event: MouseEvent) => {
 // ============================================
 $tf-brand-primary: var(--el-bg-color-page);
 $tf-error-color: var(--el-color-danger);
-$tf-error-glow: rgb(var(--el-color-danger-rgb, 245, 108, 108), 0.4);
+$tf-error-glow: rgb(var(--el-color-danger-rgb), 0.4);
 $tf-glass-bg: var(--el-fill-color-lighter);
 $tf-glass-border: var(--border-unified-color);
 $local-text-primary: var(--el-text-color-primary);

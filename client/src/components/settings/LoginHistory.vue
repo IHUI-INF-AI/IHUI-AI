@@ -265,26 +265,27 @@ onMounted(() => {
     height: 12px;
     border-radius: 50%;
     border: 2px solid var(--el-bg-color);
-    box-shadow: 0 0 0 2px var(--el-border-color-light);
+    outline: 2px solid var(--el-border-color-light);
+    outline-offset: 0;
 
     &.marker-success {
       background: var(--el-color-success);
-      box-shadow: 0 0 0 2px var(--el-color-success-light-5);
+      outline-color: var(--el-color-success-light-5);
     }
 
     &.marker-danger {
       background: var(--el-color-danger);
-      box-shadow: 0 0 0 2px var(--el-color-danger-light-5);
+      outline-color: var(--el-color-danger-light-5);
     }
 
     &.marker-warning {
       background: var(--el-color-warning);
-      box-shadow: 0 0 0 2px var(--el-color-warning-light-5);
+      outline-color: var(--el-color-warning-light-5);
     }
 
     &.marker-default {
       background: var(--el-color-primary);
-      box-shadow: 0 0 0 2px var(--el-color-primary-light-5);
+      outline-color: var(--el-color-primary-light-5);
     }
   }
 }

@@ -295,7 +295,7 @@ html.dark .download-option {
   padding: 24px;
   min-width: 280px;
   max-width: 90vw;
-  box-shadow: 0 8px 32px var(--color-black-12);
+  box-shadow: var(--global-box-shadow);
 }
 
 .modal-header {

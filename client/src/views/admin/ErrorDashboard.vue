@@ -120,6 +120,9 @@ import { WarningFilled, CircleCloseFilled, CircleCheckFilled, DataAnalysis } fro
 import echarts from '@/utils/echarts'
 import type { ECharts } from 'echarts'
 import { formatDateTime as _formatTime } from '@/utils/format'
+import { useDarkModeStore } from '@/stores/darkMode'
+
+const darkModeStore = useDarkModeStore()
 
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
@@ -235,6 +238,17 @@ const handleResize = (): void => {
 watch(chartRange, () => {
   initTrendChart()
 })
+
+// 监听暗色模式变化，重新渲染所有图表以更新颜色
+watch(
+  () => darkModeStore.isDarkMode,
+  () => {
+    if (trendChart || typeChart) {
+      initTrendChart()
+      initTypeChart()
+    }
+  }
+)
 
 onMounted(() => {
   initTrendChart()

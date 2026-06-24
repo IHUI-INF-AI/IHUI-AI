@@ -124,7 +124,8 @@ async function onSubmit() {
         description: `提现 ¥${amountYuan.value.toFixed(2)} 到 ${props.bankAccount?.bankName || '银行卡'}`,
       }),
     }).then(r => r.json())
-    if (res?.code === 0) {
+    const codeNum = typeof res?.code === 'string' ? parseInt(res.code, 10) : res?.code
+    if (codeNum === 0) {
       emit('success', { amount: amountYuan.value, txId: res.data?.transaction?.id || '' })
       onClose()
     }

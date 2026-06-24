@@ -692,14 +692,14 @@ $glow-white: var(--color-white-15);
   color: $text-muted;
 
   &--vip {
-    background: rgb(var(--el-color-warning-rgb, 230, 162, 60), 0.15);
-    border-color: rgb(var(--el-color-warning-rgb, 230, 162, 60), 0.3);
+    background: rgb(var(--el-color-warning-rgb), 0.15);
+    border-color: rgb(var(--el-color-warning-rgb), 0.3);
     color: var(--el-color-warning);
   }
 
   &--op {
-    background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.15);
-    border-color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.3);
+    background: rgb(var(--el-color-primary-rgb), 0.15);
+    border-color: rgb(var(--el-color-primary-rgb), 0.3);
     color: var(--el-color-primary);
   }
 }

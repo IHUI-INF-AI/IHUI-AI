@@ -1018,19 +1018,19 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     &.physical-world {
       .world-icon { color: var(--el-color-primary); }
       .world-glow { background: color-mix(in srgb, var(--el-color-primary) 4%, transparent); }
-      &.is-hovered { border-color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.3); }
+      &.is-hovered { border-color: rgb(var(--el-color-primary-rgb), 0.3); }
     }
     
     &.info-world {
       .world-icon { color: $accent-purple; }
       .world-glow { background: color-mix(in srgb, var(--el-color-primary) 4%, transparent); }
-      &.is-hovered { border-color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.3); }
+      &.is-hovered { border-color: rgb(var(--el-color-primary-rgb), 0.3); }
     }
     
     &.super-enterprise {
       .world-icon { color: $accent-pink; }
       .world-glow { background: color-mix(in srgb, var(--el-color-primary) 4%, transparent); }
-      &.is-hovered { border-color: rgb(var(--el-color-danger-rgb, 245, 108, 108), 0.3); }
+      &.is-hovered { border-color: rgb(var(--el-color-danger-rgb), 0.3); }
     }
     
     h3 {
@@ -1440,17 +1440,17 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       margin: 0 auto 24px;
       
       &.employee {
-        background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.1);
+        background: rgb(var(--el-color-primary-rgb), 0.1);
         color: var(--el-color-primary);
       }
       
       &.team {
-        background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.1);
+        background: rgb(var(--el-color-primary-rgb), 0.1);
         color: var(--el-color-primary-light-3);
       }
       
       &.product {
-        background: rgb(var(--el-color-danger-rgb, 245, 108, 108), 0.1);
+        background: rgb(var(--el-color-danger-rgb), 0.1);
         color: var(--el-color-danger-light-3);
       }
     }
@@ -1641,7 +1641,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   .cta-content {
     text-align: center;
     padding: 60px;
-    background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.05);
+    background: rgb(var(--el-color-primary-rgb), 0.05);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     

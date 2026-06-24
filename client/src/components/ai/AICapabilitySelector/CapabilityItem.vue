@@ -306,8 +306,8 @@ const resolvedIconUrl = computed(() => {
     }
 
     &:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+      outline: 2px solid hsl(var(--primary) / 0.2);
+      outline-offset: 1px;
     }
   }
 

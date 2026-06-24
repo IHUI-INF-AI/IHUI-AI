@@ -104,8 +104,10 @@ import { ElMessage } from 'element-plus'
 import echarts from '@/utils/echarts'
 import { useCleanup } from '@/composables/useCleanup'
 import { getUserToken } from '@/utils/request'
+import { useDarkModeStore } from '@/stores/darkMode'
 
 const { t } = useI18n()
+const darkModeStore = useDarkModeStore()
 
 interface EngineStatus { ok: boolean; msg: string }
 interface HealthData {
@@ -259,6 +261,15 @@ const renderChart = () => {
     chart = echarts.init(chartRef.value)
     window.addEventListener('resize', handleResize)
   }
+  const isDark = darkModeStore.isDarkMode
+  const getVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  const bgColor = getVar('--el-bg-color') || 'var(--el-bg-color)'
+  const borderColor = getVar('--el-border-color') || 'var(--el-border-color)'
+  const textPrimary = getVar('--el-text-color-primary') || 'var(--el-text-color-primary)'
+  const successColor = getVar('--el-color-success') || 'var(--el-color-success)'
+  const warningColor = getVar('--el-color-warning') || 'var(--el-color-warning)'
+  const dangerColor = getVar('--el-color-danger') || 'var(--el-color-danger)'
+  const primaryColor = getVar('--el-color-primary') || 'var(--el-color-primary)'
   const xs = history.value.map(p => formatTime(p.ts))
   const ys = history.value.map(p => p.latency)
   const abnormalIdx: number[] = []
@@ -267,19 +278,19 @@ const renderChart = () => {
     grid: { left: 50, right: 20, top: 30, bottom: 40 },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(50,50,50,0.9)',
-      borderColor: getComputedStyle(document.documentElement).getPropertyValue('--el-border-color').trim() || '#333',
-      textStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-bg-color').trim() || '#fff', fontSize: 13 },
+      backgroundColor: bgColor,
+      borderColor: borderColor,
+      textStyle: { color: textPrimary, fontSize: 13 },
       formatter: (params: unknown) => {
         const arr = params as Array<{ dataIndex: number }>
         const idx = arr[0]?.dataIndex
         const p = history.value[idx]
         if (!p) return ''
-        const statusColor = p.status === 'ok' ? getComputedStyle(document.documentElement).getPropertyValue('--el-color-success').trim() || '#67c23a'
-          : p.status === 'degraded' ? getComputedStyle(document.documentElement).getPropertyValue('--el-color-warning').trim() || '#e6a23c'
-          : getComputedStyle(document.documentElement).getPropertyValue('--el-color-danger').trim() || '#f56c6c'
-        const dbColor = p.dbOk ? (getComputedStyle(document.documentElement).getPropertyValue('--el-color-success').trim() || '#67c23a') : (getComputedStyle(document.documentElement).getPropertyValue('--el-color-danger').trim() || '#f56c6c')
-        const redisColor = p.redisOk ? (getComputedStyle(document.documentElement).getPropertyValue('--el-color-success').trim() || '#67c23a') : (getComputedStyle(document.documentElement).getPropertyValue('--el-color-danger').trim() || '#f56c6c')
+        const statusColor = p.status === 'ok' ? successColor
+          : p.status === 'degraded' ? warningColor
+          : dangerColor
+        const dbColor = p.dbOk ? successColor : dangerColor
+        const redisColor = p.redisOk ? successColor : dangerColor
         return `
           <div style="line-height:1.6">
             <div style="font-weight:bold;margin-bottom:4px">${formatTime(p.ts)}</div>
@@ -300,19 +311,19 @@ const renderChart = () => {
       smooth: true,
       symbol: 'circle',
       symbolSize: 6,
-      lineStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim() || '#409eff', width: 2 },
-      itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim() || '#409eff' },
-      areaStyle: { color: 'rgba(64,158,255,0.15)' },
+      lineStyle: { color: primaryColor, width: 2 },
+      itemStyle: { color: primaryColor },
+      areaStyle: { color: primaryColor + (isDark ? '1a' : '26') },
       markPoint: {
-        data: abnormalIdx.map(i => ({ coord: [xs[i], ys[i]], itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-color-danger').trim() || '#f56c6c' } })),
+        data: abnormalIdx.map(i => ({ coord: [xs[i], ys[i]], itemStyle: { color: dangerColor } })),
         symbol: 'pin',
         symbolSize: 28,
-        label: { formatter: '!', color: getComputedStyle(document.documentElement).getPropertyValue('--el-bg-color').trim() || '#fff', fontWeight: 'bold' },
+        label: { formatter: '!', color: bgColor, fontWeight: 'bold' },
       },
       markLine: {
         silent: true,
         symbol: 'none',
-        lineStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-color-warning').trim() || '#e6a23c', type: 'dashed' },
+        lineStyle: { color: warningColor, type: 'dashed' },
         data: [{ yAxis: 1000, name: '1s' }],
       },
     }],
@@ -328,6 +339,16 @@ let resizeRafId: number | null = null
 watch(history, () => {
   nextTick(() => renderChart())
 }, { deep: true })
+
+// 监听暗色模式变化，重新渲染图表以更新颜色
+watch(
+  () => darkModeStore.isDarkMode,
+  () => {
+    if (chart) {
+      renderChart()
+    }
+  }
+)
 
 onMounted(() => {
   fetchHealth()

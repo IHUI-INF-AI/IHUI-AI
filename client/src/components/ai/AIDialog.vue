@@ -2825,8 +2825,8 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
 
       &:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 2px var(--el-color-primary-light-7);
+        outline: 2px solid var(--el-color-primary-light-7);
+        outline-offset: 1px;
       }
     }
 

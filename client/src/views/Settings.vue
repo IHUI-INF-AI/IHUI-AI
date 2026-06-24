@@ -1943,7 +1943,7 @@ $brand-secondary: var(--color-gray-333);
 
 // ============ 玻璃态样式 ============
 .glass {
-  background: rgb(var(--el-fill-color-light-rgb, 250, 250, 252), 0.6);
+  background: rgb(var(--el-fill-color-light-rgb), 0.6);
   backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
@@ -2190,7 +2190,7 @@ $brand-secondary: var(--color-gray-333);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
-  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.5);
+  background: rgb(var(--el-fill-color-rgb), 0.5);
   transition: all 0.3s;
 
   &:focus {
@@ -2206,7 +2206,7 @@ $brand-secondary: var(--color-gray-333);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
-  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.5);
+  background: rgb(var(--el-fill-color-rgb), 0.5);
   cursor: pointer;
   transition: all 0.3s;
 
@@ -2234,7 +2234,7 @@ $brand-secondary: var(--color-gray-333);
     position: absolute;
     cursor: pointer;
     inset: 0;
-    background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.8);
+    background: rgb(var(--el-fill-color-rgb), 0.8);
     border: var(--unified-border);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: var(--global-border-radius);
@@ -2323,7 +2323,7 @@ $brand-secondary: var(--color-gray-333);
 
 .upload-btn {
   padding: 10px 18px;
-  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.8);
+  background: rgb(var(--el-fill-color-rgb), 0.8);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.85rem;
@@ -2388,7 +2388,7 @@ $brand-secondary: var(--color-gray-333);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.8);
+    background: rgb(var(--el-fill-color-rgb), 0.8);
     border: none;
     border-radius: var(--global-border-radius);
     font-size: 1.5rem;
@@ -2446,7 +2446,7 @@ $brand-secondary: var(--color-gray-333);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.95rem;
-  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.5);
+  background: rgb(var(--el-fill-color-rgb), 0.5);
   box-sizing: border-box;
   transition: all 0.3s;
 
@@ -2501,7 +2501,7 @@ $brand-secondary: var(--color-gray-333);
   gap: 12px;
   padding: 20px 28px;
   border-top: var(--unified-border);
-  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.3);
+  background: rgb(var(--el-fill-color-rgb), 0.3);
 }
 
 .cancel-btn {
@@ -2515,7 +2515,7 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.3s;
 
   &:hover {
-    background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.8);
+    background: rgb(var(--el-fill-color-rgb), 0.8);
   }
 }
 
@@ -2653,7 +2653,7 @@ $brand-secondary: var(--color-gray-333);
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.5);
+  background: rgb(var(--el-fill-color-rgb), 0.5);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
 

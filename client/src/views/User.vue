@@ -578,7 +578,7 @@ $bg-page: var(--el-bg-color-page);
       height: 350px;
       bottom: 20%;
       left: 5%;
-      background: rgb(var(--el-text-color-placeholder-rgb, 148, 158, 210), 0.15);
+      background: rgb(var(--el-text-color-placeholder-rgb), 0.15);
       animation-delay: -7s;
     }
   }
@@ -802,7 +802,7 @@ $bg-page: var(--el-bg-color-page);
     font-size: 10px;
     font-weight: 900;
     margin-bottom: 8px;
-    background: rgb(var(--el-fill-color-light-rgb, 250, 250, 252), 0.5);
+    background: rgb(var(--el-fill-color-light-rgb), 0.5);
     width: fit-content;
 
     .status-dot {

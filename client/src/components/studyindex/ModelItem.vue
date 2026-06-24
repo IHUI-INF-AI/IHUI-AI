@@ -105,7 +105,7 @@ function numResult(num: number) {
 }
 
 .ai-card:hover {
-  box-shadow: 0 0 8px var(--color-blue-rgba-22-132-252-18), 0 0 6px var(--color-black-16), 0 0 8px var(--color-black-18);
+  box-shadow: var(--global-box-shadow);
   transform: translateY(0) scale(1.03);
 }
 

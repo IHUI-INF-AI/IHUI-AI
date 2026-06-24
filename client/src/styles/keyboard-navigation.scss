@@ -16,7 +16,7 @@
   .modal-container {
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
-    box-shadow: 0 10px 40px var(--color-black-20);
+    box-shadow: var(--global-box-shadow);
     max-height: 90vh;
     overflow: hidden;
     display: flex;
@@ -116,7 +116,7 @@
     background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    box-shadow: 0 4px 12px var(--color-black-15);
+    box-shadow: var(--global-box-shadow);
     z-index: var(--z-header);
     padding: 0.5rem 0;
     animation: slideDown 0.2s ease;
@@ -340,11 +340,11 @@
   }
 
   .modal-container {
-    box-shadow: 0 10px 40px var(--color-black-50);
+    box-shadow: var(--global-box-shadow);
   }
 
   .dropdown-menu {
-    box-shadow: 0 4px 12px var(--color-black-30);
+    box-shadow: var(--global-box-shadow);
   }
 }
 

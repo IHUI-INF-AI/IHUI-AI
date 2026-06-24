@@ -640,7 +640,7 @@ defineExpose({
   }
 
   .price-symbol {
-    color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.8);
+    color: rgb(var(--el-color-primary-rgb), 0.8);
 
     :where(html.dark) & {
       color: var(--color-gray-dcdce6-90);

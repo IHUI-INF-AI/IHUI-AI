@@ -339,6 +339,7 @@ const { t } = useI18n()
 import { useUserStore } from '@/stores/user'
 import { useToast } from '@/composables/useToast'
 import { useA11y } from '@/composables/useA11y'
+import { useDarkModeStore } from '@/stores/darkMode'
 import http from '@/utils/request'
 import BalanceAlert from '@/components/BalanceAlert.vue'
 import TransactionDetail from '@/components/TransactionDetail.vue'
@@ -380,6 +381,7 @@ interface TrendPoint {
 }
 
 const userStore = useUserStore()
+const darkModeStore = useDarkModeStore()
 const toast = useToast()
 const { announce, focusFirst: _focusFirst, trapFocus: _trapFocus } = useA11y()
 
@@ -423,7 +425,11 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.v
 
 const trendPath = computed(() => buildPath(trendPoints.value, true))
 const trendLine = computed(() => buildPath(trendPoints.value, false))
-const trendStrokeColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--el-text-color-primary').trim() || '#000')
+const trendStrokeColor = computed(() => {
+  // 依赖 isDarkMode 以便暗色模式切换时重新读取 CSS 变量
+  const _isDark = darkModeStore.isDarkMode
+  return getComputedStyle(document.documentElement).getPropertyValue('--el-text-color-primary').trim() || 'var(--el-text-color-primary)'
+})
 
 // 趋势图极值（供 aria-label 朗读使用）
 const minTrendBalance = computed(() => {

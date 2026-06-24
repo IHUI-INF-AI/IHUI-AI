@@ -131,8 +131,8 @@ watch(() => props.src, loadCode, { immediate: true })
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--color-gray-1e1e1e);
-  color: var(--color-neutral-300);
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
   font-family: var(--font-family-mono);
 }
 
@@ -283,7 +283,7 @@ watch(() => props.src, loadCode, { immediate: true })
   font-family: inherit;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--color-neutral-300);
+  color: var(--el-text-color-primary);
 }
 
 .editor-footer {

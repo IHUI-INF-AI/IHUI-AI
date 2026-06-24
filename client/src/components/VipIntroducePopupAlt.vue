@@ -175,7 +175,7 @@ onMounted(() => {
   transition: all 0.3s ease-in-out;
   opacity: 0.8;
   background-image: var(--color-gradient-purple-yellow);
-  box-shadow: 0 0 15px var(--color-black-20), inset 0 -1px 2px var(--color-white-70), inset 0 1px 1px var(--color-white-70);
+  box-shadow: var(--global-box-shadow);
 }
 
 .popup-content.popup-show {

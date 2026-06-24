@@ -406,7 +406,7 @@ async function handlePayment() {
   border-radius: var(--global-border-radius);
   background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-3));
   border: none;
-  box-shadow: 0 0 8px var(--color-rgba-5--122--255--0-4-);
+  box-shadow: none;
   margin-bottom: 10px;
 }
 

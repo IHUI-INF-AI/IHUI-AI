@@ -246,7 +246,7 @@ watch(
     &:hover {
       background: var(--el-color-primary-light-3);
       color: var(--el-bg-color-page);
-      box-shadow: var(--global-box-shadow, 0 1px 2px var(--color-black-5));
+      box-shadow: var(--global-box-shadow);
     }
 
     &:focus-visible {

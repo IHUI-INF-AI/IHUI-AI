@@ -1003,7 +1003,8 @@ function formatTime(d: Date): string {
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: 4px;
-  box-shadow: 0 0 0 3px var(--el-bg-color);
+  outline: 3px solid var(--el-bg-color);
+  outline-offset: 0;
   z-index: var(--z-base);
 }
 

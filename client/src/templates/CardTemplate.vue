@@ -1,4 +1,4 @@
-﻿<!-- 
+<!-- 
   卡片组件模板
   适用于：信息展示、列表项、功能卡片等
   
@@ -118,7 +118,8 @@ function handleClick(event: MouseEvent) {
   // 选中状态
   &.is-selected {
     border: var(--el-border-width-primary) solid var(--el-color-primary);
-    box-shadow: 0 0 0 2px var(--el-color-primary-light-7);
+    outline: 2px solid var(--el-color-primary-light-7);
+    outline-offset: -1px;
   }
   
   // 加载状态

@@ -159,11 +159,11 @@ export default {
     }
     
     #navbar-theme-input:checked + .slider {
-      background-color: black;
+      background-color: var(--el-text-color-primary);
     }
     
     #navbar-theme-input:focus + .slider {
-      box-shadow: 0 0 1px var(--color-blue-2196f3);
+      box-shadow: none;
     }
     
     .sun-moon {
@@ -183,7 +183,7 @@ export default {
       -webkit-transform: translateX(16px);
       -ms-transform: translateX(16px);
       transform: translateX(16px);
-      background-color: white;
+      background-color: var(--el-bg-color);
       -webkit-animation: rotate-center 0.6s ease-in-out both;
       animation: rotate-center 0.6s ease-in-out both;
     }

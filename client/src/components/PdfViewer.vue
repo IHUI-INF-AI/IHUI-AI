@@ -1088,8 +1088,7 @@ onMounted(() => {
 
 .search-highlight.current {
   background: color-mix(in srgb, var(--el-color-warning) 50%, transparent);
-  border-color: var(--el-color-warning);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--el-color-warning) 60%, transparent);
+  border: 2px solid var(--el-color-warning);
   z-index: calc(var(--z-base) + 9);
 }
 
@@ -1106,11 +1105,20 @@ onMounted(() => {
 }
 
 .annotation.selected {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--el-color-primary) 30%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--el-color-primary) 30%, transparent);
+  outline-offset: -1px;
 }
 
 .annotation-highlight {
   mix-blend-mode: multiply;
+}
+
+:where(html.dark) .search-highlight {
+  mix-blend-mode: normal;
+}
+
+:where(html.dark) .annotation-highlight {
+  mix-blend-mode: normal;
 }
 
 .annotation-underline {
@@ -1227,7 +1235,8 @@ onMounted(() => {
 .form-textarea:focus,
 .form-select:focus {
   border-color: var(--el-color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--el-color-primary) 20%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--el-color-primary) 20%, transparent);
+  outline-offset: -1px;
 }
 
 .form-textarea {

@@ -130,5 +130,66 @@
         color: var(--el-text-color-primary);
       }
     }
+
+    // Element Plus 表格暗色适配（普通页面，admin-dark 已单独处理）
+    .el-table {
+      --el-table-bg-color: var(--el-bg-color);
+      --el-table-tr-bg-color: var(--el-bg-color);
+      --el-table-header-bg-color: var(--color-dark-bg-5);
+      --el-table-row-hover-bg-color: var(--color-dark-bg-5);
+      --el-table-border-color: var(--el-border-color);
+      --el-table-header-text-color: var(--el-text-color-primary);
+      --el-table-text-color: var(--el-text-color-primary);
+    }
+
+    // Element Plus 抽屉暗色适配
+    .el-drawer {
+      background-color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+    }
+
+    .el-drawer__header {
+      color: var(--el-text-color-primary);
+    }
+
+    // Element Plus 菜单暗色适配
+    .el-menu {
+      background-color: var(--el-bg-color);
+    }
+
+    .el-menu-item {
+      color: var(--el-text-color-primary);
+
+      &:hover {
+        background-color: var(--el-fill-color-light);
+      }
+
+      &.is-active {
+        color: var(--el-text-color-primary);
+      }
+    }
+
+    // Element Plus 输入框暗色适配（确保不透明）
+    .el-input__wrapper {
+      background-color: var(--el-fill-color-blank);
+    }
+
+    // Element Plus 选择器暗色适配
+    .el-select__wrapper {
+      background-color: var(--el-fill-color-blank);
+    }
+
+    // Element Plus popover 暗色适配
+    .el-popover.el-popper {
+      background-color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+      border-color: var(--el-border-color);
+    }
+
+    // Element Plus tooltip 暗色适配
+    .el-tooltip__popper {
+      background-color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+    }
   }
 }

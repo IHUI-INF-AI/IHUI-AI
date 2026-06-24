@@ -139,7 +139,7 @@
 
   &:hover::after {
     transform: scale(1.05, 1.1);
-    box-shadow: inset 0 -1px 3px 0 var(--color-rgba-255--255--255--1-);
+    box-shadow: none;
   }
 
   &::before {

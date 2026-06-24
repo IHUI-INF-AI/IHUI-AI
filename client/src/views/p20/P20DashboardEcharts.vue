@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -55,8 +55,10 @@ import * as echarts from '@/utils/echarts'
 import { adminApi } from '@/api/admin'
 import { getAdminOrders } from '@/api/admin-orders'
 import { v2Agents } from '@/api/v2-business'
+import { useDarkModeStore } from '@/stores/darkMode'
 
 const { t } = useI18n()
+const darkModeStore = useDarkModeStore()
 
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
@@ -72,6 +74,10 @@ let revenueChart: echarts.ECharts | null = null
 let orderPie: echarts.ECharts | null = null
 let agentBar: echarts.ECharts | null = null
 const _coursePie: echarts.ECharts | null = null
+
+// 缓存最近一次加载的数据，供暗色模式切换时重新渲染
+let lastOrderRecords: OrderRecord[] = []
+let lastAgentRecords: AgentRecord[] = []
 
 // 订单记录类型（兼容多种字段命名）
 interface OrderRecord {
@@ -219,6 +225,8 @@ async function loadAll() {
     }
 
     await nextTick()
+    lastOrderRecords = orderRecords
+    lastAgentRecords = agentRecords
     renderRevenueChart()
     renderOrderPie(orderRecords)
     renderAgentBar(agentRecords)
@@ -259,6 +267,18 @@ onMounted(() => {
   })
   cleanup.add(disposeAll)
 })
+
+// 监听暗色模式变化，重新渲染图表以更新颜色
+watch(
+  () => darkModeStore.isDarkMode,
+  () => {
+    if (revenueChart || orderPie || agentBar) {
+      renderRevenueChart()
+      renderOrderPie(lastOrderRecords)
+      renderAgentBar(lastAgentRecords)
+    }
+  }
+)
 </script>
 
 <style scoped>

@@ -159,12 +159,30 @@ const thinkingProgress = computed(() => {
   border-radius: var(--global-border-radius);
   background-color: var(--color-purple-d7b3fc);
   animation: loaderpulse 1.5s infinite ease-in-out;
+  position: relative;
+  z-index: 0;
+}
+
+.loader-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--color-cyan-b2d4fc-fade);
+  animation: loaderpulseRing 1.5s infinite ease-in-out;
+  z-index: -1;
 }
 
 @keyframes loaderpulse {
-  0%{transform:scale(0.8);background-color:var(--color-purple-d7b3fc);box-shadow:0 0 0 0 var(--color-purple-mix-7)}
-  50%{transform:scale(1.2);background-color:var(--color-purple-ae44d1);box-shadow:0 0 0 10px var(--color-cyan-b2d4fc-fade)}
-  100%{transform:scale(0.8);background-color:var(--color-purple-d7b3fc);box-shadow:0 0 0 0 var(--color-purple-mix-7)}
+  0%{transform:scale(0.8);background-color:var(--color-purple-d7b3fc)}
+  50%{transform:scale(1.2);background-color:var(--color-purple-ae44d1)}
+  100%{transform:scale(0.8);background-color:var(--color-purple-d7b3fc)}
+}
+
+@keyframes loaderpulseRing {
+  0%{transform:scale(1);opacity:0}
+  50%{transform:scale(2.5);opacity:1}
+  100%{transform:scale(1);opacity:0}
 }
 .loader-dot:nth-child(1){animation-delay:-0.1875s}
 .loader-dot:nth-child(2){animation-delay:-0.0625s}

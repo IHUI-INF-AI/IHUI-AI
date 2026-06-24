@@ -279,7 +279,7 @@ function hideServicePopup() {
   opacity: 1;
   background: var(--color-white-40);
   backdrop-filter: blur(10px);
-  box-shadow: 0 0 3px 0 var(--color-purple-light-60);
+  box-shadow: none;
 }
 
 .card-image {

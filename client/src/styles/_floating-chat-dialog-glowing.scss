@@ -18,9 +18,9 @@
     transition: opacity 0.5s ease;
     /* 四周发散科技感光芒：多层 0 0 扩散，主题色半透明 */
     box-shadow:
-      0 0 16px rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.12),
-      0 0 32px rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.08),
-      0 0 48px rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.05);
+      0 0 16px rgba(var(--el-color-primary-rgb), 0.12),
+      0 0 32px rgba(var(--el-color-primary-rgb), 0.08),
+      0 0 48px rgba(var(--el-color-primary-rgb), 0.05);
   }
 
   /* 拖拽中显示光芒，松手后通过移除 .is-dragging 触发 opacity 过渡，光芒逐渐消失 */
@@ -32,7 +32,7 @@
 /* 暗色模式下光芒颜色微调，略强以便可见 */
 :where(html.dark) .floating-chat-dialog-wrapper .floating-chat-dialog::before {
   box-shadow:
-    0 0 20px rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.18),
-    0 0 40px rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.1),
-    0 0 60px rgba(var(--el-color-primary-rgb, 64, 158, 255), 0.06);
+    0 0 20px rgba(var(--el-color-primary-rgb), 0.18),
+    0 0 40px rgba(var(--el-color-primary-rgb), 0.1),
+    0 0 60px rgba(var(--el-color-primary-rgb), 0.06);
 }

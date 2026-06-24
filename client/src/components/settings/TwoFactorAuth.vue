@@ -317,7 +317,7 @@ onMounted(() => {
   .qr-container {
     display: inline-block;
     padding: 16px;
-    background: white;
+    background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     margin-bottom: 16px;
   }

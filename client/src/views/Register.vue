@@ -1017,7 +1017,7 @@ $bg-page: var(--el-bg-color-page);
 }
 
 .glass-card {
-  background: rgb(var(--el-bg-color-rgb, 255, 255, 255), 0.92);
+  background: rgb(var(--el-bg-color-rgb), 0.92);
   backdrop-filter: blur(30px);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);

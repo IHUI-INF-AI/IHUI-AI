@@ -103,7 +103,7 @@ const info = computed(() => props.information || {})
   align-items: center;
   margin: 18px 32px 0;
   font-size: 11px;
-  color: black;
+  color: var(--el-text-color-primary);
 }
 
 .meta-views {

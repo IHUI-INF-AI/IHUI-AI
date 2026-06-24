@@ -632,7 +632,7 @@ $border-light: var(--el-border-color-lighter);
 
 // ============ 玻璃态卡片 ============
 .glass-card {
-  background: rgb(var(--el-fill-color-light-rgb, 250, 250, 250), 0.6);
+  background: rgb(var(--el-fill-color-light-rgb), 0.6);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
@@ -1026,6 +1026,10 @@ $border-light: var(--el-border-color-lighter);
       }
     }
 
+    // 暗色模式下 screen 混合会让光晕过亮，影响整体视觉层次，改用 normal
+    .ambient-aura {
+      mix-blend-mode: normal;
+    }
   }
 
   &.mouse-active .mouse-glow-effect {

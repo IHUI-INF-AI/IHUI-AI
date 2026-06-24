@@ -886,7 +886,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     
     .overview-highlight {
       padding: 20px;
-      background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.05);
+      background: rgb(var(--el-color-primary-rgb), 0.05);
       border-left: 3px solid var(--border-unified-color);
       
       .highlight-label {
@@ -974,7 +974,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     }
     
     &.featured {
-      border-color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.3);
+      border-color: rgb(var(--el-color-primary-rgb), 0.3);
       background: color-mix(in srgb, var(--el-color-primary) 2%, transparent);
     }
   }
@@ -1119,7 +1119,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   
   .quadrant-value {
     padding: 20px;
-    background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.05);
+    background: rgb(var(--el-color-primary-rgb), 0.05);
     border-radius: var(--global-border-radius);
     
     h4 {

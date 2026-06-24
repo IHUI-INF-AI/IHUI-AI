@@ -99,7 +99,7 @@ function toMyModel() {
   color: var(--color-black);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  box-shadow: 0 0 2.5px 0 var(--color-black-30);
+  box-shadow: var(--global-box-shadow);
   background: var(--color-blue-d9e6fd);
   backdrop-filter: blur(10px);
   font-weight: bold;
