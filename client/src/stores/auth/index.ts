@@ -7,6 +7,7 @@ import {
   register as apiRegister,
   phoneLogin,
   completePhoneLogin,
+  logout as apiLogout,
 } from '@/api/user'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
@@ -184,9 +185,14 @@ export const useAuthStore = defineStore('auth', () => {
           tokenValue = responseData.token || ''
           refreshTokenValue = responseData.refreshToken || ''
           userInfo = (responseData as { user?: UserInfoData }).user || null
-        } else if ('tokenType' in responseData) {
-          tokenValue = (responseData as { token?: string }).token || ''
-          refreshTokenValue = (responseData as { refreshToken?: string }).refreshToken || ''
+        } else if ('tokenType' in responseData || 'accessToken' in responseData || 'access_token' in responseData) {
+          // 2026-06-24 修复: 后端 _build_token_data 返回 accessToken/access_token 双写, 非 token 字段
+          tokenValue = (responseData as { accessToken?: string; access_token?: string }).accessToken
+            || (responseData as { access_token?: string }).access_token
+            || (responseData as { token?: string }).token || ''
+          refreshTokenValue = (responseData as { refreshToken?: string }).refreshToken
+            || (responseData as { refresh_token?: string }).refresh_token || ''
+          userInfo = (responseData as { user?: UserInfoData }).user || null
         } else {
           throw new Error(t('error.auth.无效的响应数据格2'))
         }
@@ -394,9 +400,11 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (_error) {
       // 静默失败
     }
-    // 已移除 auth/logout 接口，不再调用后端，仅做本地登出
+    // 2026-06-24 修复: 恢复调用后端 /api/v1/auth/logout 使 token 加入黑名单
     try {
-      // 原：await apiLogout() 已移除
+      await apiLogout()
+    } catch {
+      // 后端登出失败不阻塞本地清理
     } finally {
       sessionStorage.setItem('__logout_flag__', Date.now().toString())
       try {

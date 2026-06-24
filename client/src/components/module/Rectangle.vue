@@ -120,7 +120,7 @@ const phraseDesc = computed(() => {
   right: 8px;
   padding: 2px 8px;
   background: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
   font-size: 12px;
   border-radius: var(--global-border-radius);
 }

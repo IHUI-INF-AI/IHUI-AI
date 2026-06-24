@@ -832,7 +832,9 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
       mockDataPlugin(),
       // 2026-06-24 优化：把 setup 里的 `import { ElXxx } from 'element-plus'` 改写为按需路径
       // unplugin-vue-components 只处理模板 <el-xxx> 标签，setup 里的 import 需要此插件兜底
-      elementPlusOnDemand(),
+      // 2026-06-24 修复：禁用此插件，因为路径映射有缺陷（ElRadioGroup 等组件无独立目录，radio-group/index.mjs 不存在）
+      // element-plus 按需加载已通过 unplugin-vue-components + ElementPlusResolver 处理模板标签
+      // elementPlusOnDemand(),
       // ?????? API ???????? VITE_BAIDU_SPEECH_* ??????      baiduSpeechPlugin(),
       // ????Vue?Element Plus?API - ????????????
       AutoImport({
@@ -1455,12 +1457,18 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           },
         },
         // 支付状态 WebSocket: 前端 ws://host:8888/payment/status/{orderNo}
-        // 2026-06-21 联调: 重写到 /ws/payment/status/{orderNo}, 后端 app/ws/payment_status.py
-        '/payment': {
+        // 2026-06-24 修复: 拆分代理, 仅 /payment/status 走 WebSocket rewrite, 其他 /payment HTTP 请求不被 rewrite
+        '/payment/status': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           ws: true,
-          rewrite: (path: string) => path.replace(/^\/payment/, '/ws/payment'),
+          rewrite: (path: string) => path.replace(/^\/payment\/status/, '/ws/payment/status'),
+        },
+        // 支付 HTTP API: 不 rewrite, 直接转发到后端 (后端 /api/v1/payments/*)
+        '/payment': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/payment/, '/api/v1/payments'),
         },
         // ?? WebSocket ??
         // 2026-06-19: 切到 Python 后端 (app/ws/* 已有 /ws/chat, /ws/notice, /ws/tts/stream 等路由)
@@ -1729,6 +1737,14 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           if (
             warning.message?.includes('new URL') ||
             warning.message?.includes("doesn't exist at build time")
+          ) {
+            return
+          }
+          // 过滤 rolldown 的 INVALID_ANNOTATION (第三方库 @vueuse/core 的 #__PURE__ 注解位置问题, 不影响功能)
+          if (
+            warning.code === 'INVALID_ANNOTATION' ||
+            warning.message?.includes('INVALID_ANNOTATION') ||
+            warning.message?.includes('#__PURE__')
           ) {
             return
           }

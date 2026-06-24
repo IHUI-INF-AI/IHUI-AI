@@ -80,7 +80,8 @@ export function getWithdrawList(
     endTime?: string
   }
 ): Promise<ApiResponse<PaginationResponse<WithdrawRecord>>> {
-  return request.get('/commission/withdraw-list', { params })
+  // 2026-06-24 修复: 对齐后端 /api/v1/finance/withdrawal 前缀 (后端暂无 list 端点, 路径规范化)
+  return request.get('/api/v1/finance/withdrawal/list', { params })
 }
 
 // 申请提现
@@ -102,7 +103,8 @@ export function applyWithdraw(data: {
     name: string
   }
 }): Promise<ApiResponse<WithdrawRecord>> {
-  return request.post('/commission/withdraw', data)
+  // 2026-06-24 修复: 对齐后端 /api/v1/wallet/withdraw (compat_routes.py)
+  return request.post('/api/v1/wallet/withdraw', data)
 }
 
 // 取消提现申请

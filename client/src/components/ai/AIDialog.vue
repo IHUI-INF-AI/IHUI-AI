@@ -972,7 +972,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     --send-btn-disabled-hover-border: var(--border-unified-color);
     --send-btn-bg-dark: color-mix(in srgb, var(--el-color-primary) 35%, transparent);
     --send-btn-border-dark: var(--border-unified-color);
-    --send-btn-color-dark: var(--el-color-white);
+    --send-btn-color-dark: var(--color-on-primary);
     --send-btn-shadow-1-dark: none; // 扁平化设计：移除投影
     --send-btn-shadow-2-dark: none; // 扁平化设计：移除投影
     --send-btn-inset-dark: var(--color-white-10);
@@ -1375,15 +1375,15 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           --amb-border: var(--el-border-width-primary) solid var(--el-color-primary);
           --amb-border-width: var(--el-border-width-primary);
 
-          color: var(--el-color-white);
+          color: var(--color-on-primary);
           box-shadow: var(--aid-shadow); // 扁平化设计：移除投影
 
           .agent-mode-text {
-            color: var(--el-color-white);
+            color: var(--color-on-primary);
           }
 
           :deep(.el-icon) {
-            color: var(--el-color-white);
+            color: var(--color-on-primary);
           }
 
           &:hover {
@@ -1391,7 +1391,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
             --amb-border: var(--el-border-width-primary) solid var(--el-color-primary);
           --amb-border-width: var(--el-border-width-primary);
 
-            color: var(--el-color-white);
+            color: var(--color-on-primary);
           }
         }
 
@@ -2306,7 +2306,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       box-shadow: var(--send-btn-shadow-dark); // 扁平化设计
 
       :deep(.el-button__inner) {
-        color: var(--el-color-white);
+        color: var(--color-on-primary);
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -2317,7 +2317,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
 
       :deep(.el-icon) {
-        color: var(--el-color-white);
+        color: var(--color-on-primary);
         font-size: var(--aid-icon-lg);
         width: var(--aid-icon-lg);
         height: var(--aid-icon-lg);
@@ -2332,7 +2332,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
 
       span {
-        color: var(--el-color-white);
+        color: var(--color-on-primary);
         display: inline-block;
         font-size: 15px;
         line-height: 1.5;
@@ -2345,16 +2345,16 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       &:hover:not(:disabled) {
         background: rgb(var(--el-color-primary-rgb), 0.35);
         border-color: rgb(var(--el-color-primary-rgb), 0.5);
-        color: var(--el-color-white);
+        color: var(--color-on-primary);
         transform: translateY(0) scale(1); // 扁平化设计
 
         :deep(.el-icon) {
-          color: var(--el-color-white);
+          color: var(--color-on-primary);
           transform: translateX(3px) scale(1.05);
         }
 
         span {
-          color: var(--el-color-white);
+          color: var(--color-on-primary);
           transform: translateX(1px);
         }
       }
@@ -2362,7 +2362,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       &:active:not(:disabled) {
         background: rgb(var(--el-color-primary-rgb), 0.4);
         border-color: rgb(var(--el-color-primary-rgb), 0.6);
-        color: var(--el-color-white);
+        color: var(--color-on-primary);
         transform: translateY(0) scale(1); // 扁平化设计
         transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       }
@@ -2992,7 +2992,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
     
     input[type="checkbox"]:checked + .checkmark::before {
-      color: var(--el-color-white);
+      color: var(--color-on-primary);
       transform: none; /* 移除 translateY，使用 flexbox 居中 */
     }
     

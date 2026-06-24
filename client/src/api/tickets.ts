@@ -49,8 +49,10 @@ export interface TicketListResponse {
   total: number
 }
 
-/** 工单 API 前缀（与后端 Python /api/zhs_api_ticket 及 Vite 代理一致） */
-const TICKET_API = '/api/zhs_api_ticket'
+/** 工单 API 前缀
+ * 2026-06-24 修复: 对齐后端 /api/v1/customer_service/ticket (main.py L335)
+ */
+const TICKET_API = '/api/v1/customer_service/ticket'
 
 /**
  * 获取工单列表

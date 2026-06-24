@@ -12,13 +12,24 @@
  *   - 此插件作为兜底，对 setup 里的 import 也按需化。
  *
  * 命名映射规则：
- *   ElMessage      → element-plus/es/components/message
- *   ElMessageBox   → element-plus/es/components/message-box
- *   ElButton       → element-plus/es/components/button
- *   ElFormItem     → element-plus/es/components/form-item
- *   ElButtonGroup  → element-plus/es/components/button
- *   ElLoading      → element-plus/es/components/loading
- *   ElIcon         → element-plus/es/components/icon
+ *   默认: ElMessage → element-plus/es/components/message
+ *         ElButton → element-plus/es/components/button
+ *   特殊: ElRadioGroup   → element-plus/es/components/radio
+ *         ElRadioButton  → element-plus/es/components/radio
+ *         ElCheckboxGroup  → element-plus/es/components/checkbox
+ *         ElCheckboxButton → element-plus/es/components/checkbox
+ *         ElButtonGroup  → element-plus/es/components/button
+ *         ElDropdownMenu → element-plus/es/components/dropdown
+ *         ElDropdownItem → element-plus/es/components/dropdown
+ *         ElMenuItem     → element-plus/es/components/menu
+ *         ElSubMenu      → element-plus/es/components/menu
+ *         ElTabPane      → element-plus/es/components/tabs
+ *         ElTabNav       → element-plus/es/components/tabs
+ *         ElFormItem     → element-plus/es/components/form
+ *         ElTableColumn  → element-plus/es/components/table
+ *         ElOption       → element-plus/es/components/select
+ *         ElOptionGroup  → element-plus/es/components/select
+ *         ElTreeNode     → element-plus/es/components/tree
  *
  * 不处理的：
  *   - 类型导入：import type { ElMessage } (不会产生运行时代码)
@@ -31,8 +42,35 @@ import type { Plugin } from 'vite'
 const ELEMENT_PLUS_MODULE = /['"]element-plus['"]/
 const EL_NAME_RE = /\bEl[A-Z][A-Za-z0-9]+\b/g
 
+/**
+ * 特殊映射表：ElRadioGroup / ElRadioButton 等"复合组件" 实际在父组件目录
+ * 例如 ElRadioGroup 实际在 element-plus/es/components/radio/index.mjs
+ */
+const SPECIAL_PATH_MAP: Record<string, string> = {
+  ElRadioGroup: 'radio',
+  ElRadioButton: 'radio',
+  ElCheckboxGroup: 'checkbox',
+  ElCheckboxButton: 'checkbox',
+  ElButtonGroup: 'button',
+  ElDropdownMenu: 'dropdown',
+  ElDropdownItem: 'dropdown',
+  ElMenuItem: 'menu',
+  ElSubMenu: 'menu',
+  ElTabPane: 'tabs',
+  ElTabNav: 'tabs',
+  ElFormItem: 'form',
+  ElTableColumn: 'table',
+  ElOption: 'select',
+  ElOptionGroup: 'select',
+  ElTreeNode: 'tree',
+}
+
 /** ElMessageBox → message-box, ElButton → button, ElFormItem → form-item */
 function componentNameToPath(ElName: string): string {
+  // 特殊映射优先
+  if (SPECIAL_PATH_MAP[ElName]) {
+    return SPECIAL_PATH_MAP[ElName]
+  }
   // 去掉 El 前缀
   const stripped = ElName.replace(/^El/, '')
   // 驼峰转连字符：MessageBox → message-box
@@ -93,8 +131,12 @@ function rewriteImport(code: string, excluded: RegExp): string {
     if (allExcluded) return _match
 
     // 生成改写后的 import 块
+    // 注意: 路径必须带 /index.mjs 后缀, 因为 element-plus 的 exports 字段
+    // "./es/*" 规则将 * 映射到 ./es/*.mjs (文件), 不支持目录形式解析。
+    // element-plus/es/components/message → ./es/components/message.mjs (不存在)
+    // element-plus/es/components/message/index.mjs → ./es/components/message/index.mjs (存在)
     const lines = Object.entries(groups).map(
-      ([path, items]) => `import { ${items.join(', ')} } from 'element-plus/es/components/${path}'`
+      ([path, items]) => `import { ${items.join(', ')} } from 'element-plus/es/components/${path}/index.mjs'`
     )
     changed = true
     return lines.join('\n')

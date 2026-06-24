@@ -470,11 +470,16 @@ export const login = withApiResponseHandler(
 
 /**
  * 用户登出
- * 已移除 auth/logout 接口，直接返回成功
- * @deprecated 请使用 `@/api/services/auth.service` 中的 `logout` 函数
+ * 2026-06-24 修复: 恢复调用后端 /api/v1/auth/logout 使 token 加入黑名单立即失效
  */
 export const logout = withApiResponseHandler(async (): Promise<ApiResponse<boolean>> => {
-  return { code: 200, success: true, message: 'ok', data: true, timestamp: Date.now() }
+  try {
+    const response = await request.post<boolean>('/api/v1/auth/logout', {})
+    return normalizeApiResponse(response)
+  } catch {
+    // 后端登出失败不阻塞本地清理
+    return { code: 200, success: true, message: 'ok', data: true, timestamp: Date.now() }
+  }
 })
 
 // 刷新Token

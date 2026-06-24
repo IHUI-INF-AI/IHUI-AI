@@ -519,10 +519,10 @@ function refreshUserInfo() {
   }
 
   const token = getUserToken()
-  fetch('/api/user/getUserInfo', {
-    method: 'POST',
+  // 2026-06-24 修复: 对齐后端 /api/v1/user/info
+  fetch('/api/v1/user/info', {
+    method: 'GET',
     headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-    body: JSON.stringify({ openid: userInfo.openid }),
   })
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)

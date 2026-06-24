@@ -8,9 +8,35 @@
 
 import asyncio
 import json
+import threading
 from typing import Any
 
 from loguru import logger
+
+
+def _run_async_safely(coro):
+    """在新线程的事件循环中运行协程.
+
+    CrewAI @tool 装饰的函数是同步的, 但内部需要调用 async 协程 (如 CozeClient).
+    直接 asyncio.run() 在 FastAPI 请求中会抛
+    'cannot be called from a running event loop'.
+    新建线程运行避免事件循环冲突.
+    """
+    result: list[Any] = [None]
+    exc: list[BaseException | None] = [None]
+
+    def _runner() -> None:
+        try:
+            result[0] = asyncio.run(coro)
+        except BaseException as e:  # noqa: BLE001
+            exc[0] = e
+
+    t = threading.Thread(target=_runner, daemon=True)
+    t.start()
+    t.join()
+    if exc[0] is not None:
+        raise exc[0]
+    return result[0]
 
 
 def create_rag_search_tool(collection_name: str = "", owner_uuid: str = ""):
@@ -84,7 +110,7 @@ def create_coze_workflow_tool():
             """执行 Coze 工作流. 输入工作流ID和参数JSON, 返回执行结果."""
             try:
                 params = json.loads(parameters_json) if isinstance(parameters_json, str) else parameters_json
-                result = asyncio.run(_run_workflow(workflow_id, params))
+                result = _run_async_safely(_run_workflow(workflow_id, params))
                 return json.dumps(result, ensure_ascii=False, default=str)
             except Exception as e:
                 logger.error(f"Coze 工作流执行失败: {e}")
@@ -96,7 +122,7 @@ def create_coze_workflow_tool():
             """执行 Coze 工作流."""
             try:
                 params = json.loads(parameters_json) if isinstance(parameters_json, str) else parameters_json
-                result = asyncio.run(_run_workflow(workflow_id, params))
+                result = _run_async_safely(_run_workflow(workflow_id, params))
                 return json.dumps(result, ensure_ascii=False, default=str)
             except Exception as e:
                 return f"[工作流执行失败: {e}]"

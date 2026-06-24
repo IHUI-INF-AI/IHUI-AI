@@ -7,7 +7,7 @@
           <el-avatar :src="form.avatar" :size="80" />
           <el-upload
             class="upload-avatar"
-            action="/api/user/upload/avatar"
+            action="/api/v1/auth/profile/avatar"
             :show-file-list="false"
             :before-upload="handleBeforeUpload"
           >

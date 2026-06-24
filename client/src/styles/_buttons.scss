@@ -245,7 +245,7 @@
 :root .el-button:not(.hero-cta-btn).el-button--info {
   background-color: var(--el-color-primary-light-3);
   border-color: var(--el-color-primary-light-3);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
 
   &:hover {
     background-color: var(--el-color-primary-light-5);

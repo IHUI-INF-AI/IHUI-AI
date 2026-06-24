@@ -72,7 +72,13 @@
       "inputRequired": "入力必須",
       "invalidFile": "無効なファイル",
       "invalidFileType": "無効なファイル形式",
-      "fileTooLarge": "ファイルが大きすぎます"
+      "fileTooLarge": "ファイルが大きすぎます",
+      "approveFailed": "承認失敗",
+      "rejectFailed": "拒否失敗",
+      "importRefreshFailed": "インポート後の更新失敗",
+      "deleteRefreshFailed": "削除後の更新失敗",
+      "pushRefreshFailed": "プッシュ後の更新失敗",
+      "dataLoadFailed": "データ読み込み失敗"
     },
     "free": "無料",
     "more": "もっと見る",

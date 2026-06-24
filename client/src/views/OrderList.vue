@@ -399,7 +399,7 @@ onMounted(() => {
 
 .status-shipping {
   background: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
   box-shadow: var(--global-box-shadow);
 }
 

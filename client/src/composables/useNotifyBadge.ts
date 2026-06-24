@@ -20,7 +20,8 @@ async function _fetch(): Promise<void> {
     const resp = await http.get<{ code: number; data: { unread_count: number }; msg: string }>(
       '/api/admin/migration/notify/unread-count',
     )
-    const n = resp?.data?.unread_count
+    // 2026-06-24 修正：response 是 AxiosResponse，body 在 resp.data；body 内部还有一层 data 包装
+    const n = resp?.data?.data?.unread_count
     if (typeof n === 'number' && n >= 0) {
       _unreadCount.value = n
     }

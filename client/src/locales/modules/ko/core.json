@@ -72,7 +72,13 @@
       "inputRequired": "입력필수",
       "invalidFile": "무효validFile",
       "invalidFileType": "무효validFileType",
-      "fileTooLarge": "파일Too대사용량"
+      "fileTooLarge": "파일Too대사용량",
+      "approveFailed": "승인 실패",
+      "rejectFailed": "거부 실패",
+      "importRefreshFailed": "가져오기 후 새로 고침 실패",
+      "deleteRefreshFailed": "삭제 후 새로 고침 실패",
+      "pushRefreshFailed": "푸시 후 새로 고침 실패",
+      "dataLoadFailed": "데이터 로드 실패"
     },
     "more": "더 보기",
     "less": "접기",

@@ -432,7 +432,7 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   width: 36px; height: 36px;
   border-radius: 50%;
   background: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -513,7 +513,7 @@ html.dark .message-avatar {
   cursor: pointer;
   font-size: 13px;
 }
-.send-btn { background: var(--el-color-primary); color: var(--el-color-white); }
+.send-btn { background: var(--el-color-primary); color: var(--color-on-primary); }
 html.dark .send-btn { color: var(--color-dark-bg-1); }
 .send-btn:disabled { background: var(--el-fill-color-dark); cursor: not-allowed; }
 .send-btn:hover:not(:disabled) { background: var(--el-color-primary); }

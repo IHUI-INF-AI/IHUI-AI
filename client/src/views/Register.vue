@@ -1255,7 +1255,7 @@ body.dark .glass-card {
   border: none;
   border-radius: var(--global-border-radius);
   background: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;

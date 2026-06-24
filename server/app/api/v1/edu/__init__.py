@@ -11,9 +11,6 @@ app/api/v1/learn/, app/api/v1/auth/, etc.
 
 from fastapi import APIRouter
 
-# Aggregate edu APIRouter
-edu_router = APIRouter(prefix="/edu", tags=["Edu"])
-
 # Lazy include pattern: import sub-routers inside try/except to avoid
 # hard failures during phase A bootstrap. As each domain is filled in
 # (phase B), the corresponding import is promoted from optional to required.
@@ -54,9 +51,11 @@ _SUB_ROUTER_IMPORTS = [
 def register_routers(parent_router: APIRouter) -> None:
     """Attach edu sub-routers to a parent APIRouter (e.g. main api_router).
 
+    All edu routers are mounted under the unified prefix `/edu`, so the final
+    URL pattern is `/api/v1/edu/<domain>/...`.
+
     Uses try/except ImportError so that partially-filled phase B does not
-    break the whole application boot. As domains get implemented, the
-    corresponding imports naturally succeed.
+    break the whole application boot.
     """
     attached = []
     skipped = []
@@ -64,7 +63,9 @@ def register_routers(parent_router: APIRouter) -> None:
         try:
             mod = __import__(module_path, fromlist=[attr_name])
             router = getattr(mod, attr_name)
-            parent_router.include_router(router, prefix=prefix, tags=[tag])
+            # Mount each sub-router under /edu/<sub-prefix>
+            full_prefix = "/edu" + prefix
+            parent_router.include_router(router, prefix=full_prefix, tags=[tag])
             attached.append(tag)
         except (ImportError, AttributeError) as e:
             skipped.append(f"{tag} ({type(e).__name__}: {e})")

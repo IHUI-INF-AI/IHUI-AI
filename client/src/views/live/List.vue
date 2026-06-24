@@ -160,7 +160,7 @@ onMounted(load)
   }
 
   &.active {
-    color: var(--el-color-white);
+    color: var(--color-on-primary);
     background: var(--el-color-primary);
     border-color: var(--el-color-primary);
   }

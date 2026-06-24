@@ -324,7 +324,7 @@ onMounted(async () => {
 
 .category-item.active {
   background: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
 }
 .category-icon { font-size: 16px; }
 .category-name { flex: 1; }
@@ -336,7 +336,7 @@ onMounted(async () => {
   padding: 1px 6px;
   border-radius: var(--global-border-radius);
 }
-.category-item.active .category-count { background: var(--color-white-20); color: var(--el-color-white); }
+.category-item.active .category-count { background: var(--color-white-20); color: var(--color-on-primary); }
 .tools-main { display: flex; flex-direction: column; gap: 16px; }
 
 .tools-toolbar {

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="login-page-container">
     <div class="login-content login-page" :class="{ 'dark-mode': isDarkMode }">
       <!-- 登录表单 -->
@@ -9336,7 +9336,7 @@ cleanup.add(() => {
 :where(html:not(.dark)) :where(.el-button.login-button).el-button--primary:hover:not(:disabled) {
   background: var(--el-color-primary);
   box-shadow: none;
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
   border: none;
   opacity: 0.9;
 }
@@ -9357,8 +9357,8 @@ cleanup.add(() => {
 :where(.login-content) .login-button.el-button--primary:hover:not(:disabled) *,
 :where(:where(.login-form) .login-button.el-button--primary:hover:not(:disabled) *),
 :where(.el-button.login-button).el-button--primary:hover:not(:disabled) * {
-  color: var(--el-color-white);
-  -webkit-text-fill-color: var(--el-color-white);
+  color: var(--color-on-primary);
+  -webkit-text-fill-color: var(--color-on-primary);
 }
 
 /* Primary 按钮悬停效果 - 暗色主题 - 提高优先在*/
@@ -12665,7 +12665,7 @@ button.agreement-agree-button.el-button--large,
   height: 44px;
   background: var(--el-color-primary);
   border: var(--unified-border);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
   border-radius: var(--global-border-radius);
 }
 
@@ -12676,14 +12676,14 @@ button.agreement-agree-button .el-button__wrapper,
 .agreement-confirm-footer button.agreement-agree-button .el-button__inner,
 .agreement-confirm-footer button.agreement-agree-button .el-button__wrapper {
   background: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
 }
 
 :where(.agreement-confirm-dialog-wrapper) .el-dialog__footer .agreement-agree-button *,
 button.agreement-agree-button *,
 .agreement-confirm-footer button.agreement-agree-button * {
-  color: var(--el-color-white);
-  -webkit-text-fill-color: var(--el-color-white);
+  color: var(--color-on-primary);
+  -webkit-text-fill-color: var(--color-on-primary);
 }
 
 .agreement-confirm-dialog-wrapper .el-dialog__footer .agreement-agree-button:hover,
@@ -12700,7 +12700,7 @@ button.agreement-agree-button:hover .el-button__wrapper,
 .agreement-confirm-footer button.agreement-agree-button:hover .el-button__inner,
 .agreement-confirm-footer button.agreement-agree-button:hover .el-button__wrapper {
   background: var(--el-color-primary-dark-2);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
 }
 
 /* 亮色模式：协议弹窗取消按钮描边适配（覆在dialog.scss，保证边框一致可见） */

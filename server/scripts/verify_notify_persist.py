@@ -27,6 +27,28 @@ from sqlalchemy import text
 # 必须先 push app
 from app.main import app
 
+# 跳过鉴权 (持久化测试不需要)
+import app.security as _sec
+
+
+async def _fake_user_uuid():
+    return "00000000-0000-0000-0000-000000000001"
+
+
+async def _fake_require_login():
+    return "00000000-0000-0000-0000-000000000001"
+
+
+def _fake_require_role(role: str):
+    async def _inner():
+        return "00000000-0000-0000-0000-000000000001"
+    return _inner
+
+
+app.dependency_overrides[_sec.get_current_user_uuid] = _fake_user_uuid
+app.dependency_overrides[_sec.require_login] = _fake_require_login
+app.dependency_overrides[_sec.require_role] = _fake_require_role
+
 client = TestClient(app)
 
 

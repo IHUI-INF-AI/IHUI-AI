@@ -4,7 +4,7 @@
     <div class="lang-switcher-control">
       <select
         :id="selectId"
-        v-model="model"
+        :value="currentLang"
         class="lang-switcher-select"
         :aria-label="ariaLabel"
         @change="onChange"
@@ -33,8 +33,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useI18nV2 } from '@/composables/useI18nV2'
+// LanguageSwitcher - V1 静态数据版（替代原 useI18nV2 依赖）
+// 数据源: constants/i18nLanguages.ts (本地 9 语言元数据)
+// 格式化: 使用 Intl 原生 API
+// 无任何后端依赖
+
+import { computed, ref } from 'vue'
+import { I18N_LANGUAGES, getLanguageMeta, type LanguageMeta } from '@/constants/i18nLanguages'
 
 interface Props {
   modelValue?: string
@@ -55,46 +60,39 @@ const emit = defineEmits<{
 
 const selectId = `lang-switcher-${Math.random().toString(36).slice(2, 8)}`
 
-const { state, currentMeta, isCurrentRtl, fetchLanguages, setCurrentLang } = useI18nV2()
+// 本地状态 - 不持久化, 仅作为受控组件
+const currentLang = ref<string>(props.modelValue || 'zh-CN')
 
-const languages = computed(() => state.languages)
-const isRtl = computed(() => isCurrentRtl.value)
-
-const model = computed({
-  get: () => props.modelValue || state.currentLang,
-  set: (v: string) => {
-    emit('update:modelValue', v)
-  },
-})
+const languages = computed<LanguageMeta[]>(() => I18N_LANGUAGES)
+const currentMeta = computed<LanguageMeta | undefined>(() => getLanguageMeta(currentLang.value))
+const isRtl = computed<boolean>(() => currentMeta.value?.is_rtl ?? false)
 
 const onChange = (ev: Event) => {
   const v = (ev.target as HTMLSelectElement).value
-  setCurrentLang(v)
+  currentLang.value = v
+  emit('update:modelValue', v)
   emit('change', v)
 }
 
-// 数值/货币预览
+// 数值预览 - 使用 Intl.NumberFormat
 const previewNumber = computed(() => {
-  if (!currentMeta.value) return ''
-  return new Intl.NumberFormat(currentMeta.value.code, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(1234567.89)
+  const code = currentMeta.value?.code
+  if (!code) return ''
+  try {
+    return new Intl.NumberFormat(code, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(1234567.89)
+  } catch {
+    return '1,234,567.89'
+  }
 })
 
+// 货币预览 - 根据 currency_position 选择前缀或后缀
 const previewCurrency = computed(() => {
   if (!currentMeta.value) return ''
-  const code = currentMeta.value.currency_position
-  return code === 'before' ? '¥ 1,234.56' : '1 234,56 €'
-})
-
-onMounted(async () => {
-  if (state.languages.length === 0) {
-    try { await fetchLanguages() } catch (e) { console.error(e) }
-  }
-  if (props.modelValue) {
-    setCurrentLang(props.modelValue)
-  }
+  const pos = currentMeta.value.currency_position
+  return pos === 'before' ? '¥ 1,234.56' : '1 234,56 €'
 })
 </script>
 

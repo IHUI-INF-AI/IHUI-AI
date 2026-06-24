@@ -3,9 +3,10 @@ import base64
 import io
 import logging
 
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
+from app.security import require_login
 from app.utils.file_transfer import upload_file_to_server
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class UploadResponse(BaseModel):
 
 
 @router.post("/upload/base64", summary="Upload base64 file")
-async def upload_base64_file(request: Base64UploadRequest, http_request: Request):
+async def upload_base64_file(request: Base64UploadRequest, http_request: Request, user_uuid: str = Depends(require_login)):
     """Upload a base64-encoded file. Auto-converts webp to png."""
     try:
         # Decode base64
@@ -71,7 +72,7 @@ async def upload_base64_file(request: Base64UploadRequest, http_request: Request
 
 
 @router.post("/upload/form", summary="Upload file via form-data")
-async def upload_form_file(file: UploadFile = File(...)):
+async def upload_form_file(file: UploadFile = File(...), user_uuid: str = Depends(require_login)):
     """Upload any file via multipart/form-data."""
     try:
         file_bytes = await file.read()
@@ -89,7 +90,7 @@ async def upload_form_file(file: UploadFile = File(...)):
 
 
 @router.post("/upload/octet", summary="Upload file via octet-stream")
-async def upload_octet_file(request: Request, file_name: str = Query(...)):
+async def upload_octet_file(request: Request, file_name: str = Query(...), user_uuid: str = Depends(require_login)):
     """Upload file via raw octet-stream body. file_name in query."""
     try:
         file_bytes = await request.body()

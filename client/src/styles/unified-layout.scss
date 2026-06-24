@@ -195,8 +195,8 @@
 
       &.is-active {
         background: var(--el-color-primary);
-        color: var(--el-color-white);
-        html.dark & { background: var(--el-color-primary); color: var(--el-color-black); }
+        color: var(--color-on-primary);
+        html.dark & { background: var(--el-color-primary); color: var(--color-on-primary); }
       }
     }
   }

@@ -46,7 +46,8 @@ export function useUser() {
   }
 
   async function login(params: { phone?: string; code?: string; wxCode?: string }) {
-    const res = await request({ url: '/api/user/login', method: 'POST', data: params })
+    // 2026-06-24 修复: 对齐后端 /api/v1/auth/login
+    const res = await request({ url: '/api/v1/auth/login', method: 'POST', data: params })
     setToken(res.data.token)
     userInfo.value = res.data.userInfo
     setStorage(USER_KEY, JSON.stringify(res.data.userInfo))
@@ -55,7 +56,8 @@ export function useUser() {
 
   async function logout() {
     try {
-      await request({ url: '/api/user/logout', method: 'POST' })
+      // 2026-06-24 修复: 对齐后端 /api/v1/auth/logout
+      await request({ url: '/api/v1/auth/logout', method: 'POST' })
     } finally {
       clearUser()
     }
@@ -63,7 +65,8 @@ export function useUser() {
 
   async function fetchUserInfo() {
     if (!token.value) return null
-    const res = await request({ url: '/api/user/info', method: 'GET' })
+    // 2026-06-24 修复: 对齐后端 /api/v1/user/info
+    const res = await request({ url: '/api/v1/user/info', method: 'GET' })
     userInfo.value = res.data
     setStorage(USER_KEY, JSON.stringify(res.data))
     return res.data

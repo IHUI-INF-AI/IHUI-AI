@@ -144,7 +144,7 @@ onMounted(() => {
     }
 
     &.active {
-      color: var(--el-color-white);
+      color: var(--color-on-primary);
       background: var(--el-color-primary);
     }
   }

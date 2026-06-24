@@ -90,7 +90,7 @@ async def wechat_mini_login(
         f"&secret={settings.WX_MINI_SECRET}"
         f"&js_code={code}&grant_type=authorization_code"
     )
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url)
         data = resp.json()
     if "openid" not in data:
