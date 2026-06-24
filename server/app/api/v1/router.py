@@ -186,6 +186,15 @@ except Exception:
     crew_router = None
     HAS_CREW = False
 
+# --- Knowledge RAG (知识库) ---
+try:
+    from app.api.v1.knowledge import router as knowledge_router
+
+    HAS_KNOWLEDGE = True
+except Exception:
+    knowledge_router = None
+    HAS_KNOWLEDGE = False
+
 # --- Remote Device ---
 from app.api.v1.remote import router as remote_router
 from app.api.v1.remote import third_router as remote_third_router
@@ -721,6 +730,10 @@ api_router.include_router(llm_ws_router, prefix="/llm", tags=["LLM: Stream WS (c
 # Multi-Agent Crew (多智能体协作)
 if crew_router:
     api_router.include_router(crew_router, tags=["Multi-Agent Crew"])
+
+# Knowledge RAG (知识库)
+if knowledge_router:
+    api_router.include_router(knowledge_router, tags=["Knowledge RAG"])
 
 # Coze
 api_router.include_router(coze_conversations_router, prefix="/coze/conversations", tags=["Coze: Conversations"])
