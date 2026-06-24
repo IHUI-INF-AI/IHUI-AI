@@ -1,5 +1,25 @@
 # 更新日志
 
+## [1.0.1] - 2026-06-24
+
+> 封版上线前的修复与优化，均为修复/优化，不涉及新增功能。
+
+### 模板与语法修复
+- 修复 admin/Index.vue 模板语法错误（第 21 行 i18n 调用多一个 `}`，导致管理后台首页渲染崩溃）
+- 修复 admin/sms/Template.vue 的 h() 第三个参数类型错误（slots 对象改为 children 字符串）
+
+### ESLint 修复（108 个 errors）
+- 21 个测试文件中的空 catch 块（no-empty），统一改为 `catch { /* noop */ }`
+- 9 处未使用变量（no-unused-vars）：ExamDo.vue、OrderList.vue、Withdrawal.vue、admin/exam 下 Answer/AnswerDetailDialog/List/Question.vue
+
+### 单元测试修复（11 个失败）
+- AdminIndex.test.ts：ElButtonStub 未声明 emits 导致 Vue 3 fallthrough 重复触发 refresh
+- Wallet.a11y.test.ts：缺少 useDarkModeStore 的 mock 导致 Pinia 未初始化
+- auth-service.test.ts：refresh token URL 期望值过时（/login/pwd/refreshToken → /api/v1/auth/refresh）
+
+### E2E 视觉回归
+- 更新 7 个暗色模式快照基线（home/login/agents/plaza/vip/tools/ranking）
+
 ## [1.0.0] - 2026-06-23
 
 ### 核心模块
