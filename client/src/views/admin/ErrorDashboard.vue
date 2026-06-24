@@ -184,8 +184,9 @@ const refreshErrors = (): void => {
   // 刷新错误列表
 }
 
-const initTrendChart = (): void => {
+const initTrendChart = async (): Promise<void> => {
   if (!trendChartRef.value) return
+  const echarts = await loadEcharts()
 
   trendChart = echarts.init(trendChartRef.value)
   const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`)
@@ -205,8 +206,9 @@ const initTrendChart = (): void => {
   })
 }
 
-const initTypeChart = (): void => {
+const initTypeChart = async (): Promise<void> => {
   if (!typeChartRef.value) return
+  const echarts = await loadEcharts()
 
   typeChart = echarts.init(typeChartRef.value)
   typeChart.setOption({

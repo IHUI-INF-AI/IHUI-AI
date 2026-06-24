@@ -170,7 +170,8 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { ElMessage } from 'element-plus'
-import echarts from '@/utils/echarts'
+import { loadEcharts } from '@/utils/echarts-lazy'
+import type { ECharts } from '@/utils/echarts'
 import { tourMonitoringService, type AnomalyDetection } from '@/services/tourMonitoringService'
 import { tourAlertService, type AlertRule } from '@/services/tourAlertService'
 import { useTourPermissions } from '@/composables/useTourPermissions'
@@ -210,7 +211,7 @@ const newRule = ref({
 })
 
 const performanceChart = ref<HTMLElement>()
-let chart: echarts.ECharts | null = null
+let chart: ECharts | null = null
 let updateInterval: number | null = null
 
 const recentAnomalies = computed(() => anomalies.value.slice(0, 5))

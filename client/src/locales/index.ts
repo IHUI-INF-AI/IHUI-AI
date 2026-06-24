@@ -84,15 +84,17 @@ async function loadFullLocaleMessages(locale: SupportedLocale): Promise<void> {
 
 // 动态加载核心模块
 async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string, unknown>> {
-  const [coreMod, appMod] = await Promise.all([
+  const [coreMod, appMod, errorBoundaryMod] = await Promise.all([
     import(`./modules/${locale}/core.json`),
     import(`./modules/${locale}/app.json`).catch(() => import(`./modules/zh-CN/app.json`).catch(() => null)),
+    import(`./modules/${locale}/errorBoundary.json`).catch(() => import(`./modules/zh-CN/errorBoundary.json`).catch(() => null)),
   ])
   coreModules.forEach(module => markModuleLoaded(locale, module))
   markModuleLoaded(locale, 'app')
   const core = coreMod.default || coreMod
   const app = appMod ? (appMod.default || appMod) : {}
-  return { ...core, ...app }
+  const errorBoundary = errorBoundaryMod ? (errorBoundaryMod.default || errorBoundaryMod) : {}
+  return { ...core, ...app, ...errorBoundary }
 }
 
 // P6-5：缺失模块时回退到 zh-CN（避免英/日/韩部分页面键名裸露）

@@ -219,7 +219,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { echarts } from '@/plugins/echarts'
+import { loadEcharts } from '@/utils/echarts-lazy'
+import type { ECharts } from '@/utils/echarts'
 import { tourEventBus, type TourEventType, type EventHistoryEntry, type EventBusStats } from '@/services/tourEventBus'
 import { formatDateTime as formatTime } from '@/utils/format'
 import { useDarkModeStore } from '@/stores/darkMode'
@@ -228,7 +229,7 @@ const { t } = useI18n()
 const darkModeStore = useDarkModeStore()
 
 const chartRef = ref<HTMLElement>()
-let chart: echarts.ECharts | null = null
+let chart: ECharts | null = null
 const cleanup = useCleanup()
 cleanup.add(() => chart?.dispose())
 
@@ -289,7 +290,7 @@ const loadHistory = () => {
   updateChart()
 }
 
-const updateChart = () => {
+const updateChart = async () => {
   if (!chart) return
 
   const data = Object.entries(stats.value.eventsByType).map(([name, value]) => ({
@@ -386,9 +387,11 @@ watch(
   }
 )
 
-onMounted(() => {
+onMounted(async () => {
   if (chartRef.value) {
+    const echarts = await loadEcharts()
     chart = echarts.init(chartRef.value)
+    await updateChart()
   }
   loadStats()
   loadSubscriptions()
