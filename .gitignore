@@ -1,4 +1,4 @@
-﻿node_modules
+node_modules
 .venv
 __pycache__
 .git
@@ -114,6 +114,10 @@ weekly-cleanup.yml
 
 # Python embed (should not be in repo)
 server/python-3.12.9-embed-amd64/
+
+# Runtime database files
+*.db
+pdf_service.db
 
 # Misc
 test-writer.toml
