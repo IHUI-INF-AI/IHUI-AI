@@ -11,6 +11,7 @@
 - /dict/data   SysDictDataController
 - /logininfor  SysLogininforController (unlock)
 - /notice      SysNoticeController
+- /sms/template SysSmsTemplateController (CRUD + changeStatus, 迁移自 auth_sms_temp)
 - /job         SysJobController          (CRUD + changeStatus + run)
 - /job/log     SysJobLogController
 - /online      SysUserOnlineController   (list / force-logout)
@@ -1286,6 +1287,172 @@ async def delete_notices(noticeIds: str):  # noqa: 26
 
 
 # ---------------------------------------------------------------------------
+# SysSmsTemplate (短信模板, 迁移自历史项目 auth_sms_temp)
+# ---------------------------------------------------------------------------
+
+sms_template_router = APIRouter(prefix="/sms/template", tags=["System: Sms Template"])
+
+
+def _sms_to_dict(t) -> dict:
+    return {
+        "templateId": t.template_id,
+        "templateName": t.template_name,
+        "templateCode": t.template_code,
+        "templateContent": t.template_content,
+        "templateType": t.template_type,
+        "signName": t.sign_name,
+        "status": t.status,
+        "createBy": t.create_by,
+        "createTime": t.create_time.isoformat() if t.create_time else None,
+        "updateBy": t.update_by,
+        "updateTime": t.update_time.isoformat() if t.update_time else None,
+        "remark": t.remark,
+    }
+
+
+@sms_template_router.get("/list", summary="短信模板列表")
+async def sms_template_list(
+    templateName: str | None = None,  # noqa: 23
+    templateCode: str | None = None,
+    templateType: str | None = None,
+    status: str | None = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, le=100),
+):
+    """短信模板分页查询 (迁移自 auth_sms_temp)."""
+    with get_session() as db:
+        q = db.query(SysSmsTemplate)
+        if templateName:
+            q = q.filter(SysSmsTemplate.template_name.contains(templateName))
+        if templateCode:
+            q = q.filter(SysSmsTemplate.template_code.contains(templateCode))
+        if templateType:
+            q = q.filter(SysSmsTemplate.template_type == templateType)
+        if status:
+            q = q.filter(SysSmsTemplate.status == status)
+        items, total = paginate(q.order_by(SysSmsTemplate.template_id.desc()), page, size)
+        return success(
+            {
+                "list": [_sms_to_dict(t) for t in items],
+                "total": total,
+                "page": page,
+                "size": size,
+            }
+        )
+
+
+@sms_template_router.get("/{templateId}", summary="短信模板详情")
+async def get_sms_template(templateId: int):  # noqa: 22
+    """获取短信模板详情."""
+    with get_session() as db:
+        t = db.query(SysSmsTemplate).filter(SysSmsTemplate.template_id == templateId).first()
+        if not t:
+            return fail("模板不存在", code=404)
+        return success(_sms_to_dict(t))
+
+
+@sms_template_router.post("", summary="新增短信模板")
+async def add_sms_template(body: dict):
+    """新增短信模板."""
+    templateName = body.get("templateName")
+    templateCode = body.get("templateCode")
+    templateContent = body.get("templateContent")
+    if not templateName or not templateCode or not templateContent:
+        return fail("templateName/templateCode/templateContent 不能为空", code=400)
+    with get_session() as db:
+        # 编码唯一性校验
+        exists = db.query(SysSmsTemplate).filter(SysSmsTemplate.template_code == templateCode).first()
+        if exists:
+            return fail("模板编码已存在", code=400)
+        t = SysSmsTemplate(
+            template_name=templateName,
+            template_code=templateCode,
+            template_content=templateContent,
+            template_type=body.get("templateType", "1"),
+            sign_name=body.get("signName", ""),
+            status=body.get("status", "0"),
+            create_by=body.get("createBy", ""),
+            remark=body.get("remark", ""),
+        )
+        db.add(t)
+        db.commit()
+        return success({"templateId": t.template_id})
+
+
+@sms_template_router.put("", summary="修改短信模板")
+async def update_sms_template(body: dict):
+    """修改短信模板."""
+    templateId = body.get("templateId")
+    if not templateId:
+        return fail("templateId 不能为空", code=400)
+    with get_session() as db:
+        t = db.query(SysSmsTemplate).filter(SysSmsTemplate.template_id == templateId).first()
+        if not t:
+            return fail("模板不存在", code=404)
+        # 编码唯一性校验 (排除自身)
+        new_code = body.get("templateCode")
+        if new_code and new_code != t.template_code:
+            exists = (
+                db.query(SysSmsTemplate)
+                .filter(SysSmsTemplate.template_code == new_code)
+                .filter(SysSmsTemplate.template_id != templateId)
+                .first()
+            )
+            if exists:
+                return fail("模板编码已存在", code=400)
+        _camel_map = {
+            "templateName": "template_name",
+            "templateCode": "template_code",
+            "templateContent": "template_content",
+            "templateType": "template_type",
+            "signName": "sign_name",
+            "status": "status",
+            "updateBy": "update_by",
+            "remark": "remark",
+        }
+        for k, v in body.items():
+            if k == "templateId":
+                continue
+            attr = _camel_map.get(k, k)
+            if hasattr(t, attr):
+                setattr(t, attr, v)
+        db.commit()
+        return success({"templateId": templateId})
+
+
+@sms_template_router.put("/changeStatus", summary="启用/禁用短信模板")
+async def change_sms_template_status(body: dict):
+    """切换短信模板状态 (0=启用 1=禁用)."""
+    templateId = body.get("templateId")
+    status = body.get("status")
+    if templateId is None or status is None:
+        return fail("templateId 和 status 不能为空", code=400)
+    with get_session() as db:
+        t = db.query(SysSmsTemplate).filter(SysSmsTemplate.template_id == templateId).first()
+        if not t:
+            return fail("模板不存在", code=404)
+        t.status = status
+        db.commit()
+        return success({"templateId": templateId, "status": status})
+
+
+@sms_template_router.delete("/{templateIds}", summary="删除短信模板 (逗号分隔)")
+async def delete_sms_templates(templateIds: str):  # noqa: 26
+    """批量删除短信模板."""
+    ids = [int(x) for x in templateIds.split(",") if x.isdigit()]
+    if not ids:
+        return fail("参数错误", code=400)
+    with get_session() as db:
+        n = (
+            db.query(SysSmsTemplate)
+            .filter(SysSmsTemplate.template_id.in_(ids))
+            .delete(synchronize_session=False)
+        )
+        db.commit()
+        return success({"deleted": ids, "count": n})
+
+
+# ---------------------------------------------------------------------------
 # SysJob / SysJobLog
 # ---------------------------------------------------------------------------
 
@@ -1779,6 +1946,7 @@ def register_routers(parent):
     parent.include_router(dict_data_router)
     parent.include_router(logininfo_router)
     parent.include_router(notice_router)
+    parent.include_router(sms_template_router)
     parent.include_router(job_router)
     parent.include_router(job_log_router)
     parent.include_router(online_router)
