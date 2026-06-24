@@ -101,7 +101,8 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import echarts from '@/utils/echarts'
+import { loadEcharts } from '@/utils/echarts-lazy'
+import type { ECharts } from '@/utils/echarts'
 import { useCleanup } from '@/composables/useCleanup'
 import { getUserToken } from '@/utils/request'
 import { useDarkModeStore } from '@/stores/darkMode'
@@ -125,7 +126,7 @@ const history = ref<HistoryPoint[]>([])
 const lastUpdateAt = ref('')
 let timer: number | null = null
 const chartRef = ref<HTMLElement>()
-let chart: echarts.ECharts | null = null
+let chart: ECharts | null = null
 
 const MAX_HISTORY = 60
 
@@ -255,9 +256,10 @@ const exportCsv = () => {
   URL.revokeObjectURL(url)
 }
 
-const renderChart = () => {
+const renderChart = async () => {
   if (!chartRef.value || history.value.length === 0) return
   if (!chart) {
+    const echarts = await loadEcharts()
     chart = echarts.init(chartRef.value)
     window.addEventListener('resize', handleResize)
   }

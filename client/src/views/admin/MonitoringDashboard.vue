@@ -227,8 +227,9 @@ const getSeverityTag = (severity: string) => {
   return map[severity] || ''
 }
 
-const initChart = () => {
+const initChart = async () => {
   if (!performanceChart.value) return
+  const echarts = await loadEcharts()
   chart = echarts.init(performanceChart.value)
   window.addEventListener('resize', handleResize)
   updateChart()

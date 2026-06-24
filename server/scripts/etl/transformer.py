@@ -126,13 +126,24 @@ def transform_row(
     task: MigrationTask,
     mapping_cache: dict[tuple[str, int], str],
 ) -> dict[str, Any]:
-    """单行转换流水线."""
+    """单行转换流水线.
+
+    顺序:
+      1. 单位转换 (H 盘字段名, 不受 field_map 影响)
+      2. 字段重命名 (H 盘字段 → G 盘字段, 之后 row 用 G 盘字段名)
+      3. id 映射 (G 盘字段名, 此时已可命中)
+      4. 日期归一化
+      5. 自动生成新主键 UUID
+
+    注: 旧版本 id_lookup 排在 field_map 之前, 导致 _resolve_id_lookup
+        用 g_field 查 row 失败 (此时 row 仍是 H 盘字段名), 静默跳过外键映射.
+    """
     # 1. 单位转换
     _apply_unit_convert(row, task)
-    # 2. id 映射
-    _resolve_id_lookup(row, task, mapping_cache)
-    # 3. 字段重命名
+    # 2. 字段重命名 (H → G 盘字段名, 之后 row 用 G 盘字段名)
     row = _apply_field_map(row, task)
+    # 3. id 映射 (此时 row 已是 G 盘字段名, g_field 可命中)
+    _resolve_id_lookup(row, task, mapping_cache)
     # 4. 日期归一化
     for k, v in list(row.items()):
         if isinstance(v, datetime):
