@@ -36,6 +36,7 @@ from app.models.sys_models import (
     SysPost,
     SysRole,
     SysRoleMenu,
+    SysSmsTemplate,
     SysUser,
     SysUserRole,
 )
