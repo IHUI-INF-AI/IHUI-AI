@@ -48,7 +48,7 @@ vi.mock('@/config/backend-paths', () => ({
   API_V1_PATHS: { news: { list: '/news/list', detail: (id: string) => `/news/${id}` } },
 }))
 
-import * as api from '../community'
+import * as api from '../content/community'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

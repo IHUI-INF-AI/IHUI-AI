@@ -81,8 +81,7 @@ const discountDesc = computed(() => {
   border-radius: var(--global-border-radius);
   position: relative;
   margin-bottom: 10px;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .font-title {
   font-size: 13px;
@@ -120,7 +119,7 @@ const discountDesc = computed(() => {
 }
 
 .sub {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: normal;
   color: var(--color-gray-979797);
 }
@@ -157,7 +156,7 @@ const discountDesc = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--color-white);
 }
 

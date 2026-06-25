@@ -13,7 +13,7 @@ vi.mock('@/config/backend-paths', () => ({
 }))
 
 import { request } from '@/utils/request'
-import * as api from '../oauth2-auth'
+import * as api from '../oauth/oauth2-auth'
 
 describe('oauth2-auth', () => {
   beforeEach(() => {

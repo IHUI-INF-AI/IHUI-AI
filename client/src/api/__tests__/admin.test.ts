@@ -25,7 +25,7 @@ vi.mock('@/utils/seedData', () => ({
   getConfig: vi.fn().mockResolvedValue({}),
 }))
 
-import * as apiNs from '../admin'
+import * as apiNs from '../admin/admin'
 
 const api: any = (apiNs as any).adminApi || (apiNs as any).default
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import * as api from '../ai-chat-types'
+import * as api from '../ai/ai-chat-types'
 
 describe('ai-chat-types', () => {
   beforeEach(() => {

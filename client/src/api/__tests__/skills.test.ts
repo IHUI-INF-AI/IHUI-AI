@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import * as api from '../skills'
+import * as api from '../skills/skills'
 
 describe('skills', () => {
   beforeEach(() => {

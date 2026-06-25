@@ -245,7 +245,7 @@ onMounted(() => {
 .blink-text {
   font-family: inherit;
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-black-80);
 }
 
@@ -314,14 +314,14 @@ onMounted(() => {
 .video-info .title {
   height: 13px;
   font-size: 9px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-white);
   flex: 1;
 }
 
 .video-info .date {
   font-size: 9px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-white);
   width: 50px;
   text-align: right;
@@ -355,7 +355,7 @@ onMounted(() => {
 .name {
   font-family: inherit;
   font-size: 9px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-black-60);
 }
 

@@ -44,5 +44,5 @@ function change(val: number) {
 }
 .tab-icon { width: 34px; height: 30px; margin-bottom: 3px; }
 .tab-text { font-size: 13px; color: var(--color--bbb); }
-.tab-text-active { font-size: 13px; font-weight: bold; color: var(--color--787aff); }
+.tab-text-active { font-size: 13px; font-weight: 700; color: var(--color--787aff); }
 </style>

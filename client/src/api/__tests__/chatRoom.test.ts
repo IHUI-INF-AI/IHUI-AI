@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../chatRoom'
+import * as api from '../chat/chatRoom'
 
 describe('chatRoom', () => {
   beforeEach(() => {

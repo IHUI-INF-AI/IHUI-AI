@@ -76,8 +76,7 @@ function handleSubmit(event: Event) {
   background: var(--form-bg);
   border: var(--unified-border);
   border-radius: var(--form-radius);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 // 表单头部
 .form-header {

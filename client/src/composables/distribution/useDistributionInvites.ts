@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Distribution 邀请管理Composable
  *
  * 负责邀请列表的加载、搜索、筛选和分页

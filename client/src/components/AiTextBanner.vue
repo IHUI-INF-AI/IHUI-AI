@@ -70,7 +70,6 @@ const info = computed(() => props.information || {})
   background: var(--color-gradient-white-blue);
   border-radius: var(--global-border-radius);
   padding: 20px 30px 20px 32px;
-  box-shadow: var(--global-box-shadow);
   display: flex;
   align-items: flex-end;
   min-height: 80px;
@@ -79,7 +78,7 @@ const info = computed(() => props.information || {})
 .main-title {
   color: var(--color-white);
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 700;
   flex: 1;
   line-height: 1.5;
 }
@@ -93,16 +92,15 @@ const info = computed(() => props.information || {})
   border-radius: var(--global-border-radius);
   font-size: 9px;
   padding: 2px 9px;
-  font-weight: bold;
-  box-shadow: var(--global-box-shadow);
-}
+  font-weight: 700;
+  }
 
 .meta-row {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   margin: 18px 32px 0;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-primary);
 }
 
@@ -119,7 +117,6 @@ const info = computed(() => props.information || {})
   border-radius: var(--global-border-radius);
   margin: 24px 24px 0;
   padding: 24px;
-  box-shadow: var(--global-box-shadow);
   display: flex;
   flex-direction: column;
   align-items: flex-start;

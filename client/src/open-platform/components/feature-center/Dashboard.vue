@@ -271,8 +271,7 @@ onMounted(() => {
 
       &:hover {
         transform: translateY(-4px);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
 
       .access-icon {
         margin-bottom: 16px;

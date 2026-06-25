@@ -188,7 +188,7 @@ function formatTime(time: string): string {
 }
 
 .history-time {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
 }
 

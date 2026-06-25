@@ -94,8 +94,7 @@ function handleClick(key: string) {
 .action-card:hover {
   background: var(--el-fill-color-light);
   transform: translateY(-2px);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .action-icon {
   width: 56px;

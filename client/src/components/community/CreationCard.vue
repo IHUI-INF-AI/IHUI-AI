@@ -471,7 +471,7 @@ $text-muted: var(--el-text-color-placeholder);
           flex: 1;
           min-height: 0;
           font-family: var(--font-family-mono);
-          font-size: 11px;
+          font-size: 12px;
           line-height: 1.5;
           color: $text-secondary;
           margin: 0;
@@ -499,7 +499,7 @@ $text-muted: var(--el-text-color-placeholder);
       -webkit-backdrop-filter: blur(12px) saturate(160%);
       border-radius: var(--global-border-radius);
       color: $text-primary;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 500;
       letter-spacing: 0.02em;
       white-space: nowrap;
@@ -624,7 +624,7 @@ $text-muted: var(--el-text-color-placeholder);
         background: var(--el-fill-color);
         color: var(--el-text-color-secondary);
         border-radius: var(--global-border-radius);
-        font-size: 11px;
+        font-size: 12px;
         line-height: 1;
 
         :global(html.dark) & {

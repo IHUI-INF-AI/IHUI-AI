@@ -183,7 +183,7 @@ onMounted(async () => {
       }
 
       .time {
-        font-size: 10px;
+        font-size: 12px;
         font-weight: normal;
         color: var(--color-gray-979797);
       }

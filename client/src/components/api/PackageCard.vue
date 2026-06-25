@@ -145,8 +145,7 @@ const handleUpgrade = () => {
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   .package-header {
     display: flex;

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="hot-module">
     <div class="module-header">
       <h2 class="head-title">

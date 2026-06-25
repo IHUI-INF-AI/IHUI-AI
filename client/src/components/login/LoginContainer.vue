@@ -205,21 +205,11 @@ const handlePhoneRegister = () => {
   backdrop-filter: blur(10px);
   border-radius: var(--global-border-radius);
   padding: 40px;
-  box-shadow: var(--global-box-shadow);
   margin-top: 32px;
   transition: all 0.3s ease;
 
-  &:hover {
-    box-shadow: var(--global-box-shadow);
-  }
-
   .dark-mode & {
     background: var(--color-dark-1e1e1e-95);
-    box-shadow: var(--global-box-shadow);
-
-    &:hover {
-      box-shadow: var(--global-box-shadow);
-    }
   }
 }
 
@@ -259,8 +249,7 @@ const handlePhoneRegister = () => {
     background-color: var(--el-color-primary-dark-2);
     border-color: var(--el-color-primary-dark-2);
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &:active {
     transform: translateY(0);
@@ -280,8 +269,7 @@ const handlePhoneRegister = () => {
 
   &:hover {
     transform: translateY(-3px) scale(1.05);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   img {
     width: var(--lc-icon-img-size);
@@ -355,8 +343,7 @@ const handlePhoneRegister = () => {
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &:active {
     transform: translateY(0);

@@ -870,7 +870,7 @@ body .notification-dropdown-popper.el-dropdown__popper {
     background: var(--el-bg-color-page);
 
     span {
-      font-weight: bold;
+      font-weight: 700;
       font-size: 16px;
       color: var(--el-text-color-primary);
     }

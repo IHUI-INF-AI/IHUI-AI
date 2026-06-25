@@ -7,7 +7,7 @@ vi.mock('@/utils/request', () => ({
   }),
 }))
 
-import * as api from '../payment'
+import * as api from '../payment/payment'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

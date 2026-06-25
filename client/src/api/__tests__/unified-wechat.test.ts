@@ -22,7 +22,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../unified-wechat'
+import * as api from '../unified/unified-wechat'
 
 describe('unified-wechat', () => {
   beforeEach(() => {

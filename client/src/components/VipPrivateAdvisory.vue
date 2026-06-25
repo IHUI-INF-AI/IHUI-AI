@@ -133,7 +133,6 @@ function hideServicePopup() {
   justify-content: flex-start;
   align-items: flex-start;
   perspective: 1200px;
-  box-shadow: var(--global-box-shadow);
   margin: 0 auto;
   border-radius: var(--global-border-radius);
 }
@@ -257,7 +256,7 @@ function hideServicePopup() {
 
 @keyframes bounce {
   0% { box-shadow: none; transform: translate(1px, 1px); }
-  50% { box-shadow: var(--global-box-shadow); transform: translate(0, 0); }
+  50% { transform: translate(0, 0); }
   100% { box-shadow: none; transform: translate(1px, 1px); }
 }
 

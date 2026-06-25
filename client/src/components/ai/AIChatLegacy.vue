@@ -3871,7 +3871,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
             .edited-badge {
               margin-left: 8px;
-              font-size: 11px;
+              font-size: 12px;
               color: var(--el-text-color-secondary);
             }
 
@@ -4549,8 +4549,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
       &:focus {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
 
       &::placeholder {
         color: var(--el-link-color-placeholder);
@@ -4891,7 +4890,6 @@ body .ai-chat-dialog.is-home,
   max-width: 90vw;
   height: 100%;
   background: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
   display: flex;
   flex-direction: column;
   transform: translateX(100%);

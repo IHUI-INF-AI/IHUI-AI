@@ -218,14 +218,14 @@ const switchProject = (targetSource: 'admin' | 'user') => {
 
       // "切换"标签
       .switch-label {
-        font-size: 10px;
+        font-size: 12px;
         color: var(--el-text-color-regular);
         line-height: 1.2;
       }
 
       // 按钮
       .switch-btn {
-        font-size: 11px;
+        font-size: 12px;
         padding: 4px 8px;
         height: auto;
         border-radius: var(--global-border-radius);

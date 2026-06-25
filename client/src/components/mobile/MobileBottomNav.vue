@@ -112,7 +112,6 @@ const isActive = (path: string): boolean => {
   display: none;
   background-color: var(--el-bg-color);
   border-top: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   height: 56px;
   padding-bottom: env(safe-area-inset-bottom);
 
@@ -146,7 +145,7 @@ const isActive = (path: string): boolean => {
     &.active {
       .nav-label {
         color: var(--el-text-color-primary);
-        font-weight: bold;
+        font-weight: 700;
       }
     }
 
@@ -179,7 +178,6 @@ const isActive = (path: string): boolean => {
   .mobile-bottom-nav {
     background-color: var(--el-bg-color);
     border-top-color: var(--el-border-color-lighter);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 </style>

@@ -134,7 +134,6 @@ const formatNumber = (v: number) => {
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--global-box-shadow);
     width: 100%;
     max-width: 640px;
     max-height: 90vh;
@@ -293,7 +292,7 @@ const formatNumber = (v: number) => {
     height: 20px;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-regular);
     font-weight: 600;
   }

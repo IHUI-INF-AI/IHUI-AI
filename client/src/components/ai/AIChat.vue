@@ -8825,7 +8825,7 @@ cleanup.add(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
+    font-weight: 700;
   }
 }
 
@@ -9362,7 +9362,7 @@ cleanup.add(() => {
     }
 
     .result-time {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-placeholder);
     }
   }
@@ -9499,7 +9499,7 @@ cleanup.add(() => {
 }
 
 .openclaw-dashboard__stat-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9699,7 +9699,7 @@ cleanup.add(() => {
   }
 
   &__desc {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     line-height: 1.3;
     white-space: nowrap;
@@ -10341,7 +10341,7 @@ cleanup.add(() => {
           padding: 2px 6px;
           background: var(--el-fill-color-light);
           border-radius: var(--global-border-radius);
-          font-size: 11px;
+          font-size: 12px;
 
           .message-model-icon {
             width: 14px;
@@ -10377,7 +10377,7 @@ cleanup.add(() => {
           align-items: center;
           gap: 4px;
           margin-left: 8px;
-          font-size: 11px;
+          font-size: 12px;
           color: var(--el-text-color-placeholder);
           font-style: italic;
         }
@@ -10789,8 +10789,6 @@ cleanup.add(() => {
     background: var(--el-color-danger);
     border-color: var(--el-color-danger);
     animation: recording-pulse 1s ease-in-out infinite;
-    box-shadow: var(--global-box-shadow);
-
     .el-icon {
       color: var(--el-bg-color-page);
     }
@@ -10974,7 +10972,7 @@ cleanup.add(() => {
     align-items: center;
     gap: 6px;
     margin-bottom: 4px;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-placeholder);
 
     .el-icon {
@@ -11170,18 +11168,15 @@ cleanup.add(() => {
 @keyframes recording-pulse {
   0% {
     transform: scale(1);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   50% {
     transform: scale(1.1);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   100% {
     transform: scale(1);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 // 过渡动画
@@ -11550,8 +11545,7 @@ cleanup.add(() => {
 
     &:hover {
       border-color: var(--el-border-color-lighter);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 
   .dialog-header {
@@ -11694,7 +11688,7 @@ cleanup.add(() => {
         }
 
         .metadata-json {
-          font-size: 11px;
+          font-size: 12px;
           line-height: 1.5;
           padding: 12px;
           background: var(--el-fill-color-light);
@@ -11783,10 +11777,6 @@ cleanup.add(() => {
     &:hover {
       background: var(--el-fill-color-light);
 
-      .item-icon {
-        box-shadow: var(--global-box-shadow);
-      }
-
       .item-desc {
         opacity: 1;
       }
@@ -11802,8 +11792,7 @@ cleanup.add(() => {
 
       .item-icon {
         transform: scale(1.05);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
 
       .item-label {
         color: var(--el-color-primary);
@@ -11819,8 +11808,6 @@ cleanup.add(() => {
       align-items: center;
       justify-content: center;
       transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: var(--global-box-shadow);
-
       svg {
         width: 20px;
         height: 20px;
@@ -11886,7 +11873,7 @@ cleanup.add(() => {
     }
 
     .item-label {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-primary);
       text-align: center;
       line-height: 1.25;
@@ -11900,7 +11887,7 @@ cleanup.add(() => {
     }
 
     .item-desc {
-      font-size: 10px;
+      font-size: 12px;
       color: var(--el-text-color-secondary);
       text-align: center;
       line-height: 1.2;
@@ -12002,7 +11989,7 @@ button.mini-delete-btn {
 }
 
 .mini-duration {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-color-success);
 }
 
@@ -12433,7 +12420,7 @@ button.mini-delete-btn {
             border-bottom: var(--unified-border-bottom);
 
             .lang-badge {
-              font-size: 11px;
+              font-size: 12px;
               padding: 2px 8px;
               border-radius: var(--global-border-radius);
               font-weight: 500;
@@ -12533,7 +12520,7 @@ button.mini-delete-btn {
           }
 
           .platform-name {
-            font-size: 11px;
+            font-size: 12px;
             color: var(--el-text-color-secondary);
             text-align: center;
             line-height: 1.2;
@@ -12603,7 +12590,6 @@ button.mini-delete-btn {
   padding: 18px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   background: var(--el-bg-color);
   min-width: 0;
   overflow: hidden;
@@ -12637,7 +12623,6 @@ button.mini-delete-btn {
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   overflow: hidden;
   transition: opacity 0.2s ease, transform 0.2s ease;
 
@@ -12658,8 +12643,7 @@ button.mini-delete-btn {
   :where(html.dark) & {
     background: var(--el-bg-color);
     border-color: var(--el-border-color);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 /* AI 能力下拉复用 .openclaw-quick-menu 网格卡片样式，图标颜色跟随主色背景自动切换 */
@@ -12740,7 +12724,6 @@ button.mini-delete-btn {
   border: var(--unified-border);
   display: flex;
   flex-direction: column;
-  box-shadow: var(--global-box-shadow);
   position: relative;
   z-index: var(--z-max);
   pointer-events: auto;
@@ -13027,7 +13010,6 @@ button.mini-delete-btn {
   background: var(--el-bg-color-page);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 500;
@@ -13059,7 +13041,6 @@ button.mini-delete-btn {
   background: var(--el-bg-color-page);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 500;
@@ -13139,7 +13120,7 @@ $cs-accent-cyan: var(--el-text-color-primary);
     gap: 12px;
     margin-right: 8px;
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.1em;
     color: var(--el-text-color-secondary);
@@ -13197,7 +13178,7 @@ $cs-accent-cyan: var(--el-text-color-primary);
   }
 
   .cs-status-text {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   // 输入区上方：快捷 FAQ
@@ -13210,7 +13191,7 @@ $cs-accent-cyan: var(--el-text-color-primary);
     align-items: center;
     gap: 8px;
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     font-weight: 800;
     letter-spacing: 0.15em;
@@ -13350,8 +13331,7 @@ $cs-accent-cyan: var(--el-text-color-primary);
 
   .input-wrapper {
     border-color: color-mix(in srgb, $cs-accent-blue 20%, transparent);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   .input-wrapper:hover {
     border-color: color-mix(in srgb, $cs-accent-blue 35%, transparent);
@@ -13359,8 +13339,7 @@ $cs-accent-cyan: var(--el-text-color-primary);
 
   .input-wrapper:focus-within {
     border-color: color-mix(in srgb, $cs-accent-blue 50%, transparent);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   // 发送按钮脉冲（客服风格）
   .input-actions .action-btn.send-btn,

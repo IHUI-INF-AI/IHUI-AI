@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../miniprogram'
+import * as api from '../platform/miniprogram'
 
 describe('miniprogram', () => {
   beforeEach(() => {

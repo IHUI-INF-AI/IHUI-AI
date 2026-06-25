@@ -409,14 +409,14 @@ function goback() { window.history.back() }
 
 .field-label {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-black-60);
   margin-right: 8px;
   white-space: nowrap;
 }
 
 .field-label.bold {
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .cover-image {
@@ -461,14 +461,14 @@ function goback() { window.history.back() }
 
 .sub-title {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-black);
   margin: 12px 0;
 }
 
 .net-ai {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-blue-768dff);
   margin: 10px 0;
 }

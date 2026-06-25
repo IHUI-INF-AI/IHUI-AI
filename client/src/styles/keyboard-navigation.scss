@@ -16,7 +16,6 @@
   .modal-container {
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
-    box-shadow: var(--global-box-shadow);
     max-height: 90vh;
     overflow: hidden;
     display: flex;
@@ -116,7 +115,6 @@
     background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    box-shadow: var(--global-box-shadow);
     z-index: var(--z-header);
     padding: 0.5rem 0;
     animation: slideDown 0.2s ease;
@@ -337,14 +335,6 @@
 @media (prefers-color-scheme: dark) {
   .modal-overlay {
     background-color: var(--color-black-70);
-  }
-
-  .modal-container {
-    box-shadow: var(--global-box-shadow);
-  }
-
-  .dropdown-menu {
-    box-shadow: var(--global-box-shadow);
   }
 }
 

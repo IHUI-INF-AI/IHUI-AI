@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../settings'
+import * as api from '../system/settings'
 
 describe('settings', () => {
   beforeEach(() => {

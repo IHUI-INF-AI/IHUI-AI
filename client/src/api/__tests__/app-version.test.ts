@@ -14,7 +14,7 @@ vi.mock('../utils/apiResponseHandler', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../app-version'
+import * as api from '../app/app-version'
 
 describe('app-version', () => {
   beforeEach(() => {

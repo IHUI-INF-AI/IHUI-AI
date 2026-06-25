@@ -18,7 +18,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../share'
+import * as api from '../content/share'
 
 describe('share', () => {
   beforeEach(() => {

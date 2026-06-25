@@ -78,7 +78,7 @@ vi.mock('@/config/backend-paths', () => ({
   },
 }))
 
-import * as api from '../auth'
+import * as api from '../auth/auth'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

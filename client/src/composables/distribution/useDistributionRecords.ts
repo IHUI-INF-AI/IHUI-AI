@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Distribution 收益记录管理 Composable
  *
  * 负责收益记录的加载、筛选和分页

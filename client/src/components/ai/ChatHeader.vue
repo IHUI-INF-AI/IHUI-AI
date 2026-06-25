@@ -416,7 +416,7 @@ function getModeLabel(mode: AIMode): string {
 .cs-status-indicator.danger { color: var(--color-danger-variant); }
 
 .cs-status-text {
-  font-size: 11px;
+  font-size: 12px;
   font-family: monospace;
   color: var(--el-text-color-secondary);
 }

@@ -142,8 +142,7 @@ const handleReopen = () => {
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   .ticket-header {
     display: flex;

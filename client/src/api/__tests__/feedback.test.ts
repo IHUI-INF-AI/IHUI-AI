@@ -15,7 +15,7 @@ vi.mock('@/utils/api-response', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../feedback'
+import * as api from '../content/feedback'
 
 describe('feedback API', () => {
   beforeEach(() => {

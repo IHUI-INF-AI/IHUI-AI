@@ -188,7 +188,7 @@ onMounted(() => {
 }
 
 .refresh-text {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
 }
 

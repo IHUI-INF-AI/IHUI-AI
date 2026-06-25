@@ -366,7 +366,7 @@ v.$text-primary: var(--el-text-color-primary);
     }
 
     .timeline-operator {
-      font-size: 11px;
+      font-size: 12px;
       color: v.$text-secondary;
       margin-top: 4px;
     }
@@ -416,7 +416,7 @@ v.$text-primary: var(--el-text-color-primary);
     }
 
     .evidence-size {
-      font-size: 11px;
+      font-size: 12px;
       color: v.$text-secondary;
     }
   }

@@ -869,7 +869,7 @@ defineExpose({
   }
 
   &__time {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     opacity: 0.7;
     margin-top: auto;
@@ -947,7 +947,7 @@ defineExpose({
   }
 
   &__time {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     opacity: 0.7;
 

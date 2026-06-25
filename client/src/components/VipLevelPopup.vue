@@ -132,7 +132,6 @@ onMounted(() => {
   align-items: flex-start;
   perspective: 1200px;
   background-image: var(--color-gradient-purple-yellow);
-  box-shadow: var(--global-box-shadow);
   margin: 20px auto 0;
   border-radius: var(--global-border-radius);
 }
@@ -217,7 +216,7 @@ onMounted(() => {
 }
 
 .benefit-number {
-  font-weight: bold;
+  font-weight: 700;
   padding-right: 4px;
 }
 
@@ -241,10 +240,9 @@ onMounted(() => {
   align-items: center;
   margin: 0 auto;
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-gray-333);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   background-image: linear-gradient(to bottom, var(--el-color-white), var(--el-fill-color-lighter));
   cursor: pointer;
 }

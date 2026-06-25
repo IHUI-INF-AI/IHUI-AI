@@ -66,7 +66,7 @@ export function exportToExcel<T extends Record<string, unknown>>(
   
   tableHtml += '<thead><tr>'
   headers.forEach(header => {
-    tableHtml += `<th style="background-color: var(--color-gray-light); font-weight: bold;">${escapeHtml(String(header))}</th>`
+    tableHtml += `<th style="background-color: var(--color-gray-light); font-weight: 700;">${escapeHtml(String(header))}</th>`
   })
   tableHtml += '</tr></thead>'
   

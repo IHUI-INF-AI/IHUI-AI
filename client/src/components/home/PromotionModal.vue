@@ -374,7 +374,6 @@ cleanup.add(() => {
   max-width: 480px;
   width: 100%;
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   text-align: center;
 
   // 深色模式

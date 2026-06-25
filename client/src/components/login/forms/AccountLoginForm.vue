@@ -397,7 +397,6 @@ defineExpose({
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   z-index: var(--z-header);
   max-height: 200px;
   overflow-y: auto;

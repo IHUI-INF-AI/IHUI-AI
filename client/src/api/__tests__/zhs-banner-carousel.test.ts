@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../zhs-banner-carousel'
+import * as api from '../zhs/zhs-banner-carousel'
 
 describe('zhs-banner-carousel', () => {
   beforeEach(() => {

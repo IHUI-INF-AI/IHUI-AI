@@ -25,12 +25,12 @@ vi.mock('@/config/backend-paths', () => ({
   COZE_PATHS: { chatStream: '/chat/stream', userModelChat: { byId: (id: string) => `/userchat/${id}` } },
 }))
 
-vi.mock('../fastapi', () => ({
+vi.mock('../system/fastapi', () => ({
   createTask: vi.fn(() => Promise.resolve({ code: 200, data: { id: 't1' } })),
 }))
 
 import request from '@/utils/request'
-import * as api from '../aiChat'
+import * as api from '../ai/aiChat'
 
 describe('aiChat API', () => {
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('aiChat API', () => {
   })
 
   it('sendAIChatMessage agentic 失败回退', async () => {
-    const fastapiMod = await import('../fastapi')
+    const fastapiMod = await import('../system/fastapi')
     ;(fastapiMod.createTask as any).mockResolvedValueOnce({ code: 500 })
     const r = await api.sendAIChatMessage({ content: 'c', modelId: 'm', useAgentic: true })
     expect(r).toBeDefined()

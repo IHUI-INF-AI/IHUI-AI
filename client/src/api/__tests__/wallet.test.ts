@@ -22,7 +22,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../wallet'
+import * as api from '../payment/wallet'
 
 describe('wallet API', () => {
   beforeEach(() => {

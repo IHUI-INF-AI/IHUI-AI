@@ -79,9 +79,8 @@ function selectBar(item: { name: string; id?: string | number }, index: number) 
 .bar-item.active {
   color: var(--el-text-color-primary);
   background: var(--el-bg-color);
-  font-weight: bold;
-  box-shadow: var(--global-box-shadow);
-}
+  font-weight: 700;
+  }
 
 .bar-item:hover:not(.active) {
   color: var(--el-text-color-regular);

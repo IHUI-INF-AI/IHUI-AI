@@ -102,14 +102,13 @@ function selectAllTab() {
 
 .tab-item {
   flex: none; display: flex; align-items: center;
-  padding: 6px 4px; border-radius: var(--global-border-radius); font-weight: bold;
+  padding: 6px 4px; border-radius: var(--global-border-radius); font-weight: 700;
   color: var(--color-black-60); border: var(--unified-border);
   cursor: pointer; height: 24px;
 }
 
 .tab-item.active {
   color: var(--color-black); border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   background: var(--color-rgba-248-249-252-0-65-);
 }
 .tab-icon { width: 24px; height: 24px; margin-right: 4px; flex-shrink: 0; }
@@ -125,7 +124,7 @@ function selectAllTab() {
   border-radius: var(--global-border-radius); background: var(--color-white); border: var(--unified-border);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.dialog-title { font-size: 12px; font-weight: bold; color: var(--color-gray-3d); margin-bottom: 20px; }
+.dialog-title { font-size: 12px; font-weight: 700; color: var(--color-gray-3d); margin-bottom: 20px; }
 .dialog-input { width: 160px; margin-bottom: 20px; }
 .dialog-btn { width: 50px; }
 </style>

@@ -9,7 +9,7 @@ vi.mock('../utils/request', () => ({
   },
 }))
 
-import * as api from '../ai-index'
+import * as api from '../ai/ai-index'
 
 describe('ai-index', () => {
   beforeEach(() => {

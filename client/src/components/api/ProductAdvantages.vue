@@ -132,8 +132,7 @@ const handleCardClick = (advantage: Advantage) => {
     
     &:hover {
       transform: translateY(-4px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     .advantage-content {
       text-align: center;

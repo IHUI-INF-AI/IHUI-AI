@@ -357,7 +357,7 @@ const handleTrash2 = (template: PromptTemplate) => {
     }
 
     .card-tag {
-      font-size: 11px;
+      font-size: 12px;
       padding: 0 8px;
       border-radius: var(--global-border-radius); // 遵循项目规范：标签/小按钮使用 6px 圆角
       background: var(--el-fill-color-light);

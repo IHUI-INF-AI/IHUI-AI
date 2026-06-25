@@ -292,7 +292,7 @@ v.$text-primary: var(--el-text-color-primary);
 .evidence-meta {
   display: flex;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: v.$text-secondary;
   margin-top: 2px;
 }

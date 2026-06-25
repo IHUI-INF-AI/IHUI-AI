@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../openclaw'
+import * as api from '../tools/openclaw'
 
 describe('openclaw', () => {
   beforeEach(() => {

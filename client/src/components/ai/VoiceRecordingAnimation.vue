@@ -1724,7 +1724,6 @@ html.dark .grid::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--global-box-shadow);
   padding-bottom: 90px; /* 增加底部内边距，为文字留出更多空间，避免被圆形容器遮挡 */
   pointer-events: auto; /* 允许 card 接收点击事件 */
 
@@ -1793,7 +1792,6 @@ html.dark .card {
     var(--color-dark-overlay-2) 50%,
     var(--color-dark-overlay-3) 100%
   );
-  box-shadow: var(--global-box-shadow);
   backdrop-filter: blur(24px) saturate(200%);
   -webkit-backdrop-filter: blur(24px) saturate(200%);
 
@@ -1906,7 +1904,6 @@ html.dark .outline::before {
 
   /* 更优雅的边框颜色 - 使用黑灰色 */
   border: 2px solid var(--border-unified-color);
-  box-shadow: var(--global-box-shadow);
   filter: blur(2px);
   inset: 0;
   animation: wave 1.5s linear infinite;
@@ -1917,7 +1914,6 @@ html.dark .wave::before,
 html.dark .wave::after {
   /* 暗色模式下使用黑灰色边框 */
   border-color: var(--border-unified-color);
-  box-shadow: var(--global-box-shadow);
   opacity: 0.8; /* 提高不透明度，增强可见度 */
 }
 
@@ -1935,8 +1931,6 @@ html.dark .wave::after {
 
   /* transform 由动画控制，但初始状态需要保持定位 */
   transform: translate(-50%, calc(-50% - 20px)); /* 向上移动，避免遮挡底部文字 */
-  box-shadow: var(--global-box-shadow);
-
   /* 使用稍微带灰调的背景，增强对比度 */
   background: radial-gradient(
     circle at 30% 30%,
@@ -1977,7 +1971,6 @@ html.dark .circle-1 {
     var(--color-dark-overlay-1) 40%,
     var(--gradient-dark-2) 100%
   );
-  box-shadow: var(--global-box-shadow);
   border: var(--unified-border);
   border-top: var(--unified-border);
   border-left: var(--unified-border);
@@ -2072,8 +2065,7 @@ html.dark .circle-1::after {
   border-bottom: 1.5px solid var(--border-unified-color);
 
   /* 增强的内外阴影 */
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .circle-2::before,
 .circle-2::after {
@@ -2107,8 +2099,7 @@ html.dark .circle-1::after {
   border: var(--unified-border);
   border-top: var(--unified-border);
   border-left: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 html.dark .circle-2::before {
   background: var(--color-gray-transparent-5);
@@ -2133,7 +2124,6 @@ html.dark .circle-2::after {
   position: absolute;
   inset: 0;
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   background: linear-gradient(
     135deg,
     var(--color-white-90) 0%,
@@ -2154,8 +2144,7 @@ html.dark .circle-2::after {
     var(--gradient-dark-5) 60%,
     var(--gradient-dark-8) 100%
   );
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .circle-2 .bg::before {
   content: '';
@@ -2164,7 +2153,6 @@ html.dark .circle-2::after {
   animation: bg 4s linear infinite;
   border-radius: inherit;
   transition: all 0.4s linear;
-  box-shadow: var(--global-box-shadow);
   opacity: 0;
 }
 
@@ -2587,7 +2575,6 @@ html.dark .circle-2::after {
 
 .wrap:hover .card {
   transform: perspective(var(--perspective)) rotateX(0) rotateY(0) scale3d(1.03, 1.03, 1.03);
-  box-shadow: var(--global-box-shadow);
   border-color: var(--border-unified-color);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -2603,7 +2590,6 @@ html.dark .circle-2::after {
 /* 暗色模式下的 hover 效果 */
 :where(html.dark) :where(.voice-recording-animation) .wrap:hover .card {
   transform: perspective(var(--perspective)) rotateX(0) rotateY(0) scale3d(1.02, 1.02, 1.02);
-  box-shadow: var(--global-box-shadow);
   border-color: var(--border-unified-color);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -2956,7 +2942,6 @@ html.dark .voice-recording-animation {
       var(--color-dark-overlay-2) 50%,
       var(--color-dark-overlay-3) 100%
     );
-    box-shadow: var(--global-box-shadow);
     backdrop-filter: blur(24px) saturate(200%);
     -webkit-backdrop-filter: blur(24px) saturate(200%);
 
@@ -3000,7 +2985,6 @@ html.dark .voice-recording-animation {
     transform: perspective(var(--perspective)) rotateX(0) rotateY(0) scale3d(1.02, 1.02, 1.02);
 
     /* 暗色模式：hover 时的阴影增强效果 */
-    box-shadow: var(--global-box-shadow);
     border-color: var(--border-unified-color);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -3023,7 +3007,6 @@ html.dark .voice-recording-animation {
   .wave::after {
     /* 暗色模式下使用更亮的灰色边框 */
     border-color: var(--border-unified-color);
-    box-shadow: var(--global-box-shadow);
     opacity: 0.8;
   }
 
@@ -3035,7 +3018,6 @@ html.dark .voice-recording-animation {
       var(--color-dark-overlay-1) 40%,
       var(--gradient-dark-2) 100%
     );
-    box-shadow: var(--global-box-shadow);
     border: var(--unified-border);
     border-top: var(--unified-border);
     border-left: var(--unified-border);
@@ -3069,8 +3051,7 @@ html.dark .voice-recording-animation {
     border: var(--unified-border);
     border-top: var(--unified-border);
     border-left: var(--unified-border);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   .circle-2::before {
     background: var(--color-gray-transparent-5);
@@ -3093,11 +3074,9 @@ html.dark .voice-recording-animation {
     );
 
     /* 使用全局唯一投影 */
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   .circle-2 .bg::before {
-    box-shadow: var(--global-box-shadow);
     background: var(--color-gray-100-20);
   }
 

@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../zhs-activity'
+import * as api from '../zhs/zhs-activity'
 
 describe('zhs-activity', () => {
   beforeEach(() => {

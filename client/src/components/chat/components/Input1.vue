@@ -975,7 +975,6 @@ import { useI18n } from 'vue-i18n';
     max-height: 80vh;
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--global-box-shadow);
     padding: 20px 20px 16px;
     display: flex;
     flex-direction: column;
@@ -1113,8 +1112,7 @@ import { useI18n } from 'vue-i18n';
     transform: translateX(-50%);
     transition: opacity 0.2s ease, visibility 0.2s ease;
     z-index: var(--z-dropdown);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   .mode-tab .mode-text::after {
     content: '';
@@ -1173,8 +1171,7 @@ import { useI18n } from 'vue-i18n';
     border-radius: var(--global-border-radius);
     background: var(--el-text-color-placeholder);
     color: var(--el-color-white);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   /* Hover 状态：背景不变，图标变蓝色 - 使用组合选择器确保优先级 */
   .send-icon-btn:hover {
@@ -1191,8 +1188,7 @@ import { useI18n } from 'vue-i18n';
   /* Active 状态 */
   .send-icon-btn:active {
     transform: translateY(0);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   /* SVG 图标尺寸 */
   .send-icon-btn svg {
@@ -1236,7 +1232,6 @@ import { useI18n } from 'vue-i18n';
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
     background: var(--el-bg-color);
-    box-shadow: var(--global-box-shadow);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1248,7 +1243,6 @@ import { useI18n } from 'vue-i18n';
   
   .mode-group1 .secondary-btn:hover {
     background: var(--el-fill-color-lighter);
-    box-shadow: var(--global-box-shadow);
     transform: translateY(-1px);
   }
 
@@ -1263,7 +1257,7 @@ import { useI18n } from 'vue-i18n';
   }
   
   .mode-group label {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     white-space: nowrap;
     flex-shrink: 0;
@@ -1274,7 +1268,7 @@ import { useI18n } from 'vue-i18n';
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
     padding: 0 8px;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-primary);
     background: var(--el-bg-color);
     outline: none;
@@ -1345,7 +1339,6 @@ import { useI18n } from 'vue-i18n';
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--global-box-shadow);
     z-index: var(--z-modal);
     max-height: 240px;
     overflow-y: auto;
@@ -1399,7 +1392,7 @@ import { useI18n } from 'vue-i18n';
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
     background: var(--el-bg-color);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-primary);
     cursor: pointer;
     transition: background-color 0.15s ease, transform 0.15s ease;
@@ -1433,7 +1426,6 @@ import { useI18n } from 'vue-i18n';
     max-height: 70vh;
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--global-box-shadow);
     display: flex;
     flex-direction: column;
     overflow: hidden;

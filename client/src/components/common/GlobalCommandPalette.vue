@@ -324,7 +324,7 @@ onMounted(() => {
   
   .palette-hint {
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     color: var(--el-text-color-placeholder);
     font-weight: 700;
     letter-spacing: 1.5px;
@@ -359,7 +359,7 @@ onMounted(() => {
     padding: 48px 24px;
     text-align: center;
     font-family: var(--font-family-mono);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-placeholder);
     letter-spacing: 3px;
     opacity: 0.6;
@@ -414,7 +414,7 @@ onMounted(() => {
     
     .item-path { 
       font-family: var(--font-family-mono); 
-      font-size: 10px; 
+      font-size: 12px; 
       color: var(--el-text-color-primary);
       margin-top: 2px; 
       font-weight: 500;
@@ -429,7 +429,7 @@ onMounted(() => {
     
     kbd {
       font-family: var(--font-family-mono);
-      font-size: 10px;
+      font-size: 12px;
       background: var(--el-color-primary);
       color: var(--el-bg-color-page);
       padding: 5px 10px;
@@ -440,7 +440,7 @@ onMounted(() => {
     
     .protocol-tag {
       font-family: var(--font-family-mono);
-      font-size: 10px;
+      font-size: 12px;
       color: var(--el-text-color-primary);
       font-weight: 600;
     }
@@ -483,7 +483,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   font-family: var(--font-family-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
   flex-shrink: 0;

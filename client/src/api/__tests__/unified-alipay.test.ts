@@ -18,7 +18,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../unified-alipay'
+import * as api from '../unified/unified-alipay'
 
 describe('unified-alipay', () => {
   beforeEach(() => {

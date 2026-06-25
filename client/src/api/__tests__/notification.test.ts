@@ -27,7 +27,7 @@ vi.mock('@/config/backend-paths', () => ({
   NOTIFICATION_PATHS: { send: '/notification/send' },
 }))
 
-import * as api from '../notification'
+import * as api from '../system/notification'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

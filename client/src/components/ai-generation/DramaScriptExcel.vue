@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <Teleport to="body">
     <!-- 悬浮触发按钮 -->
     <Transition name="fade">
@@ -5189,7 +5189,7 @@ const generateHtmlPreview = (): string => {
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
     .header { text-align: center; margin-bottom: 30px; }
     .scene { border: var(--unified-border); padding: 15px; margin-bottom: 15px; border-radius: var(--global-border-radius); }
-    .scene-title { font-size: 18px; font-weight: bold; color: var(--el-text-color-primary); }
+    .scene-title { font-size: 18px; font-weight: 700; color: var(--el-text-color-primary); }
     .scene-meta { color: var(--el-text-color-regular); margin: 10px 0; }
     .scene-desc { line-height: 1.6; }
     .status { display: inline-block; padding: 2px 8px; border-radius: var(--global-border-radius); font-size: 12px; }
@@ -6457,14 +6457,12 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--global-box-shadow);
   z-index: var(--z-modal);
   transition: all 0.3s ease;
   
   &:hover {
     transform: scale(1.1);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   .trigger-icon {
     font-size: 24px;
@@ -6489,7 +6487,6 @@ defineExpose({
   position: absolute;
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -6899,8 +6896,7 @@ defineExpose({
       
       &:hover {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
       
       .template-info {
         flex: 1;
@@ -6962,8 +6958,7 @@ defineExpose({
       
       &:hover {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
       
       &.is-selected {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -7116,8 +7111,7 @@ defineExpose({
       max-height: 420px;
       background: var(--el-fill-color-darker);
       border-radius: var(--global-border-radius);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     .video-controls {
       display: flex;
@@ -7134,8 +7128,7 @@ defineExpose({
         
         &:hover {
           transform: translateY(-2px);
-          box-shadow: var(--global-box-shadow);
-        }
+          }
       }
     }
     
@@ -7214,12 +7207,8 @@ defineExpose({
         border-radius: var(--global-border-radius);
         overflow: hidden;
         transition: all 0.3s ease;
-        box-shadow: var(--global-box-shadow);
-        
         &:hover {
           transform: scale(1.08) translateY(-4px);
-          box-shadow: var(--global-box-shadow);
-          
           .keyframe-time {
             background: var(--el-color-primary);
           }
@@ -7283,8 +7272,7 @@ defineExpose({
         
         &:hover {
           transform: scale(1.08);
-          box-shadow: var(--global-box-shadow);
-        }
+          }
         
         &.el-tag--primary {
           background: var(--el-color-primary);
@@ -7355,8 +7343,7 @@ defineExpose({
     
     &:hover {
       border-color: var(--el-color-primary-light-7);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     h4 {
       font-size: 15px;
@@ -7412,8 +7399,7 @@ defineExpose({
       
       &:hover {
         transform: translateY(-2px);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
     }
   }
   
@@ -7459,8 +7445,7 @@ defineExpose({
     &:hover {
       transform: translateY(-2px);
       border-color: var(--el-color-primary-light-5);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     .plot-header {
       display: flex;
@@ -7605,8 +7590,7 @@ defineExpose({
       
       &:hover {
         transform: scale(1.05);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
     }
   }
   
@@ -7659,8 +7643,7 @@ defineExpose({
         
         &:hover {
           transform: translateY(-1px);
-          box-shadow: var(--global-box-shadow);
-        }
+          }
       }
     }
   }
@@ -7692,8 +7675,7 @@ defineExpose({
     
     &:hover {
       border-color: var(--el-color-primary-light-5);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     &.is-auto {
       opacity: 0.85;
@@ -7787,10 +7769,6 @@ defineExpose({
       .el-textarea__inner {
         border-radius: var(--global-border-radius);
         resize: none;
-        
-        &:focus {
-          box-shadow: var(--global-box-shadow);
-        }
       }
     }
     
@@ -8119,7 +8097,6 @@ defineExpose({
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   z-index: var(--z-loading);
   min-width: 180px;
   padding: 4px 0;
@@ -8196,7 +8173,6 @@ defineExpose({
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   z-index: var(--z-loading);
   min-width: 180px;
   padding: 4px 0;
@@ -8270,8 +8246,7 @@ defineExpose({
     
     &:hover {
       transform: translateY(-1px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     &:active {
       transform: translateY(0);
@@ -8285,8 +8260,7 @@ defineExpose({
   
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 // 渐变背景卡片
@@ -8317,8 +8291,7 @@ defineExpose({
   
   &:hover {
     border-color: var(--el-color-primary-light-5);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   .stat-value {
     font-size: 28px;
@@ -8366,8 +8339,7 @@ defineExpose({
     border-radius: var(--global-border-radius);
     background: var(--el-color-primary);
     border: 2px solid var(--el-bg-color);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   &::after {
     content: "";
@@ -8503,7 +8475,7 @@ defineExpose({
     min-width: 18px;
     height: 18px;
     padding: 0 6px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 18px;
     text-align: center;
@@ -8635,15 +8607,7 @@ defineExpose({
   .gradient-card {
     background: var(--el-color-primary-dark-2);
   }
-  
-  .stat-card:hover {
-    box-shadow: var(--global-box-shadow);
-  }
-  
-  .timeline-item::before {
-    box-shadow: var(--global-box-shadow);
-  }
-  
+
   .skeleton-item {
     background: linear-gradient(90deg, 
       var(--el-fill-color-darker) 25%, 
@@ -8714,11 +8678,11 @@ defineExpose({
 
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: var(--global-box-shadow);
+    opacity: 1;
   }
 
   50% {
-    box-shadow: var(--global-box-shadow);
+    opacity: 0.7;
   }
 }
 
@@ -8781,23 +8745,19 @@ defineExpose({
 
     &.status-success {
       background: var(--el-color-success);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     &.status-warning {
       background: var(--el-color-warning);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     &.status-danger {
       background: var(--el-color-danger);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     &.status-info {
       background: var(--el-color-info);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     &.status-processing {
       background: var(--el-color-primary);
@@ -8857,8 +8817,7 @@ defineExpose({
         border: var(--unified-border);
         border-radius: var(--global-border-radius);
         color: var(--el-text-color-primary);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
       
       .shortcut-desc {
         color: var(--el-text-color-regular);
@@ -8936,8 +8895,7 @@ defineExpose({
       
       &:hover {
         border-color: var(--el-color-primary-light-5);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
       
       .scene-header {
         display: flex;
@@ -9024,8 +8982,6 @@ defineExpose({
         &.active {
           border: var(--el-border-width-primary) solid var(--el-color-primary);
           background: var(--el-color-primary-light-9);
-          box-shadow: var(--global-box-shadow);
-          
           .format-name {
             color: var(--el-color-primary);
           }

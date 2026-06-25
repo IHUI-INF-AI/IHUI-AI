@@ -97,7 +97,6 @@ const handleSecureAccount = () => {
   padding: 16px 20px;
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   border: var(--unified-border);
   max-width: 400px;
 

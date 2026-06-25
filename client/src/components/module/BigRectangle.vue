@@ -70,10 +70,6 @@ function formatPrice(p: number | undefined): string {
   border-radius: var(--global-border-radius);
   overflow: hidden;
   height: 100%;
-
-  &:hover {
-    box-shadow: var(--global-box-shadow);
-  }
 }
 
 :where(.card-image) {

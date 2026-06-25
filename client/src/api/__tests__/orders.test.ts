@@ -10,7 +10,7 @@ vi.mock('@/api/core/client', () => ({
   },
 }))
 
-import * as api from '../orders'
+import * as api from '../payment/orders'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

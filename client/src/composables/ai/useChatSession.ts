@@ -1,4 +1,4 @@
-﻿import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { StorageManager } from '@/utils/storage'
 import {
   getConversations,

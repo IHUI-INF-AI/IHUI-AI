@@ -257,8 +257,7 @@ async function handlePayment() {
   background: var(--color--1a1a20);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .purchase-popup-dialog :deep(.el-dialog__header) {
   border-bottom: var(--unified-border-bottom);
@@ -284,7 +283,7 @@ async function handlePayment() {
 
 .popup-title {
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-white);
   margin: 0;
 }
@@ -296,7 +295,7 @@ async function handlePayment() {
 .product-name {
   font-size: 17px;
   color: var(--color-white);
-  font-weight: bold;
+  font-weight: 700;
   margin-bottom: 10px;
   text-align: center;
 }
@@ -309,13 +308,13 @@ async function handlePayment() {
 .price-symbol {
   font-size: 16px;
   color: var(--color-cyan-bright);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .price-value {
   font-size: 30px;
   color: var(--color-cyan-bright);
-  font-weight: bold;
+  font-weight: 700;
   margin-left: 4px;
 }
 
@@ -336,7 +335,7 @@ async function handlePayment() {
 
 .benefit-item.highlight {
   color: var(--color-deeporange-ff5722);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .payment-options {
@@ -374,7 +373,7 @@ async function handlePayment() {
   justify-content: center;
   margin-right: 10px;
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -391,7 +390,7 @@ async function handlePayment() {
 .option-check {
   font-size: 15px;
   color: var(--color-cyan-bright);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .popup-footer {
@@ -402,7 +401,7 @@ async function handlePayment() {
   width: 100%;
   height: 45px;
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 700;
   border-radius: var(--global-border-radius);
   background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-3));
   border: none;

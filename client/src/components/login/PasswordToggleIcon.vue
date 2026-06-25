@@ -52,8 +52,7 @@ const handleClick = () => {
   
   &:focus {
     outline: none;
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   .icon {
     display: block;

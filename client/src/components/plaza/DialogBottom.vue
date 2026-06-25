@@ -94,10 +94,10 @@ function toDev() { emit('toDev') }
   width: 75px; height: 75px; border-radius: 50%; object-fit: cover;
   margin-bottom: 8px; flex-shrink: 0;
 }
-.user-name { font-size: 15px; font-weight: bold; color: var(--color-black); margin-bottom: 4px; }
+.user-name { font-size: 15px; font-weight: 700; color: var(--color-black); margin-bottom: 4px; }
 
 .logo-text {
-  font-size: 15px; font-weight: bold; letter-spacing: 0.29em;
+  font-size: 15px; font-weight: 700; letter-spacing: 0.29em;
   color: var(--color--8f81ff); margin-bottom: 8px;
 }
 
@@ -114,21 +114,19 @@ function toDev() { emit('toDev') }
 
 .card-left {
   background: var(--color-gradient-card-left);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 .left-icon { width: 33px; height: 33px; }
 .left-text { font-size: 20px; font-weight: 600; letter-spacing: 0.28em; color: var(--color-black); }
 .or-img { width: 46px; height: 20px; }
 
 .card-right {
   background: var(--color-gradient-card-right);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 .right-icon { width: 36px; height: 32px; }
 .right-text { font-size: 20px; font-weight: 500; letter-spacing: 0.28em; color: var(--color-white); }
 
 .bottom-text {
-  font-family: Silkscreen; font-size: 10px; color: var(--color-rgba-0-0-0-0-4-);
+  font-family: Silkscreen; font-size: 12px; color: var(--color-rgba-0-0-0-0-4-);
   cursor: pointer; margin-bottom: 12px;
 }
 .notice-body { padding: 12px; }

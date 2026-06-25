@@ -879,7 +879,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   
   // Tag 样式变量
   --aid-tag-padding: 3px 6px;
-  --aid-tag-font-size: 10px;
+  --aid-tag-font-size: 12px;
   
   // Border 变量
   --aid-border-width: 1px;
@@ -1040,7 +1040,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         --model-tag-border-width: var(--aid-border-width);
         
         flex-shrink: 1;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 500;
         padding: 4px 8px;
         border-radius: var(--global-border-radius);
@@ -1128,7 +1128,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           box-sizing: border-box;
           
           .tag-icon {
-            font-size: 11px;
+            font-size: 12px;
             width: 11px;
             height: 11px;
             flex-shrink: 0;
@@ -1669,7 +1669,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         }
 
         .el-tag.model-tag {
-          font-size: 11px;
+          font-size: 12px;
           padding: 4px 6px;
           line-height: 1.2;
           margin: 0;
@@ -2166,8 +2166,6 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           --amb-border-color-dark: var(--el-color-primary);
 
           color: var(--el-bg-color-page);
-          box-shadow: var(--global-box-shadow);
-
           .agent-mode-text {
             color: var(--el-bg-color-page);
           }
@@ -2592,8 +2590,6 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       --mct-item-border-width: var(--el-border-width-primary);
 
       font-weight: 500;
-      box-shadow: var(--global-box-shadow);
-
       // 选中状态：添加粗描边，与容器背景形成强对比
       border-width: 2px;
     }
@@ -2811,7 +2807,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       background: transparent;
       border-radius: var(--global-border-radius);
       color: var(--el-text-color-secondary);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.02em;
       cursor: pointer;
@@ -2875,7 +2871,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
       &.model-badge-new {
         // 新模型：New 文字标签
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 700;
         color: var(--color-on-primary); // 明暗模式自动适配：亮色=白字（绿底）、暗色=黑字（浅绿底）
         background: var(--el-color-success);
@@ -2883,8 +2879,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         border-radius: var(--global-border-radius);
         line-height: 1.2;
         letter-spacing: 0.5px;
-        box-shadow: var(--global-box-shadow);
-      }
+        }
     }
 
     // 暗色主题下的样式
@@ -2898,8 +2893,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
         &.model-badge-new {
           background: var(--el-color-success-light-4);
-          box-shadow: var(--global-box-shadow);
-        }
+          }
       }
     }
 
@@ -2920,7 +2914,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
     .model-time-tag {
       display: inline-block;
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-regular);
       background: var(--el-fill-color-light);
       padding: 4px 10px;
@@ -3007,7 +3001,6 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
     
     input[type="checkbox"]:focus + .checkmark {
-      box-shadow: var(--global-box-shadow);
       outline: none;
     }
     
@@ -3100,7 +3093,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
 
     .model-desc {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-placeholder);
       line-height: 1.4;
       max-width: 200px;
@@ -3120,7 +3113,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 10px;
+        font-size: 12px;
         padding: 2px 6px;
         border-radius: var(--global-border-radius);
         background: var(--el-fill-color-light);
@@ -3557,11 +3550,6 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     filter: none;
     outline: none;
     transform: translateY(0);
-  }
-
-  .input-wrapper:hover:not(:focus-within),
-  .input-wrapper:focus-within {
-    box-shadow: var(--global-box-shadow);
   }
 
   .input-wrapper:not(:hover, :focus-within)::before,

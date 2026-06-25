@@ -221,12 +221,7 @@
 
   &:hover {
     transform: translateY(-8px);
-    box-shadow: var(--global-box-shadow);
     border-color: var(--el-text-color-primary);
-
-    html.dark & {
-      box-shadow: var(--global-box-shadow);
-    }
   }
 }
 
@@ -269,14 +264,13 @@
     &:hover {
       background: var(--el-color-primary-dark-2);
       transform: translateY(-2px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     &:active { transform: translateY(0); }
 
     html.dark & {
       background: var(--el-color-primary);
       color: var(--el-button-text-color);
-      &:hover { background: var(--el-color-primary-light-3); box-shadow: var(--global-box-shadow); }
+      &:hover { background: var(--el-color-primary-light-3); }
     }
   }
 

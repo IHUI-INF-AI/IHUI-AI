@@ -15,7 +15,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../n8n-agents'
+import * as api from '../n8n/n8n-agents'
 
 describe('n8n-agents', () => {
   beforeEach(() => {

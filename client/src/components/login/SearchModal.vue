@@ -110,12 +110,7 @@ onMounted(() => {
   min-width: 400px;
   max-width: 90vw;
   height: 60px;
-  box-shadow: var(--global-box-shadow);
-}
-
-html.dark .search-popup-content {
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .search-input-icon {
   flex-shrink: 0;

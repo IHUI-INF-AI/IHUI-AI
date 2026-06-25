@@ -36,7 +36,7 @@ try {
 // 同时设置 process.env.NODE_ENV
 ;(globalThis as any).process = { ...(globalThis as any).process, env: { ...((globalThis as any).process?.env || {}), NODE_ENV: 'production' } }
 
-import * as api from '../ai'
+import * as api from '../ai/ai'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

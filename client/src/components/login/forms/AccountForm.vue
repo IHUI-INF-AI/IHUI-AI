@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="account-form-container">
     <el-form
       :model="formData"

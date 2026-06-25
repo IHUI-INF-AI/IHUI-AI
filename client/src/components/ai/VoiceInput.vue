@@ -255,11 +255,11 @@ defineExpose({
 @keyframes pulse {
   0%,
   100% {
-    box-shadow: var(--global-box-shadow);
+    opacity: 1;
   }
 
   50% {
-    box-shadow: var(--global-box-shadow);
+    opacity: 0.6;
   }
 }
 
@@ -271,7 +271,6 @@ defineExpose({
   background: var(--el-bg-color);
   padding: 16px 24px;
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   text-align: center;
   min-width: 200px;
   z-index: var(--z-header);

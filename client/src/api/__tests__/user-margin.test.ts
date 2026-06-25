@@ -16,7 +16,7 @@ vi.mock('@/utils/apiResponseHandler', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../user-margin'
+import * as api from '../user/user-margin'
 
 describe('user-margin API', () => {
   beforeEach(() => {

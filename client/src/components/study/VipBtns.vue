@@ -83,7 +83,7 @@ function handleClick() {
 .label-title {
   font-size: 12px;
   color: var(--color--f8b34e);
-  font-weight: bold;
+  font-weight: 700;
   line-height: 16px;
   width: calc(4em + 4px);
   text-align: center;

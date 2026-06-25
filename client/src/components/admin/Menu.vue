@@ -186,7 +186,7 @@ const groups = computed<MenuGroup[]>(() => [
     padding: 0 5px;
     display: inline-flex; align-items: center; justify-content: center;
     border-radius: 9px;
-    font-size: 11px; font-weight: 600;
+    font-size: 12px; font-weight: 600;
     line-height: 1;
     background: var(--el-color-danger);
     /* 暗色模式可读性 (2026-06-24 封版): 始终白字, 避免 el-bg-color 暗色模式变深字 */

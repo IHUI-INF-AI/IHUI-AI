@@ -32,7 +32,7 @@ vi.mock('@aizhs/shared-services', () => ({
 
 import request from '@/utils/request'
 import { refreshAuthToken } from '@aizhs/shared-services'
-import * as userApi from '../user'
+import * as userApi from '../user/user'
 
 // 构造 axios 风格的成功响应
 const ok = (data: any = {}) => ({ data: { code: 200, data, message: 'success' } })

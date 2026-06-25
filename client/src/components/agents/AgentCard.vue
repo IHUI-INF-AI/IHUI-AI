@@ -326,7 +326,7 @@ const hasPlatformCapabilities = computed(() => {
       .platform-tag {
         flex-shrink: 0;
         border-radius: var(--global-border-radius);
-        font-size: 11px;
+        font-size: 12px;
         padding: 2px 8px;
       }
 
@@ -379,7 +379,7 @@ const hasPlatformCapabilities = computed(() => {
 
     .capability-tag {
       border-radius: var(--global-border-radius);
-      font-size: 11px;
+      font-size: 12px;
       padding: 4px 10px;
       display: flex;
       align-items: center;
@@ -399,7 +399,7 @@ const hasPlatformCapabilities = computed(() => {
 
     .tag-item {
       border-radius: var(--global-border-radius);
-      font-size: 11px;
+      font-size: 12px;
       padding: 2px 8px;
     }
   }
@@ -471,7 +471,7 @@ const hasPlatformCapabilities = computed(() => {
 
     .category-tag {
       border-radius: var(--global-border-radius);
-      font-size: 11px;
+      font-size: 12px;
       padding: 2px 8px;
     }
   }
@@ -480,15 +480,13 @@ const hasPlatformCapabilities = computed(() => {
 .login-content.login-page.dark-mode .agent-card {
   background: var(--el-fill-color);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   transition: border-color 0.2s ease;
 
   &:hover,
   &:focus {
     background: var(--el-fill-color-light);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &:focus-visible {
     outline: var(--el-border-width-primary) solid var(--el-color-primary);

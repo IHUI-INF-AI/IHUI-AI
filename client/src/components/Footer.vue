@@ -1028,7 +1028,7 @@ onMounted(() => {
 .qrcode-image-wrapper:hover .qrcode-image {
   transform: scale(1.2) translateY(-30px); /* 放大1.2倍并向上移动30px */
   border-radius: var(--global-border-radius); /* 放大后添加圆角 */
-  box-shadow: var(--global-box-shadow); /* 使用全局投影 */
+  /* 使用全局投影 */
 }
 
 .qrcode-image-wrapper:hover {

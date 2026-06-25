@@ -982,7 +982,7 @@ html.dark .ai-capability-selector__backdrop {
 }
 
 .ai-capability-selector__backdrop .ai-capability-selector__tab-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.01em;
   min-width: 0;
@@ -1221,7 +1221,7 @@ html.dark .ai-capability-selector__backdrop {
 
 .ai-capability-selector__backdrop .ai-capability-selector__agentic-id {
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-family-mono, ui-monospace, monospace);
   background: var(--acs-bg-panel);
   border: var(--acs-border);
@@ -1334,7 +1334,7 @@ html.dark .ai-capability-selector__backdrop {
   }
 
   .ai-capability-selector__backdrop .ai-capability-selector__tab-label {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .ai-capability-selector__backdrop .ai-capability-selector__content {

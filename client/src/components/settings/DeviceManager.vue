@@ -197,8 +197,7 @@ onMounted(() => {
 
   &:hover {
     border-color: var(--el-color-primary-light-5);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &.is-current {
     border-color: var(--el-color-success-light-5);

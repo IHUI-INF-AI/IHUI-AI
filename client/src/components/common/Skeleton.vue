@@ -113,8 +113,7 @@ const borderRadius = computed(() => {
   overflow: hidden;
   background: var(--el-bg-color);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .skeleton-card-image {
   width: 100%;

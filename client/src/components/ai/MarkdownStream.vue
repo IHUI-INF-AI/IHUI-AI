@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div ref="containerRef" class="markdown-stream-container" :class="containerClass">
     <MarkdownRender v-if="shouldRender" ref="markdownRenderRef" :content="content" :nodes="nodes"
       :enable-mermaid="enableMermaid" :enable-katex="enableKatex" :custom-components="resolvedCustomComponents"

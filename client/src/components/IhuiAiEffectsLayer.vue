@@ -229,11 +229,7 @@ const handleImageError = (event: Event) => {
   height: 100%;
   background: var(--particle-fill);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   animation: ihui-ai-particle-pulse 2s ease-in-out infinite;
-}
-
-:global(html) {
 }
 
 :global(html.dark) {

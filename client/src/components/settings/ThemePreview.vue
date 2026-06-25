@@ -103,8 +103,7 @@ onUnmounted(() => {
   padding: 16px;
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .preview-header {
   display: flex;

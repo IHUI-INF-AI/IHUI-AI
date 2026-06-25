@@ -300,7 +300,7 @@ onMounted(() => {
     }
 
     .bar-label {
-      font-size: 10px;
+      font-size: 12px;
       color: var(--el-text-color-placeholder);
       margin-top: 4px;
     }

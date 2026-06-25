@@ -500,7 +500,6 @@ watch(visible, (val) => {
       cursor: pointer;
       
       &:hover {
-        box-shadow: var(--global-box-shadow);
         transform: translateY(-2px);
       }
       
@@ -616,7 +615,7 @@ watch(visible, (val) => {
         padding: 2px 6px;
         background: var(--color-black-70);
         border-radius: var(--global-border-radius);
-        font-size: 11px;
+        font-size: 12px;
       }
     }
   }
@@ -697,7 +696,7 @@ watch(visible, (val) => {
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     
     .meta-item {

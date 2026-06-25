@@ -24,7 +24,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../ai-community'
+import * as api from '../ai/ai-community'
 
 describe('ai-community API', () => {
   beforeEach(() => {

@@ -478,7 +478,7 @@ const handleX = () => {
           position: absolute;
           top: -8px;
           right: -8px;
-          font-size: 10px;
+          font-size: 12px;
         }
       }
     }
@@ -528,7 +528,7 @@ const handleX = () => {
           }
 
           p {
-            font-size: 11px;
+            font-size: 12px;
           }
         }
       }

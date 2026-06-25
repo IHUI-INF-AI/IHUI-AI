@@ -445,8 +445,7 @@ const handleFormAppearanceUpload = (response: UploadResponse) => {
 
   &:hover {
     border-color: var(--el-color-primary-light-5);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &.is-selected {
     border: var(--el-border-width-primary) solid var(--el-color-primary);

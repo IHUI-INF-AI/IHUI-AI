@@ -14,7 +14,7 @@ vi.mock('../utils/apiResponseHandler', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../auth-veri-codes'
+import * as api from '../auth/auth-veri-codes'
 
 describe('auth-veri-codes', () => {
   beforeEach(() => {

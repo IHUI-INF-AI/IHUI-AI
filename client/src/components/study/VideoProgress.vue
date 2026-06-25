@@ -64,7 +64,6 @@ const thinkingProgress = computed(() => {
   top: calc((100vh - 250px) / 2);
   left: 40px;
   right: 40px;
-  box-shadow: var(--global-box-shadow);
   border-radius: var(--global-border-radius);
   overflow: hidden;
   background: var(--el-bg-color);

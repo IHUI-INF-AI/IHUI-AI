@@ -84,7 +84,6 @@ const skip = () => {
   position: absolute;
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   min-width: 300px;
   max-width: 400px;
   z-index: var(--z-max);
@@ -170,7 +169,6 @@ html.dark {
 
   .tour-tooltip {
     background-color: var(--el-bg-color);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 </style>

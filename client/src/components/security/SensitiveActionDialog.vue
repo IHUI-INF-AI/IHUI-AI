@@ -311,7 +311,6 @@ const onCancel = () => {
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--global-box-shadow);
     width: 100%;
     max-width: 420px;
     display: flex;

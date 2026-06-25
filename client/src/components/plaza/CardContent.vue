@@ -177,16 +177,16 @@ function close() { emit('close') }
   background-color: var(--color-black); object-fit: cover; flex-shrink: 0;
 }
 .user-info { margin-left: 6px; }
-.user-name { font-size: 16px; font-weight: bold; color: var(--color-black); }
+.user-name { font-size: 16px; font-weight: 700; color: var(--color-black); }
 .tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 
 .tag {
   padding: 2px 6px; border: var(--unified-border);
-  border-radius: var(--global-border-radius); font-size: 10px; font-weight: bold; color: var(--color-black-60);
+  border-radius: var(--global-border-radius); font-size: 12px; font-weight: 700; color: var(--color-black-60);
 }
 
 .title {
-  font-size: 16px; font-weight: bold; color: var(--color-black);
+  font-size: 16px; font-weight: 700; color: var(--color-black);
   margin: 0 8px 6px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -195,7 +195,7 @@ function close() { emit('close') }
 .cycle { font-size: 12px; color: var(--color-gray-8d8d8d); }
 
 .money {
-  font-size: 18px; font-weight: bold; overflow: hidden;
+  font-size: 18px; font-weight: 700; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
 .no-image { padding: 8px; }
@@ -214,9 +214,8 @@ function close() { emit('close') }
 
 .status .fabu {
   padding: 3px 12px; border-radius: var(--global-border-radius); font-size: 12px;
-  font-weight: bold; color: var(--color-black); border: var(--unified-border);
-  background: var(--color-white); box-shadow: var(--global-box-shadow);
-}
-.status .ywc { font-size: 10px; color: var(--color-gray-8d8d8d); }
-.status .kfz { font-size: 10px; color: var(--color--b0a0ff); }
+  font-weight: 700; color: var(--color-black); border: var(--unified-border);
+  background: var(--color-white); }
+.status .ywc { font-size: 12px; color: var(--color-gray-8d8d8d); }
+.status .kfz { font-size: 12px; color: var(--color--b0a0ff); }
 </style>

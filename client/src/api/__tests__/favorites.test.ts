@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import * as api from '../favorites'
+import * as api from '../content/favorites'
 
 describe('favorites', () => {
   beforeEach(() => {

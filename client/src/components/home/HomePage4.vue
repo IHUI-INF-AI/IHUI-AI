@@ -769,7 +769,7 @@ defineExpose({
         left: 0;
         top: 1px;
         color: var(--el-text-color-primary);
-        font-weight: bold;
+        font-weight: 700;
         font-size: clamp(12px, 1.3vw, 15px);
         line-height: 1;
         flex-shrink: 0;

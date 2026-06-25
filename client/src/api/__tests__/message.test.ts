@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../message'
+import * as api from '../system/message'
 
 describe('message', () => {
   beforeEach(() => {

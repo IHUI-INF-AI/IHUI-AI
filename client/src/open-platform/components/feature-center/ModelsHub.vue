@@ -305,8 +305,7 @@ onMounted(() => {
 
     &:hover {
       transform: translateY(-4px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
 
     .model-header {
       display: flex;

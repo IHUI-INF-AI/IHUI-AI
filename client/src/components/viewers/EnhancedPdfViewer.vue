@@ -286,8 +286,7 @@ watch(() => props.src, loadPdf, { immediate: true })
 
 .pdf-canvas {
   display: block;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .loading-overlay,
 .error-overlay {

@@ -511,7 +511,6 @@ defineExpose({
   width: 320px;
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   overflow: hidden;
 }
 
@@ -651,14 +650,14 @@ defineExpose({
 
 .sig-date,
 .file-pages {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-gray-86909c);
 }
 
 .sig-status {
   padding: 2px 6px;
   border-radius: var(--global-border-radius);
-  font-size: 11px;
+  font-size: 12px;
   background: var(--color-gray-f2f3f5);
   color: var(--color-gray-86909c);
 }

@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../category'
+import * as api from '../category/category'
 
 describe('category', () => {
   beforeEach(() => {

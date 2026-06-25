@@ -14,7 +14,7 @@ vi.mock('../utils/apiResponseHandler', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../remote-agent-task'
+import * as api from '../remote/remote-agent-task'
 
 describe('remote-agent-task', () => {
   beforeEach(() => {

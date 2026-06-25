@@ -375,8 +375,7 @@ defineExpose({
 
 .verification-code-digit:focus {
   border: var(--el-border-width-primary) solid var(--el-color-primary);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .verification-code-digit.has-value {
   border-color: var(--el-color-success);
@@ -385,8 +384,7 @@ defineExpose({
 
 .verification-code-digit.is-focused {
   border: var(--el-border-width-primary) solid var(--el-color-primary);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .verification-code-digit:disabled {
   background-color: var(--el-disabled-bg-color);

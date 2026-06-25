@@ -85,8 +85,7 @@ function changeIndex(item: any, index: number) {
 
 .select-item.selected {
   background: var(--color-gradient-purple-yellow);
-  box-shadow: var(--global-box-shadow);
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color--564dff);
 }
 </style>

@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../oauth'
+import * as api from '../oauth/oauth'
 
 describe('oauth', () => {
   beforeEach(() => {

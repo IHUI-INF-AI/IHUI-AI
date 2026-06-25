@@ -264,7 +264,7 @@ defineExpose({ focus, clear, setContent, inputRef })
 }
 
 .file-size {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
 }
 

@@ -255,8 +255,7 @@ onMounted(() => {
 
     &:hover {
       transform: translateY(-4px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
 
     .sdk-header {
       display: flex;

@@ -206,7 +206,7 @@ function onClose() {
     border-radius: 50%;
     background: var(--color-brand-blue);
     color: var(--el-bg-color);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     font-style: italic;
   }

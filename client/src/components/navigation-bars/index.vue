@@ -509,7 +509,7 @@ onMounted(() => {
 .font-check {
   font-size: 18px;
   color: var(--el-color-primary);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 @media (width <= 767px) {

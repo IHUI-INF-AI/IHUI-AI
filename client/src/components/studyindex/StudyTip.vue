@@ -77,7 +77,7 @@ function toMyModel() {
 .tip-text {
   font-family: inherit;
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-gray-666);
   white-space: nowrap;
   padding-right: 10px;
@@ -99,10 +99,9 @@ function toMyModel() {
   color: var(--color-black);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   background: var(--color-blue-d9e6fd);
   backdrop-filter: blur(10px);
-  font-weight: bold;
+  font-weight: 700;
   margin-right: 2px;
   padding: 4px 0;
   text-align: center;

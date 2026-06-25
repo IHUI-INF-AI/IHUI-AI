@@ -1047,7 +1047,6 @@ onMounted(() => {
 
 .pdf-page {
   background: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
   position: relative;
   min-height: 100px;
 }
@@ -1068,7 +1067,7 @@ onMounted(() => {
 .page-number {
   font-size: 24px;
   color: var(--el-text-color-placeholder);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .highlight-layer {

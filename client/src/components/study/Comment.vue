@@ -165,7 +165,7 @@ function onScroll(e: Event) {
 }
 
 .date {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-black-60);
 }
 
@@ -203,12 +203,12 @@ function onScroll(e: Event) {
 }
 
 .reply-name {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-purple-8d83ff);
 }
 
 .reply-text {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-gray-757575);
 }
 

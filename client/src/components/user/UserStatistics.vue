@@ -76,8 +76,7 @@ const _props = defineProps<{
   background: var(--bg-card);
   border-radius: var(--global-border-radius);
   padding: 24px;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .section-title {
   margin: 0 0 20px;
@@ -105,8 +104,7 @@ const _props = defineProps<{
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .stat-icon {
   width: 56px;

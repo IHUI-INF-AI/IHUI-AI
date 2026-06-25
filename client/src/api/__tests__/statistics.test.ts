@@ -27,7 +27,7 @@ vi.mock('@/config/backend-paths', () => ({
   DEVELOPER_PATHS: { statistics: { performance: '/dev/perf', errors: '/dev/err', errorResolve: (id: string) => `/dev/err/${id}/resolve`, export: '/dev/export', realtime: '/dev/realtime' } },
 }))
 
-import * as api from '../statistics'
+import * as api from '../statistics/statistics'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

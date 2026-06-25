@@ -23,7 +23,7 @@ vi.mock('@/config/backend-paths', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../ai-career'
+import * as api from '../ai/ai-career'
 
 describe('ai-career', () => {
   beforeEach(() => {

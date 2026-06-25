@@ -44,8 +44,7 @@ export default {
   display: inline-block;
   position: relative;
   cursor: default;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .pan-info-roles-container {
   padding: 20px;

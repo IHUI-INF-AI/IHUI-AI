@@ -13,7 +13,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../content-generation'
+import * as api from '../content/content-generation'
 
 describe('content-generation', () => {
   beforeEach(() => {

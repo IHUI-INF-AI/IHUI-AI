@@ -1,4 +1,4 @@
-﻿// 设计系统工具类
+// 设计系统工具类
 // 基于 Google Agentic AI IDE 理念，提供可复用的工具类
 
 @use './variables.scss' as *;
@@ -516,15 +516,7 @@
   &:hover {
     border: 2px solid var(--border-unified-color-hover);
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
-  }
-
-  // 暗色模式
-  html.dark & {
-    &:hover {
-      box-shadow: var(--global-box-shadow);
     }
-  }
 }
 
 // 功能卡片 - 带图标
@@ -576,21 +568,12 @@
   &:hover {
     border-color: var(--el-text-color-primary);
     transform: translateY(-6px);
-    box-shadow: var(--global-box-shadow);
-
     .feature-icon-box {
       background: var(--el-text-color-primary);
 
       .el-icon, svg {
         color: var(--el-bg-color-page);
       }
-    }
-  }
-
-  // 暗色模式
-  html.dark & {
-    &:hover {
-      box-shadow: var(--global-box-shadow);
     }
   }
 }
@@ -612,8 +595,7 @@
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 // 统计卡片
@@ -672,8 +654,7 @@
     &:hover {
       opacity: 0.85;
       transform: translateY(-2px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
 
     &:active {
       transform: translateY(0);
@@ -1051,28 +1032,11 @@
 
   &:hover {
     transform: translateY(-6px);
-    box-shadow: var(--global-box-shadow);
-  }
-
-  html.dark & {
-    &:hover {
-      box-shadow: var(--global-box-shadow);
     }
-  }
 }
 
 .unified-hover-glow {
   transition: box-shadow 0.3s ease;
-
-  &:hover {
-    box-shadow: var(--global-box-shadow);
-  }
-
-  html.dark & {
-    &:hover {
-      box-shadow: var(--global-box-shadow);
-    }
-  }
 }
 
 .unified-hover-border {

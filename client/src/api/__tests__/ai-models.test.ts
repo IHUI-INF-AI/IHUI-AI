@@ -15,7 +15,7 @@ vi.mock('@/config/backend-paths', () => ({
   },
 }))
 
-import * as api from '../ai-models'
+import * as api from '../ai/ai-models'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

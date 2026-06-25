@@ -245,7 +245,7 @@ function uploadImage() {
 
 .sub-title {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-black);
   margin: 12px 0;
   display: block;
@@ -266,7 +266,7 @@ function uploadImage() {
 
 .btn-text {
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color--b0a6ff);
 }
 

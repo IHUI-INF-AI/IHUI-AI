@@ -544,7 +544,7 @@ defineExpose({
 }
 
 .top-toolbar-item-text {
-  font-weight: bold;
+  font-weight: 700;
   font-size: 14px;
   color: var(--el-text-color-primary);
   margin-bottom: 10px;
@@ -577,7 +577,7 @@ defineExpose({
 
 .toolbar-title h3 {
   font-size: 20px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--el-text-color-primary);
   margin: 0;
 }
@@ -628,7 +628,7 @@ defineExpose({
 
   h4 {
     font-size: 24px;
-    font-weight: bold;
+    font-weight: 700;
     margin: 0 0 10px;
   }
 
@@ -683,7 +683,7 @@ defineExpose({
 .tool-info {
   h5 {
     font-size: 16px;
-    font-weight: bold;
+    font-weight: 700;
     margin: 0 0 8px;
     color: var(--el-text-color-primary);
   }
@@ -728,7 +728,7 @@ defineExpose({
 
 .custom-service-text {
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--el-text-color-primary);
 }
 

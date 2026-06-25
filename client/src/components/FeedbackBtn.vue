@@ -100,7 +100,6 @@
   cursor: pointer;
   border-radius: var(--radius);
   border: none;
-  box-shadow: var(--global-box-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -116,13 +115,11 @@
 
   &:hover {
     transform: scale(1.02);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &:active {
     transform: scale(1);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &::after {
     content: "";

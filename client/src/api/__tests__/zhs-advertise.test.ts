@@ -14,7 +14,7 @@ vi.mock('../utils/apiResponseHandler', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../zhs-advertise'
+import * as api from '../zhs/zhs-advertise'
 
 describe('zhs-advertise', () => {
   beforeEach(() => {

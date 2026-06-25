@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../remote-config'
+import * as api from '../remote/remote-config'
 
 describe('remote-config', () => {
   beforeEach(() => {

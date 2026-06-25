@@ -470,7 +470,7 @@ cleanup.add(() => {
   .title {
     font-family: var(--xuqiu-tab-font-family);
     font-size: 24rpx;
-    font-weight: bold;
+    font-weight: 700;
     color: var(--el-text-color-primary);
     margin-bottom: 50rpx;
   }
@@ -497,7 +497,7 @@ cleanup.add(() => {
     justify-content: center;
     font-family: var(--xuqiu-tab-font-family);
     font-size: 24rpx;
-    font-weight: bold;
+    font-weight: 700;
     color: var(--el-text-color-primary);
     cursor: pointer;
   }

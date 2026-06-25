@@ -10,7 +10,7 @@ vi.mock('@/utils/apiResponseHandler', () => ({
 }))
 
 import request from '@/utils/request'
-import { createAuthUser } from '../auth-user'
+import { createAuthUser } from '../auth/auth-user'
 
 describe('auth-user', () => {
   beforeEach(() => {

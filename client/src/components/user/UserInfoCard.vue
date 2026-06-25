@@ -210,7 +210,7 @@ const handleLevelClick = () => {
   background: var(--el-color-primary);
   color: var(--el-bg-color);
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .login-hint {
@@ -335,8 +335,7 @@ const handleLevelClick = () => {
 
 .btn-recharge:hover {
   transform: translateY(-1px);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .btn-edit {
   background: var(--el-fill-color);
@@ -355,6 +354,5 @@ const handleLevelClick = () => {
 
 .btn-login:hover {
   transform: translateY(-1px);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 </style>

@@ -326,7 +326,6 @@ defineExpose({
   
   /* 圆角和阴影 */
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   
@@ -496,7 +495,6 @@ html.dark .third-party-icon::after {
   font-weight: 500;
   line-height: 1.5;
   letter-spacing: 0.2px;
-  box-shadow: var(--global-box-shadow);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

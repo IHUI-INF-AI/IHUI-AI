@@ -86,7 +86,7 @@ const handleClickItem=(id:string)=>{
     }
 
     .time {
-      font-size: 10px;
+      font-size: 12px;
       color: var(--el-text-color-placeholder);
       text-align: right;
       margin-top: 4px;

@@ -182,7 +182,7 @@ watch(() => props.sessionId, loadContext, { immediate: true })
 }
 
 .openclaw-context-meta {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-placeholder);
   margin: 0;
   letter-spacing: 0.01em;

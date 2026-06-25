@@ -13,7 +13,7 @@ vi.mock('@/utils/requestCache', () => ({
   },
 }))
 
-import * as api from '../agent-plaza'
+import * as api from '../agent/agent-plaza'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

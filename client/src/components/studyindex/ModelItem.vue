@@ -105,7 +105,6 @@ function numResult(num: number) {
 }
 
 .ai-card:hover {
-  box-shadow: var(--global-box-shadow);
   transform: translateY(0) scale(1.03);
 }
 
@@ -187,7 +186,7 @@ function numResult(num: number) {
 
 .xin-title {
   font-size: 19px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color--8178ef);
   font-family: inherit;
   line-height: 25px;
@@ -207,8 +206,8 @@ function numResult(num: number) {
 }
 
 .xin-title-new {
-  font-size: 10px;
-  font-weight: bold;
+  font-size: 12px;
+  font-weight: 700;
   line-height: 9px;
   color: var(--color-white);
   background: url('https://file.aizhs.top/sys-mini/default/new.png') no-repeat;
@@ -234,8 +233,8 @@ function numResult(num: number) {
   padding: 2.5px 5px;
   border: none;
   border-radius: var(--global-border-radius);
-  font-size: 10px;
-  font-weight: bold;
+  font-size: 12px;
+  font-weight: 700;
   line-height: 10px;
   margin-right: 4px;
   color: var(--color-black-60);
@@ -243,7 +242,7 @@ function numResult(num: number) {
 
 .subtitle {
   width: 100%;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--color-black-60);
   line-height: 15px;
   margin-top: 3px;
@@ -276,14 +275,14 @@ function numResult(num: number) {
 .xin-name {
   font-size: 12px;
   margin-left: 4px;
-  font-weight: bold;
+  font-weight: 700;
   font-family: inherit;
 }
 
 .xin-title-hot {
   float: right;
   font-size: 13px;
-  font-weight: bold;
+  font-weight: 700;
   line-height: 16px;
   color: var(--color--ff5f33);
   margin-top: -4px;

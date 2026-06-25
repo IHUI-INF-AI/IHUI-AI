@@ -16,7 +16,7 @@ vi.mock('@/utils/apiResponseHandler', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../auth-info'
+import * as api from '../auth/auth-info'
 
 describe('auth-info API', () => {
   beforeEach(() => {

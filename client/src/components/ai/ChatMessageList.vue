@@ -287,7 +287,7 @@ defineExpose({ scrollToBottom, listRef })
 }
 
 .message-time {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-placeholder);
 }
 
@@ -430,7 +430,7 @@ defineExpose({ scrollToBottom, listRef })
 }
 
 .token-count {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-left: 2px;
 }

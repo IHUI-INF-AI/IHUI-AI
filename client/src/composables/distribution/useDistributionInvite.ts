@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Distribution 邀请链接管理Composable
  *
  * 负责邀请链接的生成、复制和对话框管理

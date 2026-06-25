@@ -60,14 +60,7 @@
   &:hover {
     border: 2px solid var(--border-unified-color-hover);
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
-  }
-
-  html.dark & {
-    &:hover {
-      box-shadow: var(--global-box-shadow);
     }
-  }
 }
 
 .unified-feature-card {
@@ -94,6 +87,5 @@
   &:hover {
     border: 2px solid var(--border-unified-color-hover);
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }

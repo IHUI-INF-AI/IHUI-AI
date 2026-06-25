@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../user-sys-link'
+import * as api from '../user/user-sys-link'
 
 describe('user-sys-link', () => {
   beforeEach(() => {

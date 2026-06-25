@@ -111,8 +111,7 @@ const handleCommand = (command: string) => {
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   .app-header {
     display: flex;

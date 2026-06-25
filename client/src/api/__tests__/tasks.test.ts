@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import * as api from '../tasks'
+import * as api from '../system/tasks'
 
 describe('tasks', () => {
   beforeEach(() => {

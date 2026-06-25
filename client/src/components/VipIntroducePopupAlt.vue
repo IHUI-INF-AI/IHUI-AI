@@ -175,8 +175,7 @@ onMounted(() => {
   transition: all 0.3s ease-in-out;
   opacity: 0.8;
   background-image: var(--color-gradient-purple-yellow);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .popup-content.popup-show {
   transform: translateY(0) rotateX(0deg);
@@ -234,7 +233,7 @@ onMounted(() => {
 }
 
 .benefit-number {
-  font-weight: bold;
+  font-weight: 700;
   padding-right: 4px;
 }
 
@@ -267,7 +266,6 @@ onMounted(() => {
   font-weight: 500;
   color: var(--color-gray-333);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   background-image: linear-gradient(to bottom, var(--el-color-white), var(--el-fill-color-lighter));
   cursor: pointer;
 }
@@ -277,8 +275,7 @@ onMounted(() => {
   background-image: none;
   color: var(--color-white);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .footer-image {
   width: 100%;
@@ -307,6 +304,5 @@ onMounted(() => {
   border-radius: 50%;
   overflow: hidden;
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 </style>

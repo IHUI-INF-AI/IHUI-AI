@@ -251,7 +251,6 @@ watch(showHelpPanel, (visible) => {
   max-height: 80vh;
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -366,7 +365,6 @@ watch(showHelpPanel, (visible) => {
   border-radius: var(--global-border-radius);
   background: var(--el-bg-color);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   font-family: monospace;
   font-size: 12px;
   font-weight: 600;
@@ -376,7 +374,7 @@ watch(showHelpPanel, (visible) => {
     min-width: 22px;
     height: 22px;
     padding: 0 6px;
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 

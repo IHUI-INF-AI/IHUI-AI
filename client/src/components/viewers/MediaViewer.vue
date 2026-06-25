@@ -241,8 +241,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   position: relative;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .audio-icon {
   font-size: 64px;

@@ -6,7 +6,7 @@ vi.mock('@/utils/request-compat', () => ({
 }))
 
 import request from '@/utils/request-compat'
-import * as api from '../knowledge-planet'
+import * as api from '../knowledge/knowledge-planet'
 
 describe('knowledge-planet API', () => {
   beforeEach(() => {

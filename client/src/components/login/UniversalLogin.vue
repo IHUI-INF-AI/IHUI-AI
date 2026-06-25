@@ -8625,14 +8625,12 @@ cleanup.add(() => {
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 /* 暗色模式：深色背在*/
 :where(.login-content.login-page.dark-mode) .qr-placeholder-content {
   background-color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 /* 包裹二维码图标和文案，使 SVG 垂直居中到容器中在*/
 .qr-placeholder-main {
@@ -9061,7 +9059,7 @@ cleanup.add(() => {
   color: var(--el-text-color-placeholder);
   font-size: 16px;
   line-height: 24px;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
   user-select: none;
   transition: color 0.2s ease;
@@ -9097,7 +9095,7 @@ cleanup.add(() => {
   color: var(--el-text-color-placeholder);
   font-size: 16px;
   line-height: 24px;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -9129,7 +9127,7 @@ cleanup.add(() => {
 .switch-to-phone-link {
   color: var(--el-text-color-placeholder);
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 700;
   line-height: 24px;
   cursor: pointer;
   user-select: none;
@@ -9984,7 +9982,7 @@ cleanup.add(() => {
 :where(.login-form) :deep(.forgot-password) {
   color: var(--el-text-color-placeholder);
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 700;
   line-height: 24px;
   cursor: pointer;
   user-select: none;
@@ -11816,7 +11814,7 @@ cleanup.add(() => {
   line-height: 24px;
   color: var(--el-text-color-primary);
   user-select: none;
-  font-weight: bold;
+  font-weight: 700;
   margin-left: 3px;
 }
 

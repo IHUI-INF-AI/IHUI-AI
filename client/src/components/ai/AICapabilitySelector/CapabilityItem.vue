@@ -152,8 +152,7 @@ const resolvedIconUrl = computed(() => {
     background: hsl(var(--muted) / 0.5);
     border-color: hsl(var(--border));
     transform: translateY(-1px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &--selected {
     background: hsl(var(--primary) / 0.06);
@@ -173,7 +172,7 @@ const resolvedIconUrl = computed(() => {
     }
 
     .capability-item__desc {
-      font-size: 11px;
+      font-size: 12px;
     }
   }
 
@@ -283,7 +282,7 @@ const resolvedIconUrl = computed(() => {
     background: transparent;
     border-radius: var(--global-border-radius);
     color: hsl(var(--muted-foreground));
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
@@ -320,7 +319,7 @@ const resolvedIconUrl = computed(() => {
     display: inline-flex;
     align-items: center;
     padding: 2px 8px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     border-radius: var(--global-border-radius);
     background: hsl(var(--muted));

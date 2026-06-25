@@ -21,7 +21,7 @@ vi.mock('@/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
-import * as api from '../ai-generation'
+import * as api from '../ai/ai-generation'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

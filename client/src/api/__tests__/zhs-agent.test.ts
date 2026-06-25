@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../zhs-agent'
+import * as api from '../zhs/zhs-agent'
 
 describe('zhs-agent', () => {
   beforeEach(() => {

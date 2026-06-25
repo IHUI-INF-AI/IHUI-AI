@@ -80,8 +80,7 @@ const handleClick = (item: BigItem) => emit('click', item)
     &:hover {
       border-color: var(--el-color-primary);
       transform: translateY(-2px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 
   .big-cover {

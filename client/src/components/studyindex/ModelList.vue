@@ -232,7 +232,7 @@ onMounted(() => {
 .blink-text {
   font-family: inherit;
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color--ff5656);
 }
 

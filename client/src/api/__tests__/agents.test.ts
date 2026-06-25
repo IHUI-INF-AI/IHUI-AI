@@ -117,7 +117,7 @@ vi.mock('./fastapi', () => ({
   sendChatCompletion: vi.fn().mockResolvedValue({ code: 200, data: {} }),
 }))
 
-import * as api from '../agents'
+import * as api from '../agent/agents'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

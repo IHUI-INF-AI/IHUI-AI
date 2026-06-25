@@ -28,7 +28,7 @@ vi.mock('@/config/backend-paths', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../ai-proxy'
+import * as api from '../ai/ai-proxy'
 
 describe('ai-proxy API', () => {
   beforeEach(() => {

@@ -86,8 +86,7 @@ const statusText = computed(() => {
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   .record-header {
     display: flex;

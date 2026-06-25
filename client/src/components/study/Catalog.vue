@@ -98,7 +98,7 @@ function onScroll(e: Event) {
   align-items: center;
   justify-content: center;
   padding: 4px 6px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--color-black);
   cursor: pointer;
 }
@@ -113,7 +113,7 @@ function onScroll(e: Event) {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   text-overflow: ellipsis;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .video-scroll {
@@ -156,7 +156,7 @@ function onScroll(e: Event) {
 
 .date {
   font-size: 9px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -166,7 +166,7 @@ function onScroll(e: Event) {
 
 .des-title {
   font-size: 15px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-black);
   overflow: hidden;
   max-width: 100%;

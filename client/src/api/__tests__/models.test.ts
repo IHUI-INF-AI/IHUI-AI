@@ -25,7 +25,7 @@ vi.mock('@/config/backend-paths', () => ({
 
 import request from '@/utils/request'
 import { isDemoMode } from '@/utils/envUtils'
-import * as api from '../models'
+import * as api from '../models/models'
 
 describe('models API', () => {
   beforeEach(() => {

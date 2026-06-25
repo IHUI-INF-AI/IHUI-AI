@@ -318,7 +318,7 @@ onMounted(() => {
 
 .main-title {
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-gray-333);
 }
 
@@ -380,7 +380,7 @@ onMounted(() => {
 
 .tab-text {
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-gray-666);
 }
 
@@ -418,7 +418,7 @@ onMounted(() => {
 
 .period-text {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-black);
 }
 
@@ -433,7 +433,7 @@ onMounted(() => {
   min-height: 12px;
   color: var(--color-white);
   font-size: 9px;
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .trial-tag {
@@ -441,8 +441,8 @@ onMounted(() => {
   padding: 2px 8px;
   border-radius: var(--global-border-radius);
   color: var(--color-white);
-  font-size: 11px;
-  font-weight: bold;
+  font-size: 12px;
+  font-weight: 700;
   margin-left: 4px;
 }
 
@@ -468,12 +468,12 @@ onMounted(() => {
 
 .current-price {
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-purple-7b61ff);
 }
 
 .price-info {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-gray-666);
 }
 
@@ -499,14 +499,14 @@ onMounted(() => {
 
 .subscribe-text {
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-white);
 }
 
 .subscribe-price {
   margin-left: 10px;
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-white);
 }
 

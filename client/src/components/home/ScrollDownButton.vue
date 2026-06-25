@@ -88,8 +88,7 @@ const handleClick = () => {
       background: var(--color-white-95);
       border-color: var(--border-unified-color);
       border: var(--unified-border);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
     
     .arrow-icon {
       transform: translateY(2px);
@@ -109,8 +108,7 @@ const handleClick = () => {
       background: color-mix(in srgb, var(--el-color-primary) 100%, transparent);
       border-color: var(--border-unified-color);
       border: var(--unified-border);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 }
 
@@ -123,7 +121,6 @@ const handleClick = () => {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -171,21 +168,18 @@ const handleClick = () => {
   .button-inner {
     background: var(--color-white-10);
     border: var(--unified-border);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   .scroll-down-button:hover .button-inner {
     background: var(--color-white-15);
     border-color: var(--border-unified-color-hover);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   .scroll-down-button:active .button-inner,
   .scroll-down-button.is-clicking .button-inner {
     background: var(--color-white-20);
     border-color: var(--border-unified-color-hover);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   .arrow-icon {
     color: var(--color-white-90);

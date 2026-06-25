@@ -54,8 +54,7 @@ const handleClick = (item: Item) => emit('click', item)
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 
   .cover {

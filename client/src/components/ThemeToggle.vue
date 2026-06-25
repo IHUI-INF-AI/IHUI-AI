@@ -317,8 +317,7 @@ const handleDropdownVisible = (_visible: boolean) => {
   background: var(--el-fill-color-light);
   border-radius: var(--global-border-radius);
   transition: background-color 0.3s ease;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .track.high-contrast {
   border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -332,7 +331,6 @@ const handleDropdownVisible = (_visible: boolean) => {
   height: 22px;
   border-radius: var(--global-border-radius);
   background: var(--el-bg-color-page);
-  box-shadow: var(--global-box-shadow);
   transition: transform 0.3s ease, background-color 0.3s ease;
   display: grid;
   place-items: center;
@@ -362,8 +360,7 @@ input:checked + .track {
 input:checked + .track .knob {
   transform: translateX(24px);
   background: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 input:checked + .track .sun-icon {
   opacity: 0;
@@ -567,8 +564,7 @@ input:checked + .track .moon-icon {
 
 :where(html.dark) :where(label.theme-toggle) .knob {
   background: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(html.dark) :where(label.theme-toggle) .sun-icon {
   color: var(--el-color-warning-light-3);
@@ -580,8 +576,7 @@ input:checked + .track .moon-icon {
 
 :where(html.dark) :where(label.theme-toggle) input:checked + .track .knob {
   background: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .el-dropdown-menu__item.is-active {
   color: var(--el-color-primary);
