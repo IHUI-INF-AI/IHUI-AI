@@ -92,11 +92,11 @@ jmespath==0.10.0
 jsonschema==4.25.1
 jsonschema-specifications==2025.4.1
 jwt==1.4.0
-langchain==1.2.13
-langchain-core==1.2.20
-langchain-openai==0.3.34
-langchain-postgres==0.0.17
-langchain-text-splitters==1.1.2
+langchain>=1.2.13,<2.0.0
+langchain-core>=1.2.31,<2.0.0  # 原锁 1.2.20，升级以满足 langchain-text-splitters 要求
+langchain-openai>=0.3.34,<1.0.0
+langchain-postgres>=0.0.17,<1.0.0
+langchain-text-splitters>=1.1.2,<2.0.0
 locust==2.44.3
 loguru==0.7.3
 lxml==6.0.1
