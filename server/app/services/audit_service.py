@@ -195,7 +195,7 @@ class AuditLogService:
     def delete_old_logs(days: int = 90) -> int:
         """删除旧日志"""
         try:
-            cutoff_date = datetime.utcnow().replace(
+            cutoff_date = utcnow().replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
             cutoff_date = cutoff_date.replace(day=cutoff_date.day - days)
