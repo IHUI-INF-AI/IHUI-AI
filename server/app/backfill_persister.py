@@ -9,7 +9,9 @@
 用法:
     from app.backfill_persister import SQLiteBackfillPersister
 
-    persister = SQLiteBackfillPersister("/var/lib/zhs/backfill.db")
+    # 2026-06-25 修复: 文档示例改用跨平台路径 (原 /var/lib/zhs/ 在 Windows 上不可用)
+    import tempfile, os
+    persister = SQLiteBackfillPersister(os.path.join(tempfile.gettempdir(), "zhs_backfill.db"))
     broadcaster = BackfillBroadcaster(persister=persister)
     # 启动时自动恢复
     broadcaster.load_from_persister()

@@ -34,6 +34,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import threading
 
 from fastapi import APIRouter, Depends, HTTPException

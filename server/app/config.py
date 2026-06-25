@@ -4,6 +4,7 @@ Reads from .env files and environment variables.
 """
 
 import os
+import tempfile
 from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -231,7 +232,9 @@ class Settings(BaseSettings):
     # 文件存储模式: Local / AliYun / Minio / TencentCOS
     OSS_FILE_MODE: str = "AliYun"
     OSS_FILE_ROOT_PATH: str = "cloud-learning"
-    LOCAL_FILE_DIR: str = "/tmp/filetmp"
+    # 2026-06-25 修复: 原硬编码 /tmp/filetmp 在 Windows 上会创建到当前盘根
+    # 改用 tempfile.gettempdir() 跨平台; 也可由环境变量 LOCAL_FILE_DIR 覆盖
+    LOCAL_FILE_DIR: str = os.path.join(tempfile.gettempdir(), "zhs_local_files")
 
     # ===================================================================
     # TENCENT LIVE (腾讯云直播 - 历史 ihui-ai-edu-live-service 迁移)
@@ -428,6 +431,10 @@ class Settings(BaseSettings):
         super().model_post_init(__context)
         if not self.SESSION_SECRET_KEY:
             self.SESSION_SECRET_KEY = self.JWT_SECRET_KEY
+        # 2026-06-25 修复: .env 中空字符串 LOCAL_FILE_DIR= 会被 Pydantic 视作有效值覆盖默认值
+        # 兜底回退到 tempfile.gettempdir() 跨平台默认目录, 避免在 Windows 上创建 G:\tmp\zhs_local_files
+        if not self.LOCAL_FILE_DIR:
+            self.LOCAL_FILE_DIR = os.path.join(tempfile.gettempdir(), "zhs_local_files")
 
 
 # Global settings instance

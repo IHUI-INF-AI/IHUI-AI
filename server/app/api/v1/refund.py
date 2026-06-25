@@ -17,6 +17,7 @@ import enum
 import json
 import os
 import re
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,7 +34,10 @@ from app.security import require_login, require_role
 
 router = APIRouter(prefix="/refunds", tags=["refunds"])
 
-_evidence_dir = Path(os.environ.get("REFUND_EVIDENCE_DIR", "/tmp/refund_evidence"))
+# 2026-06-25 修复: 原硬编码 /tmp/refund_evidence 在 Windows 上会创建到当前盘根 (G:\tmp\...)
+# 改用 tempfile.gettempdir() 获取平台标准临时目录, 同时尊重环境变量覆盖
+_DEFAULT_EVIDENCE_DIR = os.path.join(tempfile.gettempdir(), "zhs_refund_evidence")
+_evidence_dir = Path(os.environ.get("REFUND_EVIDENCE_DIR", _DEFAULT_EVIDENCE_DIR))
 _evidence_dir.mkdir(parents=True, exist_ok=True)
 
 # 文件上传限制
