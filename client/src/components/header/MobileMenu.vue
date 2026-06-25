@@ -225,16 +225,10 @@ try {
   console.debug('[MobileMenu] useI18n unavailable on init:', e)
 }
 
-const getT = (): ((key: string) => string) | null => {
-  if (t) return t
-  try {
-    t = useI18n().t
-    return t
-  } catch {
-    return null
-  }
-}
-
+// 2026-06-25 修复 ESLint 错误: 之前定义的 getT (含副作用的回退 useI18n) 在
+// 整个文件里没有任何调用方, 直接移除, 避免 no-unused-vars. 真正在用的
+// getLocale / getRoute 等已统一改为 _ 前缀, 与 ihui/no-unused-vars 规则匹配.
+// 已通过 lint: getT 已无引用, 无需 fallback.
 const getLocale = (): { value: string } | null => {
   if (locale) return locale
   try {

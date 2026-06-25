@@ -369,7 +369,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const login = async (loginData: LoginParams) => {
-    userStore.isLoading = true
+    const us = getUserStore()
+    const ts = getTokenStore()
+    const ws = getWalletStore()
+    const vs = getVipStore()
+    if (!us || !ts || !ws || !vs) {
+      logger.warn('[AuthStore] Required sub-stores unavailable, cannot login')
+      throw new Error(t('error.auth.服务尚未就绪'))
+    }
+    us.isLoading = true
     try {
       let response
 
@@ -393,17 +401,17 @@ export const useAuthStore = defineStore('auth', () => {
         ''
       const refreshTokenValue = tokenData?.refreshToken || tokenData?.thirdPartyAccounts?.refreshToken || ''
 
-      tokenStore.setToken(tokenValue, refreshTokenValue)
-      tokenStore.setLoginExpiry()
+      ts.setToken(tokenValue, refreshTokenValue)
+      ts.setLoginExpiry()
 
       const { user, fundInfo, vipInfo } = buildUserFromLoginResponse(tokenData, loginData)
-      userStore.user = user
+      us.user = user
 
       if (fundInfo) {
-        walletStore.setFundInfo(fundInfo)
+        ws.setFundInfo(fundInfo)
       }
       if (vipInfo) {
-        vipStore.setVipInfo(vipInfo)
+        vs.setVipInfo(vipInfo)
       }
 
       const completeUserData = {
@@ -418,8 +426,8 @@ export const useAuthStore = defineStore('auth', () => {
         fundInfo,
         vipInfo,
         developerLink: tokenData?.developerLinks,
-        loginTime: tokenStore.loginTime,
-        lastActiveTime: tokenStore.lastActiveTime,
+        loginTime: ts.loginTime,
+        lastActiveTime: ts.lastActiveTime,
         id: user?.id || user?.uuid || '',
         uuid: user?.uuid || '',
         phone: user?.phone || '',
@@ -496,7 +504,7 @@ export const useAuthStore = defineStore('auth', () => {
         logger.warn('[AuthStore] Failed to send security notification', e)
       }
 
-      userStore.fetchUserInfo().catch((error: any) => {
+      us.fetchUserInfo().catch((error: any) => {
         logger.warn('[AuthStore] Background refresh user info failed (using data from login response):', error)
       })
 
@@ -512,7 +520,7 @@ export const useAuthStore = defineStore('auth', () => {
       logger.error(getI18nGlobal().t('logs.loginFailed'), error)
       throw error
     } finally {
-      userStore.isLoading = false
+      us.isLoading = false
     }
   }
 
