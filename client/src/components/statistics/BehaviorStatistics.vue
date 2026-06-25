@@ -190,14 +190,15 @@ const handleResize = () => {
   hourChartInstance?.resize()
 }
 
+// 2026-06-25 修复 ESLint ihui/no-manual-cleanup: 改用 useCleanup.addEventListener + add
+// 统一管理清理逻辑，避免 onBeforeUnmount 中手写 removeEventListener/dispose
+const cleanup = useCleanup()
 onMounted(() => {
-  window.addEventListener('resize', handleResize)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
-  hourChartInstance?.dispose()
-  hourChartInstance = null
+  cleanup.addEventListener(window, 'resize', handleResize)
+  cleanup.add(() => {
+    hourChartInstance?.dispose()
+    hourChartInstance = null
+  })
 })
 </script>
 
