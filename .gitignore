@@ -243,16 +243,18 @@ ush
 weekly-cleanup.yml
 
 # ===== G 盘根目录防回归 (2026-06-25) =====
-# 防止任何脚本在 G:\ 盘根意外创建临时目录 (如 G:\1\pw-output, G:\tmp\ro.css 等)
-# 这些是 Linux /tmp 在 Windows 上的不当展开结果, 已被修复
+# 防止任何脚本在 G:\ 盘根意外创建临时目录 (如 G:\1\pw-output, G:\tmp\ro.css, G:\Users\... 等)
+# 这些是 Linux/macOS 风格 /tmp/ 或 /Users/ 在 Windows 上的不当展开结果, 已被修复
 # 兜底规则: 不论来源, 一律忽略
 /G:/1/
 /G:/dev/
 /G:/tmp/
 /G:/pw-output/
+/G:/Users/
 /1/
 /dev/
 /tmp/
+/Users/
 
 # ===== 临时证据/canary 文件位置兜底 =====
 # 防止任何 .env 错误地把 LOCAL_FILE_DIR/REFUND_EVIDENCE_DIR 配回 /tmp/...
