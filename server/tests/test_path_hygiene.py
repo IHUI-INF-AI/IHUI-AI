@@ -55,6 +55,7 @@ FILE_WHITELIST = [
     "test_ebpf_observability.py",  # eBPF mock 数据
     "test_pg_monitoring_e2e.py",  # 字符串断言 (检查 prometheus 配置内容)
     "_final_path_verification.py",  # 本会话创建的最终验证脚本
+    "_check_prometheus_deploy.py",  # 部署平台检测, 含 /etc/os-release Linux 诊断
     # 2026-06-25 扩展: client 子项目
     "client/deploy.sh",  # client Linux 部署脚本
     "client/public/pdf.worker.mjs",  # pdf.js 源 (vendored lib, 含 /home/web_user)
