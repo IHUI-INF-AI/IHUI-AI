@@ -30,6 +30,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from loguru import logger
 from pydantic import BaseModel
 from sqlalchemy import inspect
 
@@ -84,7 +85,7 @@ def _row_to_dict(obj: Any) -> dict:
                     v = v.isoformat()
                 out[col.key] = v
         except Exception:
-            pass
+            logger.debug("legacy_supplement _to_dict failed for %s", type(obj).__name__, exc_info=True)
     return out
 
 
