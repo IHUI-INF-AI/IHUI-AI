@@ -5,6 +5,68 @@
 
 ---
 
+## INC-2026-06-26-02: WebSocket 自动恢复系统与 ConnectionManager 解耦 (完善版)
+
+**严重度**: P1 (WebSocket 服务可靠性)
+**发生时间**: 2026-06-26
+**修复时间**: 2026-06-26
+**发现者**: 用户反馈 "不可以清理 要增加功能 完善功能"
+
+### 现象
+- `app/ws/auto_recovery.py` 是从 coze_zhs_py 迁移过来的, 但与新版 ConnectionManager 集成不完整
+- 监控协程引用的属性 (active_connections, is_client_connected, remove_connection) 在新 manager 中不存在
+- `_heartbeat_reaper` 后台任务从未被启动 (无调用方)
+- `processing_tasks` 之外没有统一的 `_pending_tasks` 跟踪 (违反项目记忆)
+
+### 根因
+1. **接口不匹配**: auto_recovery 用 `active_connections` (dict), ConnectionManager 用 `_connections` (前缀下划线)
+2. **方法缺失**: `is_client_connected` / `remove_connection` 在新 manager 中未实现
+3. **心跳 reaper 死代码**: 类中定义了但无启动入口
+4. **任务跟踪不统一**: 仅有 `processing_tasks` 跟踪出箱消费者, pubsub/reaper/TTL watchdog 未被跟踪
+5. **集成缺失**: main.py lifespan 未调用 `initialize_auto_recovery`
+
+### 修复
+
+#### 1. `app/ws/manager.py` 新增兼容接口
+- `active_connections` property → 返回 `_connections` 引用
+- `is_client_connected(conn_id)` → 检查 client_state 非 DISCONNECTED/CLOSED/CLOSING
+- `remove_connection(conn_id)` → disconnect 别名
+- `_track_task(task)` 辅助方法 → 统一任务跟踪 (项目记忆: 防止 GC 丢异常)
+- `_wait_pending_tasks(timeout)` → lifespan 退出时清理所有 _pending_tasks
+
+#### 2. 扩展 ConnectionManager 后台任务
+- `start_background_tasks()` 同时启动 `_outbox_consumer` 和 `_heartbeat_reaper`
+- `start_redis_subscriber` / `_reconnect_pubsub` / TTL watchdog 全部经 `_track_task` 跟踪
+- `stop_background_tasks` 等待所有 _pending_tasks 退出 (timeout=2s)
+
+#### 3. `app/ws/auto_recovery.py` 扩展状态报告
+- `get_status_report()` 新增 pending_tasks / total_messages_queued / background_tasks_started 字段
+- 状态结构对外可观测, 供 `/api/v1/system/auto-recovery/status` 调用
+
+#### 4. `app/main.py` lifespan 集成
+```python
+# 启动
+from app.ws.auto_recovery import initialize_auto_recovery
+from app.ws.manager import connection_manager as _ws_cm
+await initialize_auto_recovery(_ws_cm)
+
+# 关闭
+from app.ws.auto_recovery import shutdown_auto_recovery
+await shutdown_auto_recovery()
+```
+
+#### 5. 测试覆盖
+- `tests/test_ws_auto_recovery_integration.py` - 32 个测试覆盖属性/方法/生命周期/状态报告
+- 全部通过: 32/32 passed in 6.66s
+
+### 防范措施
+1. **跨模块依赖**: 迁移/重构时必须确认下游调用方使用的所有属性/方法
+2. **后台任务必须有启动入口**: 编写后立即 grep 全仓库检查是否被启动
+3. **任务跟踪统一**: 所有 asyncio.create_task 必须通过 `_track_task` 或类似集合
+4. **集成测试**: 每次大改 manager, 必须新增测试覆盖与 auto_recovery 的协同
+
+---
+
 ## INC-2026-06-26-01: alembic 迁移链 008 测试失效 (迁移重编号未同步测试)
 
 **严重度**: P1 (CI 失败, 阻塞合并)
