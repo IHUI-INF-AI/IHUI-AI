@@ -197,6 +197,8 @@ cd client && node scripts/check-runtime-port.mjs
 # 违规: [ERROR] 发现 uvicorn 监听 8001, 违反端口规范, 请改回 8000
 ```
 
+**已集成到 [scripts/dev-up.ps1](../../scripts/dev-up.ps1) Step 4 (2026-06-25)**: `dev-up.ps1` 启动后端 + Vite 完成后会自动执行一次运行时端口检测, 失败仅 `Write-Warn` 不阻断启动 (避免误伤已跑起来的前后端), 事件日志写入 `logs/dev-up-events.jsonl` 的 `runtime_port_check` 事件. 即便 AI 助手/开发者通过 `dev-up.ps1` 启动, 也会被兜底检测覆盖.
+
 ---
 
 ## 违规案例留档 (2026-06-25)
