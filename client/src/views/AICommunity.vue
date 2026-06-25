@@ -818,7 +818,8 @@ const handleComment = (creation: AICreation) => {
   showDetailDialog.value = true
 }
 
-const handleCreatorClick = (creatorId: string) => {
+// 2026-06-25 修复 ESLint: creatorId 参数未使用, 按规则改为 _creatorId
+const handleCreatorClick = (_creatorId: string) => {
   router.push(`/user`).catch(() => {})
 }
 

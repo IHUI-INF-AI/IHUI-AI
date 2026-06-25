@@ -12,17 +12,14 @@
 </template>
 
 <script setup lang="ts">
- 
-import { useRoute } from 'vue-router'
+
+// 2026-06-25 修复 ESLint: useRoute / logger 引入后未在 setup 中实际使用,
+// 删除无意义的 import 与变量, 避免 no-unused-vars. 保留 navigation hook.
 import { useI18n } from 'vue-i18n'
 import { onMounted } from 'vue'
 import { useNavigation } from '@/utils/navigation'
-import { logger } from '@/utils/logger'
 
 const { t } = useI18n()
-const route = useRoute() as ReturnType<typeof useRoute> & {
-  fullPath: string
-}
 const { goHome, goBack } = useNavigation()
 
 onMounted(() => {
