@@ -90,6 +90,12 @@ temp_*.py
 patch_*.py
 __patch_tsc*
 __vue_tsc.patch
+# 2026-06-25 扩展: 一次性调查/清理脚本应在 archive/ 下, 不在主目录
+# 防止 _investigate_*.py / _cleanup_*.py 误入主目录 (真正需要时用 git mv 到 archive/)
+server/tests/_investigate_*.py
+server/tests/_cleanup_*.py
+server/scripts/_investigate_*.py
+server/scripts/_cleanup_*.py
 
 # 临时测试/审计输出
 backend-paths-only.txt
