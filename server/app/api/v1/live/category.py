@@ -3,13 +3,14 @@
 注意: GET /category/list 公开列表已在 channel.py 中实现, 本模块不重复创建。
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from pydantic import BaseModel
 
 from app.database import get_session
 from app.models.live_models import LiveChannelCategory
 from app.schemas.common import error, page_result, success
+from app.security import require_role
 
 router = APIRouter()
 
@@ -66,6 +67,7 @@ async def admin_category_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     name: str | None = None,
+    _admin: str = Depends(require_role("admin")),
 ):
     with get_session() as db:
         try:

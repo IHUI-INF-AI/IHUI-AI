@@ -2,7 +2,7 @@
 
 from app.utils.datetime_helper import utcnow
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Text
 
@@ -10,6 +10,7 @@ from app.core.current_user import current_user_id_or_guest
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
+from app.security import require_role
 
 
 class Feedback(TimestampMixin, Base):
@@ -130,6 +131,7 @@ async def admin_list(
     status: int | None = None,
     type: str | None = None,
     priority: int | None = None,
+    _admin: str = Depends(require_role("admin")),
 ):
     with get_session() as db:
         try:

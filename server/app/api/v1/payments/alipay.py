@@ -145,7 +145,13 @@ async def alipay_refund(
     out_trade_no: str = Query(...),
     refund_amount: float = Query(..., description="退款金额(元)"),
     reason: str = Query("用户申请退款"),
+    user_uuid: str = Depends(require_login),
 ):
+    # 2026-06-25 安全加固: 退款是高风险操作, 必须登录, 并记录操作人
+    logger.bind(audit=True).info(
+        f"[REFUND] alipay refund attempt: out_trade_no={out_trade_no}, "
+        f"refund_amount={refund_amount}, reason={reason}, by={user_uuid}"
+    )
     order = get_order(out_trade_no)
     if not order:
         return error("Order not found", "404")

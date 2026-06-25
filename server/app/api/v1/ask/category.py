@@ -1,13 +1,14 @@
 """问答社区 - 分类管理"""
 
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from loguru import logger
 
 from app.database import get_session
 from app.models.ask_models import AskCategory
 from app.schemas.ask import CategoryCreate, CategoryUpdate
 from app.schemas.common import error, success
+from app.security import require_role
 
 router = APIRouter()
 
@@ -31,6 +32,7 @@ def _to_dict(c: AskCategory) -> dict:
 async def admin_list(
     is_show: bool | None = None,
     is_show_index: bool | None = None,
+    _admin: str = Depends(require_role("admin")),
 ):
     with get_session() as db:
         try:

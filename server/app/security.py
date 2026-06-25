@@ -8,6 +8,7 @@ Replaces Spring Security / Admin token system with:
 - DataScope data permission filtering
 """
 
+import asyncio
 import datetime as dt
 
 from fastapi import Depends, HTTPException, status
@@ -187,6 +188,28 @@ async def require_login(
     return user_uuid
 
 
+def _check_role_sync(user_uuid: str, required_role: str) -> bool:
+    """同步角色检查: 2026-06-25 加固后用 asyncio.to_thread 调用, 不阻塞事件循环."""
+    from app.database import get_session
+    from app.models.sys_models import SysRole, SysUser, SysUserRole
+
+    with get_session() as db:
+        # Query: admin_user -> admin_user_role -> admin_role
+        stmt = (
+            select(SysUser.user_id)
+            .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
+            .join(SysRole, SysUserRole.role_id == SysRole.role_id)
+            .where(
+                SysUser.user_uuid == user_uuid,
+                SysRole.role_key == required_role,
+                SysRole.status == "0",  # 0 = active
+                SysRole.del_flag == "0",  # 0 = not deleted
+            )
+            .limit(1)
+        )
+        return db.execute(stmt).scalar() is not None
+
+
 def require_role(required_role: str):
     """Return a dependency that checks if user has the required role.
 
@@ -195,37 +218,42 @@ def require_role(required_role: str):
 
     Returns:
         Dependency that yields user_uuid if authorized, raises 403 otherwise.
+
+    2026-06-25 加固: 同步 DB 查询通过 asyncio.to_thread 包装, 不阻塞事件循环.
     """
 
     async def _check_role(user_uuid=Depends(require_login)):
-        from sqlalchemy import select
-
-        from app.database import get_session
-        from app.models.sys_models import SysRole, SysUser, SysUserRole
-
-        with get_session() as db:
-            # Query: admin_user -> admin_user_role -> admin_role
-            stmt = (
-                select(SysUser.user_id)
-                .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
-                .join(SysRole, SysUserRole.role_id == SysRole.role_id)
-                .where(
-                    SysUser.user_uuid == user_uuid,
-                    SysRole.role_key == required_role,
-                    SysRole.status == "0",  # 0 = active
-                    SysRole.del_flag == "0",  # 0 = not deleted
-                )
-                .limit(1)
+        has_role = await asyncio.to_thread(_check_role_sync, user_uuid, required_role)
+        if not has_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{required_role}' required",
             )
-            result = db.execute(stmt).scalar()
-            if result is None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Role '{required_role}' required",
-                )
-            return user_uuid
+        return user_uuid
 
     return _check_role
+
+
+def _check_perm_sync(user_uuid: str, permission_key: str) -> bool:
+    """同步权限检查: 通过 asyncio.to_thread 调用, 不阻塞事件循环."""
+    from app.database import get_session
+    from app.models.sys_models import SysMenu, SysRoleMenu, SysUser, SysUserRole
+
+    with get_session() as db:
+        # Query: admin_user -> admin_user_role -> admin_role_menu -> admin_menu
+        stmt = (
+            select(SysUser.user_id)
+            .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
+            .join(SysRoleMenu, SysUserRole.role_id == SysRoleMenu.role_id)
+            .join(SysMenu, SysRoleMenu.menu_id == SysMenu.menu_id)
+            .where(
+                SysUser.user_uuid == user_uuid,
+                SysMenu.perms == permission_key,
+                SysMenu.status == "0",  # 0 = active
+            )
+            .limit(1)
+        )
+        return db.execute(stmt).scalar() is not None
 
 
 def require_permission(permission_key: str):
@@ -236,33 +264,18 @@ def require_permission(permission_key: str):
 
     Returns:
         Dependency that yields user_uuid if authorized, raises 403 otherwise.
+
+    2026-06-25 加固: 同步 DB 查询通过 asyncio.to_thread 包装, 不阻塞事件循环.
     """
 
     async def _check_perm(user_uuid: str = Depends(require_login)):
-        from app.database import get_session
-        from app.models.sys_models import SysMenu, SysRoleMenu, SysUser, SysUserRole
-
-        with get_session() as db:
-            # Query: admin_user -> admin_user_role -> admin_role_menu -> admin_menu
-            stmt = (
-                select(SysUser.user_id)
-                .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
-                .join(SysRoleMenu, SysUserRole.role_id == SysRoleMenu.role_id)
-                .join(SysMenu, SysRoleMenu.menu_id == SysMenu.menu_id)
-                .where(
-                    SysUser.user_uuid == user_uuid,
-                    SysMenu.perms == permission_key,
-                    SysMenu.status == "0",  # 0 = active
-                )
-                .limit(1)
+        has_perm = await asyncio.to_thread(_check_perm_sync, user_uuid, permission_key)
+        if not has_perm:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission '{permission_key}' required",
             )
-            result = db.execute(stmt).scalar()
-            if result is None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Permission '{permission_key}' required",
-                )
-            return user_uuid
+        return user_uuid
 
     return _check_perm
 
