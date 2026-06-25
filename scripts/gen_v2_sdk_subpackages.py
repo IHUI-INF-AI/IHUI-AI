@@ -8,8 +8,11 @@
 import re
 from pathlib import Path
 
-SDK_FILE = Path(r"g:\1\client\src\api\v2-sdk\index.ts")
-OUT_DIR = Path(r"g:\1\client\src\api\v2-sdk")
+# 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:\1\client
+# scripts/gen_v2_sdk_subpackages.py -> ../../client
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SDK_FILE = _PROJECT_ROOT / "client" / "src" / "api" / "v2-sdk" / "index.ts"
+OUT_DIR = _PROJECT_ROOT / "client" / "src" / "api" / "v2-sdk"
 
 # 桶定义: 子包名 -> 关键词列表 (按 SDK 函数名前缀匹配)
 BUCKETS = {

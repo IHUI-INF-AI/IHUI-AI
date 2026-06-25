@@ -36,8 +36,7 @@ try {
   }
   writeFileSync(join(root, 'package.json'), JSON.stringify(pkg, null, 2))
 
-  // simple-git-hooks bin 在 client/node_modules
-  const hooksBin = 'g:/1/client/node_modules/.bin/simple-git-hooks.cmd'
+  // 2026-06-25 修复: 路径已在上方用 __dirname 计算, 这里只引用
   if (!existsSync(hooksBin)) {
     console.error('[FAIL] simple-git-hooks.cmd not found:', hooksBin)
     process.exit(1)
