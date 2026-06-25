@@ -173,14 +173,16 @@ class CircuitBreaker:
 # ---------------------------------------------------------------------------
 # 熔断器注册中心
 # ---------------------------------------------------------------------------
+_registry_lock = threading.Lock()
 _CIRCUITS: dict = {}
 
 
 def get_circuit(name: str, **kwargs) -> CircuitBreaker:
     """获取或创建熔断器 (单例)."""
-    if name not in _CIRCUITS:
-        _CIRCUITS[name] = CircuitBreaker(name=name, **kwargs)
-    return _CIRCUITS[name]
+    with _registry_lock:
+        if name not in _CIRCUITS:
+            _CIRCUITS[name] = CircuitBreaker(name=name, **kwargs)
+        return _CIRCUITS[name]
 
 
 def circuit(name: str, **cb_kwargs):
@@ -274,9 +276,10 @@ _LIMITERS: dict = {}
 
 
 def get_limiter(name: str, **kwargs) -> TokenBucketRateLimit:
-    if name not in _LIMITERS:
-        _LIMITERS[name] = TokenBucketRateLimit(name=name, **kwargs)
-    return _LIMITERS[name]
+    with _registry_lock:
+        if name not in _LIMITERS:
+            _LIMITERS[name] = TokenBucketRateLimit(name=name, **kwargs)
+        return _LIMITERS[name]
 
 
 def rate_limit(name: str, capacity: int = 100, refill_rate: float = 10.0, on_reject=None):
@@ -364,9 +367,10 @@ _BULKHEADS: dict = {}
 
 def get_bulkhead(name: str, max_concurrent: int = 10) -> asyncio.Semaphore:
     """获取或创建信号量隔离器 (异步)."""
-    if name not in _BULKHEADS:
-        _BULKHEADS[name] = asyncio.Semaphore(max_concurrent)
-    return _BULKHEADS[name]
+    with _registry_lock:
+        if name not in _BULKHEADS:
+            _BULKHEADS[name] = asyncio.Semaphore(max_concurrent)
+        return _BULKHEADS[name]
 
 
 def bulkhead(name: str, max_concurrent: int = 10):

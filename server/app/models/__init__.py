@@ -116,6 +116,7 @@ from app.models.exam_models import (
     ExamPaper,
     ExamQuestion,
     ExamRecord,
+    ExamSignUp,
     ExamWrongQuestion,
     PaperCategory,
     PaperCategoryRelation,
@@ -126,7 +127,6 @@ from app.models.exam_models import (
     QuestionAndCategoryRelation,
     QuestionCategory,
     QuestionCategoryRelation,
-    SignUp,
 )
 from app.models.identity_models import OAuthPrivateKey, TboxBean, ZhsIdentity, ZhsOrganization
 from app.models.id_mapping import IdMapping

@@ -633,6 +633,7 @@ async def list_pay_logs(
     user_id: str = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    _: str = Depends(require_login),
 ):
     db = SessionFactory3()
     try:

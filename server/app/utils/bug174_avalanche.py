@@ -3,11 +3,14 @@
 大量 key 同时过期导致回源雪崩, 加随机偏移 + 预热.
 """
 
+import logging
 import random
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -55,8 +58,8 @@ class AvalancheGuard:
             if self._on_preload:
                 try:
                     self._on_preload(k)
-                except Exception:
-                    pass  # intentionally ignored
+                except Exception as e:
+                    logger.debug("雪崩预热回调失败: %s", e)  # intentionally ignored
         return need_preload
 
     def stats(self) -> dict[str, int]:

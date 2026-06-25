@@ -171,7 +171,7 @@ def _ffmpeg_trim(src: str, start: float, dur: float, fmt: str = "mp4") -> bytes:
 
 
 async def _ffmpeg_trim_async(src: str, start: float, dur: float, fmt: str = "mp4") -> bytes:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _ffmpeg_trim, src, start, dur, fmt)
 
 
@@ -492,7 +492,7 @@ async def transcode_hls(req: HlsTranscodeReq, user_uuid: str = Depends(require_l
         return fail("ffmpeg 不可用, 请安装并加入 PATH", code=500)
 
     # 跑 ffmpeg
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     with tempfile.TemporaryDirectory(prefix="hls_") as tmp:
         result = await loop.run_in_executor(None, _run_ffmpeg_hls, video_path, tmp, req.segmentTime)
         if result["returncode"] != 0:

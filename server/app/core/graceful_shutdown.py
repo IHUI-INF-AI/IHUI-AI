@@ -118,8 +118,8 @@ def _handle_signal(signum, frame):
         event = get_shutdown_event()
         if event and not event.is_set():
             event.set()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("触发停机事件失败: %s", e)
 
     logger.info("优雅停机完成")
     # 退出 (uvicorn 捕获后会立即终止)

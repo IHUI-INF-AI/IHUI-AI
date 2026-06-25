@@ -67,7 +67,7 @@ async def list_roles(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     role_name: str = Query(None),
-    user_uuid: str = Depends(require_login),
+    user_uuid: str = Depends(require_role("admin")),
 ):
     with get_session() as db:
         items, total = _paginate(db, SysRole, page, limit, role_name_like=role_name)

@@ -24,6 +24,13 @@ T = TypeVar("T")
 # Phase A fields (used by Phase B routers) -> IHUI-AI real field
 # ============================================================================
 _PHASE_A_ALIASES = {
+    "CategoryDictionary": {
+        "dict_type": "type",
+        "dict_key": "code",
+        "dict_value": "name",
+        "is_active": "__status_eq_1",
+        "sort_order": "sort",
+    },
     "AskQuestion": {
         "view_count": "watch_num",
         "answer_count": "answer_num",

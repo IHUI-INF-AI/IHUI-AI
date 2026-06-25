@@ -55,7 +55,7 @@ def list_inbox(
     if is_read is not None:
         filters.append(EduMessage.is_read == is_read)
     if msg_type:
-        filters.append(EduMessage.msg_type == msg_type)
+        filters.append(EduMessage.type == msg_type)
     return paginate(db, EduMessage, page=page, size=size, filters=filters, order_by=desc(EduMessage.id))
 
 

@@ -18,6 +18,7 @@
 """
 
 import contextlib
+import logging
 import os
 import time
 from datetime import UTC, datetime
@@ -29,6 +30,8 @@ from pydantic import BaseModel, Field
 from app.security import require_role
 from app.utils.response import fail, success
 from app.ws.manager import connection_manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ws", tags=["WS Admin"])
 
@@ -74,8 +77,8 @@ async def get_ws_stats(user_uuid: str = Depends(require_role("admin"))):
                 hb = connection_manager._heartbeat.get(conn_id, 0)
                 if now - hb < 300:
                     active_count += 1
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("统计活跃连接数失败: %s", e)
 
         return success(
             {

@@ -224,8 +224,8 @@ async def push_slack(webhook: str, title: str, message: str, severity: str = "wa
             j = resp.json()
             if j.get("ok") is True or j.get("success") is True:
                 return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("解析 Slack webhook 响应 JSON 失败: %s", e)
         return "error" not in text and "fail" not in text
 
     ok, info = await _post_with_retry(_client, webhook, body, _check)
@@ -258,8 +258,8 @@ async def push_teams(webhook: str, title: str, message: str, severity: str = "wa
             j = resp.json()
             if j.get("ok") is True or j.get("success") is True:
                 return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("解析 Teams webhook 响应 JSON 失败: %s", e)
         return "error" not in text and "fail" not in text
 
     ok, info = await _post_with_retry(_client, webhook, body, _check)
@@ -294,8 +294,8 @@ async def push_generic(webhook: str, title: str, message: str, severity: str = "
                 or j.get("code") == 0
             ):
                 return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("解析通用 webhook 响应 JSON 失败: %s", e)
         if text in ("error", "fail", "failed", "false", "0"):
             return False
         return "error" not in text and "fail" not in text

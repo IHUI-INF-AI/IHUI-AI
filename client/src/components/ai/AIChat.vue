@@ -11824,7 +11824,9 @@ cleanup.add(() => {
       svg {
         width: 20px;
         height: 20px;
-        color: var(--el-color-white);
+        // 工具图标背景在明暗模式下会切换（亮色=黑 / 暗色=白）
+        // svg 颜色必须用 on-primary 自适应，避免暗色白底白字
+        color: var(--color-on-primary);
       }
 
       // 仪表板 - 主色（总览入口）
@@ -11832,7 +11834,8 @@ cleanup.add(() => {
         background: var(--el-color-primary);
 
         svg {
-          color: var(--el-bg-color-page);
+          // 仪表板背景=primary，明暗自动切换，文字/图标用 on-primary
+          color: var(--color-on-primary);
         }
       }
 
@@ -12659,19 +12662,20 @@ button.mini-delete-btn {
   }
 }
 
-/* AI 能力下拉复用 .openclaw-quick-menu 网格卡片样式，仅补丁图标为白色 */
+/* AI 能力下拉复用 .openclaw-quick-menu 网格卡片样式，图标颜色跟随主色背景自动切换 */
 :where(body) :where(.el-popper.ai-chat-popper.ai-capability-popper) .openclaw-quick-menu {
   .item-icon .el-icon,
   .item-icon .ai-star-icon {
-    color: var(--el-color-white);
+    // 工具图标背景=primary（明暗自动切换），文字/图标用 on-primary 自适应
+    color: var(--color-on-primary);
   }
 
   .item-icon .ai-star-icon svg path {
-    fill: var(--el-color-white);
+    fill: var(--color-on-primary);
   }
 
   .item-icon .el-icon svg {
-    color: var(--el-color-white);
+    color: var(--color-on-primary);
   }
 }
 

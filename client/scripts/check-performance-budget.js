@@ -56,6 +56,40 @@ function getFilesByType(dir, type) {
   return files
 }
 
+// 2026-06-24 优化：识别懒加载 chunk（不计入首屏预算）
+// 这些 chunk 只在用户进入特定场景时才下载（路由切换 / 语言切换 / 预览特定文件）
+const LAZY_CHUNK_PATTERNS = [
+  // i18n 懒加载
+  /^locale-(full|modules)-/, // 全量 / 模块化语言包
+  // @vue-office 懒加载（docx/excel/core/presentation/pdf）
+  /^vue-office-/, // Excel/Word/PPT 预览器
+  // 富文本编辑器懒加载
+  /^quill[-_]/, // Quill 编辑器
+  /^monaco[-_]/, // Monaco 编辑器
+  // PDF 预览
+  /^pdf[-_]/, // pdf.js
+  // 图表懒加载
+  /^echarts[-_]/, // 动态 import 的 echarts
+  // AI 聊天相关
+  /^AIChat[-_]/, // AIChat 组件
+  /^AIChatLegacy[-_]/, // AIChatLegacy 组件
+  // 从 vue-vendor 拆出的大型懒加载 chunk
+  /^exceljs[-_]/, // DramaScript 导出 Excel（仅该页面用）
+  /^markstream[-_]/, // AIChat 流式 markdown 渲染
+  /^spark-md5[-_]/, // EnhancedFileUpload 文件分片上传 hash
+  // 其他仅在特定页面使用的库
+  /^highlight[-_]/, // 代码高亮（仅文档/代码预览页）
+  /^katex[-_]/, // 数学公式渲染
+  /^mermaid[-_]/, // 流程图渲染
+  /^codemirror[-_]/, // 代码编辑器
+  /^jszip[-_]/, // ZIP 压缩（仅文件导出场景）
+  /^crypto[-_]/, // crypto-js（仅加密场景）
+]
+
+function isLazyChunk(filename) {
+  return LAZY_CHUNK_PATTERNS.some(re => re.test(filename))
+}
+
 function checkBudgets() {
   console.log('\n📊 性能预算检查报告\n')
   console.log('='.repeat(60))
@@ -66,9 +100,16 @@ function checkBudgets() {
   const results = []
 
   for (const budget of budgetConfig.budgets) {
-    const files = getFilesByType(distDir, budget.resourceType)
-    // 2026-06-24 优化：使用 gzipped 后大小，更接近真实网络传输量
-    const totalSizeKb = files.reduce((sum, f) => sum + gzippedKb(fs.readFileSync(f.path)), 0)
+    const allFiles = getFilesByType(distDir, budget.resourceType)
+
+    // 2026-06-24 优化：拆分首屏 / 懒加载 两类
+    // 预算只针对首屏必加载的 chunk（这些一定会被下载）
+    // 懒加载 chunk 单独展示但不计预算（按需加载，不影响首屏体验）
+    const initialFiles = budget.resourceType === 'script'
+      ? allFiles.filter(f => !isLazyChunk(path.basename(f.path)))
+      : allFiles
+
+    const totalSizeKb = initialFiles.reduce((sum, f) => sum + gzippedKb(fs.readFileSync(f.path)), 0)
     const budgetKb = budget.budget
     const percentage = ((totalSizeKb / budgetKb) * 100).toFixed(1)
 
@@ -87,8 +128,23 @@ function checkBudgets() {
       budget: budget.budget + ' kB',
       percentage: percentage + '%',
       status,
-      fileCount: files.length,
+      fileCount: initialFiles.length,
     })
+
+    // 懒加载文件单独统计（仅 script 类型）
+    if (budget.resourceType === 'script') {
+      const lazyFiles = allFiles.filter(f => isLazyChunk(path.basename(f.path)))
+      const lazySizeKb = lazyFiles.reduce((sum, f) => sum + gzippedKb(fs.readFileSync(f.path)), 0)
+      results.push({
+        type: 'script-lazy',
+        description: 'JS 懒加载 chunk（按需下载，不计预算）',
+        actual: formatSize(lazySizeKb),
+        budget: '-',
+        percentage: '-',
+        status: 'ℹ️',
+        fileCount: lazyFiles.length,
+      })
+    }
   }
 
   console.log('\n资源类型预算 (gzipped 后):')

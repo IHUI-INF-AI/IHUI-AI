@@ -127,8 +127,8 @@ def get_current_trace_id() -> str:
         span = trace.get_current_span()
         if span and span.get_span_context().is_valid:
             return format(span.get_span_context().trace_id, "032x")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("获取当前 trace_id 失败: %s", e)
     return ""
 
 
@@ -449,8 +449,8 @@ class TraceIdMiddleware:
             method = scope.get("method", "")
             if path:
                 set_request_context(endpoint=f"{method} {path}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("设置请求上下文 endpoint 失败: %s", e)
 
         # 拿 trace_id (优先 OTel, 否则 uuid4)
         trace_id = get_current_trace_id()
@@ -553,22 +553,22 @@ def setup_telemetry(app=None, engines=None):
             from opentelemetry.instrumentation.redis import RedisInstrumentor
 
             RedisInstrumentor().instrument()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Redis OTel instrumentation 失败: %s", e)
         # httpx (调用外部 API 时)
         try:
             from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
             HTTPXClientInstrumentor().instrument()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("httpx OTel instrumentation 失败: %s", e)
         # 日志关联 trace_id
         try:
             from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
             LoggingInstrumentor().instrument(set_logging_format=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Logging OTel instrumentation 失败: %s", e)
 
         _ENABLED = True
         logger.info(f"OpenTelemetry enabled: service={service_name}")

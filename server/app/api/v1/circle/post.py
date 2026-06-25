@@ -72,13 +72,17 @@ async def list_posts(
                 )
             uid = _uid()
             data = []
-            for it in items:
-                liked = (
-                    db.query(CirclePostLike)
-                    .filter(CirclePostLike.post_id == it.id, CirclePostLike.user_id == uid)
-                    .first()
-                    is not None
+            pids = [it.id for it in items]
+            liked_pids = set()
+            if pids:
+                liked_rows = (
+                    db.query(CirclePostLike.post_id)
+                    .filter(CirclePostLike.post_id.in_(pids), CirclePostLike.user_id == uid)
+                    .all()
                 )
+                liked_pids = {r[0] for r in liked_rows}
+            for it in items:
+                liked = it.id in liked_pids
                 data.append(_p_to_dict(it, liked))
             return success(data, total=total)
         except Exception as e:

@@ -24,6 +24,13 @@ from app.security import (
 )
 
 
+def _mask_phone(phone: str) -> str:
+    """脱敏手机号: 138****1234. 用于日志输出, 避免明文 PII."""
+    if not phone or len(phone) < 7:
+        return "***"
+    return f"{phone[:3]}****{phone[-4:]}"
+
+
 def check_phone_exists(phone: str) -> dict:
     """检查手机号是否已注册.
 
@@ -138,10 +145,10 @@ def login_by_password(phone: str, password: str) -> dict:
             if not verify_password(password, user.password_hash):
                 return {"success": False, "msg": "用户不存在或密码错误"}
 
-            logger.info("login_by_password success: phone={}", phone)
+            logger.info("login_by_password success: phone={}", _mask_phone(phone))
             return {"success": True, "msg": "登录成功", "data": _build_token_data(user)}
     except Exception as e:
-        logger.exception("login_by_password error: phone={}", phone)
+        logger.exception("login_by_password error: phone={}", _mask_phone(phone))
         return {"success": False, "msg": "用户不存在或密码错误"}
 
 
@@ -183,15 +190,15 @@ def login_by_sms(phone: str, code: str) -> dict:
                 db.add(user)
                 db.commit()
                 db.refresh(user)
-                logger.info("login_by_sms auto-registered: phone={}, uuid={}", phone, user_uuid)
+                logger.info("login_by_sms auto-registered: phone={}, uuid={}", _mask_phone(phone), user_uuid)
             else:
                 if user.status != 1:
                     return {"success": False, "msg": "账号已被禁用"}
-                logger.info("login_by_sms success: phone={}", phone)
+                logger.info("login_by_sms success: phone={}", _mask_phone(phone))
 
             return {"success": True, "msg": "登录成功", "data": _build_token_data(user)}
     except Exception as e:
-        logger.exception("login_by_sms error: phone={}", phone)
+        logger.exception("login_by_sms error: phone={}", _mask_phone(phone))
         return {"success": False, "msg": "登录失败, 请重试"}
 
 
@@ -228,10 +235,10 @@ def register_user(phone: str, password: str, nickname: str = None) -> dict:
             db.add(user)
             db.commit()
             db.refresh(user)
-            logger.info("register_user success: phone={}, uuid={}", phone, user_uuid)
+            logger.info("register_user success: phone={}, uuid={}", _mask_phone(phone), user_uuid)
             return {"success": True, "msg": "注册成功", "data": _build_token_data(user)}
     except Exception as e:
-        logger.exception("register_user error: phone={}", phone)
+        logger.exception("register_user error: phone={}", _mask_phone(phone))
         return {"success": False, "msg": "注册失败, 请重试"}
 
 

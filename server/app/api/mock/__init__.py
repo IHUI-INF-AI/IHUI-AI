@@ -6,6 +6,7 @@
 挂载路径: /api/* 和 /prod-api/* (兼容 vite proxy rewrite)
 """
 
+import logging
 import time
 import uuid
 from collections import defaultdict
@@ -15,6 +16,8 @@ from fastapi.responses import JSONResponse
 
 from app.core.exceptions import BusinessException
 from app.schemas.error_codes import ErrorCode
+
+logger = logging.getLogger(__name__)
 
 # mock SMS 限流: 60s 窗口内拒绝. Redis 不可用时降级到内存 dict.
 _mock_sms_last_sent: dict = defaultdict(float)
@@ -1135,8 +1138,8 @@ async def mock_api_catchall(path: str, request: Request):
         try:
             from app.api.health import _record_history
             _record_history(_latency_ms, _status, db_check.get("ok", False), redis_check.get("ok", False))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("mock 健康检查记录历史失败: %s", e)
         return _ok({
             "status": _status,
             "uptime_s": round(time.time() - _start, 1),

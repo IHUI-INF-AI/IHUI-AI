@@ -5,11 +5,14 @@
 """
 
 import hashlib
+import logging
 import threading
 import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -82,8 +85,8 @@ class AlertDeduplicator:
         if cb:
             try:
                 cb(a)
-            except Exception:
-                pass  # intentionally ignored
+            except Exception as e:
+                logger.debug("告警去重 emit 回调失败: %s", e)  # intentionally ignored
         return a
 
     def _cleanup_locked(self, now: float) -> None:

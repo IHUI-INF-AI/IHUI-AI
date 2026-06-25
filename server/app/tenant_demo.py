@@ -151,8 +151,8 @@ class TenantMiddleware(BaseHTTPMiddleware):
             try:
                 payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
                 tid = payload.get("tid")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("解析 JWT 获取租户 ID 失败: %s", e)
 
         # 2. 写入 ContextVar
         if tid is not None:

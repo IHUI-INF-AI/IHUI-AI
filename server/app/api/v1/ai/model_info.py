@@ -1,5 +1,7 @@
 """AI 厂商模型管理 (zhs_ai_model_info)."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from sqlalchemy import desc
@@ -168,7 +170,7 @@ async def compat_create_model(
                 return success({"id": new_id, "model_name": name})
             except Exception as e:
                 if "locked" in str(e).lower() and attempt < 2:
-                    time.sleep(0.5 * (attempt + 1))
+                    await asyncio.sleep(0.5 * (attempt + 1))
                     continue
                 return error(str(e))
     return error("数据库写入失败 (重试耗尽)")
@@ -233,7 +235,7 @@ async def compat_delete_model(
                 return success({"id": model_id})
             except Exception as e:
                 if "locked" in str(e).lower() and attempt < 2:
-                    time.sleep(0.5 * (attempt + 1))
+                    await asyncio.sleep(0.5 * (attempt + 1))
                     continue
                 logger.error(f"删除模型失败: {e}")
                 return error(str(e))

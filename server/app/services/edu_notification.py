@@ -61,7 +61,7 @@ def list_user_notifications(
 ) -> Tuple[List[EduNotification], int]:
     filters = [EduNotification.user_id == user_id]
     if is_sent is not None:
-        filters.append(EduNotification.is_sent == is_sent)
+        filters.append(EduNotification.is_send == is_sent)
     if template_code:
-        filters.append(EduNotification.template_code == template_code)
+        filters.append(EduNotification.tpl_code == template_code)
     return paginate(db, EduNotification, page=page, size=size, filters=filters, order_by=desc(EduNotification.id))

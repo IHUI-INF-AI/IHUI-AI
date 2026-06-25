@@ -111,6 +111,7 @@ async def wechat_mini_login(
             .filter(
                 UserThirdPartyAccount.platform == "wechat",
                 UserThirdPartyAccount.open_id == open_id,
+                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .first()
         )
@@ -230,6 +231,7 @@ async def get_wechat_phone(
                     .filter(
                         UserThirdPartyAccount.user_uuid == existing_auth.user_uuid,
                         UserThirdPartyAccount.platform == "wechat",
+                        UserThirdPartyAccount.deleted_at.is_(None),
                     )
                     .first()
                 )
@@ -241,6 +243,7 @@ async def get_wechat_phone(
                         .filter(
                             UserThirdPartyAccount.user_uuid == user_uuid,
                             UserThirdPartyAccount.platform == "wechat",
+                            UserThirdPartyAccount.deleted_at.is_(None),
                         )
                         .first()
                     )
@@ -324,6 +327,7 @@ async def wechat_rebind(
                 .filter(
                     UserThirdPartyAccount.platform == "wechat",
                     UserThirdPartyAccount.open_id == new_open_id,
+                    UserThirdPartyAccount.deleted_at.is_(None),
                 )
                 .first()
             )
@@ -537,7 +541,8 @@ async def wechat_pc_callback(code: str = Query(..., description="微信授权码
                 user = None
                 # 先从第三方账号表查找绑定关系
                 tp_query = db.query(UserThirdPartyAccount).filter(
-                    UserThirdPartyAccount.platform == "wechat"
+                    UserThirdPartyAccount.platform == "wechat",
+                    UserThirdPartyAccount.deleted_at.is_(None),
                 )
                 if unionid:
                     tp = tp_query.filter(UserThirdPartyAccount.union_id == unionid).first()

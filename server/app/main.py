@@ -61,8 +61,8 @@ async def lifespan(app: FastAPI):
             APP_CLOCK_TZ_OFFSET.set(_utc_offset_sec)
             _expected = int(_os.environ.get("ZHS_EXPECTED_TZ_OFFSET_SEC", "28800"))
             APP_CLOCK_TZ_EXPECTED.set(_expected)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("推送时区指标到 Prometheus 失败: %s", e)
 
         logger.bind(
             clock_tz_env=_tz_env,
@@ -175,8 +175,8 @@ async def lifespan(app: FastAPI):
         from app.utils.hot_config import stop_hot_reload
 
         stop_hot_reload()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("停止 hot config reloader 失败: %s", e)
 
     logger.info("ZHS Platform shutdown complete")
 
@@ -267,6 +267,18 @@ def create_app() -> FastAPI:
         install_gzip(app, minimum_size=1024, level=6)
     except Exception as e:
         logger.error(f"Failed to register gzip middleware: {e}")
+
+    # 响应规范化中间件 (补全 msg/message 字段, 统一 5 套响应格式)
+    # 2026-06-25 修复#B: 后端 5 套响应格式并存 ({code:0,msg} / {code:0,message} /
+    #   {code:200,msg} / {code:"0",msg} / {success,fileId}), 前端 normalizeApiResponse
+    #   已兼容, 但后端补全字段可避免新代码踩坑. 只补不删不改 code, 零破坏.
+    # 注册在 gzip 之后 (后注册先执行, 规范化先于压缩).
+    try:
+        from app.middleware.response_normalizer import install_response_normalizer
+
+        install_response_normalizer(app)
+    except Exception as e:
+        logger.error(f"Failed to register response normalizer middleware: {e}")
 
     # XSS 防护中间件 (HTML-escape 请求参数/JSON body, 防止跨站脚本攻击)
     # 2026-06-24 联调: 文件已存在 app/middleware/xss.py 但未注册, 现补齐注册

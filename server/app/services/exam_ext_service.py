@@ -8,6 +8,7 @@ from app.database import get_session
 from app.models.exam_models import (
     Exam,
     ExamCategoryRelation,
+    ExamSignUp,
     PaperCategory,
     PaperCategoryRelation,
     PaperPaperCategoryRelation,
@@ -17,7 +18,6 @@ from app.models.exam_models import (
     QuestionAndCategoryRelation,
     QuestionCategory,
     QuestionCategoryRelation,
-    SignUp,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,20 +77,20 @@ def bind_exam_category(exam_id: str, category_id: str) -> ExamCategoryRelation:
 
 
 # ---------------------------------------------------------------------------
-# SignUp 测评报名
+# ExamSignUp 测评报名
 # ---------------------------------------------------------------------------
 
-def exam_sign_up(exam_id: str, member_id: str) -> SignUp:
+def exam_sign_up(exam_id: str, member_id: str) -> ExamSignUp:
     """会员报名测评."""
     with get_session() as db:
         existing = (
-            db.query(SignUp)
-            .filter(SignUp.exam_id == exam_id, SignUp.member_id == member_id)
+            db.query(ExamSignUp)
+            .filter(ExamSignUp.exam_id == exam_id, ExamSignUp.member_id == member_id)
             .first()
         )
         if existing:
             return existing
-        s = SignUp(exam_id=exam_id, member_id=member_id, status=0)
+        s = ExamSignUp(exam_id=exam_id, member_id=member_id, status=0)
         db.add(s)
         db.flush()
         db.refresh(s)
@@ -100,7 +100,7 @@ def exam_sign_up(exam_id: str, member_id: str) -> SignUp:
 def complete_exam(signup_id: str) -> bool:
     """完成测评."""
     with get_session() as db:
-        s = db.query(SignUp).filter(SignUp.id == signup_id).first()
+        s = db.query(ExamSignUp).filter(ExamSignUp.id == signup_id).first()
         if not s:
             return False
         s.status = 1

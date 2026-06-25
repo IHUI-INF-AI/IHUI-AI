@@ -456,8 +456,8 @@ async def ws_chat(websocket: WebSocket, token: str = Query("")):
     finally:
         try:
             await websocket.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("关闭 WebSocket 失败: %s", e)
         logger.info("LLM-Mini WebSocket 连接已关闭")
 
 

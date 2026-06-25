@@ -3,12 +3,15 @@
 支持: 多源 (env / file / remote) + 变更订阅 + 版本号 + 差异对比.
 """
 
+import logging
 import threading
 import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -54,8 +57,8 @@ class HotConfigCenter:
         for fn in subs:
             try:
                 fn(ch)
-            except Exception:
-                pass  # intentionally ignored
+            except Exception as e:
+                logger.debug("热配置订阅回调失败: %s", e)  # intentionally ignored
         return ch
 
     def bulk_set(self, kv: dict[str, Any]) -> list[ConfigChange]:

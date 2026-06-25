@@ -39,8 +39,8 @@ def _analyze_audio_duration(audio_url: str) -> float:
         finally:
             try:
                 os.unlink(tmp_path)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("删除临时音频文件失败: %s", e)
     except Exception as e:
         logger.warning(f"分析音频时长失败: {e}")
         return 0.0

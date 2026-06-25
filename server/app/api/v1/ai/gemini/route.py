@@ -211,10 +211,10 @@ async def gemini_proxy_chat(request: Request, user_uuid: str = Depends(require_l
                     logger.warning("Failed to decode base64 image: %s", e)
                     upload_tasks.append(asyncio.sleep(0, result=None))
 
-            urls = await asyncio.gather(*upload_tasks)
+            urls = await asyncio.gather(*upload_tasks, return_exceptions=True)
             new_content = reply_text
             for i, m in enumerate(matches):
-                if urls[i]:
+                if urls[i] and not isinstance(urls[i], Exception):
                     new_content = new_content.replace(m.group(0), urls[i])
                     uploaded_urls.append(urls[i])
             reply_text = new_content

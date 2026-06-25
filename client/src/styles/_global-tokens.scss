@@ -63,6 +63,14 @@
 //   p18-visual-regression, p19/p20/p21/p22-regression, i18n-completion
 // 2026-06-20 生产性能阈值收紧 (LCP 2500→2000ms, FCP 1800→1500ms, CLS 0.1→0.08, TTFB 800→500ms)
 //   实际数据: LCP 980ms / FCP 904ms / CLS 0.072 / TTFB 1.8ms, 全部通过收紧阈值
+// 2026-06-24 新增 --color-on-primary 对比色 token (明暗模式自动适配)
+//   亮色=#ffffff (黑底白字), 暗色=#000000 (白底黑字)
+//   解决: 凡是 background: var(--el-color-primary) 上的文字/图标自动切换对比色
+//   配套修复 element-plus-vars.scss 中 --el-button-text-color / hover / active 在暗色下指向 #000000
+//   修复 8 处遗漏: AIDialog.vue (New 标签 + checkbox 暗色选中态), AIChatLegacy.vue (发送按钮 + 暗色 hover),
+//                   AIChat.vue (item-icon svg + OpenClaw 能力下拉图标)
+// 2026-06-24 新增规则文档: .cursorrules "明暗模式文字色自适应规则" + design.md "对比色 token" 章节
+//                            + CSS_VARIABLES.md "对比色 token" 小节
 // ════════════════════════════════════════════════════════════════════
 //
 // ════════════════════════════════════════════════════════════════════
@@ -101,6 +109,12 @@
 //     - --app-text-muted：弱化文字（映射 --el-text-color-secondary）
 //     - --app-divider：分割线（映射 --el-border-color）
 //     优势：更换 UI 框架时只需修改 --app-* 定义，无需改动组件代码
+// 13. 对比色 token（强制 - primary 背景上的文字/图标必须用）：
+//     - --color-on-primary：自动适配 primary 背景
+//       亮色模式: #ffffff (黑底白字)
+//       暗色模式: #000000 (白底黑字)
+//     使用规则: 凡是 background: var(--el-color-primary) 的元素，文字/图标必须用 var(--color-on-primary)
+//     禁止用: var(--el-color-white) / var(--el-text-color-primary) / #fff / #000 (这些在 primary 背景上会白底白字)
 //
 // 【新增 token 前检查清单】
 // □ 是否可复用现有 token？（优先复用，避免重复定义）

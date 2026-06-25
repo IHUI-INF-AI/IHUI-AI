@@ -303,8 +303,8 @@ class CanaryStageController:
 
             if CANARY_ROLLBACK_GAUGE is not None:
                 CANARY_ROLLBACK_GAUGE.set(1.0)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("设置 canary rollback gauge 失败: %s", e)
 
         # 3. 结构化日志 (Loki 检索)
         logger.warning(
@@ -340,8 +340,8 @@ class CanaryStageController:
                 to_stage=ev.to_stage,
                 reason=reason,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("记录 canary stage 事件审计日志失败: %s", e)
         return ev
 
     def _persist(self) -> None:
@@ -352,8 +352,8 @@ class CanaryStageController:
             os.makedirs(os.path.dirname(self._state_file) or ".", exist_ok=True)
             with open(self._state_file, "w", encoding="utf-8") as f:
                 json.dump(self._state.to_dict(), f, ensure_ascii=False, indent=2)
-        except Exception:
-            pass  # 持久化失败不阻塞流程
+        except Exception as e:
+            logger.debug("canary 状态持久化失败: %s", e)  # 持久化失败不阻塞流程
 
 
 # ---------------------------------------------------------------------------

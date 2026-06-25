@@ -144,7 +144,7 @@ async def upload_bytes(
     供 suno_service、tts_stream 等模块使用。
     """
     import asyncio
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         None, lambda: upload_file(file_data, file_name, content_type, bucket)
     )

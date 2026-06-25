@@ -30,6 +30,13 @@ from app.services import auth_service
 router = APIRouter(prefix="/sso", tags=["SSO"])
 
 
+def _mask_phone(phone: str) -> str:
+    """脱敏手机号: 138****5678. 用于日志输出, 避免明文 PII."""
+    if not phone or len(phone) < 7:
+        return "***"
+    return f"{phone[:3]}****{phone[-4:]}"
+
+
 def _generate_uuid() -> str:
     """生成 32 位无连字符 UUID (与 User.uuid 格式一致)."""
     return str(_uuid.uuid4()).replace("-", "")
@@ -129,10 +136,10 @@ async def member_login(phone: str = Body(...), password: str = Body(...)):
         result = auth_service.login_by_password(phone, password)
         if not result["success"]:
             return error(result["msg"], "401000")
-        logger.info("SSO member login success: phone={}", phone)
+        logger.info("SSO member login success: phone={}", _mask_phone(phone))
         return success(result["data"])
     except Exception as e:
-        logger.error("SSO member login error: phone={}, err={}", phone, e)
+        logger.error("SSO member login error: phone={}, err={}", _mask_phone(phone), e)
         return error("登录失败, 请稍后重试", "500000")
 
 
@@ -331,7 +338,7 @@ async def member_create(
         db.add(auth_info)
 
         db.commit()
-        logger.info("SSO member create success: phone={}, uuid={}", phone, new_uuid)
+        logger.info("SSO member create success: phone={}, uuid={}", _mask_phone(phone), new_uuid)
         return success(
             {
                 "uuid": new_uuid,
@@ -341,7 +348,7 @@ async def member_create(
         )
     except Exception as e:
         db.rollback()
-        logger.error("SSO member create error: phone={}, err={}", phone, e)
+        logger.error("SSO member create error: phone={}, err={}", _mask_phone(phone), e)
         return error("创建会员失败, 请稍后重试", "500000")
     finally:
         db.close()

@@ -1,6 +1,8 @@
 """Prometheus 指标定义与 HTTP 中间件."""
 
 import contextlib
+import logging
+import threading
 import time
 
 from prometheus_client import (
@@ -13,6 +15,8 @@ from prometheus_client import (
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Metrics
@@ -140,6 +144,7 @@ def render_metrics() -> Response:
 # ---------------------------------------------------------------------------
 SLOW_SQL_THRESHOLD_SECONDS = 0.5  # 超过 500ms 算慢查询
 SQL_TRACK = {}
+_sql_track_lock = threading.Lock()
 
 
 def _extract_table(statement: str) -> str:
@@ -168,8 +173,8 @@ def _extract_table(statement: str) -> str:
             return s.split()[1].strip("`'\"`,")
         elif s.startswith("delete from"):
             return s.split()[2].strip("`'\"`,")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("提取 SQL 表名失败: %s", e)
     return "unknown"
 
 
@@ -186,18 +191,20 @@ def install_sql_events(engines: dict):
         import time as _t
 
         engine_label = engine_by_id.get(id(conn.engine), "unknown")
-        SQL_TRACK[id(context)] = {
-            "engine": engine_label,
-            "statement": statement,
-            "start": _t.perf_counter(),
-        }
+        with _sql_track_lock:
+            SQL_TRACK[id(context)] = {
+                "engine": engine_label,
+                "statement": statement,
+                "start": _t.perf_counter(),
+            }
 
     def _after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
         import time as _t
 
         from loguru import logger
 
-        info = SQL_TRACK.pop(id(context), None)
+        with _sql_track_lock:
+            info = SQL_TRACK.pop(id(context), None)
         if not info:
             return
         duration = _t.perf_counter() - info["start"]
@@ -215,8 +222,8 @@ def install_sql_events(engines: dict):
                     from app.telemetry import get_current_trace_id
 
                     trace_id = get_current_trace_id()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("获取 trace_id 失败: %s", e)
                 if trace_id:
                     # 建议 117: tenant_id label, 多租户维度
                     try:
@@ -232,15 +239,15 @@ def install_sql_events(engines: dict):
                     f"SLOW SQL trace={trace_id or '-'} [{engine_label}.{table}] "
                     f"{duration*1000:.1f}ms: {(info['statement'] or '')[:200]}"
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("处理慢 SQL 事件失败: %s", e)
 
     for _label, engine in engines.items():
         try:
             event.listen(engine, "before_cursor_execute", _before_cursor_execute)
             event.listen(engine, "after_cursor_execute", _after_cursor_execute)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("注册 SQL 事件钩子失败: %s", e)
 
 
 # ---------------------------------------------------------------------------

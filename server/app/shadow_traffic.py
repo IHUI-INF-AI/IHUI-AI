@@ -252,8 +252,8 @@ def compare_responses(
                     tenant_id=tenant_id,
                     diff_kind=result.diff_kind.value,
                 ).inc()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("记录 shadow 比对指标失败: %s", e)
 
     return result
 

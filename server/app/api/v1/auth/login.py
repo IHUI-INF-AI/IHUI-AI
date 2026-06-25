@@ -19,6 +19,13 @@ from app.utils.sms_util import send_sms_code
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+def _mask_phone(phone: str) -> str:
+    """脱敏手机号: 138****5678. 用于日志输出, 避免明文 PII."""
+    if not phone or len(phone) < 7:
+        return "***"
+    return f"{phone[:3]}****{phone[-4:]}"
+
+
 async def _json_body(request: Request) -> dict:
     """从 request 解析 JSON body, 失败返回空 dict.
 
@@ -47,7 +54,7 @@ async def login(request: Request, phone: str = Query(None), password: str = Quer
     try:
         result = auth_service.login_by_password(phone, password or "")
     except Exception as _exc:  # service 异常 (DB/Redis 不可用) 降级为 401
-        logger.exception("login_by_password failed: phone={}", phone)
+        logger.exception("login_by_password failed: phone={}", _mask_phone(phone))
         result = {"success": False, "msg": "用户不存在或密码错误"}
     duration = time.perf_counter() - t0
     if not result["success"]:
@@ -94,7 +101,7 @@ async def register(
     try:
         result = auth_service.register_user(phone, password, nickname)
     except Exception as _exc:  # service 异常降级
-        logger.exception("register_user failed: phone={}", phone)
+        logger.exception("register_user failed: phone={}", _mask_phone(phone))
         result = {"success": False, "msg": "注册失败, 请重试"}
     if not result["success"]:
         track_event("user_register_failed", user_id=phone, reason=result.get("msg", "unknown"))
@@ -181,7 +188,7 @@ async def check_phone_exists(phone: str):
 async def send_code(request: Request, phone: str = Query(None)):
     body = await _json_body(request)
     phone = phone or body.get("phone")
-    logger.info(f"SMS code requested for: {phone}")
+    logger.info(f"SMS code requested for: {_mask_phone(phone)}")
     result = await send_sms_code(phone)
     if not result["success"]:
         return error(result["msg"], "429")

@@ -6,7 +6,7 @@
         <el-button :disabled="!unreadCount" @click="markAllRead">{{ t('notificationCenter.markAllRead') }}</el-button>
         <el-radio-group v-model="filter" size="small">
           <el-radio-button label="all">{{ t('notificationCenter.all') }}</el-radio-button>
-          <el-radio-button label="unread">{{ t('notificationCenter.unread') }} ({{ unreadCount }})</el-radio-button>
+          <el-radio-button label="unread">{{ t('notificationCenter.unread') }} ({{ unreadDisplay }})</el-radio-button>
         </el-radio-group>
       </div>
     </header>
@@ -64,9 +64,13 @@ interface NotifyItem {
 const items = ref<NotifyItem[]>([])
 const loading = ref(false)
 const filter = ref<'all' | 'unread'>('all')
+/** 后端未读总数 (与菜单红点共享同一接口, 避免 items 截断导致不一致). */
+const serverUnread = ref(0)
 let pollTimer: number | null = null
 
-const unreadCount = computed(() => items.value.filter((n) => !n.read).length)
+const unreadCount = computed(() => serverUnread.value)
+/** 顶部 toolbar 显示: 99+ 格式化 (与 Menu.vue 红点保持一致). */
+const unreadDisplay = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 
 async function fetchList() {
   loading.value = true
@@ -75,10 +79,26 @@ async function fetchList() {
       params: { only_unread: filter.value === 'unread', limit: 100 },
     })
     items.value = resp?.data?.items ?? []
+    // P1 封版: unreadCount 改用后端 unread-count 端点, 与菜单红点保持一致
+    // (避免 items.length 截断造成页面红点与菜单红点不一致)
+    void fetchUnreadCount()
   } catch (e) {
     ElMessage.error('加载通知失败')
   } finally {
     loading.value = false
+  }
+}
+
+/** 拉取后端未读总数 (与菜单红点共享同一接口). */
+async function fetchUnreadCount() {
+  try {
+    const resp: any = await http.get('/api/admin/migration/notify/unread-count')
+    const c = resp?.data?.unread_count
+    if (typeof c === 'number') {
+      serverUnread.value = c
+    }
+  } catch {
+    // ignore, 保持上次值
   }
 }
 
@@ -87,6 +107,8 @@ async function onClick(n: NotifyItem) {
   try {
     await http.post(`/api/admin/migration/notify/${n.id}/read`)
     n.read = true
+    // 乐观更新: 减 1 (夹在 0..∞)
+    serverUnread.value = Math.max(0, serverUnread.value - 1)
   } catch {
     // ignore
   }
@@ -96,6 +118,7 @@ async function markAllRead() {
   try {
     await http.post('/api/admin/migration/notify/read-all')
     items.value.forEach((n) => (n.read = true))
+    serverUnread.value = 0  // 立即清零, 不等下次轮询
     ElMessage.success('已全部标记为已读')
   } catch {
     ElMessage.error('操作失败')

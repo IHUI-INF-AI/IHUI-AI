@@ -97,6 +97,25 @@
         <select id="i18n-diff-a" v-model="diffA" class="i18n-select">
           <option v-for="m in I18N_LANGUAGES" :key="m.code" :value="m.code">{{ m.code }} · {{ m.english_name }}</option>
         </select>
+        <button
+          type="button"
+          class="i18n-btn ghost ripple-btn"
+          :title="t('i18nDashboard.diffAutoPickBtn')"
+          @click="onAutoPickBase"
+        >
+          <span aria-hidden="true">★</span>
+          {{ t('i18nDashboard.diffAutoPickBtn') }}
+        </button>
+        <button
+          type="button"
+          class="i18n-btn ghost ripple-btn"
+          :title="t('i18nDashboard.diffResetCacheBtn')"
+          @click="onResetCachedBase"
+        >
+          <span aria-hidden="true">↻</span>
+          {{ t('i18nDashboard.diffResetCacheBtn') }}
+        </button>
+        <span v-if="baseHint" class="i18n-diff-base-hint">{{ baseHint }}</span>
         <span class="i18n-diff-vs">vs</span>
         <label for="i18n-diff-b" class="i18n-label">{{ t('i18nDashboard.diffLangB') }}</label>
         <select id="i18n-diff-b" v-model="diffB" class="i18n-select">
@@ -233,6 +252,118 @@ interface DiffResult {
 const diffA = ref('zh-CN')
 const diffB = ref('en')
 const diffResult = ref<DiffResult | null>(null)
+const baseHint = ref<string>('')
+
+/**
+ * 缓存 base 选择结果到 localStorage
+ * - key: i18n-dashboard-base-v1
+ * - value: { code: string, ts: number } JSON
+ * - 7 天内有效, 超期或 code 不在 I18N_LANGUAGES 中视为失效
+ */
+const BASE_CACHE_KEY = 'i18n-dashboard-base-v1'
+const BASE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 天
+
+const readCachedBase = (): string | null => {
+  try {
+    const raw = localStorage.getItem(BASE_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { code?: string; ts?: number }
+    if (!parsed || typeof parsed.code !== 'string' || typeof parsed.ts !== 'number') return null
+    if (Date.now() - parsed.ts > BASE_CACHE_TTL_MS) return null
+    if (!I18N_LANGUAGES.some(m => m.code === parsed.code)) return null
+    return parsed.code
+  } catch {
+    return null
+  }
+}
+
+const writeCachedBase = (code: string) => {
+  try {
+    localStorage.setItem(BASE_CACHE_KEY, JSON.stringify({ code, ts: Date.now() }))
+  } catch {
+    // localStorage 可能被禁用 (无痕模式 / 配额满), 静默失败
+  }
+}
+
+const clearCachedBase = () => {
+  try {
+    localStorage.removeItem(BASE_CACHE_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * 统计每种语言在 i18nDashboard 子树下的完成度
+ * 完成度 = 已翻译 key 数 / 全部 key 数
+ * 返回数组按完成度降序
+ */
+interface LangCompletion {
+  code: string
+  total: number
+  translated: number
+  percent: number
+}
+const computeCompletion = (): LangCompletion[] => {
+  const keys = collectI18nDashboardKeys()
+  const msgs = (i18n.global as unknown as {
+    messages: { value: Record<string, Record<string, unknown>> }
+  }).messages?.value || {}
+  const result: LangCompletion[] = []
+  for (const m of I18N_LANGUAGES) {
+    const root = msgs[m.code] as { i18nDashboard?: Record<string, unknown> } | undefined
+    const sub = root?.i18nDashboard
+    let translated = 0
+    if (sub && typeof sub === 'object') {
+      for (const k of keys) {
+        const v = sub[k]
+        if (typeof v === 'string' && v.length > 0) translated++
+      }
+    }
+    const percent = keys.length === 0 ? 0 : Math.round((translated / keys.length) * 100)
+    result.push({ code: m.code, total: keys.length, translated, percent })
+  }
+  // 降序: 完成度高的在前, 持平按语言代码字典序
+  result.sort((a, b) => b.percent - a.percent || a.code.localeCompare(b.code))
+  return result
+}
+
+/**
+ * 自动选择完成度最高的语言作 diff base
+ */
+const pickBaseLang = (): LangCompletion => {
+  const list = computeCompletion()
+  // 取第一位 (完成度最高)
+  return list[0] || { code: 'zh-CN', total: 0, translated: 0, percent: 0 }
+}
+
+const refreshBaseHint = (code: string) => {
+  // 根据指定 code 计算其完成度
+  const list = computeCompletion()
+  const found = list.find(x => x.code === code) || { code, total: 0, translated: 0, percent: 0 }
+  baseHint.value = t('i18nDashboard.diffBaseHint', { code: found.code, percent: found.percent })
+}
+
+const onAutoPickBase = () => {
+  const best = pickBaseLang()
+  diffA.value = best.code
+  writeCachedBase(best.code)
+  baseHint.value = t('i18nDashboard.diffBaseHint', { code: best.code, percent: best.percent })
+  onDiff()
+}
+
+const onResetCachedBase = () => {
+  clearCachedBase()
+  onAutoPickBase()
+}
+
+// 手动切换 diffA 时同步写入缓存 (仅当用户主动改时才写; 内部设置走 onAutoPickBase 自身写)
+watch(diffA, (newCode) => {
+  // 2026-06-24 修正: watch 回调参数类型可能是 Ref<string>, 兼容取值
+  // vue-tsc 5.x 在 strict 模式下对 typeof 守卫不彻底 narrow, 用显式 string 注解强制收窄
+  const code: string = typeof newCode === 'string' ? newCode : String((newCode as { value: unknown }).value ?? '')
+  writeCachedBase(code)
+})
 
 // 提取 vue-i18n 全局 messages 中 i18nDashboard 子树的所有 key
 const collectI18nDashboardKeys = (): string[] => {
@@ -287,7 +418,15 @@ onMounted(() => {
   // 初始化一次, 避免初始值在 SSR 期间为空
   refreshFormatPreviews()
   refreshPlural()
-  onDiff()
+  // 优先使用 localStorage 缓存的 base; 失效才重新计算
+  const cached = readCachedBase()
+  if (cached) {
+    diffA.value = cached
+    refreshBaseHint(cached)
+    onDiff()
+  } else {
+    onAutoPickBase()
+  }
 })
 </script>
 
@@ -547,6 +686,12 @@ onMounted(() => {
   color: var(--el-text-color-regular);
 }
 
+.i18n-diff-base-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  padding: 0 4px;
+}
+
 .i18n-btn {
   display: inline-flex;
   align-items: center;
@@ -561,12 +706,19 @@ onMounted(() => {
   background: var(--el-bg-color);
   cursor: pointer;
   font-family: inherit;
+  gap: 6px;
 }
 
 .i18n-btn.primary {
   background: var(--el-text-color-primary);
   color: var(--el-bg-color);
   border-color: var(--el-text-color-primary);
+}
+
+.i18n-btn.ghost {
+  background: transparent;
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
 }
 
 .i18n-btn:disabled {

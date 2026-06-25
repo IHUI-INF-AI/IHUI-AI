@@ -99,8 +99,8 @@ class XSSMiddleware(BaseHTTPMiddleware):
                                 status_code=400,
                                 media_type="application/json",
                             )
-            except Exception:
-                pass  # Skip on unexpected errors
+            except Exception as e:
+                logger.debug("XSS 检测跳过异常: %s", e)  # Skip on unexpected errors
 
         response = await call_next(request)
         return response

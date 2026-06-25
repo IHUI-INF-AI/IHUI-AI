@@ -46,8 +46,8 @@ def _resolve_db_url(url: str, fallback_db_index: int) -> str:
         finally:
             try:
                 test_engine.dispose()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("销毁测试 engine 失败: %s", e)
     # dev/test 环境: 尝试快速 ping 数据库, 失败则降级到 SQLite
     from sqlalchemy import text
 
@@ -64,8 +64,8 @@ def _resolve_db_url(url: str, fallback_db_index: int) -> str:
     finally:
         try:
             test_engine.dispose()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("销毁测试 engine 失败: %s", e)
 
 
 def _build_engine(url: str, pool_size: int, max_overflow: int, pool_recycle: int, pre_ping: bool, fallback_idx: int):

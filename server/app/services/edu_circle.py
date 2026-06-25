@@ -109,7 +109,7 @@ def list_circles(
         kw = f"%{keyword}%"
         filters.append(
             or_(
-                EduCircle.name.ilike(kw),
+                EduCircle.username.ilike(kw),
                 EduCircle.description.ilike(kw),
             )
         )
@@ -130,7 +130,7 @@ def join_circle(db: Session, circle_id: int, user_id: int) -> EduCircleMember:
         select(EduCircleMember).where(
             and_(
                 EduCircleMember.circle_id == circle_id,
-                EduCircleMember.user_id == user_id,
+                EduCircleMember.uuid == user_id,
             )
         )
     ).scalar_one_or_none()
@@ -156,7 +156,7 @@ def leave_circle(db: Session, circle_id: int, user_id: int) -> bool:
         select(EduCircleMember).where(
             and_(
                 EduCircleMember.circle_id == circle_id,
-                EduCircleMember.user_id == user_id,
+                EduCircleMember.uuid == user_id,
             )
         )
     ).scalar_one_or_none()
@@ -183,7 +183,7 @@ def is_member(db: Session, circle_id: int, user_id: int) -> bool:
         select(func.count(EduCircleMember.id)).where(
             and_(
                 EduCircleMember.circle_id == circle_id,
-                EduCircleMember.user_id == user_id,
+                EduCircleMember.uuid == user_id,
             )
         )
     ).scalar() > 0
@@ -271,6 +271,6 @@ def get_user_circles(
     return paginate(
         db, EduCircle, page=page, size=size,
         filters=[EduCircle.id.in_(
-            select(EduCircleMember.circle_id).where(EduCircleMember.user_id == user_id)
+            select(EduCircleMember.circle_id).where(EduCircleMember.uuid == user_id)
         )],
     )

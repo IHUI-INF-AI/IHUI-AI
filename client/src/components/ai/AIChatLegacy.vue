@@ -3128,8 +3128,9 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
   // 消息容器首页模式变量
   --aic-messages-home-bottom: 180px;
   
-  // 发送按钮颜色
-  --aic-send-btn-color: var(--el-color-white);
+  // 发送按钮颜色 - 明暗模式自动适配
+  // 亮色 primary=#000 → 文字=#fff；暗色 primary=#fff → 文字=#000
+  --aic-send-btn-color: var(--color-on-primary);
 
   position: relative;
 
@@ -3910,7 +3911,8 @@ html.dark {
                 }
 
                 html.dark &:hover {
-                  --action-btn-color: var(--el-color-white);
+                  // 暗色 hover：白底（color-white-10）上需深字，用 on-primary 自适应
+                  --action-btn-color: var(--color-on-primary);
                 }
 
                 &.delete-btn:hover {
@@ -4053,10 +4055,10 @@ html.dark {
   }
 }
 
-// 暗色模式发送按钮 - 使用 CSS 变量替代 
+// 暗色模式发送按钮 - 使用 CSS 变量替代
 :where(html.dark) .ai-dialog {
-  // 暗色模式下覆盖发送按钮颜色
-  --aic-send-btn-color: var(--el-bg-color-page);
+  // 暗色模式下覆盖发送按钮颜色 - 与默认一致（已通过 --color-on-primary 自动适配）
+  --aic-send-btn-color: var(--color-on-primary);
   
   .input-actions {
     .send-btn {

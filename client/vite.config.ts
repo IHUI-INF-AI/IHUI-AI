@@ -708,7 +708,9 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
   // ????????8888??????????????????
   // ????????????????
   const devPort = platformConfig[currentPlatform]?.server?.port || 8888
-  const devHost = env.VITE_DEV_HOST || '0.0.0.0'
+  // 默认 localhost: 避免 trae-preview 沙盒隔离 127.0.0.1 环回导致 ERR_CONNECTION_REFUSED
+  // 需局域网访问(手机调试/同事联调)时设 VITE_DEV_HOST=0.0.0.0 恢复全网卡监听
+  const devHost = env.VITE_DEV_HOST || 'localhost'
   const devOrigin = env.VITE_DEV_ORIGIN
   const hmrHost = env.VITE_DEV_HMR_HOST
   const hmrProtocol = env.VITE_DEV_HMR_PROTOCOL || 'ws'
@@ -736,89 +738,7 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
     plugins: [
       vueOrVizePlugin,
       tailwindcss(),
-      // P10 国际化深化测试 mock (仅在 P10_I18N_MOCK=on 时启用)
-      ...(process.env.P10_I18N_MOCK === 'on'
-        ? [
-            {
-              name: 'p10-i18n-mock',
-              configureServer(server: any) {
-                const LANGS = [
-                  { code: 'zh-CN', display_name: '简体中文', english_name: 'Chinese (Simplified)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 1, plural_rule: 'other_only', number_grouping: 3 },
-                  { code: 'en-US', display_name: 'English', english_name: 'English (US)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'one_other', number_grouping: 3 },
-                  { code: 'ar', display_name: 'العربية', english_name: 'Arabic', direction: 'rtl', is_rtl: true, decimal_separator: '٫', thousands_separator: '٬', currency_position: 'after', first_day_of_week: 6, plural_rule: 'arabic', number_grouping: 3 },
-                  { code: 'he', display_name: 'עברית', english_name: 'Hebrew', direction: 'rtl', is_rtl: true, decimal_separator: '.', thousands_separator: ',', currency_position: 'after', first_day_of_week: 0, plural_rule: 'hebrew', number_grouping: 3 },
-                  { code: 'fr', display_name: 'Français', english_name: 'French', direction: 'ltr', is_rtl: false, decimal_separator: ',', thousands_separator: ' ', currency_position: 'after', first_day_of_week: 1, plural_rule: 'french', number_grouping: 3 },
-                  { code: 'es', display_name: 'Español', english_name: 'Spanish', direction: 'ltr', is_rtl: false, decimal_separator: ',', thousands_separator: '.', currency_position: 'before', first_day_of_week: 1, plural_rule: 'one_other', number_grouping: 3 },
-                  { code: 'ja', display_name: '日本語', english_name: 'Japanese', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'other_only', number_grouping: 3 },
-                  { code: 'ko', display_name: '한국어', english_name: 'Korean', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'other_only', number_grouping: 3 },
-                  { code: 'zh-TW', display_name: '繁體中文', english_name: 'Chinese (Traditional)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 1, plural_rule: 'other_only', number_grouping: 3 },
-                ]
-                const KEYS = ['common.welcome', 'common.save', 'common.items', 'common.search', 'report.title', 'notify.sensitive_action']
-                server.middlewares.use(async (req: any, res: any, next: any) => {
-                  if (!req.url || !/^\/api\/v[12]\/i18n-v2\//.test(req.url)) return next()
-                  const url = new URL(req.url, 'http://localhost')
-                  const path = url.pathname.replace(/^\/api\/v[12]\/i18n-v2/, '')
-                  let body: any = {}
-                  if (req.method !== 'GET' && req.method !== 'HEAD') {
-                    const chunks: Buffer[] = []
-                    for await (const c of req) chunks.push(c as Buffer)
-                    if (chunks.length) {
-                      try { body = JSON.parse(Buffer.concat(chunks).toString('utf-8')) } catch { /* ignore */ }
-                    }
-                  }
-                  const respond = (data: any) => {
-                    res.setHeader('content-type', 'application/json')
-                    res.statusCode = 200
-                    res.end(JSON.stringify({ code: 0, msg: 'success', data, timestamp: Date.now() }))
-                  }
-                  if (path === '/languages') return respond({ languages: LANGS, count: LANGS.length })
-                  const langMatch = path.match(/^\/languages\/([^/]+)$/)
-                  if (langMatch) {
-                    const m = LANGS.find(l => l.code === langMatch[1]) || LANGS[0]
-                    return respond(m)
-                  }
-                  if (path === '/keys') return respond({ keys: KEYS, count: KEYS.length })
-                  if (path.startsWith('/entry/')) {
-                    const key = decodeURIComponent(path.replace('/entry/', ''))
-                    return respond({ key, translations: { 'zh-CN': `${key} 中文`, 'en-US': `${key} EN` }, plurals: {}, description: '', updated_at: 1, version: 1 })
-                  }
-                  if (path === '/pull') {
-                    const lang = url.searchParams.get('lang')
-                    const keys: Record<string, string> = {}
-                    KEYS.forEach(k => { keys[k] = lang ? `[${lang}] ${k}` : k })
-                    return respond({ scope: lang || 'all', keys, plurals: {}, count: KEYS.length })
-                  }
-                  if (path === '/push') return respond({ key: body.key, version: 1, updated_at: 1, translations: { 'zh-CN': body.value || '' } })
-                  if (path === '/push-plural') return respond({ key: body.key, version: 1, updated_at: 1, plurals: { [body.lang || 'zh-CN']: body.forms || {} } })
-                  if (path === '/sync-log') return respond({ events: [], count: 0 })
-                  if (path === '/stats') return respond({ total_keys: KEYS.length, per_language: { 'zh-CN': KEYS.length, 'en-US': KEYS.length }, plural_keys: 1, languages: 9 })
-                  if (path === '/diff') return respond({ lang_a: url.searchParams.get('lang_a'), lang_b: url.searchParams.get('lang_b'), a_missing: [], b_missing: [], identical: [{ key: 'common.welcome', a: '欢迎', b: 'Welcome' }], total: KEYS.length })
-                  if (path === '/format') {
-                    const kind = body.kind || 'number'
-                    let result = ''
-                    if (kind === 'number') result = '1,234.56'
-                    else if (kind === 'currency') result = (body.currency || 'USD') + ' 99.50'
-                    else if (kind === 'date') result = '2026-06-18'
-                    else if (kind === 'plural') result = '5 items'
-                    return respond({ kind, lang: body.lang, result, is_rtl: body.lang === 'ar' || body.lang === 'he' })
-                  }
-                  if (path === '/translate') return respond({ key: body.key, lang: body.lang, count: body.count, text: `${body.lang || 'zh-CN'}:${body.key}`, is_rtl: body.lang === 'ar' || body.lang === 'he' })
-                  if (path.startsWith('/plural/')) {
-                    const key = decodeURIComponent(path.replace('/plural/', ''))
-                    const lang = url.searchParams.get('lang') || 'zh-CN'
-                    const samples = [0, 1, 2, 3, 5, 11, 21, 100, 101].map(n => ({
-                      count: n,
-                      category: n === 0 ? 'zero' : n === 1 ? 'one' : n === 2 ? 'two' : n >= 11 && n <= 99 ? 'many' : 'other',
-                      text: `${n} ${key} [${lang}]`,
-                    }))
-                    return respond({ key, lang, is_rtl: lang === 'ar' || lang === 'he', samples })
-                  }
-                  return respond({})
-                })
-              },
-            },
-          ]
-        : []),
+      // 2026-06-24 清理: P10 国际化深化测试 mock 已下线（前端不再请求 /api/v1/i18n-v2/*）
       // ????CSP?? - ??localhost??27.0.0.1??
       productionCSPOptimizer(),
       forceNumericHostBanner(),
@@ -1188,8 +1108,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             })
           },
         },
-        // P10 国际化深化测试 mock - 仅在 P10_I18N_MOCK=on 时启用
-        // (移到下方 plugins 中以正确注册为 server middleware)
         // P22-联调: /login/wechat/* 已迁移到 Python 后端 (v1_third_party_auth.py 占位实现)
         '/login/wechat': {
           target: BACKEND_TARGET,
@@ -1801,6 +1719,17 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
               if (id.includes('resize-observer-polyfill')) return 'resize-observer'
               if (id.includes('memoize-one')) return 'memoize'
               if (id.includes('lodash-es')) return 'lodash-es'
+              // 2026-06-24 优化：从 vue-vendor 拆出未识别的大依赖，避免首屏 410KB+
+              // exceljs: 1.28MB (rendered) — 实际是 DramaScriptExcel 导出 Excel 用的，可懒加载
+              if (id.includes('exceljs')) return 'exceljs'
+              // markstream-vue + stream-markdown-parser: 519KB — 流式 markdown 渲染（仅 AIChat 等场景）
+              if (id.includes('markstream-vue') || id.includes('stream-markdown-parser')) return 'markstream'
+              // tailwind-merge: 54KB — 工具函数，单独拆
+              if (id.includes('tailwind-merge')) return 'tailwind-merge'
+              // spark-md5: 14KB — 文件分片上传 hash 工具
+              if (id.includes('spark-md5')) return 'spark-md5'
+              // js-cookie: 2.5KB — cookie 工具
+              if (id.includes('js-cookie')) return 'js-cookie'
               if (id.includes('@babel')) return 'babel'
               if (id.includes('core-js')) return 'core-js'
               if (id.includes('regenerator-runtime')) return 'regenerator'
@@ -1883,6 +1812,12 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         'pinia',
         'axios',
         'element-plus',
+        // 2026-06-24: 预声明 Element Plus 5 个语言包, 避免 loadElementPlusLocale 首次调用时 Vite 才扫描构建导致 EP locale undefined -> ElConfigProvider 崩溃 -> ErrorBoundary 级联
+        'element-plus/es/locale/lang/zh-cn.mjs',
+        'element-plus/es/locale/lang/zh-tw.mjs',
+        'element-plus/es/locale/lang/en.mjs',
+        'element-plus/es/locale/lang/ja.mjs',
+        'element-plus/es/locale/lang/ko.mjs',
         '@vueuse/core',
         'dayjs',
         'crypto-js',

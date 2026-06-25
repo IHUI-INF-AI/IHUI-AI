@@ -29,6 +29,7 @@ async def list_bindings(user_uuid: str = Depends(require_login)):
             db.query(UserThirdPartyAccount)
             .filter(
                 UserThirdPartyAccount.user_uuid == user_uuid,
+                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .all()
         )
@@ -110,6 +111,7 @@ async def remove_by_platform(
             db.query(UserThirdPartyAccount)
             .filter(
                 UserThirdPartyAccount.user_uuid == uuid,
+                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .all()
         )

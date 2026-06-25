@@ -343,7 +343,7 @@ const handlePhoneRegister = () => {
   }
 
   .loading-text {
-    color: var(--el-color-white);
+    color: var(--color-on-primary);
     font-size: 16px;
     font-weight: 500;
   }

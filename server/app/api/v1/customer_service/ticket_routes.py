@@ -247,5 +247,5 @@ async def assign_ticket(id: str, body: dict = Body(default_factory=dict)):
 try:
     _cs_init_db()
     _tickets, _replies = load_tickets()
-except Exception:
-    pass
+except Exception as e:
+    logger.debug("初始化工单 SQLite 持久化失败: %s", e)

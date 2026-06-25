@@ -20,7 +20,7 @@ def get_dict(db: Session, dict_type: str, dict_key: str) -> EduSettingDict:
         db, EduSettingDict, None, "setting_dict",
     ) if False else db.execute(
         select(EduSettingDict).where(
-            and_(EduSettingDict.dict_type == dict_type, EduSettingDict.dict_key == dict_key)
+            and_(EduSettingDict.type == dict_type, EduSettingDict.code == dict_key)
         )
     ).scalar_one_or_none() or _raise_not_found(dict_type, dict_key)
 
@@ -38,7 +38,7 @@ def get_dict_value(db: Session, dict_type: str, dict_key: str, default: Optional
     """Get dict value, return default if not found."""
     d = db.execute(
         select(EduSettingDict).where(
-            and_(EduSettingDict.dict_type == dict_type, EduSettingDict.dict_key == dict_key)
+            and_(EduSettingDict.type == dict_type, EduSettingDict.code == dict_key)
         )
     ).scalar_one_or_none()
     return d.dict_value if d else default
@@ -48,7 +48,7 @@ def list_by_type(db: Session, dict_type: str) -> List[EduSettingDict]:
     """List all dict entries of a type."""
     return list(db.execute(
         select(EduSettingDict)
-        .where(and_(EduSettingDict.dict_type == dict_type, EduSettingDict.is_active == True))
+        .where(and_(EduSettingDict.type == dict_type, EduSettingDict.status == True))
         .order_by(EduSettingDict.sort_order)
     ).scalars().all())
 
@@ -58,8 +58,8 @@ def batch_get(db: Session, dict_types: List[str]) -> Dict[str, List[dict]]:
     result: Dict[str, List[dict]] = {}
     rows = db.execute(
         select(EduSettingDict)
-        .where(and_(EduSettingDict.dict_type.in_(dict_types), EduSettingDict.is_active == True))
-        .order_by(EduSettingDict.dict_type, EduSettingDict.sort_order)
+        .where(and_(EduSettingDict.type.in_(dict_types), EduSettingDict.status == True))
+        .order_by(EduSettingDict.type, EduSettingDict.sort_order)
     ).scalars().all()
     for r in rows:
         result.setdefault(r.dict_type, []).append({
@@ -77,7 +77,7 @@ def create_dict(
         raise EduValidationError("dict_type, dict_key, dict_value are required")
     existing = db.execute(
         select(EduSettingDict).where(
-            and_(EduSettingDict.dict_type == dict_type, EduSettingDict.dict_key == dict_key)
+            and_(EduSettingDict.type == dict_type, EduSettingDict.code == dict_key)
         )
     ).scalar_one_or_none()
     if existing:
@@ -115,12 +115,12 @@ def list_all(db: Session, page: int = 1, size: int = 20,
     from sqlalchemy import or_
     filters = []
     if dict_type:
-        filters.append(EduSettingDict.dict_type == dict_type)
+        filters.append(EduSettingDict.type == dict_type)
     if keyword:
         kw = f"%{keyword}%"
         filters.append(or_(
-            EduSettingDict.dict_type.ilike(kw),
-            EduSettingDict.dict_key.ilike(kw),
-            EduSettingDict.dict_value.ilike(kw),
+            EduSettingDict.type.ilike(kw),
+            EduSettingDict.code.ilike(kw),
+            EduSettingDict.username.ilike(kw),
         ))
     return paginate(db, EduSettingDict, page=page, size=size, filters=filters)

@@ -235,8 +235,8 @@ class TenantRoutingMiddleware:
                 set_current_tenant_id(_DEFAULT_TENANT_ID)
                 if _set_request_context is not None:
                     _set_request_context(tenant_id=str(_DEFAULT_TENANT_ID))
-            except Exception:
-                pass
+            except Exception as e:
+                _loguru_logger.debug("设置公开端点默认租户失败: %s", e)
             try:
                 await self.app(scope, receive, send)
             finally:

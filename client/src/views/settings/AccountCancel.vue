@@ -124,19 +124,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElLoading } from 'element-plus'
 import SettingsPageLayout from './SettingsPageLayout.vue'
 import { sendTextMsg, sendTextMsgNew } from '@/api/auth'
 import { deleteAccount } from '@/api/settings'
 import { useAuthStore, useUserStore } from '@/stores/auth'
+import { useCleanup } from '@/composables/useCleanup'
 
 const CONFIRM_SENTENCE = '我已仔细阅读并知晓账号注销的所有后果，自愿申请注销账号'
 
 const router = useRouter()
 const userStore = useUserStore()
 const authStore = useAuthStore()
+const cleanup = useCleanup()
 
 const boundPhone = ref('')
 const inputPhone = ref('')
@@ -144,11 +146,11 @@ const confirmSentence = ref(CONFIRM_SENTENCE)
 const confirmText = ref('')
 const smsCode = ref('')
 const countdown = ref(0)
-let countdownTimer: ReturnType<typeof setInterval> | null = null
+let countdownHandle: { cancel: () => void } | null = null
 const showConfirmModal = ref(false)
 const submitting = ref(false)
 const confirmCountdown = ref(5)
-let confirmCountdownTimer: ReturnType<typeof setInterval> | null = null
+let confirmCountdownHandle: { cancel: () => void } | null = null
 const cancelLoading = ref(false)
 
 const phoneMatch = computed(() => {
@@ -171,24 +173,20 @@ onMounted(() => {
   boundPhone.value = (phone || '').trim()
 })
 
-onUnmounted(() => {
-  if (countdownTimer) clearInterval(countdownTimer)
-  if (confirmCountdownTimer) clearInterval(confirmCountdownTimer)
-})
-
 watch(showConfirmModal, (val) => {
   if (val) {
     confirmCountdown.value = 5
-    confirmCountdownTimer = setInterval(() => {
+    if (confirmCountdownHandle) confirmCountdownHandle.cancel()
+    confirmCountdownHandle = cleanup.addCancellableInterval(() => {
       confirmCountdown.value--
-      if (confirmCountdown.value <= 0 && confirmCountdownTimer) {
-        clearInterval(confirmCountdownTimer)
-        confirmCountdownTimer = null
+      if (confirmCountdown.value <= 0 && confirmCountdownHandle) {
+        confirmCountdownHandle.cancel()
+        confirmCountdownHandle = null
       }
     }, 1000)
-  } else if (confirmCountdownTimer) {
-    clearInterval(confirmCountdownTimer)
-    confirmCountdownTimer = null
+  } else if (confirmCountdownHandle) {
+    confirmCountdownHandle.cancel()
+    confirmCountdownHandle = null
   }
 })
 
@@ -216,11 +214,12 @@ async function onGetCode() {
     await sendTextMsg(phone, '2', '')
     countdown.value = 60
     ElMessage.info('验证码已发送')
-    countdownTimer = setInterval(() => {
+    if (countdownHandle) countdownHandle.cancel()
+    countdownHandle = cleanup.addCancellableInterval(() => {
       countdown.value--
-      if (countdown.value <= 0 && countdownTimer) {
-        clearInterval(countdownTimer)
-        countdownTimer = null
+      if (countdown.value <= 0 && countdownHandle) {
+        countdownHandle.cancel()
+        countdownHandle = null
       }
     }, 1000)
   } catch (e) {

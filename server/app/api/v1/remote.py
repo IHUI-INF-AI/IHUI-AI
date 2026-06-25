@@ -157,6 +157,7 @@ async def get_info(
             .filter(
                 UserThirdPartyAccount.user_uuid == uuid,
                 UserThirdPartyAccount.platform == platform,
+                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .first()
         )

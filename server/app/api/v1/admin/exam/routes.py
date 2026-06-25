@@ -404,8 +404,11 @@ async def admin_question_batch_delete(ids: str = Query(...)):
     with get_session() as db:
         paper_ids = [row[0] for row in db.query(ExamQuestion.paper_id).filter(ExamQuestion.id.in_(id_list)).distinct().all()]
         db.query(ExamQuestion).filter(ExamQuestion.id.in_(id_list)).delete(synchronize_session=False)
-        for paper_id in paper_ids:
-            db.query(ExamPaper).filter(ExamPaper.id == paper_id).update({ExamPaper.question_num: ExamPaper.question_num - 1})
+        if paper_ids:
+            db.query(ExamPaper).filter(ExamPaper.id.in_(paper_ids)).update(
+                {ExamPaper.question_num: ExamPaper.question_num - 1},
+                synchronize_session=False,
+            )
         db.flush()
         return success({"deleted": id_list, "count": len(id_list)})
 

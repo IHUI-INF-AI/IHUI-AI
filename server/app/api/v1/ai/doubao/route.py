@@ -240,7 +240,7 @@ async def doubao_chat(
         "model": model,
         "messages": [{"role": "user", "content": message}],
     }
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             resp = await client.post(settings.DOUBAO_MODEL_URL, headers=headers, json=body, timeout=30)
             data = resp.json()
@@ -261,7 +261,7 @@ async def doubao_stream(
     body = {"model": model, "messages": [{"role": "user", "content": message}], "stream": True}
 
     async def generate():
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             async with client.stream("POST", settings.DOUBAO_MODEL_URL, headers=headers, json=body, timeout=60) as resp:
                 async for line in resp.aiter_lines():
                     if line.startswith("data:"):
@@ -719,7 +719,7 @@ async def doubao_image_edit(
 
     auth_headers = {"Authorization": f"Bearer {settings.DOUBAO_API_KEY}"}
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             resp = await client.post(
                 url,

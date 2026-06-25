@@ -438,12 +438,12 @@ $login-header-gap: 12px;
 
   &.active {
     background-color: var(--el-color-primary);
-    color: var(--el-color-white);
+    color: var(--color-on-primary);
 
     &:hover {
       background-color: var(--el-color-primary);
       opacity: 0.9;
-      color: var(--el-color-white);
+      color: var(--color-on-primary);
     }
   }
 }
@@ -490,16 +490,15 @@ $login-header-gap: 12px;
 
   &.active {
     background-color: var(--el-color-primary);
-    color: var(--el-color-white);
+    color: var(--color-on-primary);
 
     &:hover {
       background-color: var(--el-color-primary);
       opacity: 0.9;
-      color: var(--el-color-white);
+      color: var(--color-on-primary);
     }
   }
 }
-
 /* 项目选择器 - 移动端样式 */
 @media (width <= 992px) {
   .project-selector-banner {
@@ -536,14 +535,13 @@ $login-header-gap: 12px;
   --login-dark-shadow: var(--global-box-shadow);
 }
 
-// 暗色模式登录容器 - 使用 :where(html.dark) 与单类（左侧无边框）
+// 暗色模式登录容器 - 使用 :where(html.dark) 与单类
 :where(html.dark) .login-content.login-page,
 :where(html.dark) #app .login-content.login-page,
 :where(body.dark) .login-content.login-page,
 :where(body.dark) #app .login-content.login-page {
   background-color: var(--el-bg-color);
   border: var(--unified-border);
-  border-left: none;
   box-shadow: var(--login-dark-shadow);
   opacity: 1;
   visibility: visible;
@@ -934,7 +932,7 @@ $login-header-gap: 12px;
   --spb-bg: transparent;
   --spb-hover-bg: var(--el-bg-color-page);
   --spb-active-bg: var(--el-color-primary);
-  --spb-active-color: var(--el-color-white);
+  --spb-active-color: var(--color-on-primary);
   
   font-size: 12px;
   padding: 4px 8px;
@@ -987,9 +985,8 @@ $login-header-gap: 12px;
   --spb-bg: transparent;
   --spb-hover-bg: var(--el-fill-color-light);
   --spb-active-bg: var(--el-color-primary);
-  --spb-active-color: var(--el-color-white);
+  --spb-active-color: var(--color-on-primary);
 }
-
 /* 确保Element Plus按钮样式被覆盖 - 已通过上方 CSS 变量实现 */
 
 /* 亮色模式使用 --spb-xxx 变量，暗色模式通过覆盖变量实现 */

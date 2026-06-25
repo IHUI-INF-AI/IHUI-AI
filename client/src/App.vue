@@ -136,7 +136,7 @@ import { useOptimization } from './utils/optimization'
 import { initCspReport } from './utils/cspReport'
 import { sessionManager } from './utils/sessionManager'
 import { AlertTriangle } from '@/lib/lucide-fallback'
-import { getElementPlusLocale } from '@/locales'
+import { getElementPlusLocale, loadElementPlusLocale } from '@/locales'
 
 import { useLanguageStore } from '@/stores/language'
 import { useFontStore } from '@/stores/font'
@@ -186,7 +186,21 @@ logger.info('[App] App.vue 开始初始化...')
 // ═══ 路由 / 国际化 ═══
 const route = useRoute()
 const { t, locale } = useI18n()
-const epLocale = computed(() => getElementPlusLocale(locale.value))
+// 2026-06-24 优化：EP 语言包懒加载，computed 同步返回（先 en 兜底），异步预加载后自动更新
+// vue-i18n 9.x 的 locale 是 Ref<string>, 直接 .value 即可
+const epLocale = ref<Record<string, unknown>>(getElementPlusLocale(locale.value))
+watch(
+  locale,
+  async (lang) => {
+    // 2026-06-24 修正: watch 回调参数类型是 string (vue-i18n 9.x)，
+    // 但部分类型定义仍标 MaybeRef<string>，双断言后取 .value
+    const raw = lang as unknown as string | { value: string }
+    const code = typeof raw === 'string' ? raw : raw.value
+    const loaded = await loadElementPlusLocale(code)
+    epLocale.value = loaded
+  },
+  { immediate: true }
+)
 
 // ═══ 状态管理初始化 ═══
 const languageStore = useLanguageStore()

@@ -157,8 +157,9 @@ class ShadowRatioController:
         try:
             if hasattr(self.error_source, "get_recent_error_rate"):
                 return float(self.error_source.get_recent_error_rate(self.window_sec))
-        except Exception:
-            pass
+        except Exception as e:
+            if _loguru_logger is not None:
+                _loguru_logger.debug("获取 shadow 错误率失败: %s", e)
         return 0.0
 
     # ---------- 调比 ----------

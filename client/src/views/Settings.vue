@@ -1724,7 +1724,6 @@ const {
   deleteUserAccount,
   openClearDataDialog,
   closeClearDataDialog,
-  openDeleteAccountDialog,
   closeDeleteAccountDialog,
 } = dangerComposable
 

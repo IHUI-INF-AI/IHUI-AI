@@ -5,11 +5,14 @@
 """
 
 import enum
+import logging
 import threading
 import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 class DbRole(enum.StrEnum):
@@ -101,8 +104,8 @@ class FailoverManager:
         if self._on_change and old != new_role:
             try:
                 self._on_change(node_id, old, new_role)
-            except Exception:
-                pass  # intentionally ignored
+            except Exception as e:
+                logger.debug("DB 故障转移角色变更回调失败: %s", e)  # intentionally ignored
 
     def _maybe_elect(self) -> None:
         with self._lock:

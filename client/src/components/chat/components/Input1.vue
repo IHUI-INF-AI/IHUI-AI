@@ -1132,7 +1132,7 @@ import { useI18n } from 'vue-i18n';
   
   .mode-tab.active {
     background: var(--el-color-primary);
-    color: var(--el-color-white);
+    color: var(--color-on-primary);
   }
   
   .mode-tab:hover {
@@ -1146,7 +1146,7 @@ import { useI18n } from 'vue-i18n';
     border-radius: var(--global-border-radius);
     border: none;
     background: var(--el-color-primary);
-    color: var(--el-color-white);
+    color: var(--color-on-primary);
     font-size: 12px;
     cursor: pointer;
     transition: background-color 0.15s ease, transform 0.15s ease;

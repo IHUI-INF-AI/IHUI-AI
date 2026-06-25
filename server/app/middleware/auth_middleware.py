@@ -2,6 +2,7 @@
 Authentication middleware -- JWT validation on every request.
 """
 
+import logging
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -9,6 +10,8 @@ from starlette.responses import JSONResponse, Response
 
 from app import security as _security
 from app.core.jwt_blacklist import is_jwt_revoked
+
+logger = logging.getLogger(__name__)
 
 # Paths that don't need authentication
 PUBLIC_PATHS = {
@@ -140,8 +143,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
             from app.core.current_user import set_current_user_id
 
             set_current_user_id(user_uuid or "guest")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("注入当前用户到 ContextVar 失败: %s", e)
 
         response = await call_next(request)
         return response

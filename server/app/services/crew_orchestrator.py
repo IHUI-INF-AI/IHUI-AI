@@ -352,8 +352,8 @@ class CrewOrchestrator:
                         s.output_message = "执行被中断 (客户端断开或异常)"
                         s.completed_at = datetime.now()
                         db.commit()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("中断时更新 crew session 状态失败: %s", e)
 
     def _plan_tasks(self, input_message: str) -> list[dict[str, str]]:
         """返回固定 5 步任务分解计划."""

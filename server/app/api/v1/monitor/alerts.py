@@ -1,5 +1,7 @@
 """告警管理端点 -- 测试推送 / 接收 Alertmanager webhook."""
 
+import threading
+
 from fastapi import APIRouter, Depends, Request
 
 from app.alert_inhibition import get_default_inhibitor
@@ -111,20 +113,23 @@ async def alert_history(user_uuid: str = Depends(require_login)):
 # ---------------------------------------------------------------------------
 _ALERT_HISTORY: list = []
 _HISTORY_MAX = 200
+_history_lock = threading.Lock()
 
 
 def list_recent_alerts() -> list:
-    return list(_ALERT_HISTORY[-50:])
+    with _history_lock:
+        return list(_ALERT_HISTORY[-50:])
 
 
 def record_alert(title: str, message: str, severity: str = "warning") -> None:
-    _ALERT_HISTORY.append(
-        {
-            "title": title,
-            "message": message,
-            "severity": severity,
-            "ts": __import__("datetime").datetime.utcnow().isoformat() + "Z",
-        }
-    )
-    if len(_ALERT_HISTORY) > _HISTORY_MAX:
-        del _ALERT_HISTORY[: len(_ALERT_HISTORY) - _HISTORY_MAX]
+    with _history_lock:
+        _ALERT_HISTORY.append(
+            {
+                "title": title,
+                "message": message,
+                "severity": severity,
+                "ts": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            }
+        )
+        if len(_ALERT_HISTORY) > _HISTORY_MAX:
+            del _ALERT_HISTORY[: len(_ALERT_HISTORY) - _HISTORY_MAX]

@@ -161,8 +161,8 @@ class CanaryAuditStore:
                     try:
                         cnt = conn.execute("SELECT COUNT(*) FROM canary_audit").fetchone()[0]
                         _set_rows(int(cnt))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("统计 canary_audit 行数失败: %s", e)
                 finally:
                     conn.close()
         except Exception as e:
@@ -258,8 +258,8 @@ class CanaryAuditStore:
                     try:
                         cnt = conn.execute("SELECT COUNT(*) FROM canary_audit").fetchone()[0]
                         _set_rows(int(cnt))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("清理后统计 canary_audit 行数失败: %s", e)
                     _inc_retention(deleted)
                     return deleted
                 finally:

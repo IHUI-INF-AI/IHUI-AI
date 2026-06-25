@@ -154,21 +154,24 @@ async def invitee_order_stats(
     with get_session() as db:
         try:
             invitees = db.query(User).filter(User.parent_id == user_uuid).all()
+            inv_uuids = [inv.uuid for inv in invitees]
+            agg_map = {}
+            if inv_uuids:
+                agg_rows = (
+                    db.query(
+                        Order.user_id,
+                        func.count(Order.id).label("cnt"),
+                        func.sum(Order.amount).label("total"),
+                        func.max(Order.created_at).label("latest"),
+                    )
+                    .filter(Order.user_id.in_(inv_uuids), Order.status == 1)
+                    .group_by(Order.user_id)
+                    .all()
+                )
+                agg_map = {r.user_id: (r.cnt or 0, r.total or 0, r.latest) for r in agg_rows}
             result = []
             for inv in invitees:
-                inv_uuid = inv.uuid
-                order_count = (
-                    db.query(func.count(Order.id)).filter(Order.user_id == inv_uuid, Order.status == 1).scalar() or 0
-                )
-                total_amount = (
-                    db.query(func.sum(Order.amount)).filter(Order.user_id == inv_uuid, Order.status == 1).scalar() or 0
-                )
-                latest_order = (
-                    db.query(Order)
-                    .filter(Order.user_id == inv_uuid, Order.status == 1)
-                    .order_by(Order.id.desc())
-                    .first()
-                )
+                cnt, total, latest = agg_map.get(inv.uuid, (0, 0, None))
                 result.append(
                     {
                         "uuid": inv.uuid,
@@ -176,11 +179,9 @@ async def invitee_order_stats(
                         "avatar": inv.avatar,
                         "is_vip": inv.is_vip,
                         "created_at": inv.created_at.isoformat() if inv.created_at else None,
-                        "order_count": order_count,
-                        "total_amount": total_amount,
-                        "latest_time": (
-                            latest_order.created_at.isoformat() if latest_order and latest_order.created_at else None
-                        ),
+                        "order_count": cnt,
+                        "total_amount": total,
+                        "latest_time": latest.isoformat() if latest else None,
                     }
                 )
 

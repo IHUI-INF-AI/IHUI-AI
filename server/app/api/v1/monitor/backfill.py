@@ -105,7 +105,7 @@ async def backfill_progress(request: Request):
                     break
                 try:
                     # 阻塞取, 1s 超时
-                    event = await asyncio.get_event_loop().run_in_executor(None, lambda: q.get(timeout=0.5))
+                    event = await asyncio.get_running_loop().run_in_executor(None, lambda: q.get(timeout=0.5))
                     yield event.to_sse()
                 except Exception:
                     # 超时: 推送 heartbeat (5s 一次, 防止代理断开)

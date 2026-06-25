@@ -404,7 +404,7 @@ class Question(TimestampMixin, Base):
     options = Column(Text, nullable=True, comment="选项JSON")
 
 
-class SignUp(TimestampMixin, Base):
+class ExamSignUp(TimestampMixin, Base):
     """测评报名 (迁移自 t_sign_up).
 
     - 学员在某个 Exam 上报名; 状态机: 已报名/已完成/已取消

@@ -66,8 +66,9 @@ class ConnectionManager:
         self.max_queue = 500
         self.total = 0
         self.peak = 0
+        self._lock = asyncio.Lock()
 
-    async def add(self, client_id: str, ws: WebSocket) -> bool:
+    async def _add_locked(self, client_id: str, ws: WebSocket) -> bool:
         if len(self.active) >= self.max_active:
             self.queue.append((client_id, ws))
             await ws.send_text(json.dumps({
@@ -85,13 +86,18 @@ class ConnectionManager:
         self.peak = max(self.peak, len(self.active))
         return True
 
+    async def add(self, client_id: str, ws: WebSocket) -> bool:
+        async with self._lock:
+            return await self._add_locked(client_id, ws)
+
     async def remove(self, client_id: str) -> None:
-        self.active.pop(client_id, None)
-        self.info.pop(client_id, None)
-        # 排队晋升
-        if self.queue and len(self.active) < self.max_active:
-            next_id, next_ws = self.queue.popleft()
-            await self.add(next_id, next_ws)
+        async with self._lock:
+            self.active.pop(client_id, None)
+            self.info.pop(client_id, None)
+            # 排队晋升
+            if self.queue and len(self.active) < self.max_active:
+                next_id, next_ws = self.queue.popleft()
+                await self._add_locked(next_id, next_ws)
 
     def touch(self, client_id: str) -> None:
         if client_id in self.info:
@@ -352,8 +358,8 @@ async def ws_chat_full(websocket: WebSocket, client_id: str):
         await manager.remove(client_id)
         try:
             await websocket.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("关闭 WebSocket 失败: %s", e)
 
 
 # ----------------- 管理端点 -----------------

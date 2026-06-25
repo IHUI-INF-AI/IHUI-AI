@@ -5,11 +5,14 @@
 """
 
 import hashlib
+import logging
 import threading
 import time
 from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -86,8 +89,8 @@ class N1Detector:
         if self._on_alert:
             try:
                 self._on_alert(alert)
-            except Exception:
-                pass  # intentionally ignored
+            except Exception as e:
+                logger.debug("N+1 检测告警回调失败: %s", e)  # intentionally ignored
 
     def stats(self) -> dict[str, int]:
         with self._lock:

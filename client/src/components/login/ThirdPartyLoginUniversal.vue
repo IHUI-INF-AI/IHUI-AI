@@ -383,7 +383,7 @@ defineExpose({
   height: 32px;
   border-radius: var(--global-border-radius);
   background-color: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
   display: flex;
   align-items: center;
   justify-content: center;

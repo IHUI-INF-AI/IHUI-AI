@@ -8,11 +8,10 @@
 import { createI18n } from 'vue-i18n'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
-import zhCnEp from 'element-plus/es/locale/lang/zh-cn'
-import zhTwEp from 'element-plus/es/locale/lang/zh-tw'
-import enEp from 'element-plus/es/locale/lang/en'
-import jaEp from 'element-plus/es/locale/lang/ja'
-import koEp from 'element-plus/es/locale/lang/ko'
+// 2026-06-24 优化：Element Plus 语言包按需懒加载
+// 之前: 顶层 import 5 个 EP 语言包 (zhCn/zhTw/en/ja/ko)，全部打进主 chunk ~ 30KB
+// 现在: 改为动态 import，仅在 getElementPlusLocale 调用时按需加载当前语言
+// 收益: 首屏不加载其它 4 种 EP 语言包
 
 // 支持的语言列表
 export const languages = [
@@ -26,7 +25,10 @@ export const languages = [
 export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko'
 
 // 核心模块列表 - 应用启动时加载
-const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary'] as const
+// 2026-06-24 修复: 增加 'login' 核心模块, 修复首屏 Login.vue 品牌区翻译键名裸露
+// (login.worldFirst / login.oneStopAI / login.aiModels / login.users500k / login.users / login.availability)
+// 注意: login.json 仅存在于 full/{locale}/, 实际从 full/{locale}/login.json 加载 (见 loadCoreMessages)
+const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'login'] as const
 
 // 异步模块列表 - 按需加载
 const asyncModules = [
@@ -83,18 +85,26 @@ async function loadFullLocaleMessages(locale: SupportedLocale): Promise<void> {
 }
 
 // 动态加载核心模块
+// 2026-06-24 修复: 增加 login 核心模块加载 (从 full/{locale}/login.json, fallback 到 zh-CN/full/login.json)
+// 修复首屏 Login.vue 品牌区翻译键名裸露
 async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string, unknown>> {
-  const [coreMod, appMod, errorBoundaryMod] = await Promise.all([
+  const [coreMod, appMod, errorBoundaryMod, loginMod] = await Promise.all([
     import(`./modules/${locale}/core.json`),
     import(`./modules/${locale}/app.json`).catch(() => import(`./modules/zh-CN/app.json`).catch(() => null)),
     import(`./modules/${locale}/errorBoundary.json`).catch(() => import(`./modules/zh-CN/errorBoundary.json`).catch(() => null)),
+    // login.json 仅在 full/{locale}/ 下存在, 不在 modules/{locale}/, 所以直接读 full
+    import(`./full/${locale}/login.json`).catch(() => import(`./full/zh-CN/login.json`).catch(() => null)),
   ])
   coreModules.forEach(module => markModuleLoaded(locale, module))
   markModuleLoaded(locale, 'app')
   const core = coreMod.default || coreMod
   const app = appMod ? (appMod.default || appMod) : {}
   const errorBoundary = errorBoundaryMod ? (errorBoundaryMod.default || errorBoundaryMod) : {}
-  return { ...core, ...app, ...errorBoundary }
+  // 2026-06-24 修复: 合并 login 模块的翻译, 修复首屏 Login.vue 键名裸露
+  // login.json 结构: { login: {...}, loginPopup: {...}, userLoginPopup: {...} }
+  // 需要平铺到 i18n messages 顶层, 使 t('login.worldFirst') 可解析
+  const login = loginMod ? (loginMod.default || loginMod) : {}
+  return { ...core, ...app, ...errorBoundary, ...login }
 }
 
 // P6-5：缺失模块时回退到 zh-CN（避免英/日/韩部分页面键名裸露）
@@ -282,21 +292,25 @@ function setI18nLocale(locale: string): void {
 // 初始化核心模块
 async function initializeCoreMessages(): Promise<void> {
   const locale = getI18nLocale() as SupportedLocale
-  
+
   try {
     const coreMessages = await loadCoreMessages(locale)
-    
+
     // 使用 mergeLocaleMessage 合并消息
     mergeI18nMessages(locale, coreMessages)
-    
+
     // 缓存模块消息
     moduleMessages.set(locale, { ...coreMessages })
-    
-    // 加载完整语言包，使 floatingChat 等键能根据当前语言从对应文件反显
-    await loadFullLocaleMessages(locale)
-    
+
+    // 2026-06-24 优化：启动时不再加载完整语言包
+    // 原行为: await loadFullLocaleMessages(locale)
+    // 问题: loadFullLocaleMessages 会在首屏强制 import 564+KB 的 zh-CN full/* JSON
+    //      导致 dist 出现 5 个 locale-full-*.js 大 chunk (gzipped 后 ~840KB)
+    // 新行为: 只在用户主动切换语言时 (setLanguage) 才加载完整语言包
+    // 影响: 缺失的键会回退到 fallbackLocale (zh-CN)，首屏翻译依然完整
+    //      特殊页面 (如 I18nDashboard) 需要全量键时可显式调用 loadFullLocaleMessages
     if (import.meta.env.DEV) {
-      logger.info(`[i18n] Core messages loaded for ${locale}`)
+      logger.info(`[i18n] Core messages loaded for ${locale} (full locale deferred)`)
     }
   } catch (error) {
     logger.error(`[i18n] Failed to load core messages for ${locale}:`, error)
@@ -416,15 +430,76 @@ export function getI18nGlobal() {
   }
 }
 
-// 获取Element Plus语言包
-export function getElementPlusLocale(lang: string) {
+// Element Plus 语言包懒加载缓存
+const _epLocaleCache = new Map<string, Record<string, unknown>>()
+const _epLocaleLoading = new Map<string, Promise<Record<string, unknown>>>()
+
+function _epKey(lang: string): string {
   const code = (lang || 'zh-CN').toLowerCase()
-  if (code.startsWith('zh-tw')) return zhTwEp
-  if (code.startsWith('zh')) return zhCnEp
-  if (code.startsWith('en')) return enEp
-  if (code.startsWith('ja')) return jaEp
-  if (code.startsWith('ko')) return koEp
-  return enEp
+  if (code.startsWith('zh-tw')) return 'zh-tw'
+  if (code.startsWith('zh')) return 'zh-cn'
+  if (code.startsWith('en')) return 'en'
+  if (code.startsWith('ja')) return 'ja'
+  if (code.startsWith('ko')) return 'ko'
+  return 'en'
+}
+
+/**
+ * 2026-06-24 优化：按需加载 Element Plus 语言包
+ * 首次访问某语言时动态 import，后续命中缓存
+ * 注意: 此函数必须在调用前已通过 loadElementPlusLocale 预加载，
+ *       否则返回 en 兜底 (避免阻塞 UI)
+ */
+export function getElementPlusLocale(lang: string): Record<string, unknown> {
+  const key = _epKey(lang)
+  return _epLocaleCache.get(key) || _epLocaleCache.get('en') || {}
+}
+
+/**
+ * 2026-06-24 优化：异步预加载 EP 语言包
+ * App.vue 在 locale 变化时调用，确保 el-config-provider 能拿到正确语言
+ */
+export async function loadElementPlusLocale(lang: string): Promise<Record<string, unknown>> {
+  const key = _epKey(lang)
+  if (_epLocaleCache.has(key)) {
+    return _epLocaleCache.get(key)!
+  }
+  if (_epLocaleLoading.has(key)) {
+    return _epLocaleLoading.get(key)!
+  }
+  // 确保兜底英文包至少可用，避免 UI 突然空白
+  if (!_epLocaleCache.has('en') && key !== 'en') {
+    void loadElementPlusLocale('en').catch(() => {})
+  }
+  // 静态映射所需语言包，确保 Vite 8 在 optimizeDeps 阶段预构建这 5 个 EP 语言包，
+  // 避免动态 import 命中 .vite/deps/element-plus_es_locale_lang_*.js 404。
+  // (修复 2026-06-24: "Failed to fetch dynamically imported module: element-plus_es_locale_lang_zh-cn__mjs.js")
+  // 兜底：若目标 key 不在表中则降级到 en；en 加载失败时返回空对象，由 EP 自行使用组件名兜底。
+  const _epLoaders: Record<string, () => Promise<Record<string, unknown>>> = {
+    'zh-cn': () => import('element-plus/es/locale/lang/zh-cn.mjs'),
+    'zh-tw': () => import('element-plus/es/locale/lang/zh-tw.mjs'),
+    en: () => import('element-plus/es/locale/lang/en.mjs'),
+    ja: () => import('element-plus/es/locale/lang/ja.mjs'),
+    ko: () => import('element-plus/es/locale/lang/ko.mjs'),
+  }
+  const loader = (async () => {
+    const path = _epLoaders[key]
+    if (path) {
+      const m = await path()
+      return (m && (m as { default?: Record<string, unknown> }).default) || (m as Record<string, unknown>)
+    }
+    // 兜底英文包，避免 UI 空白
+    const m = await _epLoaders.en()
+    return (m && (m as { default?: Record<string, unknown> }).default) || (m as Record<string, unknown>)
+  })()
+  _epLocaleLoading.set(key, loader)
+  try {
+    const mod = await loader
+    _epLocaleCache.set(key, mod)
+    return mod
+  } finally {
+    _epLocaleLoading.delete(key)
+  }
 }
 
 // 初始化i18n

@@ -11,9 +11,13 @@
   3. 开发环境 (ENV=dev): 无 token 时放行 (方便本地调试)
 """
 
+import logging
+
 from fastapi import Depends, HTTPException, Request, status
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def admin_required(request: Request):
@@ -38,8 +42,8 @@ async def admin_required(request: Request):
                 roles = payload.get("roles") or []
                 if role == "admin" or "admin" in roles:
                     return {"src": "jwt", "sub": payload.get("sub")}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("admin JWT 解码失败: %s", e)
 
     # 3. 开发环境放行 (方便本地调试)
     env = getattr(settings, "ENV", "dev")

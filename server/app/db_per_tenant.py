@@ -167,8 +167,8 @@ def get_tenant_engine(base_engine: Engine, tenant_id: int) -> Engine:
                         "pool_pre_ping": True,
                     }
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                _loguru_logger.debug("设置 tenant engine pool 参数失败: %s", e)
         new_engine = create_engine(base_engine.url, **kwargs)
     except Exception as e:
         with contextlib.suppress(Exception):
@@ -313,8 +313,8 @@ def dispose_all_tenant_engines() -> int:
             try:
                 eng.dispose()
                 n += 1
-            except Exception:
-                pass
+            except Exception as e:
+                _loguru_logger.debug("dispose tenant engine 失败: %s", e)
         _TENANT_ENGINES.clear()
         _ENGINE_STATS.clear()
     with _SESSION_MAKERS_LOCK:
@@ -334,8 +334,8 @@ def evict_tenant_engine(tenant_id: int) -> int:
                 try:
                     eng.dispose()
                     n += 1
-                except Exception:
-                    pass
+                except Exception as e:
+                    _loguru_logger.debug("dispose tenant engine 失败: %s", e)
     with _SESSION_MAKERS_LOCK:
         sm_to_del = [k for k in _SESSION_MAKERS if k[1] == tenant_id]
         for k in sm_to_del:

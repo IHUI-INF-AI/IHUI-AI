@@ -4,10 +4,13 @@
 """
 
 import enum
+import logging
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 class Channel(enum.StrEnum):
@@ -93,8 +96,8 @@ class EscalationEngine:
                         if self._send:
                             try:
                                 self._send(step.channel, a.id, step.template or a.severity)
-                            except Exception:
-                                pass  # intentionally ignored
+                            except Exception as e:
+                                logger.debug("告警升级发送失败: %s", e)  # intentionally ignored
         return out
 
     def active(self) -> list[ActiveAlert]:

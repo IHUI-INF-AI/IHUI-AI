@@ -10,10 +10,13 @@
 
 import hashlib
 import hmac
+import logging
 import secrets
 import time
 
 from fastapi import HTTPException, Request, Response, status
+
+logger = logging.getLogger(__name__)
 
 # 默认 cookie / header 名
 CSRF_COOKIE_NAME = "XSRF-TOKEN"
@@ -31,8 +34,8 @@ def _secret() -> bytes:
         k = getattr(settings, "JWT_SECRET_KEY", None) or getattr(settings, "SECRET_KEY", None)
         if k:
             return k.encode("utf-8")
-    except Exception:
-        pass  # intentionally ignored
+    except Exception as e:
+        logger.debug("读取 CSRF 密钥失败: %s", e)  # intentionally ignored
     # 生产环境必须显式配置密钥, 禁止使用默认弱密钥
     import os
 

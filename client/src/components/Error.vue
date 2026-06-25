@@ -162,7 +162,7 @@ button:hover {
 
 .btn-primary {
   background: var(--el-color-primary);
-  color: var(--el-color-white);
+  color: var(--color-on-primary);
 }
 
 .btn-secondary {

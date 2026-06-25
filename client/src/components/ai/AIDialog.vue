@@ -2877,7 +2877,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         // 新模型：New 文字标签
         font-size: 10px;
         font-weight: 700;
-        color: var(--el-color-white);
+        color: var(--color-on-primary); // 明暗模式自动适配：亮色=白字（绿底）、暗色=黑字（浅绿底）
         background: var(--el-color-success);
         padding: 2px 6px;
         border-radius: var(--global-border-radius);
@@ -3036,23 +3036,23 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     // 暗色模式适配
     html.dark & {
       color: var(--el-text-color-primary);
-      
+
       .checkmark {
-        border-color: var(--el-color-white);
+        border-color: var(--el-color-primary); // 暗色下边框跟随主色，避免浅色边框在浅色背景上消失
       }
-      
+
       &:hover:not(.is-disabled) .checkmark {
-        border-color: var(--el-color-white);
+        border-color: var(--el-color-primary);
         background-color: var(--color-white-10);
       }
-      
+
       input[type="checkbox"]:checked + .checkmark {
-        background-color: var(--el-color-white);
-        border-color: var(--el-color-white);
+        background-color: var(--el-color-primary); // 与亮色逻辑一致：primary 背景
+        border-color: var(--el-color-primary);
       }
-      
+
       input[type="checkbox"]:checked + .checkmark::before {
-        color: var(--el-text-color-primary); /* 暗色模式下对号颜色 */
+        color: var(--color-on-primary); // 明暗模式自动适配：暗色下=黑对号
       }
     }
   }

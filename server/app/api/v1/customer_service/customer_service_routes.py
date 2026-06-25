@@ -177,8 +177,8 @@ async def get_faqs(category: str | None = None, _: str = Depends(require_login))
 try:
     _cs_init_db()
     _conversations = load_conversations()
-except Exception:
-    pass
+except Exception as e:
+    logger.debug("初始化客服会话 SQLite 持久化失败: %s", e)
 
 # ---------- 工单(与前端 /api/customer-service/tickets 对齐)----------
 # 前端 ticket.ts 使用 CUSTOMER_SERVICE_PATHS.tickets = "/api/customer-service/tickets"
@@ -201,5 +201,5 @@ else:
 try:
     if "_cs_tickets" in dir() and "_cs_replies" in dir():
         pass  # 数据已通过 router 加载
-except Exception:
-    pass
+except Exception as e:
+    logger.debug("检查工单数据初始化状态失败: %s", e)

@@ -196,7 +196,7 @@ export const userRoutes: Array<RouteRecordRaw> = [
     },
   },
   {
-    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (用户设置, 后端无 /user/settings/* 路由)
+    // 2026-06-24: 后端 /user/settings/* 已可用, 7 个设置合规子页面 (业务执照/ICP备案/模型备案/使用规范/应用权限/账号注销/更换手机号) 全部就绪, 恢复入口
     path: '/settings',
     name: 'settings',
     component: safeImport(
@@ -208,8 +208,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: 'seo.settings.desc',
       keywords: 'seo.settings.keywords',
       requiresAuth: true,
-      hidden: true,
-      disabledReason: '功能升级中',
     },
   },
   // ============ 设置与合规子页面（多端互通，对齐 miniapp pagesA/settings）============

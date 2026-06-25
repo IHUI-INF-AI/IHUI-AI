@@ -182,7 +182,7 @@ async def verify_alipay_signature(params: dict) -> bool:
     """
     import asyncio
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, verify_notify, dict(params))
 
 

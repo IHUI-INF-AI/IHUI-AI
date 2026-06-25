@@ -624,18 +624,23 @@ api_router.include_router(users_router, prefix="/user", tags=["Users"])
 api_router.include_router(vip_router, prefix="/user", tags=["VIP"])
 
 # Agents
+# 修复路由前缀冲突: 12 个子 router 原本共用 /agents 前缀, 导致 /list /create /{id} 等路径
+# 被第一个注册的 agents_router 屏蔽, buy/settlement/withdrawal/categories/examine/developer/
+# rules/identity/cache 的同名端点永远不可达。现给每个子 router 加独立子前缀。
+# agents_router 保持 /agents (前端在用 /agents/list 和 /agents/create)。
+# 前端 agent-withdrawal.ts 的 /agents/apply 已同步改为 /agents/withdrawal/apply。
 api_router.include_router(agents_router, prefix="/agents", tags=["Agents"])
-api_router.include_router(buy_router, prefix="/agents", tags=["Agent Purchase"])
-api_router.include_router(categories_router, prefix="/agents", tags=["Agent Categories"])
-api_router.include_router(examine_router, prefix="/agents", tags=["Agent Review"])
-api_router.include_router(developer_router, prefix="/agents", tags=["Agent Developers"])
-api_router.include_router(settlement_router, prefix="/agents", tags=["Agent Settlement"])
-api_router.include_router(agent_withdrawal_router, prefix="/agents", tags=["Agent Withdrawal"])
-api_router.include_router(rules_router, prefix="/agents", tags=["Agent Rules"])
-api_router.include_router(heat_router, prefix="/agents", tags=["Agent Heat Stats"])
-api_router.include_router(identity_router, prefix="/agents", tags=["Agent Identity"])
-api_router.include_router(creation_router, prefix="/agents", tags=["Agent Creation"])
-api_router.include_router(cache_router, prefix="/agents", tags=["Agent Cache"])
+api_router.include_router(buy_router, prefix="/agents/buy", tags=["Agent Purchase"])
+api_router.include_router(categories_router, prefix="/agents/categories", tags=["Agent Categories"])
+api_router.include_router(examine_router, prefix="/agents/examine", tags=["Agent Review"])
+api_router.include_router(developer_router, prefix="/agents/developer", tags=["Agent Developers"])
+api_router.include_router(settlement_router, prefix="/agents/settlement", tags=["Agent Settlement"])
+api_router.include_router(agent_withdrawal_router, prefix="/agents/withdrawal", tags=["Agent Withdrawal"])
+api_router.include_router(rules_router, prefix="/agents/rules", tags=["Agent Rules"])
+api_router.include_router(heat_router, prefix="/agents/heat", tags=["Agent Heat Stats"])
+api_router.include_router(identity_router, prefix="/agents/identity", tags=["Agent Identity"])
+api_router.include_router(creation_router, prefix="/agents/creation", tags=["Agent Creation"])
+api_router.include_router(cache_router, prefix="/agents/cache", tags=["Agent Cache"])
 api_router.include_router(rule_params_router, tags=["Agent Rule Params"])
 
 # Bots

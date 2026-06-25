@@ -44,7 +44,7 @@ async def deepseek_chat(
     }
     url = "https://api.deepseek.com/chat/completions"
     t0 = time.perf_counter()
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             resp = await client.post(url, headers=_headers(), json=body, timeout=30)
             track_event(EVENT_CHAT_RECEIVE, user_id=user_uuid, channel="deepseek", model=model)
@@ -73,7 +73,7 @@ async def deepseek_chat_stream(
     url = "https://api.deepseek.com/chat/completions"
 
     async def event_generator():
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 async with client.stream(
                     "POST",

@@ -5,11 +5,14 @@
 """
 
 import enum
+import logging
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class DegradeLevel(enum.StrEnum):
@@ -85,8 +88,8 @@ class DegradeChain:
             if self._cache_set is not None:
                 try:
                     self._cache_set(v)
-                except Exception:
-                    pass  # intentionally ignored
+                except Exception as e:
+                    logger.debug("降级缓存写入失败: %s", e)  # intentionally ignored
             return DegradeResult(DegradeLevel.FULL, v)
         except Exception as e:
             err = f"{type(e).__name__}: {e}"
@@ -107,8 +110,8 @@ class DegradeChain:
                     with self._lock:
                         self._stats[DegradeLevel.CACHE.value] += 1
                     return DegradeResult(DegradeLevel.CACHE, v)
-            except Exception:
-                pass  # intentionally ignored
+            except Exception as e:
+                logger.debug("降级缓存读取失败: %s", e)  # intentionally ignored
         # 4. 默认
         if self._default is not None:
             with self._lock:

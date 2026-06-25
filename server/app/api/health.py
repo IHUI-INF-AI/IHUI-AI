@@ -8,6 +8,7 @@ K8s probes:
 """
 
 import asyncio
+import logging
 import threading
 import time
 from collections import deque
@@ -15,6 +16,8 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Health"])
 
@@ -101,8 +104,8 @@ def _record_history(latency_ms: float, status: str, db_ok: bool, redis_ok: bool)
                 text("INSERT INTO zhs_health_history (ts, latency_ms, status, db_ok, redis_ok) VALUES (:ts, :l, :s, :d, :r)"),
                 {"ts": ts, "l": item["latency_ms"], "s": status, "d": db_ok, "r": redis_ok},
             )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("持久化健康检查历史失败: %s", e)
 
 
 def _check_db_sync(engine, timeout: float = 2.0) -> tuple[bool, str]:

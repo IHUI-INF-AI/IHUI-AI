@@ -30,10 +30,8 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import get_session
-from app.services.token_utils_service import (
-    check_user_token_sufficient,
-    upload_file_to_server,
-)
+from app.services.token_utils_service import check_user_token_sufficient
+from app.utils.file_transfer import upload_file_to_server
 
 router = APIRouter(prefix="/ihui-ai-api/llm", tags=["LLM-Mini"])
 
@@ -460,14 +458,14 @@ async def _upload_base64_images_to_urls(content: str) -> str:
             if ext not in ("jpeg", "jpg", "png", "gif", "webp"):
                 ext = "png"
             filename = f"llm_image_{uuid.uuid4().hex}.{ext}"
-            upload_tasks.append(upload_file_to_server(blob, filename, logger))
+            upload_tasks.append(upload_file_to_server(blob, filename))
         except Exception as e:
             logger.warning("[Mini] base64 图片解码失败: %s", e)
             upload_tasks.append(asyncio.sleep(0))
-    urls = await asyncio.gather(*upload_tasks)
+    urls = await asyncio.gather(*upload_tasks, return_exceptions=True)
     new_content = content
     for i, m in enumerate(matches):
-        if urls[i]:
+        if urls[i] and not isinstance(urls[i], Exception):
             new_content = new_content.replace(m.group(0), urls[i])
     return new_content
 
@@ -627,8 +625,8 @@ async def ws_chat(websocket: WebSocket):
     finally:
         try:
             await websocket.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("关闭 WebSocket 失败: %s", e)
 
 
 # ----------------- 统一模型信息查询 -----------------

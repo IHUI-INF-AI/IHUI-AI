@@ -29,7 +29,7 @@ def _load_cache_from_db() -> dict:
     with get_session() as db:
         from app.models.activity_models import AgentCategory
 
-        items = db.query(AgentCategory).all()
+        items = db.query(AgentCategory).limit(1000).all()
         data = [
             {
                 "id": c.id,

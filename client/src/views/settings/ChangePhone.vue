@@ -97,15 +97,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElLoading } from 'element-plus'
 import SettingsPageLayout from './SettingsPageLayout.vue'
 import { sendTextMsg, sendTextMsgNew, editPhone } from '@/api/auth'
 import { useUserStore } from '@/stores/auth'
+import { useCleanup } from '@/composables/useCleanup'
 
 const router = useRouter()
 const userStore = useUserStore()
+const cleanup = useCleanup()
 
 const currentPhone = ref('')
 const oldCode = ref('')
@@ -113,8 +115,8 @@ const newPhone = ref('')
 const newCode = ref('')
 const oldCountdown = ref(0)
 const newCountdown = ref(0)
-let oldTimer: ReturnType<typeof setInterval> | null = null
-let newTimer: ReturnType<typeof setInterval> | null = null
+let oldCountdownHandle: { cancel: () => void } | null = null
+let newCountdownHandle: { cancel: () => void } | null = null
 const step = ref(1)
 const submitting = ref(false)
 
@@ -140,11 +142,6 @@ onMounted(() => {
   currentPhone.value = (phone || '').trim()
 })
 
-onUnmounted(() => {
-  if (oldTimer) clearInterval(oldTimer)
-  if (newTimer) clearInterval(newTimer)
-})
-
 function getErrMsg(e: unknown, fallback: string): string {
   const err = e as { data?: { msg?: string; message?: string }; msg?: string; message?: string }
   return err?.data?.msg || err?.data?.message || err?.msg || err?.message || fallback
@@ -152,24 +149,24 @@ function getErrMsg(e: unknown, fallback: string): string {
 
 function startOldCountdown() {
   oldCountdown.value = 60
-  if (oldTimer) clearInterval(oldTimer)
-  oldTimer = setInterval(() => {
+  if (oldCountdownHandle) oldCountdownHandle.cancel()
+  oldCountdownHandle = cleanup.addCancellableInterval(() => {
     oldCountdown.value--
-    if (oldCountdown.value <= 0 && oldTimer) {
-      clearInterval(oldTimer)
-      oldTimer = null
+    if (oldCountdown.value <= 0 && oldCountdownHandle) {
+      oldCountdownHandle.cancel()
+      oldCountdownHandle = null
     }
   }, 1000)
 }
 
 function startNewCountdown() {
   newCountdown.value = 60
-  if (newTimer) clearInterval(newTimer)
-  newTimer = setInterval(() => {
+  if (newCountdownHandle) newCountdownHandle.cancel()
+  newCountdownHandle = cleanup.addCancellableInterval(() => {
     newCountdown.value--
-    if (newCountdown.value <= 0 && newTimer) {
-      clearInterval(newTimer)
-      newTimer = null
+    if (newCountdown.value <= 0 && newCountdownHandle) {
+      newCountdownHandle.cancel()
+      newCountdownHandle = null
     }
   }, 1000)
 }

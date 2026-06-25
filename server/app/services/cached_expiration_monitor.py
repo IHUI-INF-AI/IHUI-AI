@@ -18,6 +18,9 @@ from app.database import SessionFactory1, get_session
 from app.models.activity_models import AgentBuy
 from app.models.agent_settlement import AgentSettlement
 
+# 保留后台任务引用，防止被 GC 回收
+_pending_tasks: set = set()
+
 
 def _metric_records_cached(table_name: str, count: int) -> None:
     try:
@@ -72,8 +75,8 @@ def _metric_app_local_time_tick() -> None:
         from app.metrics_business import APP_LOCAL_TIME
 
         APP_LOCAL_TIME.set(time.time())
-    except Exception:
-        pass  # metrics not available
+    except Exception as e:
+        logger.debug("上报 app 本地时间指标失败: %s", e)  # metrics not available
 
 
 def _metric_time_source_set() -> None:
@@ -293,7 +296,9 @@ class CachedExpirationMonitor:
                     if expired:
                         total_expired += len(expired)
                         _metric_expired_inc(tname, len(expired))
-                        asyncio.create_task(self._process_expired(tname, expired))
+                        _expired_task = asyncio.create_task(self._process_expired(tname, expired))
+                        _pending_tasks.add(_expired_task)
+                        _expired_task.add_done_callback(_pending_tasks.discard)
                     _metric_records_cached(tname, len(records))
             self.stats["total_checked"] += 1
             self.stats["total_expired"] += total_expired

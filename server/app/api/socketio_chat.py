@@ -20,6 +20,9 @@ from fastapi import APIRouter
 
 logger = logging.getLogger("socketio-chat")
 
+# 保留后台任务引用，防止被 GC 回收
+_pending_tasks: set = set()
+
 # 1) Socket.IO 异步服务器
 sio = socketio.AsyncServer(
     cors_allowed_origins="*",
@@ -55,14 +58,20 @@ class SocketIOConnectionManager:
         self.total_messages = 0
         self.peak_connections = 0
         self._tasks_started = False
+        self._lock = asyncio.Lock()
 
     def _start_background_tasks(self) -> None:
         if self._tasks_started:
             return
         try:
-            asyncio.create_task(self._process_queue())
-            asyncio.create_task(self._cleanup_inactive_connections())
-            asyncio.create_task(self._update_statistics())
+            for coro in (
+                self._process_queue(),
+                self._cleanup_inactive_connections(),
+                self._update_statistics(),
+            ):
+                task = asyncio.create_task(coro)
+                _pending_tasks.add(task)
+                task.add_done_callback(_pending_tasks.discard)
             self._tasks_started = True
             logger.info("✅ Socket.IO 后台任务已启动")
         except RuntimeError:
@@ -70,25 +79,26 @@ class SocketIOConnectionManager:
 
     async def add_connection(self, session_id: str, client_id: str, info: Dict[str, Any]) -> bool:
         self._start_background_tasks()
-        if len(self.active_connections) >= self.max_active_connections:
-            if len(self.connection_queue) >= self.max_queue_size:
-                await sio.emit("error", {"code": "QUEUE_FULL", "message": "服务器繁忙"}, room=session_id)
-                await sio.disconnect(session_id)
-                return False
-            self.connection_queue.append({
-                "session_id": session_id,
-                "client_id": client_id,
-                "connection_info": info,
-                "queued_at": time.time(),
-            })
-            position = len(self.connection_queue)
-            await sio.emit("queued", {
-                "position": position,
-                "estimated_wait": position * 2,
-                "message": f"当前排队第{position}位",
-            }, room=session_id)
-            return True
-        return await self._direct_connect(session_id, client_id, info)
+        async with self._lock:
+            if len(self.active_connections) >= self.max_active_connections:
+                if len(self.connection_queue) >= self.max_queue_size:
+                    await sio.emit("error", {"code": "QUEUE_FULL", "message": "服务器繁忙"}, room=session_id)
+                    await sio.disconnect(session_id)
+                    return False
+                self.connection_queue.append({
+                    "session_id": session_id,
+                    "client_id": client_id,
+                    "connection_info": info,
+                    "queued_at": time.time(),
+                })
+                position = len(self.connection_queue)
+                await sio.emit("queued", {
+                    "position": position,
+                    "estimated_wait": position * 2,
+                    "message": f"当前排队第{position}位",
+                }, room=session_id)
+                return True
+            return await self._direct_connect(session_id, client_id, info)
 
     async def _direct_connect(self, session_id: str, client_id: str, info: Dict[str, Any]) -> bool:
         try:
@@ -121,23 +131,25 @@ class SocketIOConnectionManager:
             return False
 
     async def remove_connection(self, session_id: str) -> None:
-        client_id = self.session_to_client.pop(session_id, None)
-        if not client_id:
-            return
-        self.active_connections.pop(client_id, None)
-        self.connection_info.pop(client_id, None)
-        self.chat_sessions.pop(client_id, None)
+        async with self._lock:
+            client_id = self.session_to_client.pop(session_id, None)
+            if not client_id:
+                return
+            self.active_connections.pop(client_id, None)
+            self.connection_info.pop(client_id, None)
+            self.chat_sessions.pop(client_id, None)
 
     async def _process_queue(self) -> None:
         while True:
             try:
-                if self.connection_queue and len(self.active_connections) < self.max_active_connections:
-                    item = self.connection_queue.popleft()
-                    if time.time() - item["queued_at"] > self.queue_timeout:
-                        await sio.emit("timeout", {"message": "排队超时"}, room=item["session_id"])
-                        await sio.disconnect(item["session_id"])
-                        continue
-                    await self._direct_connect(item["session_id"], item["client_id"], item["connection_info"])
+                async with self._lock:
+                    if self.connection_queue and len(self.active_connections) < self.max_active_connections:
+                        item = self.connection_queue.popleft()
+                        if time.time() - item["queued_at"] > self.queue_timeout:
+                            await sio.emit("timeout", {"message": "排队超时"}, room=item["session_id"])
+                            await sio.disconnect(item["session_id"])
+                            continue
+                        await self._direct_connect(item["session_id"], item["client_id"], item["connection_info"])
                 await asyncio.sleep(0.1)
             except Exception as e:
                 logger.error("❌ 排队处理异常: %s", e)
@@ -147,17 +159,18 @@ class SocketIOConnectionManager:
         while True:
             try:
                 now = time.time()
-                inactive = [
-                    cid for cid, info in self.connection_info.items()
-                    if now - info.get("last_activity", now) > 600
-                ]
-                for cid in inactive:
-                    sid = self.active_connections.get(cid)
+                async with self._lock:
+                    inactive = [
+                        (cid, self.active_connections.get(cid))
+                        for cid, info in self.connection_info.items()
+                        if now - info.get("last_activity", now) > 600
+                    ]
+                for cid, sid in inactive:
                     if sid:
                         try:
                             await sio.disconnect(sid)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug("断开超时连接失败: %s", e)
                         await self.remove_connection(sid)
                 await asyncio.sleep(300)
             except Exception as e:
@@ -210,8 +223,8 @@ async def connect(sid, environ, auth):
         logger.error("❌ Socket.IO connect 失败: %s", e)
         try:
             await sio.disconnect(sid)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Socket.IO connect 失败后断开连接失败: %s", e)
         return False
 
 

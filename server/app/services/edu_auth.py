@@ -189,7 +189,7 @@ def sso_login(
 
     key = db.execute(
         select(EduAuthSsoKey).where(
-            and_(EduAuthSsoKey.client_id == client_id, EduAuthSsoKey.is_active == True)
+            and_(EduAuthSsoKey.client_id == client_id, EduAuthSsoKey.status == True)
         )
     ).scalar_one_or_none()
     if not key:

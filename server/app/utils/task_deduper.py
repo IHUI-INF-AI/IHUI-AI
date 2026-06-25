@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 import time
 import uuid
@@ -13,6 +14,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class DedupTaskState(StrEnum):
@@ -130,8 +133,8 @@ class TaskDeduper:
         for cb in list(self._callbacks):
             try:
                 cb(task)
-            except Exception:
-                pass  # intentionally ignored
+            except Exception as e:
+                logger.debug("任务去重回调失败: %s", e)  # intentionally ignored
 
     def submit(
         self,

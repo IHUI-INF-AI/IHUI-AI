@@ -211,7 +211,7 @@ def update_progress(
     record = db.execute(
         select(EduLearnRecord).where(
             and_(
-                EduLearnRecord.user_id == user_id,
+                EduLearnRecord.uuid == user_id,
                 EduLearnRecord.course_id == course_id,
                 EduLearnRecord.section_id == section_id,
             )
@@ -244,7 +244,7 @@ def get_user_progress(db: Session, user_id: int, course_id: int) -> List[EduLear
     """Get all learn records for a user in a course."""
     return list(db.execute(
         select(EduLearnRecord).where(
-            and_(EduLearnRecord.user_id == user_id, EduLearnRecord.course_id == course_id)
+            and_(EduLearnRecord.uuid == user_id, EduLearnRecord.course_id == course_id)
         ).order_by(EduLearnRecord.section_id)
     ).scalars().all())
 
@@ -259,7 +259,7 @@ def get_course_completion(
     completed = db.execute(
         select(func.count(EduLearnRecord.id)).where(
             and_(
-                EduLearnRecord.user_id == user_id,
+                EduLearnRecord.uuid == user_id,
                 EduLearnRecord.course_id == course_id,
                 EduLearnRecord.is_completed == True,
             )
@@ -340,7 +340,7 @@ def issue_certificate(
         raise EduValidationError("course not completed")
     existing = db.execute(
         select(EduCertificate).where(
-            and_(EduCertificate.user_id == user_id, EduCertificate.course_id == course_id)
+            and_(EduCertificate.uuid == user_id, EduCertificate.course_id == course_id)
         )
     ).scalar_one_or_none()
     if existing:
@@ -358,6 +358,6 @@ def issue_certificate(
 
 def list_user_certificates(db: Session, user_id: int) -> List[EduCertificate]:
     return list(db.execute(
-        select(EduCertificate).where(EduCertificate.user_id == user_id)
+        select(EduCertificate).where(EduCertificate.uuid == user_id)
         .order_by(desc(EduCertificate.issue_date))
     ).scalars().all())

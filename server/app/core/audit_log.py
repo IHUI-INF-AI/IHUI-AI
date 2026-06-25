@@ -87,8 +87,8 @@ def _extract_user(request: Request) -> str:
         payload = decode_access_token(token)
         if payload:
             return payload.get("sub", "anonymous")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("审计日志解析 JWT 获取用户失败: %s", e)
     return "anonymous"
 
 

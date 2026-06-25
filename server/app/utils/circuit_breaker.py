@@ -112,7 +112,7 @@ class CircuitBreaker:
     def _init_half_open_lock(self):
         """延迟创建 asyncio.Lock, 避免在无 event loop 线程中初始化失败."""
         try:
-            asyncio.get_event_loop()
+            asyncio.get_running_loop()
             return asyncio.Lock()
         except RuntimeError:
             return None

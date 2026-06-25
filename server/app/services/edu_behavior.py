@@ -34,7 +34,7 @@ def track_event(
 
 def get_user_study_metrics(db: Session, user_id: int, since: Optional[datetime] = None) -> dict:
     """Aggregate user study metrics."""
-    base = EduBehaviorView.user_id == user_id
+    base = EduBehaviorView.uuid == user_id
     if since:
         base = base & (EduBehaviorView.created_at >= since)
     total_events = db.execute(select(func.count(EduBehaviorView.id)).where(base)).scalar() or 0
@@ -70,7 +70,7 @@ def list_user_events(
     db: Session, user_id: int, page: int = 1, size: int = 20,
     event: Optional[str] = None, entity_type: Optional[str] = None,
 ) -> Tuple[List[EduBehaviorView], int]:
-    filters = [EduBehaviorView.user_id == user_id]
+    filters = [EduBehaviorView.uuid == user_id]
     if event:
         filters.append(EduBehaviorView.event == event)
     if entity_type:

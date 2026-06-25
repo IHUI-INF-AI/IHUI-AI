@@ -235,8 +235,8 @@ def sync_canary_gauges(controller) -> None:
             rb = getattr(controller, "rollback", None)
             rb_val = 0.0 if callable(rb) else 1.0 if rb else 0.0
             CANARY_ROLLBACK_GAUGE.set(rb_val)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("同步 canary rollback gauge 失败: %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -266,8 +266,8 @@ def sync_canary_stage_gauges(controller) -> None:
                 CANARY_STAGE_RATIO_GAUGE.labels(stage=stage_value).set(cur_ratio)
             else:
                 CANARY_STAGE_RATIO_GAUGE.labels(stage=stage_value).set(0.0)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("同步 canary stage ratio gauge 失败: %s", e)
 
 
 def sync_shadow_gauges(shadow_or_link) -> None:
@@ -282,8 +282,8 @@ def sync_shadow_gauges(shadow_or_link) -> None:
         # CanaryShadowLink 有 .shadow 属性; ShadowRouter 本身就是 router
         ratio = shadow_or_link.shadow.ratio if hasattr(shadow_or_link, "shadow") else shadow_or_link.ratio
         SHADOW_RATIO_GAUGE.set(ratio)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("同步 shadow ratio gauge 失败: %s", e)
 
 
 def sync_canary_shadow_all(controller, link=None) -> None:

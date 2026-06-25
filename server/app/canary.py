@@ -30,11 +30,14 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import logging
 import os
 import random
 import threading
 import time
 from enum import StrEnum
+
+logger = logging.getLogger(__name__)
 
 
 class CanaryVersion(StrEnum):
@@ -60,8 +63,8 @@ def _enabled() -> bool:
 
         if getattr(settings, "ZHS_CANARY_ENABLED", None) is not None:
             return bool(settings.ZHS_CANARY_ENABLED)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("读取 canary 开关配置失败: %s", e)
     return os.getenv("ZHS_CANARY_ENABLED", "0") == "1"
 
 
@@ -71,8 +74,8 @@ def _v2_ratio() -> float:
 
         if getattr(settings, "ZHS_CANARY_V2_RATIO", None) is not None:
             return float(settings.ZHS_CANARY_V2_RATIO)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("读取 canary v2 比例配置失败: %s", e)
     try:
         return float(os.getenv("ZHS_CANARY_V2_RATIO", "0.1"))
     except Exception:

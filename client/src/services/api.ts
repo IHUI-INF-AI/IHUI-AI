@@ -512,19 +512,54 @@ async function getAgentListOnce(
   return body as ZhsAgentListBackendResponse
 }
 
-// 获取智能体列表。原接口 GET /ai-program/zhsAgent/list 已暂时取消（2026-06 探测 404）。
-// 通过环境变量 VITE_ENABLE_ZHS_AGENT_LIST 控制：
-//   - 缺省 / false / 'false' / '0'：返回空列表（兜底演示）
-//   - true / 'true' / '1'：恢复调用 getAgentListOnce
-// 恢复时只需在 .env(.local) 中加 VITE_ENABLE_ZHS_AGENT_LIST=true 并重启 dev server
-const DISABLE_ZHS_AGENT_LIST = !(
-  String(import.meta.env.VITE_ENABLE_ZHS_AGENT_LIST ?? '').toLowerCase() === 'true' ||
-  String(import.meta.env.VITE_ENABLE_ZHS_AGENT_LIST ?? '') === '1'
+// 后端 v1 真实端点: GET /api/v1/agents/list
+// 后端 agent_service.list_agents 返回 {total, data: [...]} → 通过 success() 包装后:
+//   {code, msg, data: [...], total}
+// 这里规范化成前端约定的 {code, msg, rows, total} 结构
+async function fetchRealAgentsList(
+  params: Record<string, string | number | undefined>
+): Promise<ZhsAgentListBackendResponse> {
+  // 使用本文件内的 http (axios instance) 而不是 request (函数), 后者不支持 .get() 方法
+  const res = await http.get<{
+    code?: number | string
+    msg?: string
+    data?: ZhsAgentRow[]
+    total?: number
+  }>('/api/v1/agents/list', { params })
+  const raw = (res as { data?: { code?: number | string; msg?: string; data?: ZhsAgentRow[]; total?: number } })?.data
+  const body = raw ?? (res as unknown as { code?: number | string; msg?: string; data?: ZhsAgentRow[]; total?: number })
+
+  // 业务码判定: 兼容后端 code=0 / "0" / 200 / "200"
+  const codeNum =
+    typeof body?.code === 'string' ? parseInt(body.code, 10) : body?.code
+  if (codeNum !== 0 && codeNum !== 200) {
+    throw new Error(body?.msg || `agents list failed: code=${body?.code}`)
+  }
+
+  // 后端 data 是 agent 数组, 映射成前端 rows
+  const rows = Array.isArray(body?.data) ? (body!.data as ZhsAgentRow[]) : []
+  return {
+    code: 200,
+    msg: body?.msg ?? 'ok',
+    rows,
+    total: typeof body?.total === 'number' ? body.total : rows.length,
+  }
+}
+
+// 获取智能体列表 - 2026-06-24 联调修复:
+//   主路径调真实后端 /api/v1/agents/list (修复前完全无人调用, 自有 agents 永远为空)
+//   失败时回退到旧 mock /ai-program/zhsAgent/list
+//   401 时回退到 GUEST_AGENT_LIST_FALLBACK
+//   旧的 VITE_ENABLE_ZHS_AGENT_LIST 开关保留兼容, 但默认行为已改为: 真实端点优先 + 自动回退
+const ENABLE_ZHS_AGENT_LIST_FALLBACK = !(
+  String(import.meta.env.VITE_ENABLE_ZHS_AGENT_LIST ?? '').toLowerCase() === 'false' ||
+  String(import.meta.env.VITE_ENABLE_ZHS_AGENT_LIST ?? '') === '0'
 )
 
 export function getAgentList(options: unknown): Promise<ZhsAgentListBackendResponse> {
-  if (DISABLE_ZHS_AGENT_LIST) {
-    return Promise.resolve({ code: 200, msg: 'ok', rows: [], total: 0 })
+  // 兼容保留: 旧开关显式设为 false/0 时, 直接走 mock 主路径(不调真实端点)
+  if (!ENABLE_ZHS_AGENT_LIST_FALLBACK) {
+    return getAgentListOnceLegacy(options)
   }
 
   const params: Record<string, string | number | undefined> = {}
@@ -540,17 +575,51 @@ export function getAgentList(options: unknown): Promise<ZhsAgentListBackendRespo
     }
   }
 
-  return getAgentListOnce(params)
-    .catch(err => {
-      logger.warn('[API] getAgentList main path failed, trying /ai-program direct connection', err)
-      return getAgentListOnce(params, 3)
+  // 主路径: 真实后端
+  return fetchRealAgentsList(params)
+    .catch(err1 => {
+      const ax1 = err1 as { response?: { status?: number }; message?: string }
+      logger.warn(
+        '[API] getAgentList real backend /api/v1/agents/list failed, falling back to legacy /ai-program/zhsAgent/list',
+        ax1?.message || err1
+      )
+      // 401 → 直接走 guest 兜底
+      if (ax1?.response?.status === 401) {
+        return GUEST_AGENT_LIST_FALLBACK
+      }
+      // 其它错误 → 走旧 mock
+      return getAgentListOnce(params).catch(err2 => {
+        const ax2 = err2 as { response?: { status?: number } }
+        if (ax2.response?.status === 401) {
+          return GUEST_AGENT_LIST_FALLBACK
+        }
+        logger.warn('[API] getAgentList legacy fallback also failed', err2)
+        return { code: 500, msg: (err2 as Error)?.message || '请求失败', rows: [], total: 0 }
+      })
     })
+}
+
+// 旧入口: 直接调 /ai-program/zhsAgent/list (供 VITE_ENABLE_ZHS_AGENT_LIST=false 显式开启)
+function getAgentListOnceLegacy(options: unknown): Promise<ZhsAgentListBackendResponse> {
+  const params: Record<string, string | number | undefined> = {}
+  if (options && typeof options === 'object') {
+    const opts = options as Record<string, unknown>
+    Object.keys(opts).forEach(key => {
+      if (opts[key] !== undefined && opts[key] !== null) {
+        params[key] = String(opts[key])
+      }
+    })
+    if (opts.page !== undefined && opts.page !== null && params.pageNum === undefined) {
+      params.pageNum = String(opts.page)
+    }
+  }
+  return getAgentListOnce(params)
     .catch(err => {
       const ax = err as { response?: { status?: number } }
       if (ax.response?.status === 401) {
         return GUEST_AGENT_LIST_FALLBACK
       }
-      logger.warn('[API] getAgentList request failed', err)
+      logger.warn('[API] getAgentList legacy request failed', err)
       return { code: 500, msg: (err as Error)?.message || '请求失败', rows: [], total: 0 }
     })
 }

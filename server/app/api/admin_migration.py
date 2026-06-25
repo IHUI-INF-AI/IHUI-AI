@@ -441,7 +441,15 @@ def push_notification(
     """写入一条告警到 message 表 (供后端内部调用, 如 run_reconcile_task).
 
     容量超限自动 FIFO 淘汰, 保证表不会无限增长.
+
+    Raises:
+        ValueError: 当 level 不在 {info, warn, error} 之一时 (运行时校验, 防止
+            内部调用方传非法值, 污染 message.sender_id).
     """
+    # P1 封版: 运行时校验 (Literal 注解是 hint, Python 不会 enforce)
+    if level not in ("info", "warn", "error"):
+        raise ValueError(f"push_notification: level 必须是 info/warn/error, 收到: {level!r}")
+
     with get_session() as db:
         m = Message(
             user_id=NOTIFY_RECIPIENT_UUID,

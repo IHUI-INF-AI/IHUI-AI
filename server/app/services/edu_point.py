@@ -75,7 +75,7 @@ def list_records(
     db: Session, user_id: int, page: int = 1, size: int = 20,
     change_type: Optional[str] = None,
 ) -> Tuple[List[EduPointRecord], int]:
-    filters = [EduPointRecord.user_id == user_id]
+    filters = [EduPointRecord.uuid == user_id]
     if change_type:
-        filters.append(EduPointRecord.change_type == change_type)
+        filters.append(EduPointRecord.type == change_type)
     return paginate(db, EduPointRecord, page=page, size=size, filters=filters, order_by=desc(EduPointRecord.id))

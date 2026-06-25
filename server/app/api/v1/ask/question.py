@@ -161,13 +161,25 @@ async def list_questions(
                 items = q.order_by(col.desc()).offset((page - 1) * limit).limit(limit).all()
             uid = _current_user_id()
             data = []
+            qids = [it.id for it in items]
+            qcs_map = {}
+            all_cids = set()
+            if qids:
+                all_qcs = (
+                    db.query(AskQuestionCategory)
+                    .filter(AskQuestionCategory.question_id.in_(qids))
+                    .all()
+                )
+                for x in all_qcs:
+                    qcs_map.setdefault(x.question_id, []).append(x.category_id)
+                    all_cids.add(x.category_id)
+            cat_map = {}
+            if all_cids:
+                crows = db.query(AskCategory).filter(AskCategory.id.in_(list(all_cids))).all()
+                cat_map = {c.id: {"id": c.id, "name": c.name} for c in crows}
             for it in items:
-                qcs = db.query(AskQuestionCategory).filter(AskQuestionCategory.question_id == it.id).all()
-                cids = [x.category_id for x in qcs]
-                cats = []
-                if cids:
-                    crows = db.query(AskCategory).filter(AskCategory.id.in_(cids)).all()
-                    cats = [{"id": c.id, "name": c.name} for c in crows]
+                cids = qcs_map.get(it.id, [])
+                cats = [cat_map[cid] for cid in cids if cid in cat_map]
                 data.append(_q_to_dict(it, cids, cats, uid))
             return success(data, total=total)
         except Exception as e:
@@ -205,13 +217,25 @@ async def public_list_questions(
                 items = q.order_by(col.desc()).offset((page - 1) * limit).limit(limit).all()
             uid = _current_user_id()
             data = []
+            qids = [it.id for it in items]
+            qcs_map = {}
+            all_cids = set()
+            if qids:
+                all_qcs = (
+                    db.query(AskQuestionCategory)
+                    .filter(AskQuestionCategory.question_id.in_(qids))
+                    .all()
+                )
+                for x in all_qcs:
+                    qcs_map.setdefault(x.question_id, []).append(x.category_id)
+                    all_cids.add(x.category_id)
+            cat_map = {}
+            if all_cids:
+                crows = db.query(AskCategory).filter(AskCategory.id.in_(list(all_cids))).all()
+                cat_map = {c.id: {"id": c.id, "name": c.name} for c in crows}
             for it in items:
-                qcs = db.query(AskQuestionCategory).filter(AskQuestionCategory.question_id == it.id).all()
-                cids = [x.category_id for x in qcs]
-                cats = []
-                if cids:
-                    crows = db.query(AskCategory).filter(AskCategory.id.in_(cids)).all()
-                    cats = [{"id": c.id, "name": c.name} for c in crows]
+                cids = qcs_map.get(it.id, [])
+                cats = [cat_map[cid] for cid in cids if cid in cat_map]
                 data.append(_q_to_dict(it, cids, cats, uid))
             return success(data, total=total)
         except Exception as e:

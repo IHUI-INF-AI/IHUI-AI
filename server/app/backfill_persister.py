@@ -72,8 +72,8 @@ def _set_db_bytes(path: Path) -> None:
     try:
         if path.exists():
             BACKFILL_PERSISTER_DB_BYTES.set(path.stat().st_size)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("读取 backfill 持久化 DB 字节数失败: %s", e)
 
 
 # ---------------------------------------------------------------------------

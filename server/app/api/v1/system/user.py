@@ -763,7 +763,7 @@ async def list_posts(user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysPost
 
     with get_session() as db:
-        items = db.query(SysPost).all()
+        items = db.query(SysPost).limit(500).all()
         return success(
             [
                 {
@@ -783,7 +783,7 @@ async def list_dict_types(user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysDictType
 
     with get_session() as db:
-        items = db.query(SysDictType).all()
+        items = db.query(SysDictType).limit(500).all()
         return success(
             [
                 {"dict_id": t.dict_id, "dict_name": t.dict_name, "dict_type": t.dict_type, "status": t.status}
@@ -837,7 +837,7 @@ async def list_configs(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.sys_models import SysConfig
 
-        configs = db.query(SysConfig).all()
+        configs = db.query(SysConfig).limit(500).all()
         data = [
             {
                 "config_key": c.config_key,

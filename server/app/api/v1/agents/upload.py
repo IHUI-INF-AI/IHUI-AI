@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_session
 from app.models.agent_misc_models import AgentUpload
+from app.security import require_login
 from app.services.agent_upload import (
     assemble,
     build_input_params,
@@ -26,6 +27,7 @@ router = APIRouter(prefix="/api/agent", tags=["Agent 上传处理"])
 async def upload_agent(
     payload: dict[str, Any] = Body(...),
     db: Session = Depends(get_session),
+    user_uuid: str = Depends(require_login),
 ):
     """上传智能体配置数据到 agent_uploads 表."""
     try:
@@ -55,6 +57,7 @@ async def upload_agent(
 async def select_agent(
     agent_id: str = Query(...),
     db: Session = Depends(get_session),
+    _: str = Depends(require_login),
 ):
     """根据 agent_id 查询 agent_uploads 表数据."""
     try:
@@ -81,6 +84,7 @@ async def select_agent(
 async def process_agent(
     payload: dict[str, Any] = Body(...),
     db: Session = Depends(get_session),
+    _: str = Depends(require_login),
 ):
     """调用智能体端点并组装响应."""
     agent_id = payload.get("agent_id", "")

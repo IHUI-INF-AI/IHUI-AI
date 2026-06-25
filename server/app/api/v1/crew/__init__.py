@@ -1,5 +1,6 @@
 """多智能体 Crew API 路由."""
 
+import asyncio
 import json
 from typing import Any
 
@@ -72,7 +73,7 @@ async def get_session(session_id: str):
 async def execute_session(session_id: str, req: ExecuteSessionReq | None = None):
     """执行多智能体会话."""
     config = req.config if req else None
-    result = crew_orchestrator.execute_session(session_id)
+    result = await asyncio.to_thread(crew_orchestrator.execute_session, session_id)
     if not result.get("success"):
         raise HTTPException(status_code=500, detail=result.get("error", "执行失败"))
     return {"code": 0, "data": result, "msg": "ok"}

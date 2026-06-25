@@ -11,6 +11,7 @@
 
 import random
 import secrets
+import threading
 import time
 
 import httpx
@@ -34,6 +35,7 @@ def _mask_phone(phone: str) -> str:
 # 进程内内存降级存储 (Redis 不可用时使用, 仅开发/测试模式兜底).
 # 生产环境应使用真实 Redis, 此处仅作 fail-open 备份, 保证开发模式登录闭环可用.
 _memory_store: dict = {}
+_memory_store_lock = threading.Lock()
 
 
 def _store_code(phone: str, code: str, expire: int) -> None:
@@ -41,10 +43,11 @@ def _store_code(phone: str, code: str, expire: int) -> None:
     key = f"{SMS_CODE_PREFIX}{phone}"
     try:
         set_key(key, code, ex=expire)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Redis 存储验证码失败 (降级到内存): %s", e)
     # 同步写入内存, 作为 Redis 不可用时的降级备份
-    _memory_store[key] = (code, time.time() + expire)
+    with _memory_store_lock:
+        _memory_store[key] = (code, time.time() + expire)
 
 
 def _get_stored_code(phone: str) -> str | None:
@@ -54,17 +57,18 @@ def _get_stored_code(phone: str) -> str | None:
         val = get_key(key)
         if val:
             return val
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Redis 读取验证码失败 (降级到内存): %s", e)
     # Redis 不可用, 从内存降级存储读取
-    entry = _memory_store.get(key)
-    if not entry:
-        return None
-    code, expire = entry
-    if time.time() > expire:
-        _memory_store.pop(key, None)
-        return None
-    return code
+    with _memory_store_lock:
+        entry = _memory_store.get(key)
+        if not entry:
+            return None
+        code, expire = entry
+        if time.time() > expire:
+            _memory_store.pop(key, None)
+            return None
+        return code
 
 
 def _delete_stored_code(phone: str) -> None:
@@ -72,9 +76,10 @@ def _delete_stored_code(phone: str) -> None:
     key = f"{SMS_CODE_PREFIX}{phone}"
     try:
         delete_key(key)
-    except Exception:
-        pass
-    _memory_store.pop(key, None)
+    except Exception as e:
+        logger.debug("Redis 删除验证码失败: %s", e)
+    with _memory_store_lock:
+        _memory_store.pop(key, None)
 
 # 多档限速配置: (窗口秒数, 允许次数, 错误标签)
 RATE_TIERS = (
@@ -139,8 +144,8 @@ async def _send_via_dev_console(phone: str, code: str) -> bool:
     import tempfile
     import os
     logger.info("=" * 50)
-    logger.info(f"[DEV SMS] 手机号: {_mask_phone(phone)}, 验证码: {code}")
-    logger.info(f"[DEV SMS] 请在登录页面输入: {code}")
+    logger.info(f"[DEV SMS] 手机号: {_mask_phone(phone)}, 验证码: ***")
+    logger.info("[DEV SMS] 验证码已发送, 请在登录页面输入")
     logger.info("=" * 50)
     tmp_path = os.path.join(tempfile.gettempdir(), "dev_sms_code.txt")
     with open(tmp_path, "w", encoding="utf-8") as f:

@@ -111,7 +111,7 @@ async def dashscope_chat(
         "input": {"messages": [{"role": "user", "content": message}]},
     }
     url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             resp = await client.post(url, headers=headers, json=body, timeout=30)
             data = resp.json()
@@ -140,7 +140,7 @@ async def dashscope_stream(
     url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
 
     async def generate():
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             async with client.stream("POST", url, headers=headers, json=body, timeout=60) as resp:
                 async for line in resp.aiter_lines():
                     if line:
@@ -213,9 +213,9 @@ async def image_generate(
 
             # --- Sync polling mode: wait for result ---
             max_wait, poll_interval = 300, 3
-            start = asyncio.get_event_loop().time()
+            start = asyncio.get_running_loop().time()
 
-            while asyncio.get_event_loop().time() - start < max_wait:
+            while asyncio.get_running_loop().time() - start < max_wait:
                 await asyncio.sleep(poll_interval)
                 try:
                     task_data = await _query_task(task_id, client)
@@ -439,8 +439,8 @@ async def image_edit_simple(
                 if task_id and body.sync:
                     # poll until done
                     max_wait, poll_interval = 300, 3
-                    start = asyncio.get_event_loop().time()
-                    while asyncio.get_event_loop().time() - start < max_wait:
+                    start = asyncio.get_running_loop().time()
+                    while asyncio.get_running_loop().time() - start < max_wait:
                         await asyncio.sleep(poll_interval)
                         try:
                             task_data = await _query_task(task_id, client)

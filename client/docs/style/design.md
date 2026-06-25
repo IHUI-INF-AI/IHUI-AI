@@ -152,6 +152,61 @@
 | `--color-gradient-card-left/right` | 卡片左右渐变 |
 | `--color-gradient-group` | 组背景渐变 |
 
+### 7. 对比色 token（明暗模式文字色自适应）⚠️ 强制
+
+| 变量名 | 亮色值 | 暗色值 | 用途 |
+|---|---|---|---|
+| `--color-on-primary` | `#ffffff` | `#000000` | primary 背景上的文字/图标 |
+
+**核心规则：**
+
+- `--el-color-primary` 在明暗模式下会切换（亮色=`#000` / 暗色=`#fff`）。
+- 若在 primary 背景上用 `var(--el-color-white)` / `var(--el-text-color-primary)` / `#fff` / `#000` 作为文字色，暗色模式必然"白底白字"。
+- **必须**使用 `var(--color-on-primary)`，明暗模式自动切换对比色。
+
+| 模式 | `--el-color-primary` | `--color-on-primary` | 效果 |
+|---|---|---|---|
+| 亮色 | `#000` | `#fff` | 黑底白字 |
+| 暗色 | `#fff` | `#000` | 白底黑字 |
+
+**铁律：**
+- ❌ 禁止在 primary 背景（primary 按钮 / `.is-active` / 强调块）上用 `var(--el-color-white)` / `var(--el-text-color-primary)` / `#fff` / `#000` 作为文字或图标颜色
+- ❌ 禁止为每个按钮单独写 `html.dark` 覆盖规则来修文字色
+- ✅ 必须用 `var(--color-on-primary)`，明暗模式自动适配
+- ✅ primary 按钮的 hover/active 文字也用 `var(--color-on-primary)` 或 `var(--el-button-text-color)`
+
+**错误 vs 正确：**
+```scss
+/* ❌ 暗色模式白底白字 */
+.x-button.is-active {
+  background: var(--el-color-primary);
+  color: var(--el-color-white);
+}
+
+/* ✅ 自动适配明暗模式 */
+.x-button.is-active {
+  background: var(--el-color-primary);
+  color: var(--color-on-primary);
+}
+```
+
+**适用范围：**
+- primary 按钮（含 hover/active/disabled 文字色）
+- `.is-active` / `.active` 等激活态元素
+- primary 背景上的图标 SVG：`svg { color: var(--color-on-primary) }`
+- 强调背景卡片/标签上的文字
+- 自引用 token（如 `--xxx: var(--xxx)`）必须改为 `var(--color-on-primary)`
+
+**配套 token（[element-plus-vars.scss](file:///g:/1/client/src/styles/element-plus-vars.scss)）：**
+- `--el-button-text-color` → `#000000`
+- `--el-button-hover-text-color` → `#000000`
+- `--el-button-active-text-color` → `#000000`
+
+**自检清单：**
+- [ ] 凡是 `background: var(--el-color-primary)` 的元素，文字/图标都用 `var(--color-on-primary)`？
+- [ ] 没有在 primary 背景上用 `var(--el-color-white)` / `var(--el-text-color-primary)` / `#fff` / `#000`？
+- [ ] 没有写 `html.dark` 单点覆盖来修文字色？（用 token 一次性解决）
+
 ---
 
 ## 四、字体规范

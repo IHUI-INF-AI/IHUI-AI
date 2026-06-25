@@ -328,8 +328,8 @@ def full_reconcile() -> list[ReconcileReport]:
         try:
             eng = get_h_engine("ihui-ai-edu-learn-service")
             h_engines[table] = eng
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("获取表 %s 的 H 端 engine 失败: %s", table, e)
 
     h_session_factory = lambda eng=next(iter(h_engines.values()), None): eng.connect()
     g_session_factory = get_session

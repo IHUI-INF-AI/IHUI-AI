@@ -415,6 +415,21 @@ function setupRequestInterceptor() {
       // 注意：base 可能为 0（历史兼容：表示空/特殊 base），不能用 || 否则会被当成 1
       const base = config.base ?? 1
 
+      // 分页参数向后兼容: 后端 v1 (PageRequest schema) 端点统一使用 `limit` 字段,
+      // 前端历史接口普遍使用 `pageSize` (camelCase), 此处自动补一份 `limit` 别名,
+      // 避免每次调用方都手工改一遍. 已显式传 `limit` 的请求不会被覆盖.
+      try {
+        const p = config.params
+        if (p && typeof p === 'object' && !Array.isArray(p)) {
+          const obj = p as Record<string, unknown>
+          if (obj.pageSize !== undefined && obj.limit === undefined) {
+            obj.limit = obj.pageSize
+          }
+        }
+      } catch {
+        // params 不是普通对象时跳过(例如 URLSearchParams),不影响主流程
+      }
+
       // 增加请求日志
       logger.debug(`API request`, { url: config.url, method: config.method, base })
 

@@ -1,9 +1,11 @@
 """消息通知 - 站内信/系统消息/公告"""
 
 from datetime import datetime
+from typing import Any, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from app.core.current_user import current_user_id_or_guest
 from app.database import get_session
@@ -15,6 +17,99 @@ from app.models.message_models import (
 from app.schemas.common import error, success
 
 router = APIRouter()
+
+
+# ============ 通用发送消息 (前端 sendMessage / unifiedSendMessage 同形) ============
+
+
+class SendMessageBody(BaseModel):
+    """POST /message/send 请求体.
+
+    兼容前端两套调用:
+    - api/message.ts sendMessage: { userId, type, title, content, priority, category, actionUrl, actionText, expireTime, metadata }
+    - api/api-utils.ts unifiedSendMessage: { content, type, agentId, sessionId }
+
+    全部字段可选, 只有 content 必填.
+    """
+
+    user_id: Optional[str] = Field(default=None, alias="userId", description="接收者UUID, 缺省发给自己")
+    type: Optional[str] = Field(default="system", description="system/notice/private")
+    title: Optional[str] = Field(default=None, max_length=200)
+    content: str = Field(..., min_length=1, description="消息内容")
+    priority: Optional[str] = Field(default="medium", description="low/medium/high/urgent")
+    category: Optional[str] = Field(default=None, max_length=50, description="消息分类")
+    action_url: Optional[str] = Field(default=None, alias="actionUrl", max_length=500, description="跳转URL")
+    action_text: Optional[str] = Field(default=None, alias="actionText", max_length=100, description="跳转按钮文案")
+    target_type: Optional[str] = Field(default=None, alias="targetType", max_length=50)
+    target_id: Optional[str] = Field(default=None, alias="targetId", max_length=64)
+    expire_time: Optional[datetime] = Field(default=None, alias="expireTime")
+    # ai/会话场景的扩展字段(不存 DB, 仅回显)
+    agent_id: Optional[str] = Field(default=None, alias="agentId")
+    session_id: Optional[str] = Field(default=None, alias="sessionId")
+    metadata: Optional[dict[str, Any]] = Field(default=None, description="扩展元数据, 不存 DB")
+
+    class Config:
+        populate_by_name = True
+        extra = "ignore"
+
+
+@router.post("/send", summary="通用发送消息 (兼容前端 sendMessage / unifiedSendMessage)")
+async def send_message(body: SendMessageBody = Body(...)):
+    with get_session() as db:
+        try:
+            uid = _uid()
+            # userId 缺省时: 私信类发给自己, 其他类发给自己(系统通知写入自己的信箱)
+            receiver = body.user_id or uid
+            msg_type = (body.type or "system").lower()
+            if msg_type not in {"system", "notice", "private"}:
+                msg_type = "system"
+
+            # 兜底 title: content 截前 30 字
+            title = body.title or (body.content[:30] + ("..." if len(body.content) > 30 else ""))
+
+            m = Message(
+                user_id=receiver,
+                sender_id=uid,
+                sender_name="我",
+                type=msg_type,
+                title=title,
+                content=body.content,
+                target_type=body.target_type or body.category,
+                target_id=body.target_id,
+                target_url=body.action_url,
+            )
+            db.add(m)
+            db.flush()
+
+            payload: dict[str, Any] = {
+                "id": m.id,
+                "type": m.type,
+                "title": m.title,
+                "content": m.content,
+                "create_time": m.created_at.isoformat() if m.created_at else None,
+            }
+            # 扩展字段回显(不持久化但返回, 方便前端调试/记账)
+            if body.priority is not None:
+                payload["priority"] = body.priority
+            if body.category is not None:
+                payload["category"] = body.category
+            if body.action_url is not None:
+                payload["actionUrl"] = body.action_url
+            if body.action_text is not None:
+                payload["actionText"] = body.action_text
+            if body.expire_time is not None:
+                payload["expireTime"] = body.expire_time.isoformat()
+            if body.agent_id is not None:
+                payload["agentId"] = body.agent_id
+            if body.session_id is not None:
+                payload["sessionId"] = body.session_id
+            if body.metadata is not None:
+                payload["metadata"] = body.metadata
+
+            return success(payload)
+        except Exception as e:
+            logger.error(f"message send error: {e}")
+            return error(str(e))
 
 
 def _uid() -> str:

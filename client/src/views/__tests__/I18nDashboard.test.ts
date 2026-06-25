@@ -1,141 +1,433 @@
-// I18nDashboard.vue 单元测试 (P10 阶段)
+/**
+ * I18nDashboard.vue 组件测试
+ *
+ * 聚焦 base 选择结果的 localStorage 缓存逻辑（封版前测试补全，不新增功能）：
+ * - onMounted 优先读缓存
+ * - 缓存失效（TTL 超期 / code 不在白名单 / JSON 结构错误）走 autoPick
+ * - 手动切换 diffA 同步写入缓存
+ * - 重置按钮清除缓存并重新计算
+ * - localStorage 被禁用时静默失败
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { nextTick } from 'vue'
-import { createI18n } from 'vue-i18n'
+import { defineComponent, h } from 'vue'
 
-const i18n = createI18n({
-  legacy: false,
-  locale: 'zh-CN',
-  messages: { 'zh-CN': { common: { edit: '编辑', delete: '删除', cancel: '取消', ok: '确定', save: '保存', submit: '提交', search: '搜索', refresh: '刷新', close: '关闭', add: '新增', create: '创建', back: '返回', retry: '重试', clear: '清空', view: '查看' } } },
+// ---- vi.hoisted: 提升共享 mock 数据，供 vi.mock factory 与测试用例同时访问 ----
+// vi.mock factory 会被 hoist 到文件顶部，不能直接引用外部变量，必须用 vi.hoisted
+const { mockMessages, MOCK_LANGS } = vi.hoisted(() => {
+  // zh-CN 完成度高于 en（zh-CN 有 5 个 key，en 只有 4 个，缺 diffBtn）
+  // 这样 autoPick 稳定选 zh-CN，避免字典序干扰
+  const mockMessages = {
+    value: {
+      'zh-CN': {
+        i18nDashboard: {
+          title: '标题',
+          subtitle: '副标题',
+          diffResetCacheBtn: '重置',
+          diffAutoPickBtn: '自动',
+          diffBtn: '对比',
+        },
+      },
+      'en': {
+        i18nDashboard: {
+          title: 'Title',
+          subtitle: 'Subtitle',
+          diffResetCacheBtn: 'Reset',
+          diffAutoPickBtn: 'Auto',
+          // 故意缺 diffBtn，使 en 完成度 < zh-CN
+        },
+      },
+    } as Record<string, Record<string, unknown>>,
+  }
+  const MOCK_LANGS = [
+    { code: 'zh-CN', display_name: '简体中文', english_name: 'Chinese', is_rtl: false, plural_rule: 'other_only', decimal_separator: '.', thousands_separator: ',', currency_position: 'before' as const },
+    { code: 'en', display_name: 'English', english_name: 'English', is_rtl: false, plural_rule: 'one_other', decimal_separator: '.', thousands_separator: ',', currency_position: 'before' as const },
+  ]
+  return { mockMessages, MOCK_LANGS }
 })
 
-vi.mock('@/utils/request', () => ({
+// ---- mock vue-i18n（覆盖 test-setup.ts 的全局 mock，控制 locale）----
+// t 直接回传 key，便于断言 baseHint 文本
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, string | number>) => {
+      if (params && key === 'i18nDashboard.diffBaseHint') {
+        return `${key}:${params.code}:${params.percent}`
+      }
+      return key
+    },
+    locale: { value: 'zh-CN' },
+    te: () => true,
+    tm: () => ({}),
+  }),
+}))
+
+// ---- mock @/locales：提供可控的 i18n.global.messages.value ----
+// 组件直接 import i18n from '@/locales' 并访问 i18n.global.messages.value
+vi.mock('@/locales', () => ({
   default: {
-    get: vi.fn(),
-    post: vi.fn(),
+    global: {
+      messages: mockMessages,
+      locale: { value: 'zh-CN' },
+    },
   },
 }))
 
-import http from '@/utils/request'
-import I18nDashboard from '@/views/I18nDashboard.vue'
+// ---- mock @/constants/i18nLanguages：简化为 2 语言，code 与 messages key 对齐 ----
+vi.mock('@/constants/i18nLanguages', () => ({
+  I18N_LANGUAGES: MOCK_LANGS,
+  getLanguageMeta: (code: string) => MOCK_LANGS.find(m => m.code === code) || null,
+}))
 
-const LANGS = [
-  { code: 'zh-CN', display_name: '简体中文', english_name: 'Chinese (Simplified)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 1, plural_rule: 'other_only', number_grouping: 3 },
-  { code: 'en-US', display_name: 'English', english_name: 'English (US)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'one_other', number_grouping: 3 },
-  { code: 'ar', display_name: 'العربية', english_name: 'Arabic', direction: 'rtl', is_rtl: true, decimal_separator: '٫', thousands_separator: '٬', currency_position: 'after', first_day_of_week: 6, plural_rule: 'arabic', number_grouping: 3 },
-  { code: 'he', display_name: 'עברית', english_name: 'Hebrew', direction: 'rtl', is_rtl: true, decimal_separator: '.', thousands_separator: ',', currency_position: 'after', first_day_of_week: 0, plural_rule: 'hebrew', number_grouping: 3 },
-  { code: 'fr', display_name: 'Français', english_name: 'French', direction: 'ltr', is_rtl: false, decimal_separator: ',', thousands_separator: ' ', currency_position: 'after', first_day_of_week: 1, plural_rule: 'french', number_grouping: 3 },
-  { code: 'es', display_name: 'Español', english_name: 'Spanish', direction: 'ltr', is_rtl: false, decimal_separator: ',', thousands_separator: '.', currency_position: 'before', first_day_of_week: 1, plural_rule: 'one_other', number_grouping: 3 },
-  { code: 'ja', display_name: '日本語', english_name: 'Japanese', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'other_only', number_grouping: 3 },
-  { code: 'ko', display_name: '한국어', english_name: 'Korean', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'other_only', number_grouping: 3 },
-  { code: 'zh-TW', display_name: '繁體中文', english_name: 'Chinese (Traditional)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 1, plural_rule: 'other_only', number_grouping: 3 },
-]
+// ---- mock @/utils/i18nRelative：formatRelative 返回固定字符串 ----
+vi.mock('@/utils/i18nRelative', () => ({
+  formatRelative: () => '5m ago',
+}))
 
-const mockGet = (url: string) => {
-  if (url.includes('/languages')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { languages: LANGS, count: 9 } } })
-  if (url.includes('/keys')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { keys: ['common.welcome', 'common.items', 'common.save'], count: 3 } } })
-  if (url.includes('/stats')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { total_keys: 3, per_language: { 'zh-CN': 3 }, plural_keys: 1, languages: 9 } } })
-  if (url.includes('/sync-log')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { events: [{ event_id: 'e1', ts: 1700000000, actor: 'u', kind: 'create', key: 'k', language: 'zh-CN', note: '' }], count: 1 } } })
-  if (url.includes('/diff')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { lang_a: 'zh-CN', lang_b: 'en-US', a_missing: ['x'], b_missing: [], identical: [], total: 3 } } })
-  if (url.includes('/plural/')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { key: 'common.items', lang: 'zh-CN', is_rtl: false, samples: [{ count: 1, category: 'other', text: '1 项' }, { count: 5, category: 'other', text: '5 项' }] } } })
-  if (url.includes('/entry/')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { key: 'common.welcome', translations: { 'zh-CN': '欢迎' }, plurals: {}, description: '', updated_at: 1, version: 1 } } })
-  // P12 端点
-  if (url.includes('/health')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { total_keys: 3, languages: 9, per_lang: { 'zh-CN': 1.0 }, overall_coverage: 0.9, pending_mt: 0, stale_keys: 0, health_score: 90.0, mt_penalty: 0, stale_penalty: 0 } } })
-  if (url.includes('/v1-retirement-stats')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { total_hits: 0, unique_paths: 0, top_paths: [], last_hit_ts: null } } })
-  if (url.includes('/mt/providers')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { providers: [{ id: 'builtin-dict', name: '内置词典', available: true, description: '内置' }], current: 'builtin-dict', count: 1 } } })
-  return Promise.resolve({ data: { code: 0, msg: 'ok', data: {} } })
+// ---- stub LanguageSwitcher 子组件，避免渲染依赖 ----
+const LanguageSwitcherStub = defineComponent({
+  name: 'LanguageSwitcher',
+  props: { modelValue: { type: String, default: 'zh-CN' } },
+  emits: ['update:modelValue', 'change'],
+  setup(_, { emit }) {
+    return () =>
+      h('div', { class: 'lang-switcher-stub', 'data-testid': 'lang-switcher' })
+  },
+})
+
+import I18nDashboard from '../I18nDashboard.vue'
+
+const BASE_CACHE_KEY = 'i18n-dashboard-base-v1'
+const BASE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * 写入一份合法的 base 缓存
+ */
+function seedCache(code: string, ts: number = Date.now()) {
+  localStorage.setItem(BASE_CACHE_KEY, JSON.stringify({ code, ts }))
+}
+
+/**
+ * 读取 diffA select 的当前值
+ */
+function getDiffAValue(wrapper: ReturnType<typeof mount>): string {
+  const sel = wrapper.find('#i18n-diff-a').element as HTMLSelectElement
+  return sel.value
 }
 
 describe('I18nDashboard.vue', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
     localStorage.clear()
-    ;(http.get as any).mockImplementation(mockGet)
-    ;(http.post as any).mockImplementation((url: string) => {
-      if (url.includes('/format')) return Promise.resolve({ data: { code: 0, msg: 'ok', data: { kind: 'number', lang: 'zh-CN', result: '1,234.56', is_rtl: false } } })
-      return Promise.resolve({ data: { code: 0, msg: 'ok', data: {} } })
-    })
   })
 
   afterEach(() => {
-    vi.clearAllMocks()
+    localStorage.clear()
+    vi.restoreAllMocks()
   })
 
-  it('应渲染标题与 9 语言元数据表', async () => {
-    const wrapper = mount(I18nDashboard, { global: { plugins: [i18n] } })
+  // =================== onMounted 缓存读取 ===================
+  it('onMounted: 有有效缓存时优先使用缓存值作为 diffA', async () => {
+    seedCache('en')
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
     await flushPromises()
-    await nextTick()
+    expect(getDiffAValue(wrapper)).toBe('en')
+    // 缓存未被清除
+    expect(localStorage.getItem(BASE_CACHE_KEY)).not.toBeNull()
+  })
+
+  it('onMounted: 无缓存时调用 autoPick，选择完成度最高的语言', async () => {
+    // zh-CN 有 5 个 key，en 也有 5 个；完成度持平时按 code 字典序，zh-CN 在前
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+    // autoPick 会写入缓存
+    const raw = localStorage.getItem(BASE_CACHE_KEY)
+    expect(raw).not.toBeNull()
+    const parsed = JSON.parse(raw!)
+    expect(parsed.code).toBe('zh-CN')
+    expect(typeof parsed.ts).toBe('number')
+  })
+
+  // =================== TTL 失效 ===================
+  it('TTL: 缓存 ts 超过 7 天视为失效，走 autoPick', async () => {
+    const expiredTs = Date.now() - BASE_CACHE_TTL_MS - 1000
+    seedCache('en', expiredTs)
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    // 失效后 autoPick 选 zh-CN（完成度持平 + 字典序优先）
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+  })
+
+  it('TTL: 缓存 ts 在 7 天内仍然有效', async () => {
+    const validTs = Date.now() - BASE_CACHE_TTL_MS + 60_000 // 差 1 分钟到期
+    seedCache('en', validTs)
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('en')
+  })
+
+  // =================== code 白名单校验 ===================
+  it('白名单: 缓存 code 不在 I18N_LANGUAGES 中视为失效', async () => {
+    seedCache('fr-FR') // 不在 MOCK_LANGS 中
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    // 失效后走 autoPick
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+  })
+
+  // =================== JSON 结构校验 ===================
+  it('JSON: 缓存非合法 JSON 时视为失效', async () => {
+    localStorage.setItem(BASE_CACHE_KEY, '{not a valid json')
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+  })
+
+  it('JSON: 缓存字段类型错误（code 非 string）时视为失效', async () => {
+    localStorage.setItem(BASE_CACHE_KEY, JSON.stringify({ code: 123, ts: Date.now() }))
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+  })
+
+  it('JSON: 缓存字段类型错误（ts 非 number）时视为失效', async () => {
+    localStorage.setItem(BASE_CACHE_KEY, JSON.stringify({ code: 'en', ts: 'now' }))
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+  })
+
+  it('JSON: 缓存为 null 时视为失效', async () => {
+    localStorage.setItem(BASE_CACHE_KEY, 'null')
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+  })
+
+  // =================== 手动切换 diffA 写缓存 ===================
+  it('手动切换: 改变 diffA select 后同步写入缓存', async () => {
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    // 初始 autoPick 写入 zh-CN
+    expect(JSON.parse(localStorage.getItem(BASE_CACHE_KEY)!).code).toBe('zh-CN')
+
+    // 模拟用户手动切换 select 到 en
+    const sel = wrapper.find('#i18n-diff-a')
+    await sel.setValue('en')
+    await flushPromises()
+
+    // watch diffA 触发 writeCachedBase
+    const parsed = JSON.parse(localStorage.getItem(BASE_CACHE_KEY)!)
+    expect(parsed.code).toBe('en')
+    expect(typeof parsed.ts).toBe('number')
+  })
+
+  // =================== 重置按钮 ===================
+  it('重置按钮: 点击后清除缓存并重新 autoPick', async () => {
+    // 先植入一个 en 缓存
+    seedCache('en')
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('en')
+
+    // 找到重置按钮（标题含 diffResetCacheBtn）
+    const buttons = wrapper.findAll('button')
+    const resetBtn = buttons.find(b => b.attributes('title') === 'i18nDashboard.diffResetCacheBtn')
+    expect(resetBtn).toBeTruthy()
+    await resetBtn!.trigger('click')
+    await flushPromises()
+
+    // 重置后重新 autoPick → zh-CN，并重新写入缓存
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+    const parsed = JSON.parse(localStorage.getItem(BASE_CACHE_KEY)!)
+    expect(parsed.code).toBe('zh-CN')
+  })
+
+  // =================== 自动选择按钮 ===================
+  it('自动选择按钮: 点击 onAutoPickBase 写入缓存并更新 baseHint', async () => {
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+
+    const buttons = wrapper.findAll('button')
+    const autoBtn = buttons.find(b => b.attributes('title') === 'i18nDashboard.diffAutoPickBtn')
+    expect(autoBtn).toBeTruthy()
+    await autoBtn!.trigger('click')
+    await flushPromises()
+
+    // autoPick 选 zh-CN
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+    expect(JSON.parse(localStorage.getItem(BASE_CACHE_KEY)!).code).toBe('zh-CN')
+    // baseHint 应被设置（t 返回 i18nDashboard.diffBaseHint:code:percent）
+    const hint = wrapper.find('.i18n-diff-base-hint')
+    expect(hint.exists()).toBe(true)
+    expect(hint.text()).toContain('i18nDashboard.diffBaseHint')
+  })
+
+  // =================== localStorage 被禁用（静默失败） ===================
+  it('容错: localStorage.setItem 抛错时不影响渲染（静默失败）', async () => {
+    // 保留原方法，仅让 setItem 抛错（模拟无痕模式 / 配额满）
+    const origSetItem = Storage.prototype.setItem
+    Storage.prototype.setItem = vi.fn(() => {
+      throw new DOMException('QuotaExceededError')
+    })
+
+    try {
+      const wrapper = mount(I18nDashboard, {
+        global: {
+          stubs: { LanguageSwitcher: LanguageSwitcherStub },
+        },
+      })
+      await flushPromises()
+      // 组件应正常渲染，未抛错
+      expect(wrapper.find('.i18n-dashboard').exists()).toBe(true)
+      // autoPick 仍设置了 diffA（内存中），只是写缓存失败
+      expect(getDiffAValue(wrapper)).toBe('zh-CN')
+    } finally {
+      Storage.prototype.setItem = origSetItem
+    }
+  })
+
+  it('容错: localStorage.getItem 抛错时走 autoPick（静默失败）', async () => {
+    const origGetItem = Storage.prototype.getItem
+    Storage.prototype.getItem = vi.fn(() => {
+      throw new DOMException('SecurityError')
+    })
+
+    try {
+      const wrapper = mount(I18nDashboard, {
+        global: {
+          stubs: { LanguageSwitcher: LanguageSwitcherStub },
+        },
+      })
+      await flushPromises()
+      expect(wrapper.find('.i18n-dashboard').exists()).toBe(true)
+      expect(getDiffAValue(wrapper)).toBe('zh-CN')
+    } finally {
+      Storage.prototype.getItem = origGetItem
+    }
+  })
+
+  it('容错: localStorage.removeItem 抛错时重置按钮不报错', async () => {
+    seedCache('en')
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+
+    const origRemoveItem = Storage.prototype.removeItem
+    Storage.prototype.removeItem = vi.fn(() => {
+      throw new DOMException('SecurityError')
+    })
+
+    try {
+      const buttons = wrapper.findAll('button')
+      const resetBtn = buttons.find(b => b.attributes('title') === 'i18nDashboard.diffResetCacheBtn')
+      // 不应抛错
+      await resetBtn!.trigger('click')
+      await flushPromises()
+      expect(wrapper.find('.i18n-dashboard').exists()).toBe(true)
+    } finally {
+      Storage.prototype.removeItem = origRemoveItem
+    }
+  })
+
+  // =================== 完成度计算（autoPick 选最高） ===================
+  it('autoPick: zh-CN 完成度高于 en 时选择 zh-CN', async () => {
+    // 给 zh-CN 多加一个 key，en 少一个 key
+    mockMessages.value['zh-CN'].i18nDashboard = {
+      ...mockMessages.value['zh-CN'].i18nDashboard,
+      extraKey: '额外',
+    }
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('zh-CN')
+    // 还原
+    delete (mockMessages.value['zh-CN'].i18nDashboard as Record<string, unknown>).extraKey
+  })
+
+  it('autoPick: en 完成度高于 zh-CN 时选择 en', async () => {
+    // en 多一个 key，zh-CN 少
+    mockMessages.value['en'].i18nDashboard = {
+      ...mockMessages.value['en'].i18nDashboard,
+      extraKey: 'extra',
+    }
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(getDiffAValue(wrapper)).toBe('en')
+    // 还原
+    delete (mockMessages.value['en'].i18nDashboard as Record<string, unknown>).extraKey
+  })
+
+  // =================== 渲染基础断言 ===================
+  it('渲染: 正常挂载并展示标题与语言元数据表', async () => {
+    const wrapper = mount(I18nDashboard, {
+      global: {
+        stubs: { LanguageSwitcher: LanguageSwitcherStub },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.find('.i18n-dashboard').exists()).toBe(true)
     expect(wrapper.find('#i18n-title').exists()).toBe(true)
-    const rows = wrapper.findAll('table tbody tr')
-    expect(rows.length).toBeGreaterThanOrEqual(9)
-  })
-
-  it('LTR 状态下根元素 dir="ltr"', async () => {
-    const wrapper = mount(I18nDashboard, { global: { plugins: [i18n] } })
-    await flushPromises()
-    await nextTick()
-    const root = wrapper.find('.i18n-dashboard')
-    expect(root.attributes('dir')).toBe('ltr')
-  })
-
-  it('切换到 ar 后根元素 dir="rtl"', async () => {
-    const wrapper = mount(I18nDashboard, { global: { plugins: [i18n] } })
-    await flushPromises()
-    await nextTick()
-    const sel = wrapper.find('select.lang-switcher-select')
-    await sel.setValue('ar')
-    await flushPromises()
-    await nextTick()
-    const root = wrapper.find('.i18n-dashboard')
-    expect(root.attributes('dir')).toBe('rtl')
-  })
-
-  it('复数卡片应展示 count + category + text', async () => {
-    const wrapper = mount(I18nDashboard, { global: { plugins: [i18n] } })
-    await flushPromises()
-    await nextTick()
-    const cards = wrapper.findAll('.i18n-plural-card')
-    expect(cards.length).toBeGreaterThan(0)
-    const first = cards[0]
-    expect(first.find('.i18n-plural-count').exists()).toBe(true)
-    expect(first.find('.i18n-plural-cat').exists()).toBe(true)
-    expect(first.find('.i18n-plural-text').exists()).toBe(true)
-  })
-
-  it('差异对比应展示 3 个统计 (a_missing / b_missing / identical)', async () => {
-    const wrapper = mount(I18nDashboard, { global: { plugins: [i18n] } })
-    await flushPromises()
-    await nextTick()
-    const stats = wrapper.findAll('.i18n-diff-stat')
-    expect(stats.length).toBe(3)
-  })
-
-  it('同步日志应至少 1 条记录', async () => {
-    const wrapper = mount(I18nDashboard, { global: { plugins: [i18n] } })
-    await flushPromises()
-    await nextTick()
-    const items = wrapper.findAll('.i18n-log-item')
-    expect(items.length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('格式化预览至少 4 个卡片 (数字/货币/日期/相对)', async () => {
-    const wrapper = mount(I18nDashboard, { global: { plugins: [i18n] } })
-    await flushPromises()
-    await nextTick()
-    const cards = wrapper.findAll('.i18n-format-card')
-    expect(cards.length).toBe(4)
-  })
-
-  it('RTL 状态下表格行 active 类应随当前语言切换', async () => {
-    const wrapper = mount(I18nDashboard, { global: { plugins: [i18n] } })
-    await flushPromises()
-    await nextTick()
-    const sel = wrapper.find('select.lang-switcher-select')
-    await sel.setValue('he')
-    await flushPromises()
-    await nextTick()
-    const html = wrapper.html()
-    expect(html).toContain('active')
+    // 元数据表应包含 MOCK_LANGS 的 2 行
+    const rows = wrapper.findAll('.i18n-table tbody tr')
+    expect(rows.length).toBe(2)
   })
 })

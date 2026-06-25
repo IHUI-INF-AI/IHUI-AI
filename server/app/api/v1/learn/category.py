@@ -143,9 +143,10 @@ async def category_tree():
             cats = (
                 db.query(Category)
                 .order_by(Category.sort_order.asc(), Category.id.asc())
+                .limit(1000)
                 .all()
             )
-            relations = db.query(CategoryRelation).all()
+            relations = db.query(CategoryRelation).limit(1000).all()
             cat_map = {c.id: _cat_to_dict(c) for c in cats}
             for c in cat_map.values():
                 c["children"] = []

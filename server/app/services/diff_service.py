@@ -4,8 +4,11 @@
 """
 import difflib
 import hashlib
+import logging
 from dataclasses import dataclass
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 
 class DiffType(Enum):
@@ -153,8 +156,8 @@ class FileDiffService:
             import os
             from_size = os.path.getsize(from_path)
             to_size = os.path.getsize(to_path)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("获取文件大小失败: %s", e)
 
         if from_hash == to_hash:
             return DiffResult(
