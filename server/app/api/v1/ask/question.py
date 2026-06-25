@@ -66,7 +66,7 @@ def db_query_like(uid: str, t: str, tid: int) -> bool:
 
 
 @router.post("", summary="提出问题")
-async def create_question(body: QuestionCreate):
+def create_question(body: QuestionCreate):
     with get_session() as db:
         try:
             uid = _current_user_id()
@@ -89,10 +89,16 @@ async def create_question(body: QuestionCreate):
 
 
 @router.put("", summary="修改问题")
-async def update_question(body: QuestionUpdate):
+def update_question(body: QuestionUpdate):
+    """修改问题.
+
+    2026-06-25 P1 加固: 过滤已软删问题
+    """
     with get_session() as db:
         try:
-            q = db.query(AskQuestion).filter(AskQuestion.id == body.id).first()
+            q = db.query(AskQuestion).filter(
+                AskQuestion.id == body.id, not AskQuestion.deleted
+            ).first()
             if not q:
                 return error("问题不存在", "404")
             if body.title is not None:
@@ -114,7 +120,7 @@ async def update_question(body: QuestionUpdate):
 
 
 @router.delete("", summary="删除问题")
-async def delete_question(id: int = Query(...)):
+def delete_question(id: int = Query(...)):
     with get_session() as db:
         try:
             q = db.query(AskQuestion).filter(AskQuestion.id == id).first()
@@ -129,7 +135,7 @@ async def delete_question(id: int = Query(...)):
 
 
 @router.get("/list", summary="问题列表(需权限)")
-async def list_questions(
+def list_questions(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     keyword: str | None = None,
@@ -188,7 +194,7 @@ async def list_questions(
 
 
 @router.get("/public-api/list", summary="问题列表(公开)")
-async def public_list_questions(
+def public_list_questions(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     keyword: str | None = None,
@@ -244,7 +250,7 @@ async def public_list_questions(
 
 
 @router.get("/public-api", summary="问题详情")
-async def get_question(id: int = Query(...)):
+def get_question(id: int = Query(...)):
     with get_session() as db:
         try:
             q = db.query(AskQuestion).filter(AskQuestion.id == id, not AskQuestion.deleted).first()
@@ -265,7 +271,7 @@ async def get_question(id: int = Query(...)):
 
 
 @router.get("/public-api/member/count", summary="会员问题数")
-async def member_question_count(member_id: str | None = None):
+def member_question_count(member_id: str | None = None):
     with get_session() as db:
         try:
             uid = member_id or _current_user_id()
@@ -284,7 +290,7 @@ async def member_question_count(member_id: str | None = None):
 
 
 @router.post("/like", operation_id="ask_question_toggle_like", summary="点赞/取消点赞")
-async def toggle_like(target_type: str = Query(..., pattern="^(question|answer)$"), target_id: int = Query(...)):
+def toggle_like(target_type: str = Query(..., pattern="^(question|answer)$"), target_id: int = Query(...)):
     with get_session() as db:
         try:
             uid = _current_user_id()
@@ -318,7 +324,7 @@ async def toggle_like(target_type: str = Query(..., pattern="^(question|answer)$
 
 
 @router.post("/favorite", operation_id="ask_question_toggle_favorite", summary="收藏/取消收藏")
-async def toggle_favorite(target_type: str = Query(..., pattern="^(question|answer)$"), target_id: int = Query(...)):
+def toggle_favorite(target_type: str = Query(..., pattern="^(question|answer)$"), target_id: int = Query(...)):
     with get_session() as db:
         try:
             uid = _current_user_id()
@@ -344,7 +350,7 @@ async def toggle_favorite(target_type: str = Query(..., pattern="^(question|answ
 
 
 @router.post("/comment", operation_id="ask_question_add_comment", summary="发表评论")
-async def add_comment(body: CommentCreate):
+def add_comment(body: CommentCreate):
     with get_session() as db:
         try:
             uid = _current_user_id()

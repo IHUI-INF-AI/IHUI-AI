@@ -55,7 +55,7 @@ class SendMessageBody(BaseModel):
 
 
 @router.post("/send", summary="通用发送消息 (兼容前端 sendMessage / unifiedSendMessage)")
-async def send_message(body: SendMessageBody = Body(...)):
+def send_message(body: SendMessageBody = Body(...)):
     with get_session() as db:
         try:
             uid = _uid()
@@ -117,7 +117,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.get("/list", summary="我的消息列表")
-async def list_messages(
+def list_messages(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: str | None = None,
@@ -160,7 +160,7 @@ async def list_messages(
 
 
 @router.get("/unread-count", operation_id="message_unread_count", summary="未读消息数")
-async def unread_count():
+def unread_count():
     with get_session() as db:
         try:
             count = db.query(Message).filter(Message.user_id == _uid(), not Message.is_read).count()
@@ -171,7 +171,7 @@ async def unread_count():
 
 
 @router.post("/{mid}/read", summary="标记已读")
-async def mark_read(mid: int):
+def mark_read(mid: int):
     with get_session() as db:
         try:
             m = db.query(Message).filter(Message.id == mid, Message.user_id == _uid()).first()
@@ -186,7 +186,7 @@ async def mark_read(mid: int):
 
 
 @router.post("/read-all", operation_id="message_mark_all_read", summary="全部标记已读")
-async def mark_all_read():
+def mark_all_read():
     with get_session() as db:
         try:
             db.query(Message).filter(Message.user_id == _uid(), not Message.is_read).update(
@@ -199,7 +199,7 @@ async def mark_all_read():
 
 
 @router.delete("/{mid}", summary="删除消息")
-async def delete_message(mid: int):
+def delete_message(mid: int):
     with get_session() as db:
         try:
             m = db.query(Message).filter(Message.id == mid, Message.user_id == _uid()).first()
@@ -213,7 +213,7 @@ async def delete_message(mid: int):
 
 
 @router.delete("/batch-delete", summary="批量删除")
-async def batch_delete(ids: str = Query(..., description="ID列表,逗号分隔")):
+def batch_delete(ids: str = Query(..., description="ID列表,逗号分隔")):
     with get_session() as db:
         try:
             id_list = [int(i) for i in ids.split(",") if i.strip().isdigit()]
@@ -230,7 +230,7 @@ async def batch_delete(ids: str = Query(..., description="ID列表,逗号分隔"
 
 
 @router.get("/announcement/list", summary="公告列表")
-async def list_announcements(
+def list_announcements(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: int | None = None,
@@ -272,12 +272,18 @@ async def list_announcements(
 
 
 @router.get("/announcement/{aid}", summary="公告详情")
-async def get_announcement(aid: int):
+def get_announcement(aid: int):
+    """公告详情.
+
+    2026-06-25 P1 加固: 仅返回 status==1 (上线) 的公告
+    """
     with get_session() as db:
         try:
-            a = db.query(MessageAnnouncement).filter(MessageAnnouncement.id == aid).first()
+            a = db.query(MessageAnnouncement).filter(
+                MessageAnnouncement.id == aid, MessageAnnouncement.status == 1
+            ).first()
             if not a:
-                return error("公告不存在", "404")
+                return error("公告不存在或未上线", "404")
             a.view_num = (a.view_num or 0) + 1
             return success(
                 {
@@ -299,7 +305,7 @@ async def get_announcement(aid: int):
 
 
 @router.post("/announcement", summary="发布公告")
-async def create_announcement(
+def create_announcement(
     title: str = Query(..., min_length=1, max_length=200),
     content: str = Query(..., min_length=1),
     cover: str | None = None,
@@ -333,7 +339,7 @@ async def create_announcement(
 
 
 @router.put("/announcement/{aid}", summary="修改公告")
-async def update_announcement(
+def update_announcement(
     aid: int,
     title: str | None = None,
     content: str | None = None,
@@ -360,7 +366,7 @@ async def update_announcement(
 
 
 @router.delete("/announcement/{aid}", summary="删除公告")
-async def delete_announcement(aid: int):
+def delete_announcement(aid: int):
     with get_session() as db:
         try:
             a = db.query(MessageAnnouncement).filter(MessageAnnouncement.id == aid).first()
@@ -377,7 +383,7 @@ async def delete_announcement(aid: int):
 
 
 @router.post("/private", summary="发送私信")
-async def send_private(
+def send_private(
     to_user_id: str = Query(...), content: str = Query(..., min_length=1), title: str | None = None
 ):
     with get_session() as db:
@@ -403,7 +409,7 @@ async def send_private(
 
 
 @router.get("/template/list", summary="消息模板列表")
-async def template_list(type: str | None = None):
+def template_list(type: str | None = None):
     with get_session() as db:
         try:
             q = db.query(MessageTemplate).filter(MessageTemplate.status == 1)
@@ -430,7 +436,7 @@ async def template_list(type: str | None = None):
 
 
 @router.post("/template", summary="新增模板")
-async def create_template(
+def create_template(
     code: str = Query(...),
     name: str = Query(...),
     type: str = Query(...),

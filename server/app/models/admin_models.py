@@ -27,6 +27,7 @@
 from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Text
 
 from app.database import Base
+from app.models.base import DelFlagMixin
 from app.utils.datetime_helper import utcnow
 
 
@@ -59,7 +60,7 @@ class AdminBaseMixin:
 # =============================================================================
 
 
-class AdminUser(AdminBaseMixin, Base):
+class AdminUser(DelFlagMixin, AdminBaseMixin, Base):
     """用户表 admin_user."""
 
     __tablename__ = "admin_user"
@@ -91,7 +92,7 @@ class AdminUser(AdminBaseMixin, Base):
     login_date = Column(DateTime, nullable=True, comment="最后登录时间")
 
 
-class AdminRole(AdminBaseMixin, Base):
+class AdminRole(DelFlagMixin, AdminBaseMixin, Base):
     """角色表 admin_role."""
 
     __tablename__ = "admin_role"
@@ -107,13 +108,14 @@ class AdminRole(AdminBaseMixin, Base):
     del_flag = Column(String(1), default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminMenu(AdminBaseMixin, Base):
+class AdminMenu(DelFlagMixin, AdminBaseMixin, Base):
     """菜单权限表 admin_menu."""
 
     __tablename__ = "admin_menu"
     __table_args__ = (
         Index("ix_admin_menu_parent_id", "parent_id"),
         Index("ix_admin_menu_status", "status"),
+        Index("ix_admin_menu_del_flag", "del_flag"),
     )
 
     menu_id = _big_id("菜单ID")
@@ -131,9 +133,11 @@ class AdminMenu(AdminBaseMixin, Base):
     status = Column(String(1), default="0", comment="菜单状态 (0正常 1停用)")
     perms = Column(String(100), nullable=True, comment="权限字符串")
     icon = Column(String(100), default="#", comment="菜单图标")
+    # 2026-06-25 P1 加固: 软删除标志, 与 del_flag='2' 等价硬删除
+    del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminDept(AdminBaseMixin, Base):
+class AdminDept(DelFlagMixin, AdminBaseMixin, Base):
     """部门表 admin_dept."""
 
     __tablename__ = "admin_dept"
@@ -155,7 +159,7 @@ class AdminDept(AdminBaseMixin, Base):
     del_flag = Column(String(1), default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminDictType(AdminBaseMixin, Base):
+class AdminDictType(DelFlagMixin, AdminBaseMixin, Base):
     """字典类型表 admin_dict_type."""
 
     __tablename__ = "admin_dict_type"
@@ -165,13 +169,18 @@ class AdminDictType(AdminBaseMixin, Base):
     dict_name = Column(String(100), default="", comment="字典名称")
     dict_type = Column(String(100), default="", comment="字典类型")
     status = Column(String(1), default="0", comment="状态 (0正常 1停用)")
+    # 2026-06-25 P1 加固: 软删除标志
+    del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminDictData(AdminBaseMixin, Base):
+class AdminDictData(DelFlagMixin, AdminBaseMixin, Base):
     """字典数据表 admin_dict_data."""
 
     __tablename__ = "admin_dict_data"
-    __table_args__ = (Index("ix_admin_dict_data_status", "status"),)
+    __table_args__ = (
+        Index("ix_admin_dict_data_status", "status"),
+        Index("ix_admin_dict_data_dict_type", "dict_type"),
+    )
 
     dict_code = _big_id("字典编码")
     dict_sort = Column(Integer, default=0, comment="字典排序")
@@ -182,18 +191,23 @@ class AdminDictData(AdminBaseMixin, Base):
     list_class = Column(String(100), nullable=True, comment="表格字典样式")
     is_default = Column(String(1), default="N", comment="是否默认 (Y是 N否)")
     status = Column(String(1), default="0", comment="状态 (0正常 1停用)")
+    # 2026-06-25 P1 加固: 软删除标志
+    del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminConfig(AdminBaseMixin, Base):
+class AdminConfig(DelFlagMixin, AdminBaseMixin, Base):
     """参数配置表 admin_config."""
 
     __tablename__ = "admin_config"
+    __table_args__ = (Index("ix_admin_config_config_key", "config_key"),)
 
     config_id = _big_id("参数主键")
     config_name = Column(String(100), default="", comment="参数名称")
     config_key = Column(String(100), default="", comment="参数键名")
     config_value = Column(String(500), default="", comment="参数键值")
     config_type = Column(String(1), default="N", comment="系统内置 (Y是 N否)")
+    # 2026-06-25 P1 加固: 软删除标志
+    del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
 class AdminLogininfor(Base):
@@ -270,13 +284,14 @@ class AdminRoleDept(Base):
     dept_id = Column(BigInteger, primary_key=True, comment="部门ID")
 
 
-class AdminNotice(AdminBaseMixin, Base):
+class AdminNotice(DelFlagMixin, AdminBaseMixin, Base):
     """通知公告表 admin_notice."""
 
     __tablename__ = "admin_notice"
     __table_args__ = (
         Index("ix_admin_notice_status", "status"),
         Index("ix_admin_notice_create_by", "create_by"),
+        Index("ix_admin_notice_del_flag", "del_flag"),
     )
 
     notice_id = _big_id("公告ID")
@@ -284,9 +299,11 @@ class AdminNotice(AdminBaseMixin, Base):
     notice_type = Column(String(1), nullable=False, comment="公告类型 (1通知 2公告)")
     notice_content = Column(String(2000), nullable=True, comment="公告内容")
     status = Column(String(1), default="0", comment="公告状态 (0正常 1关闭)")
+    # 2026-06-25 P1 加固: 软删除标志
+    del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminPost(AdminBaseMixin, Base):
+class AdminPost(DelFlagMixin, AdminBaseMixin, Base):
     """岗位表 admin_post."""
 
     __tablename__ = "admin_post"
@@ -297,9 +314,11 @@ class AdminPost(AdminBaseMixin, Base):
     post_name = Column(String(50), nullable=False, comment="岗位名称")
     post_sort = Column(Integer, nullable=False, comment="岗位排序")
     status = Column(String(1), default="0", comment="状态 (0正常 1停用)")
+    # 2026-06-25 P1 加固: 软删除标志
+    del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminJob(AdminBaseMixin, Base):
+class AdminJob(DelFlagMixin, AdminBaseMixin, Base):
     """定时任务表 admin_job (来自 admin-job)."""
 
     __tablename__ = "admin_job"
@@ -307,6 +326,7 @@ class AdminJob(AdminBaseMixin, Base):
         Index("ix_admin_job_status", "status"),
         Index("ix_admin_job_create_by", "create_by"),
         Index("ix_admin_job_update_by", "update_by"),
+        Index("ix_admin_job_del_flag", "del_flag"),
     )
 
     job_id = _big_id("任务ID")
@@ -317,6 +337,8 @@ class AdminJob(AdminBaseMixin, Base):
     misfire_policy = Column(String(20), default="3", comment="计划执行错误策略 (1立即执行 2执行一次 3放弃执行)")
     concurrent = Column(String(1), default="1", comment="是否并发执行 (0允许 1禁止)")
     status = Column(String(1), default="0", comment="状态 (0正常 1暂停)")
+    # 2026-06-25 P1 加固: 软删除标志
+    del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
 class AdminJobLog(Base):
@@ -335,7 +357,7 @@ class AdminJobLog(Base):
     create_time = Column(DateTime, default=utcnow, comment="创建时间")
 
 
-class AdminSmsTemplate(AdminBaseMixin, Base):
+class AdminSmsTemplate(DelFlagMixin, AdminBaseMixin, Base):
     """短信模板表 admin_sms_template (迁移自历史项目 auth_sms_temp)."""
 
     __tablename__ = "admin_sms_template"
@@ -348,4 +370,6 @@ class AdminSmsTemplate(AdminBaseMixin, Base):
     template_type = Column(String(1), default="1", comment="模板类型: 1=验证码 2=通知 3=营销")
     sign_name = Column(String(100), nullable=True, comment="签名名称")
     status = Column(String(1), default="0", comment="状态: 0=启用 1=禁用")
+    # 2026-06-25 P1 加固: 软删除标志
+    del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
     remark = Column(String(500), nullable=True, comment="备注")

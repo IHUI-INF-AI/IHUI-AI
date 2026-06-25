@@ -58,7 +58,7 @@ user_router = APIRouter(prefix="/user", tags=["System: User"])
 
 
 @user_router.get("/list", summary="用户列表")
-async def user_list(
+def user_list(
     userName: str | None = None,  # noqa: 5
     status: str | None = None,
     page: int = Query(default=1, ge=1),
@@ -94,7 +94,7 @@ async def user_list(
 
 
 @user_router.get("/info/{username}", summary="按用户名查用户")
-async def user_info_by_name(username: str):
+def user_info_by_name(username: str):
     """对应 Java: GET /user/info/{username}"""
     with get_session() as db:
         u = db.query(SysUser).filter(SysUser.user_name == username, SysUser.del_flag == "0").first()
@@ -125,7 +125,7 @@ async def user_info_by_name(username: str):
 
 
 @user_router.get("/getInfo", summary="当前登录用户信息 (含权限)")
-async def get_login_user_info():
+def get_login_user_info():
     """对应 Java: GET /user/getInfo -- 实际从 token 取, 这里返回 mock"""
     return success(
         {
@@ -137,7 +137,7 @@ async def get_login_user_info():
 
 
 @user_router.get("/authRole/{userId}", summary="查询用户已分配角色")
-async def user_auth_role(userId: int):  # noqa: 26
+def user_auth_role(userId: int):  # noqa: 26
     """对应 Java: GET /user/authRole/{userId}"""
     with get_session() as db:
         u = db.query(SysUser).filter(SysUser.user_id == userId, SysUser.del_flag == "0").first()
@@ -163,7 +163,7 @@ async def user_auth_role(userId: int):  # noqa: 26
 
 
 @user_router.get("/deptTree", summary="部门树")
-async def dept_tree():
+def dept_tree():
     """对应 Java: GET /user/deptTree"""
     with get_session() as db:
         depts = db.query(SysDept).filter(SysDept.del_flag == "0", SysDept.status == "0").all()
@@ -191,7 +191,7 @@ async def dept_tree():
 
 
 @user_router.get("/{userId}", summary="按 ID 查用户")
-async def get_user(userId: int):  # noqa: 20
+def get_user(userId: int):  # noqa: 20
     """对应 Java: GET /user/{userId}"""
     with get_session() as db:
         u = db.query(SysUser).filter(SysUser.user_id == userId, SysUser.del_flag == "0").first()
@@ -220,7 +220,7 @@ class UserCreateReq(BaseModel):
 
 
 @user_router.post("", summary="新增用户")
-async def add_user(body: UserCreateReq):
+def add_user(body: UserCreateReq):
     """对应 Java: POST /user"""
     from app.security import hash_password
 
@@ -245,7 +245,7 @@ async def add_user(body: UserCreateReq):
 
 
 @user_router.put("/{userId}", summary="修改用户")
-async def update_user(userId: int, body: dict):  # noqa: 23
+def update_user(userId: int, body: dict):  # noqa: 23
     with get_session() as db:
         u = db.query(SysUser).filter(SysUser.user_id == userId, SysUser.del_flag == "0").first()
         if not u:
@@ -278,7 +278,7 @@ async def update_user(userId: int, body: dict):  # noqa: 23
 
 
 @user_router.delete("/{userIds}", summary="删除用户 (逗号分隔)")
-async def delete_users(userIds: str):  # noqa: 24
+def delete_users(userIds: str):  # noqa: 24
     ids = [int(x) for x in userIds.split(",") if x.isdigit()]
     if not ids:
         return fail("参数错误", code=400)
@@ -299,7 +299,7 @@ role_router = APIRouter(prefix="/role", tags=["System: Role"])
 
 
 @role_router.get("/list", summary="角色列表")
-async def role_list(
+def role_list(
     roleName: str | None = None,  # noqa: 5
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, le=100),
@@ -323,7 +323,7 @@ async def role_list(
 
 
 @role_router.get("/optionselect", summary="角色下拉选择")
-async def role_optionselect():
+def role_optionselect():
     """对应 Java: GET /role/optionselect"""
     with get_session() as db:
         items = (
@@ -336,7 +336,7 @@ async def role_optionselect():
 
 
 @role_router.get("/{roleId}", summary="角色详情")
-async def get_role(roleId: int):  # noqa: 20
+def get_role(roleId: int):  # noqa: 20
     """对应 Java: GET /role/{roleId}"""
     with get_session() as db:
         r = db.query(SysRole).filter(SysRole.role_id == roleId, SysRole.del_flag == "0").first()
@@ -357,7 +357,7 @@ async def get_role(roleId: int):  # noqa: 20
 
 
 @role_router.put("", summary="修改角色")
-async def update_role(body: dict):
+def update_role(body: dict):
     """对应 Java: PUT /role"""
     with get_session() as db:
         roleId = body.get("roleId")
@@ -389,7 +389,7 @@ async def update_role(body: dict):
 
 
 @role_router.put("/dataScope", summary="修改数据权限")
-async def update_role_data_scope(body: dict):
+def update_role_data_scope(body: dict):
     """对应 Java: PUT /role/dataScope"""
     roleId = body.get("roleId")
     dataScope = body.get("dataScope")
@@ -405,7 +405,7 @@ async def update_role_data_scope(body: dict):
 
 
 @role_router.put("/changeStatus", summary="启用/禁用角色")
-async def change_role_status(body: dict):
+def change_role_status(body: dict):
     """对应 Java: PUT /role/changeStatus"""
     roleId = body.get("roleId")
     status = body.get("status")
@@ -421,7 +421,7 @@ async def change_role_status(body: dict):
 
 
 @role_router.delete("/{roleIds}", summary="删除角色 (逗号分隔)")
-async def delete_roles(roleIds: str):  # noqa: 24
+def delete_roles(roleIds: str):  # noqa: 24
     """对应 Java: DELETE /role/{roleIds}"""
     ids = [int(x) for x in roleIds.split(",") if x.isdigit()]
     if not ids:
@@ -440,7 +440,7 @@ menu_router = APIRouter(prefix="/menu", tags=["System: Menu"])
 
 
 @menu_router.get("/list", summary="菜单列表")
-async def menu_list(menuName: str | None = None, status: str | None = None):  # noqa: 21
+def menu_list(menuName: str | None = None, status: str | None = None):  # noqa: 21
     with get_session() as db:
         q = db.query(SysMenu).filter(SysMenu.del_flag == "0")
         if menuName:
@@ -465,7 +465,7 @@ async def menu_list(menuName: str | None = None, status: str | None = None):  # 
 
 
 @menu_router.get("/treeselect", summary="菜单树 (下拉)")
-async def menu_treeselect():
+def menu_treeselect():
     with get_session() as db:
         items = (
             db.query(SysMenu)
@@ -487,7 +487,7 @@ async def menu_treeselect():
 
 
 @menu_router.get("/roleMenuTreeselect/{roleId}", summary="角色分配菜单树")
-async def role_menu_treeselect(roleId: int):  # noqa: 32
+def role_menu_treeselect(roleId: int):  # noqa: 32
     """对应 Java: GET /menu/roleMenuTreeselect/{roleId}"""
     with get_session() as db:
         menus = (
@@ -522,7 +522,7 @@ async def role_menu_treeselect(roleId: int):  # noqa: 32
 
 
 @menu_router.get("/getRouters", summary="登录用户路由表")
-async def get_routers():
+def get_routers():
     """对应 Java: GET /menu/getRouters -- 实际取角色-菜单关联"""
     with get_session() as db:
         # 简化: 返回所有 status=0 菜单
@@ -550,7 +550,7 @@ async def get_routers():
 
 
 @menu_router.put("", summary="修改菜单")
-async def update_menu(body: dict):
+def update_menu(body: dict):
     """对应 Java: PUT /menu"""
     menuId = body.get("menuId")
     if not menuId:
@@ -587,7 +587,7 @@ dept_router = APIRouter(prefix="/dept", tags=["System: Dept"])
 
 
 @dept_router.get("/list", summary="部门列表")
-async def dept_list(deptName: str | None = None, status: str | None = None):  # noqa: 21
+def dept_list(deptName: str | None = None, status: str | None = None):  # noqa: 21
     with get_session() as db:
         q = db.query(SysDept).filter(SysDept.del_flag == "0")
         if deptName:
@@ -611,14 +611,14 @@ async def dept_list(deptName: str | None = None, status: str | None = None):  # 
 
 
 @dept_router.get("/list/exclude/{deptId}", summary="排除某部门的树")
-async def dept_list_exclude(deptId: int):  # noqa: 29
+def dept_list_exclude(deptId: int):  # noqa: 29
     with get_session() as db:
         items = db.query(SysDept).filter(SysDept.del_flag == "0", SysDept.dept_id != deptId).all()
         return success([{"deptId": d.dept_id, "parentId": d.parent_id, "deptName": d.dept_name} for d in items])
 
 
 @dept_router.get("/{deptId}", summary="部门详情")
-async def get_dept(deptId: int):  # noqa: 20
+def get_dept(deptId: int):  # noqa: 20
     """对应 Java: GET /dept/{deptId}"""
     with get_session() as db:
         d = db.query(SysDept).filter(SysDept.dept_id == deptId, SysDept.del_flag == "0").first()
@@ -641,7 +641,7 @@ async def get_dept(deptId: int):  # noqa: 20
 
 
 @dept_router.put("", summary="修改部门")
-async def update_dept(body: dict):
+def update_dept(body: dict):
     """对应 Java: PUT /dept"""
     deptId = body.get("deptId")
     if not deptId:
@@ -678,7 +678,7 @@ post_router = APIRouter(prefix="/post", tags=["System: Post"])
 
 
 @post_router.get("/list", summary="岗位列表")
-async def post_list():
+def post_list():
     with get_session() as db:
         items = db.query(SysPost).filter(SysPost.del_flag == "0").order_by(SysPost.post_sort.asc()).all()
         return success(
@@ -687,7 +687,7 @@ async def post_list():
 
 
 @post_router.get("/{postId}", summary="岗位详情")
-async def get_post(postId: int):  # noqa: 20
+def get_post(postId: int):  # noqa: 20
     """对应 Java: GET /post/{postId}"""
     with get_session() as db:
         p = db.query(SysPost).filter(SysPost.post_id == postId, SysPost.del_flag == "0").first()
@@ -707,7 +707,7 @@ async def get_post(postId: int):  # noqa: 20
 
 
 @post_router.put("", summary="修改岗位")
-async def update_post(body: dict):
+def update_post(body: dict):
     """对应 Java: PUT /post"""
     postId = body.get("postId")
     if not postId:
@@ -734,7 +734,7 @@ async def update_post(body: dict):
 
 
 @post_router.delete("/{postIds}", summary="删除岗位 (逗号分隔)")
-async def delete_posts(postIds: str):  # noqa: 24
+def delete_posts(postIds: str):  # noqa: 24
     """对应 Java: DELETE /post/{postIds}
 
     2026-06-25 P1 加固: 软删除
@@ -758,7 +758,7 @@ config_router = APIRouter(prefix="/config", tags=["System: Config"])
 
 
 @config_router.get("/list", summary="参数列表")
-async def config_list(
+def config_list(
     configName: str | None = None,  # noqa: 5
     configKey: str | None = None,  # noqa: 5
     page: int = Query(default=1, ge=1),
@@ -792,7 +792,7 @@ async def config_list(
 
 
 @config_router.get("/configKey/{configKey}", summary="按 key 取参数")
-async def get_config_by_key(configKey: str):  # noqa: 29
+def get_config_by_key(configKey: str):  # noqa: 29
     """对应 Java: GET /config/configKey/{configKey}
 
     2026-06-25 P1 加固: 过滤 del_flag, 不返回已软删的 config
@@ -813,7 +813,7 @@ async def get_config_by_key(configKey: str):  # noqa: 29
 
 
 @config_router.get("/{configId}", summary="配置详情")
-async def get_config(configId: int):  # noqa: 22
+def get_config(configId: int):  # noqa: 22
     """对应 Java: GET /config/{configId}
 
     2026-06-25 P1 加固: 过滤 del_flag
@@ -838,7 +838,7 @@ async def get_config(configId: int):  # noqa: 22
 
 
 @config_router.post("", summary="新增配置")
-async def add_config(body: dict):
+def add_config(body: dict):
     """对应 Java: POST /config"""
     configName = body.get("configName")
     configKey = body.get("configKey")
@@ -863,7 +863,7 @@ async def add_config(body: dict):
 
 
 @config_router.put("", summary="修改配置")
-async def update_config(body: dict):
+def update_config(body: dict):
     """对应 Java: PUT /config
 
     2026-06-25 P1 加固: 过滤 del_flag
@@ -895,7 +895,7 @@ async def update_config(body: dict):
 
 
 @config_router.delete("/{configIds}", summary="删除配置 (逗号分隔)")
-async def delete_configs(configIds: str):  # noqa: 26
+def delete_configs(configIds: str):  # noqa: 26
     """对应 Java: DELETE /config/{configIds}
 
     2026-06-25 P1 加固: 软删除, 设 del_flag='2' 代替物理删除
@@ -920,7 +920,7 @@ dict_data_router = APIRouter(prefix="/dict/data", tags=["System: Dict Data"])
 
 
 @dict_type_router.get("/list", summary="字典类型列表")
-async def dict_type_list(dictName: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 26
+def dict_type_list(dictName: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 26
     # 2026-06-25 P1 加固: 软删除过滤
     with get_session() as db:
         q = db.query(SysDictType).filter(SysDictType.del_flag == "0")
@@ -941,7 +941,7 @@ async def dict_type_list(dictName: str | None = None, page: int = Query(1, ge=1)
 
 
 @dict_type_router.get("/optionselect", summary="字典类型下拉")
-async def dict_type_optionselect():
+def dict_type_optionselect():
     # 2026-06-25 P1 加固: 软删除过滤
     with get_session() as db:
         items = (
@@ -953,7 +953,7 @@ async def dict_type_optionselect():
 
 
 @dict_type_router.get("/{dictId}", summary="字典类型详情")
-async def get_dict_type(dictId: int):  # noqa: 25
+def get_dict_type(dictId: int):  # noqa: 25
     """对应 Java: GET /dict/type/{dictId}
 
     2026-06-25 P1 加固: 软删除过滤
@@ -977,7 +977,7 @@ async def get_dict_type(dictId: int):  # noqa: 25
 
 
 @dict_type_router.put("", summary="修改字典类型")
-async def update_dict_type(body: dict):
+def update_dict_type(body: dict):
     """对应 Java: PUT /dict/type
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1003,7 +1003,7 @@ async def update_dict_type(body: dict):
 
 
 @dict_type_router.delete("/{dictIds}", summary="删除字典类型 (逗号分隔)")
-async def delete_dict_types(dictIds: str):  # noqa: 29
+def delete_dict_types(dictIds: str):  # noqa: 29
     """对应 Java: DELETE /dict/type/{dictIds}
 
     2026-06-25 P1 加固: 软删除
@@ -1020,7 +1020,7 @@ async def delete_dict_types(dictIds: str):  # noqa: 29
 
 
 @dict_data_router.get("/list", summary="字典数据列表")
-async def dict_data_list(dictType: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 26
+def dict_data_list(dictType: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 26
     # 2026-06-25 P1 加固: 软删除过滤
     with get_session() as db:
         q = db.query(SysDictData).filter(SysDictData.del_flag == "0")
@@ -1050,7 +1050,7 @@ async def dict_data_list(dictType: str | None = None, page: int = Query(1, ge=1)
 
 
 @dict_data_router.get("/type/{dictType}", summary="按 type 取字典数据")
-async def dict_data_by_type(dictType: str):  # noqa: 29
+def dict_data_by_type(dictType: str):  # noqa: 29
     """对应 Java: GET /dict/data/type/{dictType}
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1081,7 +1081,7 @@ async def dict_data_by_type(dictType: str):  # noqa: 29
 
 
 @dict_data_router.post("", summary="新增字典数据")
-async def add_dict_data(body: dict):
+def add_dict_data(body: dict):
     """对应 Java: POST /dict/data"""
     dictLabel = body.get("dictLabel")
     dictValue = body.get("dictValue")
@@ -1106,7 +1106,7 @@ async def add_dict_data(body: dict):
 
 
 @dict_data_router.get("/{dictCode}", summary="字典数据详情")
-async def get_dict_data(dictCode: int):  # noqa: 25
+def get_dict_data(dictCode: int):  # noqa: 25
     """对应 Java: GET /dict/data/{dictCode}
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1135,7 +1135,7 @@ async def get_dict_data(dictCode: int):  # noqa: 25
 
 
 @dict_data_router.put("", summary="修改字典数据")
-async def update_dict_data(body: dict):
+def update_dict_data(body: dict):
     """对应 Java: PUT /dict/data
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1171,7 +1171,7 @@ async def update_dict_data(body: dict):
 
 
 @dict_data_router.delete("/{dictCodes}", summary="删除字典数据 (逗号分隔)")
-async def delete_dict_data(dictCodes: str):  # noqa: 28
+def delete_dict_data(dictCodes: str):  # noqa: 28
     """对应 Java: DELETE /dict/data/{dictCodes}
 
     2026-06-25 P1 加固: 软删除
@@ -1195,7 +1195,7 @@ logininfo_router = APIRouter(prefix="/logininfor", tags=["System: Login Info"])
 
 
 @logininfo_router.get("/list", summary="登录日志")
-async def logininfor_list(userName: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 27
+def logininfor_list(userName: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 27
     with get_session() as db:
         q = db.query(SysLoginInfo)
         if userName:
@@ -1224,7 +1224,7 @@ async def logininfor_list(userName: str | None = None, page: int = Query(1, ge=1
 
 
 @logininfo_router.delete("/clean", summary="清空登录日志")
-async def clean_logininfor():
+def clean_logininfor():
     with get_session() as db:
         n = db.query(SysLoginInfo).delete()
         db.commit()
@@ -1232,7 +1232,7 @@ async def clean_logininfor():
 
 
 @logininfo_router.put("/unlock/{userName}", summary="解锁用户")
-async def unlock_user(userName: str):  # noqa: 23
+def unlock_user(userName: str):  # noqa: 23
     """对应 Java: PUT /logininfor/unlock/{userName} -- 清失败计数"""
     from app.utils.redis_util import get_redis
 
@@ -1254,7 +1254,7 @@ notice_router = APIRouter(prefix="/notice", tags=["System: Notice"])
 
 
 @notice_router.get("/list", summary="通知公告列表")
-async def notice_list(noticeTitle: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 23
+def notice_list(noticeTitle: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 23
     # 2026-06-25 P1 加固: 软删除过滤
     with get_session() as db:
         q = db.query(SysNotice).filter(SysNotice.del_flag == "0")
@@ -1282,7 +1282,7 @@ async def notice_list(noticeTitle: str | None = None, page: int = Query(1, ge=1)
 
 
 @notice_router.get("/{noticeId}", summary="公告详情")
-async def get_notice(noticeId: int):  # noqa: 22
+def get_notice(noticeId: int):  # noqa: 22
     """对应 Java: GET /notice/{noticeId}
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1308,7 +1308,7 @@ async def get_notice(noticeId: int):  # noqa: 22
 
 
 @notice_router.post("", summary="新增公告")
-async def add_notice(body: dict):
+def add_notice(body: dict):
     """对应 Java: POST /notice"""
     noticeTitle = body.get("noticeTitle")
     noticeType = body.get("noticeType")
@@ -1329,7 +1329,7 @@ async def add_notice(body: dict):
 
 
 @notice_router.put("", summary="修改公告")
-async def update_notice(body: dict):
+def update_notice(body: dict):
     """对应 Java: PUT /notice
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1362,7 +1362,7 @@ async def update_notice(body: dict):
 
 
 @notice_router.delete("/{noticeIds}", summary="删除公告 (逗号分隔)")
-async def delete_notices(noticeIds: str):  # noqa: 26
+def delete_notices(noticeIds: str):  # noqa: 26
     """对应 Java: DELETE /notice/{noticeIds}
 
     2026-06-25 P1 加固: 软删除
@@ -1403,7 +1403,7 @@ def _sms_to_dict(t) -> dict:
 
 
 @sms_template_router.get("/list", summary="短信模板列表")
-async def sms_template_list(
+def sms_template_list(
     templateName: str | None = None,  # noqa: 23
     templateCode: str | None = None,
     templateType: str | None = None,
@@ -1437,7 +1437,7 @@ async def sms_template_list(
 
 
 @sms_template_router.get("/{templateId}", summary="短信模板详情")
-async def get_sms_template(templateId: int):  # noqa: 22
+def get_sms_template(templateId: int):  # noqa: 22
     """获取短信模板详情.
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1452,7 +1452,7 @@ async def get_sms_template(templateId: int):  # noqa: 22
 
 
 @sms_template_router.post("", summary="新增短信模板")
-async def add_sms_template(body: dict):
+def add_sms_template(body: dict):
     """新增短信模板."""
     templateName = body.get("templateName")
     templateCode = body.get("templateCode")
@@ -1482,7 +1482,7 @@ async def add_sms_template(body: dict):
 
 
 @sms_template_router.put("", summary="修改短信模板")
-async def update_sms_template(body: dict):
+def update_sms_template(body: dict):
     """修改短信模板.
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1531,7 +1531,7 @@ async def update_sms_template(body: dict):
 
 
 @sms_template_router.put("/changeStatus", summary="启用/禁用短信模板")
-async def change_sms_template_status(body: dict):
+def change_sms_template_status(body: dict):
     """切换短信模板状态 (0=启用 1=禁用).
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1552,7 +1552,7 @@ async def change_sms_template_status(body: dict):
 
 
 @sms_template_router.delete("/{templateIds}", summary="删除短信模板 (逗号分隔)")
-async def delete_sms_templates(templateIds: str):  # noqa: 26
+def delete_sms_templates(templateIds: str):  # noqa: 26
     """批量删除短信模板.
 
     2026-06-25 P1 加固: 软删除
@@ -1683,8 +1683,11 @@ def _sync_job_to_scheduler(db_job: SysJob) -> bool:
         return False
 
 
-async def _run_job_now(invoke_target: str) -> dict:
-    """立即执行一次任务函数."""
+def _run_job_now(invoke_target: str) -> dict:
+    """立即执行一次任务函数.
+
+    2026-06-25 P0 加固: 这是 _helper_ 函数, 但保留 async 以支持调用协程任务.
+    """
     registry = _build_task_registry()
     func = registry.get(invoke_target.strip())
     if func is None:
@@ -1693,7 +1696,17 @@ async def _run_job_now(invoke_target: str) -> dict:
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            result = await func()
+            # 在事件循环中运行, 用 asyncio.run 而非 await
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # 事件循环已在运行, 用 run_coroutine_threadsafe
+                    future = asyncio.run_coroutine_threadsafe(func(), loop)
+                    result = future.result(timeout=30)
+                else:
+                    result = loop.run_until_complete(func())
+            except RuntimeError:
+                result = asyncio.run(func())
         else:
             result = func()
         return {"ok": True, "result": result}
@@ -1702,7 +1715,7 @@ async def _run_job_now(invoke_target: str) -> dict:
 
 
 @job_router.get("/list", summary="定时任务列表")
-async def job_list(jobName: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 20
+def job_list(jobName: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 20
     # 2026-06-25 P1 加固: 软删除过滤
     with get_session() as db:
         q = db.query(SysJob).filter(SysJob.del_flag == "0")
@@ -1734,7 +1747,7 @@ async def job_list(jobName: str | None = None, page: int = Query(1, ge=1), size:
 
 
 @job_router.get("/{jobId}", summary="任务详情")
-async def get_job(jobId: int):  # noqa: 19
+def get_job(jobId: int):  # noqa: 19
     """对应 Java: GET /job/{jobId}
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1776,7 +1789,7 @@ class JobCreateReq(BaseModel):
 
 
 @job_router.post("", summary="新增定时任务")
-async def add_job(body: JobCreateReq):
+def add_job(body: JobCreateReq):
     """对应 Java: POST /job -- 写 DB + 动态注册到 APScheduler."""
     with get_session() as db:
         job = SysJob(
@@ -1813,7 +1826,7 @@ class JobUpdateReq(BaseModel):
 
 
 @job_router.put("", summary="修改定时任务")
-async def update_job(body: JobUpdateReq):
+def update_job(body: JobUpdateReq):
     """对应 Java: PUT /job -- 更新 DB + 重新调度 APScheduler.
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1853,7 +1866,7 @@ class JobStatusReq(BaseModel):
 
 
 @job_router.put("/changeStatus", summary="暂停/恢复任务")
-async def change_job_status(body: JobStatusReq):
+def change_job_status(body: JobStatusReq):
     """对应 Java: PUT /job/changeStatus
 
     2026-06-25 P1 加固: 软删除过滤
@@ -1923,7 +1936,7 @@ async def run_job_once(body: JobRunReq):
 
 
 @job_router.delete("/{jobIds}", summary="删除定时任务 (逗号分隔)")
-async def delete_jobs(jobIds: str):  # noqa: 23
+def delete_jobs(jobIds: str):  # noqa: 23
     """对应 Java: DELETE /job/{jobIds}
 
     2026-06-25 P1 加固: 软删除, 设 del_flag='2' 代替物理删除
@@ -1947,7 +1960,7 @@ async def delete_jobs(jobIds: str):  # noqa: 23
 
 
 @job_log_router.get("/list", summary="任务执行日志")
-async def job_log_list(jobName: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 24
+def job_log_list(jobName: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, le=100)):  # noqa: 24
     with get_session() as db:
         q = db.query(SysJobLog)
         if jobName:
@@ -1978,7 +1991,7 @@ async def job_log_list(jobName: str | None = None, page: int = Query(1, ge=1), s
 
 
 @job_log_router.delete("/clean", summary="清空任务日志")
-async def clean_job_log():
+def clean_job_log():
     """对应 Java: DELETE /job/log/clean"""
     with get_session() as db:
         n = db.query(SysJobLog).delete()
@@ -1998,7 +2011,7 @@ _ONLINE_KEY_PREFIX = "zhs:online:user:"
 
 
 @online_router.get("/list", summary="在线用户列表")
-async def online_user_list(
+def online_user_list(
     ipaddr: str | None = None,
     userName: str | None = None,  # noqa: 5
     page: int = Query(1, ge=1),
@@ -2055,7 +2068,7 @@ async def online_user_list(
 
 
 @online_router.delete("/{tokenId}", summary="强制下线")
-async def force_logout(tokenId: str):  # noqa: 24
+def force_logout(tokenId: str):  # noqa: 24
     """对应 Java: DELETE /online/{tokenId} -- 删除 Redis 中的会话记录.
 
     会话删除后,该用户的后续请求因 JWT 无法在 Redis 中匹配而被拒绝.

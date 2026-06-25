@@ -50,7 +50,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("", summary="提交反馈")
-async def submit_feedback(
+def submit_feedback(
     title: str = Query(..., min_length=1, max_length=200),
     content: str = Query(..., min_length=1),
     type: str = "bug",
@@ -84,12 +84,17 @@ async def submit_feedback(
 
 
 @router.get("/list", summary="我的反馈")
-async def list_my_feedbacks(
+def list_my_feedbacks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: str | None = None,
     status: int | None = None,
 ):
+    """我的反馈列表.
+
+    2026-06-25 P1 加固: 默认隐藏 status==2 (已忽略) 的反馈,
+    用户主动查询 status==2 仍可看到 (兼容前端按状态筛选).
+    """
     with get_session() as db:
         try:
             q = db.query(Feedback).filter(Feedback.user_id == _uid())
@@ -97,6 +102,9 @@ async def list_my_feedbacks(
                 q = q.filter(Feedback.type == type)
             if status is not None:
                 q = q.filter(Feedback.status == status)
+            else:
+                # 不指定 status 时, 默认过滤掉 status==2 (已忽略, 业务软删除)
+                q = q.filter(Feedback.status != 2)
             total = q.count()
             items = q.order_by(Feedback.id.desc()).offset((page - 1) * limit).limit(limit).all()
             return success(
@@ -125,7 +133,7 @@ async def list_my_feedbacks(
 
 
 @router.get("/admin/list", operation_id="feedback_admin_list", summary="反馈列表(管理员)")
-async def admin_list(
+def admin_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -172,10 +180,20 @@ async def admin_list(
 
 
 @router.get("/{fid}", summary="反馈详情")
-async def get_feedback(fid: int):
+def get_feedback(fid: int):
+    """反馈详情.
+
+    2026-06-25 P1 加固: 用户视角隐藏 status==2 (已忽略, 业务软删除)
+    """
     with get_session() as db:
         try:
-            f = db.query(Feedback).filter(Feedback.id == fid).first()
+            uid = _uid()
+            f = db.query(Feedback).filter(
+                Feedback.id == fid, Feedback.status != 2
+            ).first()
+            # 用户视角: 自己的反馈 或 (admin 看到所有) (这里简化为用户只能看自己的)
+            if f and f.user_id != uid and uid != "admin":
+                f = None
             if not f:
                 return error("反馈不存在", "404")
             return success(
@@ -206,7 +224,7 @@ async def get_feedback(fid: int):
 
 
 @router.put("/{fid}/handle", summary="处理反馈")
-async def handle_feedback(
+def handle_feedback(
     fid: int,
     status: int = Query(...),
     remark: str | None = None,
@@ -235,7 +253,7 @@ async def handle_feedback(
 
 
 @router.post("/{fid}/rate", summary="评价反馈")
-async def rate_feedback(fid: int, rating: int = Query(..., ge=1, le=5)):
+def rate_feedback(fid: int, rating: int = Query(..., ge=1, le=5)):
     with get_session() as db:
         try:
             f = db.query(Feedback).filter(Feedback.id == fid).first()
@@ -249,7 +267,7 @@ async def rate_feedback(fid: int, rating: int = Query(..., ge=1, le=5)):
 
 
 @router.delete("/{fid}", summary="删除反馈")
-async def delete_feedback(fid: int):
+def delete_feedback(fid: int):
     with get_session() as db:
         try:
             f = db.query(Feedback).filter(Feedback.id == fid).first()
