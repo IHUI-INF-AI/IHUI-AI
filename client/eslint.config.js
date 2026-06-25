@@ -449,6 +449,8 @@ export default [
       'backend-docs/**',
       'miniapp/**',
       'storybook-static/**',
+      'packages/shared-edu-api/**',
+      'packages/shared-edu-types/**',
       '.storybook/**',
       'electron/**',
       'logs/**',

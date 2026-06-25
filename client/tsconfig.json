@@ -13,7 +13,9 @@
     "src/**/*.json",
     "*.ts",
     "*.js",
-    "config/**/*.ts"
+    "config/**/*.ts",
+    "packages/shared-edu-api/src/**/*.ts",
+    "packages/shared-edu-types/src/**/*.ts"
   ],
   "exclude": [
     "src/api/admin/**",
