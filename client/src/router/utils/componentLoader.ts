@@ -2,7 +2,21 @@ import type { Component } from 'vue'
 import { logger } from '@/utils/logger'
 import { useLoadingStore } from '@/stores/loading'
 
-export const withRetry = <T>(loader: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> => {
+// 2026-06-25 修复: Vite dev server 启动期 optimizeDeps 还在扫描依赖, 浏览器已
+// 加载 main.ts 触发了懒加载路径 (如 Agents.vue), 但 Vite 还没准备好处理该文件,
+// fetch 返回 ERR_ABORTED → 'Failed to fetch dynamically imported module'.
+// 解决: dev 模式加大重试次数到 8 次, 每次延迟 1500ms, 总共给 Vite 12s 准备时间;
+// 生产模式保持 3 次 × 1s 即可, 因为 build 已预构建完所有依赖.
+// 关键: 避免立即 fallback 渲染错误页, 否则首次访问 /agents 等路由会闪 ErrorBoundary.
+const IS_DEV = import.meta.env.DEV
+const DEFAULT_RETRIES = IS_DEV ? 8 : 3
+const DEFAULT_DELAY_MS = IS_DEV ? 1500 : 1000
+
+export const withRetry = <T>(
+  loader: () => Promise<T>,
+  retries = DEFAULT_RETRIES,
+  delayMs = DEFAULT_DELAY_MS,
+): Promise<T> => {
   return loader().catch(err => {
     if (retries <= 0) {
       logger.error('[Router] Component load failed after multiple retries:', err)

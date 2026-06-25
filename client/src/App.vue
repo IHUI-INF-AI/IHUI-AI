@@ -102,7 +102,7 @@
         />
         <AIChatLegacy
           v-if="showAIChat && useLegacyChat && !isAdminRoute"
-          :key="route.fullPath"
+          :key="safeRoute.fullPath"
           ref="globalChatRef"
           :mode="chatMode"
           :show-toggle="true"

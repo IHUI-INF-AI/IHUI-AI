@@ -1805,7 +1805,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
     },
     // ?????? - ????????????????
     optimizeDeps: {
-      entries: ['src/main.ts'],
       include: [
         'vue',
         'vue-router',
@@ -1831,6 +1830,20 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         'socket.io-client',
         'clsx',
         'class-variance-authority',
+      ],
+      // 2026-06-25 修复: 显式声明首屏路由触发的所有懒加载 entry, 让 Vite dev server
+      // 启动时主动预构建这些 .vue 模块, 避免浏览器首次访问时 Vite optimizeDeps
+      // 还在 race condition 阶段返回 ERR_ABORTED, 导致 componentLoader 必须等满 12s
+      // 才能 fallback 渲染. 这里只列首屏 router 路径真正会触发的入口, 不全量列 views/*
+      // (避免 dev 启动时间从 3s 涨到 30s+).
+      entries: [
+        'src/main.ts',
+        // 首屏 router-view 可能 mount 的 4 个最常访问路由
+        'src/views/Home.vue',
+        'src/views/Agents.vue',
+        'src/views/Login.vue',
+        'src/views/Register.vue',
+        'src/views/Chat.vue',
       ],
       exclude: [
         '@langchain/openai',

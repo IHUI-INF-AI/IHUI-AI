@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from .langchain_api_mini import build_messages_for_model, get_effective_config, invoke_llm
 from .token_utils import check_user_token_sufficient
+from app.utils.log_masking import _mask_sensitive
 
 router = APIRouter(prefix="/ihui-ai-api/outbound", tags=["Outbound"])
 logger = logging.getLogger("outbound-api")
@@ -64,7 +65,7 @@ async def outbound_callback(request: OutboundCallbackRequest):
 
         logger.info(
             "[Outbound] 收到外呼回调: call_id=%s, phone=%s, user_input=%s...",
-            request.call_id, request.phone, request.user_input[:50],
+            request.call_id, _mask_sensitive(request.phone, "phone"), _mask_sensitive(request.user_input[:50]),
         )
 
         full_response = ""
@@ -86,7 +87,7 @@ async def outbound_callback(request: OutboundCallbackRequest):
 
         logger.info(
             "[Outbound] 生成回复: answer=%s..., intent=%s, action=%s",
-            answer[:50], intent, action,
+            _mask_sensitive(answer[:50]), intent, action,
         )
         return OutboundCallbackResponse(
             answer=answer,
