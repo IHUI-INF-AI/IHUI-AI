@@ -1,0 +1,787 @@
+{
+  "summary": {
+    "java_total_endpoints": 677,
+    "python_in_domains": 758,
+    "matched": 189,
+    "coverage": "27.9%"
+  },
+  "by_controller": [
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "java_endpoints": 9,
+      "matched": 4,
+      "coverage": "44.4%"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AskStatisticsController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "matched": 4,
+      "coverage": "40.0%"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "java_endpoints": 9,
+      "matched": 4,
+      "coverage": "44.4%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "AuthController",
+      "java_endpoints": 2,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "AuthorityController",
+      "java_endpoints": 2,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "KeyPairController",
+      "java_endpoints": 1,
+      "matched": 1,
+      "coverage": "100.0%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "java_endpoints": 9,
+      "matched": 4,
+      "coverage": "44.4%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "SsoController",
+      "java_endpoints": 5,
+      "matched": 5,
+      "coverage": "100.0%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "java_endpoints": 10,
+      "matched": 5,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "FavoriteController",
+      "java_endpoints": 6,
+      "matched": 4,
+      "coverage": "66.7%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "LikeController",
+      "java_endpoints": 4,
+      "matched": 2,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WatchController",
+      "java_endpoints": 4,
+      "matched": 1,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WordController",
+      "java_endpoints": 4,
+      "matched": 1,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "matched": 2,
+      "coverage": "20.0%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "java_endpoints": 11,
+      "matched": 5,
+      "coverage": "45.5%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleMemberController",
+      "java_endpoints": 4,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleStatisticsController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "java_endpoints": 9,
+      "matched": 2,
+      "coverage": "22.2%"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "java_endpoints": 15,
+      "matched": 5,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "matched": 2,
+      "coverage": "20.0%"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ContentStatisticsController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "java_endpoints": 13,
+      "matched": 5,
+      "coverage": "38.5%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "matched": 2,
+      "coverage": "20.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterController",
+      "java_endpoints": 6,
+      "matched": 2,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterSectionController",
+      "java_endpoints": 3,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "java_endpoints": 13,
+      "matched": 3,
+      "coverage": "23.1%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamStatisticsController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "java_endpoints": 8,
+      "matched": 2,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "java_endpoints": 8,
+      "matched": 2,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperQuestionController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "java_endpoints": 8,
+      "matched": 2,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionController",
+      "java_endpoints": 5,
+      "matched": 1,
+      "coverage": "20.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "java_endpoints": 11,
+      "matched": 5,
+      "coverage": "45.5%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "SignUpController",
+      "java_endpoints": 4,
+      "matched": 1,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "WrongQuestionController",
+      "java_endpoints": 3,
+      "matched": 1,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "java_endpoints": 8,
+      "matched": 2,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "java_endpoints": 12,
+      "matched": 2,
+      "coverage": "16.7%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "java_endpoints": 8,
+      "matched": 1,
+      "coverage": "12.5%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "java_endpoints": 11,
+      "matched": 4,
+      "coverage": "36.4%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkController",
+      "java_endpoints": 3,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkRecordController",
+      "java_endpoints": 6,
+      "matched": 1,
+      "coverage": "16.7%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "java_endpoints": 12,
+      "matched": 5,
+      "coverage": "41.7%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonAccessController",
+      "java_endpoints": 2,
+      "matched": 1,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterController",
+      "java_endpoints": 6,
+      "matched": 2,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterSectionController",
+      "java_endpoints": 3,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "java_endpoints": 19,
+      "matched": 10,
+      "coverage": "52.6%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonOrderController",
+      "java_endpoints": 3,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "java_endpoints": 8,
+      "matched": 3,
+      "coverage": "37.5%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RateController",
+      "java_endpoints": 6,
+      "matched": 2,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RecordController",
+      "java_endpoints": 3,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ReportController",
+      "java_endpoints": 4,
+      "matched": 1,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "java_endpoints": 10,
+      "matched": 1,
+      "coverage": "10.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "StatisticsController",
+      "java_endpoints": 1,
+      "matched": 1,
+      "coverage": "100.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "java_endpoints": 8,
+      "matched": 2,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "java_endpoints": 12,
+      "matched": 6,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "matched": 8,
+      "coverage": "80.0%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "java_endpoints": 9,
+      "matched": 4,
+      "coverage": "44.4%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "LiveStatisticsController",
+      "java_endpoints": 1,
+      "matched": 1,
+      "coverage": "100.0%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "SubscribeController",
+      "java_endpoints": 5,
+      "matched": 4,
+      "coverage": "80.0%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveNotifyController",
+      "java_endpoints": 2,
+      "matched": 2,
+      "coverage": "100.0%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveStreamController",
+      "java_endpoints": 3,
+      "matched": 1,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "CheckInController",
+      "java_endpoints": 2,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "java_endpoints": 7,
+      "matched": 2,
+      "coverage": "28.6%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "java_endpoints": 8,
+      "matched": 1,
+      "coverage": "12.5%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "java_endpoints": 7,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "java_endpoints": 35,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberGroupController",
+      "java_endpoints": 6,
+      "matched": 1,
+      "coverage": "16.7%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberLevelController",
+      "java_endpoints": 5,
+      "matched": 1,
+      "coverage": "20.0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberPostController",
+      "java_endpoints": 6,
+      "matched": 1,
+      "coverage": "16.7%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberTagController",
+      "java_endpoints": 4,
+      "matched": 1,
+      "coverage": "25.0%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "java_endpoints": 8,
+      "matched": 4,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "MessageStatisticsController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "NoticeController",
+      "java_endpoints": 5,
+      "matched": 2,
+      "coverage": "40.0%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "java_endpoints": 7,
+      "matched": 3,
+      "coverage": "42.9%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "TemplateController",
+      "java_endpoints": 2,
+      "matched": 1,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-notification-service",
+      "controller": "MailController",
+      "java_endpoints": 2,
+      "matched": 1,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-notification-service",
+      "controller": "SmsController",
+      "java_endpoints": 1,
+      "matched": 1,
+      "coverage": "100.0%"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "java_endpoints": 14,
+      "matched": 2,
+      "coverage": "14.3%"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "java_endpoints": 9,
+      "matched": 2,
+      "coverage": "22.2%"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "java_endpoints": 9,
+      "matched": 3,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-oss-service",
+      "controller": "OssController",
+      "java_endpoints": 4,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "AliPayNotifyController",
+      "java_endpoints": 1,
+      "matched": 1,
+      "coverage": "100.0%"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "TradeController",
+      "java_endpoints": 2,
+      "matched": 1,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "WechatpayNotifyController",
+      "java_endpoints": 2,
+      "matched": 1,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "ChannelController",
+      "java_endpoints": 6,
+      "matched": 1,
+      "coverage": "16.7%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointChannelRelationController",
+      "java_endpoints": 2,
+      "matched": 1,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointController",
+      "java_endpoints": 5,
+      "matched": 1,
+      "coverage": "20.0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointStatisticsController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "java_endpoints": 7,
+      "matched": 2,
+      "coverage": "28.6%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "java_endpoints": 15,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "java_endpoints": 8,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceStatisticsController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "java_endpoints": 8,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-schedule-service",
+      "controller": "WatchController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "ContentController",
+      "java_endpoints": 5,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "HotWordController",
+      "java_endpoints": 5,
+      "matched": 2,
+      "coverage": "40.0%"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "RecordController",
+      "java_endpoints": 1,
+      "matched": 1,
+      "coverage": "100.0%"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "AgreementController",
+      "java_endpoints": 4,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "CarouselController",
+      "java_endpoints": 2,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "CompanyController",
+      "java_endpoints": 3,
+      "matched": 1,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DepartmentController",
+      "java_endpoints": 6,
+      "matched": 1,
+      "coverage": "16.7%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DingTalkController",
+      "java_endpoints": 2,
+      "matched": 1,
+      "coverage": "50.0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "LecturerController",
+      "java_endpoints": 6,
+      "matched": 1,
+      "coverage": "16.7%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "PostController",
+      "java_endpoints": 5,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserCenterStatisticsController",
+      "java_endpoints": 1,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "java_endpoints": 10,
+      "matched": 3,
+      "coverage": "30.0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WechatOauthController",
+      "java_endpoints": 2,
+      "matched": 0,
+      "coverage": "0.0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WorkWeChatController",
+      "java_endpoints": 3,
+      "matched": 1,
+      "coverage": "33.3%"
+    },
+    {
+      "service": "ihui-ai-edu-visit-tracking-service",
+      "controller": "VisitLogController",
+      "java_endpoints": 5,
+      "matched": 3,
+      "coverage": "60.0%"
+    }
+  ]
+}
