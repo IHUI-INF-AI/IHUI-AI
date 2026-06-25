@@ -1,6 +1,6 @@
 # 后端静态审计报告
 
-扫描文件数: 779
+扫描文件数: 783
 
 ## P0-SyncIO (0 个)
 
@@ -11,7 +11,7 @@
 ## P0-MixedPK (0 个)
 
 
-## P1-MissingSoftDelete (1205 个)
+## P1-MissingSoftDelete (1264 个)
 
 - **[app\api\admin_migration.py:424]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
@@ -212,6 +212,186 @@
 - **[app\api\v1\article_invoice_exam_legacy.py:751]** P1-MissingSoftDelete: 查询 Exam 缺少软删除过滤
   ```
   q = db.query(Exam).join(ExamSignUp, ExamSignUp.exam_id == Exam.id).filter(ExamSignUp.member_id == member_id)
+  ```
+- **[app\api\v1\legacy_supplement.py:111]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
+  ```
+  q = db.query(Activity)
+  ```
+- **[app\api\v1\legacy_supplement.py:121]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
+  ```
+  item = db.query(Activity).filter(Activity.id == activity_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:140]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
+  ```
+  item = db.query(Activity).filter(Activity.id == activity_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:151]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
+  ```
+  item = db.query(Activity).filter(Activity.id == activity_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:160]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
+  ```
+  item = db.query(Activity).filter(Activity.id == activity_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:179]** P1-MissingSoftDelete: 查询 Information 缺少软删除过滤
+  ```
+  q = db.query(Information)
+  ```
+- **[app\api\v1\legacy_supplement.py:191]** P1-MissingSoftDelete: 查询 Information 缺少软删除过滤
+  ```
+  item = db.query(Information).filter(Information.id == info_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:210]** P1-MissingSoftDelete: 查询 Information 缺少软删除过滤
+  ```
+  item = db.query(Information).filter(Information.id == info_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:221]** P1-MissingSoftDelete: 查询 Information 缺少软删除过滤
+  ```
+  item = db.query(Information).filter(Information.id == info_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:241]** P1-MissingSoftDelete: 查询 UserAgentImage 缺少软删除过滤
+  ```
+  q = db.query(UserAgentImage)
+  ```
+- **[app\api\v1\legacy_supplement.py:255]** P1-MissingSoftDelete: 查询 UserAgentImage 缺少软删除过滤
+  ```
+  item = db.query(UserAgentImage).filter(UserAgentImage.id == image_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:263]** P1-MissingSoftDelete: 查询 UserAgentImage 缺少软删除过滤
+  ```
+  item = db.query(UserAgentImage).filter(UserAgentImage.id == image_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:272]** P1-MissingSoftDelete: 查询 UserAgentImage 缺少软删除过滤
+  ```
+  items = db.query(UserAgentImage).filter(UserAgentImage.user_id == user_id).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:316]** P1-MissingSoftDelete: 查询 AdminDept 缺少软删除过滤
+  ```
+  item = db.query(AdminDept).filter(AdminDept.dept_id == dept_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:327]** P1-MissingSoftDelete: 查询 AdminDept 缺少软删除过滤
+  ```
+  item = db.query(AdminDept).filter(AdminDept.dept_id == dept_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:346]** P1-MissingSoftDelete: 查询 Company 缺少软删除过滤
+  ```
+  q = db.query(Company).filter(Company.is_del == 0)
+  ```
+- **[app\api\v1\legacy_supplement.py:358]** P1-MissingSoftDelete: 查询 Company 缺少软删除过滤
+  ```
+  item = db.query(Company).filter(Company.id == company_id, Company.is_del == 0).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:377]** P1-MissingSoftDelete: 查询 Company 缺少软删除过滤
+  ```
+  item = db.query(Company).filter(Company.id == company_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:388]** P1-MissingSoftDelete: 查询 Company 缺少软删除过滤
+  ```
+  item = db.query(Company).filter(Company.id == company_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:408]** P1-MissingSoftDelete: 查询 AgentSettlement 缺少软删除过滤
+  ```
+  q = db.query(AgentSettlement)
+  ```
+- **[app\api\v1\legacy_supplement.py:422]** P1-MissingSoftDelete: 查询 AgentSettlement 缺少软删除过滤
+  ```
+  item = db.query(AgentSettlement).filter(AgentSettlement.id == settlement_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:430]** P1-MissingSoftDelete: 查询 AgentSettlement 缺少软删除过滤
+  ```
+  items = db.query(AgentSettlement).filter(AgentSettlement.order_no == order_no).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:447]** P1-MissingSoftDelete: 查询 AgentUsedetail 缺少软删除过滤
+  ```
+  q = db.query(AgentUsedetail)
+  ```
+- **[app\api\v1\legacy_supplement.py:461]** P1-MissingSoftDelete: 查询 AgentUsedetail 缺少软删除过滤
+  ```
+  item = db.query(AgentUsedetail).filter(AgentUsedetail.id == detail_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:469]** P1-MissingSoftDelete: 查询 AgentUsedetail 缺少软删除过滤
+  ```
+  items = db.query(AgentUsedetail).filter(AgentUsedetail.agent_id == agent_id).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:485]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
+  ```
+  q = db.query(Lecturer)
+  ```
+- **[app\api\v1\legacy_supplement.py:497]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
+  ```
+  item = db.query(Lecturer).filter(Lecturer.id == lecturer_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:516]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
+  ```
+  item = db.query(Lecturer).filter(Lecturer.id == lecturer_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:527]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
+  ```
+  item = db.query(Lecturer).filter(Lecturer.id == lecturer_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:545]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
+  ```
+  q = db.query(UserAuthInfo)
+  ```
+- **[app\api\v1\legacy_supplement.py:555]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
+  ```
+  item = db.query(UserAuthInfo).filter(UserAuthInfo.id == auth_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:563]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
+  ```
+  items = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user_uuid).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:602]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
+  ```
+  item = db.query(UserThirdPartyAccount).filter(UserThirdPartyAccount.id == account_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:620]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
+  ```
+  q = db.query(AiFileStorage)
+  ```
+- **[app\api\v1\legacy_supplement.py:630]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
+  ```
+  item = db.query(AiFileStorage).filter(AiFileStorage.id == file_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:638]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
+  ```
+  item = db.query(AiFileStorage).filter(AiFileStorage.id == file_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:657]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
+  ```
+  q = db.query(ZhsCoursePayLog)
+  ```
+- **[app\api\v1\legacy_supplement.py:669]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
+  ```
+  item = db.query(ZhsCoursePayLog).filter(ZhsCoursePayLog.id == log_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:686]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
+  ```
+  q = db.query(ZhsUserCommentLog)
+  ```
+- **[app\api\v1\legacy_supplement.py:696]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
+  ```
+  item = db.query(ZhsUserCommentLog).filter(ZhsUserCommentLog.id == log_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:704]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
+  ```
+  item = db.query(ZhsUserCommentLog).filter(ZhsUserCommentLog.id == log_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:723]** P1-MissingSoftDelete: 查询 ZhsUserVideoComment 缺少软删除过滤
+  ```
+  q = db.query(ZhsUserVideoComment)
+  ```
+- **[app\api\v1\legacy_supplement.py:735]** P1-MissingSoftDelete: 查询 ZhsUserVideoComment 缺少软删除过滤
+  ```
+  item = db.query(ZhsUserVideoComment).filter(ZhsUserVideoComment.id == comment_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:753]** P1-MissingSoftDelete: 查询 ZhsOperateTokenFlow 缺少软删除过滤
+  ```
+  q = db.query(ZhsOperateTokenFlow)
+  ```
+- **[app\api\v1\legacy_supplement.py:765]** P1-MissingSoftDelete: 查询 ZhsOperateTokenFlow 缺少软删除过滤
+  ```
+  items = db.query(ZhsOperateTokenFlow).filter(ZhsOperateTokenFlow.user_id == user_id).all()
   ```
 - **[app\api\v1\orders.py:176]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
@@ -524,6 +704,26 @@
 - **[app\api\v1\agents\categories.py:145]** P1-MissingSoftDelete: 查询 AgentCategory 缺少软删除过滤
   ```
   cat = db.query(AgentCategory).filter(AgentCategory.id == category_id).first()
+  ```
+- **[app\api\v1\agents\category_link.py:58]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  q = db.query(AgentCategoryLink)
+  ```
+- **[app\api\v1\agents\category_link.py:70]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  item = db.query(AgentCategoryLink).filter(AgentCategoryLink.id == link_id).first()
+  ```
+- **[app\api\v1\agents\category_link.py:86]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  item = db.query(AgentCategoryLink).filter(AgentCategoryLink.id == req.id).first()
+  ```
+- **[app\api\v1\agents\category_link.py:100]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  item = db.query(AgentCategoryLink).filter(AgentCategoryLink.id == lid).first()
+  ```
+- **[app\api\v1\agents\category_link.py:108]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  items = db.query(AgentCategoryLink).filter(AgentCategoryLink.category_id == category_id).all()
   ```
 - **[app\api\v1\agents\creation.py:129]** P1-MissingSoftDelete: 查询 UserAgentContext 缺少软删除过滤
   ```
@@ -1845,6 +2045,26 @@
   ```
   q = db.query(Order).filter(Order.user_id.in_(all_uuids))
   ```
+- **[app\api\v1\finance\fund_info.py:66]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  q = db.query(UserFundInfo)
+  ```
+- **[app\api\v1\finance\fund_info.py:78]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  item = db.query(UserFundInfo).filter(UserFundInfo.id == fund_id).first()
+  ```
+- **[app\api\v1\finance\fund_info.py:97]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  item = db.query(UserFundInfo).filter(UserFundInfo.id == req.id).first()
+  ```
+- **[app\api\v1\finance\fund_info.py:111]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  item = db.query(UserFundInfo).filter(UserFundInfo.id == fid).first()
+  ```
+- **[app\api\v1\finance\fund_info.py:119]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  item = db.query(UserFundInfo).filter(UserFundInfo.user_uuid == user_uuid).first()
+  ```
 - **[app\api\v1\finance\margin.py:190]** P1-MissingSoftDelete: 查询 OperateTokenFlow 缺少软删除过滤
   ```
   q = db.query(OperateTokenFlow)
@@ -2597,47 +2817,47 @@
   ```
   q = db.query(AiModelInfo)
   ```
-- **[app\api\v1\message\message.py:128]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
+- **[app\api\v1\message\message.py:126]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
   q = db.query(Message).filter(Message.user_id == _uid())
   ```
-- **[app\api\v1\message\message.py:166]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
+- **[app\api\v1\message\message.py:164]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
   count = db.query(Message).filter(Message.user_id == _uid(), not Message.is_read).count()
   ```
-- **[app\api\v1\message\message.py:177]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
+- **[app\api\v1\message\message.py:175]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
   m = db.query(Message).filter(Message.id == mid, Message.user_id == _uid()).first()
   ```
-- **[app\api\v1\message\message.py:192]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
+- **[app\api\v1\message\message.py:190]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
   db.query(Message).filter(Message.user_id == _uid(), not Message.is_read).update(
   ```
-- **[app\api\v1\message\message.py:205]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
+- **[app\api\v1\message\message.py:203]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
   m = db.query(Message).filter(Message.id == mid, Message.user_id == _uid()).first()
   ```
-- **[app\api\v1\message\message.py:220]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
+- **[app\api\v1\message\message.py:218]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
   db.query(Message).filter(Message.id.in_(id_list), Message.user_id == _uid()).delete(
   ```
-- **[app\api\v1\message\message.py:240]** P1-MissingSoftDelete: 查询 MessageAnnouncement 缺少软删除过滤
+- **[app\api\v1\message\message.py:238]** P1-MissingSoftDelete: 查询 MessageAnnouncement 缺少软删除过滤
   ```
   q = db.query(MessageAnnouncement).filter(MessageAnnouncement.status == 1)
   ```
-- **[app\api\v1\message\message.py:282]** P1-MissingSoftDelete: 查询 MessageAnnouncement 缺少软删除过滤
+- **[app\api\v1\message\message.py:280]** P1-MissingSoftDelete: 查询 MessageAnnouncement 缺少软删除过滤
   ```
   a = db.query(MessageAnnouncement).filter(
   ```
-- **[app\api\v1\message\message.py:351]** P1-MissingSoftDelete: 查询 MessageAnnouncement 缺少软删除过滤
+- **[app\api\v1\message\message.py:349]** P1-MissingSoftDelete: 查询 MessageAnnouncement 缺少软删除过滤
   ```
   a = db.query(MessageAnnouncement).filter(MessageAnnouncement.id == aid).first()
   ```
-- **[app\api\v1\message\message.py:372]** P1-MissingSoftDelete: 查询 MessageAnnouncement 缺少软删除过滤
+- **[app\api\v1\message\message.py:370]** P1-MissingSoftDelete: 查询 MessageAnnouncement 缺少软删除过滤
   ```
   a = db.query(MessageAnnouncement).filter(MessageAnnouncement.id == aid).first()
   ```
-- **[app\api\v1\message\message.py:415]** P1-MissingSoftDelete: 查询 MessageTemplate 缺少软删除过滤
+- **[app\api\v1\message\message.py:413]** P1-MissingSoftDelete: 查询 MessageTemplate 缺少软删除过滤
   ```
   q = db.query(MessageTemplate).filter(MessageTemplate.status == 1)
   ```
@@ -3072,6 +3292,22 @@
 - **[app\api\v1\system\codegen.py:505]** P1-MissingSoftDelete: 查询 CodegenTable 缺少软删除过滤
   ```
   db.query(CodegenTable).filter(CodegenTable.table_id.in_(ids)).delete(synchronize_session=False)
+  ```
+- **[app\api\v1\system\dictionary.py:113]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
+  ```
+  item = db.query(SysDictType).filter(SysDictType.dict_id == req.dict_id).first()
+  ```
+- **[app\api\v1\system\dictionary.py:129]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
+  ```
+  item = db.query(SysDictType).filter(SysDictType.dict_id == did).first()
+  ```
+- **[app\api\v1\system\dictionary.py:188]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
+  ```
+  item = db.query(SysDictData).filter(SysDictData.dict_code == req.dict_code).first()
+  ```
+- **[app\api\v1\system\dictionary.py:202]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
+  ```
+  item = db.query(SysDictData).filter(SysDictData.dict_code == code).first()
   ```
 - **[app\api\v1\system\user.py:35]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
   ```
@@ -4841,8 +5077,12 @@
   client_factory: callable 返回 httpx.AsyncClient (用于传 transport)
   ```
 
-## P2-SwallowedException (0 个)
+## P2-SwallowedException (1 个)
 
+- **[app\api\v1\legacy_supplement.py:86]** P2-SwallowedException: except Exception: pass 异常吞噬，无日志记录
+  ```
+  except Exception:
+  ```
 
 ## P2-SensitiveLog (263 个)
 
@@ -5606,7 +5846,7 @@
   ```
   logger.error(f"请求处理错误: {e}")
   ```
-- **[app\services\pdf_service.py:180]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\pdf_service.py:189]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"签发证书失败: {e}")
   ```

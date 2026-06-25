@@ -903,12 +903,11 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
 }
 
 // 12.11 Premium 悬浮动画
-@mixin premium-hover-lift($lift: -4px, $shadow: var(--global-box-shadow)) {
-  transition: transform $transition-premium, box-shadow $transition-premium;
-  
+@mixin premium-hover-lift($lift: -4px) {
+  transition: transform $transition-premium;
+
   &:hover {
     transform: translateY($lift);
-    box-shadow: $shadow;
   }
 }
 

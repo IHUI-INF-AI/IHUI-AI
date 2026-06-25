@@ -7,7 +7,8 @@ from app.api.v1.agents.agents import router as agents_router
 from app.api.v1.agents.buy import router as buy_router
 from app.api.v1.agents.cache import router as cache_router
 from app.api.v1.agents.categories import router as categories_router
-# 2026-06-26: agents.category_link 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入
+# 2026-06-26: 用户确认纳入封版, 注册 agents.category_link 端点
+from app.api.v1.agents.category_link import router as agents_category_link_router
 from app.api.v1.agents.creation import router as creation_router
 from app.api.v1.agents.developer import router as developer_router
 from app.api.v1.agents.examine import router as examine_router
@@ -691,7 +692,8 @@ api_router.include_router(margin_router, prefix="/finance", tags=["Finance: Marg
 api_router.include_router(withdrawal_router, prefix="/finance/withdrawal", tags=["Finance: Withdrawal"])
 api_router.include_router(distribution_router, prefix="/finance", tags=["Finance: Distribution"])
 api_router.include_router(finance_fund_router, prefix="/finance", tags=["Finance: Fund"])
-# 2026-06-26: finance_fund_info_router 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不注册
+# 2026-06-26: 用户确认纳入封版, 注册 finance_fund_info_router
+api_router.include_router(finance_fund_info_router, tags=["Finance: User Fund Info"])
 
 # Courses
 api_router.include_router(courses_router, prefix="/courses", tags=["Courses"])
