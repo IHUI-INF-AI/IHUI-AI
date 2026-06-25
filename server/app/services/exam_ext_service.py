@@ -105,7 +105,7 @@ def complete_exam(signup_id: str) -> bool:
         if not s:
             return False
         s.status = 1
-        s.completed_time = __import__("datetime").datetime.utcnow()
+        s.completed_time = utcnow()
         return True
 
 
