@@ -5,7 +5,7 @@ Source: G:\\IHUI-AI\\storage\\edu-assets\\java-source\\ihui-ai-edu-live-service\
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from app.utils.datetime_helper import utcnow
 from typing import List, Optional, Tuple
 
 from sqlalchemy import and_, desc, select
@@ -44,7 +44,7 @@ def start_live(db: Session, room_id: int, teacher_id: int) -> EduLiveRoom:
     if room.teacher_id != teacher_id:
         raise EduPermissionError("only the teacher can start the live")
     room.status = "live"
-    room.actual_start = datetime.now(timezone.utc)
+    room.actual_start = utcnow()
     db.flush()
     db.refresh(room)
     return room
@@ -55,7 +55,7 @@ def end_live(db: Session, room_id: int, teacher_id: int, playback_url: Optional[
     if room.teacher_id != teacher_id:
         raise EduPermissionError("only the teacher can end the live")
     room.status = "ended"
-    room.actual_end = datetime.now(timezone.utc)
+    room.actual_end = utcnow()
     if playback_url:
         room.playback_url = playback_url
     db.flush()
@@ -80,7 +80,7 @@ def join_live(db: Session, room_id: int, user_id: int) -> EduLiveAttendance:
         return existing
     att = EduLiveAttendance(
         room_id=room_id, user_id=user_id,
-        join_at=datetime.now(timezone.utc), duration_seconds=0,
+        join_at=utcnow(), duration_seconds=0,
     )
     db.add(att)
     room.attendee_count = (room.attendee_count or 0) + 1
@@ -99,7 +99,7 @@ def leave_live(db: Session, room_id: int, user_id: int) -> EduLiveAttendance:
     if not att:
         from app.services.edu_base import EduNotFoundError
         raise EduNotFoundError("attendance", 0)
-    att.leave_at = datetime.now(timezone.utc)
+    att.leave_at = utcnow()
     att.duration_seconds = int((att.leave_at - att.join_at).total_seconds())
     db.flush()
     db.refresh(att)

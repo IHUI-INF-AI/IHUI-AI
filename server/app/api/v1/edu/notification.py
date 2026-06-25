@@ -38,11 +38,11 @@ async def send_notification_endpoint(user_id: int = Depends(get_current_user_id)
 @router.post("/notifications/batch", summary="Batch send (admin)")
 async def batch_send_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_notification import batch_send
-    result = batch_send(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
+    result = batch_send(db, user_ids=payload.get("user_ids", [user_id]), **{k: v for k, v in payload.items() if v is not None and k != "user_ids"})
     return success(data=result)
 
 @router.get("/notifications/me", summary="My notifications")
 async def list_user_notifications_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_notification import list_user_notifications
-    result = list_user_notifications(db, user_uuid=str(user_id))
+    result = list_user_notifications(db, user_id=user_id, page=page, size=size)
     return success(data=result)

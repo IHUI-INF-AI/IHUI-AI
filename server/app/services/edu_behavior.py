@@ -4,10 +4,7 @@ Tracks user learning behavior: views, clicks, study time, answer paths.
 """
 
 from __future__ import annotations
-from datetime import datetime, timezone
-from typing import List, Optional, Tuple
 from sqlalchemy import and_, desc, func, select
-from sqlalchemy.orm import Session
 from app.models.edu_models import EduBehaviorView
 from app.services.edu_base import EduValidationError, paginate
 

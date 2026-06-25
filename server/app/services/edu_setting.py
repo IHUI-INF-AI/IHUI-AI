@@ -4,10 +4,7 @@ Phase F: CategoryDictionary (IHUI-AI) uses name/code/parent_id/type/status.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-
 from sqlalchemy import and_, or_, select
-from sqlalchemy.orm import Session
 
 from app.models.edu_models import EduSettingDict
 from app.services.edu_base import EduValidationError, paginate, get_or_404

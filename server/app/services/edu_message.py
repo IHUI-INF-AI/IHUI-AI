@@ -4,11 +4,9 @@ Phase F: Message (IHUI-AI) uses user_id (not receiver_id), type (not msg_type).
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from app.utils.datetime_helper import utcnow
 
 from sqlalchemy import and_, desc, select
-from sqlalchemy.orm import Session
 
 from app.models.edu_models import EduMessage
 from app.services.edu_base import EduValidationError, paginate, get_or_404
@@ -44,7 +42,7 @@ def mark_read(db: Session, message_id: int, user_id: str) -> EduMessage:
     m.is_read = True
     from app.models.edu_models import EduMessage
     if hasattr(m, "read_at"):
-        m.read_at = datetime.now(timezone.utc)
+        m.read_at = utcnow()
     db.flush()
     db.refresh(m)
     return m

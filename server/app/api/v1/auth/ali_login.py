@@ -110,13 +110,17 @@ async def ali_pc_wx_code(code: str = Query(..., description="Alipay auth code"))
     open_id = result.get("open_id", "")
     # Look up user
     from app.database import SessionFactory2
-    from app.models.user_models import User, UserThirdPartyAccounts
+    from app.models.user_models import User, UserThirdPartyAccount
 
     db = SessionFactory2()
     try:
         third = (
-            db.query(UserThirdPartyAccounts)
-            .filter(UserThirdPartyAccounts.open_id == open_id, UserThirdPartyAccounts.platform == "ALI")
+            db.query(UserThirdPartyAccount)
+            .filter(
+                UserThirdPartyAccount.open_id == open_id,
+                UserThirdPartyAccount.platform == "ALI",
+                UserThirdPartyAccount.deleted_at.is_(None),
+            )
             .first()
         )
         if third:
@@ -144,13 +148,17 @@ async def ali_web_wx_code(auth_code: str = Query(..., description="Alipay web au
     open_id = result.get("open_id", "")
     mobile = result.get("mobile", "")
     from app.database import SessionFactory2
-    from app.models.user_models import User, UserThirdPartyAccounts
+    from app.models.user_models import User, UserThirdPartyAccount
 
     db = SessionFactory2()
     try:
         third = (
-            db.query(UserThirdPartyAccounts)
-            .filter(UserThirdPartyAccounts.open_id == open_id, UserThirdPartyAccounts.platform == "WEB_ALI")
+            db.query(UserThirdPartyAccount)
+            .filter(
+                UserThirdPartyAccount.open_id == open_id,
+                UserThirdPartyAccount.platform == "WEB_ALI",
+                UserThirdPartyAccount.deleted_at.is_(None),
+            )
             .first()
         )
         if third:

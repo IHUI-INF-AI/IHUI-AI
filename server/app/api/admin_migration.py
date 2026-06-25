@@ -143,7 +143,7 @@ async def run_migration(req: MigrateRequest, _: str = Depends(require_role("admi
             )
     except Exception as e:
         logger.exception("启动迁移失败")
-        raise HTTPException(status_code=500, detail=f"启动失败: {e}")
+        raise HTTPException(status_code=500, detail="启动失败,请稍后重试")
 
     return {
         "code": 0,
@@ -217,7 +217,8 @@ async def rollback_batch(batch_id: str, confirm: bool = False, _: str = Depends(
                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"回滚失败: {e}")
+        logger.error("回滚失败: %s", e)
+        raise HTTPException(status_code=500, detail="回滚失败,请稍后重试")
 
     return {
         "code": 0,

@@ -10,16 +10,13 @@ We use:
 """
 from __future__ import annotations
 
-import secrets
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, asc, desc, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import desc, or_, select
 
 from app.models.edu_models import EduMember
 from app.services.edu_base import (
-    EduNotFoundError, EduValidationError, paginate, get_or_404, soft_delete,
+    EduNotFoundError, paginate, get_or_404,
 )
 
 

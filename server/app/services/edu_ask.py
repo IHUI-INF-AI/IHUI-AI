@@ -9,15 +9,12 @@ Phase B: complete implementation extracted from 4 controllers and 9 services.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from app.utils.datetime_helper import utcnow
 
 from sqlalchemy import and_, desc, func, or_, select
-from sqlalchemy.orm import Session
 
 from app.models.edu_models import EduAskAnswer, EduAskQuestion
 from app.services.edu_base import (
-    EduNotFoundError,
     EduPermissionError,
     EduValidationError,
     paginate,
@@ -90,7 +87,7 @@ def delete_question(db: Session, question_id: int, user_id: int) -> bool:
     if q.user_id != user_id:
         raise EduPermissionError("only the author can delete the question")
     q.is_deleted = True
-    q.deleted_at = datetime.now(timezone.utc)
+    q.deleted_at = utcnow()
     db.flush()
     return True
 
@@ -244,7 +241,7 @@ def adopt_answer(db: Session, answer_id: int, user_id: int) -> EduAskAnswer:
     ).update({"is_best": False})
 
     a.is_best = True
-    a.adopted_at = datetime.now(timezone.utc)
+    a.adopted_at = utcnow()
     q.is_resolved = True
     q.best_answer_id = answer_id
     db.flush()

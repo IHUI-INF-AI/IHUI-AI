@@ -1,10 +1,8 @@
 """edu_resource service - Educational resource (migrated from ihui-ai-edu-resource-service)."""
 
 from __future__ import annotations
-from datetime import datetime, timezone
-from typing import List, Optional, Tuple
-from sqlalchemy import and_, desc, or_, select
-from sqlalchemy.orm import Session
+from app.utils.datetime_helper import utcnow
+from sqlalchemy import desc, or_
 from app.models.edu_models import EduResource
 from app.services.edu_base import EduPermissionError, EduValidationError, paginate, get_or_404
 
@@ -35,7 +33,7 @@ def delete_resource(db: Session, resource_id: int, uploader_id: int) -> bool:
     if r.uploader_id != uploader_id:
         raise EduPermissionError("only the uploader can delete")
     r.is_deleted = True
-    r.deleted_at = datetime.now(timezone.utc)
+    r.deleted_at = utcnow()
     db.flush()
     return True
 

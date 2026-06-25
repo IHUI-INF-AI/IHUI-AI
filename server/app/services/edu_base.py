@@ -8,11 +8,12 @@ Phase E compatibility strategy:
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple, TypeVar
+from typing import TypeVar
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -237,14 +238,13 @@ class EduValidationError(EduServiceError):
 
 
 def soft_delete(db, model, entity_id):
-    from datetime import datetime, timezone
     obj = db.get(model, entity_id)
     if obj is None:
         return False
     if hasattr(obj, "is_deleted"):
         obj.is_deleted = True
     if hasattr(obj, "deleted_at"):
-        obj.deleted_at = datetime.now(timezone.utc)
+        obj.deleted_at = utcnow()
     if hasattr(obj, "deleted") and not hasattr(obj, "is_deleted"):
         obj.deleted = True
     db.flush()

@@ -5,11 +5,9 @@ Phase F: Order (IHUI-AI) uses user_id, out_trade_no, amount, status.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple
+from datetime import datetime
 
-from sqlalchemy import and_, desc, select
-from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
 from app.models.edu_models import EduOrder
 from app.services.edu_base import EduPermissionError, EduValidationError, get_or_404, paginate

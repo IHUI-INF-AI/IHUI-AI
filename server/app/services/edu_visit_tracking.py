@@ -1,12 +1,10 @@
 """edu_visit_tracking service - Visit tracking (migrated from ihui-ai-edu-visit-tracking-service)."""
 
 from __future__ import annotations
-from datetime import datetime, timezone
-from typing import List, Optional, Tuple
-from sqlalchemy import and_, desc, func, select
-from sqlalchemy.orm import Session
+from datetime import timedelta
+from app.utils.datetime_helper import utcnow
+from sqlalchemy import desc, func, select
 from app.models.edu_models import EduVisitLog
-from app.services.edu_base import paginate
 
 
 def log_visit(
@@ -28,8 +26,7 @@ def log_visit(
 
 def get_daily_visits(db: Session, days: int = 30) -> List[dict]:
     """Aggregate daily visit counts for the past N days."""
-    from datetime import timedelta
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
     rows = db.execute(
         select(
             func.date(EduVisitLog.created_at).label("day"),

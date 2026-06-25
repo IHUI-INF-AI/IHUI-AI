@@ -109,7 +109,8 @@ async def dingtalk_login_by_code(code: str) -> dict[str, Any]:
     with get_session() as db:
         user = None
         tp_query = db.query(UserThirdPartyAccount).filter(
-            UserThirdPartyAccount.platform == "dingtalk"
+            UserThirdPartyAccount.platform == "dingtalk",
+            UserThirdPartyAccount.deleted_at.is_(None),
         )
         tp = None
         if unionid:

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-from sqlalchemy import and_, select
-from sqlalchemy.orm import Session
+from datetime import datetime
+from sqlalchemy import select
 from app.models.edu_models import EduOssFile, EduOssUploadSession
-from app.services.edu_base import EduNotFoundError, EduValidationError, get_or_404
+from app.services.edu_base import EduNotFoundError, EduValidationError
 
 
 def init_multipart_upload(

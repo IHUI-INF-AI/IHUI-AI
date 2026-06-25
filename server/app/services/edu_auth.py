@@ -6,14 +6,12 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple
+from app.utils.datetime_helper import utcnow
 
 from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
 
-from app.models.user_models import User, UserAuthInfo
-from app.models.edu_models import EduAuthSsoKey, EduAuthThirdParty
+from app.models.user_models import User
+from app.models.edu_models import EduAuthSsoKey
 from app.services.edu_base import EduNotFoundError, EduPermissionError, EduValidationError
 
 
@@ -78,7 +76,7 @@ def login(db: Session, username: str, password: str) -> Tuple[dict, str, str]:
         raise EduPermissionError("invalid password format")
     if not verify_password(password, user.password_hash, user.password_salt):
         raise EduPermissionError("invalid credentials")
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = utcnow()
     db.flush()
     access_token = f"edu_at_{secrets.token_urlsafe(32)}"
     refresh_token = f"edu_rt_{secrets.token_urlsafe(32)}"

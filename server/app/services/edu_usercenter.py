@@ -4,13 +4,9 @@ Phase F: UserAuthInfo (IHUI-AI) uses user_uuid/phone, EduMemberPost (used as add
 """
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from sqlalchemy import select
 
-from sqlalchemy import and_, or_, select
-from sqlalchemy.orm import Session
-
-from app.models.user_models import User, UserAuthInfo
-from app.services.edu_base import paginate
+from app.models.user_models import UserAuthInfo
 
 
 def get_profile(db: Session, user_uuid: Optional[str] = None) -> UserAuthInfo:

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 from datetime import datetime
-from typing import List, Optional, Tuple
-from sqlalchemy import and_, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, select
 from app.models.edu_models import EduScheduleCourse
-from app.services.edu_base import EduValidationError, paginate, get_or_404
+from app.services.edu_base import EduValidationError, get_or_404
 
 
 def create_schedule(

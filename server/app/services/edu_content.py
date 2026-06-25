@@ -5,11 +5,9 @@ Source: G:\\IHUI-AI\\storage\\edu-assets\\java-source\\ihui-ai-edu-content-servi
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from app.utils.datetime_helper import utcnow
 
-from sqlalchemy import and_, desc, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import desc, or_
 
 from app.models.edu_models import EduContentArticle
 from app.services.edu_base import EduPermissionError, EduValidationError, paginate, get_or_404
@@ -39,7 +37,7 @@ def publish_article(db: Session, article_id: int, author_id: int) -> EduContentA
     if a.author_id != author_id:
         raise EduPermissionError("only the author can publish")
     a.is_published = True
-    a.published_at = datetime.now(timezone.utc)
+    a.published_at = utcnow()
     db.flush()
     db.refresh(a)
     return a

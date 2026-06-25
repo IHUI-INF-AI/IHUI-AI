@@ -4,11 +4,9 @@ Uses Elasticsearch (from storage/edu-assets/elasticsearch-7.17.16/) for full-tex
 """
 
 from __future__ import annotations
-from typing import List, Optional, Tuple
 from sqlalchemy import and_, desc, or_, select
-from sqlalchemy.orm import Session
 from app.models.edu_models import EduSearchIndex
-from app.services.edu_base import EduValidationError, paginate, get_or_404
+from app.services.edu_base import EduValidationError, paginate
 
 
 def index_entity(

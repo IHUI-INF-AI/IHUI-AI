@@ -9,18 +9,17 @@ Controllers: CourseController, ChapterController, SectionController, LearnRecord
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple
+from datetime import datetime
+from app.utils.datetime_helper import utcnow
 
 from sqlalchemy import and_, desc, func, or_, select
-from sqlalchemy.orm import Session
 
 from app.models.edu_models import (
     EduCourse, EduCourseChapter, EduCourseSection, EduLearnRecord,
     EduHomework, EduHomeworkSubmission, EduCertificate,
 )
 from app.services.edu_base import (
-    EduNotFoundError, EduPermissionError, EduValidationError,
+    EduPermissionError, EduValidationError,
     paginate, get_or_404,
 )
 
@@ -68,7 +67,7 @@ def update_course(db: Session, course_id: int, teacher_id: int, **fields) -> Edu
         if k in allowed and v is not None:
             setattr(c, k, v)
     if fields.get("is_published") and not c.published_at:
-        c.published_at = datetime.now(timezone.utc)
+        c.published_at = utcnow()
     db.flush()
     db.refresh(c)
     return c
@@ -79,7 +78,7 @@ def delete_course(db: Session, course_id: int, teacher_id: int) -> bool:
     if c.teacher_id != teacher_id:
         raise EduPermissionError("only the teacher can delete the course")
     c.is_deleted = True
-    c.deleted_at = datetime.now(timezone.utc)
+    c.deleted_at = utcnow()
     db.flush()
     return True
 
@@ -232,7 +231,7 @@ def update_progress(
         record.progress_percent = progress_percent
         if is_completed and not record.is_completed:
             record.is_completed = True
-            record.completed_at = datetime.now(timezone.utc)
+            record.completed_at = utcnow()
         if last_position is not None:
             record.last_position = last_position
     db.flush()
@@ -299,12 +298,12 @@ def submit_homework(
     db: Session, homework_id: int, user_id: int, content: Optional[str], attachment_url: Optional[str]
 ) -> EduHomeworkSubmission:
     hw = get_or_404(db, EduHomework, homework_id, "homework")
-    if hw.deadline and hw.deadline < datetime.now(timezone.utc):
+    if hw.deadline and hw.deadline < utcnow():
         raise EduValidationError("homework deadline passed")
     sub = EduHomeworkSubmission(
         homework_id=homework_id, user_id=user_id,
         content=content, attachment_url=attachment_url,
-        submitted_at=datetime.now(timezone.utc),
+        submitted_at=utcnow(),
     )
     db.add(sub)
     db.flush()
@@ -321,7 +320,7 @@ def grade_submission(
     sub.score = score
     sub.comment = comment
     sub.grader_id = grader_id
-    sub.graded_at = datetime.now(timezone.utc)
+    sub.graded_at = utcnow()
     db.flush()
     db.refresh(sub)
     return sub
@@ -348,7 +347,7 @@ def issue_certificate(
     cert = EduCertificate(
         user_id=user_id, course_id=course_id,
         certificate_no=f"CERT{datetime.now().strftime('%Y%m%d')}{secrets.token_hex(4).upper()}",
-        title=title, issue_date=datetime.now(timezone.utc), score=score,
+        title=title, issue_date=utcnow(), score=score,
     )
     db.add(cert)
     db.flush()

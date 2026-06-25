@@ -5,15 +5,12 @@ Source (junction access): G:\\IHUI-AI\\storage\\edu-assets\\java-source\\ihui-ai
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from app.utils.datetime_helper import utcnow
 
 from sqlalchemy import and_, desc, func, or_, select
-from sqlalchemy.orm import Session
 
 from app.models.edu_models import EduCircle, EduCircleMember, EduCirclePost
 from app.services.edu_base import (
-    EduNotFoundError,
     EduPermissionError,
     EduValidationError,
     paginate,
@@ -82,7 +79,7 @@ def delete_circle(db: Session, circle_id: int, user_id: int) -> bool:
     if c.owner_id != user_id:
         raise EduPermissionError("only the owner can delete the circle")
     c.is_deleted = True
-    c.deleted_at = datetime.now(timezone.utc)
+    c.deleted_at = utcnow()
     db.flush()
     return True
 

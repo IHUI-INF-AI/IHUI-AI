@@ -164,13 +164,14 @@ async def enterprise_wechat_login(code: str) -> dict[str, Any]:
     from app.database import get_session
 
     with get_session() as db:
-        from app.models.user_models import User, UserThirdPartyAccounts
+        from app.models.user_models import User, UserThirdPartyAccount
 
         third = (
-            db.query(UserThirdPartyAccounts)
+            db.query(UserThirdPartyAccount)
             .filter(
-                UserThirdPartyAccounts.open_id == userid,
-                UserThirdPartyAccounts.platform == "WEB_ENTERPRISE",
+                UserThirdPartyAccount.open_id == userid,
+                UserThirdPartyAccount.platform == "WEB_ENTERPRISE",
+                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .first()
         )

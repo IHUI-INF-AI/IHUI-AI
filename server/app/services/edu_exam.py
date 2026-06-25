@@ -8,14 +8,13 @@ Controllers: PaperController, QuestionController, ExamRecordController, WrongBoo
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import timezone
 
-from sqlalchemy import and_, desc, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, desc, select
 
 from app.models.edu_models import EduPaper, EduQuestion, EduExamRecord, EduWrongBook
 from app.services.edu_base import EduValidationError, paginate, get_or_404
+from app.utils.datetime_helper import utcnow
 
 
 # ============================================================================
@@ -115,7 +114,7 @@ def start_exam(db: Session, user_id: int, paper_id: int) -> EduExamRecord:
         raise EduValidationError("paper not published")
     record = EduExamRecord(
         user_id=user_id, paper_id=paper_id,
-        start_at=datetime.now(timezone.utc),
+        start_at=utcnow(),
         duration_seconds=0,
         status="in_progress",
     )
@@ -136,33 +135,17 @@ def submit_exam(
     if record.status != "in_progress":
         raise EduValidationError("exam already submitted")
 
-    record.submit_at = datetime.now(timezone.utc)
-    record.duration_seconds = int((record.submit_at - record.start_at).total_seconds())
+    record.submit_at = utcnow()
+    # 兼容历史 aware datetime 记录: 若 start_at 带 tzinfo, 转为 naive UTC
+    start_at = record.start_at
+    if start_at is not None and start_at.tzinfo is not None:
+        start_at = start_at.astimezone(timezone.utc).replace(tzinfo=None)
+    record.duration_seconds = int((record.submit_at - start_at).total_seconds()) if start_at else 0
 
-    # Auto-grade
+    # Auto-grade + 收集错题 question_id (单次遍历, 避免重复循环)
     questions = list_questions(db, record.paper_id)
     score = 0.0
-    for q in questions:
-        user_answer = answers.get(q.id)
-        if not user_answer:
-            continue
-        if q.question_type in ("single", "judge", "fill"):
-            if user_answer.strip().lower() == (q.correct_answer or "").strip().lower():
-                score += q.score
-        elif q.question_type == "multi":
-            correct = set((q.correct_answer or "").split(","))
-            given = set(user_answer.split(","))
-            if correct == given:
-                score += q.score
-        # essay requires manual grading
-
-    paper = get_or_404(db, EduPaper, record.paper_id, "paper")
-    record.score = score
-    record.is_passed = score >= paper.pass_score
-    record.status = "submitted"
-    db.flush()
-
-    # Add wrong questions to wrong book
+    wrong_question_ids: List[int] = []
     for q in questions:
         user_answer = answers.get(q.id)
         if not user_answer:
@@ -170,12 +153,51 @@ def submit_exam(
         is_correct = False
         if q.question_type in ("single", "judge", "fill"):
             is_correct = user_answer.strip().lower() == (q.correct_answer or "").strip().lower()
+            if is_correct:
+                score += q.score
         elif q.question_type == "multi":
             correct = set((q.correct_answer or "").split(","))
             given = set(user_answer.split(","))
             is_correct = correct == given
+            if is_correct:
+                score += q.score
+        # essay requires manual grading
         if not is_correct:
-            add_wrong_question(db, user_id, q.id)
+            wrong_question_ids.append(q.id)
+
+    paper = get_or_404(db, EduPaper, record.paper_id, "paper")
+    record.score = score
+    record.is_passed = score >= paper.pass_score
+    record.status = "submitted"
+    db.flush()
+
+    # 批量预查询已存在的错题记录 (避免循环内 N+1 查询)
+    existing_wbs: Dict[int, EduWrongBook] = {}
+    if wrong_question_ids:
+        existing_wbs = {
+            wb.question_id: wb
+            for wb in db.execute(
+                select(EduWrongBook).where(
+                    and_(
+                        EduWrongBook.uuid == user_id,
+                        EduWrongBook.question_id.in_(wrong_question_ids),
+                    )
+                )
+            ).scalars().all()
+        }
+    now = utcnow()
+    for qid in wrong_question_ids:
+        existing = existing_wbs.get(qid)
+        if existing:
+            existing.wrong_count = (existing.wrong_count or 0) + 1
+            existing.last_wrong_at = now
+        else:
+            db.add(EduWrongBook(
+                user_id=user_id, question_id=qid,
+                wrong_count=1, last_wrong_at=now,
+                mastered=False,
+            ))
+    db.flush()  # 单次 flush, 避免 N+1
 
     db.refresh(record)
     return record
@@ -208,13 +230,13 @@ def add_wrong_question(db: Session, user_id: int, question_id: int) -> EduWrongB
     ).scalar_one_or_none()
     if existing:
         existing.wrong_count = (existing.wrong_count or 0) + 1
-        existing.last_wrong_at = datetime.now(timezone.utc)
+        existing.last_wrong_at = utcnow()
         db.flush()
         db.refresh(existing)
         return existing
     wb = EduWrongBook(
         user_id=user_id, question_id=question_id,
-        wrong_count=1, last_wrong_at=datetime.now(timezone.utc),
+        wrong_count=1, last_wrong_at=utcnow(),
         mastered=False,
     )
     db.add(wb)

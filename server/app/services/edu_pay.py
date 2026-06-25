@@ -5,12 +5,9 @@ Source: G:\\IHUI-AI\\storage\\edu-assets\\java-source\\ihui-ai-edu-pay-service\\
 
 from __future__ import annotations
 
-import secrets
-from datetime import datetime, timezone
-from typing import List, Optional
+from app.utils.datetime_helper import utcnow
 
-from sqlalchemy import and_, desc, select
-from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.models.edu_models import EduOrder, EduPayOrder
 from app.services.edu_base import EduValidationError, get_or_404, paginate
@@ -46,7 +43,7 @@ def mark_paid(
         return po
     po.pay_status = "paid"
     po.transaction_id = transaction_id
-    po.paid_at = datetime.now(timezone.utc)
+    po.paid_at = utcnow()
     # Also update the order
     order = db.get(EduOrder, po.order_id)
     if order:

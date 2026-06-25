@@ -93,13 +93,14 @@ async def feishu_login_by_code(code: str) -> dict[str, Any]:
     from app.database import get_session
 
     with get_session() as db:
-        from app.models.user_models import User, UserThirdPartyAccounts
+        from app.models.user_models import User, UserThirdPartyAccount
 
         third = (
-            db.query(UserThirdPartyAccounts)
+            db.query(UserThirdPartyAccount)
             .filter(
-                UserThirdPartyAccounts.open_id == open_id,
-                UserThirdPartyAccounts.platform == "WEB_FEISHU",
+                UserThirdPartyAccount.open_id == open_id,
+                UserThirdPartyAccount.platform == "WEB_FEISHU",
+                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .first()
         )

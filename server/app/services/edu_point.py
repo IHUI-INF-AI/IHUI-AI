@@ -4,14 +4,10 @@ Phase F: PointAccount (IHUI-AI) uses available_point/frozen_point/total_point.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import List, Optional, Tuple
-
-from sqlalchemy import and_, desc, select
-from sqlalchemy.orm import Session
+from sqlalchemy import desc, select
 
 from app.models.edu_models import EduPointAccount, EduPointRecord
-from app.services.edu_base import EduValidationError, paginate, get_or_404
+from app.services.edu_base import EduValidationError, paginate
 
 
 def get_or_create_account(db: Session, user_id: str = None, user_uuid: str = None) -> EduPointAccount:
