@@ -175,8 +175,8 @@ const groups = computed<MenuGroup[]>(() => [
     text-decoration: none; font-size: 13px;
     border-radius: var(--global-border-radius);
     transition: all 0.2s;
-    &:hover { color: var(--el-bg-color); background: var(--color-white-8); }
-    &.active { color: var(--el-bg-color); background: var(--el-color-primary); }
+    &:hover { color: var(--color-on-primary); background: var(--color-white-8); }
+    &.active { color: var(--color-on-primary); background: var(--el-color-primary); }
   }
 
   /* 站内信未读红点 (P1 封版) -- 扁平化, 纯背景色 + 边框 */
