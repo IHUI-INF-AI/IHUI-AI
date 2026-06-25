@@ -26,7 +26,7 @@ MATCH_TYPES = ["header", "uri", "method", "source_label", "source_namespace"]
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

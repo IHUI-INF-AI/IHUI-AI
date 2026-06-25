@@ -247,9 +247,45 @@ def archive_old_notifications_task(self) -> dict:
             )
         else:
             logger.info(f"[celery] archive_old_notifications_task finished: {summary}")
+        # P1 增强: 写历史趋势到 jsonl (运维可读 / ELK 收集 / 时序分析)
+        _write_archive_history(summary)
         return summary
     except Exception as e:
         logger.exception(f"[celery] archive_old_notifications_task failed: {e}")
         if hasattr(self, "retry"):
             raise self.retry(exc=e, countdown=60 * (2 ** getattr(self.request, "retries", 0)))
         raise
+
+
+def _write_archive_history(summary: dict) -> None:
+    """归档历史趋势 (jsonl).
+
+    文件: logs/notify_archive_history.jsonl
+    每行一条: {"ts": ISO8601, "archived": N, "would_archive": N, "threshold_days": N, "dry_run": bool, "duration_s": float}
+
+    运维可用法:
+        tail -f logs/notify_archive_history.jsonl                      # 实时
+        jq -s 'group_by(.ts[:10]) | ...' logs/notify_archive_history.jsonl  # 按天聚合
+        awk -F'"archived":' '{print $2}' | cut -d, -f1                # 提取 archived 列
+    """
+    import json
+    from pathlib import Path
+
+    try:
+        # 优先 logs/ 目录, 缺失则用 CWD (兼容容器/开发/CI)
+        log_path = Path("logs/notify_archive_history.jsonl")
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            # fallback: tmp 目录
+            import tempfile
+            log_path = Path(tempfile.gettempdir()) / "notify_archive_history.jsonl"
+        record = {
+            "ts": datetime.utcnow().isoformat() + "Z",
+            **summary,
+        }
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as e:  # noqa: BLE001
+        # 趋势日志写失败不影响主任务
+        logger.warning(f"[celery] archive_old_notifications_task: 写历史趋势失败: {e}")

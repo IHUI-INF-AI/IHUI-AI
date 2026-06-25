@@ -14,6 +14,7 @@ from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 
 from app.services._legacy_settings import settings as _legacy_settings
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +54,8 @@ class CertificateAuthority:
                 .issuer_name(issuer)
                 .public_key(ca_key.public_key())
                 .serial_number(x509.random_serial_number())
-                .not_valid_before(datetime.utcnow())
-                .not_valid_after(datetime.utcnow() + timedelta(days=3650))
+                .not_valid_before(utcnow())
+                .not_valid_after(utcnow() + timedelta(days=3650))
                 .add_extension(
                     x509.BasicConstraints(ca=True, path_length=None),
                     critical=True,

@@ -1,6 +1,6 @@
 """直播功能 - 腾讯云直播流 (迁移自 edu server ihui-ai-edu-live-service)"""
 
-from datetime import datetime
+from app.utils.datetime_helper import utcnow
 
 from fastapi import APIRouter, Query
 from loguru import logger

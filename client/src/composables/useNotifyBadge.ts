@@ -14,6 +14,8 @@ const POLL_INTERVAL_MS = 30_000
 // 全局单例状态, 跨组件共享 (菜单红点 + 通知中心使用同一引用)
 const _unreadCount: Ref<number> = ref(0)
 const _polling = ref(false)
+/** 最近一次 socket error 时间 (调试用, UI 可选展示). */
+const _lastErrorAt: Ref<Date | null> = ref(null)
 let _timer: number | null = null
 let _refCount = 0
 let _socket: Socket | null = null
