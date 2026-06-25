@@ -13247,8 +13247,8 @@ $cs-accent-cyan: var(--el-text-color-primary);
   }
 
   .cs-faq-pill:hover {
-    border-color: rgba($cs-accent-blue, 0.4);
-    background: rgba($cs-accent-blue, 0.08);
+    border-color: color-mix(in srgb, $cs-accent-blue 40%, transparent);
+    background: color-mix(in srgb, $cs-accent-blue 8%, transparent);
     color: var(--el-text-color-primary);
     transform: translateX(4px);
   }
@@ -13349,16 +13349,16 @@ $cs-accent-cyan: var(--el-text-color-primary);
   }
 
   .input-wrapper {
-    border-color: rgba($cs-accent-blue, 0.2);
+    border-color: color-mix(in srgb, $cs-accent-blue 20%, transparent);
     box-shadow: var(--global-box-shadow);
   }
 
   .input-wrapper:hover {
-    border-color: rgba($cs-accent-blue, 0.35);
+    border-color: color-mix(in srgb, $cs-accent-blue 35%, transparent);
   }
 
   .input-wrapper:focus-within {
-    border-color: rgba($cs-accent-blue, 0.5);
+    border-color: color-mix(in srgb, $cs-accent-blue 50%, transparent);
     box-shadow: var(--global-box-shadow);
   }
 

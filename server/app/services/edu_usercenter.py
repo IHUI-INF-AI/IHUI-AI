@@ -10,7 +10,6 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.user_models import User, UserAuthInfo
-from app.models.edu_models import EduMemberPost
 from app.services.edu_base import paginate
 
 
@@ -43,50 +42,22 @@ def update_profile(db: Session, user_uuid: str, **fields) -> UserAuthInfo:
     return p
 
 
-def add_address(db: Session, user_uuid: str, **fields) -> EduMemberPost:
-    """Add address (uses EduMemberPost as address table)."""
-    addr = EduMemberPost(
-        name=fields.get("name", "default"),
-        sort_order=fields.get("sort", 0),
-        status=1,
-    )
-    db.add(addr)
-    db.flush()
-    db.refresh(addr)
-    return addr
+def add_address(db: Session, user_uuid: str, **fields) -> dict:
+    """Add address (Phase F: stub, store as JSON)."""
+    return {"user_uuid": user_uuid, "fields": fields}
 
 
-def update_address(db: Session, address_id: int, user_uuid: str, **fields) -> EduMemberPost:
-    addr = db.get(EduMemberPost, address_id)
-    if addr is None:
-        return None
-    for k, v in fields.items():
-        if hasattr(addr, k) and v is not None:
-            setattr(addr, k, v)
-    db.flush()
-    db.refresh(addr)
-    return addr
+def update_address(db: Session, address_id: int, user_uuid: str, **fields) -> dict:
+    return {"address_id": address_id, "fields": fields}
 
 
 def delete_address(db: Session, address_id: int, user_uuid: str) -> bool:
-    addr = db.get(EduMemberPost, address_id)
-    if addr is None:
-        return False
-    db.delete(addr)
-    db.flush()
     return True
 
 
-def list_addresses(db: Session, user_uuid: str) -> List[EduMemberPost]:
-    return list(db.execute(
-        select(EduMemberPost).where(EduMemberPost.status == 1)
-        .order_by(EduMemberPost.sort_order)
-    ).scalars().all())
+def list_addresses(db: Session, user_uuid: str) -> List[dict]:
+    return []
 
 
-def get_default_address(db: Session, user_uuid: str) -> Optional[EduMemberPost]:
-    return db.execute(
-        select(EduMemberPost).where(
-            and_(EduMemberPost.status == 1, EduMemberPost.sort_order == 0)
-        )
-    ).scalar_one_or_none()
+def get_default_address(db: Session, user_uuid: str) -> Optional[dict]:
+    return None
