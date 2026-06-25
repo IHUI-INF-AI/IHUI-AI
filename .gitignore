@@ -163,6 +163,10 @@ pw-output
 # Runtime logs and test output (封版阶段新增)
 dev.log
 server/test_out.txt
+server/test_out2.txt
+server/test_result.txt
+server/e2e_full.txt
+server/e2e_result.txt
 server/tests/_smoke_fix_*.py
 ssl
 storage
