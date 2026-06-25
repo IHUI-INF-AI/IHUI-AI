@@ -216,7 +216,55 @@ Closes #123
 
 ---
 
-## 6. 安全提醒
+## 6. 端口规范 (强制遵守, 2026-06-25 新增)
+
+> **后端必须监听 8000 端口, 前端 dev server 必须监听 8888 端口. 不得以任何理由临时改为其他端口.**
+
+### 6.1 端口分配
+
+| 端口 | 用途          | 启动命令                                     | 禁止事项             |
+|------|---------------|----------------------------------------------|----------------------|
+| 8000 | FastAPI 后端  | `python server/scripts/restart_backend.py`   | 禁止改 Vite 代理指此 |
+| 8888 | Vite dev server | `pnpm dev` (在 client 目录)                | 禁止改 BASE_URL 默值 |
+| 4173 | Vite preview (CI 集成测试) | `pnpm build && pnpm preview`         | 本地 dev 不要用此端口 |
+| 9090 | Prometheus    | (运维侧)                                     | 业务不要监听         |
+
+详细约定见 [client/docs/DEV_PORTS.md](../client/docs/DEV_PORTS.md), 端口配置唯一来源 [client/config/ports.ts](../client/config/ports.ts).
+
+### 6.2 运行时启动规范 (重点)
+
+本规范适用于**所有**启动后端的方式, **包括 AI 助手自动启动**:
+
+```bash
+# ✅ 正确: 用 8000 端口
+cd server && .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# ❌ 违规: 临时改端口为 8001 / 8002 / 9000 等
+.venv\Scripts\python.exe -m uvicorn app.main:app --port 8001
+
+# ❌ 违规: 用环境变量临时覆盖
+$env:BACKEND_PORT=8001; npm run dev
+```
+
+**8000 被占用时, 必须先释放 8000, 不得改端口绕过:**
+
+```bash
+netstat -ano | findstr ":8000" | findstr "LISTENING"
+Stop-Process -Id <PID> -Force
+```
+
+### 6.3 违规案例
+
+2026-06-25: AI 助手擅自改 8001 端口启动后端, 导致前后端断链. 详见 [DEV_PORTS.md 违规案例](../client/docs/DEV_PORTS.md#违规案例留档-2026-06-25).
+
+### 6.4 检测工具
+
+- [client/scripts/check-port-drift.mjs](../client/scripts/check-port-drift.mjs) - 字面量端口漂移检测 (pre-commit)
+- [scripts/check-runtime-port.mjs](../scripts/check-runtime-port.mjs) - 运行时进程端口检测
+
+---
+
+## 7. 安全提醒
 
 ### 6.1 数据库凭据
 
@@ -230,7 +278,7 @@ Closes #123
 - CI 用 GitHub Secrets / Vault
 - **不要**把 `.env` 提交到 git（`.gitignore` 已忽略）
 
-### 6.2 日志脱敏
+### 7.2 日志脱敏
 
 - `1/server/app/utils/log_mask.py`（API 路径、邮箱、手机号、Token 脱敏）
 - `1/server/app/utils/api_mask.py`（API 响应脱敏）
@@ -258,7 +306,7 @@ Closes #123
   - `performance-monitor.js` - 性能监控
   - `pre-deploy-check.js` - 部署前检查
 
-### 7.2 后端调试
+### 8.2 后端调试
 
 - 日志统一在 `1/server/logs/`（按微服务划分）
 - `1/server/scripts/dev/` 下的开发工具：
@@ -267,7 +315,7 @@ Closes #123
   - `check_nul.mjs` / `del_nul.mjs` - nul 清理
   - `alembic_autogen.py` - Alembic dry-run
 
-### 7.3 CI / 部署调试
+### 8.3 CI / 部署调试
 
 - 看 GitHub Actions 跑批日志
 - 找对应 `1/.github/workflows/` yml 文件
@@ -275,7 +323,7 @@ Closes #123
 
 ---
 
-## 8. 文档组织
+## 9. 文档组织
 
 - `1/docs/` 项目级规范与设计文档
 - `1/PROJECT_HANDOFF.md` 项目交接说明
@@ -285,7 +333,7 @@ Closes #123
 
 ---
 
-## 9. 常见问题 FAQ
+## 10. 常见问题 FAQ
 
 ### Q1: 跑了 `npm run dev` 之后 `1/client/` 根目录出现 `nul` 文件？
 A: `package.json` 里 `chcp 65001 >nul`（小写）在 PowerShell 终端会被当作文件名。建议改 `>NUL`（大写），或用 `chcp 65001 > $null`（PowerShell 风格）。
@@ -304,7 +352,7 @@ A: 大概率是有真实的 nul 文件被提交。跑 `node scripts/del-nul.mjs`
 
 ---
 
-## 10. 后续 TODO
+## 11. 后续 TODO
 
 - [ ] `1/client/package.json` 里 13 处 `chcp 65001 >nul` 改为 `chcp 65001 >NUL`（大写）
 - [ ] `1/client/.env.example` 增加 nul 相关说明
