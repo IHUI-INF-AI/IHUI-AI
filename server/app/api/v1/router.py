@@ -7,7 +7,7 @@ from app.api.v1.agents.agents import router as agents_router
 from app.api.v1.agents.buy import router as buy_router
 from app.api.v1.agents.cache import router as cache_router
 from app.api.v1.agents.categories import router as categories_router
-from app.api.v1.agents.category_link import router as agents_category_link_router
+# 2026-06-26: agents.category_link 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入
 from app.api.v1.agents.creation import router as creation_router
 from app.api.v1.agents.developer import router as developer_router
 from app.api.v1.agents.examine import router as examine_router
@@ -98,7 +98,7 @@ from app.api.v1.courses.courses import router as courses_router
 from app.api.v1.finance.commission import router as commission_router
 from app.api.v1.finance.distribution import router as distribution_router
 from app.api.v1.finance.fund import router as finance_fund_router
-from app.api.v1.finance.fund_info import router as finance_fund_info_router
+# 2026-06-26: finance.fund_info 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入
 from app.api.v1.finance.margin import router as margin_router
 from app.api.v1.finance.withdrawal import router as withdrawal_router
 
@@ -129,7 +129,7 @@ from app.api.v1.system.audit import router as sys_audit_router
 from app.api.v1.system.codegen import router as sys_codegen_router
 
 # --- System ---
-from app.api.v1.system.dictionary import router as sys_dictionary_router
+# 2026-06-26: system.dictionary 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入
 from app.api.v1.system.user import router as sys_user_router
 
 # --- Tools ---
@@ -645,7 +645,7 @@ api_router.include_router(identity_router, prefix="/agents/identity", tags=["Age
 api_router.include_router(creation_router, prefix="/agents/creation", tags=["Agent Creation"])
 api_router.include_router(cache_router, prefix="/agents/cache", tags=["Agent Cache"])
 api_router.include_router(rule_params_router, tags=["Agent Rule Params"])
-api_router.include_router(agents_category_link_router, prefix="/agents/category-link", tags=["Agent Category Link"])
+# 2026-06-26: agents_category_link_router 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不注册
 
 # Bots
 api_router.include_router(bots_router, prefix="/bots", tags=["Bots"])
@@ -691,7 +691,7 @@ api_router.include_router(margin_router, prefix="/finance", tags=["Finance: Marg
 api_router.include_router(withdrawal_router, prefix="/finance/withdrawal", tags=["Finance: Withdrawal"])
 api_router.include_router(distribution_router, prefix="/finance", tags=["Finance: Distribution"])
 api_router.include_router(finance_fund_router, prefix="/finance", tags=["Finance: Fund"])
-api_router.include_router(finance_fund_info_router, tags=["Finance: User Fund Info"])
+# 2026-06-26: finance_fund_info_router 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不注册
 
 # Courses
 api_router.include_router(courses_router, prefix="/courses", tags=["Courses"])
@@ -714,7 +714,7 @@ api_router.include_router(sys_user_router, prefix="/system", tags=["System"])
 api_router.include_router(sys_admin_router, prefix="/system/admin", tags=["System Admin"])
 api_router.include_router(sys_audit_router, prefix="/system/audit", tags=["System: Audit"])
 api_router.include_router(sys_codegen_router, prefix="/system", tags=["System: Codegen"])
-api_router.include_router(sys_dictionary_router, tags=["System: Dictionary"])
+# 2026-06-26: sys_dictionary_router 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不注册
 
 # Monitor
 api_router.include_router(monitor_alerts_router, prefix="/monitor/alerts", tags=["Monitor: Alerts"])
@@ -1054,16 +1054,14 @@ from app.api.v1.courses.video_temp import router as video_temp_router  # noqa: E
 api_router.include_router(video_temp_router)
 
 # --- 封存前补齐: 3 个完全未迁移 Controller (19 端点) ---
-# C1: 字典管理已在 line 132 导入为 sys_dictionary_router, line 717 注册, 不再重复
+# C1: 字典管理已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入/注册
 
-# C2: 用户资金信息已在 line 101 导入为 finance_fund_info_router, line 694 注册, 不再重复
+# C2: 用户资金信息已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入/注册
 
-# C3: Agent 分类关联已在 line 10 导入为 agents_category_link_router, line 648 注册, 不再重复
+# C3: Agent 分类关联已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入/注册
 
 # --- 封存前补齐: 16 个部分缺失 Controller 的 53 个端点 ---
-from app.api.v1.legacy_supplement import router as legacy_supplement_router  # noqa: E402
-
-api_router.include_router(legacy_supplement_router)
+# 2026-06-26: legacy_supplement 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入/注册
 
 # --- Category Legacy Routes: 1:1 兼容 Java CategoryController (47 端点) ---
 # 必须在 admin_panel 之前注册, 避免 /category/* 被 admin 路由屏蔽.
