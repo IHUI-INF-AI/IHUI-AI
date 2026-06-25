@@ -25,6 +25,10 @@ export interface AgentWithdrawal {
 }
 
 // 获取提现记录列表
+// 2026-06-25 修复#F: 路径对齐后端 v1 真实端点 /api/v1/agents/withdrawal/list
+//   原路径 /agentWithdrawalDetail/list 走 api-kou 代理, 无对应后端实现, 实际走 mock 兜底.
+//   后端参数: page/limit/status, user_uuid 从 token 取 (前端传 user_id 会被忽略).
+//   前端多余参数 (type/withdrawal_no/min_amount 等) 后端暂不支持, FastAPI 忽略不报错.
 export const getWithdrawalList = withApiResponseHandler(
   async (params: {
     user_id: string
@@ -39,7 +43,7 @@ export const getWithdrawalList = withApiResponseHandler(
     sort_by?: string
     sort_order?: 'asc' | 'desc'
   }): Promise<ApiResponse<PaginationResponse<AgentWithdrawal>>> => {
-    const response = await request.get('/agentWithdrawalDetail/list', {
+    const response = await request.get('/api/v1/agents/withdrawal/list', {
       params: {
         page: params.page || 1,
         page_size: params.page_size || 20,

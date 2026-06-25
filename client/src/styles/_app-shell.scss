@@ -426,6 +426,19 @@
   }
 }
 
+/* ═══ 2026-06-24: el-config-provider 等待 locale 解析时的兜底占位 ═══
+   仅在 hasValidEpLocale 为 false 的极短窗口 (EP 语言包首次加载) 出现,
+   使用背景色填充避免白屏闪烁, 元素本身 aria-hidden 不参与无障碍树. */
+:where(.app-locale-loading) {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--el-bg-color-page, var(--el-bg-color));
+  z-index: var(--z-base);
+  pointer-events: none;
+}
+
 /* ═══ 无障碍适配 ═══ */
 @media (prefers-contrast: high) {
   :where(button),

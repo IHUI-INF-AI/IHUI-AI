@@ -1093,7 +1093,18 @@ async def mock_devapi_catchall(path: str, request: Request):
     "/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False
 )
 async def mock_api_catchall(path: str, request: Request):
-    """通用 mock 兜底. 覆盖所有 /api/* 路径, 让前端开发时无 404."""
+    """通用 mock 兜底. 覆盖所有 /api/* 路径, 让前端开发时无 404.
+
+    2026-06-25 修复#D: 跳过 /api/v1/* 路径. v1 有真实端点, 缺失路径应返回 404
+    而非 mock 兜底, 避免掩盖前端调用已迁移路径的错误 (如 /api/v1/agents/apply
+    已迁移到 /api/v1/agents/withdrawal/apply, 若被 mock 兜底返回 200, 前端无法
+    发现调用错误). 注释 "V1 模块注意: /api/v1/* 不再提供 mock" 原本设计意图如此,
+    但 catch-all 的 /api/{path:path} 仍会匹配 v1/xxx, 现显式拦截.
+    """
+    # /api/v1/* 路径不提供 mock, 返回 404 让前端发现调用错误
+    if path.startswith("v1/"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"v1 endpoint not found: /api/{path}")
     method = request.method
     # 根据路径推断返回数据
     lower = path.lower()

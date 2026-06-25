@@ -2207,7 +2207,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   :deep(.login-button),
   .login-button {
     background: var(--el-color-white);
-    color: var(--el-text-color-primary);
+    color: var(--color-on-primary);
 
     &:hover {
       background: var(--el-fill-color-light);

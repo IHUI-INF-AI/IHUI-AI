@@ -115,7 +115,7 @@ async def list_batches(_: str = Depends(require_role("admin"))) -> list[BatchInf
 
 
 @router.post("/run", summary="启动迁移批次 (异步)")
-async def run_migration(req: MigrateRequest) -> dict:
+async def run_migration(req: MigrateRequest, _: str = Depends(require_role("admin"))) -> dict:
     """触发 ETL migrate.py 执行 (后台子进程)."""
     cmd = [
         sys.executable, "-m", "scripts.migrate",
@@ -157,7 +157,7 @@ async def run_migration(req: MigrateRequest) -> dict:
 
 
 @router.get("/verify/{batch_id}", summary="校验批次行数")
-async def verify_batch(batch_id: str) -> VerifyResponse:
+async def verify_batch(batch_id: str, _: str = Depends(require_role("admin"))) -> VerifyResponse:
     """对比 H 盘 vs G 盘行数 + 抽样校验."""
     from scripts.etl.config import get_batch
     from scripts.etl.extractor import extract_count
@@ -197,7 +197,7 @@ async def verify_batch(batch_id: str) -> VerifyResponse:
 
 
 @router.post("/rollback/{batch_id}", summary="回滚批次 (需 --confirm)")
-async def rollback_batch(batch_id: str, confirm: bool = False) -> dict:
+async def rollback_batch(batch_id: str, confirm: bool = False, _: str = Depends(require_role("admin"))) -> dict:
     """通过 ETL rollback.py 回滚 (子进程, 不会阻塞 API)."""
     if not confirm:
         raise HTTPException(status_code=400, detail="必须显式 confirm=true 才执行回滚")
@@ -328,6 +328,7 @@ async def lookup_id_mapping(
 async def reverse_id_mapping(
     source_table: str = Query(..., description="H 盘表名"),
     new_uuid: str = Query(..., description="G 盘 String(64) UUID"),
+    _: str = Depends(require_login),
 ):
     old_id = id_mapping_service.get_old_id(source_table, new_uuid)
     if old_id is None:
@@ -336,7 +337,7 @@ async def reverse_id_mapping(
 
 
 @router.post("/id-mapping/register", summary="注册一条主键映射 (重复则返回已有)")
-async def register_id_mapping(req: RegisterMappingReq):
+async def register_id_mapping(req: RegisterMappingReq, _: str = Depends(require_login)):
     new_uuid = id_mapping_service.batch_register(
         source_table=req.source_table,
         old_id=req.old_id,
@@ -348,7 +349,7 @@ async def register_id_mapping(req: RegisterMappingReq):
 
 
 @router.post("/id-mapping/batch-resolve", summary="批量查询/生成映射")
-async def batch_resolve_id_mapping(req: BatchResolveReq):
+async def batch_resolve_id_mapping(req: BatchResolveReq, _: str = Depends(require_login)):
     result = id_mapping_service.batch_resolve(
         source_table=req.source_table,
         old_ids=req.old_ids,
@@ -388,6 +389,7 @@ class NotifyItem:
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     read: bool = False
     read_time: str | None = None
+    top: bool = False  # 是否置顶 (P1: error 级别自动置顶)
 
 
 def _to_notify_item(m: Message) -> NotifyItem:
@@ -402,6 +404,7 @@ def _to_notify_item(m: Message) -> NotifyItem:
         if isinstance(m.created_at, datetime) else str(m.created_at),
         read=bool(m.is_read),
         read_time=m.read_time.isoformat() if m.read_time else None,
+        top=bool(m.is_top),
     )
 
 

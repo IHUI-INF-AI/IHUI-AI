@@ -8,13 +8,13 @@
 - WxPayNotification
 """
 
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
 
 from app.database import Base
 from app.models.base import id_column
+from app.utils.datetime_helper import utcnow
 
 
 class AiBotSites(Base):
@@ -30,8 +30,8 @@ class AiBotSites(Base):
     icon = Column(String(512))
     sort = Column(Integer, default=0)
     is_use = Column(Integer, default=1)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -58,8 +58,8 @@ class PaymentCallback(Base):
     raw_data = Column(Text)
     status = Column(Integer, default=0)
     amount = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -86,7 +86,7 @@ class TransferInfo(Base):
     amount = Column(Integer, default=0)
     status = Column(Integer, default=0)
     remark = Column(String(255))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -112,8 +112,8 @@ class UserAgentFreeTimes(Base):
     free_times = Column(Integer, default=0)
     used_times = Column(Integer, default=0)
     last_reset_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -145,7 +145,7 @@ class WxPayNotification(Base):
     result_code = Column(String(16))
     raw_xml = Column(Text)
     status = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     def to_dict(self) -> dict[str, Any]:
         return {

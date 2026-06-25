@@ -5,12 +5,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base
 
 from app.database import Base, get_session
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class MigrationCheckpoint(Base):
     error_msg = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 def get_checkpoint(batch_id: str, source_table: str) -> MigrationCheckpoint | None:
@@ -85,7 +85,7 @@ def upsert_checkpoint(
         ck.migrated_rows = migrated_rows
         ck.error_msg = error_msg
         if status == "running" and ck.started_at is None:
-            ck.started_at = datetime.utcnow()
+            ck.started_at = utcnow()
         if status in ("done", "failed"):
-            ck.finished_at = datetime.utcnow()
+            ck.finished_at = utcnow()
         db.flush()

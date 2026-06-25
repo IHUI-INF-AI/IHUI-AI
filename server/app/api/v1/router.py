@@ -957,9 +957,9 @@ from app.api.v1.agents.category_sync import router as category_sync_router  # no
 api_router.include_router(category_sync_router, tags=["Agent Category Sync (coze_zhs_py)"])
 
 # Agent upload processing (ZHS_Server_java/small/controller/AgentUploadController.java)
-from app.api.v1.agents.upload import router as agent_upload_process_router  # noqa: E402
-
-api_router.include_router(agent_upload_process_router, tags=["Agent Upload Process"])
+# 注意: 该 router 自带 /api/agent 前缀, 不能 include 到 api_router (/api/v1) 下,
+# 否则路径变成 /api/v1/api/agent/upload 导致 404.
+# 已在 main.py 中直接 include 到 app 上.
 
 # AI Bot Sites (ZHS_Server_java/small/controller/AiBotSitesController.java)
 from app.api.v1.ai_bot_sites import router as ai_bot_sites_router  # noqa: E402

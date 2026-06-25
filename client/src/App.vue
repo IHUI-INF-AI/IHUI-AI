@@ -15,7 +15,12 @@
   全局兜底样式已抽到 styles/_app-shell.scss。
 -->
 <template>
-  <el-config-provider :locale="epLocale">
+  <!--
+    2026-06-24 修复: el-config-provider 在 epLocale 首次解析为 {} 空对象时, 内部 renderSlot 读取 null children 触发
+    'Cannot read properties of null (reading "ce")' 错误. 改为 v-if 确保 locale 至少含 'name' 字段才渲染
+    config-provider, 避免空 locale + 空 slots 触发的 Vue 内部错误.
+  -->
+  <el-config-provider v-if="hasValidEpLocale" :locale="epLocale">
     <Error>
       <Teleport to="body">
         <Header v-if="!isAdminRoute" @select="handleSelect" />
@@ -122,6 +127,8 @@
       </div>
     </Error>
   </el-config-provider>
+  <!-- v-if 兜底: locale 尚未解析时显示空白背景占位, 避免白屏闪烁 -->
+  <div v-else class="app-locale-loading" aria-hidden="true"></div>
 </template>
 
 <script setup lang="ts">
@@ -189,13 +196,17 @@ const { t, locale } = useI18n()
 // 2026-06-24 优化：EP 语言包懒加载，computed 同步返回（先 en 兜底），异步预加载后自动更新
 // vue-i18n 9.x 的 locale 是 Ref<string>, 直接 .value 即可
 const epLocale = ref<Record<string, unknown>>(getElementPlusLocale(locale.value))
+// 2026-06-24 修复: 仅有有效 locale (含 name 字段) 时才挂载 el-config-provider,
+// 避免空 {} locale 触发 Element Plus 内部 renderSlot(null children) 错误.
+const hasValidEpLocale = computed(() => {
+  const v = epLocale.value as { name?: unknown } | null | undefined
+  return !!(v && typeof v === 'object' && typeof v.name === 'string' && v.name.length > 0)
+})
 watch(
   locale,
   async (lang) => {
-    // 2026-06-24 修正: watch 回调参数类型是 string (vue-i18n 9.x)，
-    // 但部分类型定义仍标 MaybeRef<string>，双断言后取 .value
-    const raw = lang as unknown as string | { value: string }
-    const code = typeof raw === 'string' ? raw : raw.value
+    // vue-i18n 9.x: locale 是 Ref<string>，watch 回调参数可能是 string 或 Ref<string>
+    const code = typeof lang === 'string' ? lang : (lang as { value: string }).value
     const loaded = await loadElementPlusLocale(code)
     epLocale.value = loaded
   },

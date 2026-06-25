@@ -6,7 +6,17 @@
         <el-button :disabled="!unreadCount" @click="markAllRead">{{ t('notificationCenter.markAllRead') }}</el-button>
         <el-radio-group v-model="filter" size="small">
           <el-radio-button label="all">{{ t('notificationCenter.all') }}</el-radio-button>
-          <el-radio-button label="unread">{{ t('notificationCenter.unread') }} ({{ unreadDisplay }})</el-radio-button>
+          <el-radio-button label="unread">
+            <span class="unread-label">
+              {{ t('notificationCenter.unread') }} ({{ unreadDisplay }})
+              <!-- 未读红点 (与 Menu.vue 风格一致) -->
+              <span
+                v-if="unreadCount > 0"
+                class="unread-dot"
+                :title="`${unreadCount} 条未读`"
+              ></span>
+            </span>
+          </el-radio-button>
         </el-radio-group>
       </div>
     </header>
@@ -19,7 +29,7 @@
         v-for="n in items"
         :key="n.id"
         class="notify-item"
-        :class="['level-' + n.level, { unread: !n.read }]"
+        :class="['level-' + n.level, { unread: !n.read, topped: n.top }]"
         @click="onClick(n)"
       >
         <div class="notify-icon">
@@ -34,6 +44,11 @@
             <span>{{ n.title }}</span>
             <el-tag v-if="!n.read" size="small" type="danger" effect="dark">{{ t('notificationCenter.unread') }}</el-tag>
             <el-tag v-else size="small" type="info" effect="plain">{{ n.source }}</el-tag>
+            <!-- 置顶徽章 (P1: error 级别自动置顶) -->
+            <span v-if="n.top" class="top-badge" :title="'已置顶'">
+              <el-icon :size="12"><Top /></el-icon>
+              <span>置顶</span>
+            </span>
           </div>
           <div class="notify-text">{{ n.body }}</div>
           <div class="notify-meta">{{ formatTime(n.created_at) }} · {{ n.source }}</div>
@@ -46,7 +61,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Bell, Warning, CircleClose } from '@element-plus/icons-vue'
+import { Bell, Warning, CircleClose, Top } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import http from '@/utils/request'
 
@@ -59,16 +74,17 @@ interface NotifyItem {
   source: string
   created_at: string
   read: boolean
+  top?: boolean  // 置顶 (P1: error 级别自动置顶)
 }
 
 const items = ref<NotifyItem[]>([])
 const loading = ref(false)
 const filter = ref<'all' | 'unread'>('all')
 /** 后端未读总数 (与菜单红点共享同一接口, 避免 items 截断导致不一致). */
-const serverUnread = ref(0)
+const unreadTotal = ref(0)
 let pollTimer: number | null = null
 
-const unreadCount = computed(() => serverUnread.value)
+const unreadCount = computed(() => unreadTotal.value)
 /** 顶部 toolbar 显示: 99+ 格式化 (与 Menu.vue 红点保持一致). */
 const unreadDisplay = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 
@@ -95,7 +111,7 @@ async function fetchUnreadCount() {
     const resp: any = await http.get('/api/admin/migration/notify/unread-count')
     const c = resp?.data?.unread_count
     if (typeof c === 'number') {
-      serverUnread.value = c
+      unreadTotal.value = c
     }
   } catch {
     // ignore, 保持上次值
@@ -108,7 +124,7 @@ async function onClick(n: NotifyItem) {
     await http.post(`/api/admin/migration/notify/${n.id}/read`)
     n.read = true
     // 乐观更新: 减 1 (夹在 0..∞)
-    serverUnread.value = Math.max(0, serverUnread.value - 1)
+    unreadTotal.value = Math.max(0, unreadTotal.value - 1)
   } catch {
     // ignore
   }
@@ -118,7 +134,7 @@ async function markAllRead() {
   try {
     await http.post('/api/admin/migration/notify/read-all')
     items.value.forEach((n) => (n.read = true))
-    serverUnread.value = 0  // 立即清零, 不等下次轮询
+    unreadTotal.value = 0  // 立即清零, 不等下次轮询
     ElMessage.success('已全部标记为已读')
   } catch {
     ElMessage.error('操作失败')
@@ -149,7 +165,18 @@ onUnmounted(() => {
     margin-bottom: 20px;
     h2 { font-size: 20px; font-weight: 600; margin: 0; }
     .header-actions { display: flex; gap: 12px; align-items: center; }
+
+  /* 未读红点 (与 Menu.vue 风格一致, 扁平化, 纯背景色) */
+  .unread-label {
+    display: inline-flex; align-items: center; gap: 6px;
   }
+  .unread-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--el-color-danger);
+  }
+}
 
   .notify-list {
     list-style: none; padding: 0; margin: 0;
@@ -185,6 +212,23 @@ onUnmounted(() => {
     display: flex; align-items: center; gap: 8px;
     font-weight: 600; font-size: 14px;
     margin-bottom: 4px;
+  }
+
+  /* 置顶徽章 (P1: 扁平化, 纯背景色) */
+  .top-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 1px 6px;
+    font-size: 11px; font-weight: 500;
+    border-radius: var(--global-border-radius);
+    background: var(--el-color-danger-light-9);
+    color: var(--el-color-danger);
+    border: 1px solid var(--el-color-danger-light-7);
+  }
+
+  /* 置顶行视觉强化 (轻微背景色 + 边框粗) */
+  .notify-item.topped {
+    background: var(--el-color-danger-light-9);
+    border-color: var(--el-color-danger-light-5);
   }
   .notify-text {
     color: var(--color-white-70); font-size: 13px; line-height: 1.6;

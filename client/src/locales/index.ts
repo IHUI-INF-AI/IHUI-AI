@@ -56,31 +56,43 @@ const moduleMessages = new Map<string, Record<string, unknown>>()
 
 // 按当前语言加载拆分后的语言包 chunk 并合并到 i18n
 // 完整语言包已按顶级键前缀拆分到 full/{locale}/*.json, 避免单个 674KB 大 chunk
+const _fullLocaleLoading = new Map<string, Promise<void>>()
 async function loadFullLocaleMessages(locale: SupportedLocale): Promise<void> {
   if (fullLocaleLoaded.has(locale)) return
-  try {
-    const allModules = import.meta.glob('./full/*/*.json')
-    const entries = await Promise.all(
-      Object.entries(allModules)
-        .filter(([path]) => path.startsWith(`./full/${locale}/`))
-        .map(([, loader]) => loader())
-    )
-    const merged: Record<string, unknown> = {}
-    for (const entry of entries) {
-      const msg = (entry as { default?: Record<string, unknown> }).default || entry as Record<string, unknown>
-      Object.assign(merged, msg)
-    }
-    if (Object.keys(merged).length > 0) {
-      mergeI18nMessages(locale, merged)
-      fullLocaleLoaded.add(locale)
+  // 竞态保护：并发调用时复用同一个 Promise
+  const pending = _fullLocaleLoading.get(locale)
+  if (pending) return pending
+  const task = (async () => {
+    try {
+      const allModules = import.meta.glob('./full/*/*.json')
+      const entries = await Promise.all(
+        Object.entries(allModules)
+          .filter(([p]) => p.startsWith(`./full/${locale}/`))
+          .map(([, loader]) => loader())
+      )
+      const merged: Record<string, unknown> = {}
+      for (const entry of entries) {
+        const msg = (entry as { default?: Record<string, unknown> }).default || entry as Record<string, unknown>
+        Object.assign(merged, msg)
+      }
+      if (Object.keys(merged).length > 0) {
+        mergeI18nMessages(locale, merged)
+        fullLocaleLoaded.add(locale)
+        if (import.meta.env.DEV) {
+          logger.info(`[i18n] Full locale messages loaded for ${locale} from ${entries.length} chunks`)
+        }
+      }
+    } catch (error) {
       if (import.meta.env.DEV) {
-        logger.info(`[i18n] Full locale messages loaded for ${locale} from ${entries.length} chunks`)
+        logger.warn(`[i18n] Failed to load full locale for ${locale}:`, error)
       }
     }
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      logger.warn(`[i18n] Failed to load full locale for ${locale}:`, error)
-    }
+  })()
+  _fullLocaleLoading.set(locale, task)
+  try {
+    await task
+  } finally {
+    _fullLocaleLoading.delete(locale)
   }
 }
 
@@ -89,7 +101,8 @@ async function loadFullLocaleMessages(locale: SupportedLocale): Promise<void> {
 // 修复首屏 Login.vue 品牌区翻译键名裸露
 async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string, unknown>> {
   const [coreMod, appMod, errorBoundaryMod, loginMod] = await Promise.all([
-    import(`./modules/${locale}/core.json`),
+    // 2026-06-25 修复: core.json 加 fallback，避免非 zh-CN 语言缺少 core.json 时 i18n 初始化崩溃
+    import(`./modules/${locale}/core.json`).catch(() => import(`./modules/zh-CN/core.json`)),
     import(`./modules/${locale}/app.json`).catch(() => import(`./modules/zh-CN/app.json`).catch(() => null)),
     import(`./modules/${locale}/errorBoundary.json`).catch(() => import(`./modules/zh-CN/errorBoundary.json`).catch(() => null)),
     // login.json 仅在 full/{locale}/ 下存在, 不在 modules/{locale}/, 所以直接读 full
@@ -227,12 +240,18 @@ function getBrowserLanguage(): SupportedLocale {
 }
 
 // 创建i18n实例 - 初始时只加载核心模块
+// 2026-06-25 修复: 移除 compilerOptions.isCustomElement = tag.startsWith('el-')
+// 原设置会让 vue-i18n 9.x (legacy: false) 把 el-* 标签当 HTML 自定义元素,
+// 误传到 Vue 编译器后 EP 组件无法解析, 触发 el-config-provider 内部 renderSlot(null) 错误
+// "Cannot read properties of null (reading 'ce')".
+// EP 组件由 unplugin-vue-components + ElementPlusResolver 自动按需导入,
+// 正确做法: vite.config.ts 已设置 isCustomElement: () => false (line 730),
+//           vue-i18n 不应再覆盖此设置.
 const i18n = createI18n({
   legacy: false,
   locale: getBrowserLanguage(),
   messages: {},
   compilerOptions: {
-    isCustomElement: (tag: string) => tag.startsWith('el-'),
     whitespace: 'condense',
   },
   fallbackWarn: false,
@@ -318,42 +337,54 @@ async function initializeCoreMessages(): Promise<void> {
 }
 
 // 设置语言并加载对应的核心模块
+// 2026-06-25 修复: 竞态保护，快速连续切换语言时串行执行，避免 locale 和 messages 不一致
+let _setLanguagePromise: Promise<void> | null = null
 export async function setLanguage(lang: string): Promise<void> {
   const target = languages.some(l => l.code === lang) ? lang : 'zh-CN'
+  // 串行化：等待上一次 setLanguage 完成
+  if (_setLanguagePromise) await _setLanguagePromise
   
-  try {
-    localStorage.setItem('language', target)
+  const task = (async () => {
     try {
-      StorageManager.setItem(STORAGE_KEYS.LANGUAGE, target)
-    } catch (storageError) {
+      localStorage.setItem('language', target)
+      try {
+        StorageManager.setItem(STORAGE_KEYS.LANGUAGE, target)
+      } catch (storageError) {
+        if (import.meta.env.DEV) {
+          logger.debug('[Locales] StorageManager setItem failed:', storageError)
+        }
+      }
+    } catch (langError) {
       if (import.meta.env.DEV) {
-        logger.debug('[Locales] StorageManager setItem failed:', storageError)
+        logger.debug('[Locales] Language set failed:', langError)
       }
     }
-  } catch (langError) {
-    if (import.meta.env.DEV) {
-      logger.debug('[Locales] Language set failed:', langError)
+    
+    try {
+      const targetLocale = target as SupportedLocale
+      // 加载目标语言的核心模块
+      if (!isModuleLoaded(targetLocale, 'common')) {
+        const coreMessages = await loadCoreMessages(targetLocale)
+        mergeI18nMessages(target, coreMessages)
+      }
+      // 加载目标语言的完整语言包，保证切换语言后 t() 从对应语言文件取键值反显
+      await loadFullLocaleMessages(targetLocale)
+      
+      // 设置locale
+      setI18nLocale(target)
+      
+      document.documentElement.setAttribute('lang', target.startsWith('zh') ? 'zh-CN' : 'en')
+      document.documentElement.setAttribute('dir', 'ltr')
+      window.postMessage({ type: 'SET_LANGUAGE', lang: target }, '*')
+    } catch (error) {
+      logger.error('Language setting failed:', error)
     }
-  }
-  
+  })()
+  _setLanguagePromise = task
   try {
-    const targetLocale = target as SupportedLocale
-    // 加载目标语言的核心模块
-    if (!isModuleLoaded(targetLocale, 'common')) {
-      const coreMessages = await loadCoreMessages(targetLocale)
-      mergeI18nMessages(target, coreMessages)
-    }
-    // 加载目标语言的完整语言包，保证切换语言后 t() 从对应语言文件取键值反显
-    await loadFullLocaleMessages(targetLocale)
-    
-    // 设置locale
-    setI18nLocale(target)
-    
-    document.documentElement.setAttribute('lang', target.startsWith('zh') ? 'zh-CN' : 'en')
-    document.documentElement.setAttribute('dir', 'ltr')
-    window.postMessage({ type: 'SET_LANGUAGE', lang: target }, '*')
-  } catch (error) {
-    logger.error('Language setting failed:', error)
+    await task
+  } finally {
+    if (_setLanguagePromise === task) _setLanguagePromise = null
   }
 }
 
@@ -434,6 +465,16 @@ export function getI18nGlobal() {
 const _epLocaleCache = new Map<string, Record<string, unknown>>()
 const _epLocaleLoading = new Map<string, Promise<Record<string, unknown>>>()
 
+// 静态映射表，确保 Vite 8 optimizeDeps 阶段预构建这 5 个 EP 语言包，
+// 避免动态 import 命中 .vite/deps/element-plus_es_locale_lang_*.js 404
+const _epLoaders: Record<string, () => Promise<Record<string, unknown>>> = {
+  'zh-cn': () => import('element-plus/es/locale/lang/zh-cn.mjs'),
+  'zh-tw': () => import('element-plus/es/locale/lang/zh-tw.mjs'),
+  en: () => import('element-plus/es/locale/lang/en.mjs'),
+  ja: () => import('element-plus/es/locale/lang/ja.mjs'),
+  ko: () => import('element-plus/es/locale/lang/ko.mjs'),
+}
+
 function _epKey(lang: string): string {
   const code = (lang || 'zh-CN').toLowerCase()
   if (code.startsWith('zh-tw')) return 'zh-tw'
@@ -471,21 +512,11 @@ export async function loadElementPlusLocale(lang: string): Promise<Record<string
   if (!_epLocaleCache.has('en') && key !== 'en') {
     void loadElementPlusLocale('en').catch(() => {})
   }
-  // 静态映射所需语言包，确保 Vite 8 在 optimizeDeps 阶段预构建这 5 个 EP 语言包，
-  // 避免动态 import 命中 .vite/deps/element-plus_es_locale_lang_*.js 404。
-  // (修复 2026-06-24: "Failed to fetch dynamically imported module: element-plus_es_locale_lang_zh-cn__mjs.js")
-  // 兜底：若目标 key 不在表中则降级到 en；en 加载失败时返回空对象，由 EP 自行使用组件名兜底。
-  const _epLoaders: Record<string, () => Promise<Record<string, unknown>>> = {
-    'zh-cn': () => import('element-plus/es/locale/lang/zh-cn.mjs'),
-    'zh-tw': () => import('element-plus/es/locale/lang/zh-tw.mjs'),
-    en: () => import('element-plus/es/locale/lang/en.mjs'),
-    ja: () => import('element-plus/es/locale/lang/ja.mjs'),
-    ko: () => import('element-plus/es/locale/lang/ko.mjs'),
-  }
+  // 使用模块级 _epLoaders（已提取为常量，避免每次调用重新创建）
   const loader = (async () => {
-    const path = _epLoaders[key]
-    if (path) {
-      const m = await path()
+    const loaderFn = _epLoaders[key]
+    if (loaderFn) {
+      const m = await loaderFn()
       return (m && (m as { default?: Record<string, unknown> }).default) || (m as Record<string, unknown>)
     }
     // 兜底英文包，避免 UI 空白

@@ -250,6 +250,24 @@ try {
 await initI18n()
 app.use(i18n)
 
+// 2026-06-24 修复: 在 router 挂载前预加载 en 兜底 EP 语言包 + 当前语言 EP 语言包,
+// 确保 App.vue setup 同步访问 getElementPlusLocale 时至少能拿到 en 兜底, 避免空 {} locale
+// 触发 Element Plus 内部 renderSlot(null children) -> 'Cannot read properties of null (reading "ce")' 错误
+try {
+  const { loadElementPlusLocale, getCurrentLocale } = await import('./locales')
+  void loadElementPlusLocale('en').catch((e) => {
+    logger.warn('[Main] Preload EP en locale failed:', e)
+  })
+  const currentLocale = getCurrentLocale()
+  if (currentLocale && currentLocale !== 'en') {
+    void loadElementPlusLocale(currentLocale).catch((e) => {
+      logger.warn('[Main] Preload EP current locale failed:', e)
+    })
+  }
+} catch (e) {
+  logger.warn('[Main] Preload EP locale failed:', e)
+}
+
 // Router
 app.use(router)
 

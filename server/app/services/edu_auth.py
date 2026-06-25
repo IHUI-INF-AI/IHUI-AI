@@ -1,10 +1,7 @@
 """edu_auth service - Authentication & SSO (migrated from ihui-ai-edu-auth-service).
 
-Source (junction access): G:\\IHUI-AI\\storage\\edu-assets\\java-source\\ihui-ai-edu-auth-service\\
-Original package: com.yjs.cloud.learning.auth
-Controllers: LoginController, SsoController, KeyPairController, ThirdPartyController
+Phase F: User (IHUI-AI) uses uuid + phone, no username/email field.
 """
-
 from __future__ import annotations
 
 import hashlib
@@ -12,15 +9,15 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.models.edu_models import EduAuthUser, EduAuthSsoKey, EduAuthThirdParty
-from app.services.edu_base import EduNotFoundError, EduPermissionError, EduValidationError, get_or_404
+from app.models.user_models import User, UserAuthInfo
+from app.models.edu_models import EduAuthSsoKey, EduAuthThirdParty
+from app.services.edu_base import EduNotFoundError, EduPermissionError, EduValidationError
 
 
 def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
-    """Hash password with PBKDF2. Returns (hash, salt)."""
     if salt is None:
         salt = secrets.token_hex(16)
     pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000).hex()
@@ -28,96 +25,73 @@ def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
 
 
 def verify_password(password: str, pwd_hash: str, salt: str) -> bool:
-    """Verify password against stored hash."""
     test_hash, _ = hash_password(password, salt)
     return secrets.compare_digest(test_hash, pwd_hash)
 
 
-# ============================================================================
-# User CRUD (迁移自 LoginController + UserService)
-# ============================================================================
-
 def register_user(
     db: Session,
-    username: str,
-    password: str,
-    phone: Optional[str] = None,
-    email: Optional[str] = None,
-    nickname: Optional[str] = None,
-    invite_code: Optional[str] = None,
-) -> EduAuthUser:
-    """Register a new user."""
+    username: str, password: str,
+    phone: Optional[str] = None, email: Optional[str] = None,
+    nickname: Optional[str] = None, invite_code: Optional[str] = None,
+) -> dict:
+    """Register a new user. Phase F: stores in User table (uuid PK) + UserAuthInfo."""
     if not username or len(username) < 3 or len(username) > 64:
         raise EduValidationError("username must be 3-64 chars")
     if not password or len(password) < 6:
         raise EduValidationError("password must be >= 6 chars")
-
-    # Check uniqueness
+    # Phase F: User uses uuid PK + phone; use username as uuid for simplicity
+    user_uuid = username
     existing = db.execute(
-        select(EduAuthUser).where(
-            or_(EduAuthUser.username == username,
-                phone and EduAuthUser.phone == phone,
-                email and EduAuthUser.email == email)
-        )
+        select(User).where(User.uuid == user_uuid)
     ).scalar_one_or_none()
     if existing:
-        if existing.username == username:
-            raise EduValidationError("username already taken")
-        if phone and existing.phone == phone:
-            raise EduValidationError("phone already registered")
-        if email and existing.email == email:
-            raise EduValidationError("email already registered")
+        return {"uuid": existing.uuid, "phone": existing.phone, "nickname": existing.nickname}
 
+    # Create user (with hashed password)
     pwd_hash, salt = hash_password(password)
-    user = EduAuthUser(
-        username=username,
-        password_hash=f"{salt}${pwd_hash}",  # store salt + hash together
-        phone=phone,
-        email=email,
+    user = User(
+        uuid=user_uuid,
+        phone=phone or username,
+        password_hash=pwd_hash,
+        password_salt=salt,
         nickname=nickname or username,
-        status=1,
     )
     db.add(user)
     db.flush()
-    db.refresh(user)
-    return user
+    return {"uuid": user.uuid, "phone": user.phone, "nickname": user.nickname}
 
 
-def login(
-    db: Session, username: str, password: str
-) -> Tuple[EduAuthUser, str, str]:
-    """Login with username/password. Returns (user, access_token, refresh_token)."""
+def login(db: Session, username: str, password: str) -> Tuple[dict, str, str]:
+    """Login with username/password. Phase F: look up by phone or uuid."""
     user = db.execute(
-        select(EduAuthUser).where(
-            or_(
-                EduAuthUser.username == username,
-                EduAuthUser.phone == username,
-                EduAuthUser.email == username,
-            )
-        )
+        select(User).where(or_(
+            User.uuid == username,
+            User.phone == username,
+        ))
     ).scalar_one_or_none()
     if not user:
         raise EduPermissionError("invalid credentials")
     if user.status != 1:
         raise EduPermissionError("account disabled")
-    if "$" not in user.password_hash:
+    if not user.password_hash or not user.password_salt:
         raise EduPermissionError("invalid password format")
-    salt, pwd_hash = user.password_hash.split("$", 1)
-    if not verify_password(password, pwd_hash, salt):
+    if not verify_password(password, user.password_hash, user.password_salt):
         raise EduPermissionError("invalid credentials")
-
     user.last_login_at = datetime.now(timezone.utc)
     db.flush()
-
     access_token = f"edu_at_{secrets.token_urlsafe(32)}"
     refresh_token = f"edu_rt_{secrets.token_urlsafe(32)}"
-    return user, access_token, refresh_token
+    return {"uuid": user.uuid, "phone": user.phone, "nickname": user.nickname}, access_token, refresh_token
 
 
-def update_profile(db: Session, user_id: int, **fields) -> EduAuthUser:
-    """Update user profile (nickname, avatar, gender, etc.)."""
-    user = get_or_404(db, EduAuthUser, user_id, "user")
-    allowed = {"nickname", "avatar", "gender", "email", "phone"}
+def update_profile(db: Session, user_uuid: str, **fields) -> User:
+    user = db.execute(
+        select(User).where(User.uuid == str(user_uuid))
+    ).scalar_one_or_none()
+    if user is None:
+        raise EduNotFoundError("user", 0)
+    allowed = {"nickname", "avatar", "gender", "phone"}
     for k, v in fields.items():
         if k in allowed and v is not None:
             setattr(user, k, v)
@@ -126,37 +100,34 @@ def update_profile(db: Session, user_id: int, **fields) -> EduAuthUser:
     return user
 
 
-def change_password(db: Session, user_id: int, old_password: str, new_password: str) -> bool:
-    """Change password."""
-    user = get_or_404(db, EduAuthUser, user_id, "user")
-    if "$" not in user.password_hash:
-        raise EduValidationError("invalid password format")
-    salt, pwd_hash = user.password_hash.split("$", 1)
-    if not verify_password(old_password, pwd_hash, salt):
+def change_password(db: Session, user_uuid: str, old_password: str, new_password: str) -> bool:
+    user = db.execute(
+        select(User).where(User.uuid == str(user_uuid))
+    ).scalar_one_or_none()
+    if user is None:
+        raise EduNotFoundError("user", 0)
+    if not verify_password(old_password, user.password_hash, user.password_salt):
         raise EduPermissionError("old password incorrect")
     new_hash, new_salt = hash_password(new_password)
-    user.password_hash = f"{new_salt}${new_hash}"
+    user.password_hash = new_hash
+    user.password_salt = new_salt
     db.flush()
     return True
 
 
-def get_user_by_id(db: Session, user_id: int) -> EduAuthUser:
-    return get_or_404(db, EduAuthUser, user_id, "user")
+def get_user_by_id(db: Session, user_uuid: str) -> User:
+    user = db.execute(
+        select(User).where(User.uuid == str(user_uuid))
+    ).scalar_one_or_none()
+    if user is None:
+        raise EduNotFoundError("user", 0)
+    return user
 
 
-# ============================================================================
-# SSO (迁移自 SsoController + KeyPairController)
-# ============================================================================
-
-def generate_sso_keypair(
-    db: Session,
-    client_id: str,
-    name: Optional[str] = None,
-) -> EduAuthSsoKey:
-    """Generate RSA keypair for SSO client."""
+# SSO (Phase F: stub)
+def generate_sso_keypair(db: Session, client_id: str, name: Optional[str] = None):
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
-
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     private_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
@@ -167,108 +138,30 @@ def generate_sso_keypair(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     ).decode()
-
-    key = EduAuthSsoKey(
-        client_id=client_id,
-        public_key=public_pem,
-        private_key=private_pem,
-        name=name,
-        is_active=True,
-    )
-    db.add(key)
-    db.flush()
-    db.refresh(key)
-    return key
+    return {"client_id": client_id, "public_key": public_pem}
 
 
-def sso_login(
-    db: Session, client_id: str, signed_jwt: str
-) -> Tuple[EduAuthUser, str, str]:
-    """Verify JWT signed by SSO client and login user."""
+def sso_login(db: Session, client_id: str, signed_jwt: str):
     from jose import jwt, JWTError
-
     key = db.execute(
-        select(EduAuthSsoKey).where(
-            and_(EduAuthSsoKey.client_id == client_id, EduAuthSsoKey.status == True)
-        )
+        select(EduAuthSsoKey).where(EduAuthSsoKey.app_id == client_id)
     ).scalar_one_or_none()
     if not key:
         raise EduPermissionError("unknown client_id")
-
     try:
-        payload = jwt.decode(signed_jwt, key.public_key, algorithms=["RS256"])
+        payload = jwt.decode(signed_jwt, key.key_data, algorithms=["RS256"])
     except JWTError as e:
         raise EduPermissionError(f"invalid JWT: {e}")
-
     sso_user_id = payload.get("sub")
     if not sso_user_id:
         raise EduValidationError("JWT missing sub claim")
-
-    # Auto-provision user if first SSO login
-    user = db.get(EduAuthUser, int(sso_user_id))
-    if not user:
-        user = register_user(
-            db, username=f"sso_{client_id}_{sso_user_id}",
-            password=secrets.token_urlsafe(16),
-            nickname=payload.get("name", f"SSO User {sso_user_id}"),
-        )
-
-    access_token = f"edu_at_{secrets.token_urlsafe(32)}"
-    refresh_token = f"edu_rt_{secrets.token_urlsafe(32)}"
-    return user, access_token, refresh_token
+    return {"uuid": sso_user_id}, "access", "refresh"
 
 
-# ============================================================================
-# Third-party login (迁移自 ThirdPartyController)
-# ============================================================================
-
-def third_party_login(
-    db: Session,
-    platform: str,
-    code: str,
-    user_info: Optional[dict] = None,
-) -> Tuple[EduAuthUser, str, str]:
-    """OAuth login from wechat/dingtalk/feishu/wecom/qq.
-
-    Java source: ThirdPartyController.callback
-    In production, exchange code for access_token via platform API.
-    Simplified here: trust user_info directly.
-    """
-    if platform not in {"wechat", "dingtalk", "feishu", "wecom", "qq"}:
+# Third-party OAuth (Phase F: stub)
+def third_party_login(db: Session, platform: str, code: str, user_info: Optional[dict] = None):
+    if platform not in ("wechat", "dingtalk", "feishu", "wecom", "qq"):
         raise EduValidationError(f"unsupported platform: {platform}")
-
     if not user_info or "open_id" not in user_info:
         raise EduValidationError("user_info.open_id required")
-
-    open_id = user_info["open_id"]
-
-    # Find existing binding
-    binding = db.execute(
-        select(EduAuthThirdParty).where(
-            and_(
-                EduAuthThirdParty.platform == platform,
-                EduAuthThirdParty.open_id == open_id,
-            )
-        )
-    ).scalar_one_or_none()
-
-    if binding:
-        user = db.get(EduAuthUser, binding.user_id)
-    else:
-        # Auto-provision new user
-        username = f"{platform}_{open_id[:8]}"
-        user = register_user(
-            db, username=username, password=secrets.token_urlsafe(16),
-            nickname=user_info.get("nickname", username),
-            email=user_info.get("email"),
-        )
-        binding = EduAuthThirdParty(
-            user_id=user.id, platform=platform, open_id=open_id,
-            union_id=user_info.get("union_id"),
-        )
-        db.add(binding)
-        db.flush()
-
-    access_token = f"edu_at_{secrets.token_urlsafe(32)}"
-    refresh_token = f"edu_rt_{secrets.token_urlsafe(32)}"
-    return user, access_token, refresh_token
+    return {"uuid": user_info["open_id"]}, "access", "refresh"

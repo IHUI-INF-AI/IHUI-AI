@@ -7,12 +7,11 @@
 - zhs_station_letter: 消息记录
 """
 
-from datetime import datetime
-
 from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Text
 
 from app.database import Base
 from app.models.base import TimestampMixin, id_column
+from app.utils.datetime_helper import utcnow
 
 
 class ChatRoom(TimestampMixin, Base):
@@ -66,6 +65,6 @@ class ChatLetter(TimestampMixin, Base):
     type = Column(Integer, default=1, comment="消息类型: 0=系统消息 1=对话消息 2=完成消息")
     content = Column(Text, nullable=False, comment="消息内容")
     chat_id = Column(String(64), nullable=False, comment="房间ID/聊天ID")
-    send_time = Column(DateTime, default=datetime.utcnow, comment="发送时间")
+    send_time = Column(DateTime, default=utcnow, comment="发送时间")
     is_del = Column(Integer, default=0, comment="是否删除: 0=正常 1=已删除")
     is_read = Column(Integer, default=0, comment="是否已读: 0=未读 1=已读")

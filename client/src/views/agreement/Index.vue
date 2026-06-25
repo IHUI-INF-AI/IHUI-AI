@@ -5,7 +5,7 @@
 -->
 <template>
   <div class="agreement-container">
-    <div class="agreement-content" v-html="agreement.content" />
+    <div class="agreement-content" v-safe-html="agreement.content" />
     <el-empty v-if="!loading && !agreement.content" :description="t('agreementPage.contentNotConfigured')" />
     <div v-else-if="loading" class="loading">{{ t('agreementPage.loading') }}</div>
   </div>

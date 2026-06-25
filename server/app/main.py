@@ -420,6 +420,31 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register admin migration router: {e}")
 
+    # alerting webhook (Grafana 告警接收/静默规则) - 路由自带 /api/v1/alerting 前缀
+    try:
+        from app.api.v1.alerting.webhook import router as alerting_router
+        app.include_router(alerting_router)
+        logger.info("Alerting webhook router registered (/api/v1/alerting/*)")
+    except Exception as e:
+        logger.error(f"Failed to register alerting router: {e}")
+
+    # langchain_api (LLM-Full 兼容层) - 路由自带 /ihui-ai-api/llm-full 前缀
+    try:
+        from app.api.langchain_api import router as langchain_api_router
+        app.include_router(langchain_api_router)
+        logger.info("Langchain API router registered (/ihui-ai-api/llm-full/*)")
+    except Exception as e:
+        logger.error(f"Failed to register langchain_api router: {e}")
+
+    # agents/upload (AgentUploadController) - 路由自带 /api/agent 前缀, 不能挂到 /api/v1 下
+    # 否则路径会变成 /api/v1/api/agent/upload 导致 404
+    try:
+        from app.api.v1.agents.upload import router as agent_upload_router
+        app.include_router(agent_upload_router, tags=["Agent Upload Process"])
+        logger.info("Agent upload router registered (/api/agent/*)")
+    except Exception as e:
+        logger.error(f"Failed to register agent upload router: {e}")
+
     # v2 auth 路由 (转发到 v1 真实逻辑, 必须在 mock catch-all 之前注册)
     try:
         from app.api.v2_authentication import router as v2_auth_router

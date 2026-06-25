@@ -1,8 +1,7 @@
 """edu_message service - In-site message (migrated from ihui-ai-edu-message-service).
 
-Source: G:\\IHUI-AI\\storage\\edu-assets\\java-source\\ihui-ai-edu-message-service\\
+Phase F: Message (IHUI-AI) uses user_id (not receiver_id), type (not msg_type).
 """
-
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -16,18 +15,20 @@ from app.services.edu_base import EduValidationError, paginate, get_or_404
 
 
 def send_message(
-    db: Session, sender_id: Optional[int], receiver_id: int,
+    db: Session, sender_id: Optional[str], user_id: str,
     msg_type: str, content: str, title: Optional[str] = None,
 ) -> EduMessage:
-    """Send a message. msg_type: system/private/group."""
+    """Send a message. user_id = recipient (Message.user_id field)."""
     if msg_type not in ("system", "private", "group"):
         raise EduValidationError("msg_type must be system/private/group")
     if not content:
         raise EduValidationError("content required")
     m = EduMessage(
-        sender_id=sender_id, receiver_id=receiver_id,
-        msg_type=msg_type, title=title, content=content,
-        is_read=False,
+        sender_id=str(sender_id) if sender_id else None,
+        user_id=str(user_id),
+        type=msg_type,
+        title=title,
+        content=content,
     )
     db.add(m)
     db.flush()
@@ -35,23 +36,25 @@ def send_message(
     return m
 
 
-def mark_read(db: Session, message_id: int, user_id: int) -> EduMessage:
+def mark_read(db: Session, message_id: int, user_id: str) -> EduMessage:
     m = get_or_404(db, EduMessage, message_id, "message")
-    if m.receiver_id != user_id:
+    if m.user_id != str(user_id):
         from app.services.edu_base import EduPermissionError
         raise EduPermissionError("not your message")
     m.is_read = True
-    m.read_at = datetime.now(timezone.utc)
+    from app.models.edu_models import EduMessage
+    if hasattr(m, "read_at"):
+        m.read_at = datetime.now(timezone.utc)
     db.flush()
     db.refresh(m)
     return m
 
 
 def list_inbox(
-    db: Session, user_id: int, page: int = 1, size: int = 20,
+    db: Session, user_id: str, page: int = 1, size: int = 20,
     is_read: Optional[bool] = None, msg_type: Optional[str] = None,
 ) -> Tuple[List[EduMessage], int]:
-    filters = [EduMessage.receiver_id == user_id]
+    filters = [EduMessage.user_id == str(user_id)]
     if is_read is not None:
         filters.append(EduMessage.is_read == is_read)
     if msg_type:
@@ -59,10 +62,10 @@ def list_inbox(
     return paginate(db, EduMessage, page=page, size=size, filters=filters, order_by=desc(EduMessage.id))
 
 
-def get_unread_count(db: Session, user_id: int) -> int:
+def get_unread_count(db: Session, user_id: str) -> int:
     from sqlalchemy import func
     return db.execute(
         select(func.count(EduMessage.id)).where(
-            and_(EduMessage.receiver_id == user_id, EduMessage.is_read == False)
+            and_(EduMessage.user_id == str(user_id), EduMessage.is_read == False)
         )
     ).scalar() or 0

@@ -971,6 +971,7 @@ import { useI18n } from 'vue-i18n';
   
   .dialogue-panel {
     width: 720px;
+    max-width: min(720px, calc(100vw - 24px));
     max-height: 80vh;
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
@@ -1428,6 +1429,7 @@ import { useI18n } from 'vue-i18n';
 
   .template-dialog-panel {
     width: 600px;
+    max-width: min(600px, calc(100vw - 24px));
     max-height: 70vh;
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);

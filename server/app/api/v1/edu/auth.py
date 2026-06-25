@@ -38,25 +38,36 @@ async def register_user_endpoint(payload: dict = {}, db: Session = Depends(_get_
 @router.post("/login", summary="Login")
 async def login_endpoint(payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_auth import login
-    result = login(db, **{k: v for k, v in payload.items() if v is not None})
-    return success(data=result)
+    # Phase F: login takes username/password as kwargs
+    user, access, refresh = login(
+        db,
+        username=payload.get("username"),
+        password=payload.get("password"),
+    )
+    return success(data={"user": user, "access_token": access, "refresh_token": refresh})
 
 @router.get("/me", summary="Get current user")
-async def get_user_by_id_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+async def get_user_by_id_endpoint(user_id: int = Depends(get_current_user_id), db: Session = Depends(_get_db)):
     from app.services.edu_auth import get_user_by_id
-    result = get_user_by_id(db, user_id=user_id)
+    # Phase F: pass user_id as string (UUID format)
+    result = get_user_by_id(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.put("/me", summary="Update profile")
 async def update_profile_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_auth import update_profile
-    result = update_profile(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
+    result = update_profile(db, user_uuid=str(user_id), **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.post("/change-password", summary="Change password")
 async def change_password_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_auth import change_password
-    result = change_password(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
+    result = change_password(
+        db,
+        user_uuid=str(user_id),
+        old_password=payload.get("old_password"),
+        new_password=payload.get("new_password"),
+    )
     return success(data=result)
 
 @router.post("/sso/login", summary="SSO login (signed JWT)")
