@@ -37,6 +37,14 @@ WHITELIST_SUBSTRINGS = [
     "_verify_outdir_no_g_drive.py",  # 验证工具
     "_scan_hardcoded_g_drive_paths.py",  # 扫描器自身
     "_scan_client_hardcoded_paths.py",  # 扫描器自身
+    # 2026-06-25 扩展: 排除 API endpoint 路径 (如 /home/banners, /home/recommendations)
+    "request.get('/home/",
+    "request.post('/home/",
+    "request.put('/home/",
+    "request.delete('/home/",
+    "': '/home/",  # 路径声明模式 (如 bannersList: '/home/banners')
+    "'/home/",  # 任意单引号包裹的 /home/ 字符串 (API endpoint 字面量)
+    '"/home/',  # 任意双引号包裹的 /home/ 字符串
 ]
 
 

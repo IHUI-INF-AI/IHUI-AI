@@ -25,9 +25,22 @@ PATTERNS = [
     re.compile(r"""['"]g:/1(?:/[^'"]*)?['"]"""),
     re.compile(r"""['"]g:/dev(?:/[^'"]*)?['"]"""),
     re.compile(r"""['"]g:/tmp(?:/[^'"]*)?['"]"""),
-    # 兼容不带引号的 (出现在 bash 字符串等)
+    # 2026-06-25 扩展: macOS 风格 /Users/<name>/ 硬编码 (Windows 会解释为 G:\\Users\\<name>\\)
+    re.compile(r"""['"]/Users/[a-zA-Z_][a-zA-Z0-9_]*(?:/[^'"]*)?['"]"""),
+    # 2026-06-25 扩展: Linux 风格 /home/<name>/ 硬编码 (Windows 会解释为 G:\\home\\<name>\\)
+    re.compile(r"""['"]/home/[a-zA-Z_][a-zA-Z0-9_]*(?:/[^'"]*)?['"]"""),
+    # 2026-06-25 扩展: 其他常见 Linux 根路径 (在 Windows 上都会被错误展开到 G:\\<name>\\)
+    re.compile(r"""['"]/etc/[a-zA-Z_][a-zA-Z0-9_/.-]*['"]"""),
+    re.compile(r"""['"]/opt/[a-zA-Z_][a-zA-Z0-9_/.-]*['"]"""),
+    re.compile(r"""['"]/var/log/[a-zA-Z_][a-zA-Z0-9_/.-]*['"]"""),
+    re.compile(r"""['"]/var/run/[a-zA-Z_][a-zA-Z0-9_/.-]*['"]"""),
+    # 兼容不带引号的
     re.compile(r"""\bG:\\1[\\\/]\S*"""),
     re.compile(r"""\bG:/1/\S*"""),
+    re.compile(r"""\bG:\\Users[\\\/]\S*"""),
+    re.compile(r"""\bG:/Users/\S*"""),
+    re.compile(r"""\bG:\\home[\\\/]\S*"""),
+    re.compile(r"""\bG:/home/\S*"""),
     # 2026-06-25 扩展: Linux 风格 /tmp/ 硬编码 (Windows 会解释成 G:\\tmp\\)
     re.compile(r"""['"]/tmp/[a-zA-Z_][a-zA-Z0-9_/.-]*['"]"""),
     # 2026-06-25 扩展: /var/lib/zhs/ 容器路径 (生产环境正确, 开发环境可能误用)

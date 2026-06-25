@@ -211,14 +211,17 @@ noise-v2-report.md
 .migration_log
 
 # ===== G 盘根目录防回归 (2026-06-25) =====
-# 防止任何脚本在 G:\ 盘根意外创建临时目录 (如 G:\1\pw-output, G:\tmp\ro.css 等)
+# 防止任何脚本在 G:\ 盘根意外创建临时目录 (如 G:\1\pw-output, G:\tmp\ro.css, G:\Users\... 等)
 # 已被 tempfile.gettempdir() 修复, 兜底规则防止回归
 /G:/1/
 /G:/dev/
 /G:/tmp/
+/G:/pw-output/
+/G:/Users/
 /1/
 /dev/
 /tmp/
+/Users/
 
 # ===== 临时证据/canary 文件位置兜底 =====
 # 跨平台 tempdir 默认输出名, 防止误提交

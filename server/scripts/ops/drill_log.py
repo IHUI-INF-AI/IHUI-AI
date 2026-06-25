@@ -21,18 +21,30 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-LOG_ROOT = Path("/var/log/zhs-migration")
+# 2026-06-25 修复: 原硬编码 /var/log/zhs-migration 在 Windows 上会创建 G:\var\log\...
+# 改用平台感知默认目录:
+#   - Linux (生产): /var/log/zhs-migration
+#   - Windows (开发): %TEMP%\zhs-migration
+# 仍可由环境变量 ZHS_DRILL_LOG_ROOT 覆盖
+if os.name == "nt":
+    DEFAULT_LOG_ROOT = Path(tempfile.gettempdir()) / "zhs-migration"
+else:
+    DEFAULT_LOG_ROOT = Path("/var/log/zhs-migration")
+LOG_ROOT = Path(os.environ.get("ZHS_DRILL_LOG_ROOT", str(DEFAULT_LOG_ROOT)))
 LOCAL_LOG_ROOT = Path("logs/zhs-migration")  # 兜底, 写不进 /var 时用本地
 
 
 def get_log_root() -> Path:
-    """优先用 /var/log (生产规范), 否则 fallback 到本地 logs/."""
-    if os.access("/var/log", os.W_OK):
+    """优先用 LOG_ROOT (生产规范), 否则 fallback 到本地 logs/."""
+    try:
+        LOG_ROOT.mkdir(parents=True, exist_ok=True)
         return LOG_ROOT
-    return LOCAL_LOG_ROOT
+    except (OSError, PermissionError):
+        return LOCAL_LOG_ROOT
 
 
 def run_cmd(cmd: list[str], cwd: Path | None = None, timeout: int = 120) -> tuple[int, str, str]:

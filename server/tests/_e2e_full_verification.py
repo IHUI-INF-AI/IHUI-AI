@@ -85,7 +85,8 @@ def main() -> int:
 
     # 4. G 盘根目录检查 (关键回归测试)
     print("[4/6] G 盘根目录检查...")
-    forbidden = ["G:\\1", "G:\\dev", "G:\\tmp", "G:\\pw-output"]
+    # 2026-06-25 扩展: 增加 G:\\Users 检查 (rewrite_edu_models.py 误存导致)
+    forbidden = ["G:\\1", "G:\\dev", "G:\\tmp", "G:\\pw-output", "G:\\Users"]
     for p in forbidden:
         if os.path.exists(p):
             print(f"      ✗ G 盘根目录意外存在: {p}")

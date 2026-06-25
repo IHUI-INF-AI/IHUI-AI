@@ -10,7 +10,8 @@ print()
 
 # 1. G 盘根目录检查
 print("1. G 盘根目录清理状态:")
-for p in ["G:\\1", "G:\\dev", "G:\\tmp"]:
+# 2026-06-25 扩展: 增加 G:\\Users 检查 (rewrite_edu_models.py 误存导致)
+for p in ["G:\\1", "G:\\dev", "G:\\tmp", "G:\\Users"]:
     print(f"   {p} exists = {os.path.exists(p)}")
 print()
 

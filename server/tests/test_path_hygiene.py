@@ -25,6 +25,7 @@ CLIENT_DIR = ROOT / "client"
 
 sys.path.insert(0, str(SERVER_DIR / "scripts"))
 from _scan_hardcoded_g_drive_paths import PATTERNS, EXCLUDE_DIRS, iter_files, should_scan  # noqa: E402
+from _scan_client_hardcoded_paths import WHITELIST_SUBSTRINGS as CLIENT_WHITELIST  # noqa: E402
 
 # 合理文件白名单 (修复记录/工具脚本/验证脚本, 这些是合理的)
 WHITELIST_SUBSTRINGS = [
@@ -41,10 +42,35 @@ WHITELIST_SUBSTRINGS = [
     "_final_path_verification",  # 最终验证脚本自身
     "test_path_hygiene",  # 本测试自身
     "test_pitr_cross_cloud",  # PITR 测试断言 (检查 shell 脚本内容含 /tmp/pitr_restore_)
+] + CLIENT_WHITELIST
+
+# 文件级白名单 (这些文件内的硬编码路径是合理的, 不算违规)
+FILE_WHITELIST = [
+    # 2026-06-25 扩展
+    "deploy/monitoring/prometheus.yml",  # prometheus 配置, Linux 部署用
+    "scripts/ops/drill_log.py",  # 演练日志 (已用平台感知修复)
+    "scripts/ops/retry_drill_steps.py",  # 演练重试 (已用平台感知修复)
+    "test_invoice_download.py",  # SSRF 防护测试, 故意用 /etc/passwd
+    "test_alertmanager_integration.py",  # 字符串断言 (检查 prometheus 配置内容)
+    "test_ebpf_observability.py",  # eBPF mock 数据
+    "test_pg_monitoring_e2e.py",  # 字符串断言 (检查 prometheus 配置内容)
+    "_cleanup_g_users_dir.py",  # 本会话创建的 G 盘根清理工具
+    "_investigate_g_users_deep.py",  # 本会话创建的 G:\Users 调查工具
+    "_investigate_g_users.py",  # 本会话创建的 G:\Users 调查工具
+    "_final_path_verification.py",  # 本会话创建的最终验证脚本
+    # 2026-06-25 扩展: client 子项目
+    "client/deploy.sh",  # client Linux 部署脚本
+    "client/public/pdf.worker.mjs",  # pdf.js 源 (vendored lib, 含 /home/web_user)
+    "client/public/pdf.worker.min.mjs",  # pdf.js 压缩包 (vendored lib)
 ]
 
 
 def _is_whitelisted(path: str, line: str) -> bool:
+    # 文件级白名单 (支持正斜杠和反斜杠)
+    path_normalized = path.replace("\\", "/")
+    if any(name.replace("\\", "/") in path_normalized for name in FILE_WHITELIST):
+        return True
+    # 行级白名单
     if any(sub in line for sub in WHITELIST_SUBSTRINGS):
         return True
     return any(name in path for name in [
@@ -143,12 +169,13 @@ class TestNoGDriveRootArtifacts:
 
     @pytest.mark.skipif(os.name != "nt", reason="仅 Windows 平台检查 G 盘根")
     def test_g_drive_root_artifact_dirs_absent(self):
-        forbidden = ["G:\\1", "G:\\dev", "G:\\tmp"]
+        # 2026-06-25 扩展: 增加 G:\\Users 检查 (rewrite_edu_models.py 误存导致的)
+        forbidden = ["G:\\1", "G:\\dev", "G:\\tmp", "G:\\pw-output", "G:\\Users"]
         existing = [p for p in forbidden if os.path.exists(p)]
         if existing:
             pytest.fail(
                 f"G 盘根目录存在意外目录: {existing}. "
-                f"请运行 server/scripts/_delete_empty_g_drive_dirs.ps1 清理"
+                f"请运行 server/scripts/_delete_g_drive_artifacts.ps1 清理"
             )
 
 
