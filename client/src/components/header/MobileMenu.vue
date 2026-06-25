@@ -202,9 +202,12 @@ const showSupportMenu = ref(false)
 const showAboutMenu = ref(false)
 
 // 根据当前路由自动计算activeIndex
+// 2026-06-24 修复: HMR 重载或 router 注入失败时 route 可能为 undefined,
+// 在此添加可选链保护, 避免渲染期抛 'Cannot read properties of undefined (reading "name")'
 const activeIndex = computed(() => {
-  const routeName = (route as { name?: string | symbol }).name as string
-  const routePath = route.path
+  const safeRoute = (route as unknown as { name?: string | symbol; path?: string } | undefined) || {}
+  const routeName = safeRoute.name as string | undefined
+  const routePath = safeRoute.path || ''
 
   if (routeName === 'home' || routePath === '/' || routePath === '/home') {
     return 'home'
@@ -417,8 +420,9 @@ const toggleAboutMenu = () => {
 }
 
 // 检查服务与支持相关页面是否激活
+// 2026-06-24 修复: route 可能为 undefined, 加可选链
 const isSupportActive = computed(() => {
-  const routePath = route.path
+  const routePath = (route as unknown as { path?: string } | undefined)?.path || ''
   return (
     routePath.startsWith('/support/') ||
     activeIndex.value === 'documentCenter'
@@ -426,8 +430,9 @@ const isSupportActive = computed(() => {
 })
 
 // 检查关于我们相关页面是否激活
+// 2026-06-24 修复: route 可能为 undefined, 加可选链
 const isAboutActive = computed(() => {
-  const routePath = route.path
+  const routePath = (route as unknown as { path?: string } | undefined)?.path || ''
   return (
     routePath.startsWith('/about/') ||
     activeIndex.value === 'newsCenter' ||
