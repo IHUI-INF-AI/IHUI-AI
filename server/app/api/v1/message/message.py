@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Body, Query
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.current_user import current_user_id_or_guest
 from app.database import get_session
@@ -49,9 +49,7 @@ class SendMessageBody(BaseModel):
     session_id: Optional[str] = Field(default=None, alias="sessionId")
     metadata: Optional[dict[str, Any]] = Field(default=None, description="扩展元数据, 不存 DB")
 
-    class Config:
-        populate_by_name = True
-        extra = "ignore"
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
 
 @router.post("/send", summary="通用发送消息 (兼容前端 sendMessage / unifiedSendMessage)")

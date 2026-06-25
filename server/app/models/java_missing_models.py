@@ -256,3 +256,42 @@ class ZhsUserSysLink(Base):
             "is_del": self.is_del,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class Company(Base):
+    """公司表 (迁移自 edu Java 微服务: usercenter-service CompanyController).
+
+    对应 Java: com.ihui.ai.edu.usercenter.entity.Company
+    表名: zhs_company (兼容旧数据)
+    """
+
+    __tablename__ = "zhs_company"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False, comment="公司名称")
+    short_name = Column(String(128), comment="公司简称")
+    code = Column(String(64), index=True, comment="公司编码")
+    contact_person = Column(String(64), comment="联系人")
+    contact_phone = Column(String(32), comment="联系电话")
+    address = Column(String(512), comment="公司地址")
+    description = Column(Text, comment="公司描述")
+    status = Column(Integer, default=1, comment="状态 0禁用|1启用")
+    is_del = Column(Integer, default=0, comment="逻辑删除 0保留|1删除")
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "shortName": self.short_name,
+            "code": self.code,
+            "contactPerson": self.contact_person,
+            "contactPhone": self.contact_phone,
+            "address": self.address,
+            "description": self.description,
+            "status": self.status,
+            "isDel": self.is_del,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
+        }
