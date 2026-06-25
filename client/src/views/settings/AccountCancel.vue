@@ -382,7 +382,7 @@ async function onFinalConfirm() {
 .account-cancel__consequences-footer {
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--el-border-color-extra-light);
 }
 
 /* 底部操作区 */
@@ -407,7 +407,7 @@ async function onFinalConfirm() {
 
 .account-cancel__confirm-label {
   font-size: 13px;
-  color: #666;
+  color: var(--el-text-color-secondary);
   margin-bottom: 6px;
   line-height: 1.5;
 }
@@ -415,8 +415,8 @@ async function onFinalConfirm() {
 .account-cancel__confirm-label--highlight {
   font-size: 14px;
   font-weight: 600;
-  color: #1565c0;
-  background-color: #e3f2fd;
+  color: var(--el-color-primary);
+  background-color: var(--el-color-primary-light-9);
   padding: 8px 10px;
   border-radius: 4px;
   margin-bottom: 8px;
@@ -424,21 +424,21 @@ async function onFinalConfirm() {
 
 .account-cancel__confirm-ref {
   font-size: 13px;
-  color: #333;
+  color: var(--el-text-color-primary);
   line-height: 1.6;
   padding: 8px;
-  background-color: #f8f8f8;
+  background-color: var(--el-fill-color-lighter);
   border-radius: 6px;
   margin-bottom: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--el-border-color-lighter);
 }
 
 .account-cancel__confirm-ref--highlight {
   font-size: 14px;
   font-weight: 600;
-  color: #0d47a1;
-  background-color: #e3f2fd;
-  border: 1px solid #90caf9;
+  color: var(--el-color-primary-dark-2);
+  background-color: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-5);
   padding: 10px;
 }
 

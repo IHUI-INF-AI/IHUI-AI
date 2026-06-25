@@ -81,13 +81,19 @@ interface NotifyItem {
 const items = ref<NotifyItem[]>([])
 const loading = ref(false)
 const filter = ref<'all' | 'unread'>('all')
-/** 后端未读总数 (与菜单红点共享同一接口, 避免 items 截断导致不一致). */
-const unreadTotal = ref(0)
+/** 复用菜单红点的全局未读数 (模块级单例, 与 useNotifyBadge 共享同一 ref). */
+const { unreadCount, setUnread } = useNotifyBadge()
 let pollTimer: number | null = null
 
-const unreadCount = computed(() => unreadTotal.value)
 /** 顶部 toolbar 显示: 99+ 格式化 (与 Menu.vue 红点保持一致). */
 const unreadDisplay = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
+
+/** level→i18n key 映射, 集中维护. */
+const LEVEL_LABEL: Record<NotifyItem['level'], string> = {
+  info: 'notificationCenter.level.info',
+  warn: 'notificationCenter.level.warn',
+  error: 'notificationCenter.level.error',
+}
 
 async function fetchList() {
   loading.value = true
@@ -96,26 +102,11 @@ async function fetchList() {
       params: { only_unread: filter.value === 'unread', limit: 100 },
     })
     items.value = resp?.data?.items ?? []
-    // P1 封版: unreadCount 改用后端 unread-count 端点, 与菜单红点保持一致
-    // (避免 items.length 截断造成页面红点与菜单红点不一致)
-    void fetchUnreadCount()
+    // P1: 未读数由 useNotifyBadge 全局轮询, 列表拉取后无需再拉一次
   } catch (e) {
     ElMessage.error('加载通知失败')
   } finally {
     loading.value = false
-  }
-}
-
-/** 拉取后端未读总数 (与菜单红点共享同一接口). */
-async function fetchUnreadCount() {
-  try {
-    const resp: any = await http.get('/api/admin/migration/notify/unread-count')
-    const c = resp?.data?.unread_count
-    if (typeof c === 'number') {
-      unreadTotal.value = c
-    }
-  } catch {
-    // ignore, 保持上次值
   }
 }
 
@@ -124,8 +115,8 @@ async function onClick(n: NotifyItem) {
   try {
     await http.post(`/api/admin/migration/notify/${n.id}/read`)
     n.read = true
-    // 乐观更新: 减 1 (夹在 0..∞)
-    unreadTotal.value = Math.max(0, unreadTotal.value - 1)
+    // 乐观更新: 减 1 (夹在 0..∞) + 同步菜单红点
+    setUnread(Math.max(0, unreadCount.value - 1))
   } catch {
     // ignore
   }
