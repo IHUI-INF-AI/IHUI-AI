@@ -170,6 +170,8 @@ server/e2e_result.txt
 server/e2e_detail.txt
 server/e2e_output.txt
 server/e2e_v.txt
+server/e2e_lines.txt
+server/run_test.py
 server/_run_e2e.py
 server/tests/_smoke_fix_*.py
 ssl
