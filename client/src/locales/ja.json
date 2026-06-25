@@ -15727,6 +15727,11 @@
     "markAllRead": "すべて既読にする",
     "allTypes": "すべてのタイプ",
     "noNotifications": "通知はありません",
+    "level": {
+      "info": "情報",
+      "warn": "警告",
+      "error": "重大"
+    },
     "typeOrder": "注文",
     "typeWallet": "ウォレット",
     "typeSystem": "システム",
