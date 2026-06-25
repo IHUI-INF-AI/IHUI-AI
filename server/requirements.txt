@@ -244,7 +244,7 @@ xmltodict==1.0.4
 xxhash==3.6.0
 yarl==1.24.2
 zhipuai==2.1.5.20250825
-zhs-platform==1.0.0
+# zhs-platform==1.0.0  # 已通过 editable install (pip install -e .) 安装，无需重复声明
 zope.event==6.2
 zope.interface==8.5
 zstandard==0.25.0

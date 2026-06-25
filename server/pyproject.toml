@@ -63,8 +63,8 @@ dependencies = [
     "langchain-openai>=0.0.5",
     "langchain-postgres>=0.0.10",
     "langchain-text-splitters>=0.3.0",
-    "crewai>=1.14.0,<2",
-    "crewai-tools>=1.14.0,<2",
+    # crewai/crewai-tools 移为可选依赖（与 opentelemetry-api 版本冲突）
+    # 详见 [project.optional-dependencies] crewai
     "mcp>=1.13.1",
 
     # Redis
@@ -110,6 +110,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# crewai 为可选依赖（与 opentelemetry-api 版本冲突，项目已设计为 try/except 回退）
+# 安装方式：pip install -e ".[crewai]" 或 pip install crewai crewai-tools
+crewai = [
+    "crewai>=1.14.0,<2",
+    "crewai-tools>=1.14.0,<2",
+]
 dev = [
     "black>=25.9.0",
     "isort>=5.13.0",
