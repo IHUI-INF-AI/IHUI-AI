@@ -160,11 +160,20 @@ export const useAuthStore = defineStore('auth', () => {
   const initAuth = async () => {
     logger.debug('[AuthStore] Initializing auth state...')
 
-    if (tokenStore.checkExpiryAndClear()) {
+    const ts = getTokenStore()
+    const us = getUserStore()
+    const ws = getWalletStore()
+    const vs = getVipStore()
+    if (!ts || !us || !ws || !vs) {
+      logger.warn('[AuthStore] Required sub-stores unavailable, skip initAuth')
       return
     }
 
-    if (!tokenStore.restoreToken()) {
+    if (ts.checkExpiryAndClear()) {
+      return
+    }
+
+    if (!ts.restoreToken()) {
       logger.debug('[AuthStore] No stored token found, remaining logged out')
       return
     }
@@ -172,26 +181,26 @@ export const useAuthStore = defineStore('auth', () => {
     const storedUserData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
 
     if (storedUserData) {
-      userStore.restoreUserFromStorage()
-      walletStore.restoreFundInfo()
-      vipStore.restoreVipInfo()
+      us.restoreUserFromStorage()
+      ws.restoreFundInfo()
+      vs.restoreVipInfo()
 
       if (storedUserData.loginTime) {
-        tokenStore.loginTime = storedUserData.loginTime as string
+        ts.loginTime = storedUserData.loginTime as string
       }
       if (storedUserData.lastActiveTime) {
-        tokenStore.lastActiveTime = storedUserData.lastActiveTime as string
+        ts.lastActiveTime = storedUserData.lastActiveTime as string
       }
 
-      logger.info('[AuthStore] Restored user state from storage:', userStore.user?.username || userStore.user?.nickname)
+      logger.info('[AuthStore] Restored user state from storage:', us.user?.username || us.user?.nickname)
 
-      userStore.fetchUserInfo().catch((error: any) => {
+      us.fetchUserInfo().catch((error: any) => {
         logger.warn('[AuthStore] Background refresh user info failed (using cached data):', error)
       })
     } else {
       logger.debug('[AuthStore] Has token but no user data, attempting to fetch user info')
       try {
-        await userStore.fetchUserInfo()
+        await us.fetchUserInfo()
         logger.info('[AuthStore] Successfully fetched user info')
       } catch (error: any) {
         const errorMessage = error instanceof Error ? error.message : String(error)
@@ -213,19 +222,29 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
 
-    tokenStore.setInitCompleted(true)
+    ts.setInitCompleted(true)
     logger.debug('[AuthStore] Initialization complete')
   }
 
   const clearAuthState = () => {
-    tokenStore.clearTokens()
-    userStore.clearUser()
-    walletStore.clearFundInfo()
-    vipStore.clearVipInfo()
+    const ts = getTokenStore()
+    const us = getUserStore()
+    const ws = getWalletStore()
+    const vs = getVipStore()
+    if (ts) ts.clearTokens()
+    if (us) us.clearUser()
+    if (ws) ws.clearFundInfo()
+    if (vs) vs.clearVipInfo()
   }
 
   const register = async (registerData: RegisterParams) => {
-    userStore.isLoading = true
+    const us = getUserStore()
+    const ts = getTokenStore()
+    if (!us || !ts) {
+      logger.warn('[AuthStore] userStore/tokenStore unavailable, cannot register')
+      throw new Error(t('error.auth.服务尚未就绪'))
+    }
+    us.isLoading = true
     try {
       if (registerData.type === 'phone') {
         if (!registerData.phone || !registerData.code || !registerData.password) {

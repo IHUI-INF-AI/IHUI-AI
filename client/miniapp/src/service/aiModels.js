@@ -172,12 +172,15 @@ export function getBuyList(data) {
 }
 
 // 明细列表
+// 2026-06-25 修复#J: 路径对齐到 Python 后端真实端点.
+//   原路径 /cozeZhsApi/agent-withdrawal-detail/list (base 3) 是外部 Java 后端路由,
+//   已迁移到 Python 后端 /api/v1/agents/withdrawal/list. base 改为 1 (走 api-kou 代理).
 export function getMxList(data) {
     return request({
-        url: `/cozeZhsApi/agent-withdrawal-detail/list`,
+        url: `/api/v1/agents/withdrawal/list`,
         method: "GET",
         data,
-        base: 3
+        base: 1
     });
 }
 

@@ -16,7 +16,10 @@ export const API_ENDPOINTS = {
     CATEGORY_DELETE: (id: string | number) => `${COZE_API_PREFIX}/agent-category/${id}`,
     SETTLEMENT_INCOME: `${COZE_API_PREFIX}/agent-settlement/stats/income-overview`,
     SETTLEMENT_LIST: `${COZE_API_PREFIX}/agent-settlement/list`,
-    WITHDRAWAL_LIST: `${COZE_API_PREFIX}/agent-withdrawal-detail/list`,
+    // 2026-06-25 修复#K: 对齐到 Python 后端真实端点.
+    //   原路径 /cozeZhsApi/agent-withdrawal-detail/list 是外部 Java 后端路由,
+    //   已迁移到 Python 后端 /api/v1/agents/withdrawal/list (修复#A 新前缀).
+    WITHDRAWAL_LIST: `/api/v1/agents/withdrawal/list`,
     TASK_NEED: '/remote/agent/task/need/task',
     TASK_ADD: '/remote/agent/task/need/task/add',
     TASK_INFO: (id: string | number) => `/remote/agent/task/need/task/add/${id}`,
