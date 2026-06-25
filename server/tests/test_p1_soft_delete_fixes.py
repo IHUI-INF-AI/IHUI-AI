@@ -311,8 +311,13 @@ class TestAskQuestionSoftDelete:
         from app.api.v1.ask.question import update_question
         import inspect
         source = inspect.getsource(update_question)
-        # 必须过滤 deleted=True
-        assert "not AskQuestion.deleted" in source or "deleted=False" in source
+        # 必须过滤 deleted=True (支持 is_(False) / == False / is not True 写法)
+        assert (
+            "AskQuestion.deleted.is_(False)" in source
+            or "not AskQuestion.deleted" in source
+            or "deleted=False" in source
+            or "deleted == False" in source
+        )
 
 
 # =============================================================================

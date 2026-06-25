@@ -304,7 +304,7 @@ def submit_homework(
     if hw.deadline and hw.deadline < utcnow():
         raise EduValidationError("homework deadline passed")
     sub = EduHomeworkSubmission(
-        homework_id=homework_id, user_id=user_id,
+        homework_id=homework_id, member_id=user_id,
         content=content, attachment_url=attachment_url,
         submitted_at=utcnow(),
     )

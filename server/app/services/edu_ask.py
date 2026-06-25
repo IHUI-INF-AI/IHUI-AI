@@ -51,11 +51,8 @@ def create_question(
         member_id=user_id,
         title=title,
         content=content,
-        course_id=course_id,
-        tags=tags,
-        view_count=0,
-        answer_count=0,
-        is_resolved=False,
+        watch_num=0,
+        answer_num=0,
     )
     db.add(q)
     db.flush()
@@ -167,12 +164,12 @@ def create_answer(
         question_id=question_id,
         member_id=user_id,
         content=content,
-        is_best=False,
-        like_count=0,
+        is_adopted=False,
+        like_num=0,
     )
     db.add(a)
     db.flush()
-    q.answer_count = (q.answer_count or 0) + 1
+    q.answer_num = (q.answer_num or 0) + 1
     db.flush()
     db.refresh(a)
     return a
