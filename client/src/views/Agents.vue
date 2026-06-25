@@ -152,7 +152,6 @@ import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useApiError } from '@/composables/useApiError'
 import { useMouseGlow } from '@/composables/useMouseGlow'
 import { usePagination } from '@/composables/user/usePagination'
-import { usePagePerf } from '@/composables/usePagePerf'
 import {
   getAgentsList,
   getAgentCategories,

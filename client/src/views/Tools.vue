@@ -77,7 +77,6 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getToolsList, getToolCategoriesList } from '@/api/tools'
 import { logger } from '@/utils/logger'
-import { usePagePerf } from '@/composables/usePagePerf'
 import { useSEO } from '@/composables/useSEO'
 
 const { t } = useI18n()
@@ -256,8 +255,6 @@ function handleUseTool(tool: Tool) {
 watch(activeCategory, () => {
   loadTools()
 })
-
-usePagePerf('Tools')
 
 onMounted(async () => {
   try { await loadCategories(); await loadTools() } catch (e) { console.error(e) }

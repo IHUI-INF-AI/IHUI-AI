@@ -1772,8 +1772,6 @@ const loadUserSettings = async () => {
   }
 }
 
-usePagePerf('Settings')
-
 onMounted(() => {
   // 从 authStore 加载用户个人信息（头像、昵称等）
   const user = authStore.user as UserInfoData | null
