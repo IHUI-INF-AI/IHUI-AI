@@ -68,7 +68,7 @@ const handleClick = () => {
 <style scoped lang="scss">
 .scroll-down-button {
   position: fixed;
-  bottom: 8px;
+  bottom: 32px; /* 上移避开 .hero-cta 按钮区，避免重叠 */
   left: 50%;
   transform: translateX(-50%);
   width: 44px;
@@ -217,7 +217,7 @@ const handleClick = () => {
   .scroll-down-button {
     width: 40px;
     height: 40px;
-    bottom: 64px;
+    bottom: 96px; /* 移动端上移更多，避开 .hero-cta */
   }
   
   .arrow-icon {
@@ -234,7 +234,7 @@ const handleClick = () => {
   .scroll-down-button {
     width: 40px;
     height: 40px;
-    bottom: 64px;
+    bottom: 96px; /* 窄屏同样上移 */
   }
 
   .arrow-icon {

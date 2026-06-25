@@ -264,6 +264,8 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 }
 
 /* 第一页内容覆盖层 */
+/* 注：以下样式会被后面的 #first-page .first-page-content-overlay（特异性更高）覆盖。
+   此处保留作为冗余兜底，保持 padding-bottom 与 override 块一致。 */
 :where(#first-page) .first-page-content-overlay {
   position: absolute;
   top: 50%;
@@ -279,7 +281,8 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   max-height: 100vh;
   max-height: 100dvh;
   overflow: hidden;
-  padding: 16px; /* 减小内边? */
+  /* 与 #first-page .first-page-content-overlay override 块保持一致 */
+  padding: 16px 16px clamp(96px, 9vh, 120px);
   box-sizing: border-box;
 }
 
@@ -924,7 +927,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 }
 
 :where(html:not(.dark)) :where(#second-page) .second-page-title-english {
-  color: var(--el-text-color-disabled); /* 浅灰色，明显弱于中文标题的黑? */
+  color: var(--el-text-color-secondary); /* 浅灰色，明显弱于中文标题的黑? */
 }
 
 :where(html.dark) :where(#second-page) .second-page-title-english {
@@ -1055,6 +1058,37 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   z-index: calc(var(--z-base) + 1); /* 确保内容在虚化遮罩之? */
 }
 
+/* 覆盖 .page-content 默认 position/padding。
+   使用 ID+class 提升特异性（特异性 0,1,1,0 > 0,0,1,0），保证在 .page-content 之后加载也能胜出。
+   避免 .first-page-content-overlay 的 absolute/translate/padding-bottom 被 .page-content 覆盖。 */
+#first-page .first-page-content-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  right: 0;
+  z-index: calc(var(--z-base) + 3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
+  /* 底部内边距 >= 96px（向下箭头 44px + 按钮 bottom 32px + 缓冲 20px），
+     让 .hero-cta 距离视口底部有充足安全空间，避免被 .scroll-down-button 覆盖。 */
+  padding: 16px 16px clamp(96px, 9vh, 120px);
+  box-sizing: border-box;
+}
+
+@media (width <= 768px) {
+  #first-page .first-page-content-overlay {
+    /* 移动端：底部内边距 >= 160px（向下箭头 40px + 按钮 bottom 96px + 缓冲 24px） */
+    padding: 16px 16px clamp(160px, 18vh, 200px);
+  }
+}
+
 /* 第三页的 page-content 特殊处理：允许旋转的卡片超出边界 */
 :where(#third-page) .page-content,
 :where(#third-page) .third-page-content {
@@ -1177,12 +1211,12 @@ h1[class*="brand"].font-edix {
 }
 
 p {
-  font-size: clamp(16px, 4vw, 16px); /* 进一步放大响应式字体大小 */
+  font-size: 16px; /* 进一步放大响应式字体大小 */
   margin: 0 auto 30px; /* 居中对齐 */
   line-height: 1.6;
   color: var(--el-text-color-primary);
   box-shadow: none;
-  font-weight: 500;
+  font-weight: 400;
   transition: color 0.3s ease;
   width: 100%;
   max-width: 100%;
@@ -1950,16 +1984,6 @@ html.dark .home-container {
     min-height: 100dvh;
   }
 
-  h1 {
-    font-size: clamp(36px, 8vw, 56px); /* 移动端进一步放大响应式字体大小 */
-    margin: 0 auto 15px;
-  }
-
-  p {
-    font-size: clamp(20px, 5vw, 32px); /* 移动端进一步放大响应式字体大小 */
-    margin: 0 auto 20px;
-  }
-
   .fifth-page-content {
     padding: clamp(15px, 2vw, 30px);
   }
@@ -2011,14 +2035,6 @@ html.dark .home-container {
     gap: 20px;
   }
 
-  /* 第一页标题移动端样式 */
-  .first-page-title-wrapper {
-    max-width: calc(100vw - 40px); // 确保不超出屏?
-    width: 100%;
-    padding: 0 20px;
-    transform: translate(-50%, calc(-50% - 60px)); // 移动端调整位?
-  }
-
   /* hero-cta 按钮移动端换行,避免 3 个按钮水平溢出 */
   .hero-cta {
     flex-wrap: wrap;
@@ -2031,14 +2047,12 @@ html.dark .home-container {
     font-size: clamp(20px, 5vw, 28px);
     max-width: 100%;
   }
-}
 
-@media (width <= 480px) {
-  /* 第一页标题小屏幕样式 */
-  .first-page-title-wrapper {
-    max-width: calc(100vw - 30px); // 小屏幕减少边?
-    padding: 0 15px;
-    transform: translate(-50%, calc(-50% - 50px));
+  /* 移动端：底部内边距 >= 160px（向下箭头 40px + 按钮 bottom 96px + 缓冲 24px）
+     防止 .hero-cta 被 .scroll-down-button 覆盖。
+     与后面的 #first-page .first-page-content-overlay override 块保持一致。 */
+  :where(#first-page) .first-page-content-overlay {
+    padding: 16px 16px clamp(160px, 18vh, 200px);
   }
 }
 
@@ -2455,7 +2469,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
 // 首页欢迎文字优化 - 更精密的字体效果
 .brand-welcome-text {
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -0.02em;
   color: var(--el-text-color-primary);
 }
@@ -2560,20 +2574,6 @@ html.dark .advantage-card {
 
 // 第二页标题优?- 极简字体层级
 .second-page-title-wrapper {
-  .second-page-title {
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    font-size: clamp(24px, 4vw, 36px);
-  }
-  
-  .second-page-title-english {
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    opacity: 0.6;
-    font-size: 11px;
-  }
-  
   .second-page-description {
     font-size: 15px;
     line-height: 1.7;
