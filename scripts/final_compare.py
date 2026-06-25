@@ -145,7 +145,26 @@ for svc in services:
     legacy_eps = [e for e in python_endpoints if e["file"] == "legacy_compat.py"]
     # 加入 member_legacy 中的端点 (MemberController 真实实现)
     member_legacy_eps = [e for e in python_endpoints if e["file"] == "v1/member_legacy.py"]
-    py_eps = py_eps + legacy_eps + member_legacy_eps
+    # 加入 resource_legacy 中的端点 (ResourceController 真实实现)
+    resource_legacy_eps = [e for e in python_endpoints if e["file"] == "v1/resource_legacy.py"]
+    # 加入 article_invoice_exam_legacy 中的端点
+    article_invoice_eps = [e for e in python_endpoints if e["file"] == "v1/article_invoice_exam_legacy.py"]
+    # 加入 8 个新 legacy 路由端点 (CategoryController / LearnController / CertificateController /
+    #   ExamController / NewsController / LiveController / AskController / MiscController)
+    extra_legacy_eps = [
+        e for e in python_endpoints if e["file"] in [
+            "v1/category_legacy.py",
+            "v1/learn_legacy.py",
+            "v1/certificate_legacy.py",
+            "v1/exam_legacy.py",
+            "v1/news_legacy.py",
+            "v1/live_legacy.py",
+            "v1/ask_legacy.py",
+            "v1/misc_legacy.py",
+            "v1/invoice_title_legacy.py",
+        ]
+    ]
+    py_eps = py_eps + legacy_eps + member_legacy_eps + resource_legacy_eps + article_invoice_eps + extra_legacy_eps
     java_eps = java_endpoints_by_svc[svc]
 
     # 按 Controller 分组
