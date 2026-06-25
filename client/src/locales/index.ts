@@ -141,8 +141,23 @@ export async function loadAsyncModuleWithFallback(
   }
   try {
     const messages = await import(`./modules/${locale}/${module}.json`)
+    const result = (messages.default || messages) as Record<string, unknown>
+    if (import.meta.env.DEV) {
+      // 调试: 验证 import 拿到的 messages 结构是否正确
+      // 2026-06-25 修复: 收窄类型, Object.keys 不接受 unknown, 用 Record<string, unknown> 显式断言
+      const cpSection = result.commandPalette as Record<string, unknown> | undefined
+      const cmdSection = cpSection?.commands as Record<string, unknown> | undefined
+      console.info('[i18n] loaded', {
+        module,
+        locale,
+        hasDefault: !!messages.default,
+        topKeys: Object.keys(result),
+        cpKeys: cpSection ? Object.keys(cpSection) : null,
+        cmdKeys: cmdSection ? Object.keys(cmdSection) : null,
+      })
+    }
     markModuleLoaded(locale, module)
-    return messages.default || messages
+    return result
   } catch (primaryError) {
     if (locale === 'zh-CN') return null
     try {

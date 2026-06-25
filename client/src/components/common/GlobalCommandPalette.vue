@@ -106,46 +106,75 @@ const currentLocale = computed<SupportedLocale>(() => {
   const v = i18nLocale.value
   return (v === 'zh-CN' || v === 'zh-TW' || v === 'en' || v === 'ja' || v === 'ko') ? v : 'zh-CN'
 })
-// 2026-06-25 修复: 同一个 setup() 中只能有一个 onMounted hook (Vue3 组合式 API 不允许多次注册,
-// 多个 onMounted 在 HMR/重渲染时可能被后者覆盖前者, 导致 loadModule 永远不执行,
-// 表现为 t('commandPalette.commands.home') 返回字面量). 合并两个 onMounted, 把 i18n
-// 异步加载 + 全局快捷键注册放在同一个 hook 里, 避免 HMR/重渲染竞态.
-// 注意: visible.value 用 ref 包装因为 v-model 是 props, 不能在 hook 里直接改 props.
-// 监听 visible 用 watch 在文件下方处理.
+// 2026-06-25 修复: useI18n() 的 t 函数在 component-scope Composer 中,
+// 该 Composer 继承自 i18n.global 但其 messages 是 lazy proxy, 通过
+// mergeLocaleMessage 写入 global.messages 后, sub composer 的 Proxy
+// 在某些 vue-i18n 9.x 边界场景下不会立即触发响应式更新, 导致 computed
+// commands 仍持有初次求值时的字面量. 这里加一个 i18nReady ref,
+// loadModule 完成后 +1, 强制 commands computed 重算 (因为 computed 追踪了
+// i18nReady.value 的读取, ref 变化触发 trigger).
+// 经验证: 在 onMounted 中手动调用 t('commandPalette.commands.home') 能返回 '返回首页',
+// 但 computed commands 的 label 仍显示字面量, 证明是 computed 缓存问题而非 messages 缺失.
+const i18nReady = ref(0)
+// 2026-06-26 修复: commandPalette 是 asyncModule, 不会在首屏自动加载.
+// 之前在 onMounted 里 fire-and-forget loadModule, 但用户可能比加载更快地打开面板,
+// 首次渲染时 t('commandPalette.commands.home') 仍返回字面量, UI 出现 "commandPalette.commands.home" 键名.
+// 修复: 用一个 moduleReady Promise 缓存加载结果, 任何打开面板的入口 (Cmd+K / 触发按钮) 都 await 它,
+// 保证 visible 切到 true 之前 messages 一定已 merge 到 i18n, computed 的 t() 必然能拿到翻译.
+let _moduleReadyPromise: Promise<void> | null = null
+const ensureI18nLoaded = (): Promise<void> => {
+  if (i18nReady.value > 0) return Promise.resolve()
+  if (!_moduleReadyPromise) {
+    _moduleReadyPromise = loadModule(currentLocale.value, 'commandPalette')
+      .then(() => {
+        i18nReady.value += 1
+      })
+      .catch((e) => {
+        // 加载失败时清空 promise, 下次重试; 但 i18nReady 不递增, computed 仍会显示键名 (用户可看到问题)
+        _moduleReadyPromise = null
+        logger.warn('[GlobalCommandPalette] Failed to load i18n module:', e)
+      })
+  }
+  return _moduleReadyPromise
+}
+
+// 打开面板 (统一入口, 内部 await i18n 加载)
+const openPalette = async () => {
+  await ensureI18nLoaded()
+  visible.value = true
+}
+
+// 2026-06-26 修复: 合并所有 onMounted hook + 显式触发 i18n 预热, 避免 2 个 onMounted 互相覆盖 (HMR/重渲染竞态).
+// 顺序: 同步注册键盘监听 + 全局函数 (关键交互, 不能被 await 阻塞) -> 异步预热 i18n (不阻塞挂载).
 onMounted(() => {
-  // 2026-06-25 修复: 同一 setup() 中只能注册一个 onMounted hook, 否则 HMR/重渲染时
-  // 可能被后者覆盖前者, 导致 i18n 异步加载和键盘监听丢失. 这里合并为单一 hook,
-  // 并按"关键路径优先"顺序执行: 先同步注册键盘监听 + 全局函数 (关键交互),
-  // 再异步加载 i18n 模块 (面板打开时再解析 key). 这样即使 loadModule 因 Vite
-  // optimizeDeps race condition 阻塞, 快捷键和 openCommandPalette 仍能立即响应.
+  console.info('[GCP] onMounted 触发', { currentLocale: currentLocale.value })
 
   // 1. 同步: 注册 Cmd+K 全局快捷键 (关键交互, 不能被 await 阻塞)
   cleanup.addEventListener(window, 'keydown', handleKeyDown as EventListener)
-  // 2. 同步: 注册全局打开函数 (供 SearchTrigger 等外部调用)
+  // 2. 同步: 注册全局打开函数 (供 SearchTrigger 等外部调用, fire-and-forget, 内部 await i18n)
   if (typeof window !== 'undefined') {
-    ;(window as unknown as Record<string, unknown>).openCommandPalette = () => {
-      visible.value = true
-    }
+    ;(window as unknown as Record<string, unknown>).openCommandPalette = openPalette
     cleanup.add(() => {
       delete (window as unknown as Record<string, unknown>).openCommandPalette
     })
   }
 
-  // 3. 异步: 加载 commandPalette i18n 模块 (asyncModules, 不会在首屏自动加载)
-  loadModule(currentLocale.value, 'commandPalette').catch((e) => {
-    logger.warn('[GlobalCommandPalette] Failed to load i18n module:', e)
-  })
+  // 3. 异步: 预热 commandPalette i18n 模块 (面板打开时再解析 key, 不会阻塞挂载)
+  ensureI18nLoaded()
 })
 
-// 2026-06-25 修复: 监听 i18n locale 变化, 切换语言时重新加载 commandPalette 模块.
-// 注意: currentLocale 是 computed, watch 触发时 callback 收到的是 unwrap 后的值
-// (vue-tsc 5.x 在 strict 模式下偶尔会推断为 { value: SupportedLocale }, 这里用显式类型断言收窄).
+// 2026-06-26 修复: 监听 i18n locale 变化, 切换语言时重新加载 commandPalette 模块.
 watch(currentLocale, (loc) => {
   const code: SupportedLocale =
     typeof loc === 'string' && (loc === 'zh-CN' || loc === 'zh-TW' || loc === 'en' || loc === 'ja' || loc === 'ko')
       ? loc
       : currentLocale.value
-  loadModule(code, 'commandPalette').catch((e) => {
+  // locale 切换后清空缓存, 下次 openPalette 时会重新加载对应语言
+  i18nReady.value = 0
+  _moduleReadyPromise = null
+  loadModule(code, 'commandPalette').then(() => {
+    i18nReady.value += 1
+  }).catch((e) => {
     logger.warn('[GlobalCommandPalette] Failed to reload i18n module on locale change:', e)
   })
 })
@@ -195,6 +224,8 @@ interface TranslatedCommand extends Command {
 }
 
 const commands = computed<TranslatedCommand[]>(() => {
+  // 2026-06-25 修复: 读取 i18nReady 触发响应式依赖, loadModule 完成后 +1 强制重算
+  const _ = i18nReady.value
   // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404
   // 隐藏社区 v2 (后端社区在 /api/v1/circle/* 和 /api/v1/ask/*, 非 /api/v2/community/*)
   const HIDDEN_COMMAND_IDS = ['nav-community']
@@ -278,10 +309,15 @@ const executeCommand = (cmd: Command) => {
 }
 
 // 键盘全局监听
+// 2026-06-26 修复: 打开面板走 openPalette, 内部 await i18n 加载, 避免首次打开时键名裸露.
 const handleKeyDown = (e: KeyboardEvent) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault()
-    visible.value = !visible.value
+    if (visible.value) {
+      visible.value = false
+    } else {
+      openPalette()
+    }
   }
 }
 
