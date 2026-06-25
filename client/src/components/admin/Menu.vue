@@ -8,6 +8,7 @@
         :to="m.path"
         class="menu-item"
         :class="{ active: $route.path === m.path || $route.path.startsWith(m.path + '/') }"
+        @click="onMenuClick(m)"
       >
         <el-icon v-if="m.icon" :size="16"><component :is="m.icon" /></el-icon>
         <span>{{ m.title }}</span>
@@ -40,7 +41,14 @@ interface MenuGroup { key: string; title: string; children: MenuItem[] }
 const { t } = useI18n()
 
 // 站内信红点 (P1 封版: 每 30s 轮询一次)
-const { unreadCount } = useNotifyBadge()
+const { unreadCount, refresh } = useNotifyBadge()
+
+/** 菜单点击钩子: 点击通知中心菜单时立即拉取一次 (不必等 30s 轮询). */
+function onMenuClick(m: MenuItem) {
+  if (m.badgeKey === 'notify') {
+    void refresh()
+  }
+}
 
 const groups = computed<MenuGroup[]>(() => [
   {

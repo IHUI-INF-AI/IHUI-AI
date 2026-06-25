@@ -3886,7 +3886,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
               --action-btn-color: var(--el-text-color-primary);
               --action-btn-hover-bg: var(--color-black-5);
 
-              html.dark & {
+              :where(html.dark) & {
                 --action-btn-color: var(--el-text-color-regular);
                 --action-btn-hover-bg: var(--color-white-10);
               }

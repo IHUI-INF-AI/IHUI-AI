@@ -156,7 +156,7 @@ import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher.vue'
 import { I18N_LANGUAGES, getLanguageMeta } from '@/constants/i18nLanguages'
 import { formatRelative } from '@/utils/i18nRelative'
-import i18n from '@/locales'
+import i18n, { loadFullLocaleMessages, getCurrentLocale } from '@/locales'
 
 const { t, locale } = useI18n()
 
@@ -414,7 +414,9 @@ const onDiff = () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 加载当前语言的完整语言包（含 i18nDashboard 翻译键）
+  await loadFullLocaleMessages(getCurrentLocale())
   // 初始化一次, 避免初始值在 SSR 期间为空
   refreshFormatPreviews()
   refreshPlural()

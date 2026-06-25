@@ -11,6 +11,7 @@ from app.services.alert_service import (
     format_prometheus_alert,
     push_alert,
 )
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -128,7 +129,7 @@ def record_alert(title: str, message: str, severity: str = "warning") -> None:
                 "title": title,
                 "message": message,
                 "severity": severity,
-                "ts": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+                "ts": utcnow().isoformat() + "Z",
             }
         )
         if len(_ALERT_HISTORY) > _HISTORY_MAX:

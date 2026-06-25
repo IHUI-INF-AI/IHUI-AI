@@ -1,6 +1,5 @@
 """消息通知 - 站内信/系统消息/公告"""
 
-from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, Body, Query
@@ -15,6 +14,7 @@ from app.models.message_models import (
     MessageTemplate,
 )
 from app.schemas.common import error, success
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -177,7 +177,7 @@ async def mark_read(mid: int):
             if not m:
                 return error("消息不存在", "404")
             m.is_read = True
-            m.read_time = datetime.utcnow()
+            m.read_time = utcnow()
             return success()
         except Exception as e:
             logger.error(f"message read error: {e}")
@@ -189,7 +189,7 @@ async def mark_all_read():
     with get_session() as db:
         try:
             db.query(Message).filter(Message.user_id == _uid(), not Message.is_read).update(
-                {Message.is_read: True, Message.read_time: datetime.utcnow()}
+                {Message.is_read: True, Message.read_time: utcnow()}
             )
             return success()
         except Exception as e:
@@ -320,7 +320,7 @@ async def create_announcement(
                 status=1,
                 target_user=target_user,
                 target_url=target_url,
-                publish_time=publish_time or datetime.utcnow(),
+                publish_time=publish_time or utcnow(),
                 expire_time=expire_time,
             )
             db.add(a)
