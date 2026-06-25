@@ -2497,50 +2497,50 @@ export class APIClient {
   
   /**
    * 修改
-   * @path PUT /category_link
+   * @path PUT /api/v1/agents/category-link
    */
   async edit43(data?: any): Promise<ApiResponse> {
-    return this.client.put(`/category_link`, data)
+    return this.client.put(`/api/v1/agents/category-link`, data)
   }
 
   /**
    * 新增
-   * @path POST /category_link
+   * @path POST /api/v1/agents/category-link
    */
   async add43(data?: any): Promise<ApiResponse> {
-    return this.client.post(`/category_link`, data)
+    return this.client.post(`/api/v1/agents/category-link`, data)
   }
 
   /**
    * 导出
-   * @path POST /category_link/export
+   * @path POST /api/v1/agents/category-link/export
    */
   async export43(params?: {agentCategoryLink: any}, data?: any): Promise<ApiResponse> {
-    return this.client.post(`/category_link/export`, data)
+    return this.client.post(`/api/v1/agents/category-link/export`, data)
   }
 
   /**
    * 详情
-   * @path GET /category_link/{id}
+   * @path GET /api/v1/agents/category-link/{id}
    */
   async getInfo45(id: string | number, _data?: any): Promise<ApiResponse> {
-    return this.client.get(`/category_link/${id}`)
+    return this.client.get(`/api/v1/agents/category-link/${id}`)
   }
 
   /**
    * 列表
-   * @path GET /category_link/list
+   * @path GET /api/v1/agents/category-link/list
    */
   async list43(params?: {agentCategoryLink: any}, _data?: any): Promise<ApiResponse> {
-    return this.client.get(`/category_link/list`, { params })
+    return this.client.get(`/api/v1/agents/category-link/list`, { params })
   }
 
   /**
    * 删除
-   * @path DELETE /category_link/{ids}
+   * @path DELETE /api/v1/agents/category-link/{ids}
    */
   async remove44(ids: string | number, _data?: any): Promise<ApiResponse> {
-    return this.client.delete(`/category_link/${ids}`)
+    return this.client.delete(`/api/v1/agents/category-link/${ids}`)
   }
 
   // ========================================

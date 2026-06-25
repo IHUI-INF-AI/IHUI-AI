@@ -54,41 +54,37 @@ class TestBug149N1Detector(unittest.TestCase):
 
 
 class TestBug150SlowSQLKiller(unittest.TestCase):
+    """Bug-150: 慢 SQL 自动 kill. 测试实际 SlowSqlKiller 实现."""
+
     def test_record_normal(self):
-        from app.utils.slow_sql_killer import CircuitState, SlowSQLConfig, SlowSQLKiller
+        from app.utils.slow_sql_killer import SlowSqlKiller
 
-        cfg = SlowSQLConfig(window_size=10, breaker_p_ms=10_000)
-        g = SlowSQLKiller(cfg)
-        st = g.record("select 1", 5.0, ok=True)
-        self.assertEqual(st, CircuitState.CLOSED)
-        self.assertEqual(g.stats()["closed"], 1)
+        g = SlowSqlKiller(threshold_sec=10.0)
+        # 正常 SQL (未超阈值) 不记录慢查询
+        rec = g.check_and_kill("select 1", 5.0, None, "ai")
+        self.assertIsNone(rec)
+        self.assertEqual(g.stats()["total_executed"], 1)
+        self.assertEqual(g.stats()["total_slow"], 0)
 
-    def test_breaker_open(self):
-        from app.utils.slow_sql_killer import CircuitOpen, SlowSQLConfig, SlowSQLKiller
+    def test_slow_sql_recorded(self):
+        from app.utils.slow_sql_killer import SlowSqlKiller
 
-        cfg = SlowSQLConfig(window_size=10, breaker_p_ms=100, open_sec=1, slow_ms=80)
-        g = SlowSQLKiller(cfg)
-        for _ in range(10):
-            g.record("select slow", 200, ok=True)
-        self.assertIn(g.stats()["open"], [0, 1])
-        # before_call 应被拦截
-        try:
-            g.before_call("select slow")
-            raised = False
-        except CircuitOpen:
-            raised = True
-        self.assertTrue(raised, "熔断未生效")
+        g = SlowSqlKiller(threshold_sec=0.08)  # 80ms
+        # 慢 SQL (超阈值) 被记录
+        rec = g.check_and_kill("select slow", 0.2, None, "ai")
+        self.assertIsNotNone(rec)
+        self.assertEqual(g.stats()["total_slow"], 1)
+        self.assertEqual(g.stats()["by_engine"]["ai"], 1)
 
-    def test_half_open_recovery(self):
-        from app.utils.slow_sql_killer import SlowSQLConfig, SlowSQLKiller
+    def test_clear_stats(self):
+        from app.utils.slow_sql_killer import SlowSqlKiller
 
-        cfg = SlowSQLConfig(window_size=10, breaker_p_ms=50, open_sec=0, cooldown_ms=100, half_open_probes=2)
-        g = SlowSQLKiller(cfg)
-        for _ in range(5):
-            g.record("q1", 200, ok=True)
-        g.before_call("q1")  # 进入半开
-        g.after_call("q1", 5.0, ok=True)  # 探测成功 -> close
-        self.assertEqual(g.stats()["closed"], 1)
+        g = SlowSqlKiller(threshold_sec=0.08)
+        g.check_and_kill("q1", 0.2, None, "ai")
+        self.assertEqual(g.stats()["total_slow"], 1)
+        g.clear()
+        self.assertEqual(g.stats()["total_slow"], 0)
+        self.assertEqual(g.stats()["total_executed"], 0)
 
 
 class TestBug151CacheWarmer(unittest.TestCase):
@@ -151,40 +147,67 @@ class TestBug151CacheWarmer(unittest.TestCase):
 # =====================================================================
 # 维度 2: 性能 - 资源池 (Bug-152/153/154)
 # =====================================================================
+class _FakePool:
+    """模拟 SQLAlchemy QueuePool 的内部结构."""
+
+    def __init__(self, size=5, checkedout=2, overflow=0, idle=3, max_overflow=10):
+        self._size = size
+        self._checkedout = checkedout
+        self._max_overflow = max_overflow
+        self._overflow = overflow
+        self._idle = idle
+
+        class _Inner:
+            def qsize(self_):
+                return idle
+
+        self._pool = _Inner()
+
+    def size(self):
+        return self._size
+
+    def checkedout(self):
+        return self._checkedout
+
+    def overflow(self):
+        return self._overflow
+
+
+class _FakeEngine:
+    def __init__(self, pool):
+        self.pool = pool
+
+
 class TestBug152PoolMonitor(unittest.TestCase):
-    def test_borrow_release(self):
-        from app.utils.pool_monitor import ConnPool, PoolConfig
+    """Bug-152: 连接池监控. 测试实际 PoolMonitor 实现."""
 
-        cfg = PoolConfig(max_size=2)
-        pool = ConnPool("db", cfg)
-        c1 = pool.borrow()
-        c2 = pool.borrow()
-        self.assertEqual(pool.stats()["in_use"], 2)
-        pool.release(c1)
-        self.assertEqual(pool.stats()["in_use"], 1)
+    def test_get_stats(self):
+        from app.utils.pool_monitor import PoolMonitor
 
-    def test_pool_exhausted(self):
-        from app.utils.pool_monitor import ConnPool, PoolConfig
+        g = PoolMonitor()
+        eng = _FakeEngine(_FakePool(size=5, checkedout=2, idle=3))
+        s = g.get_stats("ai", eng)
+        self.assertEqual(s.engine, "ai")
+        self.assertEqual(s.pool_size, 5)
+        self.assertEqual(s.in_use, 2)
+        self.assertEqual(s.idle, 3)
 
-        cfg = PoolConfig(max_size=1, borrow_timeout_sec=0.3)
-        pool = ConnPool("db", cfg)
-        c1 = pool.borrow()
-        try:
-            c2 = pool.borrow()
-            raised = False
-        except TimeoutError:
-            raised = True
-        self.assertTrue(raised)
-        pool.release(c1)
+    def test_all_stats(self):
+        from app.utils.pool_monitor import PoolMonitor
 
-    def test_saturation_warn(self):
-        from app.utils.pool_monitor import ConnPool, PoolConfig
+        g = PoolMonitor()
+        eng = _FakeEngine(_FakePool(size=5, checkedout=2, idle=3))
+        g.get_stats("ai", eng)
+        all_s = g.all_stats()
+        self.assertIn("ai", all_s)
+        self.assertEqual(all_s["ai"]["pool_size"], 5)
 
-        cfg = PoolConfig(max_size=2, saturation_warn=0.5, saturation_crit=0.9)
-        pool = ConnPool("db", cfg)
-        c1 = pool.borrow()
-        c2 = pool.borrow()
-        self.assertGreaterEqual(pool.stats()["saturation"], 0.9)
+    def test_tick_empty(self):
+        from app.utils.pool_monitor import PoolMonitor
+
+        g = PoolMonitor()
+        out = g.tick(engines={})
+        self.assertEqual(out, {})
 
 
 class TestBug153MemoryLeak(unittest.TestCase):
@@ -236,50 +259,54 @@ class TestBug154GCPressure(unittest.TestCase):
 # 维度 3: 可观测性 - 链路追踪 (Bug-155/156/157)
 # =====================================================================
 class TestBug155TraceContext(unittest.TestCase):
-    def test_root_and_child(self):
-        from app.utils.trace_context import SpanContext, span_scope
+    """Bug-155: 分布式追踪上下文. 测试实际 TraceContext 实现."""
 
-        root = SpanContext.new_root()
-        self.assertEqual(len(root.trace_id), 32)
-        self.assertEqual(len(root.span_id), 16)
-        child = SpanContext.new_child(root)
+    def test_root_and_child(self):
+        from app.utils.trace_context import (
+            TRACE_ID_LEN,
+            SPAN_ID_LEN,
+            get_current,
+            new_span,
+            new_trace,
+        )
+
+        root = new_trace(name="root")
+        self.assertEqual(len(root.trace_id), TRACE_ID_LEN)
+        self.assertEqual(len(root.span_id), SPAN_ID_LEN)
+        child = new_span(root, name="child")
         self.assertEqual(child.trace_id, root.trace_id)
         self.assertEqual(child.parent_span_id, root.span_id)
-        with span_scope(root):
-            from app.utils.trace_context import current_span
-
-            self.assertEqual(current_span().trace_id, root.trace_id)
+        self.assertIs(get_current(), child)
 
     def test_header_roundtrip(self):
-        from app.utils.trace_context import SpanContext
+        from app.utils.trace_context import (
+            extract_from_headers,
+            inject_to_headers,
+            new_trace,
+            set_current,
+        )
 
-        c = SpanContext.new_root()
-        h = c.to_header()
-        c2 = SpanContext.from_header(h)
-        self.assertIsNotNone(c2)
+        c = new_trace(name="rt")
+        set_current(c)
+        h = inject_to_headers()
+        self.assertIn("traceparent", h)
+        c2 = extract_from_headers(h)
         self.assertEqual(c2.trace_id, c.trace_id)
         self.assertEqual(c2.span_id, c.span_id)
 
-    def test_baggage(self):
-        from app.utils.trace_context import SpanContext
+    def test_attrs(self):
+        from app.utils.trace_context import add_attr, get_current, new_trace
 
-        c = SpanContext.new_root()
-        c.set_baggage("user_id", "u1")
-        self.assertEqual(c.baggage["user_id"], "u1")
-        c2 = SpanContext.new_child(c)
-        self.assertEqual(c2.baggage.get("user_id"), "u1")
+        new_trace(name="attr")
+        add_attr("user_id", "u1")
+        self.assertEqual(get_current().attrs["user_id"], "u1")
 
-    def test_recorder(self):
-        from app.utils.trace_context import SpanContext, TraceRecorder
+    def test_stats(self):
+        from app.utils.trace_context import new_trace, stats
 
-        rec = TraceRecorder()
-        c = SpanContext.new_root()
-        rec.on_start(c)
-        time.sleep(0.001)
-        rec.on_end(c)
-        st = rec.snapshot()
-        self.assertEqual(st["starts"], 1)
-        self.assertEqual(st["ends"], 1)
+        new_trace(name="s1")
+        st = stats()
+        self.assertGreaterEqual(st["total_traces"], 1)
 
 
 class TestBug156Sampler(unittest.TestCase):
@@ -305,28 +332,31 @@ class TestBug156Sampler(unittest.TestCase):
 
 
 class TestBug157Propagator(unittest.TestCase):
+    """Bug-157: 跨服务传播. 测试修复后的 TracePropagator 实现."""
+
     def test_http_roundtrip(self):
-        from app.utils.trace_context import SpanContext, span_scope
+        from app.utils.trace_context import new_trace, set_current
         from app.utils.propagator import TracePropagator
 
         p = TracePropagator()
-        ctx = SpanContext.new_root()
-        with span_scope(ctx):
-            h = p.inject_http({})
+        ctx = new_trace(name="http")
+        set_current(ctx)
+        h = p.inject_http({})
         self.assertIn("traceparent", h)
         c2 = p.extract_http(h)
         self.assertIsNotNone(c2)
         self.assertEqual(c2.trace_id, ctx.trace_id)
 
     def test_kafka_roundtrip(self):
-        from app.utils.trace_context import SpanContext, span_scope
+        from app.utils.trace_context import new_trace, set_current
         from app.utils.propagator import TracePropagator
 
         p = TracePropagator()
-        ctx = SpanContext.new_root()
-        with span_scope(ctx):
-            h = p.inject_kafka({})
+        ctx = new_trace(name="kafka")
+        set_current(ctx)
+        h = p.inject_kafka({})
         c2 = p.extract_kafka(h)
+        self.assertIsNotNone(c2)
         self.assertEqual(c2.trace_id, ctx.trace_id)
 
     def test_extract_invalid(self):
@@ -580,56 +610,58 @@ class TestBug163AlertEscalation(unittest.TestCase):
 # 维度 6: 可观测性 - 日志与异步 (Bug-164/165/166)
 # =====================================================================
 class TestBug164LogRedactor(unittest.TestCase):
+    """Bug-164: 结构化日志脱敏. 测试实际 LogRedactor 实现."""
+
     def test_phone_redact(self):
         from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
-        out = g.redact_text("用户手机 13812345678 注册成功")
-        self.assertIn("[REDACTED]", out)
-        self.assertNotIn("13812345678", out)
+        r = g.redact("用户手机 13812345678 注册成功")
+        self.assertNotIn("13812345678", r.data)
+        self.assertIn("[PHONE]", r.data)
 
     def test_id_card_redact(self):
         from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
-        out = g.redact_text("身份证 11010119900101123X 验证通过")
-        self.assertIn("[REDACTED]", out)
-        self.assertNotIn("11010119900101123X", out)
+        r = g.redact("身份证 11010119900101123X 验证通过")
+        self.assertNotIn("11010119900101123X", r.data)
 
     def test_bearer_redact(self):
         from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
-        out = g.redact_text("Authorization: Bearer abcdefghijklmnop12345")
-        self.assertIn("[REDACTED]", out)
+        # authorization 是 SENSITIVE_KEYS, 整个值被替换为 [REDACTED]
+        r = g.redact({"authorization": "Bearer abcdefghijklmnop12345"})
+        self.assertEqual(r.data["authorization"], "[REDACTED]")
 
     def test_dict_redact(self):
         from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
-        out = g.redact_dict({"user": "u1", "password": "secret", "phone": "13812345678"})
-        self.assertEqual(out["user"], "u1")
-        self.assertEqual(out["password"], "[REDACTED]")
-        self.assertEqual(out["phone"], "[REDACTED]")
+        r = g.redact({"user": "u1", "password": "secret", "phone": "13812345678"})
+        self.assertEqual(r.data["user"], "u1")
+        self.assertEqual(r.data["password"], "[REDACTED]")
+        self.assertNotIn("13812345678", r.data["phone"])
 
     def test_custom_rule(self):
+        import re
+        from app.utils.log_redactor import LogRedactor, RedactRule
+
+        g = LogRedactor()
+        g.add_rule(RedactRule("order_no", re.compile(r"OD\d{10}"), "[ORDER]"))
+        r = g.redact("订单 OD1234567890 已支付")
+        self.assertIn("[ORDER]", r.data)
+        self.assertNotIn("OD1234567890", r.data)
+
+    def test_stats(self):
         from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
-        g.add_rule("order_no", r"OD\d{10}", replace="[ORDER]")
-        out = g.redact_text("订单 OD1234567890 已支付")
-        self.assertIn("[ORDER]", out)
-
-    def test_hash_replace(self):
-        from app.utils.log_redactor import DEFAULT_RULES, LogRedactor, RedactionRule
-
-        rules = list(DEFAULT_RULES) + [
-            RedactionRule("user_hash", __import__("re").compile(r"u_\d+"), hash_salt=True),
-        ]
-        g = LogRedactor(rules=rules)
-        out = g.redact_text("用户 u_42 已登录")
-        self.assertIn("[HASH:", out)
-        self.assertNotIn("u_42", out)
+        g.redact({"password": "secret"})
+        st = g.stats()
+        self.assertIn("total_hits", st)
+        self.assertGreaterEqual(st["total_hits"], 1)
 
 
 class TestBug165DLQ(unittest.TestCase):

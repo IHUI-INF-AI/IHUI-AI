@@ -1080,6 +1080,10 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
               [/^\/api-kou\/exam\//, '/api/v1/exam/'],
               [/^\/api-kou\/courseAudit/, '/api/v1/course-audit'],
               [/^\/api-kou\/product_identity/, '/api/v1/product_identity'],
+              // 2026-06-26 对接联调: legacy_supplement 路径对齐前端
+              [/^\/api-kou\/auth_info/, '/api/v1/auth_info'],
+              [/^\/api-kou\/auth_accounts/, '/api/v1/auth_accounts'],
+              [/^\/api-kou\/coursePayLog/, '/api/v1/coursePayLog'],
             ]
             for (const [re, repl] of prefixMaps) {
               if (re.test(cleanPath)) {

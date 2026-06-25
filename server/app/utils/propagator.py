@@ -9,7 +9,16 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from app.utils.trace_context import SpanContext, current_span
+from app.utils.trace_context import TraceContext, get_current
+
+
+# 兼容别名: 历史代码引用 SpanContext / current_span
+SpanContext = TraceContext
+
+
+def current_span() -> TraceContext | None:
+    """兼容别名: 返回当前 trace context."""
+    return get_current()
 
 
 @dataclass
@@ -36,34 +45,41 @@ class TracePropagator:
         self._records: list[InjectRecord] = []
 
     def inject_http(self, headers: dict[str, str]) -> dict[str, str]:
-        ctx = current_span()
+        ctx = get_current()
         if ctx is None:
             return headers
-        headers[self.config.http_header] = ctx.to_header()
-        if ctx.baggage:
-            headers[self.config.baggage_header] = ",".join(f"{k}={v}" for k, v in ctx.baggage.items())
+        headers[self.config.http_header] = ctx.to_traceparent()
+        if ctx.attrs:
+            headers[self.config.baggage_header] = ",".join(f"{k}={v}" for k, v in ctx.attrs.items())
         with self._lock:
             self._records.append(InjectRecord(target="http", key=ctx.trace_id, ok=True))
         return headers
 
-    def extract_http(self, headers: dict[str, str]) -> SpanContext | None:
+    def extract_http(self, headers: dict[str, str]) -> TraceContext | None:
         h = headers.get(self.config.http_header)
         if not h:
             return None
-        ctx = SpanContext.from_header(h)
-        if ctx is None:
+        # 复用 trace_context 的 W3C 解析
+        from app.utils.trace_context import _TRACEPARENT_RE, TRACE_ID_LEN, SPAN_ID_LEN, TraceContext
+
+        m = _TRACEPARENT_RE.match(h)
+        if not m:
             with self._lock:
                 self._records.append(InjectRecord(target="http", key="invalid", ok=False))
             return None
+        _v, trace_id, span_id, flags = m.groups()
+        if trace_id == "0" * TRACE_ID_LEN or span_id == "0" * SPAN_ID_LEN:
+            return None
+        ctx = TraceContext(trace_id=trace_id, span_id=span_id, flags=flags)
         bg = headers.get(self.config.baggage_header, "")
         for pair in bg.split(","):
             if "=" in pair:
                 k, v = pair.split("=", 1)
-                ctx.set_baggage(k.strip(), v.strip())
+                ctx.attrs[k.strip()] = v.strip()
         return ctx
 
     def inject_kafka(self, headers: dict[str, str]) -> dict[str, str]:
-        ctx = current_span()
+        ctx = get_current()
         if ctx is None:
             return headers
         payload = json.dumps({"t": ctx.trace_id, "s": ctx.span_id, "f": ctx.flags})
@@ -72,13 +88,13 @@ class TracePropagator:
             self._records.append(InjectRecord(target="kafka", key=ctx.trace_id, ok=True))
         return headers
 
-    def extract_kafka(self, headers: dict[str, str]) -> SpanContext | None:
+    def extract_kafka(self, headers: dict[str, str]) -> TraceContext | None:
         raw = headers.get(self.config.kafka_header)
         if not raw:
             return None
         try:
             d = json.loads(raw)
-            return SpanContext(trace_id=d["t"], span_id=d["s"], flags=d.get("f", 0))
+            return TraceContext(trace_id=d["t"], span_id=d["s"], flags=str(d.get("f", "01")))
         except Exception:
             with self._lock:
                 self._records.append(InjectRecord(target="kafka", key="invalid", ok=False))

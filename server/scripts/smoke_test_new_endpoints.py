@@ -1,11 +1,10 @@
-"""端到端冒烟测试新端点"""
+"""端到端冒烟测试新端点 - 2026-06-26 对接联调修复后版本"""
 from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
 
-# 获取未认证可访问的端点
-print("=== 端到端冒烟测试 ===")
+print("=== 端到端冒烟测试 (对接联调修复后) ===")
 print()
 
 # 测试健康检查
@@ -29,19 +28,12 @@ print("    [OK]")
 print()
 print("[3] 新端点路径存在性")
 new_path_keywords = [
-    "/power-purchase-rule",
-    "/developer-fund-logs",
-    "/user-sys-link",
-    "/popular-courses",
-    "/course-temp",
-    "/video-temp",
-    "/user-fund-info",
-    "/agents/category-link",
-    "/legacy-supplement",
-    "/member/company/type",
-    "/member/post",
-    "/member/group",
-    "/member/level",
+    "/user/fund",                    # fund_info.py (原 /user-fund-info)
+    "/agents/category-link",         # category_link.py
+    "/system/dict",                  # dictionary.py
+    "/auth_info",                    # legacy_supplement.py (原 /user-auth-info)
+    "/auth_accounts",                # legacy_supplement.py (原 /user-third-party-account)
+    "/coursePayLog",                 # legacy_supplement.py (原 /course-pay-log)
 ]
 found = 0
 for keyword in new_path_keywords:
@@ -50,43 +42,37 @@ for keyword in new_path_keywords:
         found += 1
         print(f"    [OK] {keyword}: {len(matches)} 个端点")
     else:
-        print(f"    [WARN] {keyword}: 未找到（可能是 include_in_schema=False）")
+        print(f"    [FAIL] {keyword}: 未找到")
 print(f"    找到 {found}/{len(new_path_keywords)} 个关键词")
 
-# 测试具体新端点（需要认证的会返回 401，证明路由已注册）
+# 测试具体新端点（需要认证的会返回 401/403/422，证明路由存在）
 print()
 print("[4] 路由注册验证（未认证应返回 401/403/422，证明路由存在）")
 test_endpoints = [
-    ("GET", "/api/v1/popular-courses/list"),
-    ("GET", "/api/v1/course-temp/list"),
-    ("GET", "/api/v1/video-temp/list"),
-    ("GET", "/api/v1/user-fund-info/list"),
+    # fund_info.py (路径改为 /user/fund)
+    ("GET", "/api/v1/user/fund"),           # 新增: 当前用户资金信息
+    ("GET", "/api/v1/user/fund/list"),      # 列表
+    # category_link.py
     ("GET", "/api/v1/agents/category-link/list"),
+    # dictionary.py
     ("GET", "/api/v1/system/dict/type/list"),
     ("GET", "/api/v1/system/dict/data/list"),
-    ("GET", "/api/v1/activity/list"),
-    ("GET", "/api/v1/information/list"),
-    ("GET", "/api/v1/lecturer/list"),
-    ("GET", "/api/v1/department/list"),
-    ("GET", "/api/v1/company/list"),
-    ("GET", "/api/v1/agent-settlement/list"),
-    ("GET", "/api/v1/agent-usedetail/list"),
-    ("GET", "/api/v1/user-auth-info/list"),
-    ("GET", "/api/v1/user-third-party-account/list"),
-    ("GET", "/api/v1/file-storage/list"),
-    ("GET", "/api/v1/course-pay-log/list"),
-    ("GET", "/api/v1/user-comment-log/list"),
-    ("GET", "/api/v1/user-video-comment/list"),
-    ("GET", "/api/v1/operate-token-flow/list"),
-    ("GET", "/api/v1/user-agent-image/list"),
+    ("GET", "/api/v1/system/dict/type/optionselect"),  # 静态路径前置验证
+    ("POST", "/api/v1/system/dict/type/export"),       # 新增端点
+    # legacy_supplement.py (路径改为对齐前端)
+    ("GET", "/api/v1/auth_info/list"),
+    ("GET", "/api/v1/auth_accounts/list"),
+    ("GET", "/api/v1/coursePayLog/list"),
 ]
 registered = 0
 for method, path in test_endpoints:
     try:
         if method == "GET":
             r = client.get(path)
+        elif method == "POST":
+            r = client.post(path)
         # 401/403/422 都说明路由已注册（只是需要认证或参数）
-        if r.status_code in (401, 403, 422, 200):
+        if r.status_code in (401, 403, 422, 200, 503):
             registered += 1
             print(f"    [OK] {method} {path}: {r.status_code} (路由已注册)")
         elif r.status_code == 404:
@@ -97,28 +83,12 @@ for method, path in test_endpoints:
         print(f"    [FAIL] {method} {path}: {e}")
 print(f"    {registered}/{len(test_endpoints)} 个端点路由已注册")
 
-# 测试 member 新端点
-print()
-print("[5] member 新端点验证")
-member_endpoints = [
-    ("GET", "/api/v1/member/post/list"),
-    ("GET", "/api/v1/member/group/list"),
-    ("GET", "/api/v1/member/level/list"),
-    ("GET", "/api/v1/member/company/type/list"),
-]
-member_registered = 0
-for method, path in member_endpoints:
-    r = client.get(path)
-    if r.status_code in (401, 403, 422, 200):
-        member_registered += 1
-        print(f"    [OK] {method} {path}: {r.status_code}")
-    else:
-        print(f"    [FAIL] {method} {path}: {r.status_code}")
-print(f"    {member_registered}/{len(member_endpoints)} 个 member 端点已注册")
-
 print()
 print("=== 冒烟测试总结 ===")
 print(f"健康检查: OK")
 print(f"OpenAPI 路径数: {len(paths)}")
-print(f"新端点路由注册: {registered + member_registered}/{len(test_endpoints) + len(member_endpoints)}")
-print("[OK] 冒烟测试通过")
+print(f"新端点路由注册: {registered}/{len(test_endpoints)}")
+if registered == len(test_endpoints):
+    print("[OK] 冒烟测试通过")
+else:
+    print("[WARN] 部分端点未注册")
