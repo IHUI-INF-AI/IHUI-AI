@@ -188,6 +188,20 @@ def require_login(
     return user_uuid
 
 
+def get_current_user_id_flexible(credentials=Depends(security_scheme)) -> str | None:
+    """非强制认证: 解析 JWT 并返回用户 UUID, 无 token 时返回 None.
+
+    用于 Java Member/Follow 等 Controller 中根据"当前登录用户"做业务处理的场景.
+    区别于 require_login: 本函数不抛 401, 而是返回 None 让调用方自行处理.
+    """
+    if credentials is None:
+        return None
+    payload = decode_access_token(credentials.credentials)
+    if payload is None:
+        return None
+    return payload.get("sub")
+
+
 def _check_role_sync(user_uuid: str, required_role: str) -> bool:
     """同步角色检查: 2026-06-25 加固后用 asyncio.to_thread 调用, 不阻塞事件循环."""
     from app.database import get_session

@@ -48,7 +48,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Connection, Key, Document, Timer, Clock } from '@element-plus/icons-vue'
-import type { BillingRecord } from '@/api/payment/payment/billing'
+import type { BillingRecord } from '@/api/payment/billing'
 import { formatTime, formatNumber } from '@/utils/format'
 
 defineOptions({

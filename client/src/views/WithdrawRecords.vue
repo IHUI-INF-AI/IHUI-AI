@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="withdraw-records-page page-container">
     <div class="page-header radius-auto">
       <h1 class="page-title">
@@ -104,8 +104,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { Wallet } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
-import { getWithdrawalRecords } from '@/api/payment/payment/withdrawal'
-import type { WithdrawalRecord } from '@/api/payment/payment/withdrawal'
+import { getWithdrawalRecords } from '@/api/payment/withdrawal'
+import type { WithdrawalRecord } from '@/api/payment/withdrawal'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
 import type { ApiResponse } from '@/types'
