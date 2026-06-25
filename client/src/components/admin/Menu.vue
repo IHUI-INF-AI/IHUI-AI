@@ -90,7 +90,7 @@ const groups = computed<MenuGroup[]>(() => [
   {
     key: 'exam', title: t('adminCommon.menu.group.exam'), children: [
       { path: '/admin/exam/list', title: t('adminCommon.menu.item.examList'), icon: EditPen },
-      { path: '/admin/exam/category', title: t('adminCommon.menu.item.examCategory'), icon: Connection },
+      { path: '/admin/exam/paper-category', title: t('adminCommon.menu.item.examCategory'), icon: Connection },
       { path: '/admin/exam/paper', title: t('adminCommon.menu.item.examPaper'), icon: Document },
       { path: '/admin/exam/question', title: t('adminCommon.menu.item.examQuestion'), icon: Collection },
       { path: '/admin/exam/answer', title: t('adminCommon.menu.item.examAnswer'), icon: EditPen },

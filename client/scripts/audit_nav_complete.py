@@ -250,8 +250,8 @@ def main():
 
     # 2. view 页面
     print("\n[2/5] 扫描 views 目录...")
-    pages_raw = extract_view_files()
-    pages = ["views/" + p if not p.startswith("views/") else p for p in pages_raw]
+    pages = extract_view_files()  # 已带 views/ 前缀
+    pages_raw = [p[len("views/"):] if p.startswith("views/") else p for p in pages]
     all_vue = set(extract_all_vue_files())
     print(f"  - views 下 .vue: {len(pages)} 个")
     print(f"  - src 下 .vue（用于 view_file 跨目录校验）: {len(all_vue)} 个")
@@ -404,6 +404,8 @@ def main():
         "/images/study/performance.png", "/images/study/workflow.png",
         # 内部跳转（带 query 的路由）
         "/login?source=", "/payment?orderId=",
+        # 测试文件中的占位路径
+        "/test-path",
     }
     SAFE_PATHS = {"/", "/login", "/register", "/403", "/404", "/500",
                   "/forgot-password", "/index", "/home", "/docs",
