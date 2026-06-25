@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/models-unify", summary="大模型统一列表 (兼容 ihui-ai-api)")
-async def models_unify(
+def models_unify(
     name: str = Query(None),
     type: int = Query(None),
     is_del: int = Query(0),

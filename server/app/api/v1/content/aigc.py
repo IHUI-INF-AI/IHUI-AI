@@ -29,7 +29,7 @@ class AiGcUpdate(BaseModel):
 
 
 @router.get("/list", summary="List AIGC records")
-async def list_aigc(
+def list_aigc(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
     user_uuid: str | None = Query(None),
@@ -65,7 +65,7 @@ async def list_aigc(
 
 
 @router.get("/{item_id}", summary="Get AIGC detail")
-async def get_aigc(item_id: int):
+def get_aigc(item_id: int):
     with get_session() as db:
         from app.models.ai_gc_models import AiGc
 
@@ -86,7 +86,7 @@ async def get_aigc(item_id: int):
 
 
 @router.post("", summary="Create AIGC record")
-async def create_aigc(body: AiGcCreate):
+def create_aigc(body: AiGcCreate):
     with get_session() as db:
         try:
             from app.models.ai_gc_models import AiGc
@@ -108,7 +108,7 @@ async def create_aigc(body: AiGcCreate):
 
 
 @router.put("", summary="Update AIGC record")
-async def update_aigc(body: AiGcUpdate):
+def update_aigc(body: AiGcUpdate):
     with get_session() as db:
         try:
             from app.models.ai_gc_models import AiGc
@@ -134,7 +134,7 @@ async def update_aigc(body: AiGcUpdate):
 
 
 @router.delete("/{item_ids}", summary="Delete AIGC records")
-async def delete_aigc(item_ids: str):
+def delete_aigc(item_ids: str):
     with get_session() as db:
         try:
             from app.models.ai_gc_models import AiGc

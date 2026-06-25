@@ -11,7 +11,7 @@ def sync_agent_counters() -> int:
     """同步 Agent 计数(usage_count、like_count)到主表."""
     with get_session() as db:
         try:
-            agents = db.query(Agent).all()
+            agents = db.query(Agent).filter(Agent.is_deleted == 0).limit(500).all()
             synced = 0
             for _a in agents:
                 # 这里保留同步逻辑占位;真实数据从其他表聚合

@@ -88,7 +88,7 @@ class MyTeamQuery(BaseModel):
 
 
 @router.post("/myTeam/{uuid}")
-async def my_team(
+def my_team(
     uuid: str = Path(...),
     platform: str = Header(default="unknown", alias="X-Device-Type"),
     body: MyTeamQuery | None = None,
@@ -133,7 +133,7 @@ async def my_team(
 
 
 @router.get("/info/{uuid}")
-async def get_info(
+def get_info(
     uuid: str = Path(...),
     platform: str = Header(default="unknown", alias="X-Device-Type"),
     user_uuid: str = Depends(require_login),
@@ -187,7 +187,7 @@ async def get_info(
 
 
 @router.post("/uploadBusinessCard")
-async def upload_business_card(
+def upload_business_card(
     body: BusinessCardReq,
     platform: str = Header(default="unknown", alias="X-Device-Type"),
     user_uuid: str = Depends(require_login),
@@ -218,7 +218,7 @@ async def upload_business_card(
 
 
 @router.get("/role")
-async def get_role(user_uuid: str = Depends(require_login)):
+def get_role(user_uuid: str = Depends(require_login)):
     """对应 Java: GET /remote/role -- 列出所有可购买的 ZhsProductIdentity."""
     with SessionFactory2() as db:
         items = db.query(ProductIdentity).filter(ProductIdentity.status == 1).order_by(ProductIdentity.sort.asc()).all()
@@ -244,7 +244,7 @@ async def get_role(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/agent/category")
-async def agent_category(
+def agent_category(
     type: str | None = Query(default=None, alias="type"),
     user_uuid: str = Depends(require_login),
 ):
@@ -285,7 +285,7 @@ async def agent_category2(
 
 
 @router.get("/agent/by/type")
-async def agent_by_type(
+def agent_by_type(
     search: str | None = None,
     code: str | None = None,
     page: int = Query(default=1, ge=1),
@@ -326,7 +326,7 @@ async def agent_by_type(
 
 
 @router.get("/agent/by/collect/{uuid}")
-async def agent_by_collect(
+def agent_by_collect(
     uuid: str = Path(...),
     search: str | None = None,
     page: int = Query(default=1, ge=1),
@@ -375,7 +375,7 @@ async def agent_by_collect(
 
 
 @router.get("/agent/by/pay")
-async def agent_by_pay(
+def agent_by_pay(
     uuid: str = Query(...),
     search: str | None = None,
     type: int | None = None,
@@ -429,7 +429,7 @@ async def agent_by_pay(
 
 
 @router.post("/get/tencent/sentence")
-async def tencent_asr(body: TencentAsrReq, user_uuid: str = Depends(require_login)):
+def tencent_asr(body: TencentAsrReq, user_uuid: str = Depends(require_login)):
     """对应 Java: POST /remote/get/tencent/sentence -- 调用腾讯云一句话识别.
 
     Java 端直接用腾讯云 SDK.
@@ -478,7 +478,7 @@ async def tencent_asr(body: TencentAsrReq, user_uuid: str = Depends(require_logi
 
 
 @router.get("/get/true")
-async def get_withdrawal_open(user_uuid: str = Depends(require_login)):
+def get_withdrawal_open(user_uuid: str = Depends(require_login)):
     """对应 Java: GET /remote/get/true -- 查 ZhsWithdrawalFlow id=1.status==1 → true."""
     from app.models.payment_models import WithdrawalFlow
 
@@ -493,7 +493,7 @@ async def get_withdrawal_open(user_uuid: str = Depends(require_login)):
 
 
 @third_router.get("/group/list")
-async def third_group_list(user_uuid: str = Depends(require_login)):
+def third_group_list(user_uuid: str = Depends(require_login)):
     """对应 Java: GET /remote/third/group/list -- 不同榜单数据 (按 group 分组的排行)."""
     # TODO: 接入真实排行榜数据，当前为占位 mock
     return success(

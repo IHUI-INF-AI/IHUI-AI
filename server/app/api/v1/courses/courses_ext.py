@@ -104,7 +104,7 @@ class UserPlatformBind(BaseModel):
 
 
 @router.get("/videos", summary="课程视频列表")
-async def list_videos(
+def list_videos(
     course_id: int = Query(...),
     is_pay: int = Query(None, description="0 免费 1 付费"),
     page: int = Query(1, ge=1),
@@ -138,7 +138,7 @@ async def list_videos(
 
 
 @router.get("/videos/{video_id}", summary="视频详情")
-async def get_video(video_id: int):
+def get_video(video_id: int):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -171,7 +171,7 @@ async def get_video(video_id: int):
 
 
 @router.post("/videos/create", summary="创建视频")
-async def create_video(body: VideoCreate, user_uuid: str = Depends(require_login)):
+def create_video(body: VideoCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -209,7 +209,7 @@ async def create_video(body: VideoCreate, user_uuid: str = Depends(require_login
 
 
 @router.post("/videos/batch", summary="批量创建视频")
-async def batch_create_videos(body: VideoBatchCreate, user_uuid: str = Depends(require_login)):
+def batch_create_videos(body: VideoBatchCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -250,7 +250,7 @@ async def batch_create_videos(body: VideoBatchCreate, user_uuid: str = Depends(r
 
 
 @router.put("/videos/{video_id}", summary="更新视频")
-async def update_video(video_id: int, body: VideoUpdate, user_uuid: str = Depends(require_login)):
+def update_video(video_id: int, body: VideoUpdate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -272,7 +272,7 @@ async def update_video(video_id: int, body: VideoUpdate, user_uuid: str = Depend
 
 
 @router.delete("/videos/{video_id}", summary="删除视频")
-async def delete_video(video_id: int, user_uuid: str = Depends(require_login)):
+def delete_video(video_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -292,7 +292,7 @@ async def delete_video(video_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/videos/{video_id}/move", summary="移动视频到其他课程")
-async def move_video(
+def move_video(
     video_id: int,
     target_course_id: int = Query(..., description="目标课程 ID"),
     user_uuid: str = Depends(require_login),
@@ -320,7 +320,7 @@ async def move_video(
 
 
 @router.post("/videos/{video_id}/issue", summary="视频发布/下架")
-async def issue_video(video_id: int, user_uuid: str = Depends(require_login)):
+def issue_video(video_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -340,7 +340,7 @@ async def issue_video(video_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.get("/videos/my", summary="我创建的视频")
-async def my_videos(
+def my_videos(
     user_uuid: str = Depends(require_login),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -377,7 +377,7 @@ async def my_videos(
 
 
 @router.get("/categories", summary="课程分类列表")
-async def list_categories(status: int = Query(1, description="0 禁用 1 启用")):
+def list_categories(status: int = Query(1, description="0 禁用 1 启用")):
     db = SessionFactory3()
     try:
         from sqlalchemy import text
@@ -399,7 +399,7 @@ async def list_categories(status: int = Query(1, description="0 禁用 1 启用"
 
 
 @router.get("/categories/{category_id}/parent", summary="查询分类的父级链")
-async def get_category_parent(category_id: int):
+def get_category_parent(category_id: int):
     """递归查询分类的父级链,返回从根到当前节点的完整路径."""
     db = SessionFactory3()
     try:
@@ -433,7 +433,7 @@ async def get_category_parent(category_id: int):
 
 
 @router.get("/platforms", summary="教育平台列表")
-async def list_platforms(
+def list_platforms(
     status: int = Query(1),
     page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=500),
@@ -466,7 +466,7 @@ async def list_platforms(
 
 
 @router.get("/platforms/{code}", summary="教育平台详情")
-async def get_platform(code: str):
+def get_platform(code: str):
     db = SessionFactory3()
     try:
         from app.models.course_models import EducationPlatform
@@ -490,7 +490,7 @@ async def get_platform(code: str):
 
 
 @router.post("/platforms/create", summary="创建教育平台")
-async def create_platform(body: PlatformCreate, user_uuid: str = Depends(require_login)):
+def create_platform(body: PlatformCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import EducationPlatform
@@ -524,7 +524,7 @@ async def create_platform(body: PlatformCreate, user_uuid: str = Depends(require
 
 
 @router.put("/platforms/{platform_id}", summary="更新教育平台")
-async def update_platform(platform_id: int, body: PlatformUpdate, user_uuid: str = Depends(require_login)):
+def update_platform(platform_id: int, body: PlatformUpdate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import EducationPlatform
@@ -550,7 +550,7 @@ async def update_platform(platform_id: int, body: PlatformUpdate, user_uuid: str
 
 
 @router.delete("/platforms/{platform_id}", summary="删除教育平台(软删除)")
-async def delete_platform(platform_id: int, user_uuid: str = Depends(require_login)):
+def delete_platform(platform_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import EducationPlatform
@@ -579,7 +579,7 @@ async def delete_platform(platform_id: int, user_uuid: str = Depends(require_log
 
 
 @router.post("/pay", summary="课程支付(先用 token 扣减)")
-async def pay_course(
+def pay_course(
     course_id: int = Query(...),
     cost_tokens: int = Query(..., description="所需 token"),
     pay_type: int = Query(0, description="0 token 1 微信 2 支付宝"),
@@ -627,7 +627,7 @@ async def pay_course(
 
 
 @router.get("/pay-logs", summary="课程支付日志列表")
-async def list_pay_logs(
+def list_pay_logs(
     course_id: int = Query(None),
     user_id: str = Query(None),
     page: int = Query(1, ge=1),
@@ -682,7 +682,7 @@ async def list_pay_logs(
 
 
 @router.get("/comments", summary="课程评论列表")
-async def list_comments(
+def list_comments(
     course_id: int = Query(...),
     parent_id: int = Query(None, description="父评论 ID,不传则只查顶级"),
     page: int = Query(1, ge=1),
@@ -728,7 +728,7 @@ async def list_comments(
 
 
 @router.post("/comments/create", summary="提交课程评论")
-async def create_comment(body: CommentCreate, user_uuid: str = Depends(require_login)):
+def create_comment(body: CommentCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from sqlalchemy import text
@@ -760,7 +760,7 @@ async def create_comment(body: CommentCreate, user_uuid: str = Depends(require_l
 
 
 @router.get("/comments/parent", summary="查询评论的父级评论")
-async def get_comment_parent(comment_id: int = Query(...)):
+def get_comment_parent(comment_id: int = Query(...)):
     """查询指定评论的父级评论内容."""
     db = SessionFactory3()
     try:
@@ -801,7 +801,7 @@ async def get_comment_parent(comment_id: int = Query(...)):
 
 
 @router.delete("/comments/{comment_id}", summary="删除评论(软删除)")
-async def delete_comment(comment_id: int, user_uuid: str = Depends(require_login)):
+def delete_comment(comment_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from sqlalchemy import text
@@ -828,7 +828,7 @@ async def delete_comment(comment_id: int, user_uuid: str = Depends(require_login
 
 
 @router.post("/video-log", summary="记录用户视频观看日志")
-async def create_video_log(
+def create_video_log(
     video_id: int = Query(...),
     course_id: int = Query(...),
     progress: int = Query(0, description="观看进度(秒)"),
@@ -880,7 +880,7 @@ async def create_video_log(
 
 
 @router.get("/video-log/list", summary="用户视频观看日志列表")
-async def list_video_logs(
+def list_video_logs(
     course_id: int = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -928,7 +928,7 @@ async def list_video_logs(
 
 
 @router.get("/operate/list", summary="用户操作日志列表")
-async def list_operate_logs(
+def list_operate_logs(
     type: str = Query(None, description="操作类型: comment / pay / video 等"),
     user_id: str = Query(None),
     page: int = Query(1, ge=1),
@@ -981,7 +981,7 @@ async def list_operate_logs(
 
 
 @router.get("/platform-logs", summary="平台操作日志列表")
-async def list_platform_logs(
+def list_platform_logs(
     platform_id: int = Query(None),
     user_id: str = Query(None),
     page: int = Query(1, ge=1),
@@ -1034,7 +1034,7 @@ async def list_platform_logs(
 
 
 @router.post("/user-platform/bind", summary="用户绑定教育平台")
-async def bind_user_platform(body: UserPlatformBind, user_uuid: str = Depends(require_login)):
+def bind_user_platform(body: UserPlatformBind, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from sqlalchemy import text
@@ -1070,7 +1070,7 @@ async def bind_user_platform(body: UserPlatformBind, user_uuid: str = Depends(re
 
 
 @router.delete("/user-platform/unbind", summary="用户解绑教育平台")
-async def unbind_user_platform(
+def unbind_user_platform(
     platform_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -1095,7 +1095,7 @@ async def unbind_user_platform(
 
 
 @router.get("/user-platform/my", summary="我的平台绑定列表")
-async def my_platforms(user_uuid: str = Depends(require_login)):
+def my_platforms(user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from sqlalchemy import text

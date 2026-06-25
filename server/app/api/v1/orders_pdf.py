@@ -178,7 +178,7 @@ zhs 平台
 
 
 @router.get("/{order_no}/pdf")
-async def export_order_pdf(order_no: str) -> StreamingResponse:
+def export_order_pdf(order_no: str) -> StreamingResponse:
     """导出单个订单 PDF."""
     _seed_demo_orders()
     order = _orders_db.get(order_no)
@@ -196,7 +196,7 @@ async def export_order_pdf(order_no: str) -> StreamingResponse:
 
 
 @router.post("/pdf/batch")
-async def export_orders_batch(
+def export_orders_batch(
     order_nos: list[str] = Query(..., description="订单号列表"),
 ) -> StreamingResponse:
     """批量导出订单 (zip)."""

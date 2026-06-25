@@ -29,9 +29,9 @@ def get_categories(group: str | None = None) -> list:
         ]
 
 
-async def start():
+def start():
     logger.info("Category service started")
 
 
-async def stop():
+def stop():
     logger.info("Category service stopped")

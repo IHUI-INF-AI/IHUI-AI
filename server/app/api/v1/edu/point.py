@@ -30,25 +30,25 @@ router = APIRouter()
 
 
 @router.post("/points/earn", summary="Earn points")
-async def earn_points_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+def earn_points_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_point import earn_points
     result = earn_points(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.post("/points/spend", summary="Spend points")
-async def spend_points_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+def spend_points_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_point import spend_points
     result = spend_points(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.get("/points/me", summary="My point account")
-async def get_account_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+def get_account_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_point import get_account
     result = get_account(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.get("/points/records", summary="My point records")
-async def list_records_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+def list_records_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_point import list_records
     result = list_records(db, user_uuid=str(user_id))
     return success(data=result)

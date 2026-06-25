@@ -15,7 +15,7 @@ class AvatarSyncService:
     def __init__(self):
         self.logger = logger
 
-    async def sync_avatar_to_examine_table(self, agent_id, agent_avatar, agent_name=None, db=None):
+    def sync_avatar_to_examine_table(self, agent_id, agent_avatar, agent_name=None, db=None):
         """Sync agent avatar to examine table."""
         should_close_db = False
         if db is None:

@@ -190,7 +190,7 @@ def circuit(name: str, **cb_kwargs):
 
     用法:
         @circuit("payment", failure_threshold=3, reset_timeout=60)
-        async def call_payment_api(...):
+        def call_payment_api(...):
             ...
     """
     cb = get_circuit(name, **cb_kwargs)
@@ -325,7 +325,7 @@ def degraded_mode(fallback: Any = None, exceptions: tuple = (Exception,), log: b
 
     用法:
         @degraded_mode(fallback=[], exceptions=(httpx.RequestError,))
-        async def fetch_recommendations(user_id):
+        def fetch_recommendations(user_id):
             ...
     """
 

@@ -27,7 +27,7 @@ class CategorySyncTool:
         try:
             if db is None:
                 db = next(get_session())
-            categories = db.query(AgentCategory).all()
+            categories = db.query(AgentCategory).limit(500).all()
             result["total"] = len(categories)
             for category in categories:
                 try:

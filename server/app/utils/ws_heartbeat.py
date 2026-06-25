@@ -90,8 +90,11 @@ class PingHeart:
             self._task.cancel()
             try:
                 await self._task
-            except (asyncio.CancelledError, Exception):
-                logger.warning("Caught unexpected exception")
+            except asyncio.CancelledError:
+                logger.info("任务被取消,正在退出")
+                raise
+            except Exception as e:
+                logger.warning("任务异常: %s", e, exc_info=True)
 
     async def _loop(self) -> None:
         try:

@@ -47,7 +47,7 @@ def _mask_id_card(id_card: str) -> str:
 
 
 @router.post("/submit", operation_id="auth_identity_submit", summary="提交实名认证")
-async def submit(
+def submit(
     real_name: str = Query(..., min_length=2, max_length=50),
     id_card: str = Query(..., min_length=15, max_length=20),
     phone: str | None = None,
@@ -83,7 +83,7 @@ async def submit(
 
 
 @router.get("/my", summary="我的认证")
-async def my_identity():
+def my_identity():
     with get_session() as db:
         try:
             a = db.query(AuthIdentity).filter(AuthIdentity.user_id == _uid()).first()
@@ -108,7 +108,7 @@ async def my_identity():
 
 
 @router.get("/list", summary="认证列表(管理员)")
-async def list_identities(
+def list_identities(
     page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status: int | None = None
 ):
     with get_session() as db:
@@ -141,7 +141,7 @@ async def list_identities(
 
 
 @router.put("/{aid}/audit", summary="审核认证")
-async def audit(aid: int, status: int = Query(..., ge=1, le=3), remark: str | None = None, expire_days: int = 365):
+def audit(aid: int, status: int = Query(..., ge=1, le=3), remark: str | None = None, expire_days: int = 365):
     with get_session() as db:
         try:
             a = db.query(AuthIdentity).filter(AuthIdentity.id == aid).first()

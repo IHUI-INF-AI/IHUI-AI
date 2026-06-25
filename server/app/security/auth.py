@@ -196,7 +196,7 @@ def decode_access_token(token: str, allow_refresh: bool = False) -> dict | None:
 security_scheme = HTTPBearer(auto_error=False)
 
 
-async def get_current_user_uuid(
+def get_current_user_uuid(
     credentials=Depends(security_scheme),
 ):
     """Extract and validate user UUID from JWT token.
@@ -233,7 +233,7 @@ async def get_current_user_uuid(
     return payload.get("sub")
 
 
-async def require_login(
+def require_login(
     user_uuid=Depends(get_current_user_uuid),
 ):
     """Require a valid login. Returns user UUID or raises 401."""

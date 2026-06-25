@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/info", summary="Get current user profile")
-async def get_profile(user_uuid: str = Depends(require_login)):
+def get_profile(user_uuid: str = Depends(require_login)):
     info = get_user_by_uuid(user_uuid)
     if not info:
         return error("User not found", "404")
@@ -22,7 +22,7 @@ async def get_profile(user_uuid: str = Depends(require_login)):
 
 
 @router.put("/update", summary="Update user profile")
-async def update_profile(
+def update_profile(
     nickname: str = Query(None),
     avatar: str = Query(None),
     gender: int = Query(None),

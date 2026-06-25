@@ -67,7 +67,7 @@ async def upload_document(
 
 
 @router.get("/list", response_model=list[DocumentOut])
-async def list_documents(
+def list_documents(
     category: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -78,15 +78,15 @@ async def list_documents(
 
 
 @router.get("/{doc_id}", response_model=DocumentOut)
-async def get_document(doc_id: int, _: str = Depends(require_login)):
+def get_document(doc_id: int, _: str = Depends(require_login)):
     raise HTTPException(status_code=404, detail="Not yet wired to live DB")
 
 
 @router.delete("/{doc_id}")
-async def delete_document(doc_id: int, _: str = Depends(require_role("admin"))):
+def delete_document(doc_id: int, _: str = Depends(require_role("admin"))):
     return {"ok": True, "id": doc_id}
 
 
 @router.get("/categories", response_model=list[str])
-async def list_categories(_: str = Depends(require_login)):
+def list_categories(_: str = Depends(require_login)):
     return ["general"]

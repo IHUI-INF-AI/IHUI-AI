@@ -32,7 +32,7 @@ class AssignAccountRequest(BaseModel):
 
 
 @router.get("/list", summary="List developer links")
-async def list_developer_links(
+def list_developer_links(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
     user_id: str | None = Query(None),
@@ -64,7 +64,7 @@ async def list_developer_links(
 
 
 @router.get("/{item_id}", summary="Get developer link detail")
-async def get_developer_link(item_id: int):
+def get_developer_link(item_id: int):
     with get_session() as db:
         from app.models.activity_models import DeveloperLink
 
@@ -83,7 +83,7 @@ async def get_developer_link(item_id: int):
 
 
 @router.post("", summary="Create developer link")
-async def create_developer_link(body: DeveloperLinkCreate):
+def create_developer_link(body: DeveloperLinkCreate):
     with get_session() as db:
         try:
             from app.models.activity_models import DeveloperLink
@@ -104,7 +104,7 @@ async def create_developer_link(body: DeveloperLinkCreate):
 
 
 @router.put("", summary="Update developer link")
-async def update_developer_link(body: DeveloperLinkUpdate):
+def update_developer_link(body: DeveloperLinkUpdate):
     with get_session() as db:
         try:
             from app.models.activity_models import DeveloperLink
@@ -128,7 +128,7 @@ async def update_developer_link(body: DeveloperLinkUpdate):
 
 
 @router.delete("/{item_ids}", summary="Delete developer links")
-async def delete_developer_links(item_ids: str):
+def delete_developer_links(item_ids: str):
     with get_session() as db:
         try:
             from app.models.activity_models import DeveloperLink
@@ -143,7 +143,7 @@ async def delete_developer_links(item_ids: str):
 
 
 @router.put("/assignAccount", summary="Assign Coze account to developer")
-async def assign_account(body: AssignAccountRequest):
+def assign_account(body: AssignAccountRequest):
     """Assign a Coze account to a developer link."""
     if not body.cozeId:
         return error("No Coze account ID provided")

@@ -39,7 +39,7 @@ def _serialize_buy(b) -> dict:
 
 
 @router.get("/list", summary="List agent purchases")
-async def list_purchases(
+def list_purchases(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -55,7 +55,7 @@ async def list_purchases(
 
 
 @router.get("/{record_id}", summary="Get purchase record detail")
-async def get_purchase_detail(
+def get_purchase_detail(
     record_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -70,7 +70,7 @@ async def get_purchase_detail(
 
 
 @router.get("/user/{user_uuid}/agent/{agent_id}", summary="Query by user and agent")
-async def get_purchase_by_user_agent(
+def get_purchase_by_user_agent(
     user_uuid: str,
     agent_id: str,
     page: int = Query(1, ge=1),
@@ -88,7 +88,7 @@ async def get_purchase_by_user_agent(
 
 
 @router.get("/order/{order_no}", summary="Query by order number")
-async def get_purchase_by_order(
+def get_purchase_by_order(
     order_no: str,
     user_uuid: str = Depends(require_login),
 ):
@@ -103,7 +103,7 @@ async def get_purchase_by_order(
 
 
 @router.get("/expired", summary="List expired purchase records")
-async def list_expired_purchases(
+def list_expired_purchases(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -119,7 +119,7 @@ async def list_expired_purchases(
 
 
 @router.put("/{record_id}/expire", summary="Mark purchase record as expired")
-async def expire_purchase(
+def expire_purchase(
     record_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -136,7 +136,7 @@ async def expire_purchase(
 
 
 @router.post("/create", summary="Purchase agent")
-async def buy_agent(
+def buy_agent(
     agent_id: str = Query(...),
     user_uuid: str = Depends(require_login),
 ):

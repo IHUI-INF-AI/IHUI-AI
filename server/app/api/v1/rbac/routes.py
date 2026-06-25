@@ -47,13 +47,13 @@ class FileAccessGrant(BaseModel):
 
 
 @router.post("/init")
-async def initialize_rbac(db: Session = Depends(get_db)):
+def initialize_rbac(db: Session = Depends(get_db)):
     init_default_roles_and_permissions(db)
     return {"success": True, "message": "RBAC initialized"}
 
 
 @router.post("/user/create")
-async def create_user(data: UserCreate, db: Session = Depends(get_db)):
+def create_user(data: UserCreate, db: Session = Depends(get_db)):
     existing = UserService.get_by_username(db, data.username)
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
@@ -83,7 +83,7 @@ async def create_user(data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/user/{user_id}")
-async def get_user(user_id: str, db: Session = Depends(get_db)):
+def get_user(user_id: str, db: Session = Depends(get_db)):
     user = UserService.get(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -108,7 +108,7 @@ async def get_user(user_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/user/{user_id}/role/{role_id}")
-async def assign_role(user_id: str, role_id: str, assigned_by: str | None = None, db: Session = Depends(get_db)):
+def assign_role(user_id: str, role_id: str, assigned_by: str | None = None, db: Session = Depends(get_db)):
     user = UserService.get(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -123,7 +123,7 @@ async def assign_role(user_id: str, role_id: str, assigned_by: str | None = None
 
 
 @router.get("/user/{user_id}/permissions")
-async def get_user_permissions(user_id: str, db: Session = Depends(get_db)):
+def get_user_permissions(user_id: str, db: Session = Depends(get_db)):
     permissions = UserService.get_user_permissions(db, user_id)
 
     return {
@@ -142,7 +142,7 @@ async def get_user_permissions(user_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/roles")
-async def list_roles(db: Session = Depends(get_db)):
+def list_roles(db: Session = Depends(get_db)):
     roles = RoleService.get_all(db)
 
     return {
@@ -161,7 +161,7 @@ async def list_roles(db: Session = Depends(get_db)):
 
 
 @router.post("/role/create")
-async def create_role(data: RoleCreate, db: Session = Depends(get_db)):
+def create_role(data: RoleCreate, db: Session = Depends(get_db)):
     import uuid
     role_id = str(uuid.uuid4())
 
@@ -178,7 +178,7 @@ async def create_role(data: RoleCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/role/{role_id}/permissions")
-async def get_role_permissions(role_id: str, db: Session = Depends(get_db)):
+def get_role_permissions(role_id: str, db: Session = Depends(get_db)):
     permissions = RoleService.get_role_permissions(db, role_id)
 
     return {
@@ -197,7 +197,7 @@ async def get_role_permissions(role_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/role/{role_id}/permission/{permission_id}")
-async def assign_permission(role_id: str, permission_id: str, db: Session = Depends(get_db)):
+def assign_permission(role_id: str, permission_id: str, db: Session = Depends(get_db)):
     role = RoleService.get(db, role_id)
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -208,7 +208,7 @@ async def assign_permission(role_id: str, permission_id: str, db: Session = Depe
 
 
 @router.get("/permissions")
-async def list_permissions(db: Session = Depends(get_db)):
+def list_permissions(db: Session = Depends(get_db)):
     permissions = PermissionService.get_all(db)
 
     return {
@@ -227,7 +227,7 @@ async def list_permissions(db: Session = Depends(get_db)):
 
 
 @router.post("/access/grant")
-async def grant_file_access(data: FileAccessGrant, granted_by: str | None = None, db: Session = Depends(get_db)):
+def grant_file_access(data: FileAccessGrant, granted_by: str | None = None, db: Session = Depends(get_db)):
     expires_at = None
     if data.expires_in_hours:
         expires_at = utcnow() + timedelta(hours=data.expires_in_hours)
@@ -248,7 +248,7 @@ async def grant_file_access(data: FileAccessGrant, granted_by: str | None = None
 
 
 @router.get("/access/check")
-async def check_file_access(
+def check_file_access(
     file_id: str,
     user_id: str,
     permission: str,
@@ -269,7 +269,7 @@ async def check_file_access(
 
 
 @router.get("/access/file/{file_id}")
-async def get_file_access_list(file_id: str, db: Session = Depends(get_db)):
+def get_file_access_list(file_id: str, db: Session = Depends(get_db)):
     access_list = FileAccessService.get_file_access_list(db, file_id)
 
     return {
@@ -288,7 +288,7 @@ async def get_file_access_list(file_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/access/file/{file_id}/user/{user_id}")
-async def revoke_file_access(file_id: str, user_id: str, db: Session = Depends(get_db)):
+def revoke_file_access(file_id: str, user_id: str, db: Session = Depends(get_db)):
     revoked = FileAccessService.revoke_access(db, file_id, user_id)
 
     return {"success": revoked, "message": "Access revoked" if revoked else "No access found"}

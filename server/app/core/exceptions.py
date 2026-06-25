@@ -53,7 +53,7 @@ def _err_response(
 
 
 # ---------- HTTPException ----------
-async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """FastAPI HTTPException → 统一响应. 业务码由 HTTP 状态码自动映射."""
     logger.warning(f"HTTP {exc.status_code} | {request.method} {request.url.path} | {exc.detail}")
     # 把 HTTP 状态码映射到标准业务码 (e.g. 401 -> 401000, 404 -> 404000)
@@ -71,7 +71,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 
 # ---------- 验证错误 ----------
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Pydantic 验证错误 → 详细字段错误信息."""
     errors = []
     for e in exc.errors():
@@ -93,7 +93,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 # ---------- SQLAlchemy 错误 ----------
-async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
     """数据库错误 → 友好提示. 错误码使用标准 ErrorCode 枚举."""
     if isinstance(exc, IntegrityError):
         code = ErrorCode.CONFLICT.value
@@ -117,7 +117,7 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -
 
 
 # ---------- 未捕获异常 ----------
-async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """所有未处理异常 → 500 响应, 详细日志记录 traceback."""
     tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
     logger.error(
@@ -152,7 +152,7 @@ class BusinessException(HTTPException):
         super().__init__(status_code=self.status_code, detail=msg)
 
 
-async def business_exception_handler(request: Request, exc: BusinessException) -> JSONResponse:
+def business_exception_handler(request: Request, exc: BusinessException) -> JSONResponse:
     """业务异常处理 - 返回 {code, msg, data} 三元组."""
     logger.info(f"Business error | {request.method} {request.url.path} | " f"{exc.code}: {exc.msg}")
     return _err_response(code=exc.code, msg=exc.msg, status_code=exc.status_code, data=exc.data)
@@ -177,7 +177,7 @@ async def not_found_handler(request: Request, exc: StarletteHTTPException) -> JS
 
 
 # ---------- 通用 HTML 错误页助手 ----------
-async def _maybe_html_error(request: Request, status_code: int, code: str, msg: str):
+def _maybe_html_error(request: Request, status_code: int, code: str, msg: str):
     """根据 Accept 头决定返回 JSON 或 HTML."""
     from pathlib import Path
 

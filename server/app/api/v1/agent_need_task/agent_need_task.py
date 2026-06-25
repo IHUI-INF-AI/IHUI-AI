@@ -66,7 +66,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("", summary="发布需求")
-async def create_task(
+def create_task(
     title: str = Query(..., min_length=1, max_length=200),
     description: str = Query(..., min_length=1),
     type: str = "develop",
@@ -100,7 +100,7 @@ async def create_task(
 
 
 @router.get("/list", summary="需求列表")
-async def list_tasks(
+def list_tasks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -161,7 +161,7 @@ async def list_tasks(
 
 
 @router.get("/{tid}", summary="需求详情")
-async def get_task(tid: int):
+def get_task(tid: int):
     with get_session() as db:
         try:
             t = db.query(AgentNeedTask).filter(AgentNeedTask.id == tid).first()
@@ -193,7 +193,7 @@ async def get_task(tid: int):
 
 
 @router.put("/{tid}", summary="修改需求")
-async def update_task(
+def update_task(
     tid: int,
     title: str | None = None,
     description: str | None = None,
@@ -231,7 +231,7 @@ async def update_task(
 
 
 @router.delete("/{tid}", summary="删除需求")
-async def delete_task(tid: int):
+def delete_task(tid: int):
     with get_session() as db:
         try:
             t = db.query(AgentNeedTask).filter(AgentNeedTask.id == tid).first()
@@ -246,7 +246,7 @@ async def delete_task(tid: int):
 
 
 @router.post("/{tid}/accept", summary="开发者认领")
-async def accept_task(tid: int):
+def accept_task(tid: int):
     with get_session() as db:
         try:
             t = db.query(AgentNeedTask).filter(AgentNeedTask.id == tid).first()
@@ -265,7 +265,7 @@ async def accept_task(tid: int):
 
 
 @router.post("/{tid}/bid", summary="开发者报价")
-async def bid_task(tid: int, bid: int = Query(..., ge=0), remark: str | None = None):
+def bid_task(tid: int, bid: int = Query(..., ge=0), remark: str | None = None):
     with get_session() as db:
         try:
             t = db.query(AgentNeedTask).filter(AgentNeedTask.id == tid).first()
@@ -298,7 +298,7 @@ async def bid_task(tid: int, bid: int = Query(..., ge=0), remark: str | None = N
 
 
 @router.get("/{tid}/bids", summary="任务报价列表")
-async def list_bids(tid: int):
+def list_bids(tid: int):
     with get_session() as db:
         try:
             items = db.query(AgentTaskDeveloper).filter(AgentTaskDeveloper.task_id == tid).all()

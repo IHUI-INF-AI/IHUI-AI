@@ -7,7 +7,7 @@ from app.services._legacy_settings import settings
 api_key_header = APIKeyHeader(name=settings.API_KEY_HEADER, auto_error=False)
 
 
-async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
+def verify_api_key(api_key: str = Security(api_key_header)) -> str:
     if not settings.REQUIRE_API_KEY:
         return "anonymous"
 

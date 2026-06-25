@@ -87,7 +87,7 @@ class VerifyResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("/batches", summary="列出所有迁移批次")
-async def list_batches(_: str = Depends(require_role("admin"))) -> list[BatchInfo]:
+def list_batches(_: str = Depends(require_role("admin"))) -> list[BatchInfo]:
     out: list[BatchInfo] = []
     for b in BATCHES:
         with get_session() as db:
@@ -116,7 +116,7 @@ async def list_batches(_: str = Depends(require_role("admin"))) -> list[BatchInf
 
 
 @router.post("/run", summary="启动迁移批次 (异步)")
-async def run_migration(req: MigrateRequest, _: str = Depends(require_role("admin"))) -> dict:
+def run_migration(req: MigrateRequest, _: str = Depends(require_role("admin"))) -> dict:
     """触发 ETL migrate.py 执行 (后台子进程)."""
     cmd = [
         sys.executable, "-m", "scripts.migrate",
@@ -158,7 +158,7 @@ async def run_migration(req: MigrateRequest, _: str = Depends(require_role("admi
 
 
 @router.get("/verify/{batch_id}", summary="校验批次行数")
-async def verify_batch(batch_id: str, _: str = Depends(require_role("admin"))) -> VerifyResponse:
+def verify_batch(batch_id: str, _: str = Depends(require_role("admin"))) -> VerifyResponse:
     """对比 H 盘 vs G 盘行数 + 抽样校验."""
     from scripts.etl.config import get_batch
     from scripts.etl.extractor import extract_count
@@ -198,7 +198,7 @@ async def verify_batch(batch_id: str, _: str = Depends(require_role("admin"))) -
 
 
 @router.post("/rollback/{batch_id}", summary="回滚批次 (需 --confirm)")
-async def rollback_batch(batch_id: str, confirm: bool = False, _: str = Depends(require_role("admin"))) -> dict:
+def rollback_batch(batch_id: str, confirm: bool = False, _: str = Depends(require_role("admin"))) -> dict:
     """通过 ETL rollback.py 回滚 (子进程, 不会阻塞 API)."""
     if not confirm:
         raise HTTPException(status_code=400, detail="必须显式 confirm=true 才执行回滚")
@@ -232,7 +232,7 @@ async def rollback_batch(batch_id: str, confirm: bool = False, _: str = Depends(
 
 
 @router.get("/checkpoints/{batch_id}", summary="查询批次内所有 checkpoint")
-async def list_checkpoints(batch_id: str, _: str = Depends(require_role("admin"))) -> list[dict]:
+def list_checkpoints(batch_id: str, _: str = Depends(require_role("admin"))) -> list[dict]:
     with get_session() as db:
         rows = (
             db.query(MigrationCheckpoint)
@@ -258,7 +258,7 @@ async def list_checkpoints(batch_id: str, _: str = Depends(require_role("admin")
 
 
 @router.get("/health", summary="迁移系统健康检查")
-async def health() -> dict:
+def health() -> dict:
     """检查 H 盘 MySQL / G 盘 PG / id_mapping 状态."""
     from sqlalchemy import text
     from scripts.etl.extractor import H_SOURCES
@@ -315,7 +315,7 @@ class BatchResolveReq(BaseModel):
 
 
 @router.get("/id-mapping/lookup", summary="按 H 盘老主键查 G 盘 UUID")
-async def lookup_id_mapping(
+def lookup_id_mapping(
     source_table: str = Query(..., description="H 盘表名, 如 t_member"),
     old_id: int = Query(..., description="H 盘 Long 主键"),
     _: str = Depends(require_role("admin")),
@@ -327,7 +327,7 @@ async def lookup_id_mapping(
 
 
 @router.get("/id-mapping/reverse", summary="按 G 盘 UUID 反查 H 盘老主键")
-async def reverse_id_mapping(
+def reverse_id_mapping(
     source_table: str = Query(..., description="H 盘表名"),
     new_uuid: str = Query(..., description="G 盘 String(64) UUID"),
     _: str = Depends(require_login),
@@ -339,7 +339,7 @@ async def reverse_id_mapping(
 
 
 @router.post("/id-mapping/register", summary="注册一条主键映射 (重复则返回已有)")
-async def register_id_mapping(req: RegisterMappingReq, _: str = Depends(require_login)):
+def register_id_mapping(req: RegisterMappingReq, _: str = Depends(require_login)):
     new_uuid = id_mapping_service.batch_register(
         source_table=req.source_table,
         old_id=req.old_id,
@@ -351,7 +351,7 @@ async def register_id_mapping(req: RegisterMappingReq, _: str = Depends(require_
 
 
 @router.post("/id-mapping/batch-resolve", summary="批量查询/生成映射")
-async def batch_resolve_id_mapping(req: BatchResolveReq, _: str = Depends(require_login)):
+def batch_resolve_id_mapping(req: BatchResolveReq, _: str = Depends(require_login)):
     result = id_mapping_service.batch_resolve(
         source_table=req.source_table,
         old_ids=req.old_ids,
@@ -366,7 +366,7 @@ async def batch_resolve_id_mapping(req: BatchResolveReq, _: str = Depends(requir
 
 
 @router.get("/id-mapping/stats", summary="按批次汇总映射统计")
-async def get_migration_stats(_: str = Depends(require_role("admin"))) -> list[dict[str, Any]]:
+def get_migration_stats(_: str = Depends(require_role("admin"))) -> list[dict[str, Any]]:
     return id_mapping_service.get_migration_stats()
 
 
@@ -534,7 +534,7 @@ class PushNotifyReq(BaseModel):
 
 
 @router.get("/notify", summary="查询站内信列表 (新→旧)")
-async def list_notifications(
+def list_notifications(
     only_unread: bool = Query(False, description="只返回未读"),
     limit: int = Query(50, ge=1, le=200),
     _: str = Depends(require_login),
@@ -571,7 +571,7 @@ async def list_notifications(
 
 
 @router.get("/notify/unread-count", summary="未读条数 (供菜单红点)")
-async def unread_count(_: str = Depends(require_login)) -> dict[str, Any]:
+def unread_count(_: str = Depends(require_login)) -> dict[str, Any]:
     with get_session() as db:
         unread = (
             db.query(Message)
@@ -584,7 +584,7 @@ async def unread_count(_: str = Depends(require_login)) -> dict[str, Any]:
 
 
 @router.post("/notify/{notify_id}/read", summary="标记单条已读")
-async def mark_read(notify_id: str, _: str = Depends(require_login)) -> dict[str, Any]:
+def mark_read(notify_id: str, _: str = Depends(require_login)) -> dict[str, Any]:
     """notify_id 是 Message.id (BigInteger) 的 str 表示."""
     try:
         nid = int(notify_id)
@@ -607,7 +607,7 @@ async def mark_read(notify_id: str, _: str = Depends(require_login)) -> dict[str
 
 
 @router.post("/notify/read-all", summary="全部标记已读")
-async def mark_all_read(_: str = Depends(require_login)) -> dict[str, Any]:
+def mark_all_read(_: str = Depends(require_login)) -> dict[str, Any]:
     with get_session() as db:
         # 一次 UPDATE 批量标记, 比逐条 SET 性能好
         from sqlalchemy import update  # 局部 import 避免污染顶部
@@ -626,6 +626,6 @@ async def mark_all_read(_: str = Depends(require_login)) -> dict[str, Any]:
 
 
 @router.post("/notify", summary="手动创建一条告警 (供运维 / 任务回调使用)")
-async def create_notification(req: PushNotifyReq, _: str = Depends(require_role("admin"))) -> dict[str, Any]:
+def create_notification(req: PushNotifyReq, _: str = Depends(require_role("admin"))) -> dict[str, Any]:
     item = push_notification(req.title, req.body, req.level, req.source)
     return {"code": 0, "data": asdict(item), "msg": "ok"}

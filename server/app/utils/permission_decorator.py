@@ -5,12 +5,12 @@ Provides declarative permission checking for FastAPI routes.
 Usage:
     @router.post("/banner/create")
     @require_role("admin")
-    async def create_banner(...):
+    def create_banner(...):
         ...
 
     @router.delete("/banner/{id}")
     @require_permission("content:banner:delete")
-    async def delete_banner(...):
+    def delete_banner(...):
         ...
 """
 
@@ -177,7 +177,7 @@ def _check_auth_header(authorization: str) -> str | None:
 class require_login:
     """Dependency that requires a valid authentication token."""
 
-    async def __call__(self, authorization: str | None = None) -> str:
+    def __call__(self, authorization: str | None = None) -> str:
         user_uuid = _check_auth_header(authorization)
         if not user_uuid:
             raise HTTPException(
@@ -201,7 +201,7 @@ class require_role:
         else:
             self.roles = list(roles)
 
-    async def __call__(self, authorization: str | None = None) -> str:
+    def __call__(self, authorization: str | None = None) -> str:
         user_uuid = _check_auth_header(authorization)
         if not user_uuid:
             raise HTTPException(
@@ -243,7 +243,7 @@ class require_permission:
             self.permissions = list(permissions)
         self.require_all = require_all
 
-    async def __call__(self, authorization: str | None = None) -> str:
+    def __call__(self, authorization: str | None = None) -> str:
         user_uuid = _check_auth_header(authorization)
         if not user_uuid:
             raise HTTPException(

@@ -115,10 +115,10 @@ async def alipay_return(request: Request):
 
 
 @router.get("/success")
-async def pay_success(orderNo: str = Query("", description="order number")):  # noqa: 23
+def pay_success(orderNo: str = Query("", description="order number")):  # noqa: 23
     return {"code": "200", "msg": "Payment success", "data": {"orderNo": orderNo}}
 
 
 @router.get("/fail")
-async def pay_fail():
+def pay_fail():
     return {"code": "500", "msg": "Payment failed, please retry"}

@@ -1,10 +1,11 @@
 """管理员端考试模块路由 - 补齐前端管理端页面所需接口。"""
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from loguru import logger
 
 from app.database import get_session
 from app.models.exam_models import ExamCategory, ExamPaper, ExamQuestion, ExamRecord, ExamWrongQuestion, ExamChapter, ExamChapterSection
 from app.schemas.common import error, success
+from app.security import require_login, require_role
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ def _paginate(q, page: int, size: int):
 
 
 @router.get("/paper/category/list", summary="试卷分类列表")
-async def paper_category_list(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+def paper_category_list(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamCategory)
         if keyword:
@@ -35,7 +36,7 @@ async def paper_category_list(keyword: str | None = None, page: int = Query(1, g
 
 
 @router.post("/paper/category", summary="新增试卷分类")
-async def paper_category_create(name: str = Query(..., min_length=1), pid: int = Query(0), sort_order: int = Query(0)):
+def paper_category_create(name: str = Query(..., min_length=1), pid: int = Query(0), sort_order: int = Query(0), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         c = ExamCategory(name=name, pid=pid, sort_order=sort_order)
         db.add(c)
@@ -44,7 +45,7 @@ async def paper_category_create(name: str = Query(..., min_length=1), pid: int =
 
 
 @router.put("/paper/category/{cid}", summary="修改试卷分类")
-async def paper_category_update(cid: int, name: str | None = None, pid: int | None = None, sort_order: int | None = None, is_show: bool | None = None):
+def paper_category_update(cid: int, name: str | None = None, pid: int | None = None, sort_order: int | None = None, is_show: bool | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         c = db.query(ExamCategory).filter(ExamCategory.id == cid).first()
         if not c:
@@ -62,7 +63,7 @@ async def paper_category_update(cid: int, name: str | None = None, pid: int | No
 
 
 @router.delete("/paper/category/{cid}", summary="删除试卷分类")
-async def paper_category_delete(cid: int):
+def paper_category_delete(cid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         c = db.query(ExamCategory).filter(ExamCategory.id == cid).first()
         if not c:
@@ -73,7 +74,7 @@ async def paper_category_delete(cid: int):
 
 
 @router.post("/paper/category/batch-delete", summary="批量删除试卷分类")
-async def paper_category_batch_delete(ids: str = Query(...)):
+def paper_category_batch_delete(ids: str = Query(...), _: str = Depends(require_role("admin"))):
     id_list = [int(x) for x in ids.split(",") if x.isdigit()]
     with get_session() as db:
         db.query(ExamCategory).filter(ExamCategory.id.in_(id_list)).delete(synchronize_session=False)
@@ -85,7 +86,7 @@ async def paper_category_batch_delete(ids: str = Query(...)):
 
 
 @router.get("/question/category/list", summary="题目分类列表")
-async def question_category_list(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+def question_category_list(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamCategory)
         if keyword:
@@ -96,7 +97,7 @@ async def question_category_list(keyword: str | None = None, page: int = Query(1
 
 
 @router.post("/question/category", summary="新增题目分类")
-async def question_category_create(name: str = Query(..., min_length=1), pid: int = Query(0), sort_order: int = Query(0)):
+def question_category_create(name: str = Query(..., min_length=1), pid: int = Query(0), sort_order: int = Query(0), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         c = ExamCategory(name=name, pid=pid, sort_order=sort_order)
         db.add(c)
@@ -105,7 +106,7 @@ async def question_category_create(name: str = Query(..., min_length=1), pid: in
 
 
 @router.put("/question/category/{cid}", summary="修改题目分类")
-async def question_category_update(cid: int, name: str | None = None, pid: int | None = None, sort_order: int | None = None, is_show: bool | None = None):
+def question_category_update(cid: int, name: str | None = None, pid: int | None = None, sort_order: int | None = None, is_show: bool | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         c = db.query(ExamCategory).filter(ExamCategory.id == cid).first()
         if not c:
@@ -123,7 +124,7 @@ async def question_category_update(cid: int, name: str | None = None, pid: int |
 
 
 @router.delete("/question/category/{cid}", summary="删除题目分类")
-async def question_category_delete(cid: int):
+def question_category_delete(cid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         c = db.query(ExamCategory).filter(ExamCategory.id == cid).first()
         if not c:
@@ -134,7 +135,7 @@ async def question_category_delete(cid: int):
 
 
 @router.post("/question/category/batch-delete", summary="批量删除题目分类")
-async def question_category_batch_delete(ids: str = Query(...)):
+def question_category_batch_delete(ids: str = Query(...), _: str = Depends(require_role("admin"))):
     id_list = [int(x) for x in ids.split(",") if x.isdigit()]
     with get_session() as db:
         db.query(ExamCategory).filter(ExamCategory.id.in_(id_list)).delete(synchronize_session=False)
@@ -179,7 +180,7 @@ def _paper_to_dict(p: ExamPaper) -> dict:
 
 
 @router.get("/paper/list", summary="试卷列表")
-async def admin_paper_list(keyword: str | None = None, category_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None):
+def admin_paper_list(keyword: str | None = None, category_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamPaper)
         if keyword:
@@ -191,12 +192,12 @@ async def admin_paper_list(keyword: str | None = None, category_id: int | None =
 
 
 @router.get("/list", summary="考试列表兼容")
-async def admin_exam_list(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+async def admin_exam_list(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_role("admin"))):
     return await admin_paper_list(keyword=keyword, page=page, size=size)
 
 
 @router.get("/paper/mock", summary="模拟试卷")
-async def admin_paper_mock(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+def admin_paper_mock(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamPaper).filter(ExamPaper.type == 3)
         if keyword:
@@ -206,7 +207,7 @@ async def admin_paper_mock(keyword: str | None = None, page: int = Query(1, ge=1
 
 
 @router.get("/paper/normal", summary="固定试卷")
-async def admin_paper_normal(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+def admin_paper_normal(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamPaper).filter(ExamPaper.type == 1)
         if keyword:
@@ -216,7 +217,7 @@ async def admin_paper_normal(keyword: str | None = None, page: int = Query(1, ge
 
 
 @router.get("/paper/random", summary="随机试卷")
-async def admin_paper_random(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+def admin_paper_random(keyword: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamPaper).filter(ExamPaper.type == 2)
         if keyword:
@@ -226,7 +227,7 @@ async def admin_paper_random(keyword: str | None = None, page: int = Query(1, ge
 
 
 @router.get("/paper/{pid}", summary="试卷详情")
-async def admin_paper_detail(pid: int):
+def admin_paper_detail(pid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         p = db.query(ExamPaper).filter(ExamPaper.id == pid).first()
         if not p:
@@ -235,7 +236,7 @@ async def admin_paper_detail(pid: int):
 
 
 @router.post("/paper", summary="新增试卷")
-async def admin_paper_create(title: str = Query(..., min_length=1), description: str | None = None, category_id: int | None = None, course_id: int | None = None, cover: str | None = None, total_score: float = Query(100), pass_score: float = Query(60), duration: int = Query(60), type: int = Query(1), difficulty: int = Query(1), is_free: bool = Query(True), price: float = Query(0), sort_order: int = Query(0)):
+def admin_paper_create(title: str = Query(..., min_length=1), description: str | None = None, category_id: int | None = None, course_id: int | None = None, cover: str | None = None, total_score: float = Query(100), pass_score: float = Query(60), duration: int = Query(60), type: int = Query(1), difficulty: int = Query(1), is_free: bool = Query(True), price: float = Query(0), sort_order: int = Query(0), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         p = ExamPaper(title=title, description=description, category_id=category_id, course_id=course_id, cover=cover, total_score=total_score, pass_score=pass_score, duration=duration, type=type, difficulty=difficulty, is_free=is_free, price=price, status=1, sort_order=sort_order)
         db.add(p)
@@ -244,7 +245,7 @@ async def admin_paper_create(title: str = Query(..., min_length=1), description:
 
 
 @router.put("/paper/{pid}", summary="修改试卷")
-async def admin_paper_update(pid: int, title: str | None = None, description: str | None = None, category_id: int | None = None, course_id: int | None = None, cover: str | None = None, total_score: float | None = None, pass_score: float | None = None, duration: int | None = None, type: int | None = None, difficulty: int | None = None, is_free: bool | None = None, price: float | None = None, status: int | None = None, sort_order: int | None = None):
+def admin_paper_update(pid: int, title: str | None = None, description: str | None = None, category_id: int | None = None, course_id: int | None = None, cover: str | None = None, total_score: float | None = None, pass_score: float | None = None, duration: int | None = None, type: int | None = None, difficulty: int | None = None, is_free: bool | None = None, price: float | None = None, status: int | None = None, sort_order: int | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         p = db.query(ExamPaper).filter(ExamPaper.id == pid).first()
         if not p:
@@ -282,7 +283,7 @@ async def admin_paper_update(pid: int, title: str | None = None, description: st
 
 
 @router.delete("/paper/{pid}", summary="删除试卷")
-async def admin_paper_delete(pid: int):
+def admin_paper_delete(pid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         p = db.query(ExamPaper).filter(ExamPaper.id == pid).first()
         if not p:
@@ -294,7 +295,7 @@ async def admin_paper_delete(pid: int):
 
 
 @router.post("/paper/batch-delete", summary="批量删除试卷")
-async def admin_paper_batch_delete(ids: str = Query(...)):
+def admin_paper_batch_delete(ids: str = Query(...), _: str = Depends(require_role("admin"))):
     id_list = [int(x) for x in ids.split(",") if x.isdigit()]
     with get_session() as db:
         paper_ids = [row[0] for row in db.query(ExamQuestion.paper_id).filter(ExamQuestion.paper_id.in_(id_list)).distinct().all()]
@@ -327,7 +328,7 @@ def _question_to_dict(q: ExamQuestion) -> dict:
 
 
 @router.get("/question/list", summary="题目列表")
-async def admin_question_list(paper_id: int | None = None, keyword: str | None = None, type: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+def admin_question_list(paper_id: int | None = None, keyword: str | None = None, type: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamQuestion)
         if paper_id is not None:
@@ -342,7 +343,7 @@ async def admin_question_list(paper_id: int | None = None, keyword: str | None =
 
 
 @router.get("/question/{qid}", summary="题目详情")
-async def admin_question_detail(qid: int):
+def admin_question_detail(qid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamQuestion).filter(ExamQuestion.id == qid).first()
         if not q:
@@ -351,7 +352,7 @@ async def admin_question_detail(qid: int):
 
 
 @router.post("/question", summary="新增题目")
-async def admin_question_create(paper_id: int = Query(...), type: int = Query(..., ge=1, le=5), content: str = Query(..., min_length=1), options: str | None = None, answer: str = Query(..., min_length=1), analysis: str | None = None, score: float = Query(1), difficulty: int = Query(1), sort_order: int = Query(0)):
+def admin_question_create(paper_id: int = Query(...), type: int = Query(..., ge=1, le=5), content: str = Query(..., min_length=1), options: str | None = None, answer: str = Query(..., min_length=1), analysis: str | None = None, score: float = Query(1), difficulty: int = Query(1), sort_order: int = Query(0), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = ExamQuestion(paper_id=paper_id, type=type, content=content, options=options, answer=answer, analysis=analysis, score=score, difficulty=difficulty, sort_order=sort_order)
         db.add(q)
@@ -362,7 +363,7 @@ async def admin_question_create(paper_id: int = Query(...), type: int = Query(..
 
 
 @router.put("/question/{qid}", summary="修改题目")
-async def admin_question_update(qid: int, content: str | None = None, options: str | None = None, answer: str | None = None, analysis: str | None = None, score: float | None = None, difficulty: int | None = None, sort_order: int | None = None):
+def admin_question_update(qid: int, content: str | None = None, options: str | None = None, answer: str | None = None, analysis: str | None = None, score: float | None = None, difficulty: int | None = None, sort_order: int | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamQuestion).filter(ExamQuestion.id == qid).first()
         if not q:
@@ -386,7 +387,7 @@ async def admin_question_update(qid: int, content: str | None = None, options: s
 
 
 @router.delete("/question/{qid}", summary="删除题目")
-async def admin_question_delete(qid: int):
+def admin_question_delete(qid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamQuestion).filter(ExamQuestion.id == qid).first()
         if not q:
@@ -399,7 +400,7 @@ async def admin_question_delete(qid: int):
 
 
 @router.post("/question/batch-delete", summary="批量删除题目")
-async def admin_question_batch_delete(ids: str = Query(...)):
+def admin_question_batch_delete(ids: str = Query(...), _: str = Depends(require_role("admin"))):
     id_list = [int(x) for x in ids.split(",") if x.isdigit()]
     with get_session() as db:
         paper_ids = [row[0] for row in db.query(ExamQuestion.paper_id).filter(ExamQuestion.id.in_(id_list)).distinct().all()]
@@ -438,7 +439,7 @@ def _answer_to_dict(r: ExamRecord) -> dict:
 
 
 @router.get("/answer/list", summary="答题记录列表")
-async def admin_answer_list(keyword: str | None = None, paper_id: int | None = None, status: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+def admin_answer_list(keyword: str | None = None, paper_id: int | None = None, status: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamRecord)
         if keyword:
@@ -453,7 +454,7 @@ async def admin_answer_list(keyword: str | None = None, paper_id: int | None = N
 
 
 @router.get("/answer/{rid}", summary="答题记录详情")
-async def admin_answer_detail(rid: int):
+def admin_answer_detail(rid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         r = db.query(ExamRecord).filter(ExamRecord.id == rid).first()
         if not r:
@@ -483,7 +484,7 @@ async def admin_answer_detail(rid: int):
 
 
 @router.post("/answer", summary="新增作答记录")
-async def admin_answer_create(paper_id: int = Query(...), user_name: str = Query(...), score: float = Query(0), total_score: float = Query(0), answer_data: str | None = None, remark: str | None = None):
+def admin_answer_create(paper_id: int = Query(...), user_name: str = Query(...), score: float = Query(0), total_score: float = Query(0), answer_data: str | None = None, remark: str | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         p = db.query(ExamPaper).filter(ExamPaper.id == paper_id).first()
         if not p:
@@ -495,7 +496,7 @@ async def admin_answer_create(paper_id: int = Query(...), user_name: str = Query
 
 
 @router.post("/answer/{rid}/mark", summary="判分")
-async def admin_answer_mark(rid: int, marks: str = Query(...)):
+def admin_answer_mark(rid: int, marks: str = Query(...), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         r = db.query(ExamRecord).filter(ExamRecord.id == rid).first()
         if not r:
@@ -514,7 +515,7 @@ async def admin_answer_mark(rid: int, marks: str = Query(...)):
 
 
 @router.delete("/answer/{rid}", summary="删除答题记录")
-async def admin_answer_delete(rid: int):
+def admin_answer_delete(rid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         r = db.query(ExamRecord).filter(ExamRecord.id == rid).first()
         if not r:
@@ -525,7 +526,7 @@ async def admin_answer_delete(rid: int):
 
 
 @router.post("/answer/batch-delete", summary="批量删除答题记录")
-async def admin_answer_batch_delete(ids: str = Query(...)):
+def admin_answer_batch_delete(ids: str = Query(...), _: str = Depends(require_role("admin"))):
     id_list = [int(x) for x in ids.split(",") if x.isdigit()]
     with get_session() as db:
         db.query(ExamRecord).filter(ExamRecord.id.in_(id_list)).delete(synchronize_session=False)
@@ -537,7 +538,7 @@ async def admin_answer_batch_delete(ids: str = Query(...)):
 
 
 @router.get("/wrong/list", summary="错题列表")
-async def admin_wrong_list(user_id: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100)):
+def admin_wrong_list(user_id: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), _: str = Depends(require_login)):
     with get_session() as db:
         q = db.query(ExamWrongQuestion)
         if user_id:
@@ -584,7 +585,7 @@ def _chapter_to_dict(chapter: ExamChapter) -> dict:
 
 
 @router.get("/chapter/list", summary="�½��б�")
-async def admin_chapter_list(keyword: str | None = None, paper_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None):
+def admin_chapter_list(keyword: str | None = None, paper_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamChapter)
         if keyword:
@@ -604,7 +605,7 @@ async def admin_chapter_list(keyword: str | None = None, paper_id: int | None = 
 
 
 @router.get("/chapter/{cid}", summary="�½�����")
-async def admin_chapter_detail(cid: int):
+def admin_chapter_detail(cid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         chapter = db.query(ExamChapter).filter(ExamChapter.id == cid).first()
         if not chapter:
@@ -613,7 +614,7 @@ async def admin_chapter_detail(cid: int):
 
 
 @router.post("/chapter", summary="�����½�")
-async def admin_chapter_create(paper_id: int | None = None, title: str = Query(..., min_length=1), description: str | None = None, cover: str | None = None, question_num: int = Query(0), total_score: float = Query(0), sort_order: int = Query(0)):
+def admin_chapter_create(paper_id: int | None = None, title: str = Query(..., min_length=1), description: str | None = None, cover: str | None = None, question_num: int = Query(0), total_score: float = Query(0), sort_order: int = Query(0), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         chapter = ExamChapter(paper_id=paper_id, title=title, description=description, cover=cover, question_num=question_num, total_score=total_score, sort_order=sort_order)
         db.add(chapter)
@@ -622,7 +623,7 @@ async def admin_chapter_create(paper_id: int | None = None, title: str = Query(.
 
 
 @router.put("/chapter/{cid}", summary="�޸��½�")
-async def admin_chapter_update(cid: int, paper_id: int | None = None, title: str | None = None, description: str | None = None, cover: str | None = None, question_num: int | None = None, total_score: float | None = None, sort_order: int | None = None):
+def admin_chapter_update(cid: int, paper_id: int | None = None, title: str | None = None, description: str | None = None, cover: str | None = None, question_num: int | None = None, total_score: float | None = None, sort_order: int | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         chapter = db.query(ExamChapter).filter(ExamChapter.id == cid).first()
         if not chapter:
@@ -646,7 +647,7 @@ async def admin_chapter_update(cid: int, paper_id: int | None = None, title: str
 
 
 @router.delete("/chapter/{cid}", summary="ɾ���½�")
-async def admin_chapter_delete(cid: int):
+def admin_chapter_delete(cid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         chapter = db.query(ExamChapter).filter(ExamChapter.id == cid).first()
         if not chapter:
@@ -658,7 +659,7 @@ async def admin_chapter_delete(cid: int):
 
 
 @router.post("/chapter/batch-delete", summary="����ɾ���½�")
-async def admin_chapter_batch_delete(ids: str = Query(...)):
+def admin_chapter_batch_delete(ids: str = Query(...), _: str = Depends(require_role("admin"))):
     id_list = [int(x) for x in ids.split(",") if x.isdigit()]
     with get_session() as db:
         db.query(ExamChapterSection).filter(ExamChapterSection.chapter_id.in_(id_list)).delete(synchronize_session=False)
@@ -689,7 +690,7 @@ def _section_to_dict(section: ExamChapterSection) -> dict:
 
 
 @router.get("/chapter/section/list", summary="С���б�")
-async def admin_section_list(keyword: str | None = None, chapter_id: int | None = None, paper_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None):
+def admin_section_list(keyword: str | None = None, chapter_id: int | None = None, paper_id: int | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), current: int | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         q = db.query(ExamChapterSection)
         if keyword:
@@ -711,7 +712,7 @@ async def admin_section_list(keyword: str | None = None, chapter_id: int | None 
 
 
 @router.get("/chapter/section/{sid}", summary="С������")
-async def admin_section_detail(sid: int):
+def admin_section_detail(sid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         section = db.query(ExamChapterSection).filter(ExamChapterSection.id == sid).first()
         if not section:
@@ -720,7 +721,7 @@ async def admin_section_detail(sid: int):
 
 
 @router.post("/chapter/section", summary="����С��")
-async def admin_section_create(chapter_id: int | None = None, paper_id: int | None = None, title: str = Query(..., min_length=1), description: str | None = None, media_url: str | None = None, content: str | None = None, question_num: int = Query(0), total_score: float = Query(0), duration: int = Query(0), sort_order: int = Query(0)):
+def admin_section_create(chapter_id: int | None = None, paper_id: int | None = None, title: str = Query(..., min_length=1), description: str | None = None, media_url: str | None = None, content: str | None = None, question_num: int = Query(0), total_score: float = Query(0), duration: int = Query(0), sort_order: int = Query(0), _: str = Depends(require_role("admin"))):
     with get_session() as db:
         section = ExamChapterSection(chapter_id=chapter_id, paper_id=paper_id, title=title, description=description, media_url=media_url, content=content, question_num=question_num, total_score=total_score, duration=duration, sort_order=sort_order)
         db.add(section)
@@ -729,7 +730,7 @@ async def admin_section_create(chapter_id: int | None = None, paper_id: int | No
 
 
 @router.put("/chapter/section/{sid}", summary="�޸�С��")
-async def admin_section_update(sid: int, chapter_id: int | None = None, paper_id: int | None = None, title: str | None = None, description: str | None = None, media_url: str | None = None, content: str | None = None, question_num: int | None = None, total_score: float | None = None, duration: int | None = None, sort_order: int | None = None):
+def admin_section_update(sid: int, chapter_id: int | None = None, paper_id: int | None = None, title: str | None = None, description: str | None = None, media_url: str | None = None, content: str | None = None, question_num: int | None = None, total_score: float | None = None, duration: int | None = None, sort_order: int | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         section = db.query(ExamChapterSection).filter(ExamChapterSection.id == sid).first()
         if not section:
@@ -759,7 +760,7 @@ async def admin_section_update(sid: int, chapter_id: int | None = None, paper_id
 
 
 @router.delete("/chapter/section/{sid}", summary="ɾ��С��")
-async def admin_section_delete(sid: int):
+def admin_section_delete(sid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         section = db.query(ExamChapterSection).filter(ExamChapterSection.id == sid).first()
         if not section:
@@ -770,7 +771,7 @@ async def admin_section_delete(sid: int):
 
 
 @router.post("/chapter/section/batch-delete", summary="����ɾ��С��")
-async def admin_section_batch_delete(ids: str = Query(...)):
+def admin_section_batch_delete(ids: str = Query(...), _: str = Depends(require_role("admin"))):
     id_list = [int(x) for x in ids.split(",") if x.isdigit()]
     with get_session() as db:
         db.query(ExamChapterSection).filter(ExamChapterSection.id.in_(id_list)).delete(synchronize_session=False)

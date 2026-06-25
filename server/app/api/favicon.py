@@ -24,7 +24,7 @@ _FALLBACK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" w
 
 
 @router.get("/favicon.ico", include_in_schema=False)
-async def get_favicon():
+def get_favicon():
     """提供 favicon.ico 文件（按优先级：ico → svg → 内嵌）"""
     ico_path = os.path.join(_STATIC_DIR, "favicon.ico")
     if os.path.exists(ico_path):

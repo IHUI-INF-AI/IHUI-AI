@@ -168,7 +168,7 @@ def _is_admin(user_uuid: str) -> bool:
 
 
 @router.post("")
-async def create_refund(
+def create_refund(
     req: RefundCreateRequest,
     user_uuid: str = Depends(require_login),
 ) -> dict:
@@ -204,7 +204,7 @@ async def create_refund(
 
 
 @router.get("/{refund_id}")
-async def get_refund(
+def get_refund(
     refund_id: str,
     user_uuid: str = Depends(require_login),
 ) -> dict:
@@ -233,7 +233,7 @@ async def get_refund(
 
 
 @router.get("")
-async def list_refunds(
+def list_refunds(
     user_id: Optional[str] = None,
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
@@ -340,7 +340,7 @@ async def upload_evidence(
 
 
 @router.post("/{refund_id}/cancel")
-async def cancel_refund(
+def cancel_refund(
     refund_id: str,
     user_uuid: str = Depends(require_login),
 ) -> dict:
@@ -365,7 +365,7 @@ async def cancel_refund(
 
 
 @router.post("/{refund_id}/review")
-async def review_refund(
+def review_refund(
     refund_id: str,
     approved: bool = Body(..., embed=True),
     note: str = Body("", embed=True),
@@ -398,7 +398,7 @@ async def review_refund(
 
 
 @router.get("/stats/summary")
-async def refund_stats(
+def refund_stats(
     user_uuid: str = Depends(require_role("admin")),
 ) -> dict:
     """退款统计 (管理员, 供监控)."""

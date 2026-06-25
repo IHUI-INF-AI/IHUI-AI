@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="Agent 结算列表")
-async def list_settlements(
+def list_settlements(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     settlement_status: str = Query(None, description="0=未结算 1=已结算"),
@@ -43,7 +43,7 @@ async def list_settlements(
 
 
 @router.get("/summary", summary="结算汇总")
-async def settlement_summary(user_uuid: str = Depends(require_login)):
+def settlement_summary(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.agent_settlement import AgentSettlement
 
@@ -64,7 +64,7 @@ async def settlement_summary(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/settle", summary="触发单条结算")
-async def trigger_settle(
+def trigger_settle(
     settlement_id: str = Query(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -93,7 +93,7 @@ async def trigger_settle(
 
 
 @router.get("/unsettled", summary="查询未结算记录")
-async def list_unsettled(user_uuid: str = Depends(require_login)):
+def list_unsettled(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.agent_settlement import AgentSettlement
 

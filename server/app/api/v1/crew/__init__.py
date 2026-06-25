@@ -50,7 +50,7 @@ async def create_session(req: CreateSessionReq):
         return {"code": 0, "data": {"session_id": session_id}, "msg": "ok"}
     except Exception as e:
         logger.error(f"创建会话失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.get("/sessions", summary="列出会话")
@@ -230,4 +230,4 @@ async def create_and_execute(req: CreateSessionReq):
         }
     except Exception as e:
         logger.error(f"创建并执行失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e

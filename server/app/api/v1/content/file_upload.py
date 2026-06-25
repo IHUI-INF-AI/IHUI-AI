@@ -38,7 +38,8 @@ async def upload_base64_file(request: Base64UploadRequest, http_request: Request
         try:
             file_content = base64.b64decode(content)
         except Exception as e:
-            raise HTTPException(status_code=400, detail="Invalid base64: " + str(e)) from e
+            logger.error("Base64 decode failed: %s", e)
+            raise HTTPException(status_code=400, detail="Base64 格式无效") from e
 
         file_name = request.file_name
 
@@ -58,7 +59,8 @@ async def upload_base64_file(request: Base64UploadRequest, http_request: Request
             except ImportError:
                 logger.warning("PIL not installed, skipping webp conversion")
             except Exception as e:
-                raise HTTPException(status_code=400, detail="webp conversion failed: " + str(e)) from e
+                logger.error("WebP conversion failed: %s", e)
+                raise HTTPException(status_code=400, detail="WebP 转换失败") from e
 
         url = await upload_file_to_server(file_content, file_name)
         if not url:
@@ -68,7 +70,7 @@ async def upload_base64_file(request: Base64UploadRequest, http_request: Request
         raise
     except Exception as e:
         logger.error("Base64 upload error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/upload/form", summary="Upload file via form-data")
@@ -86,7 +88,7 @@ async def upload_form_file(file: UploadFile = File(...), user_uuid: str = Depend
         raise
     except Exception as e:
         logger.error("Form upload error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/upload/octet", summary="Upload file via octet-stream")
@@ -104,4 +106,4 @@ async def upload_octet_file(request: Request, file_name: str = Query(...), user_
         raise
     except Exception as e:
         logger.error("Octet upload error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e

@@ -60,7 +60,7 @@ router = APIRouter()
 
 
 @router.get("/device/list", summary="设备列表")
-async def list_devices(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+def list_devices(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                         user_id: str | None = None, device_type: str | None = None,
                         status: int | None = None, is_online: bool | None = None):
     with get_session() as db:
@@ -92,7 +92,7 @@ async def list_devices(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, 
 
 
 @router.get("/device/{device_no}", summary="设备详情")
-async def get_device(device_no: str):
+def get_device(device_no: str):
     with get_session() as db:
         try:
             d = db.query(TboxDevice).filter(TboxDevice.device_no == device_no).first()
@@ -112,7 +112,7 @@ async def get_device(device_no: str):
 
 
 @router.post("/device", summary="注册设备")
-async def register_device(device_no: str = Query(...), device_name: str | None = None,
+def register_device(device_no: str = Query(...), device_name: str | None = None,
                            device_type: str = "tbox", model: str | None = None,
                            brand: str | None = None, iccid: str | None = None,
                            imei: str | None = None, firmware: str | None = None):
@@ -136,7 +136,7 @@ async def register_device(device_no: str = Query(...), device_name: str | None =
 
 
 @router.post("/device/{device_no}/activate", summary="激活设备")
-async def activate_device(device_no: str, user_id: str = Query(...),
+def activate_device(device_no: str, user_id: str = Query(...),
                             user_name: str | None = None):
     with get_session() as db:
         try:
@@ -154,7 +154,7 @@ async def activate_device(device_no: str, user_id: str = Query(...),
 
 
 @router.post("/device/heartbeat", summary="设备心跳")
-async def heartbeat(device_no: str = Query(...),
+def heartbeat(device_no: str = Query(...),
                      is_online: bool = True,
                      signal_strength: int = 0, battery: int = 0,
                      location: str | None = None):
@@ -178,7 +178,7 @@ async def heartbeat(device_no: str = Query(...),
 
 
 @router.post("/device/{device_no}/command", summary="下发指令")
-async def send_command(device_no: str, command: str = Query(...),
+def send_command(device_no: str, command: str = Query(...),
                         params: str | None = None):
     with get_session() as db:
         try:
@@ -198,7 +198,7 @@ async def send_command(device_no: str, command: str = Query(...),
 
 
 @router.get("/command/list", summary="指令列表")
-async def list_commands(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+def list_commands(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                         device_no: str | None = None, status: int | None = None):
     with get_session() as db:
         try:

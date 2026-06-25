@@ -65,7 +65,7 @@ class TaskUpdate(BaseModel):
 
 
 @router.post("", summary="创建任务")
-async def create_task(body: TaskCreate):
+def create_task(body: TaskCreate):
     with get_session() as db:
         try:
             task = LessonTask(
@@ -86,7 +86,7 @@ async def create_task(body: TaskCreate):
 
 
 @router.get("/lesson/{lesson_id}/list", summary="课程任务列表")
-async def list_lesson_tasks(
+def list_lesson_tasks(
     lesson_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -111,7 +111,7 @@ async def list_lesson_tasks(
 
 
 @router.get("/lesson/{lesson_id}/member/{member_id}/progress", summary="会员任务进度")
-async def get_member_task_progress(lesson_id: int, member_id: int):
+def get_member_task_progress(lesson_id: int, member_id: int):
     with get_session() as db:
         try:
             tasks = (
@@ -149,7 +149,7 @@ async def get_member_task_progress(lesson_id: int, member_id: int):
 
 
 @router.get("/{task_id}", summary="任务详情")
-async def get_task(task_id: int):
+def get_task(task_id: int):
     with get_session() as db:
         try:
             task = db.query(LessonTask).filter(LessonTask.id == task_id).first()
@@ -162,7 +162,7 @@ async def get_task(task_id: int):
 
 
 @router.put("/{task_id}", summary="更新任务")
-async def update_task(task_id: int, body: TaskUpdate):
+def update_task(task_id: int, body: TaskUpdate):
     with get_session() as db:
         try:
             task = db.query(LessonTask).filter(LessonTask.id == task_id).first()
@@ -179,7 +179,7 @@ async def update_task(task_id: int, body: TaskUpdate):
 
 
 @router.delete("/{task_id}", summary="删除任务")
-async def delete_task(task_id: int):
+def delete_task(task_id: int):
     with get_session() as db:
         try:
             task = db.query(LessonTask).filter(LessonTask.id == task_id).first()
@@ -194,7 +194,7 @@ async def delete_task(task_id: int):
 
 
 @router.put("/{task_id}/enable", summary="启用任务")
-async def enable_task(task_id: int):
+def enable_task(task_id: int):
     with get_session() as db:
         try:
             task = db.query(LessonTask).filter(LessonTask.id == task_id).first()
@@ -209,7 +209,7 @@ async def enable_task(task_id: int):
 
 
 @router.put("/{task_id}/disable", summary="禁用任务")
-async def disable_task(task_id: int):
+def disable_task(task_id: int):
     with get_session() as db:
         try:
             task = db.query(LessonTask).filter(LessonTask.id == task_id).first()

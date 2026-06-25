@@ -13,7 +13,7 @@ router = APIRouter(prefix="/oauth", tags=["OAuth"])
 
 
 @router.get("/authorize", summary="OAuth authorize")
-async def authorize(
+def authorize(
     client_id: str = Query(...),
     redirect_uri: str = Query(...),
     response_type: str = Query("code"),
@@ -50,7 +50,7 @@ async def authorize(
 
 
 @router.post("/token", summary="Exchange code for token")
-async def oauth_token(
+def oauth_token(
     code: str = Query(...),
     client_id: str = Query(...),
     client_secret: str = Query(...),
@@ -114,7 +114,7 @@ def _serialize_app(app) -> dict:
 
 
 @router.post("/apps/create", summary="Create an OAuth application")
-async def create_oauth_app(
+def create_oauth_app(
     body: OAuthAppCreateBody,
     user_uuid: str = Depends(require_login),
 ):
@@ -144,7 +144,7 @@ async def create_oauth_app(
 
 
 @router.get("/apps/list", summary="List OAuth applications")
-async def list_oauth_apps(
+def list_oauth_apps(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -162,7 +162,7 @@ async def list_oauth_apps(
 
 
 @router.get("/apps/{client_id}", summary="Get OAuth application by client_id")
-async def get_oauth_app(
+def get_oauth_app(
     client_id: str,
     user_uuid: str = Depends(require_login),
 ):
@@ -180,7 +180,7 @@ async def get_oauth_app(
 
 
 @router.delete("/apps/{client_id}", summary="Delete OAuth application")
-async def delete_oauth_app(
+def delete_oauth_app(
     client_id: str,
     user_uuid: str = Depends(require_login),
 ):
@@ -208,7 +208,7 @@ async def delete_oauth_app(
 
 
 @router.get("/users/list", summary="OAuth 用户列表")
-async def list_oauth_users(
+def list_oauth_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     provider: str = Query(None, description="按 provider 过滤"),
@@ -239,7 +239,7 @@ async def list_oauth_users(
 
 
 @router.get("/users/{user_id}", summary="OAuth 用户详情")
-async def get_oauth_user(
+def get_oauth_user(
     user_id: int,
     user_uuid: str = Depends(require_login),
 ):

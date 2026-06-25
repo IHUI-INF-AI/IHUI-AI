@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/subordinates", summary="我的下级用户列表")
-async def list_subordinates(
+def list_subordinates(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -43,7 +43,7 @@ async def list_subordinates(
 
 
 @router.get("/team", summary="我的团队(下属列表+搜索排序)")
-async def list_team(
+def list_team(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     keyword: str | None = Query(None, description="搜索关键词(昵称/UUID)"),
@@ -65,13 +65,13 @@ async def list_team(
 
 
 @router.get("/team/center", summary="个人中心我的团队(概要)")
-async def team_center(user_uuid: str = Depends(require_login)):
+def team_center(user_uuid: str = Depends(require_login)):
     """Unimplemented. Use /invitee-stats instead."""
     return error("Not implemented")
 
 
 @router.get("/invitee-stats", summary="邀请统计")
-async def invitee_stats(user_uuid: str = Depends(require_login)):
+def invitee_stats(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         try:
             from app.models.user_models import User
@@ -88,7 +88,7 @@ async def invitee_stats(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/commission-detail", summary="佣金明细")
-async def commission_detail(
+def commission_detail(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -126,7 +126,7 @@ async def commission_detail(
 
 
 @router.get("/operator-card", summary="操盘手数据卡片统计")
-async def operator_data_card(user_uuid: str = Depends(require_login)):
+def operator_data_card(user_uuid: str = Depends(require_login)):
     """Mirrors Java getOperatorDataCardData.
 
     Returns commission stats (today/month/total), order stats of invitees,
@@ -139,7 +139,7 @@ async def operator_data_card(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/invitee-order-stats", summary="下级用户订单统计")
-async def invitee_order_stats(
+def invitee_order_stats(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -191,7 +191,7 @@ async def invitee_order_stats(
 
 
 @router.get("/user-and-children-orders", summary="用户及下级的订单列表")
-async def user_and_children_orders(
+def user_and_children_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),

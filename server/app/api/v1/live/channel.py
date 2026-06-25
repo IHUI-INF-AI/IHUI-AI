@@ -55,7 +55,7 @@ def _c_to_dict(c: LiveChannel) -> dict:
 
 
 @router.get("/channel/list", summary="直播列表")
-async def list_channels(
+def list_channels(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -88,7 +88,7 @@ async def list_channels(
 
 
 @router.get("/channel/{cid}", summary="直播详情")
-async def get_channel(cid: int):
+def get_channel(cid: int):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == cid, LiveChannel.deleted == False).first()
@@ -108,7 +108,7 @@ async def get_channel(cid: int):
 
 
 @router.post("/channel", operation_id="live_create_channel", summary="创建直播")
-async def create_channel(
+def create_channel(
     title: str = Query(..., min_length=1, max_length=200),
     description: str | None = None,
     cover: str | None = None,
@@ -147,7 +147,7 @@ async def create_channel(
 
 
 @router.put("/channel/{cid}", operation_id="live_update_channel", summary="修改直播")
-async def update_channel(
+def update_channel(
     cid: int,
     title: str | None = None,
     description: str | None = None,
@@ -174,7 +174,7 @@ async def update_channel(
 
 
 @router.delete("/channel/{cid}", operation_id="live_delete_channel", summary="删除直播")
-async def delete_channel(cid: int):
+def delete_channel(cid: int):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == cid).first()
@@ -189,7 +189,7 @@ async def delete_channel(cid: int):
 
 
 @router.post("/channel/{cid}/start", summary="开始直播")
-async def start_live(cid: int):
+def start_live(cid: int):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == cid).first()
@@ -209,7 +209,7 @@ async def start_live(cid: int):
 
 
 @router.post("/channel/{cid}/stop", summary="结束直播")
-async def stop_live(cid: int):
+def stop_live(cid: int):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == cid).first()
@@ -224,7 +224,7 @@ async def stop_live(cid: int):
 
 
 @router.post("/channel/{cid}/subscribe", summary="订阅/取消订阅")
-async def toggle_subscribe(cid: int):
+def toggle_subscribe(cid: int):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == cid).first()
@@ -243,7 +243,7 @@ async def toggle_subscribe(cid: int):
 
 
 @router.get("/channel/{cid}/comments", summary="评论列表")
-async def list_comments(cid: int, page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=200)):
+def list_comments(cid: int, page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=200)):
     with get_session() as db:
         try:
             q = db.query(LiveComment).filter(LiveComment.channel_id == cid)
@@ -270,7 +270,7 @@ async def list_comments(cid: int, page: int = Query(1, ge=1), limit: int = Query
 
 
 @router.post("/channel/{cid}/comment", summary="发表评论")
-async def add_comment(cid: int, content: str = Query(..., min_length=1), type: int = 1):
+def add_comment(cid: int, content: str = Query(..., min_length=1), type: int = 1):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == cid).first()
@@ -293,7 +293,7 @@ async def add_comment(cid: int, content: str = Query(..., min_length=1), type: i
 
 
 @router.get("/category/list", operation_id="live_channel_category_list", summary="直播分类")
-async def category_list():
+def category_list():
     with get_session() as db:
         try:
             items = (
@@ -309,7 +309,7 @@ async def category_list():
 
 
 @router.get("/channel/list/by-ids", summary="批量获取频道")
-async def list_channels_by_ids(ids: str = Query(..., description="逗号分隔的频道ID")):
+def list_channels_by_ids(ids: str = Query(..., description="逗号分隔的频道ID")):
     with get_session() as db:
         try:
             id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
@@ -321,7 +321,7 @@ async def list_channels_by_ids(ids: str = Query(..., description="逗号分隔�
 
 
 @router.get("/channel/stream-info/{cid}", summary="获取频道流信息")
-async def get_stream_info(cid: int):
+def get_stream_info(cid: int):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == cid, LiveChannel.deleted == False).first()
@@ -344,7 +344,7 @@ async def get_stream_info(cid: int):
 
 
 @router.get("/channel/public", summary="公开获取频道信息")
-async def public_get_channel(cid: int = Query(..., description="频道ID")):
+def public_get_channel(cid: int = Query(..., description="频道ID")):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == cid, LiveChannel.deleted == False).first()

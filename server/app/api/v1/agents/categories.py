@@ -52,7 +52,7 @@ def _serialize_cat(c) -> dict:
 
 
 @router.get("/list", summary="List agent categories")
-async def list_categories(group: str = Query(None)):
+def list_categories(group: str = Query(None)):
     result = get_categories(group)
     return success(result)
 
@@ -61,7 +61,7 @@ async def list_categories(group: str = Query(None)):
 
 
 @router.post("/create", summary="Create agent category")
-async def create_category(
+def create_category(
     body: CategoryCreateBody,
     user_uuid: str = Depends(require_login),
 ):
@@ -92,7 +92,7 @@ async def create_category(
 
 
 @router.get("/{category_id}", summary="Get category detail")
-async def get_category_detail(
+def get_category_detail(
     category_id: int,
 ):
     with get_session() as db:
@@ -108,7 +108,7 @@ async def get_category_detail(
 
 
 @router.put("/{category_id}", summary="Update agent category")
-async def update_category(
+def update_category(
     category_id: int,
     body: CategoryUpdateBody,
     user_uuid: str = Depends(require_login),
@@ -134,7 +134,7 @@ async def update_category(
 
 
 @router.delete("/{category_id}", summary="Delete agent category")
-async def delete_category(
+def delete_category(
     category_id: int,
     user_uuid: str = Depends(require_login),
 ):

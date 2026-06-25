@@ -80,7 +80,7 @@ def _list_tickets_impl(
 
 
 @router.get("/list")
-async def list_tickets(
+def list_tickets(
     page: int = 1,
     pageSize: int = 10,  # noqa: 5
     status: str | None = None,
@@ -91,7 +91,7 @@ async def list_tickets(
 
 
 @router.get("")
-async def list_tickets_at_root(
+def list_tickets_at_root(
     page: int = 1,
     pageSize: int = 10,  # noqa: 5
     status: str | None = None,
@@ -102,7 +102,7 @@ async def list_tickets_at_root(
 
 
 @router.get("/{id}")
-async def get_ticket(id: str):
+def get_ticket(id: str):
     """工单详情,与前端 getTicket 对齐"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
@@ -110,7 +110,7 @@ async def get_ticket(id: str):
 
 
 @router.post("")
-async def create_ticket(body: dict = Body(default_factory=dict)):
+def create_ticket(body: dict = Body(default_factory=dict)):
     """创建工单,与前端 createTicket 对齐(JSON)"""
     title = (body.get("title") or "").strip()
     description = (body.get("description") or "").strip()
@@ -144,7 +144,7 @@ async def create_ticket(body: dict = Body(default_factory=dict)):
 
 
 @router.post("/{id}/replies")
-async def reply_ticket(id: str, body: dict = Body(default_factory=dict)):
+def reply_ticket(id: str, body: dict = Body(default_factory=dict)):
     """回复工单,与前端 replyTicket 对齐(JSON: content, attachments?)"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
@@ -172,7 +172,7 @@ async def reply_ticket(id: str, body: dict = Body(default_factory=dict)):
 
 
 @router.post("/{id}/close")
-async def close_ticket(id: str):
+def close_ticket(id: str):
     """关闭工单"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
@@ -189,7 +189,7 @@ async def close_ticket(id: str):
 
 
 @router.post("/{id}/reopen")
-async def reopen_ticket(id: str):
+def reopen_ticket(id: str):
     """重新打开工单"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
@@ -206,7 +206,7 @@ async def reopen_ticket(id: str):
 
 
 @router.post("/{id}/audit")
-async def audit_ticket(id: str, body: dict = Body(default_factory=dict)):
+def audit_ticket(id: str, body: dict = Body(default_factory=dict)):
     """审核工单(管理员)"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
@@ -225,7 +225,7 @@ async def audit_ticket(id: str, body: dict = Body(default_factory=dict)):
 
 
 @router.post("/{id}/assign")
-async def assign_ticket(id: str, body: dict = Body(default_factory=dict)):
+def assign_ticket(id: str, body: dict = Body(default_factory=dict)):
     """分配工单(管理员)"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")

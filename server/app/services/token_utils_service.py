@@ -17,7 +17,7 @@ from app.database import get_session
 from app.services.token_service import deduct_user_token
 
 
-async def is_active_promotion_period() -> dict[str, Any]:
+def is_active_promotion_period() -> dict[str, Any]:
     """Check if current time is within an active promotion period."""
     with get_session() as db:
         from app.models.activity_models import Activity
@@ -55,7 +55,7 @@ def encode_jwt_token() -> str:
     return pyjwt.encode(payload, sk, headers=headers)
 
 
-async def save_conversation_to_db(
+def save_conversation_to_db(
     user_uuid: str,
     model_name: str,
     problem: str,
@@ -104,7 +104,7 @@ async def save_conversation_to_db(
         return False
 
 
-async def check_user_is_vip(user_uuid: str | None) -> bool:
+def check_user_is_vip(user_uuid: str | None) -> bool:
     """判断用户是否为 VIP / 操盘手 (is_vip >= 1).
 
     返回 bool. 空/None UUID 视为非 VIP. DB 异常隔离, 视为非 VIP.
@@ -124,7 +124,7 @@ async def check_user_is_vip(user_uuid: str | None) -> bool:
         return False
 
 
-async def check_user_token_sufficient(user_uuid: str, min_tokens: int = 1) -> dict[str, Any]:
+def check_user_token_sufficient(user_uuid: str, min_tokens: int = 1) -> dict[str, Any]:
     """Check if user has sufficient token balance."""
     if not user_uuid:
         return {"sufficient": False, "balance": 0, "user_uuid": "", "error": "empty uuid"}

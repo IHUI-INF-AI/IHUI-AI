@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/agent", tags=["Agent 上传处理"])
 
 
 @router.post("/upload", summary="上传智能体配置")
-async def upload_agent(
+def upload_agent(
     payload: dict[str, Any] = Body(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -52,7 +52,7 @@ async def upload_agent(
 
 
 @router.get("/select", summary="查询智能体配置")
-async def select_agent(
+def select_agent(
     agent_id: str = Query(...),
     _: str = Depends(require_login),
 ):

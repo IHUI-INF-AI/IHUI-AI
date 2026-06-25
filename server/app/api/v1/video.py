@@ -306,7 +306,7 @@ async def load_from_breakpoint(req: BreakpointReq, user_uuid: str = Depends(requ
 
 
 @router.post("/breakpoint/update", summary="上报当前播放位置")
-async def update_breakpoint(req: BreakpointUpdateReq, user_uuid: str = Depends(require_login)):
+def update_breakpoint(req: BreakpointUpdateReq, user_uuid: str = Depends(require_login)):
     """对应 Java: POST /api/video/breakpoint/update -- 存 Redis"""
     r = get_redis()
     key = f"zhs:video:breakpoint:{req.userId}:{req.videoId}"
@@ -318,7 +318,7 @@ async def update_breakpoint(req: BreakpointUpdateReq, user_uuid: str = Depends(r
 
 
 @router.get("/breakpoint/get", summary="查询断点")
-async def get_breakpoint(userId: str, videoId: str, user_uuid: str = Depends(require_login)):  # noqa: 39
+def get_breakpoint(userId: str, videoId: str, user_uuid: str = Depends(require_login)):  # noqa: 39
     """配套查询: GET /api/video/breakpoint/get?userId=&videoId="""
     r = get_redis()
     key = f"zhs:video:breakpoint:{userId}:{videoId}"
@@ -579,7 +579,7 @@ async def transcode_hls(req: HlsTranscodeReq, user_uuid: str = Depends(require_l
 
 
 @router.get("/hls/manifest/{videoId}", summary="取 HLS master.m3u8 文本 (含 .ts 预签名 URL)")
-async def get_hls_manifest(videoId: str, user_uuid: str = Depends(require_login)):  # noqa: 28
+def get_hls_manifest(videoId: str, user_uuid: str = Depends(require_login)):  # noqa: 28
     """GET /api/video/hls/manifest/{videoId} -- 纯文本, 前端 hls.js 直接加载."""
     r = get_redis()
     cache_key = f"zhs:video:hls:{videoId}"
@@ -599,7 +599,7 @@ async def get_hls_manifest(videoId: str, user_uuid: str = Depends(require_login)
 
 
 @router.get("/hls/playlist/{videoId}/{bitrate}", summary="取单档 m3u8 文本")
-async def get_hls_playlist(videoId: str, bitrate: str, user_uuid: str = Depends(require_login)):  # noqa: 28
+def get_hls_playlist(videoId: str, bitrate: str, user_uuid: str = Depends(require_login)):  # noqa: 28
     """GET /api/video/hls/playlist/{videoId}/{1080p|720p|480p}"""
     from fastapi import Response
 

@@ -113,7 +113,7 @@ TYPE_MODEL_MAP = {
 
 
 @router.post("/my/{type}", summary="我的创作列表")
-async def my_creations(
+def my_creations(
     type: str,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -146,7 +146,7 @@ async def my_creations(
 
 
 @router.post("/share", summary="分享创作(生成分享码)")
-async def share_creation(
+def share_creation(
     gc_id: str = Query(..., description="创作ID"),
     user_uuid: str = Depends(require_login),
 ):
@@ -204,7 +204,7 @@ async def share_creation(
 
 
 @router.get("/operate/{gc_id}/{type}", summary="点赞/收藏操作")
-async def operate_creation(
+def operate_creation(
     gc_id: str,
     type: str,
     user_uuid: str = Depends(require_login),
@@ -270,7 +270,7 @@ async def operate_creation(
 
 
 @router.get("/share/third/{code}", summary="通过分享码获取创作")
-async def get_creation_by_share_code(code: str):
+def get_creation_by_share_code(code: str):
     """Public endpoint -- retrieve a creation by its share code."""
     with get_session() as db:
         try:
@@ -306,7 +306,7 @@ async def get_creation_by_share_code(code: str):
 
 
 @router.post("/share/code", summary="分享转CODE")
-async def share_to_code(
+def share_to_code(
     gc_id: str = Query(..., description="创作ID"),
     user_uuid: str = Depends(require_login),
 ):
@@ -366,7 +366,7 @@ async def share_to_code(
 
 
 @router.post("/share/image", summary="分享生成图片")
-async def share_generate_image(
+def share_generate_image(
     gc_id: str = Query(..., description="创作ID"),
     width: int = Query(800, ge=200, le=2000, description="图片宽度"),
     height: int = Query(600, ge=200, le=2000, description="图片高度"),

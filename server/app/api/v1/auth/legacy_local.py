@@ -45,7 +45,7 @@ class UserResponse(BaseModel):
 
 
 @router.post("/register")
-async def register(
+def register(
     request: Request,
     data: RegisterRequest,
 ):
@@ -57,7 +57,7 @@ async def register(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(
+def get_current_user_info(
     user_uuid: str = Depends(require_login),
 ):
     from app.database import SessionFactory2
@@ -81,7 +81,7 @@ async def get_current_user_info(
 
 
 @router.post("/change-password")
-async def change_password(
+def change_password(
     request: Request,
     data: ChangePasswordRequest,
     user_uuid: str = Depends(require_login),

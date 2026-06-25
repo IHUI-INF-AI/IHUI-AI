@@ -124,6 +124,6 @@ Please update your code to use the explicit database session generators:
   - get_course_db_session()  -> zhs_educational_training
 
 Migration example:
-  BEFORE: async def endpoint(db: Session = Depends(get_session))
-  AFTER:  async def endpoint(db: Session = Depends(get_ai_db_session))
+  BEFORE: def endpoint(db: Session = Depends(get_session))
+  AFTER:  def endpoint(db: Session = Depends(get_ai_db_session))
 """

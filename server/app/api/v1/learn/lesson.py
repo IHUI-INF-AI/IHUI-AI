@@ -176,7 +176,7 @@ class CategoryRelationRequest(BaseModel):
 
 
 @router.get("/list", summary="课程列表")
-async def list_lessons(
+def list_lessons(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -203,7 +203,7 @@ async def list_lessons(
 
 
 @router.get("/recommend/list", summary="推荐课程列表")
-async def list_recommend_lessons(
+def list_recommend_lessons(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -224,7 +224,7 @@ async def list_recommend_lessons(
 
 
 @router.get("/hot/list", summary="最热课程列表")
-async def list_hot_lessons(
+def list_hot_lessons(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -260,7 +260,7 @@ async def list_hot_lessons(
 
 
 @router.get("/new/list", summary="最新课程列表")
-async def list_new_lessons(
+def list_new_lessons(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -286,7 +286,7 @@ async def list_new_lessons(
 
 
 @router.get("/{lesson_id}", summary="课程详情")
-async def get_lesson(lesson_id: int):
+def get_lesson(lesson_id: int):
     with get_session() as db:
         try:
             lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
@@ -321,7 +321,7 @@ async def get_lesson(lesson_id: int):
 
 
 @router.post("", summary="创建课程")
-async def create_lesson(body: LessonCreate):
+def create_lesson(body: LessonCreate):
     with get_session() as db:
         try:
             lesson = Lesson(
@@ -351,7 +351,7 @@ async def create_lesson(body: LessonCreate):
 
 
 @router.put("/{lesson_id}", summary="更新课程")
-async def update_lesson(lesson_id: int, body: LessonUpdate):
+def update_lesson(lesson_id: int, body: LessonUpdate):
     with get_session() as db:
         try:
             lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
@@ -368,7 +368,7 @@ async def update_lesson(lesson_id: int, body: LessonUpdate):
 
 
 @router.delete("/{lesson_id}", summary="删除课程")
-async def delete_lesson(lesson_id: int):
+def delete_lesson(lesson_id: int):
     with get_session() as db:
         try:
             lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
@@ -383,7 +383,7 @@ async def delete_lesson(lesson_id: int):
 
 
 @router.put("/{lesson_id}/publish", summary="发布课程")
-async def publish_lesson(lesson_id: int):
+def publish_lesson(lesson_id: int):
     with get_session() as db:
         try:
             lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
@@ -398,7 +398,7 @@ async def publish_lesson(lesson_id: int):
 
 
 @router.put("/{lesson_id}/unpublish", summary="取消发布课程")
-async def unpublish_lesson(lesson_id: int):
+def unpublish_lesson(lesson_id: int):
     with get_session() as db:
         try:
             lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
@@ -418,7 +418,7 @@ async def unpublish_lesson(lesson_id: int):
 
 
 @router.get("/{lesson_id}/categories", summary="获取课程分类")
-async def get_lesson_categories(lesson_id: int):
+def get_lesson_categories(lesson_id: int):
     with get_session() as db:
         try:
             relations = (
@@ -442,7 +442,7 @@ async def get_lesson_categories(lesson_id: int):
 
 
 @router.post("/{lesson_id}/categories", summary="设置课程分类关系")
-async def set_lesson_categories(lesson_id: int, body: CategoryRelationRequest):
+def set_lesson_categories(lesson_id: int, body: CategoryRelationRequest):
     with get_session() as db:
         try:
             lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
@@ -468,7 +468,7 @@ async def set_lesson_categories(lesson_id: int, body: CategoryRelationRequest):
 
 
 @router.get("/{lesson_id}/chapters", summary="课程章节列表")
-async def list_chapters(lesson_id: int):
+def list_chapters(lesson_id: int):
     with get_session() as db:
         try:
             chapters = (
@@ -484,7 +484,7 @@ async def list_chapters(lesson_id: int):
 
 
 @router.post("/{lesson_id}/chapters", summary="创建章节")
-async def create_chapter(lesson_id: int, body: ChapterCreate):
+def create_chapter(lesson_id: int, body: ChapterCreate):
     with get_session() as db:
         try:
             lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
@@ -505,7 +505,7 @@ async def create_chapter(lesson_id: int, body: ChapterCreate):
 
 
 @router.put("/chapters/sort", summary="章节排序")
-async def sort_chapters(body: ChapterSortRequest):
+def sort_chapters(body: ChapterSortRequest):
     with get_session() as db:
         try:
             for item in body.items:
@@ -522,7 +522,7 @@ async def sort_chapters(body: ChapterSortRequest):
 
 
 @router.put("/chapters/{chapter_id}", summary="更新章节")
-async def update_chapter(chapter_id: int, body: ChapterUpdate):
+def update_chapter(chapter_id: int, body: ChapterUpdate):
     with get_session() as db:
         try:
             chapter = (
@@ -541,7 +541,7 @@ async def update_chapter(chapter_id: int, body: ChapterUpdate):
 
 
 @router.delete("/chapters/{chapter_id}", summary="删除章节")
-async def delete_chapter(chapter_id: int):
+def delete_chapter(chapter_id: int):
     with get_session() as db:
         try:
             chapter = (
@@ -566,7 +566,7 @@ async def delete_chapter(chapter_id: int):
 
 
 @router.get("/chapters/{chapter_id}/sections", summary="章节节点列表")
-async def list_sections(chapter_id: int):
+def list_sections(chapter_id: int):
     with get_session() as db:
         try:
             sections = (
@@ -585,7 +585,7 @@ async def list_sections(chapter_id: int):
 
 
 @router.post("/chapters/{chapter_id}/sections", summary="创建节点")
-async def create_section(chapter_id: int, body: SectionCreate):
+def create_section(chapter_id: int, body: SectionCreate):
     with get_session() as db:
         try:
             chapter = (
@@ -613,7 +613,7 @@ async def create_section(chapter_id: int, body: SectionCreate):
 
 
 @router.put("/sections/{section_id}", summary="更新节点")
-async def update_section(section_id: int, body: SectionUpdate):
+def update_section(section_id: int, body: SectionUpdate):
     with get_session() as db:
         try:
             section = (
@@ -634,7 +634,7 @@ async def update_section(section_id: int, body: SectionUpdate):
 
 
 @router.delete("/sections/{section_id}", summary="删除节点")
-async def delete_section(section_id: int):
+def delete_section(section_id: int):
     with get_session() as db:
         try:
             section = (

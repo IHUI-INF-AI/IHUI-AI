@@ -30,7 +30,7 @@ def _stream_to_dict(s: TencentCloudLiveStream) -> dict:
 
 
 @router.get("/tencent/stream/create", summary="创建直播流频道")
-async def create_stream(
+def create_stream(
     channel_id: int = Query(...),
     stream_name: str = Query(...),
 ):
@@ -57,7 +57,7 @@ async def create_stream(
 
 
 @router.get("/tencent/stream/get", summary="获取直播流频道")
-async def get_stream(channel_id: int = Query(...)):
+def get_stream(channel_id: int = Query(...)):
     with get_session() as db:
         try:
             stream = (
@@ -74,7 +74,7 @@ async def get_stream(channel_id: int = Query(...)):
 
 
 @router.get("/tencent/callback/templates", summary="获取回调模板")
-async def callback_templates():
+def callback_templates():
     try:
         templates = [
             {
@@ -95,7 +95,7 @@ async def callback_templates():
 
 
 @router.post("/tencent/notify/stream/begin", summary="直播流开始回调")
-async def notify_stream_begin(body: StreamNotifyBody):
+def notify_stream_begin(body: StreamNotifyBody):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == body.channel_id).first()
@@ -110,7 +110,7 @@ async def notify_stream_begin(body: StreamNotifyBody):
 
 
 @router.post("/tencent/notify/stream/end", summary="直播流结束回调")
-async def notify_stream_end(body: StreamNotifyBody):
+def notify_stream_end(body: StreamNotifyBody):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == body.channel_id).first()
@@ -145,7 +145,7 @@ def _get_live_client() -> TencentLiveClient:
 
 
 @router.get("/live/push-url", summary="生成直播推流地址(带鉴权签名)")
-async def get_push_url(
+def get_push_url(
     stream_name: str = Query(..., description="流名称"),
     expire: int = Query(86400, ge=60, le=7 * 86400, description="地址有效期(秒)"),
 ):
@@ -165,7 +165,7 @@ async def get_push_url(
 
 
 @router.get("/live/pull-url", summary="生成直播拉流地址(带鉴权签名)")
-async def get_pull_url(
+def get_pull_url(
     stream_name: str = Query(..., description="流名称"),
     expire: int = Query(86400, ge=60, le=7 * 86400, description="地址有效期(秒)"),
 ):

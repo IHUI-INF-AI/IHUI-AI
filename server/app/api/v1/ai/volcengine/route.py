@@ -19,11 +19,12 @@ import uuid as _uuid
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.schemas.common import success
+from app.security import require_login
 from app.services.token_utils_service import (
     calculate_and_deduct_tokens_by_cost,
     save_conversation_to_db,
@@ -211,7 +212,7 @@ async def ping():
 
 
 @router.post("/jimeng/image", summary="JiMeng 4.0 text-to-image (async)")
-async def jimeng4_image(request: Jimeng4ImageRequest):
+async def jimeng4_image(request: Jimeng4ImageRequest, _: str = Depends(require_login)):
     """
     Submit a JiMeng 4.0 image generation task via CVSync2Async,
     poll until complete, and return image URLs / base64 data.
@@ -268,16 +269,17 @@ async def jimeng4_image(request: Jimeng4ImageRequest):
         )
 
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"Upstream error: {e.response.text}") from e
+        logger.error("JiMeng4 image HTTP error: %s - %s", e.response.status_code, e.response.text)
+        raise HTTPException(status_code=e.response.status_code, detail="上游服务异常") from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error("JiMeng4 image error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/jimeng/generate", summary="JiMeng 3.1 generation")
-async def jimeng31_generate(request: Jimeng31Request):
+async def jimeng31_generate(request: Jimeng31Request, _: str = Depends(require_login)):
     """
     Proxy a JiMeng 3.1 generation request via CVProcess.
     """
@@ -308,14 +310,15 @@ async def jimeng31_generate(request: Jimeng31Request):
         return success(data)
 
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"Upstream error: {e.response.text}") from e
+        logger.error("JiMeng31 HTTP error: %s - %s", e.response.status_code, e.response.text)
+        raise HTTPException(status_code=e.response.status_code, detail="上游服务异常") from e
     except Exception as e:
         logger.error("JiMeng31 error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/visual/{req_key}", summary="火山视觉通用代理 (CVSync2Async async submit+poll)")
-async def visual_proxy(req_key: str, request: VisualGenericRequest):
+async def visual_proxy(req_key: str, request: VisualGenericRequest, _: str = Depends(require_login)):
     """
     Submit a Volcengine visual task (text-to-video, image-to-video, etc.)
     via CVSync2Async, poll until complete, persist the resulting video,
@@ -445,16 +448,16 @@ async def visual_proxy(req_key: str, request: VisualGenericRequest):
 
     except httpx.HTTPStatusError as e:
         logger.error("Volcengine visual HTTP error: %s - %s", e.response.status_code, e.response.text)
-        raise HTTPException(status_code=e.response.status_code, detail=f"Upstream error: {e.response.text}") from e
+        raise HTTPException(status_code=e.response.status_code, detail="上游服务异常") from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Visual proxy error for req_key=%s: %s", req_key, e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/jimeng4/process", summary="即梦4.0 CVProcess 通用转发")
-async def jimeng4_process(body: Jimeng4ProcessRequest):
+async def jimeng4_process(body: Jimeng4ProcessRequest, _: str = Depends(require_login)):
     """
     JiMeng 4.0 CVProcess generic proxy.
     Forwards the body (with arbitrary extra fields) via CVProcess to Volcengine.
@@ -483,7 +486,7 @@ async def jimeng4_process(body: Jimeng4ProcessRequest):
 
     except httpx.HTTPStatusError as e:
         logger.error("JiMeng4 CVProcess HTTP error: %s - %s", e.response.status_code, e.response.text)
-        raise HTTPException(status_code=e.response.status_code, detail=f"Upstream error: {e.response.text}") from e
+        raise HTTPException(status_code=e.response.status_code, detail="上游服务异常") from e
     except Exception as e:
         logger.error("JiMeng4 CVProcess error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e

@@ -86,7 +86,7 @@ async def payment_callback(
 
 
 @router.get("/log/list", operation_id="callback_log_list", summary="回调日志")
-async def log_list(
+def log_list(
     page: int = 1,
     limit: int = 20,
     biz_type: str | None = None,
@@ -127,7 +127,7 @@ async def log_list(
 
 
 @router.get("/log/{lid}", summary="回调详情")
-async def log_detail(lid: int):
+def log_detail(lid: int):
     with get_session() as db:
         try:
             l = db.query(CallBackLog).filter(CallBackLog.id == lid).first()
@@ -281,4 +281,4 @@ async def outbound_callback(req: OutboundCallbackRequest):
         raise
     except Exception as e:
         logger.error(f"[Outbound] 处理外呼回调异常: {e}")
-        raise HTTPException(status_code=500, detail=f"处理失败: {e}")
+        raise HTTPException(status_code=500, detail="处理失败,请稍后重试")

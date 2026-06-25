@@ -142,7 +142,7 @@ def _ok(data: dict) -> dict:
 
 
 @router.get("/zhsAgent/list", summary="智能体列表")
-async def list_zhs_agents(
+def list_zhs_agents(
     categoryId: str | None = Query(None, description="分类 ID"),  # noqa: 5
     page: int = Query(1, ge=1),
     pageSize: int = Query(20, ge=1, le=100),  # noqa: 5
@@ -164,7 +164,7 @@ async def list_zhs_agents(
 
 
 @router.get("/zhsAgent/{agent_id}", summary="智能体详情")
-async def get_zhs_agent(agent_id: str):
+def get_zhs_agent(agent_id: str):
     """获取单个智汇智能体详情"""
     agent = next((a for a in _ZHS_AGENTS if a["id"] == agent_id), None)
     if not agent:
@@ -173,7 +173,7 @@ async def get_zhs_agent(agent_id: str):
 
 
 @router.get("/categories", summary="智能体分类")
-async def list_categories():
+def list_categories():
     """获取全部分类"""
     return _ok({
         "list": _CATEGORIES,

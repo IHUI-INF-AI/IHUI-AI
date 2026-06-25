@@ -230,7 +230,7 @@ async def android_wx_code(id_token: str = Query(..., alias="id_token", descripti
 
 
 @router.get("/config", summary="返回当前 Google OAuth 配置 (脱敏)")
-async def google_config_status():
+def google_config_status():
     """运维端点, 用于确认配置是否加载."""
     cfg = _google_config()
     audiences = list(cfg["app_ids"]) or ([cfg["app_id"]] if cfg["app_id"] else [])

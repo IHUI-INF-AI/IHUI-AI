@@ -44,7 +44,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("", summary="记录图片交互")
-async def create_image(
+def create_image(
     image_url: str = Query(..., min_length=1),
     image_type: str = "input",
     agent_id: str | None = None,
@@ -86,7 +86,7 @@ async def create_image(
 
 
 @router.get("/list", summary="我的图片交互")
-async def list_images(
+def list_images(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     image_type: str | None = None,
@@ -129,7 +129,7 @@ async def list_images(
 
 
 @router.get("/{iid}", summary="图片详情")
-async def get_image(iid: int):
+def get_image(iid: int):
     with get_session() as db:
         try:
             i = db.query(UserAgentImage).filter(UserAgentImage.id == iid).first()
@@ -158,7 +158,7 @@ async def get_image(iid: int):
 
 
 @router.delete("/{iid}", summary="删除图片记录")
-async def delete_image(iid: int):
+def delete_image(iid: int):
     with get_session() as db:
         try:
             i = db.query(UserAgentImage).filter(UserAgentImage.id == iid, UserAgentImage.user_id == _uid()).first()

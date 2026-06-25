@@ -77,7 +77,7 @@ class HomeworkAudit(BaseModel):
 
 
 @router.post("", summary="布置作业")
-async def create_homework(body: HomeworkCreate):
+def create_homework(body: HomeworkCreate):
     with get_session() as db:
         try:
             item = Homework(
@@ -94,7 +94,7 @@ async def create_homework(body: HomeworkCreate):
 
 
 @router.get("/{homework_id}", summary="作业详情")
-async def get_homework(homework_id: int):
+def get_homework(homework_id: int):
     with get_session() as db:
         try:
             item = db.query(Homework).filter(Homework.id == homework_id).first()
@@ -107,7 +107,7 @@ async def get_homework(homework_id: int):
 
 
 @router.get("/lesson/{lesson_id}", summary="课程作业详情")
-async def get_lesson_homework(lesson_id: int):
+def get_lesson_homework(lesson_id: int):
     with get_session() as db:
         try:
             item = (
@@ -125,7 +125,7 @@ async def get_lesson_homework(lesson_id: int):
 
 
 @router.put("/{homework_id}", summary="更新作业")
-async def update_homework(homework_id: int, body: HomeworkUpdate):
+def update_homework(homework_id: int, body: HomeworkUpdate):
     with get_session() as db:
         try:
             item = db.query(Homework).filter(Homework.id == homework_id).first()
@@ -143,7 +143,7 @@ async def update_homework(homework_id: int, body: HomeworkUpdate):
 
 
 @router.delete("/{homework_id}", summary="删除作业")
-async def delete_homework(homework_id: int):
+def delete_homework(homework_id: int):
     with get_session() as db:
         try:
             item = db.query(Homework).filter(Homework.id == homework_id).first()
@@ -158,7 +158,7 @@ async def delete_homework(homework_id: int):
 
 
 @router.post("/submit", summary="提交作业")
-async def submit_homework(body: HomeworkSubmit):
+def submit_homework(body: HomeworkSubmit):
     with get_session() as db:
         try:
             item = HomeworkRecord(
@@ -177,7 +177,7 @@ async def submit_homework(body: HomeworkSubmit):
 
 
 @router.get("/record/{record_id}", summary="作业记录详情")
-async def get_homework_record(record_id: int):
+def get_homework_record(record_id: int):
     with get_session() as db:
         try:
             item = (
@@ -194,7 +194,7 @@ async def get_homework_record(record_id: int):
 
 
 @router.get("/lesson/{lesson_id}/records", summary="课程作业记录列表")
-async def list_lesson_records(
+def list_lesson_records(
     lesson_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -224,7 +224,7 @@ async def list_lesson_records(
 
 
 @router.put("/record/{record_id}/audit", summary="审批作业")
-async def audit_homework_record(record_id: int, body: HomeworkAudit):
+def audit_homework_record(record_id: int, body: HomeworkAudit):
     with get_session() as db:
         try:
             if body.status not in (1, 2):

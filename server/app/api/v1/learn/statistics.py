@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/overview", summary="综合统计数据")
-async def overview():
+def overview():
     with get_session() as db:
         try:
             total_lessons = (

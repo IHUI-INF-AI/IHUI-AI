@@ -13,7 +13,7 @@
     npo_detector.attach_to_engine(engine)
 
     # 2) 合并: 业务代码
-    async def load_user(user_id):
+    def load_user(user_id):
         # 原: N 次单查
         return db.query(User).get(user_id)
 

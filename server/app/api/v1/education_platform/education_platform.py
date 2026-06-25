@@ -1,12 +1,13 @@
 """教育平台 - 第三方教育平台对接"""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, String, Text
 
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
+from app.security import require_login, require_role
 from app.utils.datetime_helper import utcnow
 
 
@@ -48,7 +49,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="教育平台列表")
-async def list_platforms(status: int | None = None):
+def list_platforms(status: int | None = None, _: str = Depends(require_login)):
     with get_session() as db:
         try:
             q = db.query(EducationPlatform)
@@ -66,11 +67,11 @@ async def list_platforms(status: int | None = None):
 
 
 @router.post("", summary="新增教育平台")
-async def create_platform(name: str = Query(...), code: str = Query(...),
+def create_platform(name: str = Query(...), code: str = Query(...),
                            type: str = "mooc", api_url: str | None = None,
                            api_key: str | None = None, api_secret: str | None = None,
                            config: str | None = None, sync_url: str | None = None,
-                           description: str | None = None):
+                           description: str | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         try:
             p = EducationPlatform(
@@ -87,9 +88,9 @@ async def create_platform(name: str = Query(...), code: str = Query(...),
 
 
 @router.put("/{pid}", summary="修改教育平台")
-async def update_platform(pid: int, name: str | None = None, api_url: str | None = None,
+def update_platform(pid: int, name: str | None = None, api_url: str | None = None,
                            api_key: str | None = None, api_secret: str | None = None,
-                           status: int | None = None, config: str | None = None):
+                           status: int | None = None, config: str | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         try:
             p = db.query(EducationPlatform).filter(EducationPlatform.id == pid).first()
@@ -108,7 +109,7 @@ async def update_platform(pid: int, name: str | None = None, api_url: str | None
 
 
 @router.delete("/{pid}", summary="删除教育平台")
-async def delete_platform(pid: int):
+def delete_platform(pid: int, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         try:
             p = db.query(EducationPlatform).filter(EducationPlatform.id == pid).first()
@@ -122,7 +123,7 @@ async def delete_platform(pid: int):
 
 
 @router.post("/{pid}/sync", summary="同步数据")
-async def sync_platform(pid: int, type: str = "course", sync_type: str = "pull"):
+def sync_platform(pid: int, type: str = "course", sync_type: str = "pull", _: str = Depends(require_role("admin"))):
     with get_session() as db:
         try:
             p = db.query(EducationPlatform).filter(EducationPlatform.id == pid).first()
@@ -142,8 +143,8 @@ async def sync_platform(pid: int, type: str = "course", sync_type: str = "pull")
 
 
 @router.get("/sync/log", summary="同步日志")
-async def sync_log(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
-                    platform_code: str | None = None):
+def sync_log(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+                    platform_code: str | None = None, _: str = Depends(require_role("admin"))):
     with get_session() as db:
         try:
             q = db.query(EducationSyncLog)

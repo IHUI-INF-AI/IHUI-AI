@@ -12,11 +12,11 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.models.java_missing_models import AiBotSites
 
-router = APIRouter(prefix="/api/ai-bot-sites", tags=["AI 工具站点"])
+router = APIRouter(prefix="/ai-bot-sites", tags=["AI 工具站点"])
 
 
 @router.get("/list", summary="AI 工具站点列表")
-async def list_sites(
+def list_sites(
     category: str | None = Query(None, description="分类筛选"),
     keyword: str | None = Query(None, description="关键字搜索"),
     page: int = Query(1, ge=1),
@@ -45,7 +45,7 @@ async def list_sites(
 
 
 @router.get("/categories", summary="AI 工具站点分类")
-async def list_categories(db: Session = Depends(get_session)):
+def list_categories(db: Session = Depends(get_session)):
     """获取所有分类."""
     try:
         rows = db.query(AiBotSites.category).filter(AiBotSites.is_use == 1).distinct().all()

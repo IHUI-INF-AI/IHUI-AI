@@ -50,7 +50,7 @@ def _serialize_level(level) -> dict:
 
 
 @router.get("/levels", summary="Get all VIP levels")
-async def get_vip_levels(user_uuid: str = Depends(require_login)):
+def get_vip_levels(user_uuid: str = Depends(require_login)):
     """Return the list of all active VIP levels."""
     db = SessionFactory2()
     try:
@@ -69,7 +69,7 @@ async def get_vip_levels(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/level/{vip_id}", summary="Get VIP level detail")
-async def get_vip_level_detail(vip_id: int, user_uuid: str = Depends(require_login)):
+def get_vip_level_detail(vip_id: int, user_uuid: str = Depends(require_login)):
     """Return details of a single VIP level by its ID."""
     db = SessionFactory2()
     try:
@@ -84,7 +84,7 @@ async def get_vip_level_detail(vip_id: int, user_uuid: str = Depends(require_log
 
 
 @router.get("/my", summary="Get current user VIP info")
-async def get_my_vip(user_uuid: str = Depends(require_login)):
+def get_my_vip(user_uuid: str = Depends(require_login)):
     """Return the current user's VIP subscription: level, expiration, and benefits."""
     db = SessionFactory2()
     try:
@@ -133,7 +133,7 @@ async def get_my_vip(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/subscribe", summary="Subscribe VIP (create order)")
-async def subscribe_vip(
+def subscribe_vip(
     body: SubscribeRequest,
     user_uuid: str = Depends(require_login),
 ):
@@ -204,7 +204,7 @@ async def subscribe_vip(
 
 
 @router.get("/check", summary="Check current user VIP status")
-async def check_vip(user_uuid: str = Depends(require_login)):
+def check_vip(user_uuid: str = Depends(require_login)):
     """Quickly check whether the current user is an active VIP and what level."""
     db = SessionFactory2()
     try:

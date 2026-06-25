@@ -29,7 +29,7 @@ router = APIRouter()
 
 
 @router.post("/questions", summary="Create a new Q&A question")
-async def create_question(
+def create_question(
     payload: dict,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -58,7 +58,7 @@ async def create_question(
 
 
 @router.get("/questions", summary="List Q&A questions (paginated, filterable)")
-async def list_questions(
+def list_questions(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     user_id: Optional[int] = Query(None),
@@ -94,7 +94,7 @@ async def list_questions(
 
 
 @router.get("/questions/hot", summary="Get hot questions")
-async def hot_questions(
+def hot_questions(
     limit: int = Query(10, ge=1, le=50),
     db: Session = Depends(_get_db),
 ):
@@ -114,7 +114,7 @@ async def hot_questions(
 
 
 @router.get("/questions/{question_id}", summary="Get question detail")
-async def get_question(question_id: int, db: Session = Depends(_get_db)):
+def get_question(question_id: int, db: Session = Depends(_get_db)):
     from app.services.edu_ask import get_question
     q = get_question(db, question_id, increment_view=True)
     return success(data={
@@ -134,7 +134,7 @@ async def get_question(question_id: int, db: Session = Depends(_get_db)):
 
 
 @router.put("/questions/{question_id}", summary="Update question (author only)")
-async def update_question(
+def update_question(
     question_id: int,
     payload: dict,
     user_id: int = Depends(get_current_user_id),
@@ -146,7 +146,7 @@ async def update_question(
 
 
 @router.delete("/questions/{question_id}", summary="Delete question (author only)")
-async def delete_question(
+def delete_question(
     question_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -157,19 +157,19 @@ async def delete_question(
 
 
 @router.get("/questions/{question_id}/stats", summary="Get question statistics")
-async def get_question_stats(question_id: int, db: Session = Depends(_get_db)):
+def get_question_stats(question_id: int, db: Session = Depends(_get_db)):
     from app.services.edu_ask import get_question_stats
     return success(data=get_question_stats(db, question_id))
 
 
 @router.get("/users/{user_id}/stats", summary="Get user's Q&A statistics")
-async def get_user_stats(user_id: int, db: Session = Depends(_get_db)):
+def get_user_stats(user_id: int, db: Session = Depends(_get_db)):
     from app.services.edu_ask import get_user_stats
     return success(data=get_user_stats(db, user_id))
 
 
 @router.post("/questions/{question_id}/answers", summary="Post answer to a question")
-async def create_answer(
+def create_answer(
     question_id: int,
     payload: dict,
     user_id: int = Depends(get_current_user_id),
@@ -191,7 +191,7 @@ async def create_answer(
 
 
 @router.get("/questions/{question_id}/answers", summary="List answers for a question")
-async def list_answers(
+def list_answers(
     question_id: int,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -220,7 +220,7 @@ async def list_answers(
 
 
 @router.delete("/answers/{answer_id}", summary="Delete answer (author only)")
-async def delete_answer(
+def delete_answer(
     answer_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -231,7 +231,7 @@ async def delete_answer(
 
 
 @router.post("/answers/{answer_id}/adopt", summary="Adopt answer as best (question author only)")
-async def adopt_answer(
+def adopt_answer(
     answer_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -246,7 +246,7 @@ async def adopt_answer(
 
 
 @router.post("/answers/{answer_id}/like", summary="Like an answer")
-async def like_answer(
+def like_answer(
     answer_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),

@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="规则列表(按 agent_id 过滤)")
-async def list_rules(
+def list_rules(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     agent_id: str = Query(None),
@@ -45,7 +45,7 @@ async def list_rules(
 
 
 @router.post("/create", summary="创建规则")
-async def create_rule(
+def create_rule(
     agent_id: str = Query(...),
     rule_name: str = Query(...),
     rule_code: str = Query(...),
@@ -74,7 +74,7 @@ async def create_rule(
 
 
 @router.post("/toggle", summary="启用/禁用规则")
-async def toggle_rule(
+def toggle_rule(
     rule_id: int = Query(...),
     status: int = Query(..., description="0 禁用 1 启用"),
 ):
@@ -88,7 +88,7 @@ async def toggle_rule(
 
 
 @router.get("/search", summary="按关键字搜索规则")
-async def search_rules(
+def search_rules(
     agent_id: str = Query(...),
     keyword: str = Query(""),
 ):
@@ -103,7 +103,7 @@ async def search_rules(
 
 
 @router.get("/need-task/list", summary="需求任务列表")
-async def list_need_tasks(
+def list_need_tasks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None),
@@ -132,7 +132,7 @@ async def list_need_tasks(
 
 
 @router.post("/need-task/create", summary="创建需求任务")
-async def create_need_task(
+def create_need_task(
     task_name: str = Query(...),
     task_desc: str = Query(""),
     agent_id: str = Query(""),
@@ -166,7 +166,7 @@ async def create_need_task(
 
 
 @router.post("/need-task/accept", summary="接单需求任务")
-async def accept_need_task(
+def accept_need_task(
     task_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -187,7 +187,7 @@ async def accept_need_task(
 
 
 @router.post("/need-task/complete", summary="完成需求任务")
-async def complete_need_task(
+def complete_need_task(
     task_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):

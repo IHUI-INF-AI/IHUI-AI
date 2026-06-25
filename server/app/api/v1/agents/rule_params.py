@@ -27,7 +27,7 @@ class RuleParamUpdate(BaseModel):
 
 
 @router.get("/list", summary="List rule params")
-async def list_rule_params(
+def list_rule_params(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
     rule_id: int | None = Query(None),
@@ -56,7 +56,7 @@ async def list_rule_params(
 
 
 @router.get("/{item_id}", summary="Get rule param detail")
-async def get_rule_param(item_id: int):
+def get_rule_param(item_id: int):
     with get_session() as db:
         from app.models.agent_rule_models import AgentRuleParam
 
@@ -76,7 +76,7 @@ async def get_rule_param(item_id: int):
 
 
 @router.post("/", summary="Create rule param")
-async def create_rule_param(body: RuleParamCreate):
+def create_rule_param(body: RuleParamCreate):
     with get_session() as db:
         try:
             from app.models.agent_rule_models import AgentRuleParam
@@ -97,7 +97,7 @@ async def create_rule_param(body: RuleParamCreate):
 
 
 @router.put("/", summary="Update rule param")
-async def update_rule_param(body: RuleParamUpdate):
+def update_rule_param(body: RuleParamUpdate):
     with get_session() as db:
         try:
             from app.models.agent_rule_models import AgentRuleParam
@@ -121,7 +121,7 @@ async def update_rule_param(body: RuleParamUpdate):
 
 
 @router.delete("/{item_ids}", summary="Delete rule params")
-async def delete_rule_params(item_ids: str):
+def delete_rule_params(item_ids: str):
     with get_session() as db:
         try:
             from app.models.agent_rule_models import AgentRuleParam

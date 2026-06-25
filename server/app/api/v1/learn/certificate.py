@@ -216,7 +216,7 @@ class TemplateStatusUpdate(BaseModel):
 
 
 @router.post("", summary="创建证书")
-async def create_certificate(body: CertificateCreate):
+def create_certificate(body: CertificateCreate):
     with get_session() as db:
         try:
             uid = _uid_int()
@@ -254,7 +254,7 @@ async def create_certificate(body: CertificateCreate):
 
 
 @router.get("/list", summary="证书列表")
-async def list_certificates(
+def list_certificates(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -292,7 +292,7 @@ async def list_certificates(
 
 
 @router.get("/code/{code}", summary="按证书编号查询")
-async def get_certificate_by_code(code: str):
+def get_certificate_by_code(code: str):
     with get_session() as db:
         try:
             item = (
@@ -309,7 +309,7 @@ async def get_certificate_by_code(code: str):
 
 
 @router.get("/member/{member_id}/list", summary="会员证书列表")
-async def list_member_certificates(
+def list_member_certificates(
     member_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -339,7 +339,7 @@ async def list_member_certificates(
 
 
 @router.get("/member/{member_id}/count", summary="会员证书数量")
-async def count_member_certificates(member_id: int):
+def count_member_certificates(member_id: int):
     with get_session() as db:
         try:
             total = (
@@ -357,7 +357,7 @@ async def count_member_certificates(member_id: int):
 
 
 @router.get("/lesson/{lesson_id}/list", summary="课程证书列表")
-async def list_lesson_certificates(
+def list_lesson_certificates(
     lesson_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -387,7 +387,7 @@ async def list_lesson_certificates(
 
 
 @router.post("/issue", summary="批量颁发证书")
-async def issue_certificates(body: CertificateIssue):
+def issue_certificates(body: CertificateIssue):
     with get_session() as db:
         try:
             from app.models.learn_models import SignUp
@@ -456,7 +456,7 @@ async def issue_certificates(body: CertificateIssue):
 
 
 @router.get("/{certificate_id}", summary="证书详情")
-async def get_certificate(certificate_id: int):
+def get_certificate(certificate_id: int):
     with get_session() as db:
         try:
             item = (
@@ -473,7 +473,7 @@ async def get_certificate(certificate_id: int):
 
 
 @router.put("/{certificate_id}", summary="更新证书信息")
-async def update_certificate(certificate_id: int, body: CertificateUpdate):
+def update_certificate(certificate_id: int, body: CertificateUpdate):
     with get_session() as db:
         try:
             item = (
@@ -515,7 +515,7 @@ async def update_certificate(certificate_id: int, body: CertificateUpdate):
 
 
 @router.put("/{certificate_id}/status", summary="更新证书状态")
-async def update_certificate_status(
+def update_certificate_status(
     certificate_id: int, body: CertificateStatusUpdate
 ):
     with get_session() as db:
@@ -538,7 +538,7 @@ async def update_certificate_status(
 
 
 @router.delete("/{certificate_id}", summary="删除证书")
-async def delete_certificate(certificate_id: int):
+def delete_certificate(certificate_id: int):
     with get_session() as db:
         try:
             item = (
@@ -562,7 +562,7 @@ async def delete_certificate(certificate_id: int):
 
 
 @router.post("/template", summary="创建证书模板")
-async def create_template(body: TemplateCreate):
+def create_template(body: TemplateCreate):
     with get_session() as db:
         try:
             item = CertificateTemplate(
@@ -588,7 +588,7 @@ async def create_template(body: TemplateCreate):
 
 
 @router.get("/template/list", summary="模板列表")
-async def list_templates(
+def list_templates(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -619,7 +619,7 @@ async def list_templates(
 
 
 @router.get("/template/{template_id}", summary="模板详情")
-async def get_template(template_id: int):
+def get_template(template_id: int):
     with get_session() as db:
         try:
             item = (
@@ -636,7 +636,7 @@ async def get_template(template_id: int):
 
 
 @router.put("/template/{template_id}", summary="更新模板")
-async def update_template(template_id: int, body: TemplateUpdate):
+def update_template(template_id: int, body: TemplateUpdate):
     with get_session() as db:
         try:
             item = (
@@ -672,7 +672,7 @@ async def update_template(template_id: int, body: TemplateUpdate):
 
 
 @router.delete("/template/{template_id}", summary="删除模板")
-async def delete_template(template_id: int):
+def delete_template(template_id: int):
     with get_session() as db:
         try:
             item = (
@@ -691,7 +691,7 @@ async def delete_template(template_id: int):
 
 
 @router.put("/template/{template_id}/status", summary="更新模板状态")
-async def update_template_status(
+def update_template_status(
     template_id: int, body: TemplateStatusUpdate
 ):
     with get_session() as db:
@@ -719,7 +719,7 @@ async def update_template_status(
 
 
 @router.get("/serial/next", summary="获取下一个序列号")
-async def get_next_serial():
+def get_next_serial():
     with get_session() as db:
         try:
             now = utcnow()
@@ -739,7 +739,7 @@ async def get_next_serial():
 
 
 @router.get("/serial/current", summary="获取当前序列号")
-async def get_current_serial():
+def get_current_serial():
     with get_session() as db:
         try:
             now = utcnow()

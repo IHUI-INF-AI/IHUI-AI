@@ -30,7 +30,7 @@ async def use_token(request: Request, platform: str = "WEB"):
 
 
 @router.get("/getInfo")
-async def get_info(token: str = Query(..., description="user uuid")):
+def get_info(token: str = Query(..., description="user uuid")):
     # Get product identity order info for a user
     try:
         with get_session() as db:
@@ -48,7 +48,7 @@ async def get_info(token: str = Query(..., description="user uuid")):
 
 
 @router.get("/getProduct")
-async def get_product():
+def get_product():
     # Get product list and active activity
     try:
         with get_session() as db1:

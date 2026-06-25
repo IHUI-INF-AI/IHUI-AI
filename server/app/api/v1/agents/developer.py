@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.post("/create", summary="创建开发者记录")
-async def create_developer(
+def create_developer(
     agent_id: str = Query(..., description="Agent ID"),
     price: float = Query(0.0, description="开发者价格"),
     user_id: str = Query(None, description="指定用户 ID(管理员用),默认当前登录用户"),
@@ -53,7 +53,7 @@ async def create_developer(
 
 
 @router.get("/list", summary="Agent 开发者列表")
-async def list_developers(
+def list_developers(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_id: str = Query(None, description="按用户筛选"),
@@ -81,7 +81,7 @@ async def list_developers(
 
 
 @router.get("/my", summary="我作为开发者的所有 Agent")
-async def my_developer_agents(user_uuid: str = Depends(require_login)):
+def my_developer_agents(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.activity_models import AgentDeveloper
 
@@ -100,7 +100,7 @@ async def my_developer_agents(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/{record_id}", summary="开发者记录详情")
-async def get_developer(record_id: int):
+def get_developer(record_id: int):
     """根据记录 ID 返回开发者详情."""
     with get_session() as db:
         try:
@@ -125,7 +125,7 @@ async def get_developer(record_id: int):
 
 
 @router.post("/bind", summary="绑定 Agent 到当前用户(成为开发者)")
-async def bind_developer(
+def bind_developer(
     agent_id: str = Query(...),
     price: float = Query(0.0, description="开发者价格"),
     user_uuid: str = Depends(require_login),
@@ -161,7 +161,7 @@ async def bind_developer(
 
 
 @router.post("/update-price", summary="更新开发者价格")
-async def update_price(
+def update_price(
     agent_id: str = Query(...),
     price: float = Query(...),
     user_uuid: str = Depends(require_login),
@@ -189,7 +189,7 @@ async def update_price(
 
 
 @router.get("/coze-link", summary="查询 Coze 账号绑定")
-async def coze_link(user_uuid: str = Depends(require_login)):
+def coze_link(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.activity_models import DeveloperLink
 
@@ -207,7 +207,7 @@ async def coze_link(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/coze-link/bind", summary="绑定 Coze 账号")
-async def bind_coze(
+def bind_coze(
     coze_account_id: str = Query(...),
     coze_account_name: str = Query(...),
     user_uuid: str = Depends(require_login),

@@ -47,7 +47,7 @@ async def simple_audio_chat(req: SimpleAudioReq):
             return result
     except Exception as e:
         logger.error("Simple audio chat error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 async def _audio_stream_gen(coze, payload):
@@ -89,4 +89,4 @@ async def plugin_audio_chat(req: PluginAudioReq):
             return result
     except Exception as e:
         logger.error("Plugin audio error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e

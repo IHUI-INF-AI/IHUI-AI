@@ -25,7 +25,7 @@ def _parse_end_date(end_date: str | None) -> datetime | None:
 
 
 @router.get("/lesson/signup", summary="课程报名统计")
-async def lesson_signup_report(
+def lesson_signup_report(
     start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
     end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
 ):
@@ -65,7 +65,7 @@ async def lesson_signup_report(
 
 
 @router.get("/lesson/learn", summary="课程学习统计")
-async def lesson_learn_report(
+def lesson_learn_report(
     start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
     end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
 ):
@@ -129,7 +129,7 @@ async def lesson_learn_report(
 
 
 @router.get("/user", summary="用户学习统计")
-async def user_report(member_id: int = Query(..., description="会员ID")):
+def user_report(member_id: int = Query(..., description="会员ID")):
     with get_session() as db:
         try:
             signup_count = (
@@ -171,7 +171,7 @@ async def user_report(member_id: int = Query(..., description="会员ID")):
 
 
 @router.get("/company", summary="公司统计")
-async def company_report(company_id: int = Query(..., description="公司ID")):
+def company_report(company_id: int = Query(..., description="公司ID")):
     with get_session() as db:
         try:
             signup_count = (

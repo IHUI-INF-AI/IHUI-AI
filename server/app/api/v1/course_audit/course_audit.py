@@ -34,7 +34,7 @@ router = APIRouter()
 
 
 @router.post("/submit", operation_id="course_audit_submit", summary="提交课程审核")
-async def submit(course_id: int = Query(...), course_title: str | None = None):
+def submit(course_id: int = Query(...), course_title: str | None = None):
     with get_session() as db:
         try:
             a = CourseAudit(
@@ -50,7 +50,7 @@ async def submit(course_id: int = Query(...), course_title: str | None = None):
 
 
 @router.get("/list", summary="审核列表")
-async def list_audits(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+def list_audits(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                        status: int | None = None, course_id: int | None = None):
     with get_session() as db:
         try:
@@ -75,7 +75,7 @@ async def list_audits(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, l
 
 
 @router.get("/{aid}", summary="审核详情")
-async def get_audit(aid: int):
+def get_audit(aid: int):
     with get_session() as db:
         try:
             a = db.query(CourseAudit).filter(CourseAudit.id == aid).first()
@@ -94,7 +94,7 @@ async def get_audit(aid: int):
 
 
 @router.put("/{aid}/audit", summary="审核操作")
-async def audit_course(aid: int, status: int = Query(..., ge=1, le=3),
+def audit_course(aid: int, status: int = Query(..., ge=1, le=3),
                         remark: str | None = None, score: int = 0, is_final: bool = False):
     with get_session() as db:
         try:

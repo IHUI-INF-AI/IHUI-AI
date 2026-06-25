@@ -54,7 +54,7 @@ def _paper_with_category(p: ExamPaper, category_map: dict[int, dict]) -> dict:
 
 
 @router.get("/paper/list", summary="鍒嗙敮鐩囬垪鍒楄〃")
-async def list_papers(
+def list_papers(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     category_id: int | None = None,
@@ -89,7 +89,7 @@ async def list_papers(
 
 
 @router.get("/paper/{pid}", summary="鍒嗙敮鐩囧搧搴︾粍")
-async def get_paper(pid: int):
+def get_paper(pid: int):
     with get_session() as db:
         try:
             category = db.query(ExamCategory).filter(ExamCategory.is_show).order_by(ExamCategory.sort_order.asc()).first()
@@ -104,7 +104,7 @@ async def get_paper(pid: int):
 
 
 @router.post("/paper", summary="鍒涘缓鍒嗙敮鐩")
-async def create_paper(
+def create_paper(
     title: str = Query(..., min_length=1, max_length=200),
     description: str | None = None,
     category_id: int | None = None,
@@ -144,7 +144,7 @@ async def create_paper(
 
 
 @router.put("/paper/{pid}", summary="鍒ゆ柇鍒嗙敮鐩")
-async def update_paper(
+def update_paper(
     pid: int,
     title: str | None = None,
     description: str | None = None,
@@ -186,7 +186,7 @@ async def update_paper(
 
 
 @router.delete("/paper/{pid}", summary="鍒犻櫎鍒嗙敮鐩")
-async def delete_paper(pid: int):
+def delete_paper(pid: int):
     with get_session() as db:
         try:
             p = db.query(ExamPaper).filter(ExamPaper.id == pid).first()
@@ -202,7 +202,7 @@ async def delete_paper(pid: int):
 
 
 @router.get("/question/list", summary="鏈鍒嗙敮鐩囧垪鍒楄〃")
-async def list_questions(paper_id: int = Query(...)):
+def list_questions(paper_id: int = Query(...)):
     with get_session() as db:
         try:
             items = (
@@ -234,7 +234,7 @@ async def list_questions(paper_id: int = Query(...)):
 
 
 @router.post("/question", summary="鏂板鍒嗙敮鐩囧")
-async def create_question(
+def create_question(
     paper_id: int = Query(...),
     type: int = Query(..., ge=1, le=5),
     content: str = Query(..., min_length=1),
@@ -271,7 +271,7 @@ async def create_question(
 
 
 @router.put("/question/{qid}", summary="淇鍒ゆ柇鍒嗙敮鐩")
-async def update_question(
+def update_question(
     qid: int,
     content: str | None = None,
     options: str | None = None,
@@ -304,7 +304,7 @@ async def update_question(
 
 
 @router.delete("/question/{qid}", summary="鍒犻櫎鏈鍒嗙敮鐩")
-async def delete_question(qid: int):
+def delete_question(qid: int):
     with get_session() as db:
         try:
             q = db.query(ExamQuestion).filter(ExamQuestion.id == qid).first()
@@ -326,7 +326,7 @@ async def delete_question(qid: int):
 
 
 @router.post("/record/start", summary="寮濮嬫簮鑰")
-async def start_exam(paper_id: int = Query(...)):
+def start_exam(paper_id: int = Query(...)):
     with get_session() as db:
         try:
             p = db.query(ExamPaper).filter(ExamPaper.id == paper_id).first()
@@ -352,7 +352,7 @@ async def start_exam(paper_id: int = Query(...)):
 
 
 @router.post("/record/submit", summary="鎻愪氦楗肩«")
-async def submit_exam(record_id: int = Query(...), answers: str = Query(..., description="绛旈JSON")):
+def submit_exam(record_id: int = Query(...), answers: str = Query(..., description="绛旈JSON")):
     with get_session() as db:
         try:
             r = db.query(ExamRecord).filter(ExamRecord.id == record_id).first()
@@ -422,7 +422,7 @@ async def submit_exam(record_id: int = Query(...), answers: str = Query(..., des
 
 
 @router.get("/record/list", summary="鑰冭瘯璁板綍鍒楄〃")
-async def list_records(
+def list_records(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_id: str | None = None,
@@ -470,7 +470,7 @@ async def list_records(
 
 
 @router.get("/record/{rid}", summary="鑰冭瘯璁板綍璇︾粓")
-async def get_record(rid: int):
+def get_record(rid: int):
     with get_session() as db:
         try:
             r = db.query(ExamRecord).filter(ExamRecord.id == rid).first()
@@ -501,7 +501,7 @@ async def get_record(rid: int):
 
 
 @router.get("/wrong/list", summary="閿棰")
-async def wrong_list(
+def wrong_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     is_mastered: bool | None = None,
@@ -536,7 +536,7 @@ async def wrong_list(
 
 
 @router.put("/wrong/{wid}/master", summary="鏍囨敞閿棰涓宸茶鎸佺画")
-async def mark_mastered(wid: int):
+def mark_mastered(wid: int):
     with get_session() as db:
         try:
             w = db.query(ExamWrongQuestion).filter(ExamWrongQuestion.id == wid).first()
@@ -551,7 +551,7 @@ async def mark_mastered(wid: int):
 
 
 @router.delete("/wrong/{wid}", summary="鍒犻櫎閿棰")
-async def delete_wrong(wid: int):
+def delete_wrong(wid: int):
     with get_session() as db:
         try:
             w = db.query(ExamWrongQuestion).filter(ExamWrongQuestion.id == wid).first()
@@ -566,7 +566,7 @@ async def delete_wrong(wid: int):
 
 
 @router.get("/category/list", operation_id="exam_paper_category_list", summary="鑰冭瘯鍒嗙垪鍒楄〃")
-async def category_list():
+def category_list():
     with get_session() as db:
         try:
             items = (

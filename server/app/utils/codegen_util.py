@@ -246,7 +246,7 @@ router = APIRouter()
 
 
 @router.get("/{{ business_name }}/list", summary="List {{ function_name }}")
-async def list_{{ business_name }}(
+def list_{{ business_name }}(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -263,7 +263,7 @@ async def list_{{ business_name }}(
 
 
 @router.get("/{{ business_name }}/{{ '{' }}{{ pk_field }}{{ '}' }}", summary="Get {{ function_name }} detail")
-async def get_{{ business_name }}(
+def get_{{ business_name }}(
     {{ pk_field }}: {{ pk_type }} = Path(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -279,7 +279,7 @@ async def get_{{ business_name }}(
 
 
 @router.post("/{{ business_name }}", summary="Create {{ function_name }}")
-async def create_{{ business_name }}(
+def create_{{ business_name }}(
     data: dict = Body(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -297,7 +297,7 @@ async def create_{{ business_name }}(
 
 
 @router.put("/{{ business_name }}", summary="Update {{ function_name }}")
-async def update_{{ business_name }}(
+def update_{{ business_name }}(
     data: dict = Body(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -321,7 +321,7 @@ async def update_{{ business_name }}(
 
 
 @router.delete("/{{ business_name }}/{{ '{' }}{{ pk_field }}{{ '}' }}", summary="Delete {{ function_name }}")
-async def delete_{{ business_name }}(
+def delete_{{ business_name }}(
     {{ pk_field }}: {{ pk_type }} = Path(...),
     user_uuid: str = Depends(require_login),
 ):

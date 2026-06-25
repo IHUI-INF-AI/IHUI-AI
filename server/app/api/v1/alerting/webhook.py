@@ -82,7 +82,8 @@ async def receive_webhook(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}") from e
+        logger.error("Invalid JSON: %s", e)
+        raise HTTPException(status_code=400, detail="请求体格式错误") from e
 
     status = data.get("status", "firing")
     alerts = data.get("alerts", [])

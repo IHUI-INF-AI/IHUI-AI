@@ -42,7 +42,7 @@ class FieldRemoveRequest(BaseModel):
 
 
 @router.post("/save", summary="保存用户上下文")
-async def save_context(
+def save_context(
     req: ContextSaveRequest,
     user_uuid: str = Depends(require_login),
 ):
@@ -85,7 +85,7 @@ async def save_context(
 
 
 @router.get("/get", summary="获取用户上下文")
-async def get_context(
+def get_context(
     agent_id: str = Query(..., description="Agent ID"),
     context_key: str | None = Query(None, description="Context key (optional filter)"),
     user_uuid: str = Depends(require_login),
@@ -127,7 +127,7 @@ async def get_context(
 
 
 @router.get("/field", summary="获取指定字段值")
-async def get_field(
+def get_field(
     agent_id: str = Query(...),
     field_name: str = Query(...),
     user_uuid: str = Depends(require_login),
@@ -166,7 +166,7 @@ async def get_field(
 
 
 @router.post("/remove/field", summary="删除指定字段")
-async def remove_field(
+def remove_field(
     req: FieldRemoveRequest,
     user_uuid: str = Depends(require_login),
 ):
@@ -196,7 +196,7 @@ async def remove_field(
 
 
 @router.get("/agent/{agent_id}", summary="获取Agent调用(含token扣除)")
-async def get_agent_with_deduction(
+def get_agent_with_deduction(
     agent_id: str,
     user_uuid: str = Depends(require_login),
 ):
@@ -270,7 +270,7 @@ class RawContextRequest(BaseModel):
 
 
 @router.post("/query", summary="Query user agent context (raw SQL)")
-async def query_context_raw(
+def query_context_raw(
     req: RawContextRequest,
     user_uuid: str = Depends(require_login),
 ):
@@ -362,7 +362,7 @@ async def query_context_raw(
 
 
 @router.get("/sample", summary="Get sample context data")
-async def get_sample_context(
+def get_sample_context(
     limit: int = Query(5, ge=1, le=20, description="Number of rows"),
     user_uuid: str = Depends(require_login),
 ):
@@ -396,7 +396,7 @@ class HistoryRequest(BaseModel):
 
 
 @router.post("/history", summary="Query usage history")
-async def get_usage_history(
+def get_usage_history(
     req: HistoryRequest,
     user_uuid: str = Depends(require_login),
 ):

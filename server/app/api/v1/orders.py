@@ -79,7 +79,7 @@ def _order_to_dict(o: Order) -> dict:
 
 
 @router.post("/create", summary="创建订单")
-async def create_order(
+def create_order(
     product_id: str = Query(..., description="产品ID"),
     order_type: int = Query(0, ge=0, le=3, description="订单类型: 0=token, 1=activity, 2=identity, 3=agent"),
     amount: int = Query(..., ge=1, description="金额(分)"),
@@ -125,7 +125,7 @@ async def create_order(
 
 
 @router.post("/cancel", summary="取消订单")
-async def cancel_order(
+def cancel_order(
     order_id: int = Query(..., ge=1, description="订单ID"),
     user_id: str = Depends(_uid),
 ):
@@ -152,7 +152,7 @@ async def cancel_order(
 
 
 @router.post("/pre-amount", summary="下单前计算价格")
-async def pre_amount(
+def pre_amount(
     product_id: str = Query(..., description="产品ID"),
     order_type: int = Query(0, ge=0, le=3, description="订单类型: 0=token, 1=activity, 2=identity, 3=agent"),
     amount: int = Query(..., ge=1, description="金额(分)"),
@@ -183,7 +183,7 @@ async def pre_amount(
 
 
 @router.get("/list", summary="订单列表")
-async def order_list(
+def order_list(
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页条数"),
     status: int | None = Query(None, description="状态筛选: 0=待支付, 1=已支付, 2=已退款, 3=已取消"),
@@ -225,7 +225,7 @@ async def order_list(
 
 
 @router.get("/user/list", summary="用户订单列表")
-async def user_order_list(
+def user_order_list(
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页条数"),
     user_id: str = Depends(_uid),
@@ -259,7 +259,7 @@ async def user_order_list(
 
 
 @router.get("/{order_id}", summary="获取订单详情")
-async def order_detail(
+def order_detail(
     order_id: int,
     user_id: str = Depends(_uid),
 ):
@@ -282,7 +282,7 @@ async def order_detail(
 
 
 @router.get("/{order_id}/amount", summary="下单后获取价格")
-async def order_amount(
+def order_amount(
     order_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -315,7 +315,7 @@ async def order_amount(
 
 
 @router.put("/{order_id}/status", summary="更新订单状态")
-async def update_order_status(
+def update_order_status(
     order_id: int,
     status: int = Query(..., ge=0, le=3, description="订单状态: 0=待支付, 1=已支付, 2=已退款, 3=已取消"),
     user_uuid: str = Depends(require_role("admin")),

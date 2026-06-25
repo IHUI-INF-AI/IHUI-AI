@@ -37,6 +37,7 @@ import os
 import threading
 
 from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from app.canary_stages import (
@@ -152,9 +153,11 @@ def post_canary_promote(req: PromoteRequest, _admin: str = Depends(_admin_dep)):
     try:
         ev = ctrl.promote(actor=req.actor, reason=req.reason)
     except StageCooldownError as e:
-        raise HTTPException(status_code=429, detail=str(e)) from e
+        logger.error("Canary promote cooldown: %s", e)
+        raise HTTPException(status_code=429, detail="操作过于频繁,请稍后重试") from e
     except StageError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.error("Canary promote stage error: %s", e)
+        raise HTTPException(status_code=400, detail="阶段操作失败") from e
     return CanaryResponse(
         ok=True,
         data={
@@ -171,7 +174,8 @@ def post_canary_rollback(req: RollbackRequest, _admin: str = Depends(_admin_dep)
     try:
         ev = ctrl.rollback(actor=req.actor, reason=req.reason, auto=req.auto)
     except StageError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.error("Canary rollback stage error: %s", e)
+        raise HTTPException(status_code=400, detail="阶段操作失败") from e
     except HTTPException:
         raise
     return CanaryResponse(

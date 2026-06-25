@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="Agent 提现记录")
-async def list_withdrawals(
+def list_withdrawals(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None, description="0=待审 1=处理中 2=完成 3=失败"),
@@ -46,7 +46,7 @@ async def list_withdrawals(
 
 
 @router.get("/{withdrawal_id}", summary="提现详情")
-async def get_withdrawal(
+def get_withdrawal(
     withdrawal_id: str,
     user_uuid: str = Depends(require_login),
 ):
@@ -83,7 +83,7 @@ async def get_withdrawal(
 
 
 @router.post("/apply", summary="申请 Agent 提现")
-async def apply_withdrawal(
+def apply_withdrawal(
     amount: int = Query(..., description="提现金额(分)"),
     order_ids: str = Query("", description="关联订单号,逗号分隔"),
     user_uuid: str = Depends(require_login),

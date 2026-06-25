@@ -56,7 +56,7 @@ async def auto_reconcile(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/pending", summary="查询超时未支付订单")
-async def list_pending(user_uuid: str = Depends(require_login)):
+def list_pending(user_uuid: str = Depends(require_login)):
     pending = query_pending_orders()
     return success({"count": len(pending), "items": pending})
 

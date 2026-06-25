@@ -16,7 +16,7 @@
 
     cb = circuit_breaker("llm.chat", failure_threshold=3, recovery_timeout=30)
 
-    async def chat():
+    def chat():
         try:
             return await call_llm()
         except Exception:

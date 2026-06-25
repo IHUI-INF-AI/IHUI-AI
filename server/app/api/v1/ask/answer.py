@@ -35,7 +35,7 @@ def _a_to_dict(a: AskAnswer) -> dict:
 
 
 @router.post("", summary="提出回答")
-async def create_answer(body: AnswerCreate):
+def create_answer(body: AnswerCreate):
     with get_session() as db:
         try:
             q = db.query(AskQuestion).filter(AskQuestion.id == body.question_id).first()
@@ -58,7 +58,7 @@ async def create_answer(body: AnswerCreate):
 
 
 @router.put("", summary="修改回答")
-async def update_answer(body: AnswerUpdate):
+def update_answer(body: AnswerUpdate):
     with get_session() as db:
         try:
             a = db.query(AskAnswer).filter(AskAnswer.id == body.id).first()
@@ -73,7 +73,7 @@ async def update_answer(body: AnswerUpdate):
 
 
 @router.delete("", summary="删除回答")
-async def delete_answer(id: int = Query(...)):
+def delete_answer(id: int = Query(...)):
     with get_session() as db:
         try:
             a = db.query(AskAnswer).filter(AskAnswer.id == id).first()
@@ -90,7 +90,7 @@ async def delete_answer(id: int = Query(...)):
 
 
 @router.get("/list", summary="回答列表(需权限)")
-async def list_answers(
+def list_answers(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     question_id: int | None = None,
@@ -114,7 +114,7 @@ async def list_answers(
 
 
 @router.get("/public-api/list", summary="回答列表(公开)")
-async def public_list_answers(
+def public_list_answers(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     question_id: int | None = None,
@@ -138,7 +138,7 @@ async def public_list_answers(
 
 
 @router.get("/public-api", summary="回答详情")
-async def get_answer(id: int = Query(...)):
+def get_answer(id: int = Query(...)):
     with get_session() as db:
         try:
             a = db.query(AskAnswer).filter(AskAnswer.id == id, not AskAnswer.deleted).first()
@@ -151,7 +151,7 @@ async def get_answer(id: int = Query(...)):
 
 
 @router.get("/public-api/member/count", summary="会员回答数")
-async def member_answer_count(member_id: str | None = None):
+def member_answer_count(member_id: str | None = None):
     with get_session() as db:
         try:
             uid = member_id or _current_user_id()
@@ -170,7 +170,7 @@ async def member_answer_count(member_id: str | None = None):
 
 
 @router.put("/adopt", summary="采纳回答")
-async def adopt_answer(id: int = Query(...)):
+def adopt_answer(id: int = Query(...)):
     with get_session() as db:
         try:
             a = db.query(AskAnswer).filter(AskAnswer.id == id).first()

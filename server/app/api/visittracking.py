@@ -55,7 +55,7 @@ class VisitStatsOut(BaseModel):
 
 # ---------- 公开接口（前端 SDK 调用） ----------
 @router.post("/public-api/visit-log", summary="保存访问埋点日志")
-async def save_visit_log(payload: VisitLogCreate):
+def save_visit_log(payload: VisitLogCreate):
     """前端访问埋点写入，无需登录。"""
     db = next(get_db())
     try:
@@ -90,7 +90,7 @@ async def save_visit_log(payload: VisitLogCreate):
 
 # ---------- 管理端接口（需登录） ----------
 @router.get("/visit-log/page", summary="埋点日志分页查询")
-async def page_visit_log(
+def page_visit_log(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     user_uuid: Optional[str] = None,
@@ -138,7 +138,7 @@ async def page_visit_log(
 
 
 @router.get("/visit-log/stats", summary="埋点统计")
-async def visit_log_stats(
+def visit_log_stats(
     days: int = Query(7, ge=1, le=90),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
 ):

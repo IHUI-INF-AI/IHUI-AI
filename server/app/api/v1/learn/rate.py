@@ -69,7 +69,7 @@ class RateCreate(BaseModel):
 
 
 @router.post("", summary="创建评价")
-async def create_rate(body: RateCreate):
+def create_rate(body: RateCreate):
     with get_session() as db:
         try:
             existing = (
@@ -105,7 +105,7 @@ async def create_rate(body: RateCreate):
 
 
 @router.get("/lesson/{lesson_id}/list", summary="课程评价列表")
-async def list_lesson_rates(
+def list_lesson_rates(
     lesson_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -127,7 +127,7 @@ async def list_lesson_rates(
 
 
 @router.get("/lesson/{lesson_id}/summary", summary="课程评分汇总")
-async def lesson_rate_summary(lesson_id: int):
+def lesson_rate_summary(lesson_id: int):
     with get_session() as db:
         try:
             q = db.query(Rate).filter(Rate.lesson_id == lesson_id)
@@ -187,7 +187,7 @@ async def lesson_rate_summary(lesson_id: int):
 
 
 @router.get("/member/{member_id}/list", summary="会员评价列表")
-async def list_member_rates(
+def list_member_rates(
     member_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -209,7 +209,7 @@ async def list_member_rates(
 
 
 @router.get("/{rate_id}", summary="评价详情")
-async def get_rate(rate_id: int):
+def get_rate(rate_id: int):
     with get_session() as db:
         try:
             rate = db.query(Rate).filter(Rate.id == rate_id).first()
@@ -222,7 +222,7 @@ async def get_rate(rate_id: int):
 
 
 @router.delete("/{rate_id}", summary="删除评价")
-async def delete_rate(rate_id: int):
+def delete_rate(rate_id: int):
     with get_session() as db:
         try:
             rate = db.query(Rate).filter(Rate.id == rate_id).first()

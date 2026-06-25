@@ -55,7 +55,7 @@ async def create_workflow_run(req: WorkflowRunReq):
             return await coze._request("POST", "/v1/workflow/run", json=body)
     except Exception as e:
         logger.error("Workflow run error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 async def _workflow_stream_gen(coze, workflow_id, parameters=None):
@@ -102,7 +102,7 @@ async def get_run_history(req: WorkflowRunHistoryReq):
             )
     except Exception as e:
         logger.error("Workflow history error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/runs/execute-nodes")
@@ -120,7 +120,7 @@ async def get_node_history(req: WorkflowNodeExecuteReq):
             )
     except Exception as e:
         logger.error("Node history error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/search/model/workflow/run")

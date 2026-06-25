@@ -86,19 +86,19 @@ _MOCK_CATEGORIES = [
 
 
 @api_router.get("/api/category/list", summary="Mock: 智能体分类列表", operation_id="mock_category_list")
-async def mock_category_list():
+def mock_category_list():
     return _ok(_MOCK_CATEGORIES)
 
 
 @api_router.get("/api/category/getPlazaList", summary="Mock: Plaza 分类列表", operation_id="mock_plaza_list")
-async def mock_plaza_list():
+def mock_plaza_list():
     return _ok(_MOCK_CATEGORIES)
 
 
 @api_router.get(
     "/api/category/getPlazaInfoById/{category_id}", summary="Mock: Plaza 分类详情", operation_id="mock_plaza_info"
 )
-async def mock_plaza_info(category_id: int):
+def mock_plaza_info(category_id: int):
     cat = next((c for c in _MOCK_CATEGORIES if c["id"] == category_id), None)
     if not cat:
         raise HTTPException(status_code=404, detail="category not found")
@@ -112,17 +112,17 @@ async def mock_add_plaza_model(request: Request):
 
 
 @api_router.get("/api/openclaw/sessions", summary="Mock: OpenClaw 会话列表", operation_id="mock_openclaw_sessions")
-async def mock_openclaw_sessions():
+def mock_openclaw_sessions():
     return _page([], total=0)
 
 
 @api_router.get("/api/openclaw/tools", summary="Mock: OpenClaw 工具列表", operation_id="mock_openclaw_tools")
-async def mock_openclaw_tools():
+def mock_openclaw_tools():
     return _ok([])
 
 
 @api_router.get("/api/developer/models", summary="Mock: 开发者模型列表", operation_id="mock_developer_models")
-async def mock_developer_models():
+def mock_developer_models():
     models = [
         {
             "id": "gpt-4",
@@ -157,7 +157,7 @@ async def mock_developer_models():
 
 
 @api_router.get("/api/statistics/dashboard", summary="Mock: 仪表盘统计", operation_id="mock_stats_dashboard")
-async def mock_stats_dashboard():
+def mock_stats_dashboard():
     return _ok(
         {
             "totalUsers": 1280,
@@ -178,7 +178,7 @@ async def mock_stats_dashboard():
 
 
 @api_router.get("/api/statistics/overview", summary="Mock: 总览统计", operation_id="mock_stats_overview")
-async def mock_stats_overview():
+def mock_stats_overview():
     return _ok({"users": 1280, "agents": 56, "revenue": 89500.50, "orders": 320})
 
 
@@ -186,17 +186,17 @@ async def mock_stats_overview():
 
 
 @prod_router.get("/prod-api/category/list", include_in_schema=False)
-async def prod_category_list():
+def prod_category_list():
     return _ok(_MOCK_CATEGORIES)
 
 
 @prod_router.get("/prod-api/category/getPlazaList", include_in_schema=False)
-async def prod_plaza_list():
+def prod_plaza_list():
     return _ok(_MOCK_CATEGORIES)
 
 
 @prod_router.get("/prod-api/category/getPlazaInfoById/{category_id}", include_in_schema=False)
-async def prod_plaza_info(category_id: int):
+def prod_plaza_info(category_id: int):
     cat = next((c for c in _MOCK_CATEGORIES if c["id"] == category_id), None)
     if not cat:
         raise BusinessException(code=ErrorCode.NOT_FOUND, msg="category not found")
@@ -210,17 +210,17 @@ async def prod_add_plaza_model(request: Request):
 
 
 @prod_router.get("/prod-api/openclaw/sessions", include_in_schema=False)
-async def prod_openclaw_sessions():
+def prod_openclaw_sessions():
     return _page([], total=0)
 
 
 @prod_router.get("/prod-api/openclaw/tools", include_in_schema=False)
-async def prod_openclaw_tools():
+def prod_openclaw_tools():
     return _ok([])
 
 
 @prod_router.get("/prod-api/developer/models", include_in_schema=False)
-async def prod_developer_models():
+def prod_developer_models():
     return _ok(
         [
             {"id": "gpt-4", "name": "GPT-4", "provider": "openai", "enabled": True},
@@ -230,7 +230,7 @@ async def prod_developer_models():
 
 
 @prod_router.get("/prod-api/statistics/dashboard", include_in_schema=False)
-async def prod_stats_dashboard():
+def prod_stats_dashboard():
     return _ok(
         {
             "totalUsers": 1280,
@@ -242,44 +242,44 @@ async def prod_stats_dashboard():
 
 # 监控埋点 (前端会高频调用, 默认返回成功避免 404 噪声)
 @api_router.post("/api/monitor/collect", summary="Mock: 前端监控埋点", operation_id="mock_monitor_collect")
-async def mock_monitor_collect(request: Request):
+def mock_monitor_collect(request: Request):
     return _ok({"received": True})
 
 
 @api_router.post("/api/monitor/error", summary="Mock: 前端错误上报", operation_id="mock_monitor_error")
-async def mock_monitor_error(request: Request):
+def mock_monitor_error(request: Request):
     return _ok({"received": True})
 
 
 @api_router.post("/api/monitor/performance", summary="Mock: 前端性能上报", operation_id="mock_monitor_perf")
-async def mock_monitor_performance(request: Request):
+def mock_monitor_performance(request: Request):
     return _ok({"received": True})
 
 
 @prod_router.api_route("/prod-api/ai/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], include_in_schema=False)
-async def prod_ai_catchall(path: str, request: Request):
+def prod_ai_catchall(path: str, request: Request):
     return _ok({"path": path, "method": request.method})
 
 
 @prod_router.api_route(
     "/prod-api/system/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], include_in_schema=False
 )
-async def prod_system_catchall(path: str, request: Request):
+def prod_system_catchall(path: str, request: Request):
     return _ok({"path": path, "method": request.method})
 
 
 @prod_router.post("/prod-api/monitor/collect", include_in_schema=False)
-async def prod_monitor_collect(request: Request):
+def prod_monitor_collect(request: Request):
     return _ok({"received": True})
 
 
 @prod_router.post("/prod-api/monitor/error", include_in_schema=False)
-async def prod_monitor_error(request: Request):
+def prod_monitor_error(request: Request):
     return _ok({"received": True})
 
 
 @prod_router.post("/prod-api/monitor/performance", include_in_schema=False)
-async def prod_monitor_performance(request: Request):
+def prod_monitor_performance(request: Request):
     return _ok({"received": True})
 
 
@@ -319,27 +319,27 @@ async def mock_auth_register_post(request: Request):
 
 
 @api_router.post("/api/auth/logout", operation_id="mock_auth_logout_post")
-async def mock_auth_logout_post():
+def mock_auth_logout_post():
     return _ok({"loggedOut": True})
 
 
 @api_router.post("/api/auth/refresh", operation_id="mock_auth_refresh_post")
-async def mock_auth_refresh_post():
+def mock_auth_refresh_post():
     return _ok({"token": _gen_token(), "refreshToken": _gen_token("refresh"), "expiresIn": 7200})
 
 
 @api_router.get("/api/auth/user-info", operation_id="mock_auth_user_info")
-async def mock_auth_user_info():
+def mock_auth_user_info():
     return _ok({"id": 1, "username": "user", "email": "user@example.com", "role": "user"})
 
 
 @api_router.get("/api/auth/profile", operation_id="mock_auth_profile")
-async def mock_auth_profile():
+def mock_auth_profile():
     return _ok({"id": 1, "username": "user", "email": "user@example.com", "avatar": ""})
 
 
 @api_router.get("/api/auth/health", operation_id="mock_auth_health")
-async def mock_auth_health():
+def mock_auth_health():
     return _ok({"status": "ok", "timestamp": int(time.time())})
 
 
@@ -356,12 +356,12 @@ async def mock_user_login_post(request: Request):
 
 
 @api_router.post("/api/user/logout", operation_id="mock_user_logout_post")
-async def mock_user_logout_post():
+def mock_user_logout_post():
     return _ok({"loggedOut": True})
 
 
 @api_router.get("/api/user/profile", operation_id="mock_user_profile")
-async def mock_user_profile():
+def mock_user_profile():
     return _ok({"id": 1, "username": "user", "email": "user@example.com", "avatar": "", "phone": ""})
 
 
@@ -372,28 +372,28 @@ async def mock_user_profile_put(request: Request):
 
 
 @api_router.get("/api/user/getUserInfo", operation_id="mock_user_get_info")
-async def mock_user_get_info():
+def mock_user_get_info():
     return _ok({"id": 1, "username": "user", "email": "user@example.com", "coins": 100, "vipLevel": 0})
 
 
 @api_router.get("/api/user/api-tokens", operation_id="mock_user_api_tokens")
-async def mock_user_api_tokens():
+def mock_user_api_tokens():
     return _ok([])
 
 
 @api_router.get("/api/user/api-usage/stats", operation_id="mock_user_api_usage_stats")
-async def mock_user_api_usage_stats():
+def mock_user_api_usage_stats():
     return _ok({"totalCalls": 0, "totalTokens": 0, "todayCalls": 0})
 
 
 @api_router.get("/api/user/api-balance", operation_id="mock_user_api_balance")
-async def mock_user_api_balance():
+def mock_user_api_balance():
     return _ok({"balance": 100.0, "currency": "CNY"})
 
 
 # --- VIP 模块 ---
 @api_router.get("/api/vip/plans", operation_id="mock_vip_plans")
-async def mock_vip_plans():
+def mock_vip_plans():
     return _ok([
         {"id": 1, "name": "月度会员", "price": 29.9, "duration": 30, "features": ["无限对话", "优先客服"]},
         {"id": 2, "name": "年度会员", "price": 299, "duration": 365, "features": ["无限对话", "优先客服", "专属模型"]},
@@ -401,7 +401,7 @@ async def mock_vip_plans():
 
 
 @api_router.get("/api/vip/levels", operation_id="mock_vip_levels")
-async def mock_vip_levels():
+def mock_vip_levels():
     return _ok([
         {"level": 0, "name": "普通用户", "minPoints": 0},
         {"level": 1, "name": "铜牌会员", "minPoints": 100},
@@ -411,7 +411,7 @@ async def mock_vip_levels():
 
 
 @api_router.get("/api/vip/privileges", operation_id="mock_vip_privileges")
-async def mock_vip_privileges():
+def mock_vip_privileges():
     return _ok(["无限对话", "优先客服", "专属模型", "API 调用", "数据导出"])
 
 
@@ -423,40 +423,40 @@ async def mock_vip_order_create(request: Request):
 
 # --- Wallet 模块 ---
 @api_router.get("/api/wallet/info", operation_id="mock_wallet_info")
-async def mock_wallet_info():
+def mock_wallet_info():
     return _ok({"balance": 100.50, "frozen": 0, "total": 100.50, "currency": "CNY"})
 
 
 @api_router.get("/api/wallet/transactions", operation_id="mock_wallet_transactions")
-async def mock_wallet_transactions():
+def mock_wallet_transactions():
     return _page([], total=0)
 
 
 # --- Upload 模块 ---
 # NOTE: Commented out because the real legacy upload routes provide the actual implementation.
 # @api_router.post("/api/upload/single", operation_id="mock_upload_single")
-# async def mock_upload_single():
+# def mock_upload_single():
 #     return _ok({"url": f"https://mock.example.com/files/{uuid.uuid4().hex[:8]}", "id": int(time.time())})
 #
 #
 # @api_router.post("/api/upload/files", operation_id="mock_upload_files")
-# async def mock_upload_files():
+# def mock_upload_files():
 #     return _ok([{"url": f"https://mock.example.com/files/{uuid.uuid4().hex[:8]}", "id": int(time.time())}])
 #
 #
 # @api_router.delete("/api/upload/file/{file_id}", operation_id="mock_upload_file_delete")
-# async def mock_upload_file_delete(file_id: str):
+# def mock_upload_file_delete(file_id: str):
 #     return _ok({"deleted": True, "id": file_id})
 
 
 # --- Courses 模块 ---
 @api_router.get("/api/courses", operation_id="mock_courses_list")
-async def mock_courses_list():
+def mock_courses_list():
     return _page([], total=0)
 
 
 @api_router.get("/api/courses/my", operation_id="mock_courses_my")
-async def mock_courses_my():
+def mock_courses_my():
     return _ok([])
 
 
@@ -539,7 +539,7 @@ async def mock_ai_generate(request: Request):
 
 
 @api_router.get("/api/ai/models", operation_id="mock_ai_models")
-async def mock_ai_models():
+def mock_ai_models():
     return _ok([
         {"id": "gpt-4", "name": "GPT-4", "provider": "openai"},
         {"id": "gpt-3.5-turbo", "name": "GPT-3.5 Turbo", "provider": "openai"},
@@ -550,12 +550,12 @@ async def mock_ai_models():
 
 # --- AI-Program 模块 ---
 @api_router.get("/api/ai-program/plaza", operation_id="mock_ai_program_plaza")
-async def mock_ai_program_plaza():
+def mock_ai_program_plaza():
     return _page([], total=0)
 
 
 @api_router.get("/api/ai-program/plaza/demands/list", operation_id="mock_plaza_demands_list")
-async def mock_plaza_demands_list():
+def mock_plaza_demands_list():
     demands = [
         {
             "id": 1, "userId": "u1", "userName": "张三", "avatar": "",
@@ -576,7 +576,7 @@ async def mock_plaza_demands_list():
 
 
 @api_router.get("/api/ai-program/plaza/demands/{demand_id}", operation_id="mock_plaza_demand_detail")
-async def mock_plaza_demand_detail(demand_id: int):
+def mock_plaza_demand_detail(demand_id: int):
     return _ok({
         "id": demand_id, "userId": "u1", "userName": "张三", "avatar": "",
         "title": "寻找 AI 智能客服系统集成伙伴",
@@ -601,7 +601,7 @@ async def mock_ai_program_login(request: Request):
 # NOTE: These mocks are commented out because the real legacy routes
 # (挂载在 /api/customer-service/*) provide the actual implementation.
 # @api_router.get("/api/customer-service/faqs", operation_id="mock_cs_faqs")
-# async def mock_cs_faqs():
+# def mock_cs_faqs():
 #     return _ok([
 #         {"id": 1, "question": "如何注册?", "answer": "点击注册按钮即可"},
 #         {"id": 2, "question": "如何充值?", "answer": "进入钱包页面充值"},
@@ -609,13 +609,13 @@ async def mock_ai_program_login(request: Request):
 #
 #
 # @api_router.get("/api/customer-service/tickets", operation_id="mock_cs_tickets")
-# async def mock_cs_tickets():
+# def mock_cs_tickets():
 #     return _page([], total=0)
 
 
 # --- Skills 模块 ---
 @api_router.get("/api/skills/list", operation_id="mock_skills_list")
-async def mock_skills_list():
+def mock_skills_list():
     return _ok([
         {"name": "writing", "description": "AI 写作", "enabled": True},
         {"name": "translation", "description": "AI 翻译", "enabled": True},
@@ -623,18 +623,18 @@ async def mock_skills_list():
 
 
 @api_router.get("/api/skills/metadata", operation_id="mock_skills_metadata")
-async def mock_skills_metadata():
+def mock_skills_metadata():
     return _ok({"version": "1.0", "count": 2})
 
 
 # --- Feature-Flags 模块 ---
 @api_router.get("/api/feature-flags", operation_id="mock_feature_flags")
-async def mock_feature_flags():
+def mock_feature_flags():
     return _ok({"newUI": True, "beta": False, "maintenance": False})
 
 
 @api_router.get("/api/feature-flags/experiments", operation_id="mock_ff_experiments")
-async def mock_ff_experiments():
+def mock_ff_experiments():
     return _ok([])
 
 
@@ -653,7 +653,7 @@ async def mock_fund_wx_pay(request: Request):
 
 # --- Orders 模块 ---
 @api_router.get("/api/orders", operation_id="mock_orders_list")
-async def mock_orders_list():
+def mock_orders_list():
     return _page([], total=0)
 
 
@@ -671,13 +671,13 @@ async def mock_payment_create(request: Request):
 
 
 @api_router.get("/api/payment/checkOrderStatus", operation_id="mock_payment_check")
-async def mock_payment_check():
+def mock_payment_check():
     return _ok({"status": "success", "paid": True})
 
 
 # --- Recharge 模块 ---
 @api_router.get("/api/recharge/config", operation_id="mock_recharge_config")
-async def mock_recharge_config():
+def mock_recharge_config():
     return _ok({"min": 10, "max": 10000, "methods": ["alipay", "wechat"]})
 
 
@@ -689,19 +689,19 @@ async def mock_recharge_create(request: Request):
 
 # --- Service-Appointment 模块 ---
 @api_router.get("/api/service-appointment", operation_id="mock_sa_list")
-async def mock_sa_list():
+def mock_sa_list():
     return _page([], total=0)
 
 
 # --- Speech 模块 ---
 @api_router.get("/api/speech/baidu/token", operation_id="mock_speech_token")
-async def mock_speech_token():
+def mock_speech_token():
     return _ok({"token": _gen_token("baidu"), "expiresIn": 2592000})
 
 
 # --- Unified-AI 模块 ---
 @api_router.get("/api/unified-ai/capabilities", operation_id="mock_unified_ai_caps")
-async def mock_unified_ai_caps():
+def mock_unified_ai_caps():
     return _ok(["chat", "generate", "translate", "code", "image"])
 
 
@@ -713,7 +713,7 @@ async def mock_unified_ai_invoke(request: Request):
 
 # --- Models 模块 ---
 @api_router.get("/api/models/pricing", operation_id="mock_models_pricing")
-async def mock_models_pricing():
+def mock_models_pricing():
     return _ok([
         {"model": "gpt-4", "input": 0.03, "output": 0.06},
         {"model": "gpt-3.5-turbo", "input": 0.001, "output": 0.002},
@@ -722,19 +722,19 @@ async def mock_models_pricing():
 
 # --- Mobile 模块 ---
 @api_router.get("/api/mobile/orders/list", operation_id="mock_mobile_orders")
-async def mock_mobile_orders():
+def mock_mobile_orders():
     return _page([], total=0)
 
 
 # --- Audit 模块 ---
 # NOTE: Commented out because the real legacy audit routes provide the actual implementation.
 # @api_router.get("/api/audit/logs", operation_id="mock_audit_logs")
-# async def mock_audit_logs():
+# def mock_audit_logs():
 #     return _page([], total=0)
 #
 #
 # @api_router.get("/api/audit/stats", operation_id="mock_audit_stats")
-# async def mock_audit_stats():
+# def mock_audit_stats():
 #     return _ok({"total": 0, "today": 0, "errors": 0})
 
 
@@ -751,12 +751,12 @@ async def mock_admin_login(request: Request):
 
 
 @api_router.get("/api/admin/users", operation_id="mock_admin_users")
-async def mock_admin_users():
+def mock_admin_users():
     return _page([], total=0)
 
 
 @api_router.get("/api/admin/roles", operation_id="mock_admin_roles")
-async def mock_admin_roles():
+def mock_admin_roles():
     return _ok([
         {"id": 1, "name": "admin", "description": "管理员"},
         {"id": 2, "name": "user", "description": "普通用户"},
@@ -764,19 +764,19 @@ async def mock_admin_roles():
 
 
 @api_router.get("/api/admin/menus", operation_id="mock_admin_menus")
-async def mock_admin_menus():
+def mock_admin_menus():
     return _ok([
         {"id": 1, "name": "仪表盘", "path": "/dashboard", "icon": "dashboard"},
         {"id": 2, "name": "用户管理", "path": "/users", "icon": "users"},
     ])# --- Agents 模块 ---
 @api_router.get("/api/agents/categories", operation_id="mock_agents_categories")
-async def mock_agents_categories():
+def mock_agents_categories():
     return _ok(_MOCK_CATEGORIES)
 
 
 # --- Agent bylink 接口 (AgentsSquareList 使用) ---
 @api_router.get("/api/agent/rule/search/bylink", operation_id="mock_agent_bylink")
-async def mock_agent_bylink():
+def mock_agent_bylink():
     """返回按主分类分组的智能体列表 (兼容前端 AgentsSquareList 期望格式)."""
     return _ok({
         "AI写作": [
@@ -865,7 +865,7 @@ async def mock_agent_bylink():
 
 
 @api_router.get("/api/agent/categories", operation_id="mock_agent_categories")
-async def mock_agent_categories():
+def mock_agent_categories():
     """返回智能体分类 (主分类 + 子分类). 同时含 list 字段兼容 backend-contract 契约."""
     main_cats = [
         {"id": "1", "name": "AI写作"},
@@ -890,12 +890,12 @@ async def mock_agent_categories():
 
 
 @api_router.post("/api/agent/collect/{agent_id}", operation_id="mock_agent_collect")
-async def mock_agent_collect(agent_id: str):
+def mock_agent_collect(agent_id: str):
     return _ok({"message": "收藏成功", "agentId": agent_id})
 
 
 @api_router.post("/api/agent/like/{agent_id}", operation_id="mock_agent_like")
-async def mock_agent_like(agent_id: str):
+def mock_agent_like(agent_id: str):
     return _ok({"message": "点赞成功", "agentId": agent_id})
 
 
@@ -918,7 +918,7 @@ _ZHS_AGENTS = [
 
 
 @api_router.get("/api/agent/zhsAgent/list", operation_id="mock_zhs_agent_list")
-async def mock_zhs_agent_list(request: Request):
+def mock_zhs_agent_list(request: Request):
     """返回智能体列表 (分页 + categoryId 过滤), 兼容 backend-contract 契约."""
     params = request.query_params
     page = int(params.get("page", params.get("pageNum", "1")))
@@ -937,7 +937,7 @@ async def mock_zhs_agent_list(request: Request):
 
 
 @api_router.get("/api/agent/zhsAgent/{agent_id}", operation_id="mock_zhs_agent_detail")
-async def mock_zhs_agent_detail(agent_id: str):
+def mock_zhs_agent_detail(agent_id: str):
     """返回单个智能体详情, 不存在则 404."""
     for a in _ZHS_AGENTS:
         if a["id"] == agent_id:
@@ -959,7 +959,7 @@ async def mock_zhs_agent_detail(agent_id: str):
     include_in_schema=False,
     operation_id="mock_ai_catchall",
 )
-async def mock_ai_catchall(path: str, request: Request):
+def mock_ai_catchall(path: str, request: Request):
     return _ok({"path": path, "method": request.method})
 
 
@@ -969,7 +969,7 @@ async def mock_ai_catchall(path: str, request: Request):
     include_in_schema=False,
     operation_id="mock_system_catchall",
 )
-async def mock_system_catchall(path: str, request: Request):
+def mock_system_catchall(path: str, request: Request):
     return _ok({"path": path, "method": request.method})
 
 
@@ -989,7 +989,7 @@ _MODULES = [
 
 
 def _make_catchall(module: str):
-    async def handler(path: str, request: Request):
+    def handler(path: str, request: Request):
         return _ok({"path": path, "method": request.method, "module": module})
     handler.__name__ = f"mock_{module}_catchall"
     return handler
@@ -1011,7 +1011,7 @@ for _mod in _MODULES:
     methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     include_in_schema=False,
 )
-async def prod_catchall(path: str, request: Request):
+def prod_catchall(path: str, request: Request):
     return _ok({"path": path, "method": request.method, "source": "prod-api-mock"})
 
 
@@ -1029,7 +1029,7 @@ coze_router = APIRouter(tags=["Coze Mock"])
     summary="Mock: Coze 智能体分类字典",
     operation_id="mock_coze_categories",
 )
-async def mock_coze_categories():
+def mock_coze_categories():
     return _ok(
         [
             {"id": "writing", "name": "AI 写作", "icon": "edit", "count": 128},
@@ -1047,12 +1047,12 @@ async def mock_coze_categories():
     summary="Mock: Coze 分类详情",
     operation_id="mock_coze_category_detail",
 )
-async def mock_coze_category_detail(category_id: str):
+def mock_coze_category_detail(category_id: str):
     return _ok({"id": category_id, "name": category_id, "agents": []})
 
 
 @coze_router.get("/cozeZhsApi/agents", summary="Mock: Coze 智能体列表", operation_id="mock_coze_agents")
-async def mock_coze_agents():
+def mock_coze_agents():
     return _ok(
         [
             {"id": "coze-1", "name": "写作助手", "category": "writing", "status": "active"},
@@ -1069,21 +1069,21 @@ from_fastapi_router = APIRouter(tags=["Universal Mock Fallback"])
 @from_fastapi_router.api_route(
     "/cozeZhsApi/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], include_in_schema=False
 )
-async def mock_coze_catchall(path: str, request: Request):
+def mock_coze_catchall(path: str, request: Request):
     return _ok({"path": path, "method": request.method, "source": "coze-mock"})
 
 
 @from_fastapi_router.api_route(
     "/api-kou/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], include_in_schema=False
 )
-async def mock_kou_catchall(path: str, request: Request):
+def mock_kou_catchall(path: str, request: Request):
     return _ok({"path": path, "method": request.method, "source": "kou-mock"})
 
 
 @from_fastapi_router.api_route(
     "/dev-api/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], include_in_schema=False
 )
-async def mock_devapi_catchall(path: str, request: Request):
+def mock_devapi_catchall(path: str, request: Request):
     return _ok({"path": path, "method": request.method, "source": "dev-api-mock"})
 
 

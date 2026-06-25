@@ -170,7 +170,7 @@ class BackupService:
 
         return sorted(backups, key=lambda x: x["created_at"], reverse=True)
 
-    async def scheduled_backup(self):
+    def scheduled_backup(self):
         logger.info("开始执行定时备份...")
         backup_path = self.create_backup()
 

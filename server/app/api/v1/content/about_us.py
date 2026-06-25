@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/contact", summary="获取联系信息")
-async def get_contact():
+def get_contact():
     """Return the active contact-us entry."""
     from app.models.app_content_models import AiContact
 
@@ -32,7 +32,7 @@ async def get_contact():
 
 
 @router.get("/about", summary="Get about us")
-async def get_about():
+def get_about():
     with get_session() as db:
         from app.models.app_content_models import AiAboutUs
 
@@ -42,7 +42,7 @@ async def get_about():
 
 
 @router.get("/news", summary="List news")
-async def list_news(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+def list_news(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         from app.models.app_content_models import AiNews
 
@@ -64,7 +64,7 @@ async def list_news(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=
 
 
 @router.get("/news/{news_id}", summary="Get news detail")
-async def get_news(news_id: int):
+def get_news(news_id: int):
     with get_session() as db:
         from app.models.app_content_models import AiNews
 
@@ -86,7 +86,7 @@ async def get_news(news_id: int):
 
 
 @router.get("/banners", summary="List banners")
-async def list_banners(position: str = Query(None)):
+def list_banners(position: str = Query(None)):
     with get_session() as db:
         from app.models.app_content_models import BannerCarousel
 
@@ -102,7 +102,7 @@ async def list_banners(position: str = Query(None)):
 
 
 @router.post("/feedback", summary="Submit feedback")
-async def submit_feedback(
+def submit_feedback(
     content: str = Query(...),
     images: str = Query(None),
     type: str = Query(None),
@@ -121,7 +121,7 @@ async def submit_feedback(
 
 
 @router.get("/version", summary="Get latest app version")
-async def get_version(platform: str = Query("android")):
+def get_version(platform: str = Query("android")):
     with get_session() as db:
         from app.models.app_content_models import AppVersion
 
@@ -150,7 +150,7 @@ async def get_version(platform: str = Query("android")):
 
 
 @router.get("/version/list", summary="App 版本列表")
-async def list_versions(
+def list_versions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     platform: str = Query(None),
@@ -181,7 +181,7 @@ async def list_versions(
 
 
 @router.post("/version/create", summary="创建 App 版本")
-async def create_version(
+def create_version(
     version_code: str = Query(...),
     version_name: str = Query(...),
     download_url: str = Query(...),
@@ -212,7 +212,7 @@ async def create_version(
 
 
 @router.put("/version/update", summary="更新 App 版本")
-async def update_version(
+def update_version(
     version_id: int = Query(...),
     version_code: str = Query(None),
     version_name: str = Query(None),
@@ -252,7 +252,7 @@ async def update_version(
 
 
 @router.delete("/version/delete", summary="删除 App 版本")
-async def delete_version(
+def delete_version(
     version_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -277,7 +277,7 @@ async def delete_version(
 
 
 @router.get("/feedback/list", summary="反馈列表")
-async def list_feedbacks(
+def list_feedbacks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None, description="筛选状态: 0=未处理 1=已处理"),
@@ -308,7 +308,7 @@ async def list_feedbacks(
 
 
 @router.put("/feedback/update", summary="更新/回复反馈")
-async def update_feedback(
+def update_feedback(
     feedback_id: int = Query(...),
     status: int = Query(None),
     reply: str = Query(None),
@@ -334,7 +334,7 @@ async def update_feedback(
 
 
 @router.delete("/feedback/delete", summary="删除反馈")
-async def delete_feedback(
+def delete_feedback(
     feedback_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):

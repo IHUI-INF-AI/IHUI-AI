@@ -6,7 +6,7 @@
     from app.core.current_user import get_current_user_id
 
     @router.post("")
-    async def create_item(
+    def create_item(
         body: ItemCreate,
         user_id: str = Depends(get_current_user_id),
     ):

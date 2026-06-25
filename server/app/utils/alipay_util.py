@@ -102,7 +102,7 @@ def verify_notify(params: dict) -> bool:
     return _rsa_verify(sorted_str, sign, public_key)
 
 
-async def app_pay_order(out_trade_no: str, total_amount: str, subject: str, notify_url: str = "") -> str:
+def app_pay_order(out_trade_no: str, total_amount: str, subject: str, notify_url: str = "") -> str:
     """生成 app 支付的 orderStr(移动端)."""
     biz = {
         "out_trade_no": out_trade_no,
@@ -153,7 +153,7 @@ def generate_out_trade_no() -> str:
     return f"{time.strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:8]}"
 
 
-async def create_pay_order(
+def create_pay_order(
     order_id: str,
     desc: str,
     amount: float,

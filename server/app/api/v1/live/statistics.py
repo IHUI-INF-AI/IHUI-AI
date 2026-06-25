@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/statistics", summary="获取直播统计数据")
-async def get_statistics():
+def get_statistics():
     with get_session() as db:
         try:
             now = utcnow()

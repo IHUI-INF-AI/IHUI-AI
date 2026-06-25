@@ -474,5 +474,6 @@ async def http_chat(req: ClientRequest, user_uuid: str = Depends(require_login))
             if chunk.get("kind") == "answer":
                 full += chunk["content"]
     except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e}") from e
+        logger.error("LLM 调用失败: %s", e)
+        raise HTTPException(status_code=502, detail="LLM 调用失败,请稍后重试") from e
     return {"code": 0, "data": {"content": full, "model": cfg.get("model_name", req.model_id)}}

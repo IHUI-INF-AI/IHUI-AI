@@ -24,7 +24,7 @@ async def image_edit(
     watermark: bool = Body(False, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             if not image_url and not image_base64:
                 return error("请提供 image_url 或 image_base64", "400")
@@ -54,7 +54,7 @@ async def image_edit(
             return success(r.json())
         except Exception as e:
             logger.error(f"doubao image edit error: {e}")
-            return error(str(e))
+            return error("图片编辑服务异常,请稍后重试")
 
 
 @router.post("/image-generate", summary="豆包文生图")
@@ -67,7 +67,7 @@ async def image_generate(
     watermark: bool = Body(False, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if doubao_key(api_key):
@@ -87,11 +87,11 @@ async def image_generate(
             return success(r.json())
         except Exception as e:
             logger.error(f"doubao image generate error: {e}")
-            return error(str(e))
+            return error("图片生成服务异常,请稍后重试")
 
 
 @router.get("/models", operation_id="doubao_image_edit_list_models", summary="豆包可用模型")
-async def list_models():
+def list_models():
     return success(
         [
             {"id": "doubao-seededit-3-0-i2i-250628", "name": "豆包SeedEdit 3.0 (图生图)", "type": "image-edit"},

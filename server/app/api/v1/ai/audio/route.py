@@ -116,7 +116,7 @@ COSYVOICE_VOICES: list[dict[str, Any]] = [
 
 
 @router.get("/voices", summary="List available TTS voices")
-async def list_voices(user_uuid: str = Depends(require_login)):
+def list_voices(user_uuid: str = Depends(require_login)):
     """Return curated CosyVoice voice list.
 
     DashScope does not expose a dynamic list-voices API, so we return the

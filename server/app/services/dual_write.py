@@ -269,18 +269,15 @@ def reconcile_table(
     common = h_pks & g_pks
     if common and sample_size > 0:
         sample = list(common)[:sample_size]
-        # H 盘: 原始列名
-        h_columns_sql = "SELECT * FROM `{table}` WHERE `{pk}` IN ({holders})".format(
-            table=table, pk=pk_column, holders=",".join(f"'{p}'" for p in sample)
-        )
-        # G 盘: 同样原始列名
-        g_columns_sql = "SELECT * FROM {table} WHERE {pk} IN ({holders})".format(
-            table=table, pk=pk_column, holders=",".join(f"'{p}'" for p in sample)
-        )
+        # 使用参数化查询防止 SQL 注入 (PK 值通过 params 传递)
+        h_holders = ",".join(f":p{i}" for i in range(len(sample)))
+        h_columns_sql = f"SELECT * FROM `{table}` WHERE `{pk_column}` IN ({h_holders})"
+        g_columns_sql = f"SELECT * FROM {table} WHERE {pk_column} IN ({h_holders})"
+        h_params = {f"p{i}": p for i, p in enumerate(sample)}
         with h_session_factory() as h:
-            h_rows = {str(r[0]): dict(r._mapping) for r in h.execute(text(h_columns_sql))}
+            h_rows = {str(r[0]): dict(r._mapping) for r in h.execute(text(h_columns_sql), h_params)}
         with g_session_factory() as g:
-            g_rows = {str(r[0]): dict(r._mapping) for r in g.execute(text(g_columns_sql))}
+            g_rows = {str(r[0]): dict(r._mapping) for r in g.execute(text(g_columns_sql), h_params)}
         for pk in sample:
             h_data, g_data = h_rows.get(pk, {}), g_rows.get(pk, {})
             if str(h_data) != str(g_data):

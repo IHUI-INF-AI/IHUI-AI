@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="文件列表")
-async def list_files(
+def list_files(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     file_type: str = Query(None, description="按文件类型过滤"),
@@ -51,7 +51,7 @@ class FileUploadBody(BaseModel):
 
 
 @router.post("/upload", summary="上传文件记录")
-async def upload_file(
+def upload_file(
     body: FileUploadBody,
     user_uuid: str = Depends(require_login),
 ):
@@ -78,7 +78,7 @@ async def upload_file(
 
 
 @router.delete("/{file_id}", summary="删除文件")
-async def delete_file(
+def delete_file(
     file_id: int,
     user_uuid: str = Depends(require_login),
 ):

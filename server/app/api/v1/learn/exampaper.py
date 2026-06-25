@@ -63,7 +63,7 @@ class PaperScore(BaseModel):
 
 
 @router.post("/save", summary="保存答卷")
-async def save_paper(body: PaperSave):
+def save_paper(body: PaperSave):
     with get_session() as db:
         try:
             # 查找该会员该考试的未提交答卷, 存在则更新, 否则新建
@@ -110,7 +110,7 @@ async def save_paper(body: PaperSave):
 
 
 @router.post("/submit", summary="提交答卷")
-async def submit_paper(body: PaperSubmit):
+def submit_paper(body: PaperSubmit):
     with get_session() as db:
         try:
             item = db.query(ExamPaperRecord).filter(ExamPaperRecord.id == body.record_id).first()
@@ -128,7 +128,7 @@ async def submit_paper(body: PaperSubmit):
 
 
 @router.put("/{record_id}/score", summary="评分")
-async def score_paper(record_id: int, body: PaperScore):
+def score_paper(record_id: int, body: PaperScore):
     with get_session() as db:
         try:
             item = db.query(ExamPaperRecord).filter(ExamPaperRecord.id == record_id).first()
@@ -144,7 +144,7 @@ async def score_paper(record_id: int, body: PaperScore):
 
 
 @router.get("/member/{member_id}/list", summary="会员答卷列表")
-async def list_member_papers(
+def list_member_papers(
     member_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -166,7 +166,7 @@ async def list_member_papers(
 
 
 @router.get("/exam/{exam_id}/list", summary="考试答卷列表")
-async def list_exam_papers(
+def list_exam_papers(
     exam_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -188,7 +188,7 @@ async def list_exam_papers(
 
 
 @router.get("/lesson/{lesson_id}/list", summary="课程答卷列表")
-async def list_lesson_papers(
+def list_lesson_papers(
     lesson_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -210,7 +210,7 @@ async def list_lesson_papers(
 
 
 @router.get("/member/{member_id}/exam/{exam_id}", summary="查询会员某考试的答卷")
-async def get_member_exam_paper(member_id: int, exam_id: int):
+def get_member_exam_paper(member_id: int, exam_id: int):
     with get_session() as db:
         try:
             item = (
@@ -231,7 +231,7 @@ async def get_member_exam_paper(member_id: int, exam_id: int):
 
 
 @router.get("/exam/{exam_id}/statistics", summary="考试统计")
-async def exam_statistics(exam_id: int):
+def exam_statistics(exam_id: int):
     with get_session() as db:
         try:
             total_count = (
@@ -279,7 +279,7 @@ async def exam_statistics(exam_id: int):
 
 
 @router.get("/{record_id}", summary="答卷详情")
-async def get_paper_record(record_id: int):
+def get_paper_record(record_id: int):
     with get_session() as db:
         try:
             item = db.query(ExamPaperRecord).filter(ExamPaperRecord.id == record_id).first()
@@ -292,7 +292,7 @@ async def get_paper_record(record_id: int):
 
 
 @router.delete("/{record_id}", summary="删除答卷")
-async def delete_paper_record(record_id: int):
+def delete_paper_record(record_id: int):
     with get_session() as db:
         try:
             item = db.query(ExamPaperRecord).filter(ExamPaperRecord.id == record_id).first()

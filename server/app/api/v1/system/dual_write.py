@@ -57,7 +57,7 @@ class ReconcileTableReq(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("/config", summary="查询双写配置")
-async def get_config(_user: str = Depends(require_login)) -> DualWriteConfig:
+def get_config(_user: str = Depends(require_login)) -> DualWriteConfig:
     return DualWriteConfig(
         enabled=DUAL_WRITE_ENABLED,
         primary=DUAL_WRITE_PRIMARY,
@@ -93,7 +93,7 @@ async def update_config(req: ConfigUpdateReq, _user: str = Depends(require_login
 # ---------------------------------------------------------------------------
 
 @router.post("/reconcile/table", summary="对单表对账")
-async def reconcile_one_table(
+def reconcile_one_table(
     req: ReconcileTableReq,
     _user: str = Depends(require_login),
 ):
@@ -114,7 +114,7 @@ async def reconcile_one_table(
 
 
 @router.post("/reconcile/full", summary="全量对账 (所有核心表)")
-async def reconcile_all(_user: str = Depends(require_login)):
+def reconcile_all(_user: str = Depends(require_login)):
     """对所有核心表执行对账, 返回报告列表."""
     reports = full_reconcile()
     return {
@@ -140,7 +140,7 @@ async def reconcile_all(_user: str = Depends(require_login)):
 # ---------------------------------------------------------------------------
 
 @router.get("/source-disks", summary="可用读盘策略枚举")
-async def list_source_disks(_user: str = Depends(require_login)):
+def list_source_disks(_user: str = Depends(require_login)):
     return {
         "code": 0,
         "data": [{"value": d.value, "label": d.name} for d in SourceDisk],

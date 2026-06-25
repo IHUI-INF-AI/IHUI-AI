@@ -31,7 +31,7 @@ class AccessUpdate(BaseModel):
 
 
 @router.put("/{lesson_id}", summary="更新课程学习权限")
-async def update_access(lesson_id: int, body: AccessUpdate):
+def update_access(lesson_id: int, body: AccessUpdate):
     with get_session() as db:
         try:
             # 删除该课程该类型下的旧权限
@@ -65,7 +65,7 @@ async def update_access(lesson_id: int, body: AccessUpdate):
 
 
 @router.get("/{lesson_id}", summary="查询课程学习权限列表")
-async def get_access(lesson_id: int):
+def get_access(lesson_id: int):
     with get_session() as db:
         try:
             items = (

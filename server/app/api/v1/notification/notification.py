@@ -21,7 +21,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("/send", summary="发送通知")
-async def send_notification(
+def send_notification(
     user_id: str | None = None,
     title: str = Query(..., min_length=1, max_length=200),
     content: str = Query(..., min_length=1),
@@ -89,7 +89,7 @@ async def send_notification(
 
 
 @router.get("/list", summary="我的通知列表")
-async def list_notifications(
+def list_notifications(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: str | None = None,
@@ -130,7 +130,7 @@ async def list_notifications(
 
 
 @router.get("/unread-count", operation_id="notification_unread_count", summary="未读通知数")
-async def unread_count():
+def unread_count():
     with get_session() as db:
         try:
             count = (
@@ -148,7 +148,7 @@ async def unread_count():
 
 
 @router.post("/{nid}/read", summary="标记已读")
-async def mark_read(nid: int):
+def mark_read(nid: int):
     with get_session() as db:
         try:
             n = db.query(Notification).filter(Notification.id == nid).first()
@@ -163,7 +163,7 @@ async def mark_read(nid: int):
 
 
 @router.post("/read-all", operation_id="notification_mark_all_read", summary="全部标记已读")
-async def mark_all_read():
+def mark_all_read():
     with get_session() as db:
         try:
             db.query(Notification).filter(
@@ -177,7 +177,7 @@ async def mark_all_read():
 
 
 @router.delete("/{nid}", summary="删除通知")
-async def delete_notification(nid: int):
+def delete_notification(nid: int):
     with get_session() as db:
         try:
             n = db.query(Notification).filter(Notification.id == nid).first()
@@ -194,7 +194,7 @@ async def delete_notification(nid: int):
 
 
 @router.get("/channel/list", summary="通知渠道列表")
-async def channel_list(type: str | None = None):
+def channel_list(type: str | None = None):
     with get_session() as db:
         try:
             q = db.query(NotificationChannel).filter(NotificationChannel.status == 1)
@@ -219,7 +219,7 @@ async def channel_list(type: str | None = None):
 
 
 @router.post("/channel", operation_id="notification_create_channel", summary="添加渠道")
-async def create_channel(
+def create_channel(
     name: str = Query(...), type: str = Query(...), config: str | None = None, is_default: bool = False
 ):
     with get_session() as db:
@@ -234,7 +234,7 @@ async def create_channel(
 
 
 @router.put("/channel/{cid}", operation_id="notification_update_channel", summary="修改渠道")
-async def update_channel(
+def update_channel(
     cid: int,
     name: str | None = None,
     config: str | None = None,
@@ -261,7 +261,7 @@ async def update_channel(
 
 
 @router.delete("/channel/{cid}", operation_id="notification_delete_channel", summary="删除渠道")
-async def delete_channel(cid: int):
+def delete_channel(cid: int):
     with get_session() as db:
         try:
             c = db.query(NotificationChannel).filter(NotificationChannel.id == cid).first()
@@ -278,7 +278,7 @@ async def delete_channel(cid: int):
 
 
 @router.get("/subscription/list", summary="我的订阅偏好")
-async def subscription_list():
+def subscription_list():
     with get_session() as db:
         try:
             items = db.query(NotificationSubscription).filter(NotificationSubscription.user_id == _uid()).all()
@@ -299,7 +299,7 @@ async def subscription_list():
 
 
 @router.post("/subscription", summary="设置订阅")
-async def set_subscription(type: str = Query(...), category: str = Query(...), enabled: bool = True):
+def set_subscription(type: str = Query(...), category: str = Query(...), enabled: bool = True):
     with get_session() as db:
         try:
             uid = _uid()
@@ -326,7 +326,7 @@ async def set_subscription(type: str = Query(...), category: str = Query(...), e
 
 
 @router.get("/log/list", operation_id="notification_log_list", summary="通知发送日志")
-async def log_list(
+def log_list(
     page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), success_flag: bool | None = None
 ):
     with get_session() as db:

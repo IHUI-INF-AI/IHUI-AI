@@ -7,7 +7,7 @@ router = APIRouter()
 
 
 @router.get("", response_class=HTMLResponse, summary="测试页面首页")
-async def index():
+def index():
     return HTMLResponse(
         """
 <!DOCTYPE html>
@@ -58,12 +58,12 @@ h2 { color: #34495e; margin-top: 0; }
 
 
 @router.get("/health", summary="健康检查")
-async def health():
+def health():
     return {"status": "ok", "code": 0, "data": {"healthy": True, "service": "ihui-ai-edu-server"}}
 
 
 @router.get("/docs-page", response_class=HTMLResponse, summary="API文档页面")
-async def docs_page():
+def docs_page():
     return HTMLResponse(
         """
 <!DOCTYPE html>

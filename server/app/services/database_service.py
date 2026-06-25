@@ -770,7 +770,7 @@ class RoleService:
 
     @staticmethod
     def get_all(db: Session) -> list[RoleRecord]:
-        return db.query(RoleRecord).all()
+        return db.query(RoleRecord).limit(500).all()
 
     @staticmethod
     def assign_permission(db: Session, role_id: str, permission_id: str) -> RolePermissionRecord:
@@ -810,7 +810,7 @@ class PermissionService:
 
     @staticmethod
     def get_all(db: Session) -> list[PermissionRecord]:
-        return db.query(PermissionRecord).all()
+        return db.query(PermissionRecord).limit(500).all()
 
     @staticmethod
     def get_by_resource(db: Session, resource: str) -> list[PermissionRecord]:

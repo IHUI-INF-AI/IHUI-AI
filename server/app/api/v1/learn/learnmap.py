@@ -62,7 +62,7 @@ class LearnMapTopicCreate(BaseModel):
 
 
 @router.get("/list", summary="学习地图列表")
-async def list_learnmaps(
+def list_learnmaps(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -89,7 +89,7 @@ async def list_learnmaps(
 
 
 @router.get("/{map_id}", summary="学习地图详情")
-async def get_learnmap(map_id: int):
+def get_learnmap(map_id: int):
     with get_session() as db:
         try:
             item = db.query(LearnMap).filter(LearnMap.id == map_id).first()
@@ -110,7 +110,7 @@ async def get_learnmap(map_id: int):
 
 
 @router.post("", summary="创建学习地图")
-async def create_learnmap(body: LearnMapCreate):
+def create_learnmap(body: LearnMapCreate):
     with get_session() as db:
         try:
             item = LearnMap(
@@ -131,7 +131,7 @@ async def create_learnmap(body: LearnMapCreate):
 
 
 @router.put("/{map_id}", summary="更新学习地图")
-async def update_learnmap(map_id: int, body: LearnMapUpdate):
+def update_learnmap(map_id: int, body: LearnMapUpdate):
     with get_session() as db:
         try:
             item = db.query(LearnMap).filter(LearnMap.id == map_id).first()
@@ -151,7 +151,7 @@ async def update_learnmap(map_id: int, body: LearnMapUpdate):
 
 
 @router.delete("/{map_id}", summary="删除学习地图")
-async def delete_learnmap(map_id: int):
+def delete_learnmap(map_id: int):
     with get_session() as db:
         try:
             item = db.query(LearnMap).filter(LearnMap.id == map_id).first()
@@ -166,7 +166,7 @@ async def delete_learnmap(map_id: int):
 
 
 @router.put("/{map_id}/publish", summary="发布学习地图")
-async def publish_learnmap(map_id: int):
+def publish_learnmap(map_id: int):
     with get_session() as db:
         try:
             item = db.query(LearnMap).filter(LearnMap.id == map_id).first()
@@ -181,7 +181,7 @@ async def publish_learnmap(map_id: int):
 
 
 @router.put("/{map_id}/unpublish", summary="取消发布学习地图")
-async def unpublish_learnmap(map_id: int):
+def unpublish_learnmap(map_id: int):
     with get_session() as db:
         try:
             item = db.query(LearnMap).filter(LearnMap.id == map_id).first()
@@ -196,7 +196,7 @@ async def unpublish_learnmap(map_id: int):
 
 
 @router.get("/recommend", summary="推荐学习地图列表")
-async def list_recommend_learnmaps(
+def list_recommend_learnmaps(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -212,7 +212,7 @@ async def list_recommend_learnmaps(
 
 
 @router.put("/{map_id}/recommend", summary="推荐学习地图")
-async def recommend_learnmap(map_id: int):
+def recommend_learnmap(map_id: int):
     with get_session() as db:
         try:
             item = db.query(LearnMap).filter(LearnMap.id == map_id).first()
@@ -226,7 +226,7 @@ async def recommend_learnmap(map_id: int):
 
 
 @router.get("/{map_id}/topics", summary="学习地图主题列表")
-async def list_learnmap_topics(map_id: int):
+def list_learnmap_topics(map_id: int):
     with get_session() as db:
         try:
             items = (
@@ -242,7 +242,7 @@ async def list_learnmap_topics(map_id: int):
 
 
 @router.post("/{map_id}/topics", summary="添加学习地图主题关系")
-async def add_learnmap_topic(map_id: int, body: LearnMapTopicCreate):
+def add_learnmap_topic(map_id: int, body: LearnMapTopicCreate):
     with get_session() as db:
         try:
             exists = (
@@ -265,7 +265,7 @@ async def add_learnmap_topic(map_id: int, body: LearnMapTopicCreate):
 
 
 @router.delete("/{map_id}/topics/{topic_id}", summary="移除学习地图主题关系")
-async def remove_learnmap_topic(map_id: int, topic_id: int):
+def remove_learnmap_topic(map_id: int, topic_id: int):
     with get_session() as db:
         try:
             item = (

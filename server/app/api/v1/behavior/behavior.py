@@ -27,7 +27,7 @@ def _uid() -> str:
 
 
 @router.post("/like", operation_id="behavior_toggle_like", summary="点赞/取消点赞")
-async def toggle_like(target_type: str = Query(...), target_id: int = Query(...)):
+def toggle_like(target_type: str = Query(...), target_id: int = Query(...)):
     with get_session() as db:
         try:
             uid = _uid()
@@ -58,7 +58,7 @@ async def toggle_like(target_type: str = Query(...), target_id: int = Query(...)
 
 
 @router.get("/like/list", summary="点赞列表")
-async def like_list(
+def like_list(
     target_type: str | None = None,
     user_id: str | None = None,
     page: int = Query(1, ge=1),
@@ -96,7 +96,7 @@ async def like_list(
 
 
 @router.post("/favorite", operation_id="behavior_toggle_favorite", summary="收藏/取消收藏")
-async def toggle_favorite(target_type: str = Query(...), target_id: int = Query(...), folder: str = "default"):
+def toggle_favorite(target_type: str = Query(...), target_id: int = Query(...), folder: str = "default"):
     with get_session() as db:
         try:
             uid = _uid()
@@ -128,7 +128,7 @@ async def toggle_favorite(target_type: str = Query(...), target_id: int = Query(
 
 
 @router.get("/favorite/list", summary="收藏列表")
-async def favorite_list(
+def favorite_list(
     target_type: str | None = None,
     folder: str | None = None,
     page: int = Query(1, ge=1),
@@ -165,7 +165,7 @@ async def favorite_list(
 
 
 @router.post("/comment", operation_id="behavior_add_comment", summary="发表评论")
-async def add_comment(
+def add_comment(
     target_type: str = Query(...),
     target_id: int = Query(...),
     content: str = Query(..., min_length=1),
@@ -197,7 +197,7 @@ async def add_comment(
 
 
 @router.get("/comment/list", summary="评论列表")
-async def comment_list(
+def comment_list(
     target_type: str = Query(...),
     target_id: int = Query(...),
     page: int = Query(1, ge=1),
@@ -236,7 +236,7 @@ async def comment_list(
 
 
 @router.delete("/comment/{cid}", summary="删除评论")
-async def delete_comment(cid: int):
+def delete_comment(cid: int):
     with get_session() as db:
         try:
             c = db.query(BehaviorComment).filter(BehaviorComment.id == cid).first()
@@ -253,7 +253,7 @@ async def delete_comment(cid: int):
 
 
 @router.post("/share", summary="分享")
-async def share(
+def share(
     target_type: str = Query(...), target_id: int = Query(...), platform: str | None = None, ip: str | None = None
 ):
     with get_session() as db:
@@ -277,7 +277,7 @@ async def share(
 
 
 @router.post("/report", summary="举报")
-async def report(
+def report(
     target_type: str = Query(...),
     target_id: int = Query(...),
     reason: str | None = None,
@@ -302,7 +302,7 @@ async def report(
 
 
 @router.get("/report/list", summary="举报列表")
-async def report_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status: int | None = None):
+def report_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status: int | None = None):
     with get_session() as db:
         try:
             q = db.query(BehaviorReport)
@@ -334,7 +334,7 @@ async def report_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, l
 
 
 @router.put("/report/{rid}/handle", summary="处理举报")
-async def handle_report(rid: int, status: int = Query(...), remark: str | None = None):
+def handle_report(rid: int, status: int = Query(...), remark: str | None = None):
     with get_session() as db:
         try:
             r = db.query(BehaviorReport).filter(BehaviorReport.id == rid).first()
@@ -362,7 +362,7 @@ def _filter_sensitive(db, content: str) -> str:
 
 
 @router.get("/sensitive/list", summary="敏感词列表")
-async def sensitive_list(
+def sensitive_list(
     page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=200), category: str | None = None
 ):
     with get_session() as db:
@@ -393,7 +393,7 @@ async def sensitive_list(
 
 
 @router.post("/sensitive", summary="添加敏感词")
-async def add_sensitive(
+def add_sensitive(
     word: str = Query(...),
     category: str | None = None,
     level: int = 1,
@@ -419,7 +419,7 @@ async def add_sensitive(
 
 
 @router.delete("/sensitive/{sid}", summary="删除敏感词")
-async def delete_sensitive(sid: int):
+def delete_sensitive(sid: int):
     with get_session() as db:
         try:
             s = db.query(BehaviorSensitive).filter(BehaviorSensitive.id == sid).first()
@@ -433,7 +433,7 @@ async def delete_sensitive(sid: int):
 
 
 @router.post("/sensitive/check", summary="敏感词检测")
-async def check_sensitive(content: str = Query(..., min_length=1)):
+def check_sensitive(content: str = Query(..., min_length=1)):
     with get_session() as db:
         try:
             items = db.query(BehaviorSensitive).filter(BehaviorSensitive.status == 1).all()
@@ -458,7 +458,7 @@ async def check_sensitive(content: str = Query(..., min_length=1)):
 
 
 @router.post("/follow", summary="关注/取消关注")
-async def toggle_follow(target_user_id: str = Query(...)):
+def toggle_follow(target_user_id: str = Query(...)):
     with get_session() as db:
         try:
             uid = _uid()
@@ -483,7 +483,7 @@ async def toggle_follow(target_user_id: str = Query(...)):
 
 
 @router.get("/follow/list", summary="关注列表")
-async def follow_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), is_follower: bool = False):
+def follow_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), is_follower: bool = False):
     with get_session() as db:
         try:
             uid = _uid()

@@ -25,7 +25,7 @@ class ContactIn(BaseModel):
 
 
 @router.get("/list")
-async def contact_list(pageNum: int = 1, pageSize: int = 10):  # noqa: 42
+def contact_list(pageNum: int = 1, pageSize: int = 10):  # noqa: 42
     """List contacts with pagination."""
     db = SessionFactory2()
     try:
@@ -45,7 +45,7 @@ async def contact_list(pageNum: int = 1, pageSize: int = 10):  # noqa: 42
 
 
 @router.get("/{item_id}")
-async def contact_get_info(item_id: int):
+def contact_get_info(item_id: int):
     """Get contact detail by ID."""
     db = SessionFactory2()
     try:
@@ -61,7 +61,7 @@ async def contact_get_info(item_id: int):
 
 
 @router.post("")
-async def contact_add(item: ContactIn, user_uuid: str = Depends(require_role("admin"))):
+def contact_add(item: ContactIn, user_uuid: str = Depends(require_role("admin"))):
     """Create new contact."""
     db = SessionFactory2()
     try:
@@ -89,7 +89,7 @@ async def contact_add(item: ContactIn, user_uuid: str = Depends(require_role("ad
 
 
 @router.put("")
-async def contact_edit(
+def contact_edit(
     item: ContactIn, item_id: int = Query(..., alias="id"), user_uuid: str = Depends(require_role("admin"))
 ):
     """Update contact."""
@@ -120,7 +120,7 @@ async def contact_edit(
 
 
 @router.delete("/{item_ids}")
-async def contact_remove(item_ids: str, user_uuid: str = Depends(require_role("admin"))):
+def contact_remove(item_ids: str, user_uuid: str = Depends(require_role("admin"))):
     """Delete contacts by comma-separated IDs.
 
     Fixed: Use parameterized queries to prevent SQL injection.

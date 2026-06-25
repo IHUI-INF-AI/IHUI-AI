@@ -49,7 +49,7 @@ class CourseUpdate(BaseModel):
 
 
 @router.get("/list", summary="List courses")
-async def list_courses(
+def list_courses(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     keyword: str = Query(None),
@@ -92,7 +92,7 @@ async def list_courses(
 
 
 @router.get("/{course_id}", summary="Get course detail")
-async def get_course(course_id: int):
+def get_course(course_id: int):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course, CourseVideo
@@ -142,7 +142,7 @@ async def get_course(course_id: int):
 
 
 @router.post("/create", summary="Create course")
-async def create_course(body: CourseCreate, user_uuid: str = Depends(require_login)):
+def create_course(body: CourseCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course
@@ -179,7 +179,7 @@ async def create_course(body: CourseCreate, user_uuid: str = Depends(require_log
 
 
 @router.put("/{course_id}", summary="Update course")
-async def update_course(course_id: int, body: CourseUpdate, user_uuid: str = Depends(require_login)):
+def update_course(course_id: int, body: CourseUpdate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course
@@ -205,7 +205,7 @@ async def update_course(course_id: int, body: CourseUpdate, user_uuid: str = Dep
 
 
 @router.delete("/{course_id}", summary="Delete course (soft)")
-async def delete_course(course_id: int, user_uuid: str = Depends(require_login)):
+def delete_course(course_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course
@@ -229,7 +229,7 @@ async def delete_course(course_id: int, user_uuid: str = Depends(require_login))
 
 
 @router.post("/{course_id}/delist", summary="Delist (hide) course")
-async def delist_course(course_id: int, user_uuid: str = Depends(require_login)):
+def delist_course(course_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course

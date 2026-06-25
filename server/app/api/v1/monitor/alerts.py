@@ -81,7 +81,8 @@ async def alertmanager_webhook(request: Request, dry_run: bool = False):
     try:
         body = _json.loads(raw_body)
     except _json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}") from e
+        logger.error("alert webhook JSON parse failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=400, detail="请求体格式错误") from e
     raw_alerts = body.get("alerts", [])
     firing = [a for a in raw_alerts if a.get("status") == "firing"]
     # 建议 141: 抑制过滤

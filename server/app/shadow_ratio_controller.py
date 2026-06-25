@@ -250,7 +250,7 @@ class ShadowRatioController:
         if self._stop is not None:
             self._stop.set()
         if self._task is not None:
-            with contextlib.suppress(TimeoutError, asyncio.CancelledError):
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._task, timeout=self.interval_sec + 5)
             self._task = None
 

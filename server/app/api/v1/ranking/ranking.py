@@ -58,7 +58,7 @@ def _get_user_score(db, period: str) -> list:
 
 
 @router.get("/list", summary="排行榜列表")
-async def list_rankings():
+def list_rankings():
     with get_session() as db:
         try:
             items = db.query(RankingList).filter(RankingList.status == 1).all()
@@ -81,7 +81,7 @@ async def list_rankings():
 
 
 @router.get("/user", summary="用户积分排行榜")
-async def user_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
+def user_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
     with get_session() as db:
         try:
             from app.models.point_models import PointAccount
@@ -118,13 +118,13 @@ async def user_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)
 
 
 @router.get("/agent", summary="Agent排行榜")
-async def agent_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
+def agent_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
     with get_session() as db:
         try:
             from app.models.agent_models import Agent
             from app.models.agents_models_legacy import Agent as _A
 
-            items = db.query(_A).order_by(_A.heat.desc()).limit(limit).all() if db.query(_A).first() is not None else []
+            items = db.query(_A).filter(_A.is_deleted == 0).order_by(_A.heat.desc()).limit(limit).all() if db.query(_A).filter(_A.is_deleted == 0).first() is not None else []
             return success(
                 [
                     {
@@ -138,7 +138,7 @@ async def agent_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200
             )
         except Exception as e:
             try:
-                items = db.query(Agent).order_by(Agent.heat.desc()).limit(limit).all()
+                items = db.query(Agent).filter(Agent.is_deleted == 0).order_by(Agent.heat.desc()).limit(limit).all()
                 return success(
                     [
                         {
@@ -156,7 +156,7 @@ async def agent_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200
 
 
 @router.get("/course", summary="课程排行榜")
-async def course_ranking(limit: int = Query(50, ge=1, le=200)):
+def course_ranking(limit: int = Query(50, ge=1, le=200)):
     with get_session() as db:
         try:
             from app.models.course_models import ZhsCourse
@@ -180,7 +180,7 @@ async def course_ranking(limit: int = Query(50, ge=1, le=200)):
 
 
 @router.post("", summary="创建榜单")
-async def create_ranking(
+def create_ranking(
     name: str = Query(...),
     code: str = Query(...),
     type: str = "agent",

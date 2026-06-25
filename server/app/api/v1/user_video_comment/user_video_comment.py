@@ -37,7 +37,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.get("/list", summary="视频评论列表")
-async def list_comments(video_id: int = Query(...), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+def list_comments(video_id: int = Query(...), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
             q = db.query(UserVideoComment).filter(
@@ -71,7 +71,7 @@ async def list_comments(video_id: int = Query(...), page: int = Query(1, ge=1), 
 
 
 @router.post("", summary="发表视频评论")
-async def add_comment(
+def add_comment(
     video_id: int = Query(...),
     content: str = Query(..., min_length=1),
     pid: int = 0,
@@ -99,7 +99,7 @@ async def add_comment(
 
 
 @router.delete("/{cid}", summary="删除视频评论")
-async def delete_comment(cid: int):
+def delete_comment(cid: int):
     with get_session() as db:
         try:
             c = db.query(UserVideoComment).filter(UserVideoComment.id == cid).first()

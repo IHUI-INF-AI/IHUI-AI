@@ -23,7 +23,7 @@ router = APIRouter(tags=["Fund Operations"])
 
 
 @router.post("/createOrder", summary="创建基金充值订单")
-async def create_fund_order(
+def create_fund_order(
     amount: float = Query(..., description="充值金额(元)"),
     product_id: str = Query(None),
     order_type: int = Query(0),
@@ -72,7 +72,7 @@ async def fund_wechat_pay(
 
 
 @router.post("/transfer", summary="银行转账")
-async def fund_transfer(
+def fund_transfer(
     amount: int = Query(..., description="转账金额(分)"),
     bank_account: str = Query(..., description="收款账号"),
     bank_name: str = Query("", description="收款银行"),
@@ -111,7 +111,7 @@ async def fund_transfer(
 
 
 @router.post("/withdrawal", summary="基金提现")
-async def fund_withdrawal(
+def fund_withdrawal(
     amount: int = Query(..., description="提现金额(分)"),
     user_uuid: str = Depends(require_login),
 ):

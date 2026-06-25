@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="身份订单列表")
-async def list_identity_orders(
+def list_identity_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None, description="订单状态 0=待支付 1=已支付 2=已退款 3=已取消"),
@@ -60,7 +60,7 @@ async def list_identity_orders(
 
 
 @router.get("/info", summary="获取身份产品详情")
-async def get_identity_info(
+def get_identity_info(
     identity_id: str = Query(..., description="产品身份ID"),
 ):
     with get_session() as db:
@@ -84,7 +84,7 @@ async def get_identity_info(
 
 
 @router.post("/create", summary="创建身份订单")
-async def create_identity_order(
+def create_identity_order(
     identity_id: str = Query(..., description="产品身份ID"),
     pay_type: str = Query("wechat", description="支付方式: wechat / alipay"),
     user_uuid: str = Depends(require_login),
@@ -180,7 +180,7 @@ def _serialize_proportion(p) -> dict:
 
 
 @router.get("/proportion/list", summary="身份比例列表")
-async def list_proportions(
+def list_proportions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None, description="0=stopped 1=active"),
@@ -198,7 +198,7 @@ async def list_proportions(
 
 
 @router.post("/proportion/create", summary="创建比例配置")
-async def create_proportion(
+def create_proportion(
     body: IdentityProportionBody,
     user_uuid: str = Depends(require_login),
 ):
@@ -240,7 +240,7 @@ async def create_proportion(
 
 
 @router.put("/proportion/{proportion_id}", summary="修改比例")
-async def update_proportion(
+def update_proportion(
     proportion_id: str,
     body: IdentityProportionBody,
     user_uuid: str = Depends(require_login),

@@ -38,7 +38,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("/record", summary="记录视频观看")
-async def record_watch(
+def record_watch(
     video_id: int = Query(...),
     duration: int = 0,
     watched: int = 0,
@@ -73,7 +73,7 @@ async def record_watch(
 
 
 @router.get("/list", operation_id="user_video_log_list", summary="我的观看记录")
-async def list_logs(
+def list_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     video_id: int | None = None,
@@ -112,7 +112,7 @@ async def list_logs(
 
 
 @router.get("/stats", summary="观看统计")
-async def stats():
+def stats():
     with get_session() as db:
         try:
             uid = _uid()

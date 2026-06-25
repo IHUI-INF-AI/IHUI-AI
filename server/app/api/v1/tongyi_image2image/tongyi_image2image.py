@@ -136,7 +136,7 @@ async def virtual_try_on(
 
 
 @router.get("/models", operation_id="tongyi_image2image_list_models", summary="通义图生图可用模型")
-async def list_models():
+def list_models():
     return success(
         [
             {"id": "wanx2.1-imageedit", "name": "通义万相2.1图编辑", "type": "image-to-image"},

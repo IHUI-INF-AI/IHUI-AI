@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="List agent examinations")
-async def list_examine(
+def list_examine(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None),
@@ -35,7 +35,7 @@ async def list_examine(
 
 
 @router.get("/stats/summary", summary="Examination statistics")
-async def examine_stats(
+def examine_stats(
     user_uuid: str = Depends(require_login),
 ):
     with get_session() as db:
@@ -56,7 +56,7 @@ async def examine_stats(
 
 
 @router.get("/{record_id}", summary="Get examination detail")
-async def get_examine_detail(
+def get_examine_detail(
     record_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -79,7 +79,7 @@ async def get_examine_detail(
 
 
 @router.put("/{record_id}/approve", summary="Approve agent examination")
-async def approve_examine(
+def approve_examine(
     record_id: int,
     remark: str = Body(None, embed=True),
     user_uuid: str = Depends(require_login),
@@ -114,7 +114,7 @@ async def approve_examine(
 
 
 @router.put("/{record_id}/reject", summary="Reject agent examination")
-async def reject_examine(
+def reject_examine(
     record_id: int,
     reject_reason: str = Body(..., embed=True),
     user_uuid: str = Depends(require_login),
@@ -141,7 +141,7 @@ async def reject_examine(
 
 
 @router.post("/submit", summary="Submit agent for examination")
-async def submit_examine(
+def submit_examine(
     agent_id: str = Query(...),
     user_uuid: str = Depends(require_login),
 ):

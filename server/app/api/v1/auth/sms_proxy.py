@@ -168,7 +168,7 @@ async def quick_register(request: RegisterRequest):
 
 
 @router.get("/config")
-async def get_proxy_config():
+def get_proxy_config():
     """Return SMS proxy configuration."""
     config_data = {
         "sms_verify_url": "/api/sms-proxy/send",

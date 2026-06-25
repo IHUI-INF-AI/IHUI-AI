@@ -354,7 +354,7 @@ async def wechat_rebind(
 
 
 @router.post("/mini/rebind_by_phone", summary="Rebind WeChat by phone number")
-async def wechat_rebind_by_phone(
+def wechat_rebind_by_phone(
     phone: str = Query(..., description="User phone number"),
     open_id: str = Query(..., description="New WeChat open_id to bind"),
 ):
@@ -441,7 +441,7 @@ async def get_wechat_qrcode(
 # ---------------------------------------------------------------------------
 
 @router.get("/pc/wxCode", summary="微信PC扫码登录 - 获取授权页")
-async def wechat_pc_wx_code():
+def wechat_pc_wx_code():
     """微信PC扫码登录入口.
 
     返回一个 HTML 页面, 内嵌微信开放平台扫码授权 iframe,

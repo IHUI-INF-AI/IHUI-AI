@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="List commission flows")
-async def list_commissions(
+def list_commissions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -43,7 +43,7 @@ async def list_commissions(
 
 
 @router.get("/summary", summary="Get commission summary (today/month/total)")
-async def get_summary(user_uuid: str = Depends(require_login)):
+def get_summary(user_uuid: str = Depends(require_login)):
     """Mirrors Java getStatistics. Returns day/month/total commission stats
     considering the commissionDay window.
     """
@@ -140,7 +140,7 @@ async def get_summary(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/orders", summary="我的订单列表(分页+筛选)")
-async def list_orders(
+def list_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     order_type: int | None = Query(None, description="订单类型:0=token 1=activity 2=identity 3=agent"),
@@ -177,7 +177,7 @@ async def list_orders(
 
 
 @router.post("/settle/{commission_id}", summary="手动结算佣金流水")
-async def settle_commission(
+def settle_commission(
     commission_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -209,7 +209,7 @@ async def settle_commission(
 # ---------------------------------------------------------------------------
 
 @router.post("/feedback-invite/{out_trade_no}", summary="按订单号触发邀请分润")
-async def feedback_invite_by_order(out_trade_no: str, _user: str = Depends(require_login)):
+def feedback_invite_by_order(out_trade_no: str, _user: str = Depends(require_login)):
     """按订单号触发邀请分润 (commission_service.feedback_invite_by_order).
 
     通常由支付成功回调自动调用, 此端点用于:
@@ -227,7 +227,7 @@ async def feedback_invite_by_order(out_trade_no: str, _user: str = Depends(requi
 
 
 @router.post("/invalidate-proportion-cache", summary="失效分润比例缓存")
-async def invalidate_proportion_cache(_user: str = Depends(require_login)):
+def invalidate_proportion_cache(_user: str = Depends(require_login)):
     """手动失效 _get_cached_active_proportion 的 lru_cache.
 
     当运营修改 IdentityProportion 表后, 调用此接口让下次分润生效.
@@ -239,7 +239,7 @@ async def invalidate_proportion_cache(_user: str = Depends(require_login)):
 
 
 @router.get("/active-proportion", summary="查询当前生效的分润比例")
-async def get_active_proportion(_user: str = Depends(require_login)):
+def get_active_proportion(_user: str = Depends(require_login)):
     """读取当前生效的 IdentityProportion (含缓存版本)."""
     from app.services.commission_service import _get_cached_active_proportion
 

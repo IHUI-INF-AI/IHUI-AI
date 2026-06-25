@@ -57,7 +57,7 @@ def _token_expires_in_seconds() -> int:
 
 
 @router.post("/admin/login", summary="管理员 SSO 登录")
-async def admin_login(username: str = Body(...), password: str = Body(...)):
+def admin_login(username: str = Body(...), password: str = Body(...)):
     """管理员单点登录.
 
     通过用户名和密码验证 SysUser (admin_user 表),
@@ -116,7 +116,7 @@ async def admin_login(username: str = Body(...), password: str = Body(...)):
 
 
 @router.post("/member/login", summary="会员 SSO 登录")
-async def member_login(phone: str = Body(...), password: str = Body(...)):
+def member_login(phone: str = Body(...), password: str = Body(...)):
     """会员单点登录.
 
     通过手机号和密码验证 User (users 表),
@@ -144,7 +144,7 @@ async def member_login(phone: str = Body(...), password: str = Body(...)):
 
 
 @router.post("/uuid/login", summary="UUID 直接登录")
-async def uuid_login(request: Request, uuid: str = Body(..., embed=True)):
+def uuid_login(request: Request, uuid: str = Body(..., embed=True)):
     """UUID 直接登录.
 
     通过用户 UUID 直接获取用户信息并签发 token,
@@ -213,7 +213,7 @@ async def uuid_login(request: Request, uuid: str = Body(..., embed=True)):
 
 
 @router.post("/admin/create", summary="创建管理员")
-async def admin_create(
+def admin_create(
     username: str = Body(...),
     password: str = Body(...),
     nickname: str = Body(None),
@@ -290,7 +290,7 @@ async def admin_create(
 
 
 @router.post("/member/create", summary="创建会员")
-async def member_create(
+def member_create(
     phone: str = Body(...),
     password: str = Body(...),
     nickname: str = Body(None),

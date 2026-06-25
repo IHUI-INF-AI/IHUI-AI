@@ -17,6 +17,6 @@ async def feishu_pc_wx_code(code: str = Query(..., description="Feishu auth code
 
 
 @router.get("/pc/test")
-async def feishu_pc_test(code: str = Query(..., description="test code")):
+def feishu_pc_test(code: str = Query(..., description="test code")):
     # Test endpoint
     return {"code": "200", "message": "Feishu test OK", "data": {"code_received": code}}

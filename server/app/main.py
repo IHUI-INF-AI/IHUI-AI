@@ -36,7 +36,7 @@ logger.add(
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     logger.info("Starting ZHS Platform...")
 
@@ -497,7 +497,7 @@ def create_app() -> FastAPI:
 
     # Mock 状态端点 (运维查询, 上线前必查)
     @app.get("/api/mock/status", tags=["Mock"], include_in_schema=False)
-    async def mock_status():
+    def mock_status():
         from app.api.mock import api_router as _a
         from app.api.mock import coze_router as _c
         from app.api.mock import prod_router as _p
@@ -530,7 +530,7 @@ def create_app() -> FastAPI:
 
     # OpenAPI 按 tag 拆分端点 - 减小单文档大小, 方便前端按需加载
     @app.get("/openapi/tags", tags=["OpenAPI"], include_in_schema=False)
-    async def openapi_tags():
+    def openapi_tags():
         """列出所有 OpenAPI tag 及其端点数."""
         from fastapi.openapi.utils import get_openapi
 
@@ -554,7 +554,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/openapi/tag/{tag_name}", tags=["OpenAPI"], include_in_schema=False)
-    async def openapi_by_tag(tag_name: str):
+    def openapi_by_tag(tag_name: str):
         """获取指定 tag 的 OpenAPI 子文档."""
         from fastapi.openapi.utils import get_openapi
         from fastapi.responses import JSONResponse
@@ -598,12 +598,12 @@ def create_app() -> FastAPI:
 
     # Prometheus /metrics endpoint
     @app.get("/metrics", tags=["Monitor"], include_in_schema=False)
-    async def metrics():
+    def metrics():
         return render_metrics()
 
     # Admin /admin  static page (avoid SPA catch-all)
     @app.get("/admin", include_in_schema=False)
-    async def admin_page():
+    def admin_page():
         from fastapi.responses import FileResponse
 
         static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -614,14 +614,14 @@ def create_app() -> FastAPI:
 
     # Circuit breaker status
     @app.get("/resilience", include_in_schema=False)
-    async def resilience_status():
+    def resilience_status():
         from app.resilience import all_snapshots
 
         return all_snapshots()
 
     # Manual circuit breaker reset (fault tolerance)
     @app.post("/resilience/reset/{circuit_name}", include_in_schema=False)
-    async def reset_circuit(circuit_name: str):
+    def reset_circuit(circuit_name: str):
         from app.resilience import _CIRCUITS
 
         cb = _CIRCUITS.get(circuit_name)
@@ -668,7 +668,7 @@ def create_app() -> FastAPI:
             if os.path.isfile(_path):
                 _fpath = _path
 
-                async def _serve_html(request: Request, __fp: str = _fpath):
+                def _serve_html(request: Request, __fp: str = _fpath):
                     return FileResponse(__fp, headers={"Cache-Control": "no-store"})
 
                 app.add_api_route(
@@ -732,7 +732,7 @@ def create_app() -> FastAPI:
 
     # Health check (K8s livenessProbe)
     @app.get("/healthz", tags=["Health"], summary="Health check (K8s livenessProbe)", include_in_schema=False)
-    async def healthz():
+    def healthz():
         """For Docker HEALTHCHECK / K8s livenessProbe / load balancer health checks."""
         try:
             from app.telemetry import is_telemetry_enabled
@@ -749,7 +749,7 @@ def create_app() -> FastAPI:
 
     # 深度健康检查 (K8s readinessProbe) - 检查 DB + Redis + 关键依赖
     @app.get("/ready", tags=["Health"], summary="Readiness check (K8s readinessProbe)", include_in_schema=False)
-    async def ready():
+    def ready():
         """深度检查: DB / Redis / 关键模型.
 
         任意核心依赖失败 → 返回 503, K8s 不会把流量打过来.

@@ -63,7 +63,7 @@ async def send_message(
 
 
 @router.post("/message/stream", summary="Send chat message via Coze (SSE stream)")
-async def send_message_stream(
+def send_message_stream(
     bot_id: str = Query(...),
     message: str = Query(...),
     conversation_id: str = Query(None),
@@ -148,7 +148,7 @@ async def run_workflow(
 
 
 @router.post("/workflow/run/stream", summary="Run Coze workflow (stream)")
-async def run_workflow_stream(
+def run_workflow_stream(
     workflow_id: str = Query(...),
     parameters: str = Query("{}"),
     user_uuid: str = Depends(require_login),
@@ -209,7 +209,7 @@ async def resume_workflow(
 
 
 @router.post("/workflow/run/resume/stream", summary="Resume interrupted Coze workflow (stream)")
-async def resume_workflow_stream(
+def resume_workflow_stream(
     workflow_id: str = Query(...),
     event_id: str = Query(...),
     resume_data: str = Query("{}", description="JSON string"),

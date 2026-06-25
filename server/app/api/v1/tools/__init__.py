@@ -373,7 +373,7 @@ TOOLS = [
 
 
 @router.get("/list", summary="获取工具列表")
-async def list_tools(
+def list_tools(
     category: str | None = Query(None, description="分类过滤"),
     keyword: str | None = Query(None, description="搜索关键词"),
     sort: str | None = Query("default", description="排序: default/name/hot"),
@@ -396,7 +396,7 @@ async def list_tools(
 
 
 @router.get("/categories", summary="获取工具分类列表")
-async def list_categories():
+def list_categories():
     """获取工具分类及每个分类的工具数量"""
     categories = []
     for c in TOOL_CATEGORIES:

@@ -20,7 +20,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-async def admin_required(request: Request):
+def admin_required(request: Request):
     """Admin 权限依赖: 验证 X-Admin-Token 或 Bearer JWT."""
     # 1. X-Admin-Token 头
     admin_token = getattr(settings, "ADMIN_TOKEN", "") or ""

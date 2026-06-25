@@ -110,7 +110,7 @@ class CategoryRelationCreate(BaseModel):
 
 
 @router.get("/list", summary="课程分类列表")
-async def list_categories(
+def list_categories(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     is_show: int | None = None,
@@ -137,7 +137,7 @@ async def list_categories(
 
 
 @router.get("/tree", summary="课程分类树")
-async def category_tree():
+def category_tree():
     with get_session() as db:
         try:
             cats = (
@@ -172,7 +172,7 @@ async def category_tree():
 
 
 @router.post("", summary="创建课程分类")
-async def create_category(body: CategoryCreate):
+def create_category(body: CategoryCreate):
     with get_session() as db:
         try:
             item = Category(
@@ -195,7 +195,7 @@ async def create_category(body: CategoryCreate):
 
 
 @router.put("/{category_id}", summary="更新课程分类")
-async def update_category(category_id: int, body: CategoryUpdate):
+def update_category(category_id: int, body: CategoryUpdate):
     with get_session() as db:
         try:
             item = db.query(Category).filter(Category.id == category_id).first()
@@ -225,7 +225,7 @@ async def update_category(category_id: int, body: CategoryUpdate):
 
 
 @router.delete("/{category_id}", summary="删除课程分类")
-async def delete_category(category_id: int):
+def delete_category(category_id: int):
     with get_session() as db:
         try:
             item = db.query(Category).filter(Category.id == category_id).first()
@@ -251,7 +251,7 @@ async def delete_category(category_id: int):
 
 
 @router.put("/{category_id}/show", summary="显示课程分类")
-async def show_category(category_id: int):
+def show_category(category_id: int):
     with get_session() as db:
         try:
             item = db.query(Category).filter(Category.id == category_id).first()
@@ -266,7 +266,7 @@ async def show_category(category_id: int):
 
 
 @router.put("/{category_id}/hide", summary="隐藏课程分类")
-async def hide_category(category_id: int):
+def hide_category(category_id: int):
     with get_session() as db:
         try:
             item = db.query(Category).filter(Category.id == category_id).first()
@@ -281,7 +281,7 @@ async def hide_category(category_id: int):
 
 
 @router.post("/relation", summary="设置课程分类关系")
-async def set_category_relation(body: CategoryRelationCreate):
+def set_category_relation(body: CategoryRelationCreate):
     with get_session() as db:
         try:
             exists = (
@@ -334,7 +334,7 @@ async def set_category_relation(body: CategoryRelationCreate):
 
 
 @router.get("/topic/list", summary="专题分类列表")
-async def list_topic_categories(
+def list_topic_categories(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     is_show: int | None = None,
@@ -363,7 +363,7 @@ async def list_topic_categories(
 
 
 @router.post("/topic", summary="创建专题分类")
-async def create_topic_category(body: CategoryCreate):
+def create_topic_category(body: CategoryCreate):
     with get_session() as db:
         try:
             item = TopicCategory(
@@ -386,7 +386,7 @@ async def create_topic_category(body: CategoryCreate):
 
 
 @router.put("/topic/{category_id}", summary="更新专题分类")
-async def update_topic_category(category_id: int, body: CategoryUpdate):
+def update_topic_category(category_id: int, body: CategoryUpdate):
     with get_session() as db:
         try:
             item = (
@@ -420,7 +420,7 @@ async def update_topic_category(category_id: int, body: CategoryUpdate):
 
 
 @router.delete("/topic/{category_id}", summary="删除专题分类")
-async def delete_topic_category(category_id: int):
+def delete_topic_category(category_id: int):
     with get_session() as db:
         try:
             item = (

@@ -40,7 +40,7 @@ def _get_db_session():
 
 
 @router.post("/username", summary="用户名密码登录 (内置 admin/ry)")
-async def login_by_username(
+def login_by_username(
     username: str = Query(..., description="用户名 (admin / ry)"),
     password: str = Query(..., description="明文密码"),
 ):

@@ -32,7 +32,7 @@ def _sub_to_dict(s: LiveSubscribe) -> dict:
 
 
 @router.post("/subscribe", summary="订阅频道")
-async def subscribe(body: SubscribeBody):
+def subscribe(body: SubscribeBody):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(LiveChannel.id == body.channel_id, LiveChannel.deleted == False).first()
@@ -57,7 +57,7 @@ async def subscribe(body: SubscribeBody):
 
 
 @router.delete("/subscribe", summary="取消订阅")
-async def unsubscribe(channel_id: int = Query(...)):
+def unsubscribe(channel_id: int = Query(...)):
     with get_session() as db:
         try:
             uid = _uid()
@@ -76,7 +76,7 @@ async def unsubscribe(channel_id: int = Query(...)):
 
 
 @router.get("/subscribe/count", summary="频道订阅人数统计")
-async def subscribe_count(channel_id: int = Query(...)):
+def subscribe_count(channel_id: int = Query(...)):
     with get_session() as db:
         try:
             total = (
@@ -91,7 +91,7 @@ async def subscribe_count(channel_id: int = Query(...)):
 
 
 @router.get("/subscribe/list/by-channel-id", summary="频道订阅列表")
-async def subscribe_list_by_channel(
+def subscribe_list_by_channel(
     channel_id: int = Query(...),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -113,7 +113,7 @@ async def subscribe_list_by_channel(
 
 
 @router.get("/subscribe/by-channel-and-member", summary="根据会员和频道获取订阅记录")
-async def subscribe_by_channel_and_member(channel_id: int = Query(...)):
+def subscribe_by_channel_and_member(channel_id: int = Query(...)):
     with get_session() as db:
         try:
             uid = _uid()

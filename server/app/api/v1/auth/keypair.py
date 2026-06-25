@@ -21,7 +21,7 @@ _rsa_public_key_b64: str | None = None
 
 
 @router.get("/publicKey", summary="获取 JWT 公钥")
-async def get_public_key():
+def get_public_key():
     """获取 JWT RSA 公钥.
 
     从配置中读取 RSA 公钥 (JWT_RSA_PUBLIC_KEY), 若未配置则自动生成

@@ -57,7 +57,7 @@ class RecordSave(BaseModel):
 
 
 @router.post("/save", summary="保存学习记录")
-async def save_record(body: RecordSave):
+def save_record(body: RecordSave):
     with get_session() as db:
         try:
             record = (
@@ -125,7 +125,7 @@ async def save_record(body: RecordSave):
 
 
 @router.get("/member/{member_id}/lesson/{lesson_id}", summary="查询会员课程学习记录")
-async def get_member_lesson_records(member_id: int, lesson_id: int):
+def get_member_lesson_records(member_id: int, lesson_id: int):
     with get_session() as db:
         try:
             records = (
@@ -155,7 +155,7 @@ async def get_member_lesson_records(member_id: int, lesson_id: int):
 
 
 @router.get("/member/{member_id}/list", summary="会员所有学习记录")
-async def list_member_records(
+def list_member_records(
     member_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),

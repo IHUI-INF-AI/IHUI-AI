@@ -45,7 +45,7 @@ class ChatMarkBody(BaseModel):
 
 
 @router.post("/create", summary="Create a chat record")
-async def create_chat(
+def create_chat(
     body: ChatCreateBody,
     user_uuid: str = Depends(require_login),
 ):
@@ -81,7 +81,7 @@ async def create_chat(
 
 
 @router.post("/query", summary="Query chat records")
-async def query_chats(
+def query_chats(
     body: ChatQueryBody,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -138,7 +138,7 @@ async def query_chats(
 
 
 @router.put("/{chat_id}/mark", summary="Update chat mark/label")
-async def update_chat_mark(
+def update_chat_mark(
     chat_id: int,
     body: ChatMarkBody,
     user_uuid: str = Depends(require_login),
@@ -180,7 +180,7 @@ async def update_chat_mark(
 
 
 @router.delete("/{chat_id}", summary="Delete a chat record")
-async def delete_chat(
+def delete_chat(
     chat_id: int,
     user_uuid: str = Depends(require_login),
 ):

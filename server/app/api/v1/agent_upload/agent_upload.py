@@ -39,7 +39,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("", summary="记录上传")
-async def record_upload(file_name: str = Query(...), file_url: str = Query(...),
+def record_upload(file_name: str = Query(...), file_url: str = Query(...),
                          file_type: str | None = None, file_size: int = 0,
                          mime_type: str | None = None, ext: str | None = None,
                          agent_id: str | None = None, agent_name: str | None = None,
@@ -63,7 +63,7 @@ async def record_upload(file_name: str = Query(...), file_url: str = Query(...),
 
 
 @router.get("/list", summary="我的上传")
-async def list_uploads(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+def list_uploads(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                        agent_id: str | None = None, biz_type: str | None = None,
                        file_type: str | None = None):
     with get_session() as db:
@@ -90,7 +90,7 @@ async def list_uploads(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, 
 
 
 @router.delete("/{uid}", summary="删除上传记录")
-async def delete_upload(uid: int):
+def delete_upload(uid: int):
     with get_session() as db:
         try:
             u = db.query(AgentUpload).filter(AgentUpload.id == uid, AgentUpload.user_id == _uid()).first()

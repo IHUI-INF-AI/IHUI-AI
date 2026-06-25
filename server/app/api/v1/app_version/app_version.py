@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="版本列表")
-async def list_versions(platform: str | None = None,
+def list_versions(platform: str | None = None,
                         page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
@@ -58,7 +58,7 @@ async def list_versions(platform: str | None = None,
 
 
 @router.get("/check", summary="检查更新")
-async def check_update(platform: str = Query(...), current_version: str = Query(...),
+def check_update(platform: str = Query(...), current_version: str = Query(...),
                         build: int = Query(0)):
     with get_session() as db:
         try:
@@ -88,7 +88,7 @@ async def check_update(platform: str = Query(...), current_version: str = Query(
 
 
 @router.post("", summary="新增版本")
-async def create_version(platform: str = Query(...), version: str = Query(...),
+def create_version(platform: str = Query(...), version: str = Query(...),
                           build: int = 1, title: str = Query(...), content: str = Query(...),
                           download_url: str | None = None, is_force: bool = False,
                           is_silent: bool = False, min_version: str | None = None,
@@ -111,7 +111,7 @@ async def create_version(platform: str = Query(...), version: str = Query(...),
 
 
 @router.put("/{vid}", summary="修改版本")
-async def update_version(vid: int, title: str | None = None, content: str | None = None,
+def update_version(vid: int, title: str | None = None, content: str | None = None,
                           status: int | None = None, is_force: bool | None = None,
                           download_url: str | None = None, gray_ratio: int | None = None):
     with get_session() as db:
@@ -132,7 +132,7 @@ async def update_version(vid: int, title: str | None = None, content: str | None
 
 
 @router.delete("/{vid}", summary="删除版本")
-async def delete_version(vid: int):
+def delete_version(vid: int):
     with get_session() as db:
         try:
             v = db.query(AppVersion).filter(AppVersion.id == vid).first()

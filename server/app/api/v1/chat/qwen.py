@@ -58,7 +58,7 @@ async def qwen_chat(
 
 
 @router.post("/chat/stream", summary="Qwen 流式聊天(SSE)")
-async def qwen_chat_stream(
+def qwen_chat_stream(
     model: str = Query("qwen-turbo"),
     message: str = Query(...),
     user_uuid: str = Depends(require_login),

@@ -139,7 +139,7 @@ import jwt
 class TenantMiddleware(BaseHTTPMiddleware):
     """从 JWT 解析 tid 写入 ContextVar, 切 schema_translate_map."""
 
-    async def dispatch(self, request: Request, call_next):
+    def dispatch(self, request: Request, call_next):
         if not settings.MULTI_TENANT_ENABLED:
             return await call_next(request)
 

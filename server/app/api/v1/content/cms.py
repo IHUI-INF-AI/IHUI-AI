@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 @router.get("/banner/list", summary="Banner list (public)")
-async def list_banners(
+def list_banners(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=50),
     status: int = Query(1, description="0=disabled, 1=enabled"),
@@ -58,7 +58,7 @@ async def list_banners(
 
 
 @router.post("/banner/create", summary="Create banner (admin only)")
-async def create_banner(
+def create_banner(
     title: str = Query(..., description="Banner title"),
     image: str = Query(..., description="Banner image URL"),
     url: str = Query("", description="Banner link URL"),
@@ -85,7 +85,7 @@ async def create_banner(
 
 
 @router.put("/banner/update/{banner_id}", summary="Update banner (admin only)")
-async def update_banner(
+def update_banner(
     banner_id: int,
     title: str | None = Query(None),
     image: str | None = Query(None),
@@ -120,7 +120,7 @@ async def update_banner(
 
 
 @router.post("/banner/delete", summary="Delete banner (admin only)")
-async def delete_banner(
+def delete_banner(
     banner_id: int = Query(..., description="Banner ID to delete"),
     user_uuid: str = Depends(require_role(["admin", "super_admin"])),
 ):
@@ -145,7 +145,7 @@ async def delete_banner(
 
 
 @router.get("/news/list", summary="News list (public)")
-async def list_news(
+def list_news(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str | None = Query(None),
@@ -173,7 +173,7 @@ async def list_news(
 
 
 @router.post("/news/create", summary="Create news (admin only)")
-async def create_news(
+def create_news(
     title: str = Query(..., description="News title"),
     content: str = Query(..., description="News content (HTML supported)"),
     image: str = Query("", description="Cover image URL"),
@@ -198,7 +198,7 @@ async def create_news(
 
 
 @router.put("/news/update/{news_id}", summary="Update news (admin only)")
-async def update_news(
+def update_news(
     news_id: int,
     title: str | None = Query(None),
     content: str | None = Query(None),
@@ -230,7 +230,7 @@ async def update_news(
 
 
 @router.post("/news/delete", summary="Delete news (admin only)")
-async def delete_news(
+def delete_news(
     news_id: int = Query(..., description="News ID to delete"),
     user_uuid: str = Depends(require_role(["admin", "super_admin"])),
 ):
@@ -255,7 +255,7 @@ async def delete_news(
 
 
 @router.get("/notice/list", summary="System notice list (public)")
-async def list_notices(
+def list_notices(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str | None = Query(None),
@@ -283,7 +283,7 @@ async def list_notices(
 
 
 @router.post("/notice/create", summary="Create system notice (admin only)")
-async def create_notice(
+def create_notice(
     notice_title: str = Query(..., description="Notice title"),
     notice_type: str = Query("1", description="1=notification, 2=announcement"),
     notice_content: str = Query("", description="Notice content"),
@@ -309,7 +309,7 @@ async def create_notice(
 
 
 @router.put("/notice/update/{notice_id}", summary="Update notice (admin only)")
-async def update_notice(
+def update_notice(
     notice_id: int,
     notice_title: str | None = Query(None),
     notice_type: str | None = Query(None),
@@ -341,7 +341,7 @@ async def update_notice(
 
 
 @router.post("/notice/delete", summary="Delete notice (admin only)")
-async def delete_notice(
+def delete_notice(
     notice_id: int = Query(..., description="Notice ID to delete"),
     user_uuid: str = Depends(require_role(["admin", "super_admin"])),
 ):
@@ -366,7 +366,7 @@ async def delete_notice(
 
 
 @router.get("/popular/list", summary="Popular recommendations (public)")
-async def list_popular(
+def list_popular(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):

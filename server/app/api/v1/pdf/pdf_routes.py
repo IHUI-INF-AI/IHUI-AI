@@ -121,7 +121,7 @@ async def add_signature(
 
 
 @router.get("/signature/verify/{file_id}", summary="验证签名", dependencies=[Depends(verify_api_key)])
-async def verify_signature(file_id: str):
+def verify_signature(file_id: str):
     pdf_path = get_file_path(file_id)
     if not pdf_path:
         raise HTTPException(status_code=404, detail="PDF文件未找到")
@@ -131,7 +131,7 @@ async def verify_signature(file_id: str):
 
 
 @router.post("/watermark/text", response_model=WatermarkResponse, summary="添加文字水印", dependencies=[Depends(verify_api_key)])
-async def add_text_watermark(
+def add_text_watermark(
     file_id: str = Form(...),
     content: str = Form(...),
     font_size: int = Form(48),
@@ -251,7 +251,7 @@ async def merge_pdfs(files: list[UploadFile] = File(...)):
 
 
 @router.post("/split/{file_id}", response_model=SplitResponse, summary="拆分PDF", dependencies=[Depends(verify_api_key)])
-async def split_pdf(file_id: str, request: SplitRequest):
+def split_pdf(file_id: str, request: SplitRequest):
     pdf_path = get_file_path(file_id)
     if not pdf_path:
         raise HTTPException(status_code=404, detail="PDF文件未找到")
@@ -271,7 +271,7 @@ async def split_pdf(file_id: str, request: SplitRequest):
 
 
 @router.post("/print/preview/{file_id}", response_model=PrintPreviewResponse, summary="生成打印预览", dependencies=[Depends(verify_api_key)])
-async def generate_print_preview(file_id: str, settings: PrintSettings):
+def generate_print_preview(file_id: str, settings: PrintSettings):
     pdf_path = get_file_path(file_id)
     if not pdf_path:
         raise HTTPException(status_code=404, detail="PDF文件未找到")
@@ -288,7 +288,7 @@ async def generate_print_preview(file_id: str, settings: PrintSettings):
 
 
 @router.post("/print/prepare/{file_id}", summary="准备打印文件", dependencies=[Depends(verify_api_key)])
-async def prepare_print(file_id: str, settings: PrintSettings):
+def prepare_print(file_id: str, settings: PrintSettings):
     pdf_path = get_file_path(file_id)
     if not pdf_path:
         raise HTTPException(status_code=404, detail="PDF文件未找到")
@@ -302,7 +302,7 @@ async def prepare_print(file_id: str, settings: PrintSettings):
 
 
 @router.get("/download/{filename}", summary="下载处理后的文件")
-async def download_file(filename: str):
+def download_file(filename: str):
     file_path = os.path.join(OUTPUT_DIR, filename)
     if not os.path.exists(file_path):
         file_path = os.path.join(UPLOAD_DIR, filename)
@@ -318,7 +318,7 @@ async def download_file(filename: str):
 
 
 @router.delete("/cleanup/{file_id}", summary="清理临时文件", dependencies=[Depends(verify_api_key)])
-async def cleanup_files(file_id: str):
+def cleanup_files(file_id: str):
     cleaned = 0
 
     for directory in [UPLOAD_DIR, OUTPUT_DIR]:
@@ -335,13 +335,13 @@ async def cleanup_files(file_id: str):
 
 
 @router.get("/key/generate", summary="生成API密钥", dependencies=[Depends(verify_api_key)])
-async def generate_key():
+def generate_key():
     from app.api.v1._legacy_internal.config import generate_api_key
     return {"api_key": generate_api_key()}
 
 
 @router.post("/certificate/issue", summary="签发用户证书", dependencies=[Depends(verify_api_key)])
-async def issue_certificate(
+def issue_certificate(
     common_name: str = Form(...),
     organization: str = Form("PDF Service User"),
     email: str | None = Form(None),
@@ -383,7 +383,7 @@ async def verify_certificate(certificate: UploadFile = File(...)):
 
 
 @router.get("/certificate/ca", summary="获取CA证书")
-async def get_ca_certificate():
+def get_ca_certificate():
     ca_cert_path = CertificateAuthority.CA_CERT_PATH
     if not os.path.exists(ca_cert_path):
         CertificateAuthority.ensure_ca_exists()

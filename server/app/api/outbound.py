@@ -98,7 +98,7 @@ async def outbound_callback(request: OutboundCallbackRequest):
         raise
     except Exception as e:
         logger.error("[Outbound] 处理外呼回调异常: %s", e)
-        raise HTTPException(status_code=500, detail=f"处理失败: {e}")
+        raise HTTPException(status_code=500, detail="处理失败,请稍后重试")
 
 
 def _analyze_intent(user_input: str) -> str:

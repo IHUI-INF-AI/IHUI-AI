@@ -30,19 +30,19 @@ router = APIRouter()
 
 
 @router.post("/pay-orders", summary="Create payment")
-async def create_pay_order_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+def create_pay_order_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_pay import create_pay_order
     result = create_pay_order(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.post("/pay-orders/{pay_order_id}/mark-paid", summary="Mark paid (webhook)")
-async def mark_paid_endpoint(pay_order_id: int, user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+def mark_paid_endpoint(pay_order_id: int, user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_pay import mark_paid
     result = mark_paid(db, pay_order_id=pay_order_id, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.get("/pay-orders/me", summary="My payments")
-async def list_user_payments_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+def list_user_payments_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_pay import list_user_payments
     result = list_user_payments(db, user_uuid=str(user_id))
     return success(data=result)

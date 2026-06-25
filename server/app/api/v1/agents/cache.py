@@ -60,7 +60,7 @@ def _ensure_cache_loaded():
 
 
 @router.get("/info", summary="Get category cache info")
-async def cache_info(user_uuid: str = Depends(require_login)):
+def cache_info(user_uuid: str = Depends(require_login)):
     """Return cache metadata: size, last reload time, version."""
     _ensure_cache_loaded()
     return success(
@@ -73,7 +73,7 @@ async def cache_info(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/reload", summary="Reload category cache from DB")
-async def cache_reload(user_uuid: str = Depends(require_login)):
+def cache_reload(user_uuid: str = Depends(require_login)):
     """Force-reload agent categories from database into memory cache."""
     _category_cache["data"] = _load_cache_from_db()
     _category_cache["loaded_at"] = time.time()
@@ -93,7 +93,7 @@ async def cache_reload(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/clear", summary="Clear category cache")
-async def cache_clear(user_uuid: str = Depends(require_login)):
+def cache_clear(user_uuid: str = Depends(require_login)):
     """Clear the in-memory category cache."""
     _category_cache["data"] = []
     _category_cache["loaded_at"] = None
@@ -109,7 +109,7 @@ async def cache_clear(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/search", summary="Search categories in cache")
-async def cache_search(
+def cache_search(
     keyword: str = Query(None, description="Search keyword for agent_id"),
     group: int = Query(None, description="Filter by group"),
     type: str = Query(None, description="Filter by type"),

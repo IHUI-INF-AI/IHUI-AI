@@ -22,7 +22,7 @@ router = APIRouter(tags=["API v2 (Experimental)"])
 
 
 @router.get("/api/v2/info", summary="v2 API 元数据")
-async def v2_info(request: Request):
+def v2_info(request: Request):
     """返回 v2 API 元信息 (供客户端探测).
 
     注意: v2 API 占位, 待后续版本实现, 当前 endpoints 为空.
@@ -37,6 +37,6 @@ async def v2_info(request: Request):
 
 
 @router.get("/api/v2/ping", summary="v2 API ping")
-async def v2_ping():
+def v2_ping():
     # v2 占位端点, 待后续版本实现
     return {"code": "0", "msg": "pong", "data": {"version": "v2"}}

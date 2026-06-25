@@ -73,7 +73,7 @@ async def receive_notify(
 
 
 @router.get("/events", summary="查询最近 TBox 事件")
-async def recent_events(
+def recent_events(
     limit: int = 50,
     user_uuid: str = Depends(require_role("admin")),
 ):

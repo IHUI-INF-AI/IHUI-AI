@@ -76,7 +76,7 @@ def get_member_dual(member_id: str) -> DualReadResult:
 # 对账定时任务
 # ---------------------------------------------------------------------------
 
-async def run_reconcile_task():
+def run_reconcile_task():
     """定时对账任务 (建议每 6 小时跑一次)."""
     if not DUAL_WRITE_RECONCILE:
         logger.info("[reconcile] DUAL_WRITE_RECONCILE=false, 跳过")

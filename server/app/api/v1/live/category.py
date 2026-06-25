@@ -63,7 +63,7 @@ def _cat_to_dict(c: LiveChannelCategory) -> dict:
 
 
 @router.get("/category/admin/list", summary="后台类目列表")
-async def admin_category_list(
+def admin_category_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     name: str | None = None,
@@ -88,7 +88,7 @@ async def admin_category_list(
 
 
 @router.post("/category", summary="创建类目")
-async def create_category(body: CategoryCreateBody):
+def create_category(body: CategoryCreateBody):
     with get_session() as db:
         try:
             c = LiveChannelCategory(
@@ -106,7 +106,7 @@ async def create_category(body: CategoryCreateBody):
 
 
 @router.put("/category", summary="更新类目")
-async def update_category(body: CategoryUpdateBody):
+def update_category(body: CategoryUpdateBody):
     with get_session() as db:
         try:
             c = db.query(LiveChannelCategory).filter(LiveChannelCategory.id == body.id).first()
@@ -127,7 +127,7 @@ async def update_category(body: CategoryUpdateBody):
 
 
 @router.put("/category/is-show", summary="修改显示状态")
-async def update_category_show(body: CategoryShowBody):
+def update_category_show(body: CategoryShowBody):
     with get_session() as db:
         try:
             c = db.query(LiveChannelCategory).filter(LiveChannelCategory.id == body.id).first()
@@ -141,7 +141,7 @@ async def update_category_show(body: CategoryShowBody):
 
 
 @router.put("/category/is-show-index", summary="修改首页显示状态")
-async def update_category_show_index(body: CategoryShowIndexBody):
+def update_category_show_index(body: CategoryShowIndexBody):
     with get_session() as db:
         try:
             c = db.query(LiveChannelCategory).filter(LiveChannelCategory.id == body.id).first()
@@ -155,7 +155,7 @@ async def update_category_show_index(body: CategoryShowIndexBody):
 
 
 @router.post("/category/image", summary="上传类目图片")
-async def upload_category_image(body: CategoryImageBody):
+def upload_category_image(body: CategoryImageBody):
     with get_session() as db:
         try:
             c = db.query(LiveChannelCategory).filter(LiveChannelCategory.id == body.category_id).first()
@@ -169,7 +169,7 @@ async def upload_category_image(body: CategoryImageBody):
 
 
 @router.delete("/category/image", summary="删除类目图片")
-async def delete_category_image(category_id: int = Query(...)):
+def delete_category_image(category_id: int = Query(...)):
     with get_session() as db:
         try:
             c = db.query(LiveChannelCategory).filter(LiveChannelCategory.id == category_id).first()
@@ -183,7 +183,7 @@ async def delete_category_image(category_id: int = Query(...)):
 
 
 @router.get("/category/{category_id}", summary="类目详情")
-async def get_category(category_id: int):
+def get_category(category_id: int):
     with get_session() as db:
         try:
             c = db.query(LiveChannelCategory).filter(LiveChannelCategory.id == category_id).first()
@@ -196,7 +196,7 @@ async def get_category(category_id: int):
 
 
 @router.delete("/category/{category_id}", summary="删除类目")
-async def delete_category(category_id: int):
+def delete_category(category_id: int):
     with get_session() as db:
         try:
             c = db.query(LiveChannelCategory).filter(LiveChannelCategory.id == category_id).first()

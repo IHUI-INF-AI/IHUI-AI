@@ -71,7 +71,7 @@ class BatchDeleteReq(BaseModel):
 
 
 @router.get("/health", summary="知识库健康检查")
-async def health():
+def health():
     """知识库服务健康检查."""
     return {
         "code": 0,
@@ -84,7 +84,7 @@ async def health():
 
 
 @router.post("/ingest", summary="纯文本入库")
-async def ingest_text(req: IngestTextReq, token_user: str | None = Depends(get_current_user_uuid)):
+def ingest_text(req: IngestTextReq, token_user: str | None = Depends(get_current_user_uuid)):
     """将纯文本内容切片后入库, 返回切片数量."""
     owner = resolve_owner(token_user, req.owner_uuid)
     try:
@@ -101,7 +101,7 @@ async def ingest_text(req: IngestTextReq, token_user: str | None = Depends(get_c
         }
     except Exception as e:
         logger.error(f"文本入库失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/ingest/file", summary="文件上传入库")
@@ -139,14 +139,14 @@ async def ingest_file(
         }
     except Exception as e:
         logger.error(f"文件入库失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 # ===== 检索 =====
 
 
 @router.post("/search", summary="语义检索")
-async def search(req: SearchReq, token_user: str | None = Depends(get_current_user_uuid)):
+def search(req: SearchReq, token_user: str | None = Depends(get_current_user_uuid)):
     """语义检索, 返回匹配的文档切片列表 (按相似度降序)."""
     owner = resolve_owner(token_user, req.owner_uuid)
     try:
@@ -160,11 +160,11 @@ async def search(req: SearchReq, token_user: str | None = Depends(get_current_us
         return {"code": 0, "data": results, "msg": "ok"}
     except Exception as e:
         logger.error(f"语义检索失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.post("/rag-context", summary="生成 RAG 上下文")
-async def rag_context(req: RagContextReq, token_user: str | None = Depends(get_current_user_uuid)):
+def rag_context(req: RagContextReq, token_user: str | None = Depends(get_current_user_uuid)):
     """生成标准化 RAG 上下文文本, 供 LLM prompt 直接拼接."""
     owner = resolve_owner(token_user, req.owner_uuid)
     try:
@@ -181,14 +181,14 @@ async def rag_context(req: RagContextReq, token_user: str | None = Depends(get_c
         }
     except Exception as e:
         logger.error(f"RAG 上下文生成失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 # ===== 文档管理 =====
 
 
 @router.get("/docs", summary="获取文档列表")
-async def list_docs(owner_uuid: str = "", token_user: str | None = Depends(get_current_user_uuid)):
+def list_docs(owner_uuid: str = "", token_user: str | None = Depends(get_current_user_uuid)):
     """获取指定用户的文档列表."""
     owner = resolve_owner(token_user, owner_uuid)
     docs = knowledge_service.list_docs(owner_uuid=owner)
@@ -196,7 +196,7 @@ async def list_docs(owner_uuid: str = "", token_user: str | None = Depends(get_c
 
 
 @router.get("/docs/{doc_id}", summary="获取文档详情")
-async def get_doc(doc_id: int, owner_uuid: str = "", token_user: str | None = Depends(get_current_user_uuid)):
+def get_doc(doc_id: int, owner_uuid: str = "", token_user: str | None = Depends(get_current_user_uuid)):
     """获取单个文档详情."""
     owner = resolve_owner(token_user, owner_uuid)
     doc = knowledge_service.get_doc_detail(doc_id=doc_id, owner_uuid=owner)
@@ -206,7 +206,7 @@ async def get_doc(doc_id: int, owner_uuid: str = "", token_user: str | None = De
 
 
 @router.get("/docs/{doc_id}/chunks", summary="查看文档切片")
-async def get_doc_chunks(
+def get_doc_chunks(
     doc_id: int,
     owner_uuid: str = "",
     limit: int = 10,
@@ -219,7 +219,7 @@ async def get_doc_chunks(
 
 
 @router.delete("/docs/{doc_id}", summary="删除单个文档")
-async def delete_doc(doc_id: int, owner_uuid: str = "", token_user: str | None = Depends(get_current_user_uuid)):
+def delete_doc(doc_id: int, owner_uuid: str = "", token_user: str | None = Depends(get_current_user_uuid)):
     """删除单个文档 (软删除, 同时清理切片)."""
     owner = resolve_owner(token_user, owner_uuid)
     ok = knowledge_service.delete_doc(doc_id=doc_id, owner_uuid=owner)
@@ -229,7 +229,7 @@ async def delete_doc(doc_id: int, owner_uuid: str = "", token_user: str | None =
 
 
 @router.post("/docs/batch-delete", summary="批量删除文档")
-async def batch_delete_docs(req: BatchDeleteReq, token_user: str | None = Depends(get_current_user_uuid)):
+def batch_delete_docs(req: BatchDeleteReq, token_user: str | None = Depends(get_current_user_uuid)):
     """批量删除文档, 返回成功与失败的 doc_id 列表."""
     owner = resolve_owner(token_user, req.owner_uuid)
     result: dict[str, Any] = knowledge_service.batch_delete_docs(

@@ -30,7 +30,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="字典列表")
-async def list_dict(dict_type: str | None = None,
+def list_dict(dict_type: str | None = None,
                     page: int = Query(1, ge=1), limit: int = Query(100, ge=1, le=500)):
     with get_session() as db:
         try:
@@ -52,10 +52,10 @@ async def list_dict(dict_type: str | None = None,
 
 
 @router.get("/type", summary="字典类型列表")
-async def dict_types():
+def dict_types():
     with get_session() as db:
         try:
-            types = db.query(CategoryDictionary.dict_type).distinct().all()
+            types = db.query(CategoryDictionary.dict_type).distinct().limit(500).all()
             return success([t[0] for t in types if t[0]])
         except Exception as e:
             logger.error(f"dict type error: {e}")
@@ -63,7 +63,7 @@ async def dict_types():
 
 
 @router.get("/{did}", summary="字典详情")
-async def get_dict(did: int):
+def get_dict(did: int):
     with get_session() as db:
         try:
             d = db.query(CategoryDictionary).filter(CategoryDictionary.id == did).first()
@@ -81,7 +81,7 @@ async def get_dict(did: int):
 
 
 @router.post("", summary="新增字典")
-async def create_dict(dict_type: str = Query(...), code: str = Query(...),
+def create_dict(dict_type: str = Query(...), code: str = Query(...),
                        label: str = Query(...), value: str | None = None,
                        sort_order: int = 0, is_show: bool = True,
                        description: str | None = None,
@@ -102,7 +102,7 @@ async def create_dict(dict_type: str = Query(...), code: str = Query(...),
 
 
 @router.put("/{did}", summary="修改字典")
-async def update_dict(did: int, label: str | None = None, value: str | None = None,
+def update_dict(did: int, label: str | None = None, value: str | None = None,
                        sort_order: int | None = None, is_show: bool | None = None,
                        description: str | None = None):
     with get_session() as db:
@@ -122,7 +122,7 @@ async def update_dict(did: int, label: str | None = None, value: str | None = No
 
 
 @router.delete("/{did}", summary="删除字典")
-async def delete_dict(did: int):
+def delete_dict(did: int):
     with get_session() as db:
         try:
             d = db.query(CategoryDictionary).filter(CategoryDictionary.id == did).first()

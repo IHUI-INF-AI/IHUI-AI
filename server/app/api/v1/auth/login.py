@@ -167,7 +167,7 @@ async def refresh_token(request: Request, refresh_token: str = Query(None)):
 
 
 @router.get("/info", summary="Get current user info")
-async def get_user_info(
+def get_user_info(
     user_uuid: str = Depends(__import__("app.security", fromlist=["require_login"]).require_login),
 ):
     from app.services.user_service import get_user_by_uuid
@@ -179,7 +179,7 @@ async def get_user_info(
 
 
 @router.post("/logout", summary="Logout")
-async def logout(request: Request):
+def logout(request: Request):
     """登出 - 把当前 token 加入黑名单, 立即失效."""
     from app.core.jwt_blacklist import revoke_token
     auth_header = request.headers.get("authorization", "")
@@ -190,7 +190,7 @@ async def logout(request: Request):
 
 
 @router.get("/exist/{phone}", summary="Check if phone is registered")
-async def check_phone_exists(phone: str):
+def check_phone_exists(phone: str):
     exists = auth_service.check_phone_exists(phone)
     return success({"exists": exists})
 
@@ -207,7 +207,7 @@ async def send_code(request: Request, phone: str = Query(None)):
 
 
 @router.delete("/cancel", summary="User account cancellation (soft delete)")
-async def cancel_account(user_uuid: str = Depends(require_login)):
+def cancel_account(user_uuid: str = Depends(require_login)):
     """Cancel user account -- soft delete user and mask phone.
 
     Matches Java SQL:
@@ -243,7 +243,7 @@ async def cancel_account(user_uuid: str = Depends(require_login)):
 
 
 @router.put("/profile", summary="Update personal profile")
-async def update_profile(
+def update_profile(
     nickname: str = Body(None),
     email: str = Body(None),
     gender: int = Body(None),
@@ -305,7 +305,7 @@ async def upload_avatar(
 
 
 @router.put("/profile/password", summary="Change password")
-async def change_password(
+def change_password(
     old_password: str = Body(...),
     new_password: str = Body(...),
     user_uuid: str = Depends(require_login),
@@ -336,7 +336,7 @@ async def change_password(
 
 
 @router.put("/profile/phone", summary="Change phone number (rebind)")
-async def change_phone(
+def change_phone(
     new_phone: str = Body(...),
     code: str = Body(...),
     user_uuid: str = Depends(require_login),
@@ -371,7 +371,7 @@ async def change_phone(
 
 
 @router.put("/profile/email", summary="Set or update email")
-async def set_email(
+def set_email(
     email: str = Body(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -399,13 +399,13 @@ async def set_email(
 
 
 @router.get("/health", summary="Auth service health check")
-async def auth_health():
+def auth_health():
     """认证服务健康检查端点."""
     return success({"status": "ok", "service": "auth"})
 
 
 @router.get("/profile", summary="Get personal profile with roles and posts")
-async def get_profile(user_uuid: str = Depends(require_login)):
+def get_profile(user_uuid: str = Depends(require_login)):
     """Get detailed profile including roles and posts."""
     from app.database import SessionFactory2, get_session
     from app.models.sys_models import SysRole, SysUser, SysUserRole

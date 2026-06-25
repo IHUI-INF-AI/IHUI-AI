@@ -45,7 +45,7 @@ router = APIRouter()
 
 
 @router.get("/routes", summary="List all edu routes (replaces Java Spring Cloud Gateway)")
-async def list_routes():
+def list_routes():
     """List the mapping of Java routes to IHUI-AI FastAPI routes."""
     return {
         "migration_strategy": "Spring Cloud Gateway replaced by Nginx + FastAPI",

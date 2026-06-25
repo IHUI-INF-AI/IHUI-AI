@@ -25,7 +25,7 @@ router = APIRouter()
 
 
 @router.post("/create", summary="Create Alipay PC / H5 page pay")
-async def create_alipay(
+def create_alipay(
     amount: float = Query(..., description="金额(元)"),
     product_id: str = Query(None),
     order_type: int = Query(0),

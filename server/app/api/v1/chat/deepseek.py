@@ -58,7 +58,7 @@ async def deepseek_chat(
 
 
 @router.post("/chat/stream", summary="DeepSeek 流式聊天(SSE)")
-async def deepseek_chat_stream(
+def deepseek_chat_stream(
     model: str = Query("deepseek-chat"),
     message: str = Query(...),
     user_uuid: str = Depends(require_login),

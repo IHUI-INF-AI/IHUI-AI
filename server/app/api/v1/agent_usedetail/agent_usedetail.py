@@ -60,7 +60,7 @@ router = APIRouter()
 
 
 @router.post("/record", summary="记录使用")
-async def record_usage(
+def record_usage(
     agent_id: str = Query(...),
     user_id: str = Query(...),
     type: str = "consume",
@@ -125,7 +125,7 @@ async def record_usage(
 
 
 @router.get("/list", summary="使用明细")
-async def list_details(
+def list_details(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     agent_id: str | None = None,
@@ -177,7 +177,7 @@ async def list_details(
 
 
 @router.get("/stats/daily", operation_id="agent_usedetail_daily_stats", summary="日统计")
-async def daily_stats(agent_id: str | None = None, start_date: str | None = None, end_date: str | None = None):
+def daily_stats(agent_id: str | None = None, start_date: str | None = None, end_date: str | None = None):
     with get_session() as db:
         try:
             q = db.query(AgentStatDaily)
@@ -209,7 +209,7 @@ async def daily_stats(agent_id: str | None = None, start_date: str | None = None
 
 
 @router.get("/stats/summary", summary="汇总统计")
-async def summary_stats(
+def summary_stats(
     agent_id: str | None = None, start_date: str | None = None, end_date: str | None = None
 ):
     with get_session() as db:

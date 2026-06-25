@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/resource/watermark", tags=["资源水印"])
 
 
 @router.post("/image/text", summary="给图片添加文字水印")
-async def image_text_watermark(
+def image_text_watermark(
     payload: dict = Body(...),
 ):
     input_path = payload.get("input_path", "")
@@ -39,7 +39,7 @@ async def image_text_watermark(
 
 
 @router.post("/image/logo", summary="给图片添加 logo 水印")
-async def image_logo_watermark(payload: dict = Body(...)):
+def image_logo_watermark(payload: dict = Body(...)):
     base_path = payload.get("base_path", "")
     logo_path = payload.get("logo_path", "")
     output_path = payload.get("output_path")
@@ -58,7 +58,7 @@ async def image_logo_watermark(payload: dict = Body(...)):
 
 
 @router.post("/video/text", summary="给视频添加文字水印")
-async def video_text_watermark(payload: dict = Body(...)):
+def video_text_watermark(payload: dict = Body(...)):
     input_path = payload.get("input_path", "")
     text = payload.get("text", "")
     output_path = payload.get("output_path")
@@ -77,7 +77,7 @@ async def video_text_watermark(payload: dict = Body(...)):
 
 
 @router.post("/video/logo", summary="给视频添加 logo 水印")
-async def video_logo_watermark(payload: dict = Body(...)):
+def video_logo_watermark(payload: dict = Body(...)):
     input_path = payload.get("input_path", "")
     logo_path = payload.get("logo_path", "")
     output_path = payload.get("output_path")

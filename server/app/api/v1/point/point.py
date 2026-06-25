@@ -108,7 +108,7 @@ def _reduce_point(db, user_id: str, point: int, action: str, description: str = 
 
 
 @router.get("/account", summary="我的积分账户")
-async def my_account():
+def my_account():
     with get_session() as db:
         try:
             uid = _uid()
@@ -130,7 +130,7 @@ async def my_account():
 
 
 @router.get("/account/{user_id}", summary="指定用户积分账户")
-async def user_account(user_id: str):
+def user_account(user_id: str):
     with get_session() as db:
         try:
             acc = db.query(PointAccount).filter(PointAccount.user_id == user_id).first()
@@ -156,7 +156,7 @@ async def user_account(user_id: str):
 
 
 @router.get("/log/list", summary="积分流水")
-async def list_logs(
+def list_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: str | None = None,
@@ -197,7 +197,7 @@ async def list_logs(
 
 
 @router.get("/rule/list", summary="积分规则列表")
-async def rule_list(type: str | None = None):
+def rule_list(type: str | None = None):
     with get_session() as db:
         try:
             q = db.query(PointRule).filter(PointRule.status == 1)
@@ -225,7 +225,7 @@ async def rule_list(type: str | None = None):
 
 
 @router.post("/rule", summary="新增规则")
-async def create_rule(
+def create_rule(
     code: str = Query(...),
     name: str = Query(...),
     type: str = "add",
@@ -255,7 +255,7 @@ async def create_rule(
 
 
 @router.put("/rule/{rid}", summary="修改规则")
-async def update_rule(
+def update_rule(
     rid: int,
     name: str | None = None,
     point: int | None = None,
@@ -282,7 +282,7 @@ async def update_rule(
 
 
 @router.delete("/rule/{rid}", summary="删除规则")
-async def delete_rule(rid: int):
+def delete_rule(rid: int):
     with get_session() as db:
         try:
             r = db.query(PointRule).filter(PointRule.id == rid).first()
@@ -299,7 +299,7 @@ async def delete_rule(rid: int):
 
 
 @router.post("/trigger", summary="触发积分行为")
-async def trigger(
+def trigger(
     action: str = Query(..., description="行为code"),
     description: str | None = None,
     ref_id: str | None = None,
@@ -322,7 +322,7 @@ async def trigger(
 
 
 @router.post("/signin", summary="每日签到")
-async def signin():
+def signin():
     with get_session() as db:
         try:
             uid = _uid()
@@ -339,7 +339,7 @@ async def signin():
 
 
 @router.get("/goods/list", summary="积分商品列表")
-async def goods_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), keyword: str | None = None):
+def goods_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), keyword: str | None = None):
     with get_session() as db:
         try:
             q = db.query(PointGoods).filter(PointGoods.status == 1)
@@ -376,7 +376,7 @@ async def goods_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le
 
 
 @router.get("/goods/{gid}", summary="积分商品详情")
-async def get_goods(gid: int):
+def get_goods(gid: int):
     with get_session() as db:
         try:
             g = db.query(PointGoods).filter(PointGoods.id == gid).first()
@@ -402,7 +402,7 @@ async def get_goods(gid: int):
 
 
 @router.post("/goods", summary="新增积分商品")
-async def create_goods(
+def create_goods(
     name: str = Query(..., min_length=1, max_length=200),
     description: str | None = None,
     image: str | None = None,
@@ -434,7 +434,7 @@ async def create_goods(
 
 
 @router.put("/goods/{gid}", summary="修改商品")
-async def update_goods(
+def update_goods(
     gid: int,
     name: str | None = None,
     description: str | None = None,
@@ -464,7 +464,7 @@ async def update_goods(
 
 
 @router.delete("/goods/{gid}", summary="删除商品")
-async def delete_goods(gid: int):
+def delete_goods(gid: int):
     with get_session() as db:
         try:
             g = db.query(PointGoods).filter(PointGoods.id == gid).first()
@@ -481,7 +481,7 @@ async def delete_goods(gid: int):
 
 
 @router.post("/exchange", summary="兑换商品")
-async def exchange(
+def exchange(
     goods_id: int = Query(...),
     quantity: int = Query(1, ge=1),
     address: str | None = None,
@@ -530,7 +530,7 @@ async def exchange(
 
 
 @router.get("/exchange/list", summary="兑换记录")
-async def exchange_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status: int | None = None):
+def exchange_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status: int | None = None):
     with get_session() as db:
         try:
             q = db.query(PointExchange).filter(PointExchange.user_id == _uid())

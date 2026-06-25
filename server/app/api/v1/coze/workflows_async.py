@@ -34,7 +34,7 @@ async def run_workflow_async(req: AsyncWorkflowReq):
             return result
     except Exception as e:
         logger.error("Async workflow error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 async def _async_stream_gen(coze, workflow_id, parameters):
@@ -69,4 +69,4 @@ async def workflow_chat(req: AsyncWorkflowStreamReq):
             return result
     except Exception as e:
         logger.error("Workflow chat error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e

@@ -49,7 +49,7 @@ def _serialize_sk(sk) -> dict:
 
 
 @router.post("/create", summary="Create a secret key")
-async def create_sk(
+def create_sk(
     body: SKCreateBody,
     user_uuid: str = Depends(require_login),
 ):
@@ -77,7 +77,7 @@ async def create_sk(
 
 
 @router.get("/list", summary="List user secret keys")
-async def list_sks(
+def list_sks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -102,7 +102,7 @@ async def list_sks(
 
 
 @router.put("/{sk_id}", summary="Update a secret key")
-async def update_sk(
+def update_sk(
     sk_id: int,
     body: SKUpdateBody,
     user_uuid: str = Depends(require_login),
@@ -129,7 +129,7 @@ async def update_sk(
 
 
 @router.delete("/{sk_id}", summary="Delete a secret key")
-async def delete_sk(
+def delete_sk(
     sk_id: int,
     user_uuid: str = Depends(require_login),
 ):

@@ -106,7 +106,7 @@ def stop_scheduler():
         logger.info("APScheduler stopped")
 
 
-async def task_update_heat_stats():
+def task_update_heat_stats():
     """Aggregate agent heat stats."""
     from app.services.heat_stats_service import aggregate_heat_stats
 
@@ -117,7 +117,7 @@ async def task_update_heat_stats():
         logger.error(f"Heat stats task error: {e}")
 
 
-async def task_aggregate_daily_heat():
+def task_aggregate_daily_heat():
     from app.tasks.heat_stats_task import aggregate_daily_heat
 
     try:
@@ -127,7 +127,7 @@ async def task_aggregate_daily_heat():
         logger.error(f"Aggregate daily heat error: {e}")
 
 
-async def task_cleanup_old_heat():
+def task_cleanup_old_heat():
     from app.tasks.heat_stats_task import cleanup_old_heat
 
     try:
@@ -137,7 +137,7 @@ async def task_cleanup_old_heat():
         logger.error(f"Cleanup old heat error: {e}")
 
 
-async def task_sync_agents():
+def task_sync_agents():
     """Sync agent data from Coze."""
     from app.tasks.agent_sync import sync_agent_counters
 
@@ -148,7 +148,7 @@ async def task_sync_agents():
         logger.error(f"Agent sync error: {e}")
 
 
-async def task_sync_agent_counters():
+def task_sync_agent_counters():
     from app.tasks.agent_sync import sync_agent_counters
 
     try:
@@ -158,7 +158,7 @@ async def task_sync_agent_counters():
         logger.error(f"Agent counter sync error: {e}")
 
 
-async def task_expire_agents():
+def task_expire_agents():
     from app.tasks.expiration_monitor import expire_agents
 
     try:
@@ -168,7 +168,7 @@ async def task_expire_agents():
         logger.error(f"Expire agents error: {e}")
 
 
-async def task_check_expired_orders():
+def task_check_expired_orders():
     """Cancel expired unpaid orders."""
     from datetime import timedelta
 
@@ -214,7 +214,7 @@ async def task_close_expired_orders():
         logger.error(f"Close expired orders error: {e}")
 
 
-async def task_alert_noise_inhibit_ticket():
+def task_alert_noise_inhibit_ticket():
     """Phase 9 建议 2: 每日告警噪音分析 + 抑制建议工单 (dry-run).
 
     复用 scripts/ops/analyze_alert_noise + generate_inhibit_ticket 链路.

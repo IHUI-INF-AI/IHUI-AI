@@ -73,7 +73,7 @@ async def image(
 
 
 @router.get("/list", summary="可用模型列表")
-async def list_models():
+def list_models():
     """获取支持的AI模型列表"""
     return success(
         {

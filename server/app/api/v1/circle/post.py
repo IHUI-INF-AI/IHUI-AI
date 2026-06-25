@@ -38,7 +38,7 @@ def _p_to_dict(p: CirclePost, liked: bool = False) -> dict:
 
 
 @router.get("/list", summary="帖子列表")
-async def list_posts(
+def list_posts(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     circle_id: int | None = None,
@@ -91,7 +91,7 @@ async def list_posts(
 
 
 @router.get("/{pid}", summary="帖子详情")
-async def get_post(pid: int):
+def get_post(pid: int):
     with get_session() as db:
         try:
             p = db.query(CirclePost).filter(CirclePost.id == pid, not CirclePost.deleted).first()
@@ -109,7 +109,7 @@ async def get_post(pid: int):
 
 
 @router.post("", summary="发布帖子")
-async def create_post(
+def create_post(
     circle_id: int = Query(...),
     content: str = Query(..., min_length=1),
     images: str | None = None,
@@ -140,7 +140,7 @@ async def create_post(
 
 
 @router.put("/{pid}", summary="修改帖子")
-async def update_post(
+def update_post(
     pid: int, content: str | None = None, images: str | None = None, video: str | None = None
 ):
     with get_session() as db:
@@ -161,7 +161,7 @@ async def update_post(
 
 
 @router.delete("/{pid}", summary="删除帖子")
-async def delete_post(pid: int):
+def delete_post(pid: int):
     with get_session() as db:
         try:
             p = db.query(CirclePost).filter(CirclePost.id == pid).first()
@@ -179,7 +179,7 @@ async def delete_post(pid: int):
 
 
 @router.post("/{pid}/like", summary="点赞/取消点赞")
-async def toggle_like(pid: int):
+def toggle_like(pid: int):
     with get_session() as db:
         try:
             uid = _uid()
@@ -200,7 +200,7 @@ async def toggle_like(pid: int):
 
 
 @router.get("/{pid}/comments", summary="评论列表")
-async def list_comments(pid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+def list_comments(pid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
             q = db.query(CirclePostComment).filter(CirclePostComment.post_id == pid)
@@ -230,7 +230,7 @@ async def list_comments(pid: int, page: int = Query(1, ge=1), limit: int = Query
 
 
 @router.post("/{pid}/comment", summary="发表评论")
-async def add_comment(
+def add_comment(
     pid: int,
     content: str = Query(..., min_length=1),
     pid_parent: int = Query(0, alias="pid"),

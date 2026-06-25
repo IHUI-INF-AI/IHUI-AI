@@ -34,7 +34,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("/record", summary="记录评论日志")
-async def record_log(target_type: str = Query(...), target_id: int = Query(...),
+def record_log(target_type: str = Query(...), target_id: int = Query(...),
                       comment_id: int = Query(...), content: str = Query(...),
                       action: str = "add", ip: str | None = None):
     with get_session() as db:
@@ -54,7 +54,7 @@ async def record_log(target_type: str = Query(...), target_id: int = Query(...),
 
 
 @router.get("/list", operation_id="user_comment_log_list", summary="评论日志")
-async def list_logs(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+def list_logs(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                     user_id: str | None = None, target_type: str | None = None,
                     action: str | None = None):
     with get_session() as db:

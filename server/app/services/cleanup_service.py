@@ -97,7 +97,7 @@ class FileCleanupService:
 
         return cleaned
 
-    async def run_cleanup(self):
+    def run_cleanup(self):
         logger.info("开始执行文件清理...")
 
         total_cleaned = 0

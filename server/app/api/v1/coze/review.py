@@ -50,7 +50,7 @@ async def update_review_result(req: UpdateReviewReq):
         raise
     except Exception as e:
         logger.error("Update review error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
 
 
 @router.get("/status")
@@ -65,4 +65,4 @@ async def get_review_status(bot_id: str, connector_id: str):
         return {"success": True, "data": {"bot_id": bot_id, "connector_id": connector_id, "audit_status": 0}}
     except Exception as e:
         logger.error("Get review status error: " + str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e

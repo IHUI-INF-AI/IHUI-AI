@@ -131,7 +131,7 @@ class DatabaseError(APIError):
 # ---------------------------------------------------------------------------
 
 
-async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
+def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     """Handle custom API errors."""
     logger.warning(f"API Error: {exc.code} - {exc.message} | Path: {request.url.path}")
     return JSONResponse(
@@ -140,7 +140,7 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     )
 
 
-async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handle Pydantic validation errors."""
     errors = []
     for error in exc.errors():
@@ -166,7 +166,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     )
 
 
-async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
     """Handle SQLAlchemy database errors."""
     logger.error(f"Database Error: {type(exc).__name__} - {str(exc)[:200]} | " f"Path: {request.url.path}")
 
@@ -194,7 +194,7 @@ async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError) -> JS
     )
 
 
-async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
     # Log full traceback
     tb = traceback.format_exc()

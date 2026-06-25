@@ -37,7 +37,7 @@ def _get_sys_user_id(user_uuid: str) -> int | None:
 
 
 @router.post("/login", summary="Admin login")
-async def admin_login(username: str = Query(...), password: str = Query(...)):
+def admin_login(username: str = Query(...), password: str = Query(...)):
     with get_session() as db:
         from app.models.sys_models import SysUser
 
@@ -49,7 +49,7 @@ async def admin_login(username: str = Query(...), password: str = Query(...)):
 
 
 @router.get("/user/list", summary="List system users")
-async def list_sys_users(
+def list_sys_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -90,7 +90,7 @@ _USER_EXPORT_COLUMNS = [
 
 
 @router.get("/user/export", summary="导出用户列表到Excel")
-async def export_users(user_uuid: str = Depends(require_login)):
+def export_users(user_uuid: str = Depends(require_login)):
     from app.utils.excel_util import export_to_excel
 
     with get_session() as db:
@@ -125,7 +125,7 @@ async def export_users(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/user", summary="创建用户")
-async def create_user(
+def create_user(
     userName: str = Body(...),
     password: str = Body(...),
     nickName: str = Body(...),
@@ -169,7 +169,7 @@ async def create_user(
 
 
 @router.get("/user/{user_id}", summary="获取单个用户")
-async def get_user(
+def get_user(
     user_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -194,7 +194,7 @@ async def get_user(
 
 
 @router.put("/user/{user_id}", summary="更新用户")
-async def update_user(
+def update_user(
     user_id: int,
     nickName: str = Body(None),
     email: str = Body(None),
@@ -232,7 +232,7 @@ async def update_user(
 
 
 @router.delete("/user/{user_id}", summary="删除用户 (软删除)")
-async def delete_user(
+def delete_user(
     user_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -253,7 +253,7 @@ async def delete_user(
 
 
 @router.get("/user/authRole/{user_id}", summary="获取用户及角色信息")
-async def get_user_auth_role(
+def get_user_auth_role(
     user_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -284,7 +284,7 @@ async def get_user_auth_role(
 
 
 @router.get("/user/deptTree", summary="部门树 (兼容)")
-async def get_dept_tree_for_user(user_uuid: str = Depends(require_login)):
+def get_dept_tree_for_user(user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysDept
 
     with get_session() as db:
@@ -314,7 +314,7 @@ async def get_dept_tree_for_user(user_uuid: str = Depends(require_login)):
 
 
 @router.put("/resetPwd", summary="管理员重置用户密码")
-async def reset_user_pwd(
+def reset_user_pwd(
     user_id: int = Query(..., description="目标用户 ID"),
     new_password: str = Query(..., description="新密码"),
     user_uuid: str = Depends(require_login),
@@ -344,7 +344,7 @@ async def reset_user_pwd(
 
 
 @router.put("/changeStatus", summary="启用 / 禁用用户")
-async def change_user_status(
+def change_user_status(
     user_id: int = Query(..., description="目标用户 ID"),
     status: str = Query(..., description="0=正常 1=停用"),
     user_uuid: str = Depends(require_login),
@@ -373,7 +373,7 @@ async def change_user_status(
 
 
 @router.get("/getInfo", summary="获取当前登录用户信息(含角色与权限)")
-async def get_login_user_info(user_uuid: str = Depends(require_login)):
+def get_login_user_info(user_uuid: str = Depends(require_login)):
     """替代前端 mock,从数据库实时查询当前用户的角色和权限."""
 
     from app.models.sys_models import (
@@ -460,7 +460,7 @@ async def get_login_user_info_alias(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/user/profile", summary="获取个人详细资料")
-async def get_user_profile(user_uuid: str = Depends(require_login)):
+def get_user_profile(user_uuid: str = Depends(require_login)):
     from sqlalchemy import text
 
     from app.models.sys_models import SysRole, SysUser, SysUserRole
@@ -516,7 +516,7 @@ async def get_user_profile(user_uuid: str = Depends(require_login)):
 
 
 @router.put("/user/profile", summary="修改个人信息")
-async def update_user_profile(
+def update_user_profile(
     nick_name: str = Body(None),
     email: str = Body(None),
     phone: str = Body(None),
@@ -561,7 +561,7 @@ async def update_user_profile(
 
 
 @router.put("/user/profile/updatePwd", summary="修改个人密码")
-async def update_own_password(
+def update_own_password(
     old_password: str = Body(...),
     new_password: str = Body(...),
     user_uuid: str = Depends(require_login),
@@ -661,7 +661,7 @@ async def upload_avatar(
 
 
 @router.get("/role/list", summary="List roles")
-async def list_roles(user_uuid: str = Depends(require_login)):
+def list_roles(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.sys_models import SysRole
 
@@ -671,11 +671,11 @@ async def list_roles(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/menu/list", summary="List menus")
-async def list_menus(user_uuid: str = Depends(require_login)):
+def list_menus(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.sys_models import SysMenu
 
-        menus = db.query(SysMenu).order_by(SysMenu.order_num).all()
+        menus = db.query(SysMenu).order_by(SysMenu.order_num).limit(500).all()
         data = [
             {
                 "menu_id": m.menu_id,
@@ -691,7 +691,7 @@ async def list_menus(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/menu/getRouters", summary="获取路由菜单树 (Admin 兼容)")
-async def get_routers(user_uuid: str = Depends(require_login)):
+def get_routers(user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysMenu
 
     with get_session() as db:
@@ -720,7 +720,7 @@ async def get_routers(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/menu/treeselect", summary="菜单树选择")
-async def menu_treeselect(user_uuid: str = Depends(require_login)):
+def menu_treeselect(user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysMenu
 
     with get_session() as db:
@@ -738,7 +738,7 @@ async def menu_treeselect(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/dept/list", summary="部门列表")
-async def list_depts(user_uuid: str = Depends(require_login)):
+def list_depts(user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysDept
 
     with get_session() as db:
@@ -759,7 +759,7 @@ async def list_depts(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/post/list", summary="岗位列表")
-async def list_posts(user_uuid: str = Depends(require_login)):
+def list_posts(user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysPost
 
     with get_session() as db:
@@ -779,7 +779,7 @@ async def list_posts(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/dict/type/list", summary="字典类型列表")
-async def list_dict_types(user_uuid: str = Depends(require_login)):
+def list_dict_types(user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysDictType
 
     with get_session() as db:
@@ -793,7 +793,7 @@ async def list_dict_types(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/dict/data/list", summary="字典数据列表")
-async def list_dict_data(dict_type: str = Query(...), user_uuid: str = Depends(require_login)):
+def list_dict_data(dict_type: str = Query(...), user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysDictData
 
     with get_session() as db:
@@ -813,7 +813,7 @@ async def list_dict_data(dict_type: str = Query(...), user_uuid: str = Depends(r
 
 
 @router.get("/dict/data/type/{dict_type}", summary="按字典类型获取数据")
-async def get_dict_data_by_type(dict_type: str, user_uuid: str = Depends(require_login)):
+def get_dict_data_by_type(dict_type: str, user_uuid: str = Depends(require_login)):
     from app.models.sys_models import SysDictData
 
     with get_session() as db:
@@ -833,7 +833,7 @@ async def get_dict_data_by_type(dict_type: str, user_uuid: str = Depends(require
 
 
 @router.get("/config/list", summary="List system configs")
-async def list_configs(user_uuid: str = Depends(require_login)):
+def list_configs(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.sys_models import SysConfig
 
@@ -850,7 +850,7 @@ async def list_configs(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/dict/{dict_type}", summary="Get dictionary data")
-async def get_dict(dict_type: str):
+def get_dict(dict_type: str):
     with get_session() as db:
         from app.models.sys_models import SysDictData
 

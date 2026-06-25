@@ -333,7 +333,7 @@ async def jwt_token(body: JWTBody):
 
 
 @router.get("/config", summary="查看 Coze OAuth 配置 (脱敏)")
-async def config():
+def config():
     """查看当前生效的 OAuth 配置 (敏感字段脱敏)."""
     cfg = load_coze_oauth_config()
     if not cfg:

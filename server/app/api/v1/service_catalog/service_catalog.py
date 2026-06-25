@@ -65,7 +65,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="服务列表")
-async def service_list(
+def service_list(
     group: str | None = None, type: str | None = None, status: int | None = None, keyword: str | None = None
 ):
     with get_session() as db:
@@ -109,7 +109,7 @@ async def service_list(
 
 
 @router.get("/{sid}", summary="服务详情")
-async def get_service(sid: int):
+def get_service(sid: int):
     with get_session() as db:
         try:
             s = db.query(ServiceNode).filter(ServiceNode.id == sid).first()
@@ -140,7 +140,7 @@ async def get_service(sid: int):
 
 
 @router.post("", summary="注册服务")
-async def register(
+def register(
     code: str = Query(...),
     name: str = Query(...),
     type: str = "api",
@@ -184,7 +184,7 @@ async def register(
 
 
 @router.put("/{sid}", summary="更新服务")
-async def update_service(
+def update_service(
     sid: int,
     name: str | None = None,
     host: str | None = None,
@@ -217,7 +217,7 @@ async def update_service(
 
 
 @router.delete("/{sid}", summary="下线服务")
-async def delete_service(sid: int):
+def delete_service(sid: int):
     with get_session() as db:
         try:
             s = db.query(ServiceNode).filter(ServiceNode.id == sid).first()
@@ -231,7 +231,7 @@ async def delete_service(sid: int):
 
 
 @router.post("/{sid}/heartbeat", summary="心跳上报")
-async def heartbeat(sid: int, is_healthy: bool = True, error_msg: str | None = None):
+def heartbeat(sid: int, is_healthy: bool = True, error_msg: str | None = None):
     with get_session() as db:
         try:
             s = db.query(ServiceNode).filter(ServiceNode.id == sid).first()
@@ -248,7 +248,7 @@ async def heartbeat(sid: int, is_healthy: bool = True, error_msg: str | None = N
 
 
 @router.get("/log/list", summary="服务调用日志")
-async def call_log_list(
+def call_log_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service_code: str | None = None,

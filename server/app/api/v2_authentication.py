@@ -13,7 +13,7 @@ router = APIRouter(tags=["API v2: Authentication"])
 
 
 @router.post("/api/v2/auth/login", summary="[v2] 密码登录")
-async def v2_login(phone: str = Query(...), password: str = Query(None)):
+def v2_login(phone: str = Query(...), password: str = Query(None)):
     result = auth_service.login_by_password(phone, password or "")
     if not result["success"]:
         return error(result["msg"], "401")
@@ -21,7 +21,7 @@ async def v2_login(phone: str = Query(...), password: str = Query(None)):
 
 
 @router.post("/api/v2/auth/login/sms", summary="[v2] 短信验证码登录")
-async def v2_login_sms(phone: str = Query(...), code: str = Query(...)):
+def v2_login_sms(phone: str = Query(...), code: str = Query(...)):
     result = auth_service.login_by_sms(phone, code)
     if not result["success"]:
         return error(result["msg"], "401")
@@ -29,7 +29,7 @@ async def v2_login_sms(phone: str = Query(...), code: str = Query(...)):
 
 
 @router.post("/api/v2/auth/register", summary="[v2] 注册新用户")
-async def v2_register(
+def v2_register(
     phone: str = Query(...),
     password: str = Query(...),
     nickname: str = Query(None),
@@ -41,7 +41,7 @@ async def v2_register(
 
 
 @router.post("/api/v2/auth/refresh", summary="[v2] 刷新token")
-async def v2_refresh(refresh_token: str = Query(...)):
+def v2_refresh(refresh_token: str = Query(...)):
     result = auth_service.refresh_token(refresh_token)
     if not result["success"]:
         return error(result["msg"], "401")
@@ -49,7 +49,7 @@ async def v2_refresh(refresh_token: str = Query(...)):
 
 
 @router.get("/api/v2/auth/info", summary="[v2] 获取用户信息")
-async def v2_info(user_uuid: str = Depends(require_login)):
+def v2_info(user_uuid: str = Depends(require_login)):
     result = auth_service.get_user_info(user_uuid)
     if not result["success"]:
         return error(result["msg"], "404")
@@ -57,7 +57,7 @@ async def v2_info(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/api/v2/auth/logout", summary="[v2] 登出")
-async def v2_logout(request: Request):
+def v2_logout(request: Request):
     from app.core.jwt_blacklist import revoke_token
     auth_header = request.headers.get("authorization", "")
     token = auth_header[7:] if auth_header.startswith("Bearer ") else ""
@@ -67,7 +67,7 @@ async def v2_logout(request: Request):
 
 
 @router.get("/api/v2/auth/exist/{phone}", summary="[v2] 检查手机号是否注册")
-async def v2_check_phone(phone: str):
+def v2_check_phone(phone: str):
     result = auth_service.check_phone_exists(phone)
     return success({"exists": result.get("exists", False)})
 

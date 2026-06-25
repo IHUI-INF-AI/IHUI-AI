@@ -29,7 +29,7 @@ def _to_dict(c: AskCategory) -> dict:
 
 
 @router.get("/admin/list", operation_id="ask_category_admin_list", summary="分类列表(管理员)")
-async def admin_list(
+def admin_list(
     is_show: bool | None = None,
     is_show_index: bool | None = None,
     _admin: str = Depends(require_role("admin")),
@@ -49,7 +49,7 @@ async def admin_list(
 
 
 @router.get("/public-api/list", summary="分类列表(公开)")
-async def public_list(
+def public_list(
     is_show: bool | None = None,
     is_show_index: bool | None = None,
 ):
@@ -68,7 +68,7 @@ async def public_list(
 
 
 @router.get("/{cat_id}", summary="分类详情")
-async def get_category(cat_id: int):
+def get_category(cat_id: int):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == cat_id).first()
@@ -81,7 +81,7 @@ async def get_category(cat_id: int):
 
 
 @router.post("", summary="添加分类")
-async def add_category(body: CategoryCreate):
+def add_category(body: CategoryCreate):
     with get_session() as db:
         try:
             level = 1
@@ -107,7 +107,7 @@ async def add_category(body: CategoryCreate):
 
 
 @router.put("", summary="修改分类")
-async def update_category(body: CategoryUpdate):
+def update_category(body: CategoryUpdate):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == body.id).first()
@@ -132,7 +132,7 @@ async def update_category(body: CategoryUpdate):
 
 
 @router.delete("/{cat_id}", summary="删除分类")
-async def delete_category(cat_id: int):
+def delete_category(cat_id: int):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == cat_id).first()
@@ -149,7 +149,7 @@ async def delete_category(cat_id: int):
 
 
 @router.put("/is-show", summary="修改显示状态")
-async def change_show(id: int = Query(...), is_show: bool = Query(...)):
+def change_show(id: int = Query(...), is_show: bool = Query(...)):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == id).first()
@@ -163,7 +163,7 @@ async def change_show(id: int = Query(...), is_show: bool = Query(...)):
 
 
 @router.put("/is-show-index", summary="修改首页显示状态")
-async def change_show_index(id: int = Query(...), is_show_index: bool = Query(...)):
+def change_show_index(id: int = Query(...), is_show_index: bool = Query(...)):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == id).first()

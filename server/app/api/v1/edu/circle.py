@@ -29,7 +29,7 @@ router = APIRouter()
 
 
 @router.post("/circles", summary="Create a new circle")
-async def create_circle(
+def create_circle(
     payload: dict,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -49,7 +49,7 @@ async def create_circle(
 
 
 @router.get("/circles", summary="List circles (paginated)")
-async def list_circles(
+def list_circles(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     category: Optional[str] = Query(None),
@@ -78,7 +78,7 @@ async def list_circles(
 
 
 @router.get("/circles/{circle_id}", summary="Get circle detail")
-async def get_circle(circle_id: int, db: Session = Depends(_get_db)):
+def get_circle(circle_id: int, db: Session = Depends(_get_db)):
     from app.services.edu_circle import get_circle
     c = get_circle(db, circle_id)
     return success(data={
@@ -91,7 +91,7 @@ async def get_circle(circle_id: int, db: Session = Depends(_get_db)):
 
 
 @router.put("/circles/{circle_id}", summary="Update circle (owner only)")
-async def update_circle(
+def update_circle(
     circle_id: int, payload: dict,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -102,7 +102,7 @@ async def update_circle(
 
 
 @router.delete("/circles/{circle_id}", summary="Delete circle (owner only)")
-async def delete_circle(
+def delete_circle(
     circle_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -113,7 +113,7 @@ async def delete_circle(
 
 
 @router.post("/circles/{circle_id}/join", summary="Join a circle")
-async def join_circle(
+def join_circle(
     circle_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -124,7 +124,7 @@ async def join_circle(
 
 
 @router.post("/circles/{circle_id}/leave", summary="Leave a circle")
-async def leave_circle(
+def leave_circle(
     circle_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -135,7 +135,7 @@ async def leave_circle(
 
 
 @router.get("/circles/{circle_id}/members", summary="List circle members")
-async def list_members(
+def list_members(
     circle_id: int,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -150,7 +150,7 @@ async def list_members(
 
 
 @router.post("/circles/{circle_id}/posts", summary="Create a post in a circle")
-async def create_post(
+def create_post(
     circle_id: int, payload: dict,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -170,7 +170,7 @@ async def create_post(
 
 
 @router.get("/circles/{circle_id}/posts", summary="List posts in a circle")
-async def list_posts(
+def list_posts(
     circle_id: int,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -193,7 +193,7 @@ async def list_posts(
 
 
 @router.delete("/posts/{post_id}", summary="Delete post (author or circle owner)")
-async def delete_post(
+def delete_post(
     post_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(_get_db),
@@ -204,14 +204,14 @@ async def delete_post(
 
 
 @router.post("/posts/{post_id}/like", summary="Like a post")
-async def like_post(post_id: int, db: Session = Depends(_get_db)):
+def like_post(post_id: int, db: Session = Depends(_get_db)):
     from app.services.edu_circle import like_post
     new_count = like_post(db, post_id)
     return success(data={"like_count": new_count})
 
 
 @router.get("/users/{user_id}/circles", summary="Get user's joined circles")
-async def get_user_circles(
+def get_user_circles(
     user_id: int,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),

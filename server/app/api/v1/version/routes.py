@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.services.database_service import FileVersionService, Session, UploadedFileService, get_db
 from app.services.diff_service import FileDiffService
+from app.security import require_login, require_role
 
 router = APIRouter()
 
@@ -42,7 +43,8 @@ async def create_version(
     file: UploadFile = File(...),
     change_summary: str | None = Form(None),
     changed_by: str | None = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: str = Depends(require_login)
 ):
     file_record = UploadedFileService.get_by_file_id(db, file_id)
     if not file_record:
@@ -75,7 +77,7 @@ async def create_version(
 
 
 @router.get("/version/list/{file_id}")
-async def list_versions(file_id: str, db: Session = Depends(get_db)):
+def list_versions(file_id: str, db: Session = Depends(get_db), _: str = Depends(require_login)):
     versions = FileVersionService.get_versions(db, file_id)
 
     return {
@@ -97,7 +99,7 @@ async def list_versions(file_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/version/{version_id}")
-async def get_version(version_id: str, db: Session = Depends(get_db)):
+def get_version(version_id: str, db: Session = Depends(get_db), _: str = Depends(require_login)):
     version = FileVersionService.get_version(db, version_id)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
@@ -116,7 +118,7 @@ async def get_version(version_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/version/rollback/{version_id}")
-async def rollback_version(version_id: str, db: Session = Depends(get_db)):
+def rollback_version(version_id: str, db: Session = Depends(get_db), _: str = Depends(require_role("admin"))):
     version = FileVersionService.rollback_to_version(db, version_id)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
@@ -136,7 +138,7 @@ async def rollback_version(version_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/version/{version_id}")
-async def delete_version(version_id: str, db: Session = Depends(get_db)):
+def delete_version(version_id: str, db: Session = Depends(get_db), _: str = Depends(require_role("admin"))):
     version = FileVersionService.get_version(db, version_id)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
@@ -153,7 +155,7 @@ async def delete_version(version_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/version/current/{file_id}")
-async def get_current_version(file_id: str, db: Session = Depends(get_db)):
+def get_current_version(file_id: str, db: Session = Depends(get_db), _: str = Depends(require_login)):
     version = FileVersionService.get_current_version(db, file_id)
     if not version:
         raise HTTPException(status_code=404, detail="No version found")
@@ -172,11 +174,12 @@ async def get_current_version(file_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/version/compare/{file_id}")
-async def compare_versions(
+def compare_versions(
     file_id: str,
     version1: int = Query(...),
     version2: int = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: str = Depends(require_login)
 ):
     versions = FileVersionService.get_versions(db, file_id)
 

@@ -44,7 +44,7 @@ _DB_NAMES = ("zhs_ai_project", "zhs_center_project", "zhs_educational_training")
 
 
 @router.get("/gen/list", summary="List imported codegen tables")
-async def gen_list(
+def gen_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     table_name: str | None = Query(None),
@@ -91,7 +91,7 @@ async def gen_list(
 
 
 @router.get("/gen/db/list", summary="List database tables from information_schema")
-async def gen_db_list(
+def gen_db_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     table_name: str | None = Query(None),
@@ -149,7 +149,7 @@ async def gen_db_list(
 
 
 @router.get("/gen/column/{table_id}", summary="List columns for an imported table")
-async def gen_column_list(
+def gen_column_list(
     table_id: int = Path(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -192,7 +192,7 @@ async def gen_column_list(
 
 
 @router.post("/gen/import_table", summary="Import database tables into codegen")
-async def gen_import_table(
+def gen_import_table(
     tables: str = Body(..., embed=True, description="Comma-separated table names"),
     user_uuid: str = Depends(require_login),
 ):
@@ -310,7 +310,7 @@ async def gen_import_table(
 
 
 @router.get("/gen/preview/{table_id}", summary="Preview generated code for a table")
-async def gen_preview(
+def gen_preview(
     table_id: int = Path(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -360,7 +360,7 @@ async def gen_preview(
 
 
 @router.get("/gen/download/{table_name}", summary="Download generated code as zip")
-async def gen_download(
+def gen_download(
     table_name: str = Path(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -417,7 +417,7 @@ async def gen_download(
 
 
 @router.put("/gen", summary="Update codegen table metadata")
-async def gen_update(
+def gen_update(
     data: dict = Body(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -490,7 +490,7 @@ async def gen_update(
 
 
 @router.delete("/gen/{table_ids}", summary="Delete imported codegen tables")
-async def gen_delete(
+def gen_delete(
     table_ids: str = Path(..., description="Comma-separated table IDs"),
     user_uuid: str = Depends(require_login),
 ):

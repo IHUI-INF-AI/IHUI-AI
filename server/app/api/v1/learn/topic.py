@@ -84,7 +84,7 @@ class TopicLessonCreate(BaseModel):
 
 
 @router.get("/list", summary="专题列表")
-async def list_topics(
+def list_topics(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -111,7 +111,7 @@ async def list_topics(
 
 
 @router.get("/{topic_id}", summary="专题详情")
-async def get_topic(topic_id: int):
+def get_topic(topic_id: int):
     with get_session() as db:
         try:
             item = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -124,7 +124,7 @@ async def get_topic(topic_id: int):
 
 
 @router.post("", summary="创建专题")
-async def create_topic(body: TopicCreate):
+def create_topic(body: TopicCreate):
     with get_session() as db:
         try:
             item = Topic(
@@ -147,7 +147,7 @@ async def create_topic(body: TopicCreate):
 
 
 @router.put("/{topic_id}", summary="更新专题")
-async def update_topic(topic_id: int, body: TopicUpdate):
+def update_topic(topic_id: int, body: TopicUpdate):
     with get_session() as db:
         try:
             item = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -177,7 +177,7 @@ async def update_topic(topic_id: int, body: TopicUpdate):
 
 
 @router.delete("/{topic_id}", summary="删除专题")
-async def delete_topic(topic_id: int):
+def delete_topic(topic_id: int):
     with get_session() as db:
         try:
             item = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -192,7 +192,7 @@ async def delete_topic(topic_id: int):
 
 
 @router.put("/{topic_id}/publish", summary="发布专题")
-async def publish_topic(topic_id: int):
+def publish_topic(topic_id: int):
     with get_session() as db:
         try:
             item = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -207,7 +207,7 @@ async def publish_topic(topic_id: int):
 
 
 @router.put("/{topic_id}/unpublish", summary="取消发布专题")
-async def unpublish_topic(topic_id: int):
+def unpublish_topic(topic_id: int):
     with get_session() as db:
         try:
             item = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -222,7 +222,7 @@ async def unpublish_topic(topic_id: int):
 
 
 @router.get("/recommend", summary="推荐专题列表")
-async def list_recommend_topics(
+def list_recommend_topics(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -238,7 +238,7 @@ async def list_recommend_topics(
 
 
 @router.put("/{topic_id}/recommend", summary="推荐专题")
-async def recommend_topic(topic_id: int):
+def recommend_topic(topic_id: int):
     with get_session() as db:
         try:
             item = db.query(Topic).filter(Topic.id == topic_id).first()
@@ -254,7 +254,7 @@ async def recommend_topic(topic_id: int):
 
 
 @router.get("/{topic_id}/lessons", summary="专题课程列表")
-async def list_topic_lessons(
+def list_topic_lessons(
     topic_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -278,7 +278,7 @@ async def list_topic_lessons(
 
 
 @router.post("/{topic_id}/lessons", summary="添加专题课程关系")
-async def add_topic_lesson(topic_id: int, body: TopicLessonCreate):
+def add_topic_lesson(topic_id: int, body: TopicLessonCreate):
     with get_session() as db:
         try:
             exists = (
@@ -301,7 +301,7 @@ async def add_topic_lesson(topic_id: int, body: TopicLessonCreate):
 
 
 @router.delete("/{topic_id}/lessons/{lesson_id}", summary="移除专题课程关系")
-async def remove_topic_lesson(topic_id: int, lesson_id: int):
+def remove_topic_lesson(topic_id: int, lesson_id: int):
     with get_session() as db:
         try:
             item = (

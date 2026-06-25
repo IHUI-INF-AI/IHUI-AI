@@ -59,7 +59,7 @@ class ProgressUpdate(BaseModel):
 
 
 @router.post("", summary="报名课程")
-async def create_signup(body: SignUpCreate):
+def create_signup(body: SignUpCreate):
     with get_session() as db:
         try:
             existing = (
@@ -92,7 +92,7 @@ async def create_signup(body: SignUpCreate):
 
 
 @router.get("/check", summary="检查报名状态")
-async def check_signup(
+def check_signup(
     member_id: int = Query(...),
     lesson_id: int = Query(...),
 ):
@@ -119,7 +119,7 @@ async def check_signup(
 
 
 @router.get("/{signup_id}", summary="报名详情")
-async def get_signup(signup_id: int):
+def get_signup(signup_id: int):
     with get_session() as db:
         try:
             signup = db.query(SignUp).filter(SignUp.id == signup_id).first()
@@ -132,7 +132,7 @@ async def get_signup(signup_id: int):
 
 
 @router.delete("/{signup_id}", summary="取消报名")
-async def cancel_signup(signup_id: int):
+def cancel_signup(signup_id: int):
     with get_session() as db:
         try:
             signup = db.query(SignUp).filter(SignUp.id == signup_id).first()
@@ -147,7 +147,7 @@ async def cancel_signup(signup_id: int):
 
 
 @router.put("/{signup_id}/progress", summary="更新学习进度")
-async def update_progress(signup_id: int, body: ProgressUpdate):
+def update_progress(signup_id: int, body: ProgressUpdate):
     with get_session() as db:
         try:
             signup = db.query(SignUp).filter(SignUp.id == signup_id).first()
@@ -165,7 +165,7 @@ async def update_progress(signup_id: int, body: ProgressUpdate):
 
 
 @router.put("/{signup_id}/complete", summary="完成课程")
-async def complete_signup(signup_id: int):
+def complete_signup(signup_id: int):
     with get_session() as db:
         try:
             signup = db.query(SignUp).filter(SignUp.id == signup_id).first()
@@ -187,7 +187,7 @@ async def complete_signup(signup_id: int):
 
 
 @router.get("/member/{member_id}/list", summary="会员报名列表")
-async def list_member_signups(
+def list_member_signups(
     member_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -214,7 +214,7 @@ async def list_member_signups(
 
 
 @router.get("/lesson/{lesson_id}/list", summary="课程报名列表")
-async def list_lesson_signups(
+def list_lesson_signups(
     lesson_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -246,7 +246,7 @@ async def list_lesson_signups(
 
 
 @router.get("/member/{member_id}/count", summary="会员报名数量统计")
-async def count_member_signups(member_id: int):
+def count_member_signups(member_id: int):
     with get_session() as db:
         try:
             total = (
@@ -276,7 +276,7 @@ async def count_member_signups(member_id: int):
 
 
 @router.get("/lesson/{lesson_id}/count", summary="课程报名数量统计")
-async def count_lesson_signups(lesson_id: int):
+def count_lesson_signups(lesson_id: int):
     with get_session() as db:
         try:
             total = (

@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/agent/{agent_id}", summary="查询 Agent 热度(按日聚合)")
-async def agent_heat(agent_id: str, days: int = Query(7, ge=1, le=30)):
+def agent_heat(agent_id: str, days: int = Query(7, ge=1, le=30)):
     with get_session() as db:
         try:
             from app.models.agent_models import AgentHeatStats
@@ -42,7 +42,7 @@ async def agent_heat(agent_id: str, days: int = Query(7, ge=1, le=30)):
 
 
 @router.post("/hit", summary="记录一次 Agent 命中(内部调用)")
-async def hit(agent_id: str = Query(...)):
+def hit(agent_id: str = Query(...)):
     """累加当日 hit_count.无对应行时新建."""
     with get_session() as db:
         try:
@@ -70,7 +70,7 @@ async def hit(agent_id: str = Query(...)):
 
 
 @router.get("/top", summary="热度 TOP 榜")
-async def top_agents(days: int = Query(7, ge=1, le=30), limit: int = Query(20, ge=1, le=100)):
+def top_agents(days: int = Query(7, ge=1, le=30), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
             from app.models.agent_models import AgentHeatStats

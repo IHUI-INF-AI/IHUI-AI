@@ -25,19 +25,19 @@ def aggregate_heat_stats():
             db.close()
 
 
-async def start():
+def start():
     """生命周期: 启动 heat stats 后台任务."""
     logger.info("heat_stats_service started")
     return True
 
 
-async def stop():
+def stop():
     """生命周期: 停止 heat stats 后台任务."""
     logger.info("heat_stats_service stopped")
     return True
 
 
-async def increment_hit(agent_id: str, date_str: str | None = None):
+def increment_hit(agent_id: str, date_str: str | None = None):
     """Increment hit count for an agent on a given date."""
     if date_str is None:
         date_str = datetime.now().strftime("%Y-%m-%d")

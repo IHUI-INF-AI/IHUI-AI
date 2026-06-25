@@ -89,7 +89,7 @@ async def text_to_image(
 
 
 @router.get("/models", operation_id="tongyi_image_edit_list_models", summary="通义可用模型")
-async def list_models():
+def list_models():
     return success(
         [
             {"id": "qwen-image", "name": "通义千问文生图", "type": "text-to-image"},

@@ -8,7 +8,7 @@ router = APIRouter(prefix="/login/dingtalk", tags=["Auth: DingTalk"])
 
 
 @router.get("/config", summary="获取钉钉配置")
-async def dingtalk_config():
+def dingtalk_config():
     """获取钉钉登录配置 (appId, corpId, agentId), 公开接口."""
     config = get_dingtalk_config()
     return {"code": "200", "message": "success", "data": config}

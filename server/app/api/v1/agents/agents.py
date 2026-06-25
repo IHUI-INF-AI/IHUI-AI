@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="List agents")
-async def get_agents(
+def get_agents(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     keyword: str = Query(None),
@@ -22,7 +22,7 @@ async def get_agents(
 
 
 @router.get("/{agent_id}", summary="Get agent detail")
-async def get_detail(agent_id: str, user_uuid: str = Depends(require_login)):
+def get_detail(agent_id: str, user_uuid: str = Depends(require_login)):
     agent = get_agent(agent_id)
     if not agent:
         return error("Agent not found", "404")
@@ -30,7 +30,7 @@ async def get_detail(agent_id: str, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/create", summary="Create agent")
-async def create(
+def create(
     agent_name: str = Query(...),
     bot_id: str = Query(None),
     agent_prompt: str = Query(None),
@@ -43,7 +43,7 @@ async def create(
 
 
 @router.put("/{agent_id}", summary="Update agent")
-async def update(
+def update(
     agent_id: str,
     agent_name: str = Query(None),
     agent_prompt: str = Query(None),
@@ -57,7 +57,7 @@ async def update(
 
 
 @router.delete("/{agent_id}", summary="Delete agent")
-async def delete(agent_id: str, user_uuid: str = Depends(require_login)):
+def delete(agent_id: str, user_uuid: str = Depends(require_login)):
     result = delete_agent(agent_id)
     if not result["success"]:
         return error(result["msg"])

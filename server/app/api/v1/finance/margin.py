@@ -15,12 +15,12 @@ router = APIRouter()
 
 
 @router.get("/balance", summary="查询用户 token 余额(Redis 缓存 5 分钟)")
-async def get_balance(user_uuid: str = Depends(require_login)):
+def get_balance(user_uuid: str = Depends(require_login)):
     return success(get_balance_cached(user_uuid))
 
 
 @router.get("/check", summary="检查余额是否充足")
-async def check_balance(
+def check_balance(
     min_tokens: int = Query(..., description="所需 token 数"),
     user_uuid: str = Depends(require_login),
 ):
@@ -28,7 +28,7 @@ async def check_balance(
 
 
 @router.post("/deduct", summary="扣减用户 token(内部调用)")
-async def deduct(
+def deduct(
     quantity: int = Query(..., description="扣减数量"),
     remark: str = Query("", description="操作描述"),
     user_uuid: str = Depends(require_login),
@@ -46,7 +46,7 @@ async def deduct(
 
 
 @router.post("/recharge", summary="充值 token(与支付订单配合使用)")
-async def recharge(
+def recharge(
     quantity: int = Query(..., description="充值数量"),
     out_trade_no: str = Query(..., description="支付订单号"),
     user_uuid: str = Depends(require_login),
@@ -64,7 +64,7 @@ async def recharge(
 
 
 @router.post("/expire", summary="过期清零(管理员/定时任务)")
-async def expire(
+def expire(
     quantity: int = Query(..., description="过期数量"),
     source: str = Query("到期清零"),
     user_uuid: str = Depends(require_login),
@@ -82,7 +82,7 @@ async def expire(
 
 
 @router.post("/commission", summary="佣金入账(邀请分成)")
-async def grant_commission(
+def grant_commission(
     quantity: int = Query(..., description="佣金数量"),
     invited_user_id: str = Query("", description="被邀请人 uuid"),
     source: str = Query("invite", description="来源"),
@@ -106,7 +106,7 @@ async def grant_commission(
 
 
 @router.post("/refund", summary="Token 回退(退还指定数量 token 到用户余额)")
-async def refund_token(
+def refund_token(
     quantity: int = Query(..., description="回退数量"),
     remark: str = Query("", description="操作说明"),
     user_uuid: str = Depends(require_login),
@@ -132,7 +132,7 @@ async def refund_token(
 
 
 @router.put("/{target_user_uuid}", summary="管理员直接调整用户 Token 余额")
-async def admin_adjust_balance(
+def admin_adjust_balance(
     target_user_uuid: str,
     quantity: int = Query(..., description="调整数量(正数增加/负数扣减)"),
     reason: str = Query("管理员调整", description="操作原因"),
@@ -165,7 +165,7 @@ async def admin_adjust_balance(
 
 
 @router.get("/flows", summary="用户 token 流水(支持按类型过滤)")
-async def list_flows(
+def list_flows(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     op_type: int = Query(None, description="0=充值 1=扣减 2=过期 3=退款 4=佣金"),
@@ -176,7 +176,7 @@ async def list_flows(
 
 
 @router.get("/flow/list", summary="Token 操作流水列表(管理员)")
-async def list_token_flow_admin(
+def list_token_flow_admin(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_id: str = Query(None, description="按用户 UUID 过滤"),

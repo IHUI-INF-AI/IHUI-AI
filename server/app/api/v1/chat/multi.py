@@ -96,7 +96,7 @@ def _build_payload(vendor: str, model: str, message: str) -> dict:
 
 
 @router.get("/vendors", summary="列出支持的 AI 厂商")
-async def list_vendors(user_uuid: str = Depends(require_login)):
+def list_vendors(user_uuid: str = Depends(require_login)):
     return success({"vendors": list(VENDOR_ENDPOINTS.keys())})
 
 
@@ -132,7 +132,7 @@ async def vendor_chat(
 
 
 @router.post("/{vendor}/chat/stream", summary="多厂商流式聊天(SSE)")
-async def vendor_chat_stream(
+def vendor_chat_stream(
     vendor: str,
     model: str = Query(...),
     message: str = Query(...),

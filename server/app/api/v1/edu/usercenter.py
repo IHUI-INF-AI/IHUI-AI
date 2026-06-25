@@ -30,49 +30,49 @@ router = APIRouter()
 
 
 @router.get("/profile/me", summary="Get my profile")
-async def get_profile_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+def get_profile_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_usercenter import get_profile
     result = get_profile(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.put("/profile/me", summary="Update my profile")
-async def update_profile_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+def update_profile_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_usercenter import update_profile
     result = update_profile(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.get("/profile/{user_id}", summary="Get user profile")
-async def get_profile_endpoint(user_id: int, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+def get_profile_endpoint(user_id: int, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_usercenter import get_profile
     result = get_profile(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.post("/addresses", summary="Add address")
-async def add_address_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+def add_address_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_usercenter import add_address
     result = add_address(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.put("/addresses/{address_id}", summary="Update address")
-async def update_address_endpoint(address_id: int, user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+def update_address_endpoint(address_id: int, user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_usercenter import update_address
     result = update_address(db, address_id=address_id, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.delete("/addresses/{address_id}", summary="Delete address")
-async def delete_address_endpoint(address_id: int, user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+def delete_address_endpoint(address_id: int, user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_usercenter import delete_address
     result = delete_address(db, address_id=address_id, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
 @router.get("/addresses/me", summary="List my addresses")
-async def list_addresses_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+def list_addresses_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_usercenter import list_addresses
     result = list_addresses(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.get("/addresses/me/default", summary="Get default address")
-async def get_default_address_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+def get_default_address_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_usercenter import get_default_address
     result = get_default_address(db, user_uuid=str(user_id))
     return success(data=result)

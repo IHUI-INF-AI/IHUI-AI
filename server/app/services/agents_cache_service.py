@@ -37,7 +37,7 @@ class AgentsCacheService:
         h = hashlib.md5(raw.encode("utf-8")).hexdigest()
         return f"{AgentsCacheService.CACHE_PREFIX}:{h}"
 
-    async def get_cached_list(self, params: dict[str, Any]) -> list[dict[str, Any]] | None:
+    def get_cached_list(self, params: dict[str, Any]) -> list[dict[str, Any]] | None:
         key = self._make_key(params)
         r = self._get_redis()
         if r is None:
@@ -50,7 +50,7 @@ class AgentsCacheService:
             logger.warning(f"读取智能体缓存失败: {e}")
         return None
 
-    async def set_cached_list(self, params: dict[str, Any], data: list[dict[str, Any]], ttl: int = DEFAULT_TTL) -> bool:
+    def set_cached_list(self, params: dict[str, Any], data: list[dict[str, Any]], ttl: int = DEFAULT_TTL) -> bool:
         key = self._make_key(params)
         r = self._get_redis()
         if r is None:
@@ -62,7 +62,7 @@ class AgentsCacheService:
             logger.warning(f"写入智能体缓存失败: {e}")
             return False
 
-    async def invalidate(self, pattern: str = "agents:list:*") -> int:
+    def invalidate(self, pattern: str = "agents:list:*") -> int:
         r = self._get_redis()
         if r is None:
             return 0

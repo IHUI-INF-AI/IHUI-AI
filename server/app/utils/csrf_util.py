@@ -97,7 +97,7 @@ def verify_csrf_token(token: str, cookie_val: str, user_uuid: str = "anon") -> b
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
-async def csrf_protect(request: Request) -> None:
+def csrf_protect(request: Request) -> None:
     """FastAPI 依赖: 校验 state-changing 请求的 CSRF token.
 
     豁免: 公开白名单 (登录/回调/支付) 不需要 (见 AuthMiddleware 的 PUBLIC_PREFIXES).

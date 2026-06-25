@@ -73,7 +73,7 @@ class ShareCreateRequest(BaseModel):
 
 
 @router.post("/init")
-async def init_upload(data: UploadInit, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
+def init_upload(data: UploadInit, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
     _validate_safe_id(data.uploadId, "uploadId")
     _validate_safe_id(data.fileId, "fileId")
     upload_dir = os.path.join(CHUNKS_DIR, data.uploadId)
@@ -114,7 +114,7 @@ async def upload_chunk(
 
 
 @router.post("/chunk/confirm")
-async def confirm_chunk(
+def confirm_chunk(
     uploadId: str = Form(...),  # noqa: 5
     chunkIndex: int = Form(...),  # noqa: 5
     db: Session = Depends(get_db),
@@ -125,7 +125,7 @@ async def confirm_chunk(
 
 
 @router.post("/complete")
-async def complete_upload(
+def complete_upload(
     request: Request,
     uploadId: str = Form(...),  # noqa: 5
     fileName: str = Form(...),  # noqa: 5
@@ -240,7 +240,7 @@ async def upload_single(
 
 
 @router.get("/files")
-async def list_files(
+def list_files(
     userId: str | None = Query(None),  # noqa: 5
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -267,7 +267,7 @@ async def list_files(
 
 
 @router.get("/file/{file_id}")
-async def get_file(file_id: str, request: Request, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
+def get_file(file_id: str, request: Request, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
     _validate_safe_id(file_id, "file_id")
     record = UploadedFileService.get_by_file_id(db, file_id)
     if not record:
@@ -294,7 +294,7 @@ async def get_file(file_id: str, request: Request, db: Session = Depends(get_db)
 
 
 @router.delete("/file/{file_id}")
-async def delete_file(file_id: str, request: Request, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
+def delete_file(file_id: str, request: Request, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
     _validate_safe_id(file_id, "file_id")
     record = UploadedFileService.get_by_file_id(db, file_id)
     if not record:
@@ -321,7 +321,7 @@ async def delete_file(file_id: str, request: Request, db: Session = Depends(get_
 
 
 @router.post("/share")
-async def create_share(
+def create_share(
     data: ShareCreateRequest,
     db: Session = Depends(get_db),
     user_uuid: str = Depends(require_login)
@@ -356,7 +356,7 @@ async def create_share(
 
 
 @router.get("/share/{share_id}")
-async def get_share_info(share_id: str, db: Session = Depends(get_db)):
+def get_share_info(share_id: str, db: Session = Depends(get_db)):
     record = ShareService.get_active(db, share_id)
     if not record:
         raise HTTPException(status_code=404, detail="Share not found or expired")
@@ -369,7 +369,7 @@ async def get_share_info(share_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/share/{share_id}/download")
-async def download_shared_file(
+def download_shared_file(
     share_id: str,
     password: str | None = Form(None),
     db: Session = Depends(get_db)
@@ -395,13 +395,13 @@ async def download_shared_file(
 
 
 @router.delete("/share/{share_id}")
-async def delete_share(share_id: str, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
+def delete_share(share_id: str, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
     ShareService.delete(db, share_id)
     return {"success": True}
 
 
 @router.get("/shares")
-async def list_shares(
+def list_shares(
     userId: str | None = Query(None),  # noqa: 5
     db: Session = Depends(get_db),
     user_uuid: str = Depends(require_login)

@@ -16,7 +16,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.get("/query", summary="全文搜索")
-async def query(
+def query(
     keyword: str = Query(..., min_length=1),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -102,7 +102,7 @@ async def query(
 
 
 @router.get("/hot", summary="热搜词")
-async def hot_keywords(limit: int = Query(20, ge=1, le=50)):
+def hot_keywords(limit: int = Query(20, ge=1, le=50)):
     with get_session() as db:
         try:
             items = (
@@ -134,7 +134,7 @@ async def hot_keywords(limit: int = Query(20, ge=1, le=50)):
 
 
 @router.get("/suggest", summary="搜索建议")
-async def suggest(keyword: str = Query(..., min_length=1), limit: int = Query(10, ge=1, le=20)):
+def suggest(keyword: str = Query(..., min_length=1), limit: int = Query(10, ge=1, le=20)):
     with get_session() as db:
         try:
             kw = f"%{keyword}%"
@@ -154,7 +154,7 @@ async def suggest(keyword: str = Query(..., min_length=1), limit: int = Query(10
 
 
 @router.post("/index", summary="添加/更新索引")
-async def add_index(
+def add_index(
     target_type: str = Query(...),
     target_id: int = Query(...),
     title: str = Query(..., min_length=1, max_length=500),
@@ -212,7 +212,7 @@ async def add_index(
 
 
 @router.delete("/index/{idx_id}", summary="删除索引")
-async def delete_index(idx_id: int):
+def delete_index(idx_id: int):
     with get_session() as db:
         try:
             idx = db.query(SearchIndex).filter(SearchIndex.id == idx_id).first()
@@ -226,7 +226,7 @@ async def delete_index(idx_id: int):
 
 
 @router.delete("/index/by-target", summary="按目标删除索引")
-async def delete_by_target(target_type: str = Query(...), target_id: int = Query(...)):
+def delete_by_target(target_type: str = Query(...), target_id: int = Query(...)):
     with get_session() as db:
         try:
             db.query(SearchIndex).filter(
@@ -243,7 +243,7 @@ async def delete_by_target(target_type: str = Query(...), target_id: int = Query
 
 
 @router.post("/hot/keyword", summary="添加热搜词")
-async def add_hot_keyword(keyword: str = Query(...), is_hot: bool = False, sort_order: int = 0):
+def add_hot_keyword(keyword: str = Query(...), is_hot: bool = False, sort_order: int = 0):
     with get_session() as db:
         try:
             h = db.query(SearchHotKeyword).filter(SearchHotKeyword.keyword == keyword).first()
@@ -262,7 +262,7 @@ async def add_hot_keyword(keyword: str = Query(...), is_hot: bool = False, sort_
 
 
 @router.delete("/hot/keyword/{kid}", summary="删除热搜词")
-async def delete_hot_keyword(kid: int):
+def delete_hot_keyword(kid: int):
     with get_session() as db:
         try:
             h = db.query(SearchHotKeyword).filter(SearchHotKeyword.id == kid).first()
@@ -279,7 +279,7 @@ async def delete_hot_keyword(kid: int):
 
 
 @router.get("/log/list", operation_id="search_log_list", summary="搜索日志")
-async def log_list(
+def log_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_id: str | None = None,

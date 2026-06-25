@@ -139,7 +139,7 @@ def check_rate_limit(phone: str, max_per_hour: int = 5) -> tuple:
         return True, ""
 
 
-async def _send_via_dev_console(phone: str, code: str) -> bool:
+def _send_via_dev_console(phone: str, code: str) -> bool:
     """开发模式: 验证码输出到日志和临时文件, 完全免费, 无需外部服务."""
     import tempfile
     import os

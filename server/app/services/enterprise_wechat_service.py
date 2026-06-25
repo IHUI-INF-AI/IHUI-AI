@@ -15,7 +15,7 @@ USER_INFO_URL = "https://qyapi.weixin.qq.com/cgi-bin/user/get?access_token=%s&us
 REDIS_PREFIX = "enterprise"
 
 
-async def save_suite_ticket(xml_param: str) -> bool:
+def save_suite_ticket(xml_param: str) -> bool:
     # Parse suite_ticket from WeCom callback XML and store in Redis
     try:
         root = ET.fromstring(xml_param)

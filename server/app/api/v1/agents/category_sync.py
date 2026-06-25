@@ -14,7 +14,7 @@ router = APIRouter(prefix="/cozeZhsApi/sync/category", tags=["分类数据同步
 
 
 @router.get("/status", summary="检查同步状态")
-async def check_sync_status(db: Session = Depends(get_session)):
+def check_sync_status(db: Session = Depends(get_session)):
     try:
         sync_tool = get_category_sync_tool()
         return {"success": True, "data": sync_tool.check_sync_status(db), "message": "获取同步状态成功"}
@@ -24,7 +24,7 @@ async def check_sync_status(db: Session = Depends(get_session)):
 
 
 @router.post("/all", summary="同步所有分类数据")
-async def sync_all_categories(db: Session = Depends(get_session)):
+def sync_all_categories(db: Session = Depends(get_session)):
     try:
         sync_tool = get_category_sync_tool()
         return {"success": True, "data": sync_tool.sync_all_categories(db), "message": "同步完成"}

@@ -26,7 +26,7 @@ def _lec_to_dict(l: ChannelLecturer) -> dict:
 
 
 @router.post("/lecturer", summary="添加频道讲师关联")
-async def add_lecturer(body: LecturerBody):
+def add_lecturer(body: LecturerBody):
     with get_session() as db:
         try:
             c = db.query(LiveChannel).filter(
@@ -54,7 +54,7 @@ async def add_lecturer(body: LecturerBody):
 
 
 @router.delete("/lecturer", summary="移除频道讲师关联")
-async def remove_lecturer(
+def remove_lecturer(
     channel_id: int = Query(...),
     lecturer_id: int = Query(...),
 ):
@@ -78,7 +78,7 @@ async def remove_lecturer(
 
 
 @router.get("/lecturer/list/by-channel", summary="频道讲师列表")
-async def lecturer_list_by_channel(channel_id: int = Query(...)):
+def lecturer_list_by_channel(channel_id: int = Query(...)):
     with get_session() as db:
         try:
             items = (
@@ -94,7 +94,7 @@ async def lecturer_list_by_channel(channel_id: int = Query(...)):
 
 
 @router.get("/lecturer/list/by-lecturer", summary="讲师频道列表")
-async def lecturer_list_by_lecturer(lecturer_id: int = Query(...)):
+def lecturer_list_by_lecturer(lecturer_id: int = Query(...)):
     with get_session() as db:
         try:
             items = (
@@ -110,7 +110,7 @@ async def lecturer_list_by_lecturer(lecturer_id: int = Query(...)):
 
 
 @router.get("/lecturer/check", summary="检查讲师是否关联频道")
-async def check_lecturer(
+def check_lecturer(
     channel_id: int = Query(...),
     lecturer_id: int = Query(...),
 ):
@@ -137,7 +137,7 @@ async def check_lecturer(
 
 
 @router.get("/lecturer/count", summary="频道讲师数量")
-async def lecturer_count(channel_id: int = Query(...)):
+def lecturer_count(channel_id: int = Query(...)):
     with get_session() as db:
         try:
             total = (

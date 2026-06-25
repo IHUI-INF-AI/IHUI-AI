@@ -472,7 +472,7 @@ async def wx_pay_refund(
 
 
 @router.get("/status/{out_trade_no}", summary="Check payment status")
-async def check_status(out_trade_no: str):
+def check_status(out_trade_no: str):
     order = get_order(out_trade_no)
     if not order:
         return error("Order not found", 404)
@@ -485,7 +485,7 @@ async def check_status(out_trade_no: str):
 
 
 @router.get("/consecutive/product", summary="Query consecutive subscription products")
-async def consecutive_product(user_uuid: str = Depends(require_login)):
+def consecutive_product(user_uuid: str = Depends(require_login)):
     """Query consecutive subscription (monthly/annual) product list."""
     from app.models.app_content_models import ZhsProduct
 
