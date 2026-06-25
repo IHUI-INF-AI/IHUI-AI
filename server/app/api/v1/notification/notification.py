@@ -1,7 +1,5 @@
 """通知系统 - 邮件/短信/站内推送统一管理"""
 
-from datetime import datetime
-
 from fastapi import APIRouter, Query
 from loguru import logger
 
@@ -14,6 +12,7 @@ from app.models.notification_models import (
     NotificationSubscription,
 )
 from app.schemas.common import error, success
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -52,7 +51,7 @@ async def send_notification(
                     target_id=target_id,
                     target_url=target_url,
                     status=1,
-                    send_time=datetime.utcnow(),
+                    send_time=utcnow(),
                 )
                 db.add(n)
                 return success({"id": n.id, "scope": "all"})
@@ -68,7 +67,7 @@ async def send_notification(
                     target_id=target_id,
                     target_url=target_url,
                     status=1,
-                    send_time=datetime.utcnow(),
+                    send_time=utcnow(),
                 )
                 db.add(n)
                 db.flush()
@@ -79,7 +78,7 @@ async def send_notification(
                         channel=channel,
                         type=type,
                         success=True,
-                        send_time=datetime.utcnow(),
+                        send_time=utcnow(),
                     )
                 )
                 ids.append(n.id)
@@ -156,7 +155,7 @@ async def mark_read(nid: int):
             if not n:
                 return error("通知不存在", "404")
             n.status = 3
-            n.read_time = datetime.utcnow()
+            n.read_time = utcnow()
             return success()
         except Exception as e:
             logger.error(f"notification read error: {e}")
@@ -170,7 +169,7 @@ async def mark_all_read():
             db.query(Notification).filter(
                 (Notification.user_id == _uid()) | (Notification.user_id.is_(None)),
                 Notification.status.in_([0, 1]),
-            ).update({Notification.status: 3, Notification.read_time: datetime.utcnow()})
+            ).update({Notification.status: 3, Notification.read_time: utcnow()})
             return success()
         except Exception as e:
             logger.error(f"notification read all error: {e}")

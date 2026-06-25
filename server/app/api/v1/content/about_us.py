@@ -1,13 +1,12 @@
 """Content management routes (about_us, news, banners, feedback, app_version)."""
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Query
 from loguru import logger
 
 from app.database import get_session
 from app.schemas.common import error, success
 from app.security import require_login
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -326,7 +325,7 @@ async def update_feedback(
                 fb.status = status
             if reply is not None:
                 fb.reply = reply
-                fb.reply_time = datetime.utcnow()
+                fb.reply_time = utcnow()
             db.commit()
             return success({"id": fb.id, "status": fb.status})
         except Exception as e:
