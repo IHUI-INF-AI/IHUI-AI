@@ -50,7 +50,9 @@ class TestEduAskService:
         import inspect
         sig = inspect.signature(like_answer)
         # Returns int (new like_count)
-        assert sig.return_annotation == int
+        # PEP 563 (from __future__ import annotations) 下注解为字符串
+        ann = sig.return_annotation
+        assert ann == int or ann == "int"
 
     def test_get_user_stats(self):
         """Test user stats aggregation."""
@@ -145,9 +147,10 @@ class TestEduAuthService:
 
     def test_login_returns_tokens(self):
         from app.services.edu_auth import login
-        import inspect
         # Returns (user, access_token, refresh_token)
-        assert login.__annotations__.get("return") == tuple
+        # PEP 563 (from __future__ import annotations) 下注解为字符串
+        ann = login.__annotations__.get("return", "")
+        assert ann == tuple or "Tuple" in str(ann)
 
 
 class TestAllEduRouters:

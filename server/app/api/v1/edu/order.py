@@ -4,8 +4,6 @@ Migrated from ihui-ai-edu-order-service.
 Complete Phase B implementation.
 """
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
