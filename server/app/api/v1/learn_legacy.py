@@ -144,6 +144,10 @@ class ChapterUpdateReq(BaseModel):
     sortOrder: int | None = None
 
 
+class ChapterIdReq(BaseModel):
+    id: int
+
+
 class ChapterSortOrderReq(BaseModel):
     id: int
     sortOrder: int
@@ -879,3 +883,14 @@ def report_member_study(memberId: int):
 @router.get("/statistics", summary="[Statistics]学习统计")
 def learn_statistics():
     return _ok(learn_business.statistics())
+
+
+# 修复 Pydantic ForwardRef 解析问题（确保 ChapterIdReq 等模型在 OpenAPI 生成时可用）
+for _model in [
+    ChapterIdReq, ChapterSortOrderReq, ChapterUpdateReq,
+    SectionCreateReq, SectionUpdateReq,
+]:
+    try:
+        _model.model_rebuild()
+    except Exception:
+        pass

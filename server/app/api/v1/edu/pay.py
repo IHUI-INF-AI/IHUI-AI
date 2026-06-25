@@ -16,12 +16,7 @@ def _get_db():
         yield db
 
 
-def get_current_user_id():
-    try:
-        from app.dependencies import get_current_user_id as _real
-        return _real()
-    except ImportError as e:
-        raise RuntimeError(f"authentication dependency unavailable: {e}") from e
+from app.core.current_user import get_current_user_id
 
 
 from app.schemas.common import success

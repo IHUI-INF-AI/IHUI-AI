@@ -1,6 +1,6 @@
 # 后端静态审计报告
 
-扫描文件数: 778
+扫描文件数: 780
 
 ## P0-SyncIO (92 个)
 
@@ -379,7 +379,7 @@
 ## P0-MixedPK (0 个)
 
 
-## P1-MissingSoftDelete (1204 个)
+## P1-MissingSoftDelete (1214 个)
 
 - **[app\api\admin_migration.py:424]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
@@ -2209,6 +2209,26 @@
   ```
   q = db.query(Order).filter(Order.user_id.in_(all_uuids))
   ```
+- **[app\api\v1\finance\fund_info.py:46]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  q = db.query(UserFundInfo)
+  ```
+- **[app\api\v1\finance\fund_info.py:60]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  item = db.query(UserFundInfo).filter(UserFundInfo.user_uuid == user_uuid).first()
+  ```
+- **[app\api\v1\finance\fund_info.py:87]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  item = db.query(UserFundInfo).filter(UserFundInfo.user_uuid == user_uuid).first()
+  ```
+- **[app\api\v1\finance\fund_info.py:102]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  item = db.query(UserFundInfo).filter(UserFundInfo.user_uuid == user_uuid).first()
+  ```
+- **[app\api\v1\finance\fund_info.py:116]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
+  ```
+  q = db.query(UserFundInfo)
+  ```
 - **[app\api\v1\finance\margin.py:190]** P1-MissingSoftDelete: 查询 OperateTokenFlow 缺少软删除过滤
   ```
   q = db.query(OperateTokenFlow)
@@ -3437,6 +3457,26 @@
   ```
   db.query(CodegenTable).filter(CodegenTable.table_id.in_(ids)).delete(synchronize_session=False)
   ```
+- **[app\api\v1\system\dictionary.py:53]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
+  ```
+  q = db.query(SysDictType)
+  ```
+- **[app\api\v1\system\dictionary.py:69]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
+  ```
+  item = db.query(SysDictType).filter(SysDictType.dict_id == dict_id).first()
+  ```
+- **[app\api\v1\system\dictionary.py:89]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
+  ```
+  item = db.query(SysDictType).filter(SysDictType.dict_id == dict_id).first()
+  ```
+- **[app\api\v1\system\dictionary.py:103]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
+  ```
+  item = db.query(SysDictType).filter(SysDictType.dict_id == dict_id).first()
+  ```
+- **[app\api\v1\system\dictionary.py:121]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
+  ```
+  q = db.query(SysDictData).filter(SysDictData.dict_type == dict_type)
+  ```
 - **[app\api\v1\system\user.py:35]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
   ```
   u = db.query(SysUser).filter(SysUser.user_uuid == user_uuid).first()
@@ -4209,7 +4249,7 @@
   ```
   user = db.query(User).filter(User.uuid == tp.user_uuid).first()
   ```
-- **[app\services\edu_ask.py:238]** P1-MissingSoftDelete: 查询 EduAskAnswer 缺少软删除过滤
+- **[app\services\edu_ask.py:235]** P1-MissingSoftDelete: 查询 EduAskAnswer 缺少软删除过滤
   ```
   db.query(EduAskAnswer).filter(
   ```
@@ -5205,8 +5245,12 @@
   client_factory: callable 返回 httpx.AsyncClient (用于传 transport)
   ```
 
-## P2-SwallowedException (0 个)
+## P2-SwallowedException (1 个)
 
+- **[app\api\v1\learn_legacy.py:895]** P2-SwallowedException: except Exception: pass 异常吞噬，无日志记录
+  ```
+  except Exception:
+  ```
 
 ## P2-SensitiveLog (263 个)
 

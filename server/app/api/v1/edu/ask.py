@@ -17,11 +17,7 @@ def _get_db():
         yield db
 
 
-try:
-    from app.dependencies import get_current_user_id
-except ImportError:
-    def get_current_user_id() -> int:
-        return 1  # dev stub
+from app.core.current_user import get_current_user_id
 
 from app.schemas.common import success
 
