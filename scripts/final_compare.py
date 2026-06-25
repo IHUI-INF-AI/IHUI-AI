@@ -139,8 +139,11 @@ total_matched = 0
 total_py = 0
 
 for svc in services:
-    py_prefixes = SERVICE_TO_PY.get(svc, "").split(",")
+    py_prefixes = SERVICE_TO_PY_DOMAIN.get(svc, "").split(",")
     py_eps = [e for e in python_endpoints if any(p in e["file"] for p in py_prefixes)]
+    # 加入 legacy_compat 中的端点 (Java 旧 API 1:1 兼容)
+    legacy_eps = [e for e in python_endpoints if e["file"] == "legacy_compat.py"]
+    py_eps = py_eps + legacy_eps
     java_eps = java_endpoints_by_svc[svc]
 
     # 按 Controller 分组
@@ -155,7 +158,7 @@ for svc in services:
     for ctrl, eps in sorted(by_ctrl.items()):
         matched = 0
         for je in eps:
-            if match(je, py_eps):
+            if match(je, py_eps_all):
                 matched += 1
         coverage = matched * 100 / len(eps) if eps else 0
         flag = "✓" if coverage >= 80 else ("△" if coverage >= 50 else "✗")
