@@ -66,6 +66,8 @@ backend-paths-only.txt
 full-test-run.txt
 lazy-load-test*.txt
 nav_audit.json
+nav_audit_report.txt
+orphan_views.txt
 # 错误重定向文件名
 /erver
 /tat*
