@@ -5,6 +5,48 @@
 
 ---
 
+## INC-2026-06-26-01: alembic 迁移链 008 测试失效 (迁移重编号未同步测试)
+
+**严重度**: P1 (CI 失败, 阻塞合并)
+**发生时间**: 2026-06-26
+**修复时间**: 2026-06-26
+**发现者**: 全量测试 (pytest tests/) 自动暴露
+
+### 现象
+执行 `python -m pytest tests/ -x` 第一个失败用例:
+```
+FAILED tests/test_alembic_008_static.py::test_008_file_exists
+  AssertionError: 迁移文件不存在: G:\IHUI-AI\server\alembic\versions\008_add_missing_tables.py
+```
+
+### 根因
+迁移历史中 008-015 已被删除/合并, 当前迁移链从 016 重新编号:
+- 016_add_refund_tables.py (down=None, chain root)
+- 017-044 edu_* 域迁移
+- 045_add_lecturer.py
+- 046_g_pg_indexes.py
+- 047_notify_persist.py (head)
+
+但 `test_alembic_008_static.py` 仍硬编码 008_add_missing_tables.py 和 014_rename_sys_indexes head, 完全过时。
+
+### 修复
+重写为迁移链通用验证:
+1. `test_001_init_sql_exists` - 基础 SQL 存在
+2. `test_all_migrations_syntax_valid` - py_compile 通过
+3. `test_all_migrations_have_revision_metadata` - revision/down_revision (None 允许) 元数据完整
+4. `test_migration_chain_complete` - head=047_notify_persist, 链长 >= 30
+5. `test_no_orphan_down_revisions` - 无悬空引用
+6. `test_init_sql_has_create_tables` - 至少 10 个 CREATE TABLE
+
+**测试结果**: 6/6 passed
+
+### 防范
+- 迁移重编号时, 同步检查 `tests/test_alembic_*.py` 系列测试
+- 在 CI 跑全量 pytest 即可发现此类过期测试, 不依赖具体脚本
+- 教训: 写测试时**避免硬编码迁移文件名/版本号**, 改为扫描 + 验证
+
+---
+
 ## INC-2026-06-25-01: G 盘根目录误创建 (G:\\Users, G:\\tmp, G:\\1, G:\\dev)
 
 **严重度**: P2 (影响开发体验, 不影响生产)
