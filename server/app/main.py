@@ -158,6 +158,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Customer service DB init skipped: {e}")
 
+    # WebSocket 自动恢复系统 (出箱消息队列监控 + 僵尸连接清理 + 内存监控)
+    # 2026-06-26 P1 完善: 集成 ConnectionManager 消息队列/任务跟踪/API 调用
+    try:
+        from app.ws.auto_recovery import initialize_auto_recovery
+        from app.ws.manager import connection_manager as _ws_cm
+        await initialize_auto_recovery(_ws_cm)
+        logger.info("WebSocket 自动恢复系统已启动")
+    except Exception as e:
+        logger.warning(f"WebSocket auto_recovery 启动跳过: {e}")
+
     yield  # Application runs here
 
     # Shutdown
@@ -178,6 +188,14 @@ async def lifespan(app: FastAPI):
         stop_hot_reload()
     except Exception as e:
         logger.debug("停止 hot config reloader 失败: %s", e)
+
+    # 关闭 WebSocket 自动恢复系统 (停止监控任务 + 停止出箱消费者)
+    try:
+        from app.ws.auto_recovery import shutdown_auto_recovery
+
+        await shutdown_auto_recovery()
+    except Exception as e:
+        logger.debug("关闭 WebSocket auto_recovery 失败: %s", e)
 
     logger.info("ZHS Platform shutdown complete")
 

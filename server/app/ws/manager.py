@@ -8,12 +8,14 @@
 - 跨实例消息分发
 - JWT 鉴权 (authenticate_token)
 - T1: Token TTL 跟踪 + 过期前主动通知客户端 refresh
+- T2: 异步出箱消息队列 (message_queue) + 后台处理任务跟踪
 """
 
 import asyncio
 import contextlib
 import json
 import time
+import uuid
 from collections import defaultdict
 from typing import Any
 
@@ -118,6 +120,78 @@ class ConnectionManager:
         self._heartbeat_check_interval: float = 5.0
         self._refresh_notified_count: int = 0
 
+        # ===== T2: 异步出箱消息队列 (供 auto_recovery 监控) =====
+        # 出箱消息队列: 适用于不要求立即送达的广播 (如通知/广播消息)
+        # 入队即返回, 消费者后台协程负责实际发送
+        self.queue_size: int = 1000
+        self.message_queue: asyncio.Queue = asyncio.Queue(maxsize=self.queue_size)
+        self._queue_lock: asyncio.Lock = asyncio.Lock()  # 串行化清空/监控操作
+        self.queue_full_count: int = 0
+        # 总入队消息计数 (供 auto_recovery.active_api_calls 之外的健康指标)
+        self.total_messages: int = 0
+
+        # ===== T2: 后台处理任务跟踪 (供 auto_recovery 监控) =====
+        # 所有由本管理器创建的 asyncio.Task 引用, 防止任务被 GC 后丢失异常
+        self.processing_tasks: set[asyncio.Task] = set()
+        self._tasks_started: bool = False
+        self._task_lock: asyncio.Lock = asyncio.Lock()
+
+        # ===== T2: 全部 pending 任务 (项目记忆: 防止 GC 丢异常, 集中跟踪) =====
+        # 涵盖: pubsub listener / heartbeat reaper / TTL watchdog / outbox consumer
+        self._pending_tasks: set[asyncio.Task] = set()
+        self._pending_lock: asyncio.Lock = asyncio.Lock()
+
+        # ===== T2: 在飞 API 调用跟踪 (供 auto_recovery 监控) =====
+        # call_id -> start_time (用于诊断 "有连接但无活动" 场景)
+        self.active_api_calls: dict[str, float] = {}
+
+    # -----------------------------------------------------------------
+    # 任务跟踪辅助 (项目记忆: 防止 GC 丢异常)
+    # -----------------------------------------------------------------
+
+    def _track_task(self, task: asyncio.Task) -> asyncio.Task:
+        """将任务加入 _pending_tasks 集合, 任务完成后自动移除.
+
+        所有由本管理器创建的 asyncio.Task 都应通过此方法跟踪,
+        避免被 GC 回收后丢失异常, 同时支持 auto_recovery 监控.
+
+        Args:
+            task: 由 asyncio.create_task() 创建的任务
+
+        Returns:
+            同一个 task (链式调用友好)
+        """
+        with contextlib.suppress(Exception):
+            self._pending_tasks.add(task)
+            task.add_done_callback(self._pending_tasks.discard)
+        return task
+
+    async def _wait_pending_tasks(self, timeout: float = 5.0) -> int:
+        """等待所有 _pending_tasks 完成 (lifespan 退出时用).
+
+        Args:
+            timeout: 单任务最大等待时间 (秒)
+
+        Returns:
+            实际完成的任务数
+        """
+        tasks = list(self._pending_tasks)
+        if not tasks:
+            return 0
+        # 先取消未完成的
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+        done_count = 0
+        for t in tasks:
+            try:
+                await asyncio.wait_for(t, timeout=timeout)
+                done_count += 1
+            except (asyncio.CancelledError, asyncio.TimeoutError, Exception) as e:
+                logger.debug(f"_wait_pending_tasks 结束 {t}: {e}")
+                done_count += 1
+        return done_count
+
     # -----------------------------------------------------------------
     # Redis pub/sub 启动 / 停止
     # -----------------------------------------------------------------
@@ -148,7 +222,7 @@ class ConnectionManager:
         try:
             self._pubsub = r.pubsub()
             self._pubsub.psubscribe("ws:broadcast:*")
-            self._pubsub_task = asyncio.create_task(self._listen_redis())
+            self._pubsub_task = self._track_task(asyncio.create_task(self._listen_redis()))
             logger.info(f"WS pub/sub started: instance={self._instance_id}")
         except Exception as e:
             logger.warning(f"Start WS pub/sub failed: {e}")
@@ -176,7 +250,7 @@ class ConnectionManager:
             self._pubsub.psubscribe("ws:broadcast:*")
             # 启动监听任务 (如未在跑)
             if self._pubsub_task is None or self._pubsub_task.done():
-                self._pubsub_task = asyncio.create_task(self._listen_redis())
+                self._pubsub_task = self._track_task(asyncio.create_task(self._listen_redis()))
             self._reconnect_count = getattr(self, "_reconnect_count", 0) + 1
         except Exception as e:
             logger.warning(f"WS pub/sub reconnect failed: {e}")
@@ -274,7 +348,9 @@ class ConnectionManager:
         # T1: 首次连接启动 TTL 检查后台任务
         if self._ttl_task is None or self._ttl_task.done():
             with contextlib.suppress(RuntimeError):
-                self._ttl_task = asyncio.create_task(self._ttl_watchdog_loop())
+                self._ttl_task = self._track_task(
+                    asyncio.create_task(self._ttl_watchdog_loop())
+                )
         logger.debug(f"WS connected: conn_id={conn_id} user={user_uuid} room={room_id} exp={token_exp}")
 
     async def disconnect(self, conn_id: str) -> None:
@@ -291,6 +367,45 @@ class ConnectionManager:
             with contextlib.suppress(Exception):
                 await ws.close()
         logger.debug(f"WS disconnected: conn_id={conn_id}")
+
+    # -----------------------------------------------------------------
+    # auto_recovery 兼容接口 (向后兼容 _connections 命名)
+    # -----------------------------------------------------------------
+
+    @property
+    def active_connections(self) -> dict[str, WebSocket]:
+        """活动连接字典 (供 auto_recovery 监控使用).
+
+        返回内部 _connections 引用, 不复制, 节省内存.
+        客户端应只读不写.
+        """
+        return self._connections
+
+    def is_client_connected(self, conn_id: str) -> bool:
+        """检查客户端是否仍处于已连接状态.
+
+        Args:
+            conn_id: 连接 ID
+
+        Returns:
+            True 表示连接存在且客户端状态非 DISCONNECTED/CLOSED
+        """
+        ws = self._connections.get(conn_id)
+        if ws is None:
+            return False
+        try:
+            state = getattr(ws, "client_state", None)
+            state_name = getattr(state, "name", "") if state else ""
+            if state_name in ("DISCONNECTED", "CLOSED", "CLOSING"):
+                return False
+            return True
+        except Exception as e:
+            logger.debug(f"is_client_connected check error: {e}")
+            return False
+
+    async def remove_connection(self, conn_id: str) -> None:
+        """移除连接 (auto_recovery 调用, 等价 disconnect)."""
+        await self.disconnect(conn_id)
 
     # -----------------------------------------------------------------
     # T1: Token 过期跟踪 + 主动通知客户端 refresh
@@ -363,6 +478,121 @@ class ConnectionManager:
         """超时未心跳的连接数(监控)."""
         now = time.time()
         return sum(1 for ts in self._heartbeat.values() if now - ts > timeout)
+
+    # -----------------------------------------------------------------
+    # T2: 出箱消息队列 (用于非实时广播)
+    # -----------------------------------------------------------------
+
+    async def enqueue_message(
+        self,
+        target: str,
+        payload: dict,
+        target_id: str = "",
+    ) -> str | None:
+        """将消息放入异步出箱队列.
+
+        Args:
+            target: "user" | "room" | "all"
+            payload: 消息体
+            target_id: user_uuid / room_id (target=all 时忽略)
+
+        Returns:
+            message_id (uuid hex), 队列满时返回 None
+        """
+        message_id = uuid.uuid4().hex
+        envelope = {
+            "id": message_id,
+            "target": target,
+            "target_id": target_id,
+            "payload": payload,
+            "created_at": time.time(),
+        }
+        try:
+            self.message_queue.put_nowait(envelope)
+        except asyncio.QueueFull:
+            self.queue_full_count += 1
+            logger.warning(
+                f"WS message queue full, drop msg id={message_id} "
+                f"size={self.message_queue.qsize()}/{self.queue_size}"
+            )
+            return None
+        self.total_messages += 1
+        return message_id
+
+    async def register_api_call(self, call_id: str | None = None) -> str:
+        """注册一个在飞 API 调用 (供 auto_recovery 监控).
+
+        Returns:
+            call_id (uuid hex, 未传则生成)
+        """
+        if call_id is None:
+            call_id = uuid.uuid4().hex
+        self.active_api_calls[call_id] = time.time()
+        return call_id
+
+    async def complete_api_call(self, call_id: str) -> None:
+        """完成 API 调用 (从 active_api_calls 移除)."""
+        self.active_api_calls.pop(call_id, None)
+
+    async def start_background_tasks(self) -> None:
+        """T2: 启动后台处理任务 (消费者协程, 出箱消息发送)."""
+        async with self._task_lock:
+            if self._tasks_started:
+                return
+            self._tasks_started = True
+            # 1) 出箱消息消费者
+            task = asyncio.create_task(self._outbox_consumer())
+            self.processing_tasks.add(task)
+            task.add_done_callback(self.processing_tasks.discard)
+            # 2) 心跳超时清理 (项目记忆: 跟随 _pending_tasks 防止 GC 丢异常)
+            reaper = self._track_task(asyncio.create_task(self._heartbeat_reaper()))
+
+    async def stop_background_tasks(self) -> None:
+        """T2: 停止后台处理任务."""
+        async with self._task_lock:
+            self._tasks_started = False
+            tasks = list(self.processing_tasks)
+            for t in tasks:
+                if not t.done():
+                    t.cancel()
+            for t in tasks:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await t
+            self.processing_tasks.clear()
+            # 等待所有 _pending_tasks (心跳 reaper / pubsub listener / TTL watchdog) 退出
+            await self._wait_pending_tasks(timeout=2.0)
+
+    async def _outbox_consumer(self) -> None:
+        """T2: 出箱队列消费者 - 异步发送队列中的消息."""
+        while not self._closed:
+            try:
+                envelope = await self.message_queue.get()
+            except asyncio.CancelledError:
+                break
+            try:
+                target = envelope.get("target")
+                target_id = envelope.get("target_id", "")
+                payload = envelope.get("payload", {})
+                if target == "user":
+                    await self.send_to_user(target_id, payload)
+                elif target == "room":
+                    await self.broadcast_room(target_id, payload)
+                elif target == "all":
+                    await self.broadcast_all(payload)
+            except Exception as e:
+                logger.warning(f"outbox consumer error id={envelope.get('id')}: {e}")
+            finally:
+                self.message_queue.task_done()
+
+    def _ensure_tasks_started(self) -> asyncio.Task:
+        """auto_recovery 兼容入口: 若未启动则启动后台任务.
+
+        Returns:
+            包装 future, 完成后 _tasks_started 已置 True
+        """
+        if self._tasks_started:
+            return asyncio.create_task(asyncio.sleep(0))  # 立即返回
+        return asyncio.create_task(self.start_background_tasks())
 
     # -----------------------------------------------------------------
     # 发送
@@ -467,6 +697,19 @@ class ConnectionManager:
                 expired += 1
             elif remaining <= self.WS_REFRESH_NOTICE_LEAD_SEC:
                 expiring += 1
+        # T2: 队列 / 任务 / API 调用状态
+        queue_size = 0
+        if hasattr(self, "message_queue") and self.message_queue is not None:
+            try:
+                queue_size = self.message_queue.qsize()
+            except Exception as e:
+                logger.debug(f"stats qsize error: {e}")
+        processing_task_count = sum(
+            1 for t in getattr(self, "processing_tasks", set()) if not t.done()
+        )
+        pending_task_count = sum(
+            1 for t in getattr(self, "_pending_tasks", set()) if not t.done()
+        )
         return {
             "total_connections": len(self._connections),
             "total_users": len(self._user_map),
@@ -481,6 +724,15 @@ class ConnectionManager:
             "tokens_expiring_soon": expiring,
             "tokens_expired": expired,
             "refresh_notices_sent": self._refresh_notified_count,
+            # T2: 消息队列 / 任务 / API 调用
+            "queue_size": queue_size,
+            "queue_capacity": getattr(self, "queue_size", 0),
+            "queue_full_count": getattr(self, "queue_full_count", 0),
+            "total_messages_queued": getattr(self, "total_messages", 0),
+            "processing_tasks": processing_task_count,
+            "pending_tasks": pending_task_count,
+            "active_api_calls": len(getattr(self, "active_api_calls", {}) or {}),
+            "background_tasks_started": getattr(self, "_tasks_started", False),
         }
 
 
