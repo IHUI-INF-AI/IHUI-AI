@@ -3,7 +3,6 @@
 """
 import logging
 import uuid
-from datetime import datetime
 
 from fastapi import APIRouter, Body, HTTPException
 
@@ -13,6 +12,7 @@ from app.core.customer_service_db import (
 from app.core.customer_service_db import (
     load_tickets,
 )
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ async def create_ticket(body: dict = Body(default_factory=dict)):
     if len(description) < 10:
         raise HTTPException(status_code=400, detail="描述至少 10 个字符")
     tid = str(uuid.uuid4())
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     t = {
         "id": tid,
         "title": title,
@@ -151,7 +151,7 @@ async def reply_ticket(id: str, body: dict = Body(default_factory=dict)):
     content = (body.get("content") or "").strip()
     if not content:
         raise HTTPException(status_code=400, detail="回复内容不能为空")
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     reply = {
         "id": str(uuid.uuid4()),
         "ticketId": id,
@@ -176,7 +176,7 @@ async def close_ticket(id: str):
     """关闭工单"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     _tickets[id]["status"] = "closed"
     _tickets[id]["updatedAt"] = now
     _tickets[id]["closedAt"] = now
@@ -193,7 +193,7 @@ async def reopen_ticket(id: str):
     """重新打开工单"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     _tickets[id]["status"] = "pending"
     _tickets[id]["updatedAt"] = now
     _tickets[id]["closedAt"] = None
@@ -213,7 +213,7 @@ async def audit_ticket(id: str, body: dict = Body(default_factory=dict)):
     action = body.get("action")
     if action not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="action 必须是 approve 或 reject")
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     _tickets[id]["status"] = "approved" if action == "approve" else "rejected"
     _tickets[id]["updatedAt"] = now
     if _persist_callback:
@@ -232,7 +232,7 @@ async def assign_ticket(id: str, body: dict = Body(default_factory=dict)):
     assign_to = (body.get("assignTo") or "").strip()
     if not assign_to:
         raise HTTPException(status_code=400, detail="assignTo 不能为空")
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     _tickets[id]["assignee"] = assign_to
     _tickets[id]["updatedAt"] = now
     if _persist_callback:

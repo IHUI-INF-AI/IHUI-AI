@@ -11,7 +11,8 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.utils.datetime_helper import utcnow
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, parse_qs
@@ -32,7 +33,7 @@ SEMANTIC_KEYWORDS = {
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:
@@ -149,7 +150,7 @@ def record_feedback(alert_id: str, feedback_type: str,
 
 def calc_false_positive_rate(alert_name: str, window_days: int = 30) -> float:
     """计算误报率"""
-    since = (datetime.utcnow() - timedelta(days=window_days)).isoformat() + "Z"
+    since = (utcnow() - timedelta(days=window_days)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         total = c.execute("""SELECT COUNT(*) as cnt FROM alert_history
             WHERE alert_name = ? AND timestamp >= ?""",
@@ -285,7 +286,7 @@ def analyze_semantic(alert_id: str, message: str,
 def detect_flapping(alert_name: str, window_minutes: int = 30,
                      min_flips: int = 5) -> bool:
     """检测抖动告警"""
-    since = (datetime.utcnow() - timedelta(minutes=window_minutes)).isoformat() + "Z"
+    since = (utcnow() - timedelta(minutes=window_minutes)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT status, timestamp FROM alert_history
             WHERE alert_name = ? AND timestamp >= ?
@@ -301,7 +302,7 @@ def detect_flapping(alert_name: str, window_minutes: int = 30,
 
 def get_denoise_stats(hours: int = 24) -> Dict[str, Any]:
     """降噪统计"""
-    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (utcnow() - timedelta(hours=hours)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         total = c.execute("""SELECT COUNT(*) as cnt FROM alert_history
             WHERE timestamp >= ?""", (since,)).fetchone()["cnt"]

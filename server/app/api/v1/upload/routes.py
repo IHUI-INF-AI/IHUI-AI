@@ -3,7 +3,7 @@ import os
 import re
 import shutil
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
@@ -22,6 +22,7 @@ from app.services.database_service import (
     get_db,
 )
 from app.services.storage_service import FileStorageService
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -329,11 +330,11 @@ async def create_share(
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
 
-    share_id = hashlib.md5(f"{data.fileId}{datetime.utcnow().isoformat()}".encode()).hexdigest()[:12]
+    share_id = hashlib.md5(f"{data.fileId}{utcnow().isoformat()}".encode()).hexdigest()[:12]
 
     expires_at = None
     if data.expiresIn:
-        expires_at = datetime.utcnow() + timedelta(hours=data.expiresIn)
+        expires_at = utcnow() + timedelta(hours=data.expiresIn)
 
     share_data = ShareCreate(
         share_id=share_id,
