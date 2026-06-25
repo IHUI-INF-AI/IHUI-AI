@@ -40,6 +40,8 @@
     "build:all": "npm run build:shared && npm run build:web && npm run build:h5 && npm run build:alipay && npm run build:electron && npm run build:mp-weixin",
     "postinstall": "npm run build:shared",
     "lint": "eslint . --ext .vue,.js,.ts,.jsx,.tsx --fix",
+    "lint:style": "stylelint \"src/**/*.{vue,scss,css}\"",
+    "lint:style:fix": "stylelint --fix \"src/**/*.{vue,scss,css}\"",
     "typecheck": "vue-tsc --noEmit",
     "vize:lint": "vize lint",
     "test": "vitest run",

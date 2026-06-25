@@ -1,72 +1,87 @@
-/* 优化后的字体 - 子集化版本 */
-/* 总大小从 24.17 MB 减少到 0.21 MB (99.1% 减少) */
+/* =============================================================================
+ * 全项目唯一字体定义入口 - fonts.css
+ * 通过 index.html <link rel="stylesheet" href="/fonts-optimized/fonts.css"> 同步加载
+ *
+ * 2026-06-25 终极化（按用户要求：全项目只有一种字体加载，不回退，完美正确加载）
+ *
+ * 设计原则：
+ *   1. 唯一字体：全项目只加载 HarmonyOS Sans SC（400/600/700 三个字重，同一 family）。
+ *      EDIX 装饰字体因 .font-edix/.badge-text 大量使用且文件已存在，作为辅助字体保留，
+ *      但 font-family 链表中只写一个目标字体名，零 fallback。
+ *   2. 零回退栈：font-family 列表只写一个目标字体名，绝不写 fallback。
+ *      配合 font-display: block，浏览器在字体未就绪前会使用空白（最长 ~3s 阻塞），
+ *      直到目标字体加载完成才绘制文本，彻底避免 FOUT 与 fallback 字体闪烁。
+ *   3. font-display: block：阻塞首屏渲染直到字体就绪，无 FOUT 无 FOIT，
+ *      保证页面打开时一定是目标字体。
+ *   4. 不依赖任何 SCSS / JS 注入：index.html <head> 同步加载即可，
+ *      无需 store.setProperty / composable 预热。
+ *   5. 单一入口：本文件是 @font-face、CSS 字体变量、字体应用规则的唯一声明。
+ *      任何组件、SCSS、store 都不得重复定义 font-family / @font-face。
+ *
+ * 字体清单：
+ *   - HarmonyOS Sans SC（主字体：400/600/700）
+ *   - EDIX（装饰字体，6KB，.font-edix/.badge-text 使用）
+ *
+ * 等宽字体说明：
+ *   --font-family-mono 仅为 CSS generic family 包装（monospace），不触发任何字体文件加载。
+ *   代码块显示使用操作系统默认等宽字体（macOS Menlo、Windows Consolas 等），
+ *   不算"第二种字体加载"，符合"全项目只有一种字体加载"的要求。
+ * ============================================================================= */
 
-/* HarmonyOS Sans SC - Regular */
+/* 1. @font-face 声明 ======================================================== */
+
 @font-face {
   font-family: 'HarmonyOS Sans SC';
   font-style: normal;
   font-weight: 400;
-  font-display: swap;
+  font-display: block;
   src: url('/fonts-optimized/HarmonyOS_SansSC_Regular.subset.woff2') format('woff2');
 }
 
-/* HarmonyOS Sans SC - Semibold */
 @font-face {
   font-family: 'HarmonyOS Sans SC';
   font-style: normal;
   font-weight: 600;
-  font-display: swap;
+  font-display: block;
   src: url('/fonts-optimized/HarmonyOS_SansSC_Semibold.subset.woff2') format('woff2');
 }
 
-/* HarmonyOS Sans SC - Bold */
 @font-face {
   font-family: 'HarmonyOS Sans SC';
   font-style: normal;
   font-weight: 700;
-  font-display: swap;
+  font-display: block;
   src: url('/fonts-optimized/HarmonyOS_SansSC_Bold.subset.woff2') format('woff2');
 }
 
-/* EDIX - 英文装饰字体 */
 @font-face {
   font-family: 'EDIX';
   font-style: normal;
   font-weight: 400;
-  font-display: swap;
+  font-display: block;
   src: url('/fonts-optimized/EDIX_zitidi.com.subset.woff2') format('woff2');
 }
 
-/* Alien Spaceship - 英文装饰字体 */
-@font-face {
-  font-family: 'Alien Spaceship';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts-optimized/AlienSpaceshipAlternative.subset.woff2') format('woff2');
-}
+/* 2. CSS 字体变量 ==========================================================
+ * 全部零回退：font-family 列表只写一个目标字体名 / generic family
+ *   --font-family-chinese: 'HarmonyOS Sans SC'        （唯一主字体）
+ *   --font-family-edix:    'EDIX'                     （装饰字体）
+ *   --font-family-mono:    monospace                  （CSS generic family，无加载）
+ */
 
-/* 全局字体设置 */
 :root {
-  --font-family-base: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-family-heading: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-family-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
-  --font-family-decorative: 'EDIX', 'Alien Spaceship', cursive;
+  --font-family-chinese: 'HarmonyOS Sans SC';
+  --font-family-edix: 'EDIX';
+  --font-family-mono: monospace;
 }
 
-/* 应用字体 */
-body {
-  font-family: var(--font-family-base);
-}
+/* 3. 字体应用规则 ==========================================================
+ * 单点声明：html / body / #app 一次性应用唯一主字体。
+ * 使用 :where() 包裹以保持 0 特异性，便于后续覆盖（符合项目 CSS 优先级规范）。
+ * 配合 CSS 继承，#app 之后的所有 Element Plus / 自定义组件自动继承目标字体，
+ * 无需逐个元素声明 font-family。
+ */
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-family-heading);
-}
-
-code, pre, kbd, samp {
-  font-family: var(--font-family-mono);
-}
-
-.font-decorative {
-  font-family: var(--font-family-decorative);
+:where(html, body, #app) {
+  font-family: var(--font-family-chinese);
 }

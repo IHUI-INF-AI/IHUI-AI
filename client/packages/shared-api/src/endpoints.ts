@@ -8,14 +8,20 @@ export const API_ENDPOINTS = {
     BY_TYPE: '/remote/agent/by/type',
     CATEGORY: '/remote/agent/category',
     BY_PAY: '/remote/agent/by/pay',
-    EXAMINE_LIST: `${COZE_API_PREFIX}/agent-examine/list`,
+    EXAMINE_LIST: `/api/v1/agents/examine/list`,
+    // 注意: CATEGORY_BY_ID 按 agent_id 查询分类, 后端 categories.py 只有 /{category_id},
+    //   语义不同, 保留旧路径走外部 Java 后端 (base 3) 避免破坏现有逻辑.
     CATEGORY_BY_ID: (id: string | number) => `${COZE_API_PREFIX}/agent-category/agent/${id}`,
-    BUY_CREATE: `${COZE_API_PREFIX}/agent-buy/create`,
-    CATEGORY_CREATE: `${COZE_API_PREFIX}/agent-category/create`,
-    CATEGORY_UPDATE: (id: string | number) => `${COZE_API_PREFIX}/agent-category/${id}`,
-    CATEGORY_DELETE: (id: string | number) => `${COZE_API_PREFIX}/agent-category/${id}`,
-    SETTLEMENT_INCOME: `${COZE_API_PREFIX}/agent-settlement/stats/income-overview`,
-    SETTLEMENT_LIST: `${COZE_API_PREFIX}/agent-settlement/list`,
+    BUY_CREATE: `/api/v1/agents/buy/create`,
+    CATEGORY_CREATE: `/api/v1/agents/categories/create`,
+    CATEGORY_UPDATE: (id: string | number) => `/api/v1/agents/categories/${id}`,
+    CATEGORY_DELETE: (id: string | number) => `/api/v1/agents/categories/${id}`,
+    // 2026-06-25 修复#M/#N: 对齐到 Python 后端真实端点.
+    //   原路径 /cozeZhsApi/agent-settlement/* 是外部 Java 后端路由,
+    //   已迁移到 Python 后端 /api/v1/agents/settlement/* (修复#A 新前缀).
+    //   后端无 stats/income-overview, 用 /summary 等价 (都是收入汇总).
+    SETTLEMENT_INCOME: `/api/v1/agents/settlement/summary`,
+    SETTLEMENT_LIST: `/api/v1/agents/settlement/list`,
     // 2026-06-25 修复#K: 对齐到 Python 后端真实端点.
     //   原路径 /cozeZhsApi/agent-withdrawal-detail/list 是外部 Java 后端路由,
     //   已迁移到 Python 后端 /api/v1/agents/withdrawal/list (修复#A 新前缀).

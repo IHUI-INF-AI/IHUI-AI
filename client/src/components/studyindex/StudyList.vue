@@ -243,7 +243,7 @@ onMounted(() => {
 }
 
 .blink-text {
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
   font-size: 18px;
   font-weight: bold;
   color: var(--color-black-80);
@@ -256,7 +256,7 @@ onMounted(() => {
 }
 
 .right-text {
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
   font-size: 14px;
   color: var(--color-gray-3d);
 }
@@ -328,7 +328,7 @@ onMounted(() => {
 }
 
 .item-title {
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
   font-size: 12px;
   color: var(--color-gray-3d);
   margin: 4px 0;
@@ -353,7 +353,7 @@ onMounted(() => {
 }
 
 .name {
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
   font-size: 9px;
   font-weight: bold;
   color: var(--color-black-60);

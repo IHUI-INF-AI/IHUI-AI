@@ -14,7 +14,8 @@
 @use './_table-responsive.scss' as *;
 @use './_touch-optimization.scss' as *;
 @use './desktop-layout.scss' as *;
-@use './fonts.scss' as *;
+// 字体定义已统一到 public/fonts-optimized/fonts.css（index.html 同步加载），
+// 本入口不再 @use 任何 fonts SCSS，避免重复定义。
 @use './dialog.scss' as *;
 @use './utilities.scss' as *;
 @use './brand-marquee.scss' as *;
@@ -104,7 +105,7 @@ html {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
-  font-family: var(--font-family-chinese);
+  /* 字体由 public/fonts-optimized/fonts.css 统一应用（index.html <link> 同步加载） */
   opacity: 1;
   visibility: visible;
   display: block;
@@ -151,7 +152,7 @@ html {
     opacity: 1;
     visibility: visible;
     background-color: var(--el-bg-color);
-    font-family: var(--font-family-chinese);
+    /* 字体由 public/fonts-optimized/fonts.css 统一应用 */
   }
 
   :where(html.dark) #app {

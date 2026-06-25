@@ -228,10 +228,11 @@ describe('user API 函数', () => {
 
   // ============ 登录 / 注册相关 ============
 
-  it('login 调用 POST /auth/login 并传递登录数据', async () => {
+  it('login 调用 POST /auth/login-by-password 并传递登录数据', async () => {
+    // 2026-06-25 修复#Q: user.ts login 委托到 auth.service.loginByPassword, 路径变为 /auth/login-by-password
     vi.mocked(request.post).mockResolvedValueOnce(ok({ token: 't1', refreshToken: 'r1', expiresIn: 3600, tokenType: 'Bearer' }))
     const res = await userApi.login({ username: 'user1', password: 'pwd' })
-    expect(request.post).toHaveBeenCalledWith('/auth/login', { username: 'user1', password: 'pwd' })
+    expect(request.post).toHaveBeenCalledWith('/auth/login-by-password', { username: 'user1', password: 'pwd' })
     expect(res.success).toBe(true)
   })
 

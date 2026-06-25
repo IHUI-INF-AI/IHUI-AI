@@ -1563,7 +1563,7 @@ html.dark {
           font-weight: 700;
           letter-spacing: -0.02em;
           color: var(--text-primary);
-          font-family: var(--font-family-edix), 'EDIX', sans-serif;
+          font-family: var(--font-family-edix);
         }
 
         .stat-label {

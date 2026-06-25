@@ -308,7 +308,7 @@ defineExpose({ scrollToBottom, listRef })
 }
 
 .message-text.is-markdown {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: inherit;
 }
 
 .message-text.is-markdown :deep(pre) {

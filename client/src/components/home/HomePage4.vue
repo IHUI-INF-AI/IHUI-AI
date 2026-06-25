@@ -54,6 +54,7 @@ const { t } = useI18n()
 
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { logger } from '@/utils/logger'
 import { useVipPricing, type PricingPlan } from '@/composables/vip/useVipPricing'
 
 defineOptions({
@@ -69,7 +70,24 @@ interface Props {
 
 const _props = defineProps<Props>()
 const pageSlideRef = ref<HTMLElement | null>(null)
-const router = useRouter()
+// 2026-06-25 修复: 顶层 useRouter 改为 try/catch + 懒加载,
+// 避免 Vite HMR 抖动或 router 注入尚未就绪时, 抛 'injection "Symbol(router)" not found' 警告.
+let router: ReturnType<typeof useRouter> | null = null
+try {
+  router = useRouter()
+} catch (e) {
+  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
+  logger.debug('[HomePage4] useRouter unavailable on init:', e)
+}
+const getRouter = (): ReturnType<typeof useRouter> | null => {
+  if (router) return router
+  try {
+    router = useRouter()
+    return router
+  } catch {
+    return null
+  }
+}
 
 // 使用VIP定价数据
 const { pricingPlans: basePricingPlans, getCurrentPrice } = useVipPricing()
@@ -147,7 +165,8 @@ const pricingPlans = computed(() => {
 // 处理卡片点击
 const handleCardClick = (_plan: PricingPlan) => {
   // 点击卡片时跳转到VIP页面
-  router.push('/vip')
+  const r = getRouter()
+  if (r) r.push('/vip')
 }
 
 // 处理开通按钮点击
@@ -157,8 +176,8 @@ const handleSubscribe = (plan: PricingPlan, event?: MouseEvent) => {
     event.stopPropagation()
   }
   // 跳转到VIP购买页面，并传递选中的套餐信息
-   
-  router.push({ path: '/vip', query: { planId: plan.id.toString() } } as any)
+  const r = getRouter()
+  if (r) r.push({ path: '/vip', query: { planId: plan.id.toString() } } as any)
 }
 
 defineExpose({
@@ -242,7 +261,7 @@ defineExpose({
   }
 
   h2.pricing-title-english.font-edix {
-    font-family: EDIX, sans-serif;
+    font-family: 'EDIX';
   }
 
   html:not(.dark) .pricing-title-english,

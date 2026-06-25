@@ -230,7 +230,7 @@ onMounted(() => {
 }
 
 .blink-text {
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
   font-size: 18px;
   font-weight: bold;
   color: var(--color--ff5656);
@@ -243,7 +243,7 @@ onMounted(() => {
 }
 
 .right-text {
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
   font-size: 14px;
   color: var(--color-gray-3d);
 }

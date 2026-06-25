@@ -1,8 +1,8 @@
 <template>
   <div class="dialog-bottom">
     <div class="title-body">
-      <img class="welcome-img" src="https://file.aizhs.top/sys-mini/xtk/Welcome.png" loading="lazy" />
-      <img class="brand-img" src="https://file.aizhs.top/sys-mini/xtk/iHuiInfAI.png" loading="lazy" />
+      <img class="welcome-img" src="https://file.aizhs.top/sys-mini/xtk/Welcome.png" alt="Welcome" loading="lazy" />
+      <img class="brand-img" src="https://file.aizhs.top/sys-mini/xtk/iHuiInfAI.png" alt="iHui AI" loading="lazy" />
     </div>
     <img class="header-logo" :src="userInfo.avatar || 'https://file.aizhs.top/sys-mini/xtk/devlogo.png'" alt="用户头像" />
     <div class="user-name">{{ userInfo.nickname }}</div>
@@ -12,7 +12,7 @@
         <img class="left-icon" src="https://file.aizhs.top/sys-mini/xtk/plaza_win_left.png" alt="" loading="lazy" />
         <span class="left-text">{{ t('dialogBottom.findExpert') }}</span>
       </div>
-      <img class="or-img" src="https://file.aizhs.top/sys-mini/xtk/image_or.png" loading="lazy" />
+      <img class="or-img" src="https://file.aizhs.top/sys-mini/xtk/image_or.png" alt="" loading="lazy" />
       <div class="card-right card-body" @click="toDev">
         <img class="right-icon" src="https://file.aizhs.top/sys-mini/xtk/plaza_win_right.png" alt="" loading="lazy" />
         <span class="right-text">{{ t('dialogBottom.iAmDeveloper') }}</span>

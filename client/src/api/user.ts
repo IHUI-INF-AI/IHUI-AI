@@ -13,6 +13,10 @@ export type LoginResponseData = AuthResponse
 // 从工具包导入响应处理函数
 import { withApiResponseHandler, normalizeApiResponse } from '@/utils/api-response'
 
+// 2026-06-25 优化: 委托 auth.service 消除 user.ts 与 auth.service 的实现重复
+// 仅用于 login (见下), 不破坏向后兼容 (UserToken 类型被 UniversalLogin 等下游消费)
+import { loginByPassword } from '@/api/services/auth.service'
+
 // 响应数据规范化（使用工具包提供的函数）
 
 // VIP等级VO (后端返回的等级详情)
@@ -452,10 +456,13 @@ export const cancelAccountDeletion = withApiResponseHandler(
 )
 
 /**
- * 用户登录
- * @deprecated 请使用 `@/api/services/auth.service` 中的 `login` 函数
- * 与 src/api/auth.ts 中 login 同形: POST /auth/login, body: username, password, code, uuid
- * 2026-06-24 修正：参数名由 phone 改为 username，与实际 API 协议对齐
+ * 用户登录 (v1 简化版)
+ * @deprecated 请使用 `@/api/services/auth.service` 中的 `loginByPassword` 函数
+ * 2026-06-25 优化: 内部委托到 auth.service.loginByPassword, 消除实现重复
+ * 行为不变: store/auth/index.ts:389 只传 username/password, 不传 captcha (captcha? 字段已被忽略)
+ * 类型 cast: auth.service 返回 ApiResponse<LoginResponse>, 本函数历史返回 ApiResponse<UserToken>
+ *   保持向后兼容, 下游 (UniversalLogin.vue:3408 等) 期望 UserToken 字段
+ *   后续迭代可统一响应类型, 消除此 cast
  */
 export const login = withApiResponseHandler(
   async (data: {
@@ -463,8 +470,9 @@ export const login = withApiResponseHandler(
     password: string
     captcha?: string
   }): Promise<ApiResponse<UserToken>> => {
-    const response = await request.post<UserToken>('/auth/login', data)
-    return normalizeApiResponse(response)
+    // 委托到 auth.service.loginByPassword
+    const resp = await loginByPassword(data.username, data.password)
+    return resp as unknown as ApiResponse<UserToken>
   }
 )
 

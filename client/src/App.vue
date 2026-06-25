@@ -1,8 +1,7 @@
-<!--
+﻿<!--
   根组件 / App.vue
   原 1590 行,重构后 <300 行。
   拆出逻辑(全部抽到 composables/):
-    - 字体加载        → useFontLoader
     - SSO 回调       → useAuthBootstrap.handleSsoCallback
     - 认证状态恢复   → useAuthBootstrap.restoreAuthState
     - 滚动渐变       → useAppLifecycle (onScrollFade)
@@ -13,15 +12,19 @@
     - 图片错误兜底   → useElementVisibility.installImageFallback
     - 关键容器可见性 → useElementVisibility.forceVisible + CRITICAL_VISIBILITY_TARGETS
   全局兜底样式已抽到 styles/_app-shell.scss。
+  字体加载已统一由 index.html 同步 <link> 加载 public/fonts-optimized/fonts.css，
+  无需 composable 预热，无 store 运行时注入。
 -->
 <template>
   <!--
-    2026-06-24 修复: el-config-provider 在 epLocale 首次解析为 {} 空对象时, 内部 renderSlot 读取 null children 触发
-    'Cannot read properties of null (reading "ce")' 错误. 改为 v-if 确保 locale 至少含 'name' 字段才渲染
-    config-provider, 避免空 locale + 空 slots 触发的 Vue 内部错误.
+    2026-06-25: Error 组件包裹在 el-config-provider 外层,
+    el-config-provider 直接接收业务内容作为 default slot.
+    Error 的 onErrorCaptured 仍能捕获 el-config-provider 内部子组件的错误.
+    注意: <Teleport to="body"> 的 Header 及其子组件无法使用 useRoute/useRouter
+    (脱离了 RouterView 的 provide/inject 上下文), 这是已知限制.
   -->
-  <el-config-provider v-if="hasValidEpLocale" :locale="epLocale">
-    <Error>
+  <Error>
+    <el-config-provider v-if="hasValidEpLocale" :locale="epLocale">
       <Teleport to="body">
         <Header v-if="!isAdminRoute" @select="handleSelect" />
       </Teleport>
@@ -61,7 +64,7 @@
         <!-- 网络离线提示 -->
         <Transition name="slide-down">
           <div v-if="!isOnline" class="network-offline-banner" role="status" aria-live="polite">
-            <el-icon><AlertTriangle /></el-icon>
+            <AlertTriangle class="el-icon" :size="18" aria-hidden="true" />
             <span>{{ t('app.offlineWarning') }}</span>
           </div>
         </Transition>
@@ -125,10 +128,10 @@
           :is-dark="darkModeStore.isDarkMode"
         />
       </div>
-    </Error>
-  </el-config-provider>
-  <!-- v-if 兜底: locale 尚未解析时显示空白背景占位, 避免白屏闪烁 -->
-  <div v-else class="app-locale-loading" aria-hidden="true"></div>
+    </el-config-provider>
+    <!-- v-if 兜底: locale 尚未解析时显示空白背景占位, 避免白屏闪烁 -->
+    <div v-else class="app-locale-loading" aria-hidden="true"></div>
+  </Error>
 </template>
 
 <script setup lang="ts">
@@ -146,13 +149,11 @@ import { AlertTriangle } from '@/lib/lucide-fallback'
 import { getElementPlusLocale, loadElementPlusLocale } from '@/locales'
 
 import { useLanguageStore } from '@/stores/language'
-import { useFontStore } from '@/stores/font'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useChatModeStore } from '@/stores/chatMode'
 import { useLoadingStore } from '@/stores/loading'
 
 import { handleSsoCallback, restoreAuthState } from '@/composables/useAuthBootstrap'
-import { useFontLoader } from '@/composables/useFontLoader'
 import {
   useElementVisibility,
   CRITICAL_VISIBILITY_TARGETS,
@@ -216,7 +217,6 @@ watch(
 
 // ═══ 状态管理初始化 ═══
 const languageStore = useLanguageStore()
-const fontStore = useFontStore()
 const loadingStore = useLoadingStore()
 const darkModeStore = useDarkModeStore()
 const chatModeStore = useChatModeStore()
@@ -243,7 +243,6 @@ const { checkFeatures, adaptToNetwork } = useProgressiveEnhancement()
 const { monitorTasks } = useOptimization()
 
 const { forceVisible, installImageFallback } = useElementVisibility()
-useFontLoader()
 const { notification: globalNotification, install: installNotification } =
   useGlobalNotification()
 installNotification()
@@ -357,9 +356,8 @@ onMounted(async () => {
   // 5) 全局图片错误兜底
   const uninstallImageFallback = installImageFallback()
 
-  // 6) 语言 / 字体 / 暗色模式初始化
+  // 6) 语言 / 暗色模式初始化
   languageStore.initLanguage()
-  fontStore.initFont?.()
   darkModeStore.initDarkMode?.()
 
   // 7) 浏览器能力检测与网络自适应

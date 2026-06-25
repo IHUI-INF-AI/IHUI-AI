@@ -162,6 +162,7 @@ import type { Language } from '@/composables/useLang'
 import { switchLanguage, supportedLanguages, getCurrentLanguage } from '@/composables/useLang'
 import { useAuthStore } from '@/stores/auth'
 import { useDarkModeStore } from '@/stores/darkMode'
+import { logger } from '@/utils/logger'
 
 // 使用动态导入优化组件体积
 // Search 组件已移至 HeaderActions.vue 并固定在屏幕右下角
@@ -180,7 +181,7 @@ try {
 } catch (e) {
   // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则,
   // 移除冗余的 eslint-disable-next-line 指令
-  console.debug('[MobileMenu] useRouter unavailable on init:', e)
+  logger.debug('[MobileMenu] useRouter unavailable on init:', e)
 }
 
 let route: ReturnType<typeof useRoute> | null = null
@@ -188,7 +189,7 @@ try {
   route = useRoute()
 } catch (e) {
   // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  console.debug('[MobileMenu] useRoute unavailable on init:', e)
+  logger.debug('[MobileMenu] useRoute unavailable on init:', e)
 }
 
 const getRouter = (): ReturnType<typeof useRouter> | null => {
@@ -223,7 +224,7 @@ try {
   locale = i18n.locale
 } catch (e) {
   // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  console.debug('[MobileMenu] useI18n unavailable on init:', e)
+  logger.debug('[MobileMenu] useI18n unavailable on init:', e)
 }
 
 // 2026-06-25 修复 ESLint 错误: 之前定义的 getT (含副作用的回退 useI18n) 在
@@ -257,13 +258,13 @@ try {
   authStore = useAuthStore()
 } catch (e) {
   // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  console.debug('[MobileMenu] useAuthStore unavailable on init:', e)
+  logger.debug('[MobileMenu] useAuthStore unavailable on init:', e)
 }
 try {
   darkModeStore = useDarkModeStore()
 } catch (e) {
   // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  console.debug('[MobileMenu] useDarkModeStore unavailable on init:', e)
+  logger.debug('[MobileMenu] useDarkModeStore unavailable on init:', e)
 }
 
 const getAuthStore = (): ReturnType<typeof useAuthStore> | null => {

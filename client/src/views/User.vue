@@ -677,7 +677,7 @@ $bg-page: var(--el-bg-color-page);
       border-bottom: var(--unified-border-bottom);
 
       .nav-badge-text {
-        font-family: EDIX, sans-serif;
+        font-family: 'EDIX';
         font-size: 16px;
         font-weight: 600;
         color: var(--el-text-color-secondary);
@@ -814,7 +814,7 @@ $bg-page: var(--el-bg-color-page);
     }
 
     .badge-text {
-      font-family: EDIX, sans-serif;
+      font-family: 'EDIX';
       font-size: 14px;
       font-weight: 600;
       letter-spacing: 0.05em;

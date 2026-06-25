@@ -408,14 +408,16 @@ describe('backend-paths.ts', () => {
     })
 
     it('agentCategory 路径应该正确', () => {
+      // 2026-06-25 修复#O: create/byId 对齐到 Python 后端, agentById 保留旧路径 (语义不同)
       const a = COZE_PATHS.agentCategory
       expect(a.agentById('a1')).toBe('/cozeZhsApi/agent-category/agent/a1')
-      expect(a.create).toBe('/cozeZhsApi/agent-category/create')
-      expect(a.byId('c1')).toBe('/cozeZhsApi/agent-category/c1')
+      expect(a.create).toBe('/api/v1/agents/categories/create')
+      expect(a.byId('c1')).toBe('/api/v1/agents/categories/c1')
     })
 
     it('agentBuy 路径应该正确', () => {
-      expect(COZE_PATHS.agentBuy.create).toBe('/cozeZhsApi/agent-buy/create')
+      // 2026-06-25 修复#O: 对齐到 Python 后端真实端点
+      expect(COZE_PATHS.agentBuy.create).toBe('/api/v1/agents/buy/create')
     })
 
     it('agentWithdrawalDetail 路径应该正确', () => {
@@ -424,10 +426,12 @@ describe('backend-paths.ts', () => {
     })
 
     it('agentSettlement 路径应该正确', () => {
+      // 2026-06-25 修复#M/#N: 对齐到 Python 后端真实端点.
+      //   后端无 stats/income-overview 和 stats/overview, 用 /summary 等价.
       const a = COZE_PATHS.agentSettlement
-      expect(a.incomeOverview).toBe('/cozeZhsApi/agent-settlement/stats/income-overview')
-      expect(a.list).toBe('/cozeZhsApi/agent-settlement/list')
-      expect(a.statsOverview).toBe('/cozeZhsApi/agent-settlement/stats/overview')
+      expect(a.incomeOverview).toBe('/api/v1/agents/settlement/summary')
+      expect(a.list).toBe('/api/v1/agents/settlement/list')
+      expect(a.statsOverview).toBe('/api/v1/agents/settlement/summary')
     })
 
     it('search 路径应该正确', () => {
@@ -478,13 +482,15 @@ describe('backend-paths.ts', () => {
     })
 
     it('agentExamine 路径应该正确', () => {
+      // 2026-06-25 修复#O: list/byId/statsSummary/approve/reject 对齐到 Python 后端
+      //   create/syncAvatar/batchSyncAvatar 保留旧路径 (后端语义不同或无对应)
       const a = COZE_PATHS.agentExamine
-      expect(a.list).toBe('/cozeZhsApi/agent-examine/list')
+      expect(a.list).toBe('/api/v1/agents/examine/list')
       expect(a.create).toBe('/cozeZhsApi/agent-examine/create')
-      expect(a.byId('a1')).toBe('/cozeZhsApi/agent-examine/a1')
-      expect(a.statsSummary).toBe('/cozeZhsApi/agent-examine/stats/summary')
-      expect(a.approve('a1')).toBe('/cozeZhsApi/agent-examine/a1/approve')
-      expect(a.reject('a1')).toBe('/cozeZhsApi/agent-examine/a1/reject')
+      expect(a.byId('a1')).toBe('/api/v1/agents/examine/a1')
+      expect(a.statsSummary).toBe('/api/v1/agents/examine/stats/summary')
+      expect(a.approve('a1')).toBe('/api/v1/agents/examine/a1/approve')
+      expect(a.reject('a1')).toBe('/api/v1/agents/examine/a1/reject')
       expect(a.syncAvatar('a1')).toBe('/cozeZhsApi/agent-examine/sync-avatar/a1')
       expect(a.batchSyncAvatar).toBe('/cozeZhsApi/agent-examine/batch-sync-avatar')
     })

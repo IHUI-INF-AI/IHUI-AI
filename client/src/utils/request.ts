@@ -166,6 +166,7 @@ const mockData: Record<string, unknown> = {
     })),
   },
   // 代理结算相关
+  // incomeOverview 和 statsOverview 共用 /api/v1/agents/settlement/summary 端点
   [COZE_PATHS.agentSettlement.incomeOverview]: {
     uuid: 'e774c6ea-09cc-4895-b49f-557556064052',
     todayAccount: 125.50,
@@ -174,6 +175,11 @@ const mockData: Record<string, unknown> = {
     WithdrawnAmount: 2450.00,
     AccumulatedIncome: 3130.20,
     statistics_time: new Date().toISOString(),
+    // statsOverview 字段合并
+    total_settlements: 156,
+    total_amount: 15600.00,
+    settled_count: 98,
+    unsettled_count: 58,
   },
   [COZE_PATHS.agentSettlement.list]: {
     list: Array.from({ length: 20 }, (_, i) => ({
@@ -201,12 +207,6 @@ const mockData: Record<string, unknown> = {
       total: 156,
       totalPages: 8,
     },
-  },
-  [COZE_PATHS.agentSettlement.statsOverview]: {
-    total_settlements: 156,
-    total_amount: 15600.00,
-    settled_count: 98,
-    unsettled_count: 58,
   },
   // 新闻列表相关
   '/news/list': {

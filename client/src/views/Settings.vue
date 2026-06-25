@@ -2007,7 +2007,7 @@ $brand-secondary: var(--color-gray-333);
   }
 
   .page-header__badge-text {
-    font-family: EDIX, var(--font-family-sans-serif);
+    font-family: 'EDIX';
     text-transform: uppercase;
   }
 

@@ -8,6 +8,7 @@
 import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 import http from '@/utils/request'
 import { io, type Socket } from 'socket.io-client'
+import { logger } from '@/utils/logger'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -93,7 +94,7 @@ function _startSocket(): void {
       // 加入成功, 调试用 (生产可关)
       if (data?.room) {
          
-        console.debug('[notify] joined room:', data.room)
+        logger.debug('[notify] joined room:', data.room)
       }
     })
     _socket.on('notify:new', (payload: { id: string; level?: string; title?: string; body?: string }) => {

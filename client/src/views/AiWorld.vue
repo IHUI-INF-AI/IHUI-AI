@@ -718,7 +718,7 @@ $aw-gray-border: var(--color-text-muted);
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  font-family: var(--el-font-family, var(--font-family-chinese, 'PingFang SC', 'Microsoft YaHei', sans-serif));
+  font-family: var(--el-font-family, var(--font-family-chinese));
   font-weight: 500;
 
   @include bp.tablet-down {

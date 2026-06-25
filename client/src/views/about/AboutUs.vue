@@ -362,7 +362,7 @@ const teamMembers = computed(() => [
     }
 
     .badge-text {
-      font-family: EDIX, sans-serif;
+      font-family: 'EDIX';
       font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.05em;

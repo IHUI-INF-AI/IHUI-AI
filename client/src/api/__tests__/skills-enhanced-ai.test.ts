@@ -19,7 +19,13 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 vi.mock('@/config/backend-paths', () => ({
-  COZE_PATHS: { skills: { chat: '/skills/chat', match: '/skills/match' } },
+  COZE_PATHS: {
+    skills: { chat: '/skills/chat', match: '/skills/match' },
+    // 2026-06-25 修复#Q: 补全 api-white-list.ts 顶层引用的字段, 避免导入失败
+    agents: { list: '/coze/agents/list' },
+    aiModelInfo: { list: '/coze/ai-model-info/list' },
+    cache: { agentCategoryDict: { categories: '/coze/cache/category-dict/categories' } },
+  },
   COZE_PREFIX: '/coze',
   LOGIN_PWD_PATHS: { refreshToken: '/auth/login/pwd/refresh' },
 }))

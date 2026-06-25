@@ -189,7 +189,7 @@ function numResult(num: number) {
   font-size: 19px;
   font-weight: bold;
   color: var(--color--8178ef);
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
   line-height: 25px;
   letter-spacing: 0;
   width: 100%;
@@ -277,7 +277,7 @@ function numResult(num: number) {
   font-size: 12px;
   margin-left: 4px;
   font-weight: bold;
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
 }
 
 .xin-title-hot {

@@ -64,6 +64,8 @@ vi.mock('vue-i18n', () => ({
 
 // ---- mock @/locales：提供可控的 i18n.global.messages.value ----
 // 组件直接 import i18n from '@/locales' 并访问 i18n.global.messages.value
+// 2026-06-25 修复#Q: 补全 loadFullLocaleMessages / getCurrentLocale 命名导出,
+//   避免 onMounted 调用时抛 "No export is defined" 错误
 vi.mock('@/locales', () => ({
   default: {
     global: {
@@ -71,6 +73,8 @@ vi.mock('@/locales', () => ({
       locale: { value: 'zh-CN' },
     },
   },
+  loadFullLocaleMessages: vi.fn().mockResolvedValue(undefined),
+  getCurrentLocale: () => 'zh-CN',
 }))
 
 // ---- mock @/constants/i18nLanguages：简化为 2 语言，code 与 messages key 对齐 ----

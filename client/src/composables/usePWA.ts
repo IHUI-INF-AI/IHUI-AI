@@ -47,7 +47,7 @@ export function usePwa() {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             updateAvailable.value = true
-            console.log('[PWA] 新版本可用')
+            logger.info('[PWA] 新版本可用')
           }
         })
       })

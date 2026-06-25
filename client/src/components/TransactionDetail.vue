@@ -212,7 +212,7 @@ function onViewOrder() {
     max-width: 60%;
 
     &.mono {
-      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-family: var(--font-family-mono);
       font-size: 12px;
     }
   }

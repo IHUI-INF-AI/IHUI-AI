@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="agents-create-container page-container">
     <!-- 深度背景系统 -->
     <div class="industrial-bg">
@@ -377,7 +377,7 @@ $glass-border-hover: var(--border-unified-color-hover);
     font-weight: 600;
     letter-spacing: 0.05em;
     color: $industrial-text-muted;
-    font-family: EDIX, sans-serif;
+    font-family: 'EDIX';
     text-transform: uppercase;
   }
 }

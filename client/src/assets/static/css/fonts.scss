@@ -1,9 +1,0 @@
-/**
- * 字体工具类（仅保留与全局一致的定义）
- * 本项目统一使用：鸿蒙字体（HarmonyOS Sans SC）+ EDIX 英文字体
- * @font-face 与 CSS 变量见 src/styles/fonts-unified.scss
- */
-
-.font-edix {
-  font-family: var(--font-family-edix);
-}

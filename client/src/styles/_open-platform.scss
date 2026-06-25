@@ -91,7 +91,7 @@ html.dark .section-band {
 
 .open-platform-container {
   width: 100%; min-height: 100vh; background: var(--op-bg); color: var(--op-color); position: relative;
-  transition: background 0.3s ease; font-family: 'HarmonyOS Sans SC', sans-serif;
+  transition: background 0.3s ease; font-family: var(--font-family-chinese);
   overflow-x: hidden;
   margin: 0; padding-top: 0; // 不再用负 margin，避免被裁切导致主内容不显示
   isolation: isolate; // 建立层叠上下文，避免背景盖住内容
@@ -428,7 +428,7 @@ html.dark .section-idx { background: var(--op-color); color: var(--op-bg); borde
 .op-content-layer { position: relative; z-index: var(--z-base); }
 
 .container { max-width: 1320px; margin: 0 auto; padding: 0 32px; position: relative; z-index: var(--z-base); box-sizing: border-box; }
-.font-edix { font-family: 'EDIX', sans-serif; }
+.font-edix { font-family: 'EDIX'; }
 
 // 玻璃拟态 - 使用 CSS 变量
 .glass {

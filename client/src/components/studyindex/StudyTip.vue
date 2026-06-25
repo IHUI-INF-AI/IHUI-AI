@@ -75,7 +75,7 @@ function toMyModel() {
 }
 
 .tip-text {
-  font-family: AlimamaFangYuanTi, sans-serif;
+  font-family: inherit;
   font-size: 14px;
   font-weight: bold;
   color: var(--color-gray-666);

@@ -288,7 +288,7 @@ function onClose() {
     .bank-tail {
       font-size: 12px;
       color: v.$text-secondary;
-      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-family: var(--font-family-mono);
     }
 
     .change-btn {

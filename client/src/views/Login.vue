@@ -722,7 +722,7 @@ $border-light: var(--el-border-color-lighter);
 
       // EDIX 字体 - 英文品牌名
       &.font-edix {
-        font-family: EDIX, sans-serif;
+        font-family: 'EDIX';
       }
     }
 
@@ -741,7 +741,7 @@ $border-light: var(--el-border-color-lighter);
 
       // EDIX 字体 - 英文徽章
       &.font-edix {
-        font-family: EDIX, sans-serif;
+        font-family: 'EDIX';
       }
     }
   }
@@ -763,7 +763,7 @@ $border-light: var(--el-border-color-lighter);
 
     // h1 标签使用 EDIX 字体
     &.font-edix {
-      font-family: EDIX, sans-serif;
+      font-family: 'EDIX';
     }
 
     .title-prefix {
@@ -782,7 +782,7 @@ $border-light: var(--el-border-color-lighter);
       white-space: nowrap;
 
       &.font-edix {
-        font-family: EDIX, sans-serif;
+        font-family: 'EDIX';
       }
     }
   }
@@ -822,7 +822,7 @@ $border-light: var(--el-border-color-lighter);
 
         // EDIX 字体 - 数值
         &.font-edix {
-          font-family: EDIX, sans-serif;
+          font-family: 'EDIX';
         }
       }
 
@@ -863,7 +863,7 @@ $border-light: var(--el-border-color-lighter);
 
       // EDIX 字体 - 装饰文字
       &.font-edix {
-        font-family: EDIX, sans-serif;
+        font-family: 'EDIX';
       }
     }
   }

@@ -1,11 +1,15 @@
 <template>
   <div class="error-boundary">
-    <!-- 2026-06-24 修复: 原先使用 <slot v-if="!hasError" /> 在 ErrorBoundary 触发后会强制重渲染 Error 父组件,
+    <!-- 2026-06-25 修复: 原先使用 <slot v-if="!hasError" /> 在 ErrorBoundary 触发后会强制重渲染 Error 父组件,
          由于父级 <el-config-provider> 在 reset 之前会重建 slot 树, 触发 Vue 内部 renderSlot 时
          读取 null children, 抛出 "Cannot read properties of null (reading 'ce')".
-         改为外层 v-if 包裹更稳健: 整个子节点在 hasError=true 时不渲染, 避免空 slot 调用. -->
-    <slot v-if="!hasError" />
-    <div v-else class="error-fallback">
+         2026-06-25 加固: 用 <template #default> + v-if 双层守卫, 即使外部传入 slots 为 null/undefined
+         也不会触发 renderSlot 读取 null; 同时包一层 try-catch 渲染 slot, 任何 slot 内部错误
+         都会被 onErrorCaptured 兜住, 防止 ErrorBoundary 自身导致循环错误. -->
+    <template v-if="!hasError && $slots.default">
+      <slot />
+    </template>
+    <div v-else-if="hasError" class="error-fallback">
       <div class="error-content">
         <div class="error-icon">⚠️</div>
         <h2>{{ t('app.errorTitle') || '出错了' }}</h2>

@@ -119,13 +119,18 @@ export interface AgentExamineParams {
 
 /**
  * 获取智能体审核记录列表
+ *
+ * 2026-06-25 修复#O: 路径对齐到 Python 后端真实端点.
+ *   COZE_PATHS.agentExamine.list 已对齐到 /api/v1/agents/examine/list.
+ *   base 改为 1 (走 api-kou 代理). 后端参数: page/limit/status, user_uuid 从 token 取.
+ *   注意: 前端传 agent_name/start_user 等参数后端不认, 后续需对齐参数.
  */
 export function getZntList(data: AgentExamineParams) {
   return request({
     url: COZE_PATHS.agentExamine.list,
     method: 'GET',
     data,
-    base: 3,
+    base: 1,
   })
 }
 
@@ -151,16 +156,21 @@ export interface PayHistoryParams {
 
 /**
  * 创建付费记录
+ *
+ * 2026-06-25 修复#O: 路径对齐到 Python 后端真实端点.
+ *   原路径 /agentBuy (base 3, baseUrl3='') 无 vite 代理规则, 请求会 404.
+ *   对齐到 /api/v1/agents/buy/create (base 1, 走 api-kou 代理).
+ *   注意: 后端 POST /create 只接受 Query agent_id, 前端传 body 完整数据, 后续需对齐参数.
  */
 export function createPayHistory(data: PayHistoryParams) {
   return request({
-    url: `/agentBuy`,
+    url: `/api/v1/agents/buy/create`,
     headers: {
       'content-type': 'application/json',
     },
     method: 'POST',
     data,
-    base: 3,
+    base: 1,
   })
 }
 
@@ -175,46 +185,63 @@ export interface AgentChargeParams {
 
 /**
  * 创建智能体收费配置
+ *
+ * 2026-06-25 修复#O: 路径对齐到 Python 后端真实端点.
+ *   原路径 /agentCategory (base 3, baseUrl3='') 无 vite 代理规则, 请求会 404.
+ *   对齐到 /api/v1/agents/categories/create (base 1, 走 api-kou 代理).
+ *   注意: 后端 body CategoryCreateBody { agent_id, group, type, type_child, limit_free, account },
+ *   前端传 agentId/price 等, 字段名不同, 后续需对齐参数.
  */
 export function createZntCharge(data: AgentChargeParams) {
   return request({
-    url: `/agentCategory`,
+    url: `/api/v1/agents/categories/create`,
     headers: {
       'content-type': 'application/json',
     },
     method: 'POST',
     data,
-    base: 3,
+    base: 1,
   })
 }
 
 /**
  * 修改智能体收费配置
+ *
+ * 2026-06-25 修复#O: 路径对齐到 Python 后端真实端点.
+ *   原路径 /agentCategory (base 3, baseUrl3='') 无 vite 代理规则, 请求会 404.
+ *   对齐到 /api/v1/agents/categories/{category_id} (base 1, 走 api-kou 代理).
+ *   注意: 后端 path 期望 category_id (int), 前端 data 传 agent_id (string), 语义不同, 后续需对齐.
  */
 export function putZntCharge(data: AgentChargeParams & { agent_id?: string; id?: string }) {
+  const categoryId = (data as { id?: string; agent_id?: string }).id || (data as { agent_id?: string }).agent_id || ''
   return request({
-    url: `/agentCategory`,
+    url: `/api/v1/agents/categories/${categoryId}`,
     headers: {
       'content-type': 'application/json',
     },
     method: 'PUT',
     data,
-    base: 3,
+    base: 1,
   })
 }
 
 /**
  * 删除智能体收费配置
+ *
+ * 2026-06-25 修复#O: 路径对齐到 Python 后端真实端点.
+ *   原路径 /agentCategory/{ids} (base 3, baseUrl3='') 无 vite 代理规则, 请求会 404.
+ *   对齐到 /api/v1/agents/categories/{category_id} (base 1, 走 api-kou 代理).
+ *   注意: 后端 path 期望 category_id (int), 前端传 agent_id (string), 语义不同, 后续需对齐.
  */
 export function deleteZntCharge(ids: string | string[]) {
   const idsString = Array.isArray(ids) ? ids.join(',') : ids
   return request({
-    url: `/agentCategory/${idsString}`,
+    url: `/api/v1/agents/categories/${idsString}`,
     headers: {
       'content-type': 'application/json',
     },
     method: 'DELETE',
-    base: 3,
+    base: 1,
   })
 }
 
@@ -229,16 +256,21 @@ export interface IncomeOverviewParams {
 
 /**
  * 收入详情
+ *
+ * 2026-06-25 修复#N: 路径对齐到 Python 后端真实端点.
+ *   原路径 /cozeZhsApi/agent-settlement/stats/income-overview (base 3) 是外部 Java 后端路由,
+ *   已迁移到 Python 后端 /api/v1/agents/settlement/summary. base 改为 1 (走 api-kou 代理).
+ *   后端无 stats/income-overview, 用 /summary 等价 (都是收入汇总).
  */
 export function getBuyInfo(data: IncomeOverviewParams) {
   return request({
-    url: COZE_PATHS.agentSettlement.incomeOverview,
+    url: `/api/v1/agents/settlement/summary`,
     method: 'GET',
     data: {
       start_date: data.startDate,
       end_date: data.endDate,
     },
-    base: 3,
+    base: 1,
   })
 }
 
@@ -255,10 +287,16 @@ export interface SettlementListParams {
 
 /**
  * 收入列表
+ *
+ * 2026-06-25 修复#M: 路径对齐到 Python 后端真实端点.
+ *   原路径 /agentSettlement/list (base 3, baseUrl3='') 无 vite 代理规则,
+ *   无后端实现, 请求会 404. 对齐到 /api/v1/agents/settlement/list (base 1,
+ *   走 api-kou 代理到 Python 后端). 后端参数: page/limit/settlement_status,
+ *   user_uuid 从 token 取.
  */
 export function getBuyList(data: SettlementListParams) {
   return request({
-    url: `/agentSettlement/list`,
+    url: `/api/v1/agents/settlement/list`,
     method: 'GET',
     data: {
       page: data.page,
@@ -266,7 +304,7 @@ export function getBuyList(data: SettlementListParams) {
       start_date: data.startDate,
       end_date: data.endDate,
     },
-    base: 3,
+    base: 1,
   })
 }
 

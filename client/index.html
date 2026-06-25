@@ -438,16 +438,6 @@
       }
     </script>
 
-
-
-    <!-- 预连接优化-->
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
-
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-
-
-
     <!-- Schema.org 结构化数据-->
 
     <script type="application/ld+json">
@@ -514,6 +504,9 @@
 
 
     <title>智汇AI社区 - 专业AI工具平台</title>
+
+    <!-- 字体 CSS（@font-face + :root 字体变量）同步加载，唯一字体入口，无 preload 冗余（font-display:block 已阻塞首屏） -->
+    <link rel="stylesheet" href="/fonts-optimized/fonts.css" />
 
 
 

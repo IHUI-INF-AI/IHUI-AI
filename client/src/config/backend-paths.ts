@@ -320,12 +320,18 @@ export const COZE_PATHS = {
     status: (orderId: string) => `${COZE}/top-up/status/${orderId}`,
   },
   agentCategory: {
+    // 2026-06-25 修复#O: 对齐到 Python 后端真实端点.
+    //   原路径 /cozeZhsApi/agent-category/* 是外部 Java 后端路由,
+    //   已迁移到 Python 后端 /api/v1/agents/categories/* (修复#A 新前缀).
+    // 注意: agentById 按 agent_id 查询, 后端 categories.py 只有 /{category_id},
+    //   语义不同, 保留旧路径走外部 Java 后端避免破坏现有逻辑.
     agentById: (id: string) => `${COZE}/agent-category/agent/${id}`,
-    create: `${COZE}/agent-category/create`,
-    byId: (id: string) => `${COZE}/agent-category/${id}`,
+    create: `/api/v1/agents/categories/create`,
+    byId: (id: string) => `/api/v1/agents/categories/${id}`,
   },
   agentBuy: {
-    create: `${COZE}/agent-buy/create`,
+    // 2026-06-25 修复#O: 对齐到 Python 后端真实端点.
+    create: `/api/v1/agents/buy/create`,
   },
   agentWithdrawalDetail: {
     // 2026-06-25 修复#L: 对齐到 Python 后端真实端点.
@@ -334,9 +340,13 @@ export const COZE_PATHS = {
     list: `/api/v1/agents/withdrawal/list`,
   },
   agentSettlement: {
-    incomeOverview: `${COZE}/agent-settlement/stats/income-overview`,
-    list: `${COZE}/agent-settlement/list`,
-    statsOverview: `${COZE}/agent-settlement/stats/overview`,
+    // 2026-06-25 修复#M/#N: 对齐到 Python 后端真实端点.
+    //   原路径 /cozeZhsApi/agent-settlement/* 是外部 Java 后端路由,
+    //   已迁移到 Python 后端 /api/v1/agents/settlement/* (修复#A 新前缀).
+    //   后端无 stats/income-overview 和 stats/overview, 用 /summary 等价.
+    incomeOverview: `/api/v1/agents/settlement/summary`,
+    list: `/api/v1/agents/settlement/list`,
+    statsOverview: `/api/v1/agents/settlement/summary`,
   },
   search: {
     modelWorkflowRun: `${COZE}/search/model/workflow/run`,
@@ -381,12 +391,17 @@ export const COZE_PATHS = {
     },
   },
   agentExamine: {
-    list: `${COZE}/agent-examine/list`,
+    // 2026-06-25 修复#O: 对齐到 Python 后端真实端点.
+    //   原路径 /cozeZhsApi/agent-examine/* 是外部 Java 后端路由,
+    //   已迁移到 Python 后端 /api/v1/agents/examine/* (修复#A 新前缀).
+    // 注意: create 后端是 POST /submit (Query agent_id), 语义不同, 保留旧路径.
+    //   syncAvatar/batchSyncAvatar 后端无对应, 保留旧路径走外部 Java.
+    list: `/api/v1/agents/examine/list`,
     create: `${COZE}/agent-examine/create`,
-    byId: (id: string) => `${COZE}/agent-examine/${id}`,
-    statsSummary: `${COZE}/agent-examine/stats/summary`,
-    approve: (id: string) => `${COZE}/agent-examine/${id}/approve`,
-    reject: (id: string) => `${COZE}/agent-examine/${id}/reject`,
+    byId: (id: string) => `/api/v1/agents/examine/${id}`,
+    statsSummary: `/api/v1/agents/examine/stats/summary`,
+    approve: (id: string) => `/api/v1/agents/examine/${id}/approve`,
+    reject: (id: string) => `/api/v1/agents/examine/${id}/reject`,
     syncAvatar: (agentId: string) => `${COZE}/agent-examine/sync-avatar/${agentId}`,
     batchSyncAvatar: `${COZE}/agent-examine/batch-sync-avatar`,
   },

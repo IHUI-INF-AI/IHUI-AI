@@ -239,7 +239,7 @@ html.dark .main-content {
   color: var(--el-text-color-primary);
 
   /* 强制使用 EDIX 字体，优先级最? */
-  font-family: EDIX, sans-serif;
+  font-family: 'EDIX';
 
   /* 强制在一行显? */
   white-space: nowrap;
@@ -914,7 +914,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   line-height: 1.4;
   font-weight: 300; /* 更轻的字体粗? */
   letter-spacing: 0.03em;
-  font-family: EDIX, sans-serif;
+  font-family: 'EDIX';
   opacity: 0.75; /* 降低不透明度，让它作为副标? */
 }
 
@@ -958,7 +958,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 }
 
 /* 深色背景下第二页描述文字 - 高对比度 */
-.dark-content #second-page .second-page-title-wrapper .second-page-description {
+:where(.dark-content) :where(#second-page) .second-page-title-wrapper .second-page-description {
   font-weight: 600;
 }
 
@@ -1173,7 +1173,7 @@ h6[class*="title-english"].font-edix,
 h1[class*="welcome"].font-edix,
 h1[class*="brand"].font-edix {
   /* 强制使用 EDIX 字体，优先级最? */
-  font-family: EDIX, sans-serif;
+  font-family: 'EDIX';
 }
 
 p {
@@ -1423,7 +1423,7 @@ p {
   line-height: 1.4;
   font-weight: 300;
   letter-spacing: 0.03em;
-  font-family: EDIX, sans-serif;
+  font-family: 'EDIX';
   opacity: 0.75;
 }
 
@@ -2215,7 +2215,7 @@ html.dark .home-container {
   line-height: 1.4;
   font-weight: 300;
   letter-spacing: 0.03em;
-  font-family: EDIX, sans-serif;
+  font-family: 'EDIX';
   opacity: 0.75;
 }
 

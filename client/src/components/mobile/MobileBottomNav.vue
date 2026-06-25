@@ -36,14 +36,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useWindowSize } from '@vueuse/core'
 import { defaultResponsiveConfig } from '@/utils/responsiveEnhancement'
 import { getProxiedImageUrl } from '@/utils/imageProxy'
 
 const { t } = useI18n()
-const route = useRoute()
+const router = useRouter()
+const route = computed(() => router.currentRoute.value)
 const { width } = useWindowSize()
 
 const mobileBreakpoint = defaultResponsiveConfig.breakpoints.md
@@ -97,7 +98,7 @@ const navItems = computed(() => {
 
 // 判断路由是否激活
 const isActive = (path: string): boolean => {
-  return route.path === path || route.path.startsWith(path + '/')
+  return route.value.path === path || route.value.path.startsWith(path + '/')
 }
 </script>
 

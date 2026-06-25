@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // 设计令牌系统 - 统一变量管理
 // Design Tokens - Single Source of Truth
 // ============================================
@@ -359,7 +359,7 @@ $z-toast: 1080 !default;
   --el-mask-color: transparent;
   --el-mask-color-extra-light: transparent;
 
-  // 全局字体变量（与 fonts-unified.scss 配合）
+  // 全局字体变量（指向 fonts.css 中定义的唯一字体）
   --global-font-family: var(--font-family-chinese);
   --bs-font-sans-serif: var(--global-font-family);
   --el-font-family: var(--font-family-chinese);

@@ -135,9 +135,10 @@ const _authStore = useAuthStore()
 const emit = defineEmits(['select'])
 
 // 根据当前路由自动计算activeIndex
+// 注意：route 可能在组件刚挂载/HMR/路由切换瞬间短暂为 undefined，需要做空值保护
 const activeIndex = computed(() => {
-  const routeName = (route as { name?: string | symbol }).name as string
-  const routePath = route.path
+  const routeName = ((route as { name?: string | symbol } | undefined)?.name ?? '') as string
+  const routePath = route?.path ?? ''
 
   if (routeName === 'home' || routePath === '/' || routePath === '/home') {
     return 'home'
@@ -1294,7 +1295,7 @@ watch(
 )
 
 watch(
-  () => route.path,
+  () => route?.path ?? '',
   () => {
     closeMenus()
     // 延迟计算，确保 DOM 已更新
