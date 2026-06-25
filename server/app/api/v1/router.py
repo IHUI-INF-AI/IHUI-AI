@@ -99,7 +99,7 @@ from app.api.v1.courses.courses import router as courses_router
 from app.api.v1.finance.commission import router as commission_router
 from app.api.v1.finance.distribution import router as distribution_router
 from app.api.v1.finance.fund import router as finance_fund_router
-# 2026-06-26: finance.fund_info 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入
+from app.api.v1.finance.fund_info import router as finance_fund_info_router
 from app.api.v1.finance.margin import router as margin_router
 from app.api.v1.finance.withdrawal import router as withdrawal_router
 
