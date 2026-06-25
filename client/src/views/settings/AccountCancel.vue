@@ -311,7 +311,7 @@ async function onFinalConfirm() {
 .account-cancel__notice {
   background-color: var(--el-color-danger-light-9);
   border: 1px solid var(--el-color-danger-light-5);
-  border-radius: 8px;
+  border-radius: var(--global-border-radius);
   padding: 16px 14px;
   box-sizing: border-box;
   margin-bottom: 12px;
@@ -335,7 +335,7 @@ async function onFinalConfirm() {
 /* 注销后果区 */
 .account-cancel__consequences {
   background-color: var(--el-bg-color);
-  border-radius: 8px;
+  border-radius: var(--global-border-radius);
   padding: 14px;
   box-sizing: border-box;
   border: 1px solid var(--el-border-color-lighter);
@@ -418,7 +418,7 @@ async function onFinalConfirm() {
   color: var(--el-color-primary);
   background-color: var(--el-color-primary-light-9);
   padding: 8px 10px;
-  border-radius: 4px;
+  border-radius: calc(var(--global-border-radius) * 0.5);
   margin-bottom: 8px;
 }
 
@@ -428,7 +428,7 @@ async function onFinalConfirm() {
   line-height: 1.6;
   padding: 8px;
   background-color: var(--el-fill-color-lighter);
-  border-radius: 6px;
+  border-radius: calc(var(--global-border-radius) * 0.75);
   margin-bottom: 8px;
   border: 1px solid var(--el-border-color-lighter);
 }
@@ -448,14 +448,14 @@ async function onFinalConfirm() {
 
 .account-cancel__confirm-error {
   font-size: 12px;
-  color: #e64340;
+  color: var(--el-color-danger);
   margin-top: 6px;
   line-height: 1.4;
 }
 
 .account-cancel__confirm-ok {
   font-size: 12px;
-  color: #07c160;
+  color: var(--el-color-success);
   margin-top: 6px;
   line-height: 1.4;
 }
@@ -473,14 +473,14 @@ async function onFinalConfirm() {
 
 .account-cancel__code-btn {
   flex-shrink: 0;
-  color: #e64340;
-  background-color: #fff;
-  border: 1px solid #e64340;
+  color: var(--el-color-danger);
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-color-danger);
 }
 
 .account-cancel__code-btn.is-disabled {
-  color: #999;
-  border-color: #ddd;
+  color: var(--el-text-color-placeholder);
+  border-color: var(--el-border-color);
 }
 
 .account-cancel__submit {
@@ -496,7 +496,7 @@ async function onFinalConfirm() {
 
 .account-cancel__dialog-msg {
   font-size: 14px;
-  color: #333;
+  color: var(--el-text-color-primary);
   line-height: 1.6;
   margin: 0;
 }

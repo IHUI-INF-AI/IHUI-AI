@@ -4,7 +4,6 @@
 提供 /api/agent/upload、/api/agent/select、/api/agent/process 三个端点.
 """
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query
@@ -19,6 +18,7 @@ from app.services.agent_upload import (
     build_input_params,
     get_agent_client,
 )
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter(prefix="/api/agent", tags=["Agent 上传处理"])
 
@@ -44,7 +44,7 @@ async def upload_agent(
         ):
             if k in payload:
                 setattr(record, k, payload.get(k))
-        record.updated_at = datetime.utcnow()
+        record.updated_at = utcnow()
         db.commit()
         return {"code": 0, "message": "ok", "data": {"agent_id": agent_id}}
     except Exception as e:

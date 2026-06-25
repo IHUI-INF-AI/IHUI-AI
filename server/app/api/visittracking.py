@@ -8,13 +8,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
+from app.utils.datetime_helper import utcnow
 from ..database import get_db
 from ..security import get_current_user_optional
 
@@ -76,7 +76,7 @@ async def save_visit_log(payload: VisitLogCreate):
             "duration_ms": int(payload.duration_ms or 0),
             "event": payload.event or "view",
             "extra": json.dumps(payload.extra or {}, ensure_ascii=False),
-            "created_at": datetime.utcnow(),
+            "created_at": utcnow(),
         })
         db.commit()
         return {"code": 0, "msg": "ok"}

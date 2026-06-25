@@ -126,7 +126,7 @@ async function markAllRead() {
   try {
     await http.post('/api/admin/migration/notify/read-all')
     items.value.forEach((n) => (n.read = true))
-    unreadTotal.value = 0  // 立即清零, 不等下次轮询
+    setUnread(0)  // 立即清零, 同步菜单红点, 不等下次轮询
     ElMessage.success('已全部标记为已读')
   } catch {
     ElMessage.error('操作失败')

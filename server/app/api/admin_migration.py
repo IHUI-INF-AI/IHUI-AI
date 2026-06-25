@@ -29,6 +29,7 @@ from app.database import get_session
 from app.models.message_models import Message
 from app.security import require_login, require_role
 from app.services import id_mapping_service
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,7 @@ async def run_migration(req: MigrateRequest, _: str = Depends(require_role("admi
     if req.dry_run:
         cmd += ["--dry-run"]
 
-    log_path = SERVER_DIR / "logs" / f"migrate_trigger_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.log"
+    log_path = SERVER_DIR / "logs" / f"migrate_trigger_{utcnow().strftime('%Y%m%d_%H%M%S')}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -151,7 +152,7 @@ async def run_migration(req: MigrateRequest, _: str = Depends(require_role("admi
             "pid": process.pid,
             "batch_id": req.batch_id,
             "log_file": str(log_path),
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": utcnow().isoformat(),
         },
     }
 
@@ -203,7 +204,7 @@ async def rollback_batch(batch_id: str, confirm: bool = False, _: str = Depends(
         raise HTTPException(status_code=400, detail="必须显式 confirm=true 才执行回滚")
 
     cmd = [sys.executable, "-m", "scripts.rollback", "--batch", batch_id, "--confirm"]
-    log_path = SERVER_DIR / "logs" / f"rollback_trigger_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.log"
+    log_path = SERVER_DIR / "logs" / f"rollback_trigger_{utcnow().strftime('%Y%m%d_%H%M%S')}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -386,7 +387,7 @@ class NotifyItem:
     body: str = ""
     level: Literal["info", "warn", "error"] = "info"
     source: str = "migration"  # migration / reconcile / dual_write
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: utcnow().isoformat())
     read: bool = False
     read_time: str | None = None
     top: bool = False  # 是否置顶 (P1: error 级别自动置顶)
@@ -400,7 +401,7 @@ def _to_notify_item(m: Message) -> NotifyItem:
         body=m.content or "",
         level=(m.sender_id or "info") if m.sender_id in ("info", "warn", "error") else "info",
         source=m.sender_name or "migration",
-        created_at=(m.created_at or datetime.utcnow()).isoformat()
+        created_at=(m.created_at or utcnow()).isoformat()
         if isinstance(m.created_at, datetime) else str(m.created_at),
         read=bool(m.is_read),
         read_time=m.read_time.isoformat() if m.read_time else None,
@@ -409,7 +410,13 @@ def _to_notify_item(m: Message) -> NotifyItem:
 
 
 def _trim_notify_queue() -> None:
-    """站内信总数超 NOTIFY_MAX 时, 删最旧的非置顶条目 (FIFO 淘汰)."""
+    """站内信总数超 NOTIFY_MAX 时, 删最旧的非置顶条目 (FIFO 淘汰).
+
+    设计:
+    - 置顶 (is_top=true) 永不被删 (operator 必须能看到 error 告警)
+    - 非置顶 (false 或 NULL) 按 created_at asc 淘汰最旧
+    - 如所有消息都是置顶, 不会删除任何, 让 total 暂时超限 (设计意图: 告警不丢)
+    """
     with get_session() as db:
         # 统计当前条数 (只算站内信, type=system_notice)
         total = (
@@ -420,17 +427,25 @@ def _trim_notify_queue() -> None:
         )
         if total <= NOTIFY_MAX:
             return
-        # 取超出部分最旧的 id, 删除 (非置顶优先)
+        # 取超出部分最旧的 id, 删除 (非置顶优先, 含 NULL 视为非置顶)
+        # 用 isnot(True) 而非 is_(False): 让 is_top=NULL (历史数据) 也可被淘汰
         overflow = total - NOTIFY_MAX
         oldest = (
             db.query(Message)
             .filter(Message.user_id == NOTIFY_RECIPIENT_UUID)
             .filter(Message.type == "system_notice")
-            .filter(Message.is_top.is_(False))
+            .filter(Message.is_top.isnot(True))
             .order_by(Message.created_at.asc())
             .limit(overflow)
             .all()
         )
+        if not oldest:
+            # 全是置顶, 不删 (设计意图: 告警不丢); 但日志一下, 运维可决定是否调 NOTIFY_MAX
+            logger.warning(
+                "notify: total=%d 超 NOTIFY_MAX=%d, 但所有消息都是置顶, 跳过淘汰",
+                total, NOTIFY_MAX,
+            )
+            return
         for m in oldest:
             db.delete(m)
 
@@ -551,7 +566,7 @@ async def mark_read(notify_id: str, _: str = Depends(require_login)) -> dict[str
             raise HTTPException(status_code=404, detail="通知不存在")
         if not m.is_read:
             m.is_read = True
-            m.read_time = datetime.utcnow()
+            m.read_time = utcnow()
     return {"code": 0, "msg": "ok"}
 
 
@@ -567,7 +582,7 @@ async def mark_all_read(_: str = Depends(require_login)) -> dict[str, Any]:
                 .where(Message.user_id == NOTIFY_RECIPIENT_UUID)
                 .where(Message.type == "system_notice")
                 .where(Message.is_read.is_(False))
-                .values(is_read=True, read_time=datetime.utcnow())
+                .values(is_read=True, read_time=utcnow())
             )
         )
         marked = result.rowcount or 0

@@ -12,6 +12,7 @@ from app.models.app_content_models import ProductIdentity
 from app.models.payment_models import Order
 from app.schemas.common import error, success
 from app.security import require_login
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -227,7 +228,7 @@ async def create_proportion(
                 grand_vip_proportion=body.grand_vip_proportion,
                 grand_trader_proportion=body.grand_trader_proportion,
                 creator=user_uuid,
-                created_time=datetime.utcnow(),
+                created_time=utcnow(),
             )
             db.add(p)
             db.commit()
@@ -275,7 +276,7 @@ async def update_proportion(
                 if val is not None:
                     setattr(p, field, val)
             p.updator = user_uuid
-            p.updated_time = datetime.utcnow()
+            p.updated_time = utcnow()
             db.commit()
             return success({"id": p.id})
         except Exception as e:

@@ -16,9 +16,10 @@
 """
 
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
+
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +159,7 @@ async def list_zhs_agents(
         "total": total,
         "page": page,
         "pageSize": pageSize,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": utcnow().isoformat() + "Z",
     })
 
 
@@ -168,7 +169,7 @@ async def get_zhs_agent(agent_id: str):
     agent = next((a for a in _ZHS_AGENTS if a["id"] == agent_id), None)
     if not agent:
         raise HTTPException(status_code=404, detail=f"智能体 {agent_id} 不存在")
-    return _ok({**agent, "timestamp": datetime.utcnow().isoformat() + "Z"})
+    return _ok({**agent, "timestamp": utcnow().isoformat() + "Z"})
 
 
 @router.get("/categories", summary="智能体分类")
