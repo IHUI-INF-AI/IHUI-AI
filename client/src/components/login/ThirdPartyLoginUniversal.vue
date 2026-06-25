@@ -476,11 +476,11 @@ defineExpose({
 }
 
 /* 暗色模式适配 */
-html.dark .divider-line {
+:where(html.dark) .divider-line {
   background-color: var(--el-border-color);
 }
 
-html.dark .divider-text {
+:where(html.dark) .divider-text {
   color: var(--el-text-color-secondary);
 }
 
@@ -505,11 +505,11 @@ html.dark .loading-overlay {
   background-color: var(--color-black-80);
 }
 
-html.dark .platform-name {
+:where(html.dark) .platform-name {
   color: var(--el-text-color-secondary);
 }
 
-html.dark .error-message {
+:where(html.dark) .error-message {
   background-color: var(--el-color-danger-dark-2);
   color: var(--el-color-danger-light-3);
 }

@@ -3167,7 +3167,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     // 样式已在上面定义，这里可以添?mode-global 特定的样?
 
   // 暗色模式下的适配
-  html.dark & {
+  :where(html.dark) & {
     .chat-toggle-btn {
       background: transparent;
       border-color: var(--el-border-color);
@@ -3217,7 +3217,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     }
 
     // 暗色模式下的遮罩层适配
-    html.dark & {
+    :where(html.dark) & {
       .ai-chat-dialog-overlay {
         background: var(--color-black-80);
 
@@ -3330,7 +3330,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     }
 
     // 暗色模式下的遮罩层适配
-    html.dark & {
+    :where(html.dark) & {
       .ai-chat-dialog-overlay {
         background: var(--color-black-80);
 
@@ -3601,7 +3601,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 }
 
 // 暗色模式适配 - 通过 CSS 变量覆盖
-html.dark {
+:where(html.dark) {
   .search-bar {
     --aic-search-bg: var(--aic-search-bg-dark);
     --aic-search-bg-hover: var(--aic-search-bg-dark-hover);
@@ -3910,7 +3910,7 @@ html.dark {
                   --action-btn-color: var(--el-text-color-primary);
                 }
 
-                html.dark &:hover {
+                :where(html.dark) &:hover {
                   // 暗色 hover：白底（color-white-10）上需深字，用 on-primary 自适应
                   --action-btn-color: var(--color-on-primary);
                 }
@@ -4744,7 +4744,7 @@ body .ai-chat-dialog-overlay.is-home,
 
 // 暗色模式 - 使用高特异?
 :where(html.dark) :where(body) .ai-chat-dialog-overlay.is-home,
-html.dark .ai-chat-dialog-overlay.is-home {
+:where(html.dark) .ai-chat-dialog-overlay.is-home {
   background: transparent;
   overflow: visible; // 确保暗色模式下也不被裁切
   box-shadow: var(--aic-global-flat-shadow); // 扁平化设计：确保无投?

@@ -1,7 +1,5 @@
 """实时服务目录 - 服务注册与发现"""
 
-from datetime import datetime
-
 from fastapi import APIRouter, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, String, Text
@@ -9,6 +7,7 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, St
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
+from app.utils.datetime_helper import utcnow
 
 
 class ServiceNode(TimestampMixin, Base):
@@ -174,7 +173,7 @@ async def register(
                 health_url=health_url,
                 weight=weight,
                 config=config,
-                last_heartbeat=datetime.utcnow(),
+                last_heartbeat=utcnow(),
             )
             db.add(s)
             db.flush()
@@ -238,7 +237,7 @@ async def heartbeat(sid: int, is_healthy: bool = True, error_msg: str | None = N
             s = db.query(ServiceNode).filter(ServiceNode.id == sid).first()
             if not s:
                 return error("服务不存在", "404")
-            s.last_heartbeat = datetime.utcnow()
+            s.last_heartbeat = utcnow()
             s.is_healthy = is_healthy
             if not is_healthy:
                 s.error_count = (s.error_count or 0) + 1

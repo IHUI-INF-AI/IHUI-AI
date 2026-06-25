@@ -2486,7 +2486,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
 
     // 暗色主题下的 auto-label 样式
-    html.dark & {
+    :where(html.dark) & {
       .auto-label {
         --al-border-color: var(--border-unified-color);
 
@@ -2600,7 +2600,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   }
   
   // 暗色主题下的选中状态描边
-  html.dark & {
+  :where(html.dark) & {
     :deep(.el-tabs__item.is-active) {
       // 暗色主题下使用更亮的颜色形成强对比
       --mct-item-border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -2720,7 +2720,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   }
   
   // 暗色主题下的样式
-  html.dark & {
+  :where(html.dark) & {
     // 普通状态 hover - 粗描边
     &:hover:not(.is-disabled, .is-selected) {
       --mic-bg: transparent;
@@ -3034,7 +3034,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
     
     // 暗色模式适配
-    html.dark & {
+    :where(html.dark) & {
       color: var(--el-text-color-primary);
 
       .checkmark {
@@ -3478,7 +3478,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   }
 
   /* 暗色主题 model-item-card */
-  html.dark .model-item-card {
+  :where(html.dark) .model-item-card {
     &:hover:not(.is-disabled, .is-selected) {
       --mic-border-color: var(--color-white-12);
     }
@@ -3511,7 +3511,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     height: var(--amb-height);
   }
 
-  html.dark .input-action-btn.agent-mode-btn {
+  :where(html.dark) .input-action-btn.agent-mode-btn {
     --amb-border-color: var(--el-border-color-darker);
   }
 
@@ -3536,7 +3536,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
   }
 
-  html.dark .model-tag.el-tag {
+  :where(html.dark) .model-tag.el-tag {
     --mt-border-color: var(--color-white-30);
     
     &:hover {
