@@ -3245,6 +3245,15 @@ export class APIClient {
 
   // ========================================
   // 提现明细管理
+  //
+  // 2026-06-25 修复#H: 以下 9 个方法为死代码, 已废弃.
+  //   - 路径 /agentWithdrawalDetail/* (驼峰) 是外部 Java 后端 (若依) 的路由,
+  //     已迁移到 Python 后端 /api/v1/agents/withdrawal/* (修复#A 新前缀).
+  //   - baseURL /ai-program 现代理到 Python 后端, 无 /agentWithdrawalDetail 路由,
+  //     调用会 404.
+  //   - 无业务代码调用 (api/index.ts 导出但无调用方, 业务代码用 core/client.ts).
+  //   - 此文件由脚本自动生成 (无 generate:api-client 脚本), 不手动修改路径.
+  //   - 新代码请用 agent-withdrawal.ts 的 getWithdrawalList/createWithdrawal 等.
   // ========================================
   
   /**

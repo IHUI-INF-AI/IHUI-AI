@@ -40,7 +40,7 @@
 
     <ul v-else class="notify-list">
       <li
-        v-for="n in items"
+        v-for="n in filteredItems"
         :key="n.id"
         class="notify-item"
         :class="['level-' + n.level, { unread: !n.read, topped: n.top }]"

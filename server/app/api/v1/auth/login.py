@@ -16,6 +16,17 @@ from app.security import decode_access_token, hash_password, require_login, veri
 from app.services import auth_service
 from app.utils.sms_util import send_sms_code
 
+# 2026-06-25 修复#I: prefix 设计意图说明 (核实无冲突, 加注释避免后续维护误改).
+#   auth 模块各 router 的 prefix 设计:
+#   - login_router:      自带 prefix="/auth",  router.py 注册无 prefix  -> /api/v1/auth/{login,register,refresh,exist/{phone}}
+#   - sms_router:        自带 prefix="/sms",    router.py 注册加 /auth    -> /api/v1/auth/sms/{send,verify}
+#   - oauth_router:      自带 prefix="/oauth",  router.py 注册加 /auth    -> /api/v1/auth/oauth/{wechat,qq,alipay}
+#   - coze_oauth_router: 自带 prefix="/coze/oauth", router.py 注册无 prefix -> /api/v1/coze/oauth/{authorize,callback}
+#   - username_login_router: 自带 prefix="/login", router.py 注册加 ""  -> /api/v1/login/{username,pwd}
+#   - ali_login_router:  自带 prefix="/login/ali", router.py 注册加 /auth -> /api/v1/auth/login/ali/{authorize,callback}
+#   设计原则: 登录/注册/刷新/手机号校验 统一在 /auth 下; SMS/OAuth 子模块用 /auth/{sms,oauth} 二级前缀;
+#   用户名登录(若依 demo)独立 /login; Coze OAuth 独立 /coze/oauth; 支付宝登录用 /auth/login/ali 三级前缀.
+#   无冗余无冲突, router.py 注册时的 prefix 与 router 自带 prefix 是叠加关系 (FastAPI 行为).
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 

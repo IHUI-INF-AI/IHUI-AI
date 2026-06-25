@@ -283,10 +283,16 @@ export interface WithdrawalDetailListParams {
 
 /**
  * 明细列表
+ *
+ * 2026-06-25 修复#G: 路径对齐到 Python 后端真实端点.
+ *   原路径 /agentWithdrawalDetail/list (base 3, baseUrl3='') 无 vite 代理规则,
+ *   无后端实现, 请求会 404. 对齐到 /api/v1/agents/withdrawal/list (base 1,
+ *   走 api-kou 代理到 Python 后端), 与 agent-withdrawal.ts 的 getWithdrawalList
+ *   一致. 后端参数: page/limit/status, user_uuid 从 token 取.
  */
 export function getMxList(data: WithdrawalDetailListParams) {
   return request({
-    url: `/agentWithdrawalDetail/list`,
+    url: `/api/v1/agents/withdrawal/list`,
     method: 'GET',
     data: {
       page: data.page,
@@ -294,7 +300,7 @@ export function getMxList(data: WithdrawalDetailListParams) {
       agent_id: data.agentId,
       user_id: data.userId,
     },
-    base: 3,
+    base: 1,
   })
 }
 
