@@ -199,7 +199,9 @@ async def test_hls_transcode_video_not_found(client):
     from app.utils.storage import LocalStorage, reset_storage
 
     reset_storage()
-    storage_mod._storage = LocalStorage("/tmp/empty_storage_for_test")
+    # 2026-06-25 修复: 用 tempfile.gettempdir() 跨平台, 避免在 Windows 上创建 G:\tmp\empty_storage_for_test
+    import tempfile as _tempfile
+    storage_mod._storage = LocalStorage(os.path.join(_tempfile.gettempdir(), "empty_storage_for_test"))
 
     fake_redis = MagicMock()
     fake_redis.get.return_value = None

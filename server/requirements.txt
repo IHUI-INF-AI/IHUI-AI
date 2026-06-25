@@ -236,7 +236,7 @@ watchfiles==1.2.0
 wcwidth==0.2.13
 webencodings==0.5.1
 websocket-client==1.9.0
-websockets==16.0
+websockets>=14.1.0,<17.0.0  # 原锁 16.0，松动以兼容 cozepy（要求 <15.0.0）
 win32_setctime==1.2.0
 wrapt==2.2.1
 wsproto==1.2.0

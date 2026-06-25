@@ -242,7 +242,9 @@ async def test_video_hls_cached_hit_updates_metrics(client):
     from app.utils.storage import LocalStorage, reset_storage
 
     reset_storage()
-    storage_mod._storage = LocalStorage("/tmp/m_storage")
+    # 2026-06-25 修复: 用 tempfile.gettempdir() 跨平台, 避免在 Windows 上创建 G:\tmp\m_storage
+    import tempfile as _tempfile
+    storage_mod._storage = LocalStorage(os.path.join(_tempfile.gettempdir(), "m_storage"))
 
     before_hit = CACHE_HIT_TOTAL.labels(key_prefix="hls_master")._value.get()
     before_cached = HLS_BITRATE_TOTAL.labels(result="cached")._value.get()

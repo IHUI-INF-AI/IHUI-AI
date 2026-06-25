@@ -10,7 +10,10 @@ from __future__ import annotations
 import json
 from datetime import timezone
 
+from typing import Optional, List, Dict, Tuple, Any
+
 from sqlalchemy import and_, desc, select
+from sqlalchemy.orm import Session
 
 from app.models.edu_models import EduPaper, EduQuestion, EduExamRecord, EduWrongBook
 from app.services.edu_base import EduValidationError, paginate, get_or_404
@@ -179,7 +182,7 @@ def submit_exam(
             for wb in db.execute(
                 select(EduWrongBook).where(
                     and_(
-                        EduWrongBook.uuid == user_id,
+                        EduWrongBook.user_id == user_id,
                         EduWrongBook.question_id.in_(wrong_question_ids),
                     )
                 )
@@ -211,7 +214,7 @@ def list_user_exams(
     db: Session, user_id: int, page: int = 1, size: int = 20,
     status: Optional[str] = None,
 ) -> Tuple[List[EduExamRecord], int]:
-    filters = [EduExamRecord.uuid == user_id]
+    filters = [EduExamRecord.user_id == user_id]
     if status:
         filters.append(EduExamRecord.status == status)
     return paginate(db, EduExamRecord, page=page, size=size, filters=filters, order_by=desc(EduExamRecord.start_at))
@@ -225,7 +228,7 @@ def add_wrong_question(db: Session, user_id: int, question_id: int) -> EduWrongB
     """Add a question to user's wrong book (or increment count)."""
     existing = db.execute(
         select(EduWrongBook).where(
-            and_(EduWrongBook.uuid == user_id, EduWrongBook.question_id == question_id)
+            and_(EduWrongBook.user_id == user_id, EduWrongBook.question_id == question_id)
         )
     ).scalar_one_or_none()
     if existing:
@@ -260,7 +263,7 @@ def list_wrong_book(
     db: Session, user_id: int, page: int = 1, size: int = 20,
     mastered: Optional[bool] = None,
 ) -> Tuple[List[EduWrongBook], int]:
-    filters = [EduWrongBook.uuid == user_id]
+    filters = [EduWrongBook.user_id == user_id]
     if mastered is not None:
         filters.append(EduWrongBook.mastered == mastered)
     return paginate(db, EduWrongBook, page=page, size=size, filters=filters, order_by=desc(EduWrongBook.last_wrong_at))

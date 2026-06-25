@@ -5,6 +5,8 @@ Source: G:\\IHUI-AI\\storage\\edu-assets\\java-source\\ihui-ai-edu-live-service\
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.utils.datetime_helper import utcnow
 from typing import List, Optional, Tuple
 
@@ -72,7 +74,7 @@ def join_live(db: Session, room_id: int, user_id: int) -> EduLiveAttendance:
     # Check existing
     existing = db.execute(
         select(EduLiveAttendance).where(
-            and_(EduLiveAttendance.room_id == room_id, EduLiveAttendance.uuid == user_id,
+            and_(EduLiveAttendance.room_id == room_id, EduLiveAttendance.user_id == user_id,
                  EduLiveAttendance.leave_at.is_(None))
         )
     ).scalar_one_or_none()
@@ -92,7 +94,7 @@ def join_live(db: Session, room_id: int, user_id: int) -> EduLiveAttendance:
 def leave_live(db: Session, room_id: int, user_id: int) -> EduLiveAttendance:
     att = db.execute(
         select(EduLiveAttendance).where(
-            and_(EduLiveAttendance.room_id == room_id, EduLiveAttendance.uuid == user_id,
+            and_(EduLiveAttendance.room_id == room_id, EduLiveAttendance.user_id == user_id,
                  EduLiveAttendance.leave_at.is_(None))
         )
     ).scalar_one_or_none()
