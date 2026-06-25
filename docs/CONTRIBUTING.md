@@ -260,7 +260,7 @@ Stop-Process -Id <PID> -Force
 ### 6.4 检测工具
 
 - [client/scripts/check-port-drift.mjs](../client/scripts/check-port-drift.mjs) - 字面量端口漂移检测 (pre-commit)
-- [scripts/check-runtime-port.mjs](../scripts/check-runtime-port.mjs) - 运行时进程端口检测
+- [client/scripts/check-runtime-port.mjs](../client/scripts/check-runtime-port.mjs) - 运行时进程端口检测 (已集成到 `scripts/dev-up.ps1` Step 4, dev-up 启动后自动跑, 失败仅 warn 不阻断)
 
 ---
 
