@@ -111,7 +111,6 @@ const readFilter = ref<'all' | 'unread'>('all')
 const levelFilter = ref<'all' | 'info' | 'warn' | 'error'>('all')
 /** 复用菜单红点的全局未读数 (模块级单例, 与 useNotifyBadge 共享同一 ref). */
 const { unreadCount, setUnread } = useNotifyBadge()
-let pollTimer: number | null = null
 
 /** 顶部 toolbar 显示: 999+ 格式化 (与 Menu.vue 红点保持一致). */
 const unreadDisplay = computed(() => (unreadCount.value > 999 ? '999+' : String(unreadCount.value)))
@@ -144,7 +143,7 @@ async function fetchList() {
     })
     items.value = resp?.data?.items ?? []
     // P1: 未读数由 useNotifyBadge 全局轮询, 列表拉取后无需再拉一次
-  } catch {
+  } catch (e) {
     ElMessage.error('加载通知失败')
   } finally {
     loading.value = false
@@ -182,10 +181,9 @@ function formatTime(iso: string) {
 
 onMounted(() => {
   fetchList()
-  pollTimer = window.setInterval(fetchList, 30_000)
-})
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
+  // 2026-06-25 修复 ESLint ihui/no-manual-cleanup: 改用 useCleanup.addInterval
+  // 统一管理定时器清理, 组件卸载时自动 clearInterval
+  cleanup.addInterval(fetchList, 30_000)
 })
 </script>
 

@@ -232,7 +232,7 @@ def archive_old_notifications_task(self) -> dict:
                     if len(batch) < batch_size:
                         break
 
-        duration = (datetime.utcnow() - started_at).total_seconds()
+        duration = (utcnow() - started_at).total_seconds()
         summary = {
             "archived": archived,
             "would_archive": would_archive,
