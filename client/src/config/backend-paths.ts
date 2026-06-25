@@ -328,7 +328,10 @@ export const COZE_PATHS = {
     create: `${COZE}/agent-buy/create`,
   },
   agentWithdrawalDetail: {
-    list: `${COZE}/agent-withdrawal-detail/list`,
+    // 2026-06-25 修复#L: 对齐到 Python 后端真实端点.
+    //   原路径 /cozeZhsApi/agent-withdrawal-detail/list 是外部 Java 后端路由,
+    //   已迁移到 Python 后端 /api/v1/agents/withdrawal/list (修复#A 新前缀).
+    list: `/api/v1/agents/withdrawal/list`,
   },
   agentSettlement: {
     incomeOverview: `${COZE}/agent-settlement/stats/income-overview`,
