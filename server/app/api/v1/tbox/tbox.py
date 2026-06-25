@@ -160,7 +160,6 @@ async def heartbeat(device_no: str = Query(...),
                      location: str | None = None):
     with get_session() as db:
         try:
-            from datetime import datetime
             d = db.query(TboxDevice).filter(TboxDevice.device_no == device_no).first()
             if not d:
                 return error("设备不存在", "404")
@@ -169,9 +168,9 @@ async def heartbeat(device_no: str = Query(...),
             d.battery = battery
             d.location = location
             if is_online:
-                d.last_online_time = datetime.utcnow()
+                d.last_online_time = utcnow()
             else:
-                d.last_offline_time = datetime.utcnow()
+                d.last_offline_time = utcnow()
             return success()
         except Exception as e:
             logger.error(f"tbox heartbeat error: {e}")
@@ -183,13 +182,12 @@ async def send_command(device_no: str, command: str = Query(...),
                         params: str | None = None):
     with get_session() as db:
         try:
-            from datetime import datetime
             d = db.query(TboxDevice).filter(TboxDevice.device_no == device_no).first()
             if not d:
                 return error("设备不存在", "404")
             c = TboxCommand(
                 device_no=device_no, command=command, params=params,
-                status=0, send_time=datetime.utcnow(),
+                status=0, send_time=utcnow(),
             )
             db.add(c)
             db.flush()

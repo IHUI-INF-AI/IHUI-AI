@@ -9,7 +9,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import datetime
+from app.utils.datetime_helper import utcnow
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -27,7 +27,7 @@ PUE_LEVELS = {"excellent": 1.2, "good": 1.5, "average": 1.8, "poor": 2.0}
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

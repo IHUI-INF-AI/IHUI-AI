@@ -89,6 +89,11 @@
 //   [响应式] Input1.vue .dialogue-panel / .template-dialog-panel 添加 max-width 兜底
 //   [CSS兼容] Settings.vue 9 处 rgba($brand-primary,...)→color-mix() (CSS 变量无法被 rgba 解析)
 //   [CSS兼容] AIChat.vue 5 处 rgba($cs-accent-blue,...)→color-mix() (同上)
+// 2026-06-25 P0 硬编码颜色 token 化 + 暗色模式适配 (构建验证通过, exit 0):
+//   AccountCancel.vue: 31 处颜色 + 4 处 border-radius token 化, 新增暗色模式覆盖块
+//   ChangePhone.vue: 22 处颜色 + 3 处 border-radius token 化, 新增暗色模式覆盖块
+//   edu/admin/index.vue: 4 处颜色 token 化 (#fff→on-primary, #303133/#909399/#606266→el-text-color-*)
+//   edu/index.vue: 2 处颜色 token 化 (#001529→el-text-color-primary, #f5f7fa→el-bg-color-page)
 // ════════════════════════════════════════════════════════════════════
 //
 // ════════════════════════════════════════════════════════════════════
