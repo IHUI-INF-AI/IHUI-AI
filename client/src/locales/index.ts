@@ -130,7 +130,9 @@ async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string,
 }
 
 // P6-5：缺失模块时回退到 zh-CN（避免英/日/韩部分页面键名裸露）
-async function loadAsyncModuleWithFallback(
+// 2026-06-25 修复: 改为 export，让按需加载组件 (如 GlobalCommandPalette) 能在
+// onMounted 中主动调用，避免首屏异步组件挂载时 i18n key 未加载导致键名裸露
+export async function loadAsyncModuleWithFallback(
   locale: SupportedLocale,
   module: string
 ): Promise<Record<string, unknown> | null> {

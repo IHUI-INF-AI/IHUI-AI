@@ -70,16 +70,18 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { 
-  Home, 
-  ShoppingBag, 
-  Layout, 
-  BookOpen, 
-  Users, 
-  FileText, 
-  Info, 
-  Moon, 
-  MessageSquare, 
+import { loadModule, type SupportedLocale } from '@/locales'
+import { logger } from '@/utils/logger'
+import {
+  Home,
+  ShoppingBag,
+  Layout,
+  BookOpen,
+  Users,
+  FileText,
+  Info,
+  Moon,
+  MessageSquare,
   ArrowUp
 } from '@/lib/lucide-fallback'
 import SearchIcon from '@/components/common/SearchIcon.vue'
@@ -92,9 +94,44 @@ const props = defineProps<{
 const emit = defineEmits(['update:modelValue'])
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale: i18nLocale } = useI18n()
 const darkModeStore = useDarkModeStore()
 const cleanup = useCleanup()
+
+// 2026-06-25 修复: commandPalette 是 asyncModules, 不会在首屏自动加载
+// 必须组件 mount 时主动调用 loadModule, 否则面板打开时所有 commandPalette.* key 裸露为字面量
+// (e.g. placeholder=commandPalette.placeholder, 底部 systemReady=commandPalette.systemReady)
+// 同时监听 locale 变化, 切换语言时重新加载对应 locale 的模块
+const currentLocale = computed<SupportedLocale>(() => {
+  const v = i18nLocale.value
+  return (v === 'zh-CN' || v === 'zh-TW' || v === 'en' || v === 'ja' || v === 'ko') ? v : 'zh-CN'
+})
+// 2026-06-25 修复: 同一个 setup() 中只能有一个 onMounted hook (Vue3 组合式 API 不允许多次注册,
+// 多个 onMounted 在 HMR/重渲染时可能被后者覆盖前者, 导致 loadModule 永远不执行,
+// 表现为 t('commandPalette.commands.home') 返回字面量). 合并两个 onMounted, 把 i18n
+// 异步加载 + 全局快捷键注册放在同一个 hook 里, 避免 HMR/重渲染竞态.
+// 注意: visible.value 用 ref 包装因为 v-model 是 props, 不能在 hook 里直接改 props.
+// 监听 visible 用 watch 在文件下方处理.
+onMounted(async () => {
+  // 1. 主动加载 commandPalette i18n 模块 (asyncModules, 不会在首屏自动加载)
+  try {
+    await loadModule(currentLocale.value, 'commandPalette')
+  } catch (e) {
+    logger.warn('[GlobalCommandPalette] Failed to load i18n module:', e)
+  }
+
+  // 2. 注册 Cmd+K 全局快捷键
+  cleanup.addEventListener(window, 'keydown', handleKeyDown as EventListener)
+  // 3. 注册全局打开函数 (供 SearchTrigger 等外部调用)
+  if (typeof window !== 'undefined') {
+    ;(window as unknown as Record<string, unknown>).openCommandPalette = () => {
+      visible.value = true
+    }
+    cleanup.add(() => {
+      delete (window as unknown as Record<string, unknown>).openCommandPalette
+    })
+  }
+})
 
 const visible = computed({
   get: () => props.modelValue,
@@ -231,14 +268,8 @@ const handleKeyDown = (e: KeyboardEvent) => {
   }
 }
 
-onMounted(() => {
-  cleanup.addEventListener(window, 'keydown', handleKeyDown as EventListener)
-  // 注册全局打开函数
-  if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).openCommandPalette = () => visible.value = true
-    cleanup.add(() => { delete (window as unknown as Record<string, any>).openCommandPalette })
-  }
-})
+// 2026-06-25 修复: 第二个 onMounted (键盘监听 + openCommandPalette) 已合并到上方第一个
+// onMounted, 避免 Vue3 组合式 API 多次 onMounted 注册时被后者覆盖前者的问题.
 </script>
 
 <style lang="scss">
