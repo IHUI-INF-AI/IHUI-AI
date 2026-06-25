@@ -102,7 +102,7 @@ async def notify_stream_begin(body: StreamNotifyBody):
             if not c:
                 return error("直播不存在", "404")
             c.status = 1
-            c.start_time = datetime.utcnow()
+            c.start_time = utcnow()
             return success({"channel_id": c.id, "status": c.status})
         except Exception as e:
             logger.exception(f"tencent stream begin notify error: {e}")
@@ -117,7 +117,7 @@ async def notify_stream_end(body: StreamNotifyBody):
             if not c:
                 return error("直播不存在", "404")
             c.status = 2
-            c.end_time = datetime.utcnow()
+            c.end_time = utcnow()
             return success({"channel_id": c.id, "status": c.status})
         except Exception as e:
             logger.exception(f"tencent stream end notify error: {e}")

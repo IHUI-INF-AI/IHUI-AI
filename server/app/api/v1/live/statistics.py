@@ -17,7 +17,7 @@ router = APIRouter()
 async def get_statistics():
     with get_session() as db:
         try:
-            now = datetime.utcnow()
+            now = utcnow()
             today_start = datetime(now.year, now.month, now.day)
 
             total_channels = (

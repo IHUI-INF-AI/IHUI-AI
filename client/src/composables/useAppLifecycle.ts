@@ -101,6 +101,24 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
   let scrollRafId: number | null = null
   const disposers: Array<() => void> = []
 
+  // useI18n 同样做兜底（理论上 vue-i18n 在 i18n 插件挂载后即可用, 但 HMR 抖动期偶尔会失败）
+  let t: ((key: string) => string) | null = null
+  try {
+    t = useI18n().t
+  } catch (e) {
+    logger.debug('[useAppLifecycle] useI18n unavailable on init, will lazy load:', e)
+  }
+
+  const getT = (): ((key: string) => string) | null => {
+    if (t) return t
+    try {
+      t = useI18n().t
+      return t
+    } catch {
+      return null
+    }
+  }
+
   const updateScrollFade = () => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
     try {
@@ -138,8 +156,9 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
       const detail = (event as CustomEvent).detail
       const auth = getAuthStore()
       if (auth) auth.logout()
-      void router.push('/login')
-      const reason = detail?.reason || t('auth.sessionExpiredMessage')
+      const r = getRouter()
+      if (r) void r.push('/login')
+      const reason = detail?.reason || getT()?.('auth.sessionExpiredMessage') || '会话已过期，请重新登录'
       if (typeof window !== 'undefined' && (window as any).showGlobalNotification) {
         ;(window as any).showGlobalNotification(reason, 'warning')
       }
