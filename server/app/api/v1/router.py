@@ -1063,8 +1063,11 @@ api_router.include_router(video_temp_router)
 
 # C3: Agent 分类关联已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入/注册
 
-# --- 封存前补齐: 16 个部分缺失 Controller 的 53 个端点 ---
-# 2026-06-26: legacy_supplement 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入/注册
+# --- 封存前补齐: 16 个部分缺失 Controller 的 54 个端点 ---
+# 2026-06-26: 用户确认纳入封版, 注册 legacy_supplement_router
+from app.api.v1.legacy_supplement import router as legacy_supplement_router  # noqa: E402
+
+api_router.include_router(legacy_supplement_router)
 
 # --- Category Legacy Routes: 1:1 兼容 Java CategoryController (47 端点) ---
 # 必须在 admin_panel 之前注册, 避免 /category/* 被 admin 路由屏蔽.
