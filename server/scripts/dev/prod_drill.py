@@ -48,7 +48,7 @@ for _ in range(40):
     except Exception:
         time.sleep(0.2)
 
-print(f"[drill] app started on 127.0.0.1:18802 at {datetime.utcnow().isoformat()}Z")
+print(f"[drill] app started on 127.0.0.1:18802 at {utcnow().isoformat()}Z")
 
 # 验证 token
 token = create_access_token("drill-admin", expires_delta=timedelta(hours=1))

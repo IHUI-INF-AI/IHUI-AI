@@ -156,7 +156,7 @@ async def update_progress(signup_id: int, body: ProgressUpdate):
             signup.progress = body.progress
             if body.progress >= 100:
                 signup.status = 1
-                signup.completed_time = datetime.utcnow()
+                signup.completed_time = utcnow()
             db.flush()
             return success(_to_dict(signup))
         except Exception as e:
@@ -173,7 +173,7 @@ async def complete_signup(signup_id: int):
                 return error("报名记录不存在")
             signup.status = 1
             signup.progress = 100
-            signup.completed_time = datetime.utcnow()
+            signup.completed_time = utcnow()
             db.flush()
             return success(_to_dict(signup))
         except Exception as e:

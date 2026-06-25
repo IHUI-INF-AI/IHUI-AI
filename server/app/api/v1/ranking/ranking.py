@@ -34,7 +34,7 @@ def _uid() -> str:
 def _get_user_score(db, period: str) -> list:
     """获取用户积分排行(模拟实现)"""
     cutoff = None
-    now = datetime.utcnow()
+    now = utcnow()
     if period == "day":
         cutoff = now - timedelta(days=1)
     elif period == "week":

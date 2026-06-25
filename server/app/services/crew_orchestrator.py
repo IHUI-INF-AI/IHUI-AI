@@ -24,6 +24,7 @@ from app.models.crew_models import CrewMessage, CrewSession, CrewTask
 from app.services.crew_agent_registry import agent_registry
 from app.services.crew_llm_adapter import create_crew_llm, get_available_models
 from app.services.crew_tools import get_default_tools
+from app.utils.datetime_helper import utcnow
 
 # 检测 CrewAI 是否可用
 try:
@@ -529,9 +530,9 @@ class CrewOrchestrator:
                 if error:
                     task.error_message = error
                 if status == "running":
-                    task.started_at = datetime.utcnow()
+                    task.started_at = utcnow()
                 elif status in ("completed", "failed"):
-                    task.completed_at = datetime.utcnow()
+                    task.completed_at = utcnow()
                 db.commit()
 
     def _update_session_status(
@@ -545,7 +546,7 @@ class CrewOrchestrator:
                 if result:
                     session.output_message = result if isinstance(result, str) else str(result)
                 if status in ("completed", "failed"):
-                    session.completed_at = datetime.utcnow()
+                    session.completed_at = utcnow()
                 db.commit()
 
     def _log_message(

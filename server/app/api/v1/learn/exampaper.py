@@ -95,7 +95,7 @@ async def save_paper(body: PaperSave):
                     paper=body.paper,
                     answer=body.answer,
                     reference_answer=body.reference_answer,
-                    start_time=datetime.utcnow(),
+                    start_time=utcnow(),
                     status=0,
                     lesson_id=body.lesson_id,
                     serial_num=body.serial_num,
@@ -119,7 +119,7 @@ async def submit_paper(body: PaperSubmit):
             if body.answer is not None:
                 item.answer = body.answer
             item.status = 1
-            item.end_time = datetime.utcnow()
+            item.end_time = utcnow()
             db.flush()
             return success(_to_dict(item))
         except Exception as e:

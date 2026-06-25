@@ -218,14 +218,14 @@ async def handle_feedback(
                 return error("反馈不存在", "404")
             f.status = status
             f.handle_user = "admin"
-            f.handle_time = datetime.utcnow()
+            f.handle_time = utcnow()
             if remark:
                 f.handle_remark = remark
             if priority is not None:
                 f.priority = priority
             if reply:
                 f.reply = reply
-                f.reply_time = datetime.utcnow()
+                f.reply_time = utcnow()
             return success()
         except Exception as e:
             logger.error(f"feedback handle error: {e}")

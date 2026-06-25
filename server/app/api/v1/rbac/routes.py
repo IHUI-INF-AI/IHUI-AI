@@ -229,7 +229,7 @@ async def list_permissions(db: Session = Depends(get_db)):
 async def grant_file_access(data: FileAccessGrant, granted_by: str | None = None, db: Session = Depends(get_db)):
     expires_at = None
     if data.expires_in_hours:
-        expires_at = datetime.utcnow() + timedelta(hours=data.expires_in_hours)
+        expires_at = utcnow() + timedelta(hours=data.expires_in_hours)
 
     access = FileAccessService.grant_access(
         db, data.file_id, data.user_id, data.permission, granted_by, expires_at

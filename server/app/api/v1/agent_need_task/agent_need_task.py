@@ -222,7 +222,7 @@ async def update_task(
             if remark:
                 t.remark = remark
             if status == 3 and not t.complete_time:
-                t.complete_time = datetime.utcnow()
+                t.complete_time = utcnow()
             return success()
         except Exception as e:
             logger.error(f"agent task update error: {e}")
@@ -256,7 +256,7 @@ async def accept_task(tid: int):
             t.developer_id = _uid()
             t.developer_name = "匿名用户"
             t.status = 1
-            t.accept_time = datetime.utcnow()
+            t.accept_time = utcnow()
             return success()
         except Exception as e:
             logger.error(f"agent task accept error: {e}")

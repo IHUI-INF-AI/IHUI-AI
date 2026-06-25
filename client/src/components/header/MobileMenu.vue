@@ -168,13 +168,82 @@ import { useDarkModeStore } from '@/stores/darkMode'
 const Notification = defineAsyncComponent(() => import('../Notification.vue'))
 const ThemeToggle = defineAsyncComponent(() => import('../ThemeToggle.vue'))
 
-const router = useRouter()
-const route = useRoute()
+// 2026-06-25 修复: 与 src/composables/useAppLifecycle.ts 同形 - 顶层 useRouter/useRoute/useI18n/
+// useAuthStore/useDarkModeStore 全部改为 try/catch + 懒加载.
+// Vite HMR 重载早期 setup 时, 上述任一注入或 store 可能尚未就绪, 抛
+//   'injection "Symbol(router)" not found' / 'getActivePinia()' / 'i18n not installed'
+// 会让整个 setup 失败, ErrorBoundary 级联, 连带让 HeaderNavigation 等兄弟组件也渲染失败.
+// 这里只兜底不报错, 不影响正常路径行为.
+let router: ReturnType<typeof useRouter> | null = null
+try {
+  router = useRouter()
+} catch (e) {
+  // eslint-disable-next-line no-console
+  console.debug('[MobileMenu] useRouter unavailable on init:', e)
+}
+
+let route: ReturnType<typeof useRoute> | null = null
+try {
+  route = useRoute()
+} catch (e) {
+  // eslint-disable-next-line no-console
+  console.debug('[MobileMenu] useRoute unavailable on init:', e)
+}
+
+const getRouter = (): ReturnType<typeof useRouter> | null => {
+  if (router) return router
+  try {
+    router = useRouter()
+    return router
+  } catch {
+    return null
+  }
+}
+
+const getRoute = (): ReturnType<typeof useRoute> | null => {
+  if (route) return route
+  try {
+    route = useRoute()
+    return route
+  } catch {
+    return null
+  }
+}
+
 // 使用全局作用域，因为 Header 在 Teleport 中会失去父级作用域
 interface UseI18nOptions {
   useScope?: 'global' | 'local'
 }
-const { t, locale } = (useI18n as (options?: UseI18nOptions) => ReturnType<typeof useI18n>)({ useScope: 'global' })
+let t: ((key: string) => string) | null = null
+let locale: { value: string } | null = null
+try {
+  const i18n = (useI18n as (options?: UseI18nOptions) => ReturnType<typeof useI18n>)({ useScope: 'global' })
+  t = i18n.t
+  locale = i18n.locale
+} catch (e) {
+  // eslint-disable-next-line no-console
+  console.debug('[MobileMenu] useI18n unavailable on init:', e)
+}
+
+const getT = (): ((key: string) => string) | null => {
+  if (t) return t
+  try {
+    t = useI18n().t
+    return t
+  } catch {
+    return null
+  }
+}
+
+const getLocale = (): { value: string } | null => {
+  if (locale) return locale
+  try {
+    locale = useI18n().locale
+    return locale
+  } catch {
+    return null
+  }
+}
 
 // Props
 const _props = defineProps<{
@@ -187,12 +256,50 @@ const emit = defineEmits<{
 }>()
 
 // 从auth store获取登录状态
-const authStore = useAuthStore()
-const isLoggedIn = computed(() => authStore.isLoggedIn)
+let authStore: ReturnType<typeof useAuthStore> | null = null
+let darkModeStore: ReturnType<typeof useDarkModeStore> | null = null
+try {
+  authStore = useAuthStore()
+} catch (e) {
+  // eslint-disable-next-line no-console
+  console.debug('[MobileMenu] useAuthStore unavailable on init:', e)
+}
+try {
+  darkModeStore = useDarkModeStore()
+} catch (e) {
+  // eslint-disable-next-line no-console
+  console.debug('[MobileMenu] useDarkModeStore unavailable on init:', e)
+}
 
-const darkModeStore = useDarkModeStore()
+const getAuthStore = (): ReturnType<typeof useAuthStore> | null => {
+  if (authStore) return authStore
+  try {
+    authStore = useAuthStore()
+    return authStore
+  } catch {
+    return null
+  }
+}
+
+const getDarkModeStore = (): ReturnType<typeof useDarkModeStore> | null => {
+  if (darkModeStore) return darkModeStore
+  try {
+    darkModeStore = useDarkModeStore()
+    return darkModeStore
+  } catch {
+    return null
+  }
+}
+
+const isLoggedIn = computed(() => {
+  const auth = getAuthStore()
+  return auth ? auth.isLoggedIn : false
+})
+
 const isThemeDark = computed(() => {
-  const isDark = darkModeStore.isDarkMode ?? darkModeStore.themeMode === 'dark'
+  const dm = getDarkModeStore()
+  if (!dm) return false
+  const isDark = dm.isDarkMode ?? dm.themeMode === 'dark'
   return isDark
 })
 
@@ -203,9 +310,10 @@ const showAboutMenu = ref(false)
 
 // 根据当前路由自动计算activeIndex
 // 2026-06-24 修复: HMR 重载或 router 注入失败时 route 可能为 undefined,
-// 在此添加可选链保护, 避免渲染期抛 'Cannot read properties of undefined (reading "name")'
+// 2026-06-25 扩展: route 现在是 let, 顶层 try/catch 失败时为 null, 这里继续做空值守卫
 const activeIndex = computed(() => {
-  const safeRoute = (route as unknown as { name?: string | symbol; path?: string } | undefined) || {}
+  const r = getRoute()
+  const safeRoute = (r as unknown as { name?: string | symbol; path?: string } | undefined) || {}
   const routeName = safeRoute.name as string | undefined
   const routePath = safeRoute.path || ''
 
@@ -247,7 +355,8 @@ const activeIndex = computed(() => {
 
 // 导航方法
 function goToPath(path: string, _key: string) {
-  router.push(path)
+  const r = getRouter()
+  if (r) r.push(path)
   closeMenus()
 }
 

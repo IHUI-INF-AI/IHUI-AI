@@ -9,7 +9,8 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.utils.datetime_helper import utcnow
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -328,7 +329,7 @@ def _send_dingtalk(title: str, content: str) -> None:
 
 def check_mtls_compliance(window_minutes: int = 60) -> bool:
     """检查 mTLS 合规性"""
-    since = (datetime.utcnow() - timedelta(minutes=window_minutes)).isoformat() + "Z"
+    since = (utcnow() - timedelta(minutes=window_minutes)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         total = c.execute("""SELECT COUNT(*) as cnt FROM mesh_telemetry
             WHERE timestamp >= ?""", (since,)).fetchone()["cnt"]
