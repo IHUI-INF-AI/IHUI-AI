@@ -11,6 +11,7 @@ const adminModules = [
   'setting', 'adminAuth', 'resource', 'point', 'live', 'message',
   'certificate', 'ask', 'search', 'account', 'adminCommon',
   'migrationAdmin', 'notificationCenter', 'answerDetail',
+  'settlement', 'agentExamine',
 ]
 
 // 路由路径前缀到 i18n 模块的映射
