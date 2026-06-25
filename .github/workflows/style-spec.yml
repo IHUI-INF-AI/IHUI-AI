@@ -57,6 +57,30 @@ jobs:
         run: |
           echo "::error::样式规范检查未通过，请用 :where() 包裹高特异性选择器，并移除 !important"
 
+  stylelint-check:
+    # 用户规则 (2026-06-24 封版):
+    # - 禁用 text-shadow (扁平化设计)
+    # - 禁用实际投影 box-shadow (扁平化设计, 仅允许 var(--*-shadow) 引用)
+    # - 禁用 !important
+    # 本 job 用 stylelint 静态检查 src/ 下所有 .vue/.scss/.css
+    name: stylelint 静态校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: 安装依赖
+        run: cd client && npm ci
+      - name: 跑 stylelint (text-shadow / box-shadow / !important 违规拦截)
+        run: cd client && npm run lint:style
+      - name: 阻断提示
+        if: failure()
+        run: |
+          echo "::error::stylelint 检查未通过。违规类型: text-shadow 实际值 / box-shadow 实际值 / !important。修复方式: 改用 border + outline 替代 box-shadow; 用 :where() 降特异性替代 !important"
+
   visual-regression:
     # 视觉回归测试: 确保样式修改没有破坏页面外观
     name: 视觉回归测试
