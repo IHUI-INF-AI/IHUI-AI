@@ -323,10 +323,10 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error(t('error.auth.无效的响应数据格3'))
       }
 
-      tokenStore.setToken(tokenValue, refreshTokenValue)
+      ts.setToken(tokenValue, refreshTokenValue)
 
       if (userInfo) {
-        userStore.user = {
+        us.user = {
           id: userInfo.id || userInfo.uuid || '',
           uuid: userInfo.uuid || userInfo.id || '',
           username: userInfo.username || registerData.username || registerData.phone || '',
@@ -350,21 +350,21 @@ export const useAuthStore = defineStore('auth', () => {
         username: registerData.username || registerData.phone || '',
         email: registerData.email || '',
         phone: registerData.phone || '',
-        loginTime: tokenStore.loginTime,
-        lastActiveTime: tokenStore.lastActiveTime,
-        ...(userStore.user || {}),
+        loginTime: ts.loginTime,
+        lastActiveTime: ts.lastActiveTime,
+        ...(us.user || {}),
       }
 
       StorageManager.setItem(STORAGE_KEYS.USER_DATA, userData)
 
-      await userStore.fetchUserInfo()
+      await us.fetchUserInfo()
 
       return response
     } catch (error) {
       logger.error('Registration failed:', error)
       throw error
     } finally {
-      userStore.isLoading = false
+      us.isLoading = false
     }
   }
 
