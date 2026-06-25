@@ -3,11 +3,16 @@ import re
 import sys
 from pathlib import Path
 
+# 2026-06-25 修复: 改用脚本自身位置计算 server 根, 避免硬编码 G:/1/server
+# scripts/fix-b904.py -> ../../server
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_SERVER_ROOT = _PROJECT_ROOT / "server"
+
 # 获取所有 B904 错误位置
 import subprocess
 result = subprocess.run(
     [sys.executable, "-m", "ruff", "check", "app/", "--select", "B904", "--output-format=concise"],
-    capture_output=True, text=True, cwd="G:/1/server"
+    capture_output=True, text=True, cwd=str(_SERVER_ROOT)
 )
 
 # 解析错误位置: app\file.py:line:col: B904 ...
@@ -28,7 +33,7 @@ for f, ln, col in errors:
 # 修复每个文件
 total_fixed = 0
 for filepath, locations in by_file.items():
-    full_path = Path("G:/1/server") / filepath
+    full_path = _SERVER_ROOT / filepath
     lines = full_path.read_text(encoding='utf-8').splitlines(keepends=True)
     
     # 从后往前修，避免行号偏移

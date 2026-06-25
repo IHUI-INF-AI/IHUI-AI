@@ -1,0 +1,3463 @@
+{
+  "total_missing": 488,
+  "by_service": {
+    "ihui-ai-edu-ask-service": [
+      {
+        "controller": "AnswerController",
+        "http": "Post",
+        "path": "/auth-api/answer",
+        "norm": "answer",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\answer\\web\\AnswerController.java"
+      },
+      {
+        "controller": "AnswerController",
+        "http": "Put",
+        "path": "/auth-api/answer",
+        "norm": "answer",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\answer\\web\\AnswerController.java"
+      },
+      {
+        "controller": "AnswerController",
+        "http": "Delete",
+        "path": "/auth-api/answer",
+        "norm": "answer",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\answer\\web\\AnswerController.java"
+      },
+      {
+        "controller": "AnswerController",
+        "http": "Get",
+        "path": "/public-api/answer/list/by-ids",
+        "norm": "answer/list/by-ids",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\answer\\web\\AnswerController.java"
+      },
+      {
+        "controller": "AnswerController",
+        "http": "Get",
+        "path": "/public-api/answer",
+        "norm": "answer",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\answer\\web\\AnswerController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Post",
+        "path": "/auth-api/question",
+        "norm": "question",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Put",
+        "path": "/auth-api/question",
+        "norm": "question",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Delete",
+        "path": "/auth-api/question",
+        "norm": "question",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Get",
+        "path": "/public-api/question/list/by-ids",
+        "norm": "question/list/by-ids",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Get",
+        "path": "/public-api/question",
+        "norm": "question",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "AskStatisticsController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-ask-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\ask\\biz\\statistics\\web\\AskStatisticsController.java"
+      }
+    ],
+    "ihui-ai-edu-auth-service": [
+      {
+        "controller": "AuthorityController",
+        "http": "Get",
+        "path": "/authorities",
+        "norm": "/authorities",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\authority\\web\\AuthorityController.java"
+      },
+      {
+        "controller": "AuthorityController",
+        "http": "Get",
+        "path": "/authorities/tree",
+        "norm": "/authorities/tree",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\authority\\web\\AuthorityController.java"
+      },
+      {
+        "controller": "AuthController",
+        "http": "Get",
+        "path": "/public-api/auth-code",
+        "norm": "auth-code",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\jwt\\web\\AuthController.java"
+      },
+      {
+        "controller": "AuthController",
+        "http": "Post",
+        "path": "/public-api/auth-code/check",
+        "norm": "auth-code/check",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\jwt\\web\\AuthController.java"
+      },
+      {
+        "controller": "RoleController",
+        "http": "Post",
+        "path": "/role",
+        "norm": "/role",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\role\\web\\RoleController.java"
+      },
+      {
+        "controller": "RoleController",
+        "http": "Put",
+        "path": "/role",
+        "norm": "/role",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\role\\web\\RoleController.java"
+      },
+      {
+        "controller": "RoleController",
+        "http": "Delete",
+        "path": "/role",
+        "norm": "/role",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\role\\web\\RoleController.java"
+      },
+      {
+        "controller": "RoleController",
+        "http": "Put",
+        "path": "/role/authority/update",
+        "norm": "/role/authority/update",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\role\\web\\RoleController.java"
+      },
+      {
+        "controller": "RoleController",
+        "http": "Put",
+        "path": "/role/user/list",
+        "norm": "/role/user/list",
+        "java_file": "ihui-ai-edu-auth-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\auth\\biz\\role\\web\\RoleController.java"
+      }
+    ],
+    "ihui-ai-edu-behavior-service": [
+      {
+        "controller": "CommentController",
+        "http": "Delete",
+        "path": "/auth-api/comment",
+        "norm": "comment",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "controller": "CommentController",
+        "http": "Get",
+        "path": "/public-api/comment/list/by-ids",
+        "norm": "comment/list/by-ids",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "controller": "CommentController",
+        "http": "Get",
+        "path": "/public-api/reply-comment/list/by-ids",
+        "norm": "reply-comment/list/by-ids",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "controller": "CommentController",
+        "http": "Delete",
+        "path": "/auth-api/reply/comment",
+        "norm": "reply/comment",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "controller": "CommentController",
+        "http": "Get",
+        "path": "/public-api/comment/count",
+        "norm": "comment/count",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\comment\\web\\CommentController.java"
+      },
+      {
+        "controller": "FavoriteController",
+        "http": "Delete",
+        "path": "/auth-api/favorite",
+        "norm": "favorite",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\favorites\\web\\FavoriteController.java"
+      },
+      {
+        "controller": "FavoriteController",
+        "http": "Get",
+        "path": "/public-api/favorite/count",
+        "norm": "favorite/count",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\favorites\\web\\FavoriteController.java"
+      },
+      {
+        "controller": "LikeController",
+        "http": "Put",
+        "path": "/auth-api/like",
+        "norm": "like",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\like\\web\\LikeController.java"
+      },
+      {
+        "controller": "LikeController",
+        "http": "Get",
+        "path": "/public-api/like/count",
+        "norm": "like/count",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\like\\web\\LikeController.java"
+      },
+      {
+        "controller": "WordController",
+        "http": "Post",
+        "path": "/sensitive-word",
+        "norm": "/sensitive-word",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\sensitiveword\\web\\WordController.java"
+      },
+      {
+        "controller": "WordController",
+        "http": "Put",
+        "path": "/sensitive-word",
+        "norm": "/sensitive-word",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\sensitiveword\\web\\WordController.java"
+      },
+      {
+        "controller": "WordController",
+        "http": "Delete",
+        "path": "/sensitive-word",
+        "norm": "/sensitive-word",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\sensitiveword\\web\\WordController.java"
+      },
+      {
+        "controller": "WatchController",
+        "http": "Post",
+        "path": "/public-api/watch",
+        "norm": "watch",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\watch\\web\\WatchController.java"
+      },
+      {
+        "controller": "WatchController",
+        "http": "Get",
+        "path": "/public-api/watch/count",
+        "norm": "watch/count",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\watch\\web\\WatchController.java"
+      },
+      {
+        "controller": "WatchController",
+        "http": "Get",
+        "path": "/public-api/watch/count/group-by",
+        "norm": "watch/count/group-by",
+        "java_file": "ihui-ai-edu-behavior-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\behavior\\biz\\watch\\web\\WatchController.java"
+      }
+    ],
+    "ihui-ai-edu-circle-service": [
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show",
+        "norm": "/category/is-show",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show-index",
+        "norm": "/category/is-show-index",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CircleController",
+        "http": "Post",
+        "path": "/auth-api/circle",
+        "norm": "circle",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleController.java"
+      },
+      {
+        "controller": "CircleController",
+        "http": "Put",
+        "path": "/auth-api/circle",
+        "norm": "circle",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleController.java"
+      },
+      {
+        "controller": "CircleController",
+        "http": "Delete",
+        "path": "/auth-api/circle",
+        "norm": "circle",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleController.java"
+      },
+      {
+        "controller": "CircleController",
+        "http": "Get",
+        "path": "/public-api/circle/list/by-ids",
+        "norm": "circle/list/by-ids",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleController.java"
+      },
+      {
+        "controller": "CircleController",
+        "http": "Get",
+        "path": "/public-api/circle",
+        "norm": "circle",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleController.java"
+      },
+      {
+        "controller": "CircleController",
+        "http": "Get",
+        "path": "/public-api/circle/member/count",
+        "norm": "circle/member/count",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleController.java"
+      },
+      {
+        "controller": "CircleMemberController",
+        "http": "Post",
+        "path": "/auth-api/member",
+        "norm": "member",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleMemberController.java"
+      },
+      {
+        "controller": "CircleMemberController",
+        "http": "Delete",
+        "path": "/auth-api/member",
+        "norm": "member",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleMemberController.java"
+      },
+      {
+        "controller": "CircleMemberController",
+        "http": "Get",
+        "path": "/public-api/member",
+        "norm": "member",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleMemberController.java"
+      },
+      {
+        "controller": "CircleMemberController",
+        "http": "Get",
+        "path": "/public-api/member/count",
+        "norm": "member/count",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\circle\\web\\CircleMemberController.java"
+      },
+      {
+        "controller": "DynamicController",
+        "http": "Post",
+        "path": "/auth-api/dynamic",
+        "norm": "dynamic",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\dynamic\\web\\DynamicController.java"
+      },
+      {
+        "controller": "DynamicController",
+        "http": "Put",
+        "path": "/auth-api/dynamic",
+        "norm": "dynamic",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\dynamic\\web\\DynamicController.java"
+      },
+      {
+        "controller": "DynamicController",
+        "http": "Delete",
+        "path": "/dynamic",
+        "norm": "/dynamic",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\dynamic\\web\\DynamicController.java"
+      },
+      {
+        "controller": "DynamicController",
+        "http": "Delete",
+        "path": "/auth-api/dynamic",
+        "norm": "dynamic",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\dynamic\\web\\DynamicController.java"
+      },
+      {
+        "controller": "DynamicController",
+        "http": "Get",
+        "path": "/public-api/dynamic/list/by-ids",
+        "norm": "dynamic/list/by-ids",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\dynamic\\web\\DynamicController.java"
+      },
+      {
+        "controller": "DynamicController",
+        "http": "Get",
+        "path": "/public-api/dynamic",
+        "norm": "dynamic",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\dynamic\\web\\DynamicController.java"
+      },
+      {
+        "controller": "DynamicController",
+        "http": "Get",
+        "path": "/public-api/dynamic/count",
+        "norm": "dynamic/count",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\dynamic\\web\\DynamicController.java"
+      },
+      {
+        "controller": "CircleStatisticsController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-circle-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\circle\\biz\\statistics\\web\\CircleStatisticsController.java"
+      }
+    ],
+    "ihui-ai-edu-content-service": [
+      {
+        "controller": "ArticleController",
+        "http": "Post",
+        "path": "/auth-api/article",
+        "norm": "article",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Put",
+        "path": "/auth-api/article",
+        "norm": "article",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Delete",
+        "path": "/auth-api/article",
+        "norm": "article",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Get",
+        "path": "/public-api/article/list/by-ids",
+        "norm": "article/list/by-ids",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Get",
+        "path": "/public-api/article",
+        "norm": "article",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Post",
+        "path": "/article/recommend",
+        "norm": "/article/recommend",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Delete",
+        "path": "/article/recommend",
+        "norm": "/article/recommend",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Post",
+        "path": "/article/top",
+        "norm": "/article/top",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Delete",
+        "path": "/article/top",
+        "norm": "/article/top",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "ArticleController",
+        "http": "Get",
+        "path": "/public-api/article/member/count",
+        "norm": "article/member/count",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\article\\web\\ArticleController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show",
+        "norm": "/category/is-show",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show-index",
+        "norm": "/category/is-show-index",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "NewsController",
+        "http": "Post",
+        "path": "/news",
+        "norm": "/news",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\news\\web\\NewsController.java"
+      },
+      {
+        "controller": "NewsController",
+        "http": "Put",
+        "path": "/news",
+        "norm": "/news",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\news\\web\\NewsController.java"
+      },
+      {
+        "controller": "NewsController",
+        "http": "Delete",
+        "path": "/news",
+        "norm": "/news",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\news\\web\\NewsController.java"
+      },
+      {
+        "controller": "NewsController",
+        "http": "Get",
+        "path": "/public-api/news/list/by-ids",
+        "norm": "news/list/by-ids",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\news\\web\\NewsController.java"
+      },
+      {
+        "controller": "NewsController",
+        "http": "Post",
+        "path": "/news/recommend",
+        "norm": "/news/recommend",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\news\\web\\NewsController.java"
+      },
+      {
+        "controller": "NewsController",
+        "http": "Delete",
+        "path": "/news/recommend",
+        "norm": "/news/recommend",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\news\\web\\NewsController.java"
+      },
+      {
+        "controller": "NewsController",
+        "http": "Post",
+        "path": "/news/top",
+        "norm": "/news/top",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\news\\web\\NewsController.java"
+      },
+      {
+        "controller": "NewsController",
+        "http": "Delete",
+        "path": "/news/top",
+        "norm": "/news/top",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\news\\web\\NewsController.java"
+      },
+      {
+        "controller": "ContentStatisticsController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-content-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\content\\biz\\statistics\\web\\ContentStatisticsController.java"
+      }
+    ],
+    "ihui-ai-edu-exam-service": [
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show",
+        "norm": "/category/is-show",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show-index",
+        "norm": "/category/is-show-index",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "ExamChapterController",
+        "http": "Post",
+        "path": "/exam/chapter",
+        "norm": "/exam/chapter",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamChapterController.java"
+      },
+      {
+        "controller": "ExamChapterController",
+        "http": "Put",
+        "path": "/exam/chapter",
+        "norm": "/exam/chapter",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamChapterController.java"
+      },
+      {
+        "controller": "ExamChapterController",
+        "http": "Delete",
+        "path": "/exam/chapter",
+        "norm": "/exam/chapter",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamChapterController.java"
+      },
+      {
+        "controller": "ExamChapterController",
+        "http": "Put",
+        "path": "/exam/chapter/sort-order",
+        "norm": "/exam/chapter/sort-order",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamChapterController.java"
+      },
+      {
+        "controller": "ExamChapterSectionController",
+        "http": "Post",
+        "path": "/exam/chapter-section",
+        "norm": "/exam/chapter-section",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamChapterSectionController.java"
+      },
+      {
+        "controller": "ExamChapterSectionController",
+        "http": "Put",
+        "path": "/exam/chapter-section",
+        "norm": "/exam/chapter-section",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamChapterSectionController.java"
+      },
+      {
+        "controller": "ExamChapterSectionController",
+        "http": "Delete",
+        "path": "/exam/chapter-section",
+        "norm": "/exam/chapter-section",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamChapterSectionController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Post",
+        "path": "/exam",
+        "norm": "/exam",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Put",
+        "path": "/exam",
+        "norm": "/exam",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Get",
+        "path": "/exam",
+        "norm": "/exam",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Get",
+        "path": "/public-api/exam",
+        "norm": "exam",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Delete",
+        "path": "/exam",
+        "norm": "/exam",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Put",
+        "path": "/exam/publish",
+        "norm": "/exam/publish",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Put",
+        "path": "/exam/un-publish",
+        "norm": "/exam/un-publish",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Get",
+        "path": "/public-api/recommend",
+        "norm": "recommend",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Get",
+        "path": "/public-api/hot",
+        "norm": "hot",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "ExamController",
+        "http": "Get",
+        "path": "/public-api/list/by-ids",
+        "norm": "list/by-ids",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\exam\\web\\ExamController.java"
+      },
+      {
+        "controller": "PaperCategoryController",
+        "http": "Get",
+        "path": "/paper/category/{id}",
+        "norm": "/paper/category/{id}",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\category\\web\\PaperCategoryController.java"
+      },
+      {
+        "controller": "PaperCategoryController",
+        "http": "Post",
+        "path": "/paper/category",
+        "norm": "/paper/category",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\category\\web\\PaperCategoryController.java"
+      },
+      {
+        "controller": "PaperCategoryController",
+        "http": "Put",
+        "path": "/paper/category",
+        "norm": "/paper/category",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\category\\web\\PaperCategoryController.java"
+      },
+      {
+        "controller": "PaperCategoryController",
+        "http": "Delete",
+        "path": "/paper/category/{id}",
+        "norm": "/paper/category/{id}",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\category\\web\\PaperCategoryController.java"
+      },
+      {
+        "controller": "PaperCategoryController",
+        "http": "Put",
+        "path": "/paper/category/is-show",
+        "norm": "/paper/category/is-show",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\category\\web\\PaperCategoryController.java"
+      },
+      {
+        "controller": "PaperCategoryController",
+        "http": "Put",
+        "path": "/paper/category/is-show-index",
+        "norm": "/paper/category/is-show-index",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\category\\web\\PaperCategoryController.java"
+      },
+      {
+        "controller": "PaperController",
+        "http": "Get",
+        "path": "/paper",
+        "norm": "/paper",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\web\\PaperController.java"
+      },
+      {
+        "controller": "PaperController",
+        "http": "Get",
+        "path": "/auth-api/paper",
+        "norm": "paper",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\web\\PaperController.java"
+      },
+      {
+        "controller": "PaperController",
+        "http": "Put",
+        "path": "/paper",
+        "norm": "/paper",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\web\\PaperController.java"
+      },
+      {
+        "controller": "PaperController",
+        "http": "Delete",
+        "path": "/paper",
+        "norm": "/paper",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\web\\PaperController.java"
+      },
+      {
+        "controller": "PaperController",
+        "http": "Put",
+        "path": "/paper/publish",
+        "norm": "/paper/publish",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\web\\PaperController.java"
+      },
+      {
+        "controller": "PaperController",
+        "http": "Put",
+        "path": "/paper/un-publish",
+        "norm": "/paper/un-publish",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\web\\PaperController.java"
+      },
+      {
+        "controller": "PaperQuestionController",
+        "http": "Get",
+        "path": "/paper/question/by-paper-id",
+        "norm": "/paper/question/by-paper-id",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\paper\\web\\PaperQuestionController.java"
+      },
+      {
+        "controller": "QuestionCategoryController",
+        "http": "Get",
+        "path": "/question-lib/category/{id}",
+        "norm": "/question-lib/category/{id}",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\category\\web\\QuestionCategoryController.java"
+      },
+      {
+        "controller": "QuestionCategoryController",
+        "http": "Post",
+        "path": "/question-lib/category",
+        "norm": "/question-lib/category",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\category\\web\\QuestionCategoryController.java"
+      },
+      {
+        "controller": "QuestionCategoryController",
+        "http": "Put",
+        "path": "/question-lib/category",
+        "norm": "/question-lib/category",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\category\\web\\QuestionCategoryController.java"
+      },
+      {
+        "controller": "QuestionCategoryController",
+        "http": "Delete",
+        "path": "/question-lib/category/{id}",
+        "norm": "/question-lib/category/{id}",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\category\\web\\QuestionCategoryController.java"
+      },
+      {
+        "controller": "QuestionCategoryController",
+        "http": "Put",
+        "path": "/question-lib/category/is-show",
+        "norm": "/question-lib/category/is-show",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\category\\web\\QuestionCategoryController.java"
+      },
+      {
+        "controller": "QuestionCategoryController",
+        "http": "Put",
+        "path": "/question-lib/category/is-show-index",
+        "norm": "/question-lib/category/is-show-index",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\category\\web\\QuestionCategoryController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Get",
+        "path": "/question-lib/question/{id}",
+        "norm": "/question-lib/question/{id}",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Put",
+        "path": "/question-lib/question",
+        "norm": "/question-lib/question",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Delete",
+        "path": "/question-lib/question",
+        "norm": "/question-lib/question",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "QuestionController",
+        "http": "Get",
+        "path": "/question-lib/question",
+        "norm": "/question-lib/question",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\questionlib\\question\\web\\QuestionController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Post",
+        "path": "/auth-api/record",
+        "norm": "record",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Put",
+        "path": "/auth-api/record",
+        "norm": "record",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Put",
+        "path": "/auth-api/record/submit",
+        "norm": "record/submit",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Get",
+        "path": "/auth-api/record",
+        "norm": "record",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Put",
+        "path": "/record/manual/mark/paper",
+        "norm": "/record/manual/mark/paper",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Get",
+        "path": "/auth-api/record/check-submitted",
+        "norm": "record/check-submitted",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Post",
+        "path": "/auth-api/sign-up",
+        "norm": "sign-up",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Delete",
+        "path": "/auth-api/sign-up",
+        "norm": "sign-up",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Get",
+        "path": "/public-api/sign-up",
+        "norm": "sign-up",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "ExamStatisticsController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\statistics\\web\\ExamStatisticsController.java"
+      },
+      {
+        "controller": "WrongQuestionController",
+        "http": "Post",
+        "path": "/auth-api/wrong-question",
+        "norm": "wrong-question",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\wrongquestion\\web\\WrongQuestionController.java"
+      },
+      {
+        "controller": "WrongQuestionController",
+        "http": "Delete",
+        "path": "/auth-api/wrong-question",
+        "norm": "wrong-question",
+        "java_file": "ihui-ai-edu-exam-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\exam\\biz\\wrongquestion\\web\\WrongQuestionController.java"
+      }
+    ],
+    "ihui-ai-edu-learn-service": [
+      {
+        "controller": "LessonAccessController",
+        "http": "Put",
+        "path": "/lesson/access",
+        "norm": "/lesson/access",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\access\\web\\LessonAccessController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show",
+        "norm": "/category/is-show",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show-index",
+        "norm": "/category/is-show-index",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Post",
+        "path": "/certificate",
+        "norm": "/certificate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Get",
+        "path": "/certificate",
+        "norm": "/certificate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Delete",
+        "path": "/certificate",
+        "norm": "/certificate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Put",
+        "path": "/certificate/valid",
+        "norm": "/certificate/valid",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Put",
+        "path": "/certificate/suspended",
+        "norm": "/certificate/suspended",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Put",
+        "path": "/certificate/revoked",
+        "norm": "/certificate/revoked",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Put",
+        "path": "/certificate/cancelled",
+        "norm": "/certificate/cancelled",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Put",
+        "path": "/certificate/expired",
+        "norm": "/certificate/expired",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Get",
+        "path": "/auth-api/certificate",
+        "norm": "certificate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateController",
+        "http": "Get",
+        "path": "/auth-api/certificate/byLessonId",
+        "norm": "certificate/byLessonId",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateController.java"
+      },
+      {
+        "controller": "CertificateTemplateController",
+        "http": "Post",
+        "path": "/certificate-template",
+        "norm": "/certificate-template",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateTemplateController.java"
+      },
+      {
+        "controller": "CertificateTemplateController",
+        "http": "Put",
+        "path": "/certificate-template",
+        "norm": "/certificate-template",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateTemplateController.java"
+      },
+      {
+        "controller": "CertificateTemplateController",
+        "http": "Get",
+        "path": "/certificate-template",
+        "norm": "/certificate-template",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateTemplateController.java"
+      },
+      {
+        "controller": "CertificateTemplateController",
+        "http": "Delete",
+        "path": "/certificate-template",
+        "norm": "/certificate-template",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateTemplateController.java"
+      },
+      {
+        "controller": "CertificateTemplateController",
+        "http": "Put",
+        "path": "/certificate-template/active",
+        "norm": "/certificate-template/active",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateTemplateController.java"
+      },
+      {
+        "controller": "CertificateTemplateController",
+        "http": "Put",
+        "path": "/certificate-template/inactive",
+        "norm": "/certificate-template/inactive",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateTemplateController.java"
+      },
+      {
+        "controller": "CertificateTemplateController",
+        "http": "Get",
+        "path": "/auth-api/certificate-template",
+        "norm": "certificate-template",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\certificate\\web\\CertificateTemplateController.java"
+      },
+      {
+        "controller": "ExamPaperRecordController",
+        "http": "Post",
+        "path": "/auth-api/exampaper/record",
+        "norm": "exampaper/record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\exampaper\\web\\ExamPaperRecordController.java"
+      },
+      {
+        "controller": "ExamPaperRecordController",
+        "http": "Put",
+        "path": "/auth-api/exampaper/record",
+        "norm": "exampaper/record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\exampaper\\web\\ExamPaperRecordController.java"
+      },
+      {
+        "controller": "ExamPaperRecordController",
+        "http": "Put",
+        "path": "/auth-api/exampaper/record/submit",
+        "norm": "exampaper/record/submit",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\exampaper\\web\\ExamPaperRecordController.java"
+      },
+      {
+        "controller": "ExamPaperRecordController",
+        "http": "Get",
+        "path": "/auth-api/exampaper/record",
+        "norm": "exampaper/record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\exampaper\\web\\ExamPaperRecordController.java"
+      },
+      {
+        "controller": "ExamPaperRecordController",
+        "http": "Get",
+        "path": "/auth-api/exampaper/record/draft",
+        "norm": "exampaper/record/draft",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\exampaper\\web\\ExamPaperRecordController.java"
+      },
+      {
+        "controller": "ExamPaperRecordController",
+        "http": "Put",
+        "path": "/exampaper/record/manual/mark/paper",
+        "norm": "/exampaper/record/manual/mark/paper",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\exampaper\\web\\ExamPaperRecordController.java"
+      },
+      {
+        "controller": "ExamPaperRecordController",
+        "http": "Get",
+        "path": "/auth-api/exampaper/record/check-submitted",
+        "norm": "exampaper/record/check-submitted",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\exampaper\\web\\ExamPaperRecordController.java"
+      },
+      {
+        "controller": "HomeworkController",
+        "http": "Post",
+        "path": "/lesson/homework",
+        "norm": "/lesson/homework",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\homework\\web\\HomeworkController.java"
+      },
+      {
+        "controller": "HomeworkController",
+        "http": "Put",
+        "path": "/lesson/homework",
+        "norm": "/lesson/homework",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\homework\\web\\HomeworkController.java"
+      },
+      {
+        "controller": "HomeworkController",
+        "http": "Get",
+        "path": "/lesson/homework",
+        "norm": "/lesson/homework",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\homework\\web\\HomeworkController.java"
+      },
+      {
+        "controller": "HomeworkRecordController",
+        "http": "Post",
+        "path": "auth-api/homework/record",
+        "norm": "auth-api/homework/record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\homework\\web\\HomeworkRecordController.java"
+      },
+      {
+        "controller": "HomeworkRecordController",
+        "http": "Put",
+        "path": "auth-api/homework/record",
+        "norm": "auth-api/homework/record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\homework\\web\\HomeworkRecordController.java"
+      },
+      {
+        "controller": "HomeworkRecordController",
+        "http": "Put",
+        "path": "homework/record/approval/pass",
+        "norm": "homework/record/approval/pass",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\homework\\web\\HomeworkRecordController.java"
+      },
+      {
+        "controller": "HomeworkRecordController",
+        "http": "Put",
+        "path": "homework/record/approval/reject",
+        "norm": "homework/record/approval/reject",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\homework\\web\\HomeworkRecordController.java"
+      },
+      {
+        "controller": "HomeworkRecordController",
+        "http": "Get",
+        "path": "auth-api/homework/record",
+        "norm": "auth-api/homework/record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\homework\\web\\HomeworkRecordController.java"
+      },
+      {
+        "controller": "LearnMapController",
+        "http": "Post",
+        "path": "/learn-map",
+        "norm": "/learn-map",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\learnmap\\web\\LearnMapController.java"
+      },
+      {
+        "controller": "LearnMapController",
+        "http": "Put",
+        "path": "/learn-map",
+        "norm": "/learn-map",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\learnmap\\web\\LearnMapController.java"
+      },
+      {
+        "controller": "LearnMapController",
+        "http": "Get",
+        "path": "/learn-map",
+        "norm": "/learn-map",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\learnmap\\web\\LearnMapController.java"
+      },
+      {
+        "controller": "LearnMapController",
+        "http": "Delete",
+        "path": "/learn-map",
+        "norm": "/learn-map",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\learnmap\\web\\LearnMapController.java"
+      },
+      {
+        "controller": "LearnMapController",
+        "http": "Put",
+        "path": "/learn-map/un-publish",
+        "norm": "/learn-map/un-publish",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\learnmap\\web\\LearnMapController.java"
+      },
+      {
+        "controller": "LearnMapController",
+        "http": "Get",
+        "path": "/public-api/learn-map/hot",
+        "norm": "learn-map/hot",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\learnmap\\web\\LearnMapController.java"
+      },
+      {
+        "controller": "LearnMapController",
+        "http": "Get",
+        "path": "/public-api/learn-map",
+        "norm": "learn-map",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\learnmap\\web\\LearnMapController.java"
+      },
+      {
+        "controller": "LessonChapterController",
+        "http": "Post",
+        "path": "/lesson/chapter",
+        "norm": "/lesson/chapter",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonChapterController.java"
+      },
+      {
+        "controller": "LessonChapterController",
+        "http": "Put",
+        "path": "/lesson/chapter",
+        "norm": "/lesson/chapter",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonChapterController.java"
+      },
+      {
+        "controller": "LessonChapterController",
+        "http": "Delete",
+        "path": "/lesson/chapter",
+        "norm": "/lesson/chapter",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonChapterController.java"
+      },
+      {
+        "controller": "LessonChapterController",
+        "http": "Put",
+        "path": "/lesson/chapter/sort-order",
+        "norm": "/lesson/chapter/sort-order",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonChapterController.java"
+      },
+      {
+        "controller": "LessonChapterSectionController",
+        "http": "Post",
+        "path": "/lesson/chapter-section",
+        "norm": "/lesson/chapter-section",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonChapterSectionController.java"
+      },
+      {
+        "controller": "LessonChapterSectionController",
+        "http": "Put",
+        "path": "/lesson/chapter-section",
+        "norm": "/lesson/chapter-section",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonChapterSectionController.java"
+      },
+      {
+        "controller": "LessonChapterSectionController",
+        "http": "Delete",
+        "path": "/lesson/chapter-section",
+        "norm": "/lesson/chapter-section",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonChapterSectionController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Post",
+        "path": "/lesson",
+        "norm": "/lesson",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Put",
+        "path": "/lesson",
+        "norm": "/lesson",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Put",
+        "path": "/lesson/certificate",
+        "norm": "/lesson/certificate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Put",
+        "path": "/lesson/exampaper",
+        "norm": "/lesson/exampaper",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Get",
+        "path": "/lesson",
+        "norm": "/lesson",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Delete",
+        "path": "/lesson",
+        "norm": "/lesson",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Put",
+        "path": "/lesson/un-publish",
+        "norm": "/lesson/un-publish",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Get",
+        "path": "/public-api/lesson",
+        "norm": "lesson",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonController",
+        "http": "Get",
+        "path": "/public-api/lesson/list/by-ids",
+        "norm": "lesson/list/by-ids",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\lesson\\web\\LessonController.java"
+      },
+      {
+        "controller": "LessonOrderController",
+        "http": "Post",
+        "path": "/auth-api/lesson/order",
+        "norm": "lesson/order",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\order\\web\\LessonOrderController.java"
+      },
+      {
+        "controller": "LessonOrderController",
+        "http": "Post",
+        "path": "/auth-api/lesson/order/payment",
+        "norm": "lesson/order/payment",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\order\\web\\LessonOrderController.java"
+      },
+      {
+        "controller": "LessonOrderController",
+        "http": "Post",
+        "path": "/public-api/order/payment/callback",
+        "norm": "order/payment/callback",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\order\\web\\LessonOrderController.java"
+      },
+      {
+        "controller": "RateController",
+        "http": "Post",
+        "path": "/auth-api/lesson/rate",
+        "norm": "lesson/rate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\rate\\web\\RateController.java"
+      },
+      {
+        "controller": "RateController",
+        "http": "Get",
+        "path": "/lesson/rate",
+        "norm": "/lesson/rate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\rate\\web\\RateController.java"
+      },
+      {
+        "controller": "RateController",
+        "http": "Delete",
+        "path": "/lesson/rate",
+        "norm": "/lesson/rate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\rate\\web\\RateController.java"
+      },
+      {
+        "controller": "RateController",
+        "http": "Get",
+        "path": "/auth-api/lesson/rate",
+        "norm": "lesson/rate",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\rate\\web\\RateController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Post",
+        "path": "/auth-api/record",
+        "norm": "record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Put",
+        "path": "/auth-api/record",
+        "norm": "record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Get",
+        "path": "/auth-api/record",
+        "norm": "record",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "ReportController",
+        "http": "Get",
+        "path": "/report/lesson/sign",
+        "norm": "/report/lesson/sign",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\report\\web\\ReportController.java"
+      },
+      {
+        "controller": "ReportController",
+        "http": "Get",
+        "path": "/report/lesson/study",
+        "norm": "/report/lesson/study",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\report\\web\\ReportController.java"
+      },
+      {
+        "controller": "ReportController",
+        "http": "Get",
+        "path": "/report/member/study",
+        "norm": "/report/member/study",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\report\\web\\ReportController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Post",
+        "path": "/auth-api/sign-up",
+        "norm": "sign-up",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Post",
+        "path": "/auth-api/sign-up/batch",
+        "norm": "sign-up/batch",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Post",
+        "path": "/public-api/sign-up",
+        "norm": "sign-up",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Delete",
+        "path": "/auth-api/sign-up",
+        "norm": "sign-up",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Get",
+        "path": "/public-api/sign-up",
+        "norm": "sign-up",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Get",
+        "path": "/auth-api/sign-up/total-learn-time",
+        "norm": "sign-up/total-learn-time",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Get",
+        "path": "/auth-api/sign-up/today-learn-time",
+        "norm": "sign-up/today-learn-time",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Get",
+        "path": "/auth-api/sign-up/learn-time-rank-percent",
+        "norm": "sign-up/learn-time-rank-percent",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "SignUpController",
+        "http": "Get",
+        "path": "/sign-up/checkAndUpdateStatus",
+        "norm": "/sign-up/checkAndUpdateStatus",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\signup\\web\\SignUpController.java"
+      },
+      {
+        "controller": "LessonTaskController",
+        "http": "Post",
+        "path": "/lesson/task",
+        "norm": "/lesson/task",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\task\\web\\LessonTaskController.java"
+      },
+      {
+        "controller": "LessonTaskController",
+        "http": "Put",
+        "path": "/lesson/task",
+        "norm": "/lesson/task",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\task\\web\\LessonTaskController.java"
+      },
+      {
+        "controller": "LessonTaskController",
+        "http": "Delete",
+        "path": "/lesson/task",
+        "norm": "/lesson/task",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\task\\web\\LessonTaskController.java"
+      },
+      {
+        "controller": "LessonTaskController",
+        "http": "Get",
+        "path": "/lesson/task",
+        "norm": "/lesson/task",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\task\\web\\LessonTaskController.java"
+      },
+      {
+        "controller": "LessonTaskController",
+        "http": "Get",
+        "path": "/auth-api/lesson/task/list/member-progress",
+        "norm": "lesson/task/list/member-progress",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\task\\web\\LessonTaskController.java"
+      },
+      {
+        "controller": "TopicController",
+        "http": "Put",
+        "path": "/topic",
+        "norm": "/topic",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topic\\web\\TopicController.java"
+      },
+      {
+        "controller": "TopicController",
+        "http": "Get",
+        "path": "/topic",
+        "norm": "/topic",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topic\\web\\TopicController.java"
+      },
+      {
+        "controller": "TopicController",
+        "http": "Delete",
+        "path": "/topic",
+        "norm": "/topic",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topic\\web\\TopicController.java"
+      },
+      {
+        "controller": "TopicController",
+        "http": "Put",
+        "path": "/topic/un-publish",
+        "norm": "/topic/un-publish",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topic\\web\\TopicController.java"
+      },
+      {
+        "controller": "TopicController",
+        "http": "Get",
+        "path": "/public-api/topic/hot",
+        "norm": "topic/hot",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topic\\web\\TopicController.java"
+      },
+      {
+        "controller": "TopicController",
+        "http": "Get",
+        "path": "/public-api/topic",
+        "norm": "topic",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topic\\web\\TopicController.java"
+      },
+      {
+        "controller": "TopicCategoryController",
+        "http": "Get",
+        "path": "/topic/category/{id}",
+        "norm": "/topic/category/{id}",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topiccategory\\web\\TopicCategoryController.java"
+      },
+      {
+        "controller": "TopicCategoryController",
+        "http": "Post",
+        "path": "/topic/category",
+        "norm": "/topic/category",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topiccategory\\web\\TopicCategoryController.java"
+      },
+      {
+        "controller": "TopicCategoryController",
+        "http": "Put",
+        "path": "/topic/category",
+        "norm": "/topic/category",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topiccategory\\web\\TopicCategoryController.java"
+      },
+      {
+        "controller": "TopicCategoryController",
+        "http": "Delete",
+        "path": "/topic/category/{id}",
+        "norm": "/topic/category/{id}",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topiccategory\\web\\TopicCategoryController.java"
+      },
+      {
+        "controller": "TopicCategoryController",
+        "http": "Put",
+        "path": "/topic/category/is-show",
+        "norm": "/topic/category/is-show",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topiccategory\\web\\TopicCategoryController.java"
+      },
+      {
+        "controller": "TopicCategoryController",
+        "http": "Put",
+        "path": "/topic/category/is-show-index",
+        "norm": "/topic/category/is-show-index",
+        "java_file": "ihui-ai-edu-learn-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\learn\\biz\\topiccategory\\web\\TopicCategoryController.java"
+      }
+    ],
+    "ihui-ai-edu-live-service": [
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Put",
+        "path": "/channel",
+        "norm": "/channel",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Get",
+        "path": "/channel/{id}",
+        "norm": "/channel/{id}",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Get",
+        "path": "/channel/stream-info/{id}",
+        "norm": "/channel/stream-info/{id}",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Get",
+        "path": "/public-api/channel",
+        "norm": "channel",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Delete",
+        "path": "/channel",
+        "norm": "/channel",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "SubscribeController",
+        "http": "Get",
+        "path": "/auth-api/subscribe//by-channel-id-and-member-id",
+        "norm": "subscribe//by-channel-id-and-member-id",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\subscribe\\web\\SubscribeController.java"
+      },
+      {
+        "controller": "TencentCloudLiveStreamController",
+        "http": "Get",
+        "path": "/tencent/cloud/live/stream",
+        "norm": "/tencent/cloud/live/stream",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\tencent\\web\\TencentCloudLiveStreamController.java"
+      },
+      {
+        "controller": "TencentCloudLiveStreamController",
+        "http": "Get",
+        "path": "/tencent/cloud/live/stream/channel-id",
+        "norm": "/tencent/cloud/live/stream/channel-id",
+        "java_file": "ihui-ai-edu-live-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\live\\biz\\tencent\\web\\TencentCloudLiveStreamController.java"
+      }
+    ],
+    "ihui-ai-edu-member-service": [
+      {
+        "controller": "MemberController",
+        "http": "Get",
+        "path": "/list",
+        "norm": "/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Get",
+        "path": "/unaudited/list",
+        "norm": "/unaudited/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Get",
+        "path": "/auth-api/by-mobile",
+        "norm": "by-mobile",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/auth-api/create",
+        "norm": "create",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/avatar",
+        "norm": "update/avatar",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/avatar/v2",
+        "norm": "update/avatar/v2",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/idphoto",
+        "norm": "update/idphoto",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/name",
+        "norm": "update/name",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/mobile",
+        "norm": "update/mobile",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/pwd",
+        "norm": "update/pwd",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/email",
+        "norm": "update/email",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/password",
+        "norm": "update/password",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/create",
+        "norm": "/create",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/public-api/register",
+        "norm": "register",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/public-api/register/mobile",
+        "norm": "register/mobile",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/public-api/send/auth-code",
+        "norm": "send/auth-code",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Get",
+        "path": "/public-api/by-ids",
+        "norm": "by-ids",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Get",
+        "path": "/auth-api/by-id",
+        "norm": "by-id",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Get",
+        "path": "/auth-api/list",
+        "norm": "list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/level",
+        "norm": "update/level",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/public-api/pwd/send/auth-code",
+        "norm": "pwd/send/auth-code",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/public-api/pwd/check/auth-code",
+        "norm": "pwd/check/auth-code",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/public-api/pwd/reset",
+        "norm": "pwd/reset",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/pwd/reset",
+        "norm": "/pwd/reset",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/seal",
+        "norm": "/seal",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/unseal",
+        "norm": "/unseal",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/update",
+        "norm": "/update",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Delete",
+        "path": "/delete",
+        "norm": "/delete",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/realname",
+        "norm": "update/realname",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/auth-api/update/name/v2",
+        "norm": "update/name/v2",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/approved",
+        "norm": "/approved",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Put",
+        "path": "/reject",
+        "norm": "/reject",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/auth-api/createbywechatuserinfo",
+        "norm": "createbywechatuserinfo",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Post",
+        "path": "/import/excel",
+        "norm": "/import/excel",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "MemberController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\base\\web\\MemberController.java"
+      },
+      {
+        "controller": "CheckInController",
+        "http": "Post",
+        "path": "/auth-api/check-in",
+        "norm": "check-in",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\checkin\\web\\CheckInController.java"
+      },
+      {
+        "controller": "CheckInController",
+        "http": "Get",
+        "path": "/public-api/check-in",
+        "norm": "check-in",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\checkin\\web\\CheckInController.java"
+      },
+      {
+        "controller": "MemberCompanyController",
+        "http": "Put",
+        "path": "/company",
+        "norm": "/company",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyController.java"
+      },
+      {
+        "controller": "MemberCompanyController",
+        "http": "Get",
+        "path": "/company/list",
+        "norm": "/company/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyController.java"
+      },
+      {
+        "controller": "MemberCompanyController",
+        "http": "Get",
+        "path": "/public-api/company/list",
+        "norm": "company/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyController.java"
+      },
+      {
+        "controller": "MemberCompanyController",
+        "http": "Delete",
+        "path": "/company",
+        "norm": "/company",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyController.java"
+      },
+      {
+        "controller": "MemberCompanyController",
+        "http": "Get",
+        "path": "/company",
+        "norm": "/company",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyController.java"
+      },
+      {
+        "controller": "MemberCompanyController",
+        "http": "Put",
+        "path": "/company/enable",
+        "norm": "/company/enable",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyController.java"
+      },
+      {
+        "controller": "MemberCompanyController",
+        "http": "Put",
+        "path": "/company/disable",
+        "norm": "/company/disable",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyController.java"
+      },
+      {
+        "controller": "MemberCompanyTypeController",
+        "http": "Post",
+        "path": "/company/type",
+        "norm": "/company/type",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyTypeController.java"
+      },
+      {
+        "controller": "MemberCompanyTypeController",
+        "http": "Put",
+        "path": "/company/type",
+        "norm": "/company/type",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyTypeController.java"
+      },
+      {
+        "controller": "MemberCompanyTypeController",
+        "http": "Delete",
+        "path": "/company/type",
+        "norm": "/company/type",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyTypeController.java"
+      },
+      {
+        "controller": "MemberCompanyTypeController",
+        "http": "Get",
+        "path": "/company/type",
+        "norm": "/company/type",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyTypeController.java"
+      },
+      {
+        "controller": "MemberCompanyTypeController",
+        "http": "Put",
+        "path": "/company/type/enable",
+        "norm": "/company/type/enable",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyTypeController.java"
+      },
+      {
+        "controller": "MemberCompanyTypeController",
+        "http": "Put",
+        "path": "/company/type/disable",
+        "norm": "/company/type/disable",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyTypeController.java"
+      },
+      {
+        "controller": "MemberCompanyTypeController",
+        "http": "Get",
+        "path": "/company/type/list",
+        "norm": "/company/type/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\company\\web\\MemberCompanyTypeController.java"
+      },
+      {
+        "controller": "FollowController",
+        "http": "Get",
+        "path": "/auth-api/follow/list",
+        "norm": "follow/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\follow\\web\\FollowController.java"
+      },
+      {
+        "controller": "FollowController",
+        "http": "Get",
+        "path": "/auth-api/follow/fans/list",
+        "norm": "follow/fans/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\follow\\web\\FollowController.java"
+      },
+      {
+        "controller": "FollowController",
+        "http": "Put",
+        "path": "/auth-api/follow",
+        "norm": "follow",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\follow\\web\\FollowController.java"
+      },
+      {
+        "controller": "FollowController",
+        "http": "Get",
+        "path": "/auth-api/follow",
+        "norm": "follow",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\follow\\web\\FollowController.java"
+      },
+      {
+        "controller": "FollowController",
+        "http": "Get",
+        "path": "/public-api/follow/member/count",
+        "norm": "follow/member/count",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\follow\\web\\FollowController.java"
+      },
+      {
+        "controller": "MemberGroupController",
+        "http": "Get",
+        "path": "/group/list",
+        "norm": "/group/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\group\\web\\MemberGroupController.java"
+      },
+      {
+        "controller": "MemberGroupController",
+        "http": "Put",
+        "path": "/group",
+        "norm": "/group",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\group\\web\\MemberGroupController.java"
+      },
+      {
+        "controller": "MemberGroupController",
+        "http": "Delete",
+        "path": "/group",
+        "norm": "/group",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\group\\web\\MemberGroupController.java"
+      },
+      {
+        "controller": "MemberGroupController",
+        "http": "Put",
+        "path": "/group/enable",
+        "norm": "/group/enable",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\group\\web\\MemberGroupController.java"
+      },
+      {
+        "controller": "MemberGroupController",
+        "http": "Put",
+        "path": "/group/disable",
+        "norm": "/group/disable",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\group\\web\\MemberGroupController.java"
+      },
+      {
+        "controller": "MemberLevelController",
+        "http": "Get",
+        "path": "/level/list",
+        "norm": "/level/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\level\\web\\MemberLevelController.java"
+      },
+      {
+        "controller": "MemberLevelController",
+        "http": "Get",
+        "path": "/level",
+        "norm": "/level",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\level\\web\\MemberLevelController.java"
+      },
+      {
+        "controller": "MemberLevelController",
+        "http": "Put",
+        "path": "/level",
+        "norm": "/level",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\level\\web\\MemberLevelController.java"
+      },
+      {
+        "controller": "MemberLevelController",
+        "http": "Delete",
+        "path": "/level",
+        "norm": "/level",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\level\\web\\MemberLevelController.java"
+      },
+      {
+        "controller": "MemberPostController",
+        "http": "Get",
+        "path": "/post/list",
+        "norm": "/post/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\post\\web\\MemberPostController.java"
+      },
+      {
+        "controller": "MemberPostController",
+        "http": "Put",
+        "path": "/post",
+        "norm": "/post",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\post\\web\\MemberPostController.java"
+      },
+      {
+        "controller": "MemberPostController",
+        "http": "Delete",
+        "path": "/post",
+        "norm": "/post",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\post\\web\\MemberPostController.java"
+      },
+      {
+        "controller": "MemberPostController",
+        "http": "Put",
+        "path": "/post/enable",
+        "norm": "/post/enable",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\post\\web\\MemberPostController.java"
+      },
+      {
+        "controller": "MemberPostController",
+        "http": "Put",
+        "path": "/post/disable",
+        "norm": "/post/disable",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\post\\web\\MemberPostController.java"
+      },
+      {
+        "controller": "MemberTagController",
+        "http": "Get",
+        "path": "/tag/list",
+        "norm": "/tag/list",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\tags\\web\\MemberTagController.java"
+      },
+      {
+        "controller": "MemberTagController",
+        "http": "Put",
+        "path": "/tag",
+        "norm": "/tag",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\tags\\web\\MemberTagController.java"
+      },
+      {
+        "controller": "MemberTagController",
+        "http": "Delete",
+        "path": "/tag",
+        "norm": "/tag",
+        "java_file": "ihui-ai-edu-member-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\member\\biz\\tags\\web\\MemberTagController.java"
+      }
+    ],
+    "ihui-ai-edu-message-service": [
+      {
+        "controller": "AnnouncementController",
+        "http": "Put",
+        "path": "/announcement",
+        "norm": "/announcement",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\announcement\\web\\AnnouncementController.java"
+      },
+      {
+        "controller": "AnnouncementController",
+        "http": "Delete",
+        "path": "/announcement",
+        "norm": "/announcement",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\announcement\\web\\AnnouncementController.java"
+      },
+      {
+        "controller": "AnnouncementController",
+        "http": "Get",
+        "path": "/announcement",
+        "norm": "/announcement",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\announcement\\web\\AnnouncementController.java"
+      },
+      {
+        "controller": "AnnouncementController",
+        "http": "Get",
+        "path": "/public-api/announcement",
+        "norm": "announcement",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\announcement\\web\\AnnouncementController.java"
+      },
+      {
+        "controller": "NoticeController",
+        "http": "Post",
+        "path": "/notice",
+        "norm": "/notice",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\notice\\web\\NoticeController.java"
+      },
+      {
+        "controller": "NoticeController",
+        "http": "Delete",
+        "path": "/notice",
+        "norm": "/notice",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\notice\\web\\NoticeController.java"
+      },
+      {
+        "controller": "NoticeController",
+        "http": "Put",
+        "path": "/public-api/notice/read",
+        "norm": "notice/read",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\notice\\web\\NoticeController.java"
+      },
+      {
+        "controller": "PrivateLetterController",
+        "http": "Post",
+        "path": "/auth-api/private-letter",
+        "norm": "private-letter",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "controller": "PrivateLetterController",
+        "http": "Delete",
+        "path": "/auth-api/private-letter",
+        "norm": "private-letter",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "controller": "PrivateLetterController",
+        "http": "Get",
+        "path": "/auth-api/private-letter",
+        "norm": "private-letter",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "controller": "PrivateLetterController",
+        "http": "Get",
+        "path": "/auth-api/private-letter/member",
+        "norm": "private-letter/member",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\privateletter\\web\\PrivateLetterController.java"
+      },
+      {
+        "controller": "MessageStatisticsController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\statistics\\web\\MessageStatisticsController.java"
+      },
+      {
+        "controller": "TemplateController",
+        "http": "Put",
+        "path": "/template",
+        "norm": "/template",
+        "java_file": "ihui-ai-edu-message-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\message\\biz\\template\\web\\TemplateController.java"
+      }
+    ],
+    "ihui-ai-edu-notification-service": [
+      {
+        "controller": "MailController",
+        "http": "Post",
+        "path": "/public-api/mail/send/html",
+        "norm": "mail/send/html",
+        "java_file": "ihui-ai-edu-notification-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\notification\\biz\\email\\web\\MailController.java"
+      }
+    ],
+    "ihui-ai-edu-order-service": [
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Post",
+        "path": "/auth-api/invoice/application",
+        "norm": "invoice/application",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Post",
+        "path": "/invoice/application",
+        "norm": "/invoice/application",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Put",
+        "path": "/auth-api/invoice/application",
+        "norm": "invoice/application",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Put",
+        "path": "/invoice/application",
+        "norm": "/invoice/application",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Get",
+        "path": "/auth-api/invoice/application",
+        "norm": "invoice/application",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Delete",
+        "path": "/auth-api/invoice/application",
+        "norm": "invoice/application",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Delete",
+        "path": "/invoice/application",
+        "norm": "/invoice/application",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Post",
+        "path": "/invoice/application/approved",
+        "norm": "/invoice/application/approved",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Post",
+        "path": "/invoice/application/rejected",
+        "norm": "/invoice/application/rejected",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Post",
+        "path": "/invoice/application/invoicing",
+        "norm": "/invoice/application/invoicing",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Post",
+        "path": "/invoice/application/invoiced",
+        "norm": "/invoice/application/invoiced",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceApplicationController",
+        "http": "Post",
+        "path": "/invoice/application/canceled",
+        "norm": "/invoice/application/canceled",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceApplicationController.java"
+      },
+      {
+        "controller": "InvoiceTitleController",
+        "http": "Post",
+        "path": "/auth-api/invoice/title",
+        "norm": "invoice/title",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceTitleController.java"
+      },
+      {
+        "controller": "InvoiceTitleController",
+        "http": "Post",
+        "path": "/invoice/title",
+        "norm": "/invoice/title",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceTitleController.java"
+      },
+      {
+        "controller": "InvoiceTitleController",
+        "http": "Put",
+        "path": "/auth-api/invoice/title",
+        "norm": "invoice/title",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceTitleController.java"
+      },
+      {
+        "controller": "InvoiceTitleController",
+        "http": "Put",
+        "path": "/invoice/title",
+        "norm": "/invoice/title",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceTitleController.java"
+      },
+      {
+        "controller": "InvoiceTitleController",
+        "http": "Get",
+        "path": "/auth-api/invoice/title",
+        "norm": "invoice/title",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceTitleController.java"
+      },
+      {
+        "controller": "InvoiceTitleController",
+        "http": "Delete",
+        "path": "/auth-api/invoice/title",
+        "norm": "invoice/title",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceTitleController.java"
+      },
+      {
+        "controller": "InvoiceTitleController",
+        "http": "Delete",
+        "path": "/invoice/title",
+        "norm": "/invoice/title",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\invoice\\web\\InvoiceTitleController.java"
+      },
+      {
+        "controller": "OrderController",
+        "http": "Post",
+        "path": "/auth-api/order",
+        "norm": "order",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\order\\web\\OrderController.java"
+      },
+      {
+        "controller": "OrderController",
+        "http": "Get",
+        "path": "/auth-api/order",
+        "norm": "order",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\order\\web\\OrderController.java"
+      },
+      {
+        "controller": "OrderController",
+        "http": "Post",
+        "path": "/public-api/order/update/status",
+        "norm": "order/update/status",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\order\\web\\OrderController.java"
+      },
+      {
+        "controller": "OrderController",
+        "http": "Post",
+        "path": "/auth-api/order/pre-get-order-amount",
+        "norm": "order/pre-get-order-amount",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\order\\web\\OrderController.java"
+      },
+      {
+        "controller": "OrderController",
+        "http": "Post",
+        "path": "/auth-api/order/get-order-amount",
+        "norm": "order/get-order-amount",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\order\\web\\OrderController.java"
+      },
+      {
+        "controller": "OrderController",
+        "http": "Post",
+        "path": "/auth-api/order/payment",
+        "norm": "order/payment",
+        "java_file": "ihui-ai-edu-order-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\order\\biz\\order\\web\\OrderController.java"
+      }
+    ],
+    "ihui-ai-edu-oss-service": [
+      {
+        "controller": "OssController",
+        "http": "Post",
+        "path": "/auth-api/{service}/{module}/{fileType}",
+        "norm": "{service}/{module}/{fileType}",
+        "java_file": "ihui-ai-edu-oss-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\oss\\biz\\base\\web\\OssController.java"
+      },
+      {
+        "controller": "OssController",
+        "http": "Delete",
+        "path": "/file",
+        "norm": "/file",
+        "java_file": "ihui-ai-edu-oss-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\oss\\biz\\base\\web\\OssController.java"
+      },
+      {
+        "controller": "OssController",
+        "http": "Post",
+        "path": "/auth-api/base64/{service}/{module}/{fileType}",
+        "norm": "base64/{service}/{module}/{fileType}",
+        "java_file": "ihui-ai-edu-oss-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\oss\\biz\\base\\web\\OssController.java"
+      },
+      {
+        "controller": "OssController",
+        "http": "Get",
+        "path": "/to-base64",
+        "norm": "/to-base64",
+        "java_file": "ihui-ai-edu-oss-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\oss\\biz\\base\\web\\OssController.java"
+      }
+    ],
+    "ihui-ai-edu-pay-service": [
+      {
+        "controller": "TradeController",
+        "http": "Post",
+        "path": "/auth-api/trade/payment",
+        "norm": "trade/payment",
+        "java_file": "ihui-ai-edu-pay-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\pay\\biz\\base\\web\\TradeController.java"
+      },
+      {
+        "controller": "WechatpayNotifyController",
+        "http": "Post",
+        "path": "/public-api/wechatpay/notify/v3",
+        "norm": "wechatpay/notify/v3",
+        "java_file": "ihui-ai-edu-pay-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\pay\\biz\\wechatpay\\web\\WechatpayNotifyController.java"
+      }
+    ],
+    "ihui-ai-edu-point-service": [
+      {
+        "controller": "ChannelController",
+        "http": "Get",
+        "path": "/channel/all",
+        "norm": "/channel/all",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Get",
+        "path": "/channel",
+        "norm": "/channel",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Post",
+        "path": "/channel",
+        "norm": "/channel",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Put",
+        "path": "/channel",
+        "norm": "/channel",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "ChannelController",
+        "http": "Delete",
+        "path": "/channel",
+        "norm": "/channel",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\channel\\web\\ChannelController.java"
+      },
+      {
+        "controller": "PointChannelRelationController",
+        "http": "Put",
+        "path": "/point/channel/relation",
+        "norm": "/point/channel/relation",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\point\\web\\PointChannelRelationController.java"
+      },
+      {
+        "controller": "PointController",
+        "http": "Post",
+        "path": "/point",
+        "norm": "/point",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\point\\web\\PointController.java"
+      },
+      {
+        "controller": "PointController",
+        "http": "Put",
+        "path": "/point",
+        "norm": "/point",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\point\\web\\PointController.java"
+      },
+      {
+        "controller": "PointController",
+        "http": "Delete",
+        "path": "/point",
+        "norm": "/point",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\point\\web\\PointController.java"
+      },
+      {
+        "controller": "PointController",
+        "http": "Get",
+        "path": "/point",
+        "norm": "/point",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\point\\web\\PointController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Post",
+        "path": "/record/increase",
+        "norm": "/record/increase",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Post",
+        "path": "/record/decrease",
+        "norm": "/record/decrease",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Post",
+        "path": "/record/fallback",
+        "norm": "/record/fallback",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Post",
+        "path": "/record/recycle",
+        "norm": "/record/recycle",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "RecordController",
+        "http": "Get",
+        "path": "/public-api/member/point",
+        "norm": "member/point",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\record\\web\\RecordController.java"
+      },
+      {
+        "controller": "PointStatisticsController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-point-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\point\\biz\\statistics\\web\\PointStatisticsController.java"
+      }
+    ],
+    "ihui-ai-edu-resource-service": [
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/category/admin/list",
+        "norm": "/category/admin/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category",
+        "norm": "/category",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/{id}",
+        "norm": "/category/{id}",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Post",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Delete",
+        "path": "/category/image",
+        "norm": "/category/image",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show",
+        "norm": "/category/is-show",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Put",
+        "path": "/category/is-show-index",
+        "norm": "/category/is-show-index",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "CategoryController",
+        "http": "Get",
+        "path": "/public-api/category/list",
+        "norm": "category/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\category\\web\\CategoryController.java"
+      },
+      {
+        "controller": "ResourceProductController",
+        "http": "Post",
+        "path": "/resource/product",
+        "norm": "/resource/product",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\product\\web\\ResourceProductController.java"
+      },
+      {
+        "controller": "ResourceProductController",
+        "http": "Put",
+        "path": "/resource/product",
+        "norm": "/resource/product",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\product\\web\\ResourceProductController.java"
+      },
+      {
+        "controller": "ResourceProductController",
+        "http": "Delete",
+        "path": "/resource/product",
+        "norm": "/resource/product",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\product\\web\\ResourceProductController.java"
+      },
+      {
+        "controller": "ResourceProductController",
+        "http": "Get",
+        "path": "/resource/product/page/list",
+        "norm": "/resource/product/page/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\product\\web\\ResourceProductController.java"
+      },
+      {
+        "controller": "ResourceProductController",
+        "http": "Get",
+        "path": "/resource/product/list",
+        "norm": "/resource/product/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\product\\web\\ResourceProductController.java"
+      },
+      {
+        "controller": "ResourceProductController",
+        "http": "Get",
+        "path": "/public-api/resource/product/list",
+        "norm": "resource/product/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\product\\web\\ResourceProductController.java"
+      },
+      {
+        "controller": "ResourceProductController",
+        "http": "Get",
+        "path": "/public-api/resource/product",
+        "norm": "resource/product",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\product\\web\\ResourceProductController.java"
+      },
+      {
+        "controller": "ResourceProductController",
+        "http": "Put",
+        "path": "/resource/product/update-status",
+        "norm": "/resource/product/update-status",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\product\\web\\ResourceProductController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Post",
+        "path": "/auth-api/resource",
+        "norm": "resource",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Put",
+        "path": "/auth-api/resource",
+        "norm": "resource",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Delete",
+        "path": "/auth-api/resource",
+        "norm": "resource",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/resource/list",
+        "norm": "/resource/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/public-api/resource/list",
+        "norm": "resource/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/auth-api/resource/list",
+        "norm": "resource/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/public-api/resource/list/by-ids",
+        "norm": "resource/list/by-ids",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/public-api/resource",
+        "norm": "resource",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Post",
+        "path": "/auth-api/resource/download",
+        "norm": "resource/download",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/public-api/resource/type/list",
+        "norm": "resource/type/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Put",
+        "path": "/public-api/resource/published",
+        "norm": "resource/published",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/auth-api/member/resource/list",
+        "norm": "member/resource/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/auth-api/member/download/resource/list",
+        "norm": "member/download/resource/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/auth-api/member/last-search-record",
+        "norm": "member/last-search-record",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceController",
+        "http": "Get",
+        "path": "/public-api/resource/recommend-list",
+        "norm": "resource/recommend-list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\resource\\web\\ResourceController.java"
+      },
+      {
+        "controller": "ResourceStatisticsController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\statistics\\web\\ResourceStatisticsController.java"
+      },
+      {
+        "controller": "ResourceTagController",
+        "http": "Post",
+        "path": "/resource/tag",
+        "norm": "/resource/tag",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\tag\\web\\ResourceTagController.java"
+      },
+      {
+        "controller": "ResourceTagController",
+        "http": "Put",
+        "path": "/resource/tag",
+        "norm": "/resource/tag",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\tag\\web\\ResourceTagController.java"
+      },
+      {
+        "controller": "ResourceTagController",
+        "http": "Delete",
+        "path": "/resource/tag",
+        "norm": "/resource/tag",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\tag\\web\\ResourceTagController.java"
+      },
+      {
+        "controller": "ResourceTagController",
+        "http": "Get",
+        "path": "/resource/tag/page/list",
+        "norm": "/resource/tag/page/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\tag\\web\\ResourceTagController.java"
+      },
+      {
+        "controller": "ResourceTagController",
+        "http": "Get",
+        "path": "/resource/tag/list",
+        "norm": "/resource/tag/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\tag\\web\\ResourceTagController.java"
+      },
+      {
+        "controller": "ResourceTagController",
+        "http": "Get",
+        "path": "/public-api/resource/tag/list",
+        "norm": "resource/tag/list",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\tag\\web\\ResourceTagController.java"
+      },
+      {
+        "controller": "ResourceTagController",
+        "http": "Get",
+        "path": "/public-api/resource/tag",
+        "norm": "resource/tag",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\tag\\web\\ResourceTagController.java"
+      },
+      {
+        "controller": "ResourceTagController",
+        "http": "Put",
+        "path": "/resource/tag/update-status",
+        "norm": "/resource/tag/update-status",
+        "java_file": "ihui-ai-edu-resource-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\resource\\biz\\tag\\web\\ResourceTagController.java"
+      }
+    ],
+    "ihui-ai-edu-schedule-service": [
+      {
+        "controller": "WatchController",
+        "http": "Get",
+        "path": "/watch",
+        "norm": "/watch",
+        "java_file": "ihui-ai-edu-schedule-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\schedule\\biz\\watch\\web\\WatchController.java"
+      }
+    ],
+    "ihui-ai-edu-search-service": [
+      {
+        "controller": "ContentController",
+        "http": "Post",
+        "path": "/public-api/content",
+        "norm": "content",
+        "java_file": "ihui-ai-edu-search-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\search\\biz\\content\\web\\ContentController.java"
+      },
+      {
+        "controller": "ContentController",
+        "http": "Put",
+        "path": "/public-api/content",
+        "norm": "content",
+        "java_file": "ihui-ai-edu-search-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\search\\biz\\content\\web\\ContentController.java"
+      },
+      {
+        "controller": "ContentController",
+        "http": "Delete",
+        "path": "/public-api/content",
+        "norm": "content",
+        "java_file": "ihui-ai-edu-search-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\search\\biz\\content\\web\\ContentController.java"
+      },
+      {
+        "controller": "ContentController",
+        "http": "Get",
+        "path": "/public-api/content",
+        "norm": "content",
+        "java_file": "ihui-ai-edu-search-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\search\\biz\\content\\web\\ContentController.java"
+      },
+      {
+        "controller": "ContentController",
+        "http": "Get",
+        "path": "/public-api/content/type",
+        "norm": "content/type",
+        "java_file": "ihui-ai-edu-search-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\search\\biz\\content\\web\\ContentController.java"
+      },
+      {
+        "controller": "HotWordController",
+        "http": "Post",
+        "path": "/hot-word",
+        "norm": "/hot-word",
+        "java_file": "ihui-ai-edu-search-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\search\\biz\\hotword\\web\\HotWordController.java"
+      },
+      {
+        "controller": "HotWordController",
+        "http": "Put",
+        "path": "/hot-word",
+        "norm": "/hot-word",
+        "java_file": "ihui-ai-edu-search-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\search\\biz\\hotword\\web\\HotWordController.java"
+      },
+      {
+        "controller": "HotWordController",
+        "http": "Delete",
+        "path": "/hot-word",
+        "norm": "/hot-word",
+        "java_file": "ihui-ai-edu-search-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\search\\biz\\hotword\\web\\HotWordController.java"
+      }
+    ],
+    "ihui-ai-edu-setting-service": [
+      {
+        "controller": "AgreementController",
+        "http": "Post",
+        "path": "agreement",
+        "norm": "agreement",
+        "java_file": "ihui-ai-edu-setting-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\setting\\biz\\agreement\\web\\AgreementController.java"
+      },
+      {
+        "controller": "AgreementController",
+        "http": "Put",
+        "path": "agreement",
+        "norm": "agreement",
+        "java_file": "ihui-ai-edu-setting-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\setting\\biz\\agreement\\web\\AgreementController.java"
+      },
+      {
+        "controller": "AgreementController",
+        "http": "Get",
+        "path": "public-api/agreement",
+        "norm": "public-api/agreement",
+        "java_file": "ihui-ai-edu-setting-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\setting\\biz\\agreement\\web\\AgreementController.java"
+      },
+      {
+        "controller": "AgreementController",
+        "http": "Get",
+        "path": "agreement/page",
+        "norm": "agreement/page",
+        "java_file": "ihui-ai-edu-setting-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\setting\\biz\\agreement\\web\\AgreementController.java"
+      },
+      {
+        "controller": "CarouselController",
+        "http": "Get",
+        "path": "/public-api/carousel",
+        "norm": "carousel",
+        "java_file": "ihui-ai-edu-setting-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\setting\\biz\\carousel\\web\\CarouselController.java"
+      },
+      {
+        "controller": "CarouselController",
+        "http": "Post",
+        "path": "/carousel",
+        "norm": "/carousel",
+        "java_file": "ihui-ai-edu-setting-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\setting\\biz\\carousel\\web\\CarouselController.java"
+      }
+    ],
+    "ihui-ai-edu-usercenter-service": [
+      {
+        "controller": "CompanyController",
+        "http": "Post",
+        "path": "/company",
+        "norm": "/company",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\company\\web\\CompanyController.java"
+      },
+      {
+        "controller": "CompanyController",
+        "http": "Put",
+        "path": "/company",
+        "norm": "/company",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\company\\web\\CompanyController.java"
+      },
+      {
+        "controller": "DepartmentController",
+        "http": "Post",
+        "path": "/department",
+        "norm": "/department",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\department\\web\\DepartmentController.java"
+      },
+      {
+        "controller": "DepartmentController",
+        "http": "Get",
+        "path": "/department",
+        "norm": "/department",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\department\\web\\DepartmentController.java"
+      },
+      {
+        "controller": "DepartmentController",
+        "http": "Put",
+        "path": "/department",
+        "norm": "/department",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\department\\web\\DepartmentController.java"
+      },
+      {
+        "controller": "DepartmentController",
+        "http": "Delete",
+        "path": "/department",
+        "norm": "/department",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\department\\web\\DepartmentController.java"
+      },
+      {
+        "controller": "DepartmentController",
+        "http": "Get",
+        "path": "/department/by-user-id",
+        "norm": "/department/by-user-id",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\department\\web\\DepartmentController.java"
+      },
+      {
+        "controller": "PostController",
+        "http": "Post",
+        "path": "/posts",
+        "norm": "/posts",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\post\\web\\PostController.java"
+      },
+      {
+        "controller": "PostController",
+        "http": "Delete",
+        "path": "/posts/{id}",
+        "norm": "/posts/{id}",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\post\\web\\PostController.java"
+      },
+      {
+        "controller": "PostController",
+        "http": "Put",
+        "path": "/posts",
+        "norm": "/posts",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\post\\web\\PostController.java"
+      },
+      {
+        "controller": "PostController",
+        "http": "Get",
+        "path": "/posts",
+        "norm": "/posts",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\post\\web\\PostController.java"
+      },
+      {
+        "controller": "PostController",
+        "http": "Get",
+        "path": "/posts/{id}",
+        "norm": "/posts/{id}",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\post\\web\\PostController.java"
+      },
+      {
+        "controller": "UserController",
+        "http": "Get",
+        "path": "/auth-api/by-mobile",
+        "norm": "by-mobile",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\user\\web\\UserController.java"
+      },
+      {
+        "controller": "UserController",
+        "http": "Get",
+        "path": "/auth-api/by-id",
+        "norm": "by-id",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\user\\web\\UserController.java"
+      },
+      {
+        "controller": "UserController",
+        "http": "Put",
+        "path": "/user",
+        "norm": "/user",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\user\\web\\UserController.java"
+      },
+      {
+        "controller": "UserController",
+        "http": "Put",
+        "path": "/user/info",
+        "norm": "/user/info",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\user\\web\\UserController.java"
+      },
+      {
+        "controller": "UserController",
+        "http": "Put",
+        "path": "/user/pwd",
+        "norm": "/user/pwd",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\user\\web\\UserController.java"
+      },
+      {
+        "controller": "UserController",
+        "http": "Delete",
+        "path": "/user",
+        "norm": "/user",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\user\\web\\UserController.java"
+      },
+      {
+        "controller": "UserController",
+        "http": "Put",
+        "path": "/user/reset/pwd",
+        "norm": "/user/reset/pwd",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\base\\user\\web\\UserController.java"
+      },
+      {
+        "controller": "DingTalkController",
+        "http": "Get",
+        "path": "/public-api/ding-talk/user/by-code",
+        "norm": "ding-talk/user/by-code",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\dingtalk\\web\\DingTalkController.java"
+      },
+      {
+        "controller": "LecturerController",
+        "http": "Post",
+        "path": "/lecturer",
+        "norm": "/lecturer",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\lecturer\\web\\LecturerController.java"
+      },
+      {
+        "controller": "LecturerController",
+        "http": "Put",
+        "path": "/lecturer",
+        "norm": "/lecturer",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\lecturer\\web\\LecturerController.java"
+      },
+      {
+        "controller": "LecturerController",
+        "http": "Delete",
+        "path": "/lecturer",
+        "norm": "/lecturer",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\lecturer\\web\\LecturerController.java"
+      },
+      {
+        "controller": "LecturerController",
+        "http": "Get",
+        "path": "/lecturer",
+        "norm": "/lecturer",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\lecturer\\web\\LecturerController.java"
+      },
+      {
+        "controller": "LecturerController",
+        "http": "Get",
+        "path": "/public-api/lecturer",
+        "norm": "lecturer",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\lecturer\\web\\LecturerController.java"
+      },
+      {
+        "controller": "UserCenterStatisticsController",
+        "http": "Get",
+        "path": "/statistics",
+        "norm": "/statistics",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\statistics\\web\\UserCenterStatisticsController.java"
+      },
+      {
+        "controller": "WechatOauthController",
+        "http": "Get",
+        "path": "/public-api/wechat/oauth-config",
+        "norm": "wechat/oauth-config",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\wechat\\web\\WechatOauthController.java"
+      },
+      {
+        "controller": "WechatOauthController",
+        "http": "Get",
+        "path": "/public-api/wechat/oauth-config/userinfo-bycode",
+        "norm": "wechat/oauth-config/userinfo-bycode",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\wechat\\web\\WechatOauthController.java"
+      },
+      {
+        "controller": "WorkWeChatController",
+        "http": "Get",
+        "path": "/work-we-chat/token",
+        "norm": "/work-we-chat/token",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\workwechat\\web\\WorkWeChatController.java"
+      },
+      {
+        "controller": "WorkWeChatController",
+        "http": "Get",
+        "path": "/public-api/work-we-chat/user/by-code",
+        "norm": "work-we-chat/user/by-code",
+        "java_file": "ihui-ai-edu-usercenter-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\usercenter\\biz\\workwechat\\web\\WorkWeChatController.java"
+      }
+    ],
+    "ihui-ai-edu-visit-tracking-service": [
+      {
+        "controller": "VisitLogController",
+        "http": "Post",
+        "path": "/public-api/visit-log",
+        "norm": "visit-log",
+        "java_file": "ihui-ai-edu-visit-tracking-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\visittracking\\biz\\visit\\web\\VisitLogController.java"
+      },
+      {
+        "controller": "VisitLogController",
+        "http": "Get",
+        "path": "/visit-log/summary",
+        "norm": "/visit-log/summary",
+        "java_file": "ihui-ai-edu-visit-tracking-service\\src\\main\\java\\com\\yjs\\cloud\\learning\\visittracking\\biz\\visit\\web\\VisitLogController.java"
+      }
+    ]
+  }
+}

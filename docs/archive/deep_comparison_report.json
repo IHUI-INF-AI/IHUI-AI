@@ -1,0 +1,4748 @@
+{
+  "java_total_endpoints": 677,
+  "python_total_endpoints": 1423,
+  "matched": 0,
+  "unmatched": 677,
+  "coverage": "0.0%",
+  "unmatched_details": [
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Post",
+      "path": "/auth-api/answer",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Put",
+      "path": "/auth-api/answer",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Delete",
+      "path": "/auth-api/answer",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Get",
+      "path": "/answer/list",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Get",
+      "path": "/public-api/answer/list",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Get",
+      "path": "/public-api/answer/list/by-ids",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Get",
+      "path": "/public-api/answer",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Get",
+      "path": "/auth-api/member/answer/list",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "http": "Get",
+      "path": "/public-api/answer/member/count",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/admin/list",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/{id}",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/{id}",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category/image",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/image",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show-index",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/public-api/category/list",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Post",
+      "path": "/auth-api/question",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Put",
+      "path": "/auth-api/question",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Delete",
+      "path": "/auth-api/question",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Get",
+      "path": "/question/list",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Get",
+      "path": "/public-api/question/list",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Get",
+      "path": "/public-api/question/list/by-ids",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Get",
+      "path": "/public-api/question",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Get",
+      "path": "/public-api/question/member/count",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "http": "Get",
+      "path": "/auth-api/member/question/list",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AskStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/ask"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "AuthorityController",
+      "http": "Get",
+      "path": "/authorities",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "AuthorityController",
+      "http": "Get",
+      "path": "/authorities/tree",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "AuthController",
+      "http": "Get",
+      "path": "/public-api/auth-code",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "AuthController",
+      "http": "Post",
+      "path": "/public-api/auth-code/check",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "KeyPairController",
+      "http": "Get",
+      "path": "/jwt/publicKey",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Get",
+      "path": "/role/list",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Get",
+      "path": "/role/page/list",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Post",
+      "path": "/role",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Put",
+      "path": "/role",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Delete",
+      "path": "/role",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Get",
+      "path": "/role/authority/list",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Put",
+      "path": "/role/authority/update",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Get",
+      "path": "/role/user/list",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "http": "Put",
+      "path": "/role/user/list",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "SsoController",
+      "http": "Post",
+      "path": "/sso/admin/login",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "SsoController",
+      "http": "Post",
+      "path": "/sso/member/login",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "SsoController",
+      "http": "Post",
+      "path": "/sso/uuid/login",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "SsoController",
+      "http": "Post",
+      "path": "/sso/admin/create",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "SsoController",
+      "http": "Post",
+      "path": "/sso/member/create",
+      "python_module_hint": "/auth"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Post",
+      "path": "/auth-api/comment",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Delete",
+      "path": "/auth-api/comment",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Get",
+      "path": "/public-api/comment/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Get",
+      "path": "/public-api/comment/list/by-ids",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Get",
+      "path": "/public-api/reply-comment/list/by-ids",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Post",
+      "path": "/auth-api/reply/comment",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Delete",
+      "path": "/auth-api/reply/comment",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Get",
+      "path": "/public-api/comment/count",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Get",
+      "path": "/auth-api/current-member/comment/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "http": "Get",
+      "path": "/public-api/comment/type/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "FavoriteController",
+      "http": "Post",
+      "path": "/auth-api/favorite",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "FavoriteController",
+      "http": "Delete",
+      "path": "/auth-api/favorite",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "FavoriteController",
+      "http": "Get",
+      "path": "/auth-api/favorite/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "FavoriteController",
+      "http": "Get",
+      "path": "/public-api/favorite/count",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "FavoriteController",
+      "http": "Get",
+      "path": "/auth-api/favorite/member/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "FavoriteController",
+      "http": "Get",
+      "path": "/public-api/favorite/type/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "LikeController",
+      "http": "Post",
+      "path": "/auth-api/like",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "LikeController",
+      "http": "Put",
+      "path": "/auth-api/like",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "LikeController",
+      "http": "Get",
+      "path": "/auth-api/like/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "LikeController",
+      "http": "Get",
+      "path": "/public-api/like/count",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WordController",
+      "http": "Get",
+      "path": "/sensitive-word/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WordController",
+      "http": "Post",
+      "path": "/sensitive-word",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WordController",
+      "http": "Put",
+      "path": "/sensitive-word",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WordController",
+      "http": "Delete",
+      "path": "/sensitive-word",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WatchController",
+      "http": "Post",
+      "path": "/public-api/watch",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WatchController",
+      "http": "Get",
+      "path": "/public-api/watch/count",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WatchController",
+      "http": "Get",
+      "path": "/auth-api/watch/page/list",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WatchController",
+      "http": "Get",
+      "path": "/public-api/watch/count/group-by",
+      "python_module_hint": "/behavior"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/admin/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/{id}",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/{id}",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category/image",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/image",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show-index",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/public-api/category/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Post",
+      "path": "/auth-api/circle",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Put",
+      "path": "/auth-api/circle",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Delete",
+      "path": "/auth-api/circle",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Get",
+      "path": "/circle/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Get",
+      "path": "/public-api/circle/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Get",
+      "path": "/public-api/circle/list/by-ids",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Get",
+      "path": "/public-api/circle",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Get",
+      "path": "/public-api/circle/hot/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Get",
+      "path": "/public-api/circle/member/count",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Get",
+      "path": "/auth-api/member/circle/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "http": "Get",
+      "path": "/auth-api/member/join/circle/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleMemberController",
+      "http": "Post",
+      "path": "/auth-api/member",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleMemberController",
+      "http": "Delete",
+      "path": "/auth-api/member",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleMemberController",
+      "http": "Get",
+      "path": "/public-api/member",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleMemberController",
+      "http": "Get",
+      "path": "/public-api/member/count",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Post",
+      "path": "/auth-api/dynamic",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Put",
+      "path": "/auth-api/dynamic",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Delete",
+      "path": "/dynamic",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Delete",
+      "path": "/auth-api/dynamic",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Get",
+      "path": "/dynamic/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Get",
+      "path": "/public-api/dynamic/list",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Get",
+      "path": "/public-api/dynamic/list/by-ids",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Get",
+      "path": "/public-api/dynamic",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "http": "Get",
+      "path": "/public-api/dynamic/count",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/circle"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Post",
+      "path": "/auth-api/article",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Put",
+      "path": "/auth-api/article",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Delete",
+      "path": "/auth-api/article",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Get",
+      "path": "/article/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Get",
+      "path": "/public-api/article/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Get",
+      "path": "/public-api/article/list/by-ids",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Get",
+      "path": "/public-api/article",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Post",
+      "path": "/article/recommend",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Delete",
+      "path": "/article/recommend",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Get",
+      "path": "/public-api/article/recommend/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Post",
+      "path": "/article/top",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Delete",
+      "path": "/article/top",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Get",
+      "path": "/public-api/article/top/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Get",
+      "path": "/public-api/article/member/count",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "http": "Get",
+      "path": "/auth-api/member/article/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/admin/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/{id}",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/{id}",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category/image",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/image",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show-index",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/public-api/category/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Post",
+      "path": "/news",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Put",
+      "path": "/news",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Delete",
+      "path": "/news",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Get",
+      "path": "/news/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Get",
+      "path": "/public-api/news/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Get",
+      "path": "/public-api/news/list/by-ids",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Get",
+      "path": "/public-api/news",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Post",
+      "path": "/news/recommend",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Delete",
+      "path": "/news/recommend",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Get",
+      "path": "/public-api/news/recommend/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Post",
+      "path": "/news/top",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Delete",
+      "path": "/news/top",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "http": "Get",
+      "path": "/public-api/news/top/list",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ContentStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/content"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/admin/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/{id}",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/{id}",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category/image",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/image",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show-index",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/public-api/category/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterController",
+      "http": "Post",
+      "path": "/exam/chapter",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterController",
+      "http": "Put",
+      "path": "/exam/chapter",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterController",
+      "http": "Delete",
+      "path": "/exam/chapter",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterController",
+      "http": "Get",
+      "path": "/exam/chapter/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterController",
+      "http": "Get",
+      "path": "/public-api/exam/chapter/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterController",
+      "http": "Put",
+      "path": "/exam/chapter/sort-order",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterSectionController",
+      "http": "Post",
+      "path": "/exam/chapter-section",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterSectionController",
+      "http": "Put",
+      "path": "/exam/chapter-section",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterSectionController",
+      "http": "Delete",
+      "path": "/exam/chapter-section",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Post",
+      "path": "/exam",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Put",
+      "path": "/exam",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Get",
+      "path": "/exam/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Get",
+      "path": "/public-api/exam/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Get",
+      "path": "/exam",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Get",
+      "path": "/public-api/exam",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Delete",
+      "path": "/exam",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Put",
+      "path": "/exam/publish",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Put",
+      "path": "/exam/un-publish",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Get",
+      "path": "/public-api/recommend",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Get",
+      "path": "/public-api/hot",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Get",
+      "path": "/public-api/list/by-ids",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "http": "Get",
+      "path": "/auth-api/member/sign-up/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "http": "Get",
+      "path": "/paper/category/admin/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "http": "Get",
+      "path": "/paper/category/{id}",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "http": "Post",
+      "path": "/paper/category",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "http": "Put",
+      "path": "/paper/category",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "http": "Delete",
+      "path": "/paper/category/{id}",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "http": "Put",
+      "path": "/paper/category/is-show",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "http": "Put",
+      "path": "/paper/category/is-show-index",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "http": "Get",
+      "path": "/paper/category/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "http": "Get",
+      "path": "/paper",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "http": "Get",
+      "path": "/auth-api/paper",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "http": "Post",
+      "path": "/paper",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "http": "Put",
+      "path": "/paper",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "http": "Delete",
+      "path": "/paper",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "http": "Get",
+      "path": "/paper/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "http": "Put",
+      "path": "/paper/publish",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "http": "Put",
+      "path": "/paper/un-publish",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperQuestionController",
+      "http": "Get",
+      "path": "/paper/question/by-paper-id",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "http": "Get",
+      "path": "/question-lib/category/admin/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "http": "Get",
+      "path": "/question-lib/category/{id}",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "http": "Post",
+      "path": "/question-lib/category",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "http": "Put",
+      "path": "/question-lib/category",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "http": "Delete",
+      "path": "/question-lib/category/{id}",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "http": "Put",
+      "path": "/question-lib/category/is-show",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "http": "Put",
+      "path": "/question-lib/category/is-show-index",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "http": "Get",
+      "path": "/question-lib/category/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionController",
+      "http": "Get",
+      "path": "/question-lib/question/{id}",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionController",
+      "http": "Post",
+      "path": "/question-lib/question",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionController",
+      "http": "Put",
+      "path": "/question-lib/question",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionController",
+      "http": "Delete",
+      "path": "/question-lib/question",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionController",
+      "http": "Get",
+      "path": "/question-lib/question",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Post",
+      "path": "/auth-api/record",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Put",
+      "path": "/auth-api/record",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Put",
+      "path": "/auth-api/record/submit",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/auth-api/record",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/auth-api/member/sign-up/record/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/record/mark/paper/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/auth-api/paper/record/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Put",
+      "path": "/record/manual/mark/paper",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Post",
+      "path": "/auth-api/mark/paper",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/record/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/auth-api/record/check-submitted",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "SignUpController",
+      "http": "Post",
+      "path": "/auth-api/sign-up",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "SignUpController",
+      "http": "Delete",
+      "path": "/auth-api/sign-up",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "SignUpController",
+      "http": "Get",
+      "path": "/public-api/sign-up",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "SignUpController",
+      "http": "Get",
+      "path": "/sign-up/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "WrongQuestionController",
+      "http": "Post",
+      "path": "/auth-api/wrong-question",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "WrongQuestionController",
+      "http": "Delete",
+      "path": "/auth-api/wrong-question",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "WrongQuestionController",
+      "http": "Get",
+      "path": "/auth-api/wrong-question/list",
+      "python_module_hint": "/exam"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonAccessController",
+      "http": "Put",
+      "path": "/lesson/access",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonAccessController",
+      "http": "Get",
+      "path": "/lesson/access/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/admin/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/{id}",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/{id}",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show-index",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/public-api/category/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Post",
+      "path": "/certificate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Get",
+      "path": "/certificate/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Get",
+      "path": "/certificate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Delete",
+      "path": "/certificate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Put",
+      "path": "/certificate/valid",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Put",
+      "path": "/certificate/suspended",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Put",
+      "path": "/certificate/revoked",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Put",
+      "path": "/certificate/cancelled",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Put",
+      "path": "/certificate/expired",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Get",
+      "path": "/auth-api/certificate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Get",
+      "path": "/auth-api/certificate/byLessonId",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "http": "Get",
+      "path": "/auth-api/certificate/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "http": "Post",
+      "path": "/certificate-template",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "http": "Put",
+      "path": "/certificate-template",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "http": "Get",
+      "path": "/certificate-template/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "http": "Get",
+      "path": "/certificate-template",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "http": "Delete",
+      "path": "/certificate-template",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "http": "Put",
+      "path": "/certificate-template/active",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "http": "Put",
+      "path": "/certificate-template/inactive",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "http": "Get",
+      "path": "/auth-api/certificate-template",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Post",
+      "path": "/auth-api/exampaper/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Put",
+      "path": "/auth-api/exampaper/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Put",
+      "path": "/auth-api/exampaper/record/submit",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Get",
+      "path": "/auth-api/exampaper/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Get",
+      "path": "/auth-api/exampaper/record/draft",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Get",
+      "path": "/auth-api/member/sign-up/exampaper/record/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Get",
+      "path": "/exampaper/record/mark/paper/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Get",
+      "path": "/auth-api/exampaper/record/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Put",
+      "path": "/exampaper/record/manual/mark/paper",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Get",
+      "path": "/exampaper/record/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "http": "Get",
+      "path": "/auth-api/exampaper/record/check-submitted",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkController",
+      "http": "Post",
+      "path": "/lesson/homework",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkController",
+      "http": "Put",
+      "path": "/lesson/homework",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkController",
+      "http": "Get",
+      "path": "/lesson/homework",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkRecordController",
+      "http": "Post",
+      "path": "auth-api/homework/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkRecordController",
+      "http": "Put",
+      "path": "auth-api/homework/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkRecordController",
+      "http": "Put",
+      "path": "homework/record/approval/pass",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkRecordController",
+      "http": "Put",
+      "path": "homework/record/approval/reject",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkRecordController",
+      "http": "Get",
+      "path": "auth-api/homework/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkRecordController",
+      "http": "Get",
+      "path": "homework/record/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Post",
+      "path": "/learn-map",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Put",
+      "path": "/learn-map",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Get",
+      "path": "/learn-map/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Get",
+      "path": "/learn-map",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Delete",
+      "path": "/learn-map",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Put",
+      "path": "/learn-map/publish",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Put",
+      "path": "/learn-map/un-publish",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Get",
+      "path": "/public-api/learn-map/recommend",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Get",
+      "path": "/public-api/learn-map/hot",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Get",
+      "path": "/public-api/learn-map",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Get",
+      "path": "/public-api/learn-map/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "http": "Get",
+      "path": "/auth-api/learn-map/favorite/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterController",
+      "http": "Post",
+      "path": "/lesson/chapter",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterController",
+      "http": "Put",
+      "path": "/lesson/chapter",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterController",
+      "http": "Delete",
+      "path": "/lesson/chapter",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterController",
+      "http": "Get",
+      "path": "/lesson/chapter/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterController",
+      "http": "Get",
+      "path": "/public-api/lesson/chapter/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterController",
+      "http": "Put",
+      "path": "/lesson/chapter/sort-order",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterSectionController",
+      "http": "Post",
+      "path": "/lesson/chapter-section",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterSectionController",
+      "http": "Put",
+      "path": "/lesson/chapter-section",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterSectionController",
+      "http": "Delete",
+      "path": "/lesson/chapter-section",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Post",
+      "path": "/lesson",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Put",
+      "path": "/lesson",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Put",
+      "path": "/lesson/certificate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Put",
+      "path": "/lesson/exampaper",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/lesson/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/auth-api/lesson/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/lesson",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Delete",
+      "path": "/lesson",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Put",
+      "path": "/lesson/publish",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Put",
+      "path": "/lesson/un-publish",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/public-api/lesson/recommend/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/public-api/lesson/hottest/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/public-api/lesson/newest/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/public-api/lesson",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/public-api/lesson/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/public-api/lesson/list/by-ids",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/auth-api/lesson/favorite/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/auth-api/lesson/member/learn/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "http": "Get",
+      "path": "/public-api/lesson/count/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonOrderController",
+      "http": "Post",
+      "path": "/auth-api/lesson/order",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonOrderController",
+      "http": "Post",
+      "path": "/auth-api/lesson/order/payment",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonOrderController",
+      "http": "Post",
+      "path": "/public-api/order/payment/callback",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RateController",
+      "http": "Post",
+      "path": "/auth-api/lesson/rate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RateController",
+      "http": "Get",
+      "path": "/lesson/rate/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RateController",
+      "http": "Get",
+      "path": "/lesson/rate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RateController",
+      "http": "Delete",
+      "path": "/lesson/rate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RateController",
+      "http": "Get",
+      "path": "/auth-api/lesson/rate",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RateController",
+      "http": "Get",
+      "path": "/auth-api/lesson/rate/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RecordController",
+      "http": "Post",
+      "path": "/auth-api/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RecordController",
+      "http": "Put",
+      "path": "/auth-api/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/auth-api/record",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ReportController",
+      "http": "Get",
+      "path": "/report/lesson/sign",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ReportController",
+      "http": "Get",
+      "path": "/report/lesson/study",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ReportController",
+      "http": "Get",
+      "path": "/report/member/study",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ReportController",
+      "http": "Get",
+      "path": "/report/company/member/signup",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Post",
+      "path": "/auth-api/sign-up",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Post",
+      "path": "/auth-api/sign-up/batch",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Post",
+      "path": "/public-api/sign-up",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Delete",
+      "path": "/auth-api/sign-up",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Get",
+      "path": "/public-api/sign-up",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Get",
+      "path": "/auth-api/sign-up/total-learn-time",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Get",
+      "path": "/auth-api/sign-up/today-learn-time",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Get",
+      "path": "/auth-api/sign-up/learn-time-rank-percent",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Get",
+      "path": "/sign-up/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "http": "Get",
+      "path": "/sign-up/checkAndUpdateStatus",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "StatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "http": "Post",
+      "path": "/lesson/task",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "http": "Put",
+      "path": "/lesson/task",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "http": "Delete",
+      "path": "/lesson/task",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "http": "Get",
+      "path": "/lesson/task",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "http": "Get",
+      "path": "/lesson/task/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "http": "Put",
+      "path": "/lesson/task/enable",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "http": "Put",
+      "path": "/lesson/task/disable",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "http": "Get",
+      "path": "/auth-api/lesson/task/list/member-progress",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Post",
+      "path": "/topic",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Put",
+      "path": "/topic",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Get",
+      "path": "/topic/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Get",
+      "path": "/topic",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Delete",
+      "path": "/topic",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Put",
+      "path": "/topic/publish",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Put",
+      "path": "/topic/un-publish",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Get",
+      "path": "/public-api/topic/recommend",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Get",
+      "path": "/public-api/topic/hot",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Get",
+      "path": "/public-api/topic",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Get",
+      "path": "/public-api/topic/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "http": "Get",
+      "path": "/auth-api/topic/favorite/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "http": "Get",
+      "path": "/topic/category/admin/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "http": "Get",
+      "path": "/topic/category/{id}",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "http": "Post",
+      "path": "/topic/category",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "http": "Put",
+      "path": "/topic/category",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "http": "Delete",
+      "path": "/topic/category/{id}",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "http": "Put",
+      "path": "/topic/category/is-show",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "http": "Put",
+      "path": "/topic/category/is-show-index",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "http": "Get",
+      "path": "/public-api/topic/category/list",
+      "python_module_hint": "/learn"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/admin/list",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/{id}",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/{id}",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category/image",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/image",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show-index",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/public-api/category/list",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Post",
+      "path": "/channel",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Put",
+      "path": "/channel",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/channel/list",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/public-api/channel/list",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/public-api/channel/list/by-ids",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/channel/{id}",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/channel/stream-info/{id}",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/public-api/channel",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "http": "Delete",
+      "path": "/channel",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "LiveStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "SubscribeController",
+      "http": "Post",
+      "path": "/auth-api/subscribe",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "SubscribeController",
+      "http": "Delete",
+      "path": "/auth-api/subscribe",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "SubscribeController",
+      "http": "Get",
+      "path": "/auth-api/subscribe/count",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "SubscribeController",
+      "http": "Get",
+      "path": "/auth-api/subscribe/list/by-channel-id",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "SubscribeController",
+      "http": "Get",
+      "path": "/auth-api/subscribe//by-channel-id-and-member-id",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveNotifyController",
+      "http": "Post",
+      "path": "/public-api/notify/stream/begin",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveNotifyController",
+      "http": "Post",
+      "path": "/public-api/notify/stream/end",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveStreamController",
+      "http": "Get",
+      "path": "/tencent/cloud/live/stream",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveStreamController",
+      "http": "Get",
+      "path": "/tencent/cloud/live/stream/channel-id",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveStreamController",
+      "http": "Get",
+      "path": "/tencent/cloud/live/callback/templates",
+      "python_module_hint": "/live"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Get",
+      "path": "/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Get",
+      "path": "/unaudited/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Get",
+      "path": "/auth-api/by-mobile",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/auth-api/create",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/avatar",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/avatar/v2",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/idphoto",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/name",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/mobile",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/pwd",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/email",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/password",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/create",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/public-api/register",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/public-api/register/mobile",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/public-api/send/auth-code",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Get",
+      "path": "/public-api/by-ids",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Get",
+      "path": "/auth-api/by-id",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Get",
+      "path": "/auth-api/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/level",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/public-api/pwd/send/auth-code",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/public-api/pwd/check/auth-code",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/public-api/pwd/reset",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/pwd/reset",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/seal",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/unseal",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/update",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Delete",
+      "path": "/delete",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/realname",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/auth-api/update/name/v2",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/approved",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Put",
+      "path": "/reject",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/auth-api/createbywechatuserinfo",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Post",
+      "path": "/import/excel",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "CheckInController",
+      "http": "Post",
+      "path": "/auth-api/check-in",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "CheckInController",
+      "http": "Get",
+      "path": "/public-api/check-in",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "http": "Post",
+      "path": "/company",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "http": "Put",
+      "path": "/company",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "http": "Get",
+      "path": "/company/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "http": "Get",
+      "path": "/public-api/company/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "http": "Delete",
+      "path": "/company",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "http": "Get",
+      "path": "/company",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "http": "Put",
+      "path": "/company/enable",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "http": "Put",
+      "path": "/company/disable",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "http": "Post",
+      "path": "/company/type",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "http": "Put",
+      "path": "/company/type",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "http": "Delete",
+      "path": "/company/type",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "http": "Get",
+      "path": "/company/type",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "http": "Put",
+      "path": "/company/type/enable",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "http": "Put",
+      "path": "/company/type/disable",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "http": "Get",
+      "path": "/company/type/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "http": "Get",
+      "path": "/auth-api/follow/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "http": "Get",
+      "path": "/auth-api/follow/fans/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "http": "Post",
+      "path": "/auth-api/follow",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "http": "Put",
+      "path": "/auth-api/follow",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "http": "Delete",
+      "path": "/auth-api/follow",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "http": "Get",
+      "path": "/auth-api/follow",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "http": "Get",
+      "path": "/public-api/follow/member/count",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberGroupController",
+      "http": "Get",
+      "path": "/group/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberGroupController",
+      "http": "Post",
+      "path": "/group",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberGroupController",
+      "http": "Put",
+      "path": "/group",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberGroupController",
+      "http": "Delete",
+      "path": "/group",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberGroupController",
+      "http": "Put",
+      "path": "/group/enable",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberGroupController",
+      "http": "Put",
+      "path": "/group/disable",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberLevelController",
+      "http": "Get",
+      "path": "/level/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberLevelController",
+      "http": "Get",
+      "path": "/level",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberLevelController",
+      "http": "Post",
+      "path": "/level",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberLevelController",
+      "http": "Put",
+      "path": "/level",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberLevelController",
+      "http": "Delete",
+      "path": "/level",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberPostController",
+      "http": "Get",
+      "path": "/post/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberPostController",
+      "http": "Post",
+      "path": "/post",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberPostController",
+      "http": "Put",
+      "path": "/post",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberPostController",
+      "http": "Delete",
+      "path": "/post",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberPostController",
+      "http": "Put",
+      "path": "/post/enable",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberPostController",
+      "http": "Put",
+      "path": "/post/disable",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberTagController",
+      "http": "Get",
+      "path": "/tag/list",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberTagController",
+      "http": "Post",
+      "path": "/tag",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberTagController",
+      "http": "Put",
+      "path": "/tag",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberTagController",
+      "http": "Delete",
+      "path": "/tag",
+      "python_module_hint": "/member"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "http": "Post",
+      "path": "/announcement",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "http": "Put",
+      "path": "/announcement",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "http": "Delete",
+      "path": "/announcement",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "http": "Get",
+      "path": "/announcement",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "http": "Get",
+      "path": "/announcement/list",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "http": "Get",
+      "path": "/public-api/announcement/list",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "http": "Get",
+      "path": "/public-api/announcement",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "http": "Post",
+      "path": "/public-api/announcement/read",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "NoticeController",
+      "http": "Post",
+      "path": "/notice",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "NoticeController",
+      "http": "Delete",
+      "path": "/notice",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "NoticeController",
+      "http": "Get",
+      "path": "/notice/list",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "NoticeController",
+      "http": "Get",
+      "path": "/auth-api/notice/list",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "NoticeController",
+      "http": "Put",
+      "path": "/public-api/notice/read",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "http": "Post",
+      "path": "/auth-api/private-letter",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "http": "Delete",
+      "path": "/auth-api/private-letter",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "http": "Get",
+      "path": "/auth-api/private-letter",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "http": "Get",
+      "path": "/auth-api/private-letter/member/list",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "http": "Get",
+      "path": "/auth-api/private-letter/member",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "http": "Get",
+      "path": "/auth-api/private-letter/list",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "http": "Get",
+      "path": "/auth-api/private-letter/new/list",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "MessageStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "TemplateController",
+      "http": "Get",
+      "path": "/template/list",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "TemplateController",
+      "http": "Put",
+      "path": "/template",
+      "python_module_hint": "/message"
+    },
+    {
+      "service": "ihui-ai-edu-notification-service",
+      "controller": "MailController",
+      "http": "Post",
+      "path": "/public-api/mail/send",
+      "python_module_hint": "/notification"
+    },
+    {
+      "service": "ihui-ai-edu-notification-service",
+      "controller": "MailController",
+      "http": "Post",
+      "path": "/public-api/mail/send/html",
+      "python_module_hint": "/notification"
+    },
+    {
+      "service": "ihui-ai-edu-notification-service",
+      "controller": "SmsController",
+      "http": "Post",
+      "path": "/public-api/sms/send",
+      "python_module_hint": "/notification"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Post",
+      "path": "/auth-api/invoice/application",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Post",
+      "path": "/invoice/application",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Put",
+      "path": "/auth-api/invoice/application",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Put",
+      "path": "/invoice/application",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Get",
+      "path": "/auth-api/invoice/application",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Get",
+      "path": "/invoice/application/list",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Get",
+      "path": "/auth-api/invoice/application/list",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Delete",
+      "path": "/auth-api/invoice/application",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Delete",
+      "path": "/invoice/application",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Post",
+      "path": "/invoice/application/approved",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Post",
+      "path": "/invoice/application/rejected",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Post",
+      "path": "/invoice/application/invoicing",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Post",
+      "path": "/invoice/application/invoiced",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "http": "Post",
+      "path": "/invoice/application/canceled",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Post",
+      "path": "/auth-api/invoice/title",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Post",
+      "path": "/invoice/title",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Put",
+      "path": "/auth-api/invoice/title",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Put",
+      "path": "/invoice/title",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Get",
+      "path": "/auth-api/invoice/title",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Get",
+      "path": "/invoice/title/list",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Get",
+      "path": "/auth-api/invoice/title/list",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Delete",
+      "path": "/auth-api/invoice/title",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "http": "Delete",
+      "path": "/invoice/title",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Post",
+      "path": "/auth-api/order",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Post",
+      "path": "/auth-api/order/cancel",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Get",
+      "path": "/auth-api/order",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Get",
+      "path": "/order/list",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Get",
+      "path": "/auth-api/order/list",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Post",
+      "path": "/public-api/order/update/status",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Post",
+      "path": "/auth-api/order/pre-get-order-amount",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Post",
+      "path": "/auth-api/order/get-order-amount",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "http": "Post",
+      "path": "/auth-api/order/payment",
+      "python_module_hint": "/order"
+    },
+    {
+      "service": "ihui-ai-edu-oss-service",
+      "controller": "OssController",
+      "http": "Post",
+      "path": "/auth-api/{service}/{module}/{fileType}",
+      "python_module_hint": "/oss"
+    },
+    {
+      "service": "ihui-ai-edu-oss-service",
+      "controller": "OssController",
+      "http": "Delete",
+      "path": "/file",
+      "python_module_hint": "/oss"
+    },
+    {
+      "service": "ihui-ai-edu-oss-service",
+      "controller": "OssController",
+      "http": "Post",
+      "path": "/auth-api/base64/{service}/{module}/{fileType}",
+      "python_module_hint": "/oss"
+    },
+    {
+      "service": "ihui-ai-edu-oss-service",
+      "controller": "OssController",
+      "http": "Get",
+      "path": "/to-base64",
+      "python_module_hint": "/oss"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "AliPayNotifyController",
+      "http": "Post",
+      "path": "/public-api/alipay/notify",
+      "python_module_hint": "/pay"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "TradeController",
+      "http": "Post",
+      "path": "/auth-api/trade/payment",
+      "python_module_hint": "/pay"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "TradeController",
+      "http": "Post",
+      "path": "/trade/refund",
+      "python_module_hint": "/pay"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "WechatpayNotifyController",
+      "http": "Post",
+      "path": "/public-api/wechatpay/notify",
+      "python_module_hint": "/pay"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "WechatpayNotifyController",
+      "http": "Post",
+      "path": "/public-api/wechatpay/notify/v3",
+      "python_module_hint": "/pay"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/channel/list",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/channel/all",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "ChannelController",
+      "http": "Get",
+      "path": "/channel",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "ChannelController",
+      "http": "Post",
+      "path": "/channel",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "ChannelController",
+      "http": "Put",
+      "path": "/channel",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "ChannelController",
+      "http": "Delete",
+      "path": "/channel",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointChannelRelationController",
+      "http": "Put",
+      "path": "/point/channel/relation",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointChannelRelationController",
+      "http": "Get",
+      "path": "/point/channel/relation/list",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointController",
+      "http": "Post",
+      "path": "/point",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointController",
+      "http": "Put",
+      "path": "/point",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointController",
+      "http": "Delete",
+      "path": "/point",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointController",
+      "http": "Get",
+      "path": "/point/list",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointController",
+      "http": "Get",
+      "path": "/point",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "http": "Post",
+      "path": "/record/increase",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "http": "Post",
+      "path": "/record/decrease",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "http": "Post",
+      "path": "/record/fallback",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "http": "Post",
+      "path": "/record/recycle",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/record/list",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/auth-api/record/list",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/public-api/member/point",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/point"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/admin/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/category/{id}",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/{id}",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Post",
+      "path": "/category/image",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Delete",
+      "path": "/category/image",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Put",
+      "path": "/category/is-show-index",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "http": "Get",
+      "path": "/public-api/category/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "http": "Post",
+      "path": "/resource/product",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "http": "Put",
+      "path": "/resource/product",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "http": "Delete",
+      "path": "/resource/product",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "http": "Get",
+      "path": "/resource/product/page/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "http": "Get",
+      "path": "/resource/product/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "http": "Get",
+      "path": "/public-api/resource/product/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "http": "Get",
+      "path": "/public-api/resource/product",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "http": "Put",
+      "path": "/resource/product/update-status",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Post",
+      "path": "/auth-api/resource",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Put",
+      "path": "/auth-api/resource",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Delete",
+      "path": "/auth-api/resource",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/resource/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/public-api/resource/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/auth-api/resource/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/public-api/resource/list/by-ids",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/public-api/resource",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Post",
+      "path": "/auth-api/resource/download",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/public-api/resource/type/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Put",
+      "path": "/public-api/resource/published",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/auth-api/member/resource/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/auth-api/member/download/resource/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/auth-api/member/last-search-record",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "http": "Get",
+      "path": "/public-api/resource/recommend-list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "http": "Post",
+      "path": "/resource/tag",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "http": "Put",
+      "path": "/resource/tag",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "http": "Delete",
+      "path": "/resource/tag",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "http": "Get",
+      "path": "/resource/tag/page/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "http": "Get",
+      "path": "/resource/tag/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "http": "Get",
+      "path": "/public-api/resource/tag/list",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "http": "Get",
+      "path": "/public-api/resource/tag",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "http": "Put",
+      "path": "/resource/tag/update-status",
+      "python_module_hint": "/resource"
+    },
+    {
+      "service": "ihui-ai-edu-schedule-service",
+      "controller": "WatchController",
+      "http": "Get",
+      "path": "/watch",
+      "python_module_hint": "/schedule"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "ContentController",
+      "http": "Post",
+      "path": "/public-api/content",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "ContentController",
+      "http": "Put",
+      "path": "/public-api/content",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "ContentController",
+      "http": "Delete",
+      "path": "/public-api/content",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "ContentController",
+      "http": "Get",
+      "path": "/public-api/content",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "ContentController",
+      "http": "Get",
+      "path": "/public-api/content/type",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "HotWordController",
+      "http": "Get",
+      "path": "/hot-word/list",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "HotWordController",
+      "http": "Get",
+      "path": "/public-api/hot-word/list",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "HotWordController",
+      "http": "Post",
+      "path": "/hot-word",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "HotWordController",
+      "http": "Put",
+      "path": "/hot-word",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "HotWordController",
+      "http": "Delete",
+      "path": "/hot-word",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "RecordController",
+      "http": "Get",
+      "path": "/record/list",
+      "python_module_hint": "/search"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "AgreementController",
+      "http": "Post",
+      "path": "agreement",
+      "python_module_hint": "/setting"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "AgreementController",
+      "http": "Put",
+      "path": "agreement",
+      "python_module_hint": "/setting"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "AgreementController",
+      "http": "Get",
+      "path": "public-api/agreement",
+      "python_module_hint": "/setting"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "AgreementController",
+      "http": "Get",
+      "path": "agreement/page",
+      "python_module_hint": "/setting"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "CarouselController",
+      "http": "Get",
+      "path": "/public-api/carousel",
+      "python_module_hint": "/setting"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "CarouselController",
+      "http": "Post",
+      "path": "/carousel",
+      "python_module_hint": "/setting"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "CompanyController",
+      "http": "Post",
+      "path": "/company",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "CompanyController",
+      "http": "Put",
+      "path": "/company",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "CompanyController",
+      "http": "Get",
+      "path": "/company/list",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DepartmentController",
+      "http": "Get",
+      "path": "/department/list",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DepartmentController",
+      "http": "Post",
+      "path": "/department",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DepartmentController",
+      "http": "Get",
+      "path": "/department",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DepartmentController",
+      "http": "Put",
+      "path": "/department",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DepartmentController",
+      "http": "Delete",
+      "path": "/department",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DepartmentController",
+      "http": "Get",
+      "path": "/department/by-user-id",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "PostController",
+      "http": "Post",
+      "path": "/posts",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "PostController",
+      "http": "Delete",
+      "path": "/posts/{id}",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "PostController",
+      "http": "Put",
+      "path": "/posts",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "PostController",
+      "http": "Get",
+      "path": "/posts",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "PostController",
+      "http": "Get",
+      "path": "/posts/{id}",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Get",
+      "path": "/auth-api/by-mobile",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Get",
+      "path": "/auth-api/by-id",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Post",
+      "path": "/auth-api/create",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Get",
+      "path": "/list",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Post",
+      "path": "/user",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Put",
+      "path": "/user",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Put",
+      "path": "/user/info",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Put",
+      "path": "/user/pwd",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Delete",
+      "path": "/user",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "http": "Put",
+      "path": "/user/reset/pwd",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DingTalkController",
+      "http": "Get",
+      "path": "/public-api/ding-talk/config",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DingTalkController",
+      "http": "Get",
+      "path": "/public-api/ding-talk/user/by-code",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "LecturerController",
+      "http": "Post",
+      "path": "/lecturer",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "LecturerController",
+      "http": "Put",
+      "path": "/lecturer",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "LecturerController",
+      "http": "Delete",
+      "path": "/lecturer",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "LecturerController",
+      "http": "Get",
+      "path": "/lecturer/list",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "LecturerController",
+      "http": "Get",
+      "path": "/lecturer",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "LecturerController",
+      "http": "Get",
+      "path": "/public-api/lecturer",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserCenterStatisticsController",
+      "http": "Get",
+      "path": "/statistics",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WechatOauthController",
+      "http": "Get",
+      "path": "/public-api/wechat/oauth-config",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WechatOauthController",
+      "http": "Get",
+      "path": "/public-api/wechat/oauth-config/userinfo-bycode",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WorkWeChatController",
+      "http": "Get",
+      "path": "/work-we-chat/token",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WorkWeChatController",
+      "http": "Get",
+      "path": "/public-api/work-we-chat/config",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WorkWeChatController",
+      "http": "Get",
+      "path": "/public-api/work-we-chat/user/by-code",
+      "python_module_hint": "/user"
+    },
+    {
+      "service": "ihui-ai-edu-visit-tracking-service",
+      "controller": "VisitLogController",
+      "http": "Post",
+      "path": "/public-api/visit-log",
+      "python_module_hint": "/visit"
+    },
+    {
+      "service": "ihui-ai-edu-visit-tracking-service",
+      "controller": "VisitLogController",
+      "http": "Get",
+      "path": "/visit-log/summary",
+      "python_module_hint": "/visit"
+    },
+    {
+      "service": "ihui-ai-edu-visit-tracking-service",
+      "controller": "VisitLogController",
+      "http": "Get",
+      "path": "/visit-log/day/pv/list",
+      "python_module_hint": "/visit"
+    },
+    {
+      "service": "ihui-ai-edu-visit-tracking-service",
+      "controller": "VisitLogController",
+      "http": "Get",
+      "path": "/visit-log/day/uv/list",
+      "python_module_hint": "/visit"
+    },
+    {
+      "service": "ihui-ai-edu-visit-tracking-service",
+      "controller": "VisitLogController",
+      "http": "Get",
+      "path": "/visit-log/ip-city/summary/list",
+      "python_module_hint": "/visit"
+    }
+  ]
+}
