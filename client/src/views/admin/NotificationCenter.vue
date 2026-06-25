@@ -143,7 +143,7 @@ async function fetchList() {
     })
     items.value = resp?.data?.items ?? []
     // P1: 未读数由 useNotifyBadge 全局轮询, 列表拉取后无需再拉一次
-  } catch (e) {
+  } catch {
     ElMessage.error('加载通知失败')
   } finally {
     loading.value = false
