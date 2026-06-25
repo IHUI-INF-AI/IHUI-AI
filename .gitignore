@@ -176,6 +176,8 @@ server/e2e_junit.xml
 server/e2e_junit2.xml
 server/e2e_junit3.xml
 server/test_result_full.txt
+server/test_full_suite.txt
+server/test_suite2.txt
 server/run_test.py
 server/_run_e2e.py
 server/tests/_smoke_fix_*.py
