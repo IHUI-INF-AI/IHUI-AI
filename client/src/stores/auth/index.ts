@@ -24,34 +24,138 @@ import { usePermissionsStore } from './permissions'
 import { useThirdPartyStore } from './thirdParty'
 
 export const useAuthStore = defineStore('auth', () => {
-  const tokenStore = useTokenStore()
-  const userStore = useUserStore()
-  const walletStore = useWalletStore()
-  const vipStore = useVipStore()
-  const permissionsStore = usePermissionsStore()
-  const thirdPartyStore = useThirdPartyStore()
+  // 2026-06-25 修复: 顶层 6 个子 store 调用全部包 try/catch, 失败时为 null,
+  // 通过 getter 在需要时(在 computed/methods 被访问时)重新尝试.
+  // 解决 Vite HMR 抖动 / 动态 import 完成前 setup 阶段偶发的
+  //   'getActivePinia() was called but there was no active Pinia' 错误.
+  // 注意: Pinia 同 ID 的 store 第二次调用会返回缓存实例, 不会重复初始化,
+  //   所以即使 getter 多次被调用也是安全的.
+  let tokenStore: ReturnType<typeof useTokenStore> | null = null
+  let userStore: ReturnType<typeof useUserStore> | null = null
+  let walletStore: ReturnType<typeof useWalletStore> | null = null
+  let vipStore: ReturnType<typeof useVipStore> | null = null
+  let permissionsStore: ReturnType<typeof usePermissionsStore> | null = null
+  let thirdPartyStore: ReturnType<typeof useThirdPartyStore> | null = null
 
-  const isLoggedIn = computed(() => permissionsStore.isLoggedIn)
-  const isVip = computed(() => userStore.isVip)
-  const userUuid = computed(() => userStore.userUuid)
-  const nickname = computed(() => userStore.nickname)
-  const avatar = computed(() => userStore.avatar)
-  const userStatus = computed(() => userStore.userStatus)
-  const inviteCode = computed(() => userStore.inviteCode)
-  const balance = computed(() => walletStore.balance)
-  const frozenAmount = computed(() => walletStore.frozenAmount)
-  const totalRecharge = computed(() => walletStore.totalRecharge)
-  const totalConsumption = computed(() => walletStore.totalConsumption)
-  const vipLevel = computed(() => vipStore.vipLevel)
-  const isVipActive = computed(() => vipStore.isVipActive)
-  const vipEndTime = computed(() => vipStore.vipEndTime)
-  const isInitialized = computed(() => tokenStore.isInitialized)
-  const isTokenExpired = computed(() => tokenStore.isTokenExpired)
-  const hasPermission = computed(() => permissionsStore.hasPermission)
-  const hasRole = computed(() => permissionsStore.hasRole)
-  const canUseFeature = computed(() => permissionsStore.canUseFeature)
-  const isLoading = computed(() => userStore.isLoading || thirdPartyStore.isLoading)
-  const initCompleted = computed(() => tokenStore.initCompleted)
+  try {
+    tokenStore = useTokenStore()
+  } catch (e) {
+    logger.debug('[AuthStore] tokenStore unavailable on init, will lazy load:', e)
+  }
+  try {
+    userStore = useUserStore()
+  } catch (e) {
+    logger.debug('[AuthStore] userStore unavailable on init, will lazy load:', e)
+  }
+  try {
+    walletStore = useWalletStore()
+  } catch (e) {
+    logger.debug('[AuthStore] walletStore unavailable on init, will lazy load:', e)
+  }
+  try {
+    vipStore = useVipStore()
+  } catch (e) {
+    logger.debug('[AuthStore] vipStore unavailable on init, will lazy load:', e)
+  }
+  try {
+    permissionsStore = usePermissionsStore()
+  } catch (e) {
+    logger.debug('[AuthStore] permissionsStore unavailable on init, will lazy load:', e)
+  }
+  try {
+    thirdPartyStore = useThirdPartyStore()
+  } catch (e) {
+    logger.debug('[AuthStore] thirdPartyStore unavailable on init, will lazy load:', e)
+  }
+
+  const getTokenStore = (): ReturnType<typeof useTokenStore> | null => {
+    if (tokenStore) return tokenStore
+    try {
+      tokenStore = useTokenStore()
+      return tokenStore
+    } catch (e) {
+      logger.debug('[AuthStore] tokenStore lazy load failed:', e)
+      return null
+    }
+  }
+
+  const getUserStore = (): ReturnType<typeof useUserStore> | null => {
+    if (userStore) return userStore
+    try {
+      userStore = useUserStore()
+      return userStore
+    } catch (e) {
+      logger.debug('[AuthStore] userStore lazy load failed:', e)
+      return null
+    }
+  }
+
+  const getWalletStore = (): ReturnType<typeof useWalletStore> | null => {
+    if (walletStore) return walletStore
+    try {
+      walletStore = useWalletStore()
+      return walletStore
+    } catch (e) {
+      logger.debug('[AuthStore] walletStore lazy load failed:', e)
+      return null
+    }
+  }
+
+  const getVipStore = (): ReturnType<typeof useVipStore> | null => {
+    if (vipStore) return vipStore
+    try {
+      vipStore = useVipStore()
+      return vipStore
+    } catch (e) {
+      logger.debug('[AuthStore] vipStore lazy load failed:', e)
+      return null
+    }
+  }
+
+  const getPermissionsStore = (): ReturnType<typeof usePermissionsStore> | null => {
+    if (permissionsStore) return permissionsStore
+    try {
+      permissionsStore = usePermissionsStore()
+      return permissionsStore
+    } catch (e) {
+      logger.debug('[AuthStore] permissionsStore lazy load failed:', e)
+      return null
+    }
+  }
+
+  const getThirdPartyStore = (): ReturnType<typeof useThirdPartyStore> | null => {
+    if (thirdPartyStore) return thirdPartyStore
+    try {
+      thirdPartyStore = useThirdPartyStore()
+      return thirdPartyStore
+    } catch (e) {
+      logger.debug('[AuthStore] thirdPartyStore lazy load failed:', e)
+      return null
+    }
+  }
+
+  const isLoggedIn = computed(() => getPermissionsStore()?.isLoggedIn ?? false)
+  const isVip = computed(() => getUserStore()?.isVip ?? false)
+  const userUuid = computed(() => getUserStore()?.userUuid ?? '')
+  const nickname = computed(() => getUserStore()?.nickname ?? '')
+  const avatar = computed(() => getUserStore()?.avatar ?? '')
+  const userStatus = computed(() => getUserStore()?.userStatus ?? 0)
+  const inviteCode = computed(() => getUserStore()?.inviteCode ?? '')
+  const balance = computed(() => getWalletStore()?.balance ?? 0)
+  const frozenAmount = computed(() => getWalletStore()?.frozenAmount ?? 0)
+  const totalRecharge = computed(() => getWalletStore()?.totalRecharge ?? 0)
+  const totalConsumption = computed(() => getWalletStore()?.totalConsumption ?? 0)
+  const vipLevel = computed(() => getVipStore()?.vipLevel ?? '')
+  const isVipActive = computed(() => getVipStore()?.isVipActive ?? false)
+  const vipEndTime = computed(() => getVipStore()?.vipEndTime ?? '')
+  const isInitialized = computed(() => getTokenStore()?.isInitialized ?? false)
+  const isTokenExpired = computed(() => getTokenStore()?.isTokenExpired ?? true)
+  // 下面 4 个 computed 是函数型权限检查, store 不可用时返回始终拒绝的占位函数
+  const hasPermission = computed(() => (permission: string) => getPermissionsStore()?.hasPermission(permission) ?? false)
+  const hasRole = computed(() => (role: string) => getPermissionsStore()?.hasRole(role) ?? false)
+  const canUseFeature = computed(() => (feature: string) => getPermissionsStore()?.canUseFeature(feature) ?? false)
+  const isLoading = computed(() => getUserStore()?.isLoading || getThirdPartyStore()?.isLoading || false)
+  const initCompleted = computed(() => getTokenStore()?.initCompleted ?? false)
 
   const initAuth = async () => {
     logger.debug('[AuthStore] Initializing auth state...')

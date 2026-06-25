@@ -9,6 +9,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.utils.datetime_helper import utcnow
+
 
 class TBoxAgentContentBean(BaseModel):
     """TBox 智能体发布事件内容."""
@@ -64,7 +66,7 @@ class TBoxEventLog:
             "bot_id": event.bot_id,
             "content": event.content.dict() if event.content else None,
             "custom": [c.dict() for c in event.custom] if event.custom else None,
-            "received_at": datetime.utcnow().isoformat(),
+            "received_at": utcnow().isoformat(),
         })
 
     def recent(self, limit: int = 50) -> list[dict[str, Any]]:
