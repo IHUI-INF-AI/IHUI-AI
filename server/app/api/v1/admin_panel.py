@@ -500,6 +500,7 @@ def role_menu_treeselect(roleId: int):  # noqa: 32
             db.query(SysMenu.menu_id)
             .join(SysRoleMenu, SysRoleMenu.menu_id == SysMenu.menu_id)
             .filter(SysRoleMenu.role_id == roleId)
+            .filter(SysMenu.del_flag == "0")
             .all()
         )
         checked = {m.menu_id for m in assigned}

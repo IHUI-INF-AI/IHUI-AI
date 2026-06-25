@@ -1,6 +1,8 @@
 # 开发环境端口约定
 
 > 2026-06-18 起统一规范, 详见 [vite.config.ts](../client/vite.config.ts) 顶部 `BACKEND_TARGET` 常量
+>
+> **2026-06-25 强化**: 新增"运行时启动规范"章节, 明确禁止 AI 助手/开发者临时启动后端时改端口。违规案例见文末。
 
 ## 端口分配
 
@@ -116,3 +118,101 @@ cd client && npx playwright test infra-vite-proxy
 - [client/playwright.config.ts](../client/playwright.config.ts) - 顶部端口约定注释
 - [client/e2e/infra-vite-proxy.spec.ts](../client/e2e/infra-vite-proxy.spec.ts) - 端口契约 e2e 测试
 - [client/scripts/check-port-drift.mjs](../client/scripts/check-port-drift.mjs) - 端口漂移检测器, pre-commit 钩子自动跑
+
+---
+
+## 运行时启动规范 (2026-06-25 新增, 强制遵守)
+
+> **核心原则: 后端必须监听 8000 端口, 不得以任何理由临时改为其他端口.**
+
+### 1. 适用范围
+
+本规范适用于**所有**启动后端的方式, 包括但不限于:
+
+- AI 助手 (Trae / Cursor / Claude 等) 自动启动后端做联调验证
+- 开发者手动 `uvicorn` / `python -m uvicorn` 启动
+- CI / 脚本启动
+- 容器化 / Docker 启动
+- 任何"临时""一次性"的启动
+
+### 2. 唯一允许的启动命令
+
+```bash
+# ✅ 正确: 用 8000 端口
+cd server
+.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# ✅ 正确: 不带 --port (端口由 .env 的 API_PORT=8000 控制)
+.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1
+```
+
+### 3. 严禁的启动方式
+
+```bash
+# ❌ 违规: 临时改端口为 8001 / 8002 / 9000 等
+.venv\Scripts\python.exe -m uvicorn app.main:app --port 8001
+
+# ❌ 违规: 用环境变量 BACKEND_PORT 临时覆盖 (前端 proxy 会指向错误端口)
+$env:BACKEND_PORT=8001; npm run dev
+
+# ❌ 违规: 在临时脚本里写死非 8000 端口
+```
+
+### 4. 8000 端口被占用怎么办
+
+**不得改端口绕过**, 必须先释放 8000:
+
+```bash
+# 1. 查看谁占用 8000
+netstat -ano | findstr ":8000" | findstr "LISTENING"
+
+# 2. 用 PID 杀进程
+Stop-Process -Id <PID> -Force
+
+# 3. 确认 8000 空闲后再启动
+netstat -ano | findstr ":8000" | findstr "LISTENING"
+# 应无输出
+
+# 4. 启动后端 (用 8000)
+cd server && .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+### 5. 为什么禁止临时改端口
+
+| 后果 | 说明 |
+|------|------|
+| **前后端断链** | Vite proxy 写死指向 8000, 后端改 8001 后所有 `/api/*` 请求 502 |
+| **环境变量污染** | `$env:BACKEND_PORT=8001` 会残留到后续命令, 污染前端启动 |
+| **联调假象** | 临时改端口后前端需带环境变量才能联调, 重启即失效, 浪费排查时间 |
+| **CI 失败** | CI 检测端口漂移会拦截, 但运行时改端口 CI 测不到, 形成盲区 |
+| **规范崩塌** | 一次违规会让后续 AI 助手/开发者误以为"可以随便改端口", 规范形同虚设 |
+
+### 6. 运行时检测
+
+新增 [scripts/check-runtime-port.mjs](../scripts/check-runtime-port.mjs) 检测脚本, 扫描运行中的 uvicorn/python 进程监听端口, 若非 8000 则报警:
+
+```bash
+cd client && node scripts/check-runtime-port.mjs
+# 期望: [OK] 后端运行在 8000 端口
+# 违规: [ERROR] 发现 uvicorn 监听 8001, 违反端口规范, 请改回 8000
+```
+
+---
+
+## 违规案例留档 (2026-06-25)
+
+### 案例 1: AI 助手临时改 8001 端口
+
+**时间**: 2026-06-25
+**违规者**: Trae AI 助手
+**经过**: AI 助手在联调验证时, 因 8000 端口被占用, 未经用户同意擅自改为 8001 端口启动后端, 并创建 `server/scripts/_health_check.py` 写死 8001.
+**后果**: 前端 Vite proxy 仍指向 8000, 联调失败; 用户发现后要求整改.
+**处理**:
+1. 停掉 8001 后端进程
+2. 删除 `_health_check.py` (含 8001 痕迹)
+3. 后端回归 8000 端口启动
+4. 新增本规范章节 + 运行时检测脚本, 杜绝再次发生
+**教训**:
+- **AI 助手不得擅自改端口**, 必须先释放 8000
+- 任何"临时"启动都必须遵守端口规范
+- 临时脚本不得写死非标准端口

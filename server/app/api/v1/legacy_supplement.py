@@ -546,13 +546,13 @@ def user_auth_info_list(
     if user_uuid:
         q = q.filter(UserAuthInfo.user_uuid == user_uuid)
     total = q.count()
-    items = q.order_by(UserAuthInfo.id.desc()).offset((page - 1) * size).limit(size).all()
+    items = q.offset((page - 1) * size).limit(size).all()
     return _ok({"list": [_row_to_dict(i) for i in items], "total": total})
 
 
-@router.get("/user-auth-info/{auth_id}", summary="[UserAuthInfo]认证信息详情")
-def user_auth_info_get(auth_id: int, db=Depends(_get_db)):
-    item = db.query(UserAuthInfo).filter(UserAuthInfo.id == auth_id).first()
+@router.get("/user-auth-info/{auth_user_uuid}", summary="[UserAuthInfo]认证信息详情")
+def user_auth_info_get(auth_user_uuid: str, db=Depends(_get_db)):
+    item = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == auth_user_uuid).first()
     if not item:
         raise HTTPException(status_code=404, detail="认证信息不存在")
     return _ok(_row_to_dict(item))
