@@ -76,12 +76,36 @@ function getProcessName(pid) {
 }
 
 /**
- * 判断进程是否是后端 (uvicorn / python / python3)
+ * 判断进程是否是后端 (uvicorn / python 运行 app.main)
+ * 排除: python -m http.server (临时文件服务器, 非项目后端)
  */
-function isBackendProcess(name) {
-  if (!name) return false
-  const lower = name.toLowerCase()
-  return lower.includes('python') || lower.includes('uvicorn')
+function isBackendProcess(pid) {
+  if (!pid || pid === 0) return false
+  try {
+    let cmdline = ''
+    if (process.platform === 'win32') {
+      // 用 WMI 获取完整命令行 (tasklist 不返回命令行)
+      const out = execSync(
+        `powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \\"ProcessId=${pid}\\").CommandLine"`,
+        { encoding: 'utf8', timeout: 8000 }
+      ).trim()
+      cmdline = out
+    } else {
+      const out = execSync(`cat /proc/${pid}/cmdline 2>/dev/null | tr '\\0' ' '`, {
+        encoding: 'utf8',
+        timeout: 5000,
+      }).trim()
+      cmdline = out
+    }
+    if (!cmdline) return false
+    const lower = cmdline.toLowerCase()
+    // 必须包含 uvicorn 或 app.main (项目后端特征)
+    // 排除 python -m http.server (临时文件服务器)
+    if (lower.includes('http.server')) return false
+    return lower.includes('uvicorn') || lower.includes('app.main')
+  } catch {
+    return false
+  }
 }
 
 function main() {
@@ -103,9 +127,9 @@ function main() {
   for (const { port, pid } of ports) {
     if (port === EXPECTED_PORT) continue
     if (ALLOWED_NON_BACKEND_PORTS.includes(port)) continue
-    // 检查这个端口对应的进程是否是后端
-    const name = getProcessName(pid)
-    if (isBackendProcess(name)) {
+    // 检查这个端口对应的进程是否是后端 (uvicorn/app.main)
+    if (isBackendProcess(pid)) {
+      const name = getProcessName(pid) || 'unknown'
       violations.push({ port, pid, name })
     }
   }
