@@ -415,7 +415,7 @@ onMounted(async () => {
 
 .metric-value {
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--el-color-primary);
 }
 

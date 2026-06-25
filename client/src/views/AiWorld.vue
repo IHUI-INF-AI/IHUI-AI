@@ -974,8 +974,7 @@ $aw-gray-border: var(--color-text-muted);
 
   &:hover {
     transform: scale(1.01);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &:focus-visible {
     outline: var(--el-border-width-primary) solid var(--el-color-primary);

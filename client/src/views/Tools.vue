@@ -398,8 +398,7 @@ onMounted(async () => {
 .tool-card:hover {
   border-color: var(--el-color-primary);
   transform: translateY(-2px);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .tool-card-header {
   display: flex;
@@ -411,7 +410,7 @@ onMounted(async () => {
 .tool-badge-hot {
   background: var(--color-rank-gold);
   color: var(--el-color-white);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: var(--global-border-radius);
@@ -447,4 +446,65 @@ html.dark .tool-tag {
   background: var(--el-bg-color);
 }
 .tool-usage { font-size: 12px; color: var(--el-text-color-placeholder); }
+
+/* ==================== 移动端响应式 ==================== */
+@media (max-width: 1024px) {
+  .tools-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .tools-sidebar {
+    position: static;
+    height: auto;
+  }
+  .sidebar-categories {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    gap: 8px;
+  }
+  .category-item {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 768px) {
+  .tools-page { padding: 12px; }
+  .tools-layout { gap: 12px; }
+  .tools-sidebar { padding: 12px; }
+  .sidebar-search {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+  .category-item {
+    padding: 10px 12px;
+    font-size: 13px;
+    min-height: 44px;
+  }
+  .tools-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .toolbar-sort {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: 44px;
+    width: 100%;
+  }
+  .tools-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .tool-card { padding: 12px; }
+  .tool-name { font-size: 14px; }
+  .tool-desc { font-size: 12px; line-height: 1.45; }
+}
+
+@media (max-width: 375px) {
+  .tools-grid { grid-template-columns: 1fr; }
+}
 </style>

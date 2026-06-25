@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="share-page">
     <!-- 深度背景系统 -->
     <div class="share-page__background">
@@ -680,8 +680,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   &:hover {
     border-color: $border-glow;
     border: var(--unified-border);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 // ============================================
@@ -1010,8 +1009,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
       background: var(--el-fill-color);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 }
 
@@ -1249,8 +1247,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   justify-content: center;
   margin-bottom: 16px;
   border: 2px solid $border-glow;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .share-qr__tip {
   margin: 0;

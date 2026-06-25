@@ -668,8 +668,6 @@ $transition-slow: 0.5s;
   &:hover {
     background: var(--color-white-10);
     border-color: $accent-cyan;
-    box-shadow: var(--global-box-shadow);
-    
     .el-icon {
       transform: translateX(-2px);
     }
@@ -711,7 +709,7 @@ $transition-slow: 0.5s;
 }
 
 .fp-subtitle {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.15em;
   color: $text-muted;
@@ -741,8 +739,7 @@ $transition-slow: 0.5s;
     background: $accent-cyan;
     border-radius: var(--global-border-radius);
     transition: width $transition-slow ease;
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 .fp-steps-container {
@@ -802,8 +799,6 @@ $transition-slow: 0.5s;
   .fp-step-indicator {
     background: var(--color-cyan-00f0ff-10);
     border-color: $accent-cyan;
-    box-shadow: var(--global-box-shadow);
-    
     .fp-step-number {
       color: $accent-cyan;
     }
@@ -926,8 +921,7 @@ $transition-slow: 0.5s;
   &:focus-within {
     .fp-input-border {
       border-color: $accent-cyan;
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 }
 
@@ -999,8 +993,7 @@ $transition-slow: 0.5s;
   &:hover:not(:disabled) {
     background: var(--color-cyan-00f0ff-20);
     border-color: $accent-cyan;
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   
   &:disabled {
     opacity: 0.5;
@@ -1033,8 +1026,6 @@ $transition-slow: 0.5s;
   
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-    
     .fp-btn-arrow {
       transform: translateX(4px);
     }
@@ -1268,7 +1259,7 @@ $transition-slow: 0.5s;
 }
 
 .fp-footer-text {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.2em;
   color: $text-muted;
@@ -1342,7 +1333,7 @@ $transition-slow: 0.5s;
   }
   
   .fp-step-label {
-    font-size: 11px;
+    font-size: 12px;
   }
   
   .form-container {

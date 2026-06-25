@@ -68,8 +68,7 @@ onMounted(load)
     padding: 20px; background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border-left: 4px solid var(--el-color-primary);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
   .stat-value { font-size: 24px; font-weight: 700; color: var(--el-text-color-primary); }
   .stat-label { font-size: 13px; color: var(--el-text-color-secondary); margin-top: 4px; }
   .quick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
@@ -79,9 +78,9 @@ onMounted(load)
     padding: 16px; background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     text-decoration: none;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s, border-color 0.2s;
     border: var(--unified-border);
-    &:hover { transform: translateY(-2px); box-shadow: var(--global-box-shadow); }
+    &:hover { transform: translateY(-2px); border-color: var(--el-color-primary); }
     .quick-label { font-size: 14px; font-weight: 500; color: var(--el-text-color-primary); }
     .quick-sub { font-size: 12px; color: var(--el-text-color-secondary); }
   }

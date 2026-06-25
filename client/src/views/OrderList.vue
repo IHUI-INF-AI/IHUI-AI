@@ -342,8 +342,7 @@ onMounted(() => {
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 .card-header {
@@ -381,18 +380,15 @@ onMounted(() => {
   background: var(--el-color-warning);
   color: var(--el-color-white);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   animation: pulse-pending 2s ease-in-out infinite alternate;
 }
 
 @keyframes pulse-pending {
   0% {
-    box-shadow: var(--global-box-shadow);
     transform: scale(1);
   }
 
   100% {
-    box-shadow: var(--global-box-shadow);
     transform: scale(1.02);
   }
 }
@@ -400,32 +396,27 @@ onMounted(() => {
 .status-shipping {
   background: var(--el-color-primary);
   color: var(--color-on-primary);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .status-refund {
   background: var(--el-color-danger);
   color: var(--el-color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .status-finished {
   background: var(--el-color-success);
   color: var(--el-color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .status-cancelled {
   background: var(--el-text-color-placeholder);
   color: var(--el-color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .status-ended {
   background: var(--el-text-color-secondary);
   color: var(--el-color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .card-body {
   display: flex;

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="distribution-team-detail-page page-container">
     <!-- 页面头部 -->
     <div class="page-header radius-auto">
@@ -90,7 +90,7 @@
         />
         <el-table-column prop="amount" :label="t('distributionTeamDetail.amount')" width="120">
           <template #default="{ row }">
-            <span style="color: var(--el-color-primary); font-weight: bold">
+            <span style="color: var(--el-color-primary); font-weight: 700">
               ¥{{ (row.amount / 100).toFixed(2) }}
             </span>
           </template>

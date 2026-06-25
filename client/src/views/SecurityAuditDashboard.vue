@@ -553,7 +553,7 @@ onMounted(() => {
 
   .sa-event-decision,
   .sa-finding-sev {
-    font-size: 11px;
+    font-size: 12px;
     padding: 2px 6px;
     border-radius: var(--global-border-radius);
     border: var(--unified-border);

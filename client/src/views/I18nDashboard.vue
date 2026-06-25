@@ -573,7 +573,7 @@ onMounted(async () => {
   padding: 2px 8px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
@@ -615,7 +615,7 @@ onMounted(async () => {
 }
 
 .i18n-plural-cat {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-regular);
   font-family: ui-monospace, monospace;
 }

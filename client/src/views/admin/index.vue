@@ -508,11 +508,7 @@ function formatTime(d: Date): string {
     var(--el-bg-color));
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: box-shadow 0.25s ease;
-
-  &:hover {
-    box-shadow: var(--global-box-shadow);
-  }
+  transition: border-color 0.25s ease;
 }
 
 .hero-left {
@@ -533,8 +529,7 @@ function formatTime(d: Date): string {
   font-size: 24px;
   font-weight: 700;
   flex-shrink: 0;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .hero-title {
   font-size: 22px;
@@ -574,12 +569,10 @@ function formatTime(d: Date): string {
   border-radius: var(--global-border-radius);
   transition:
     transform 0.2s ease,
-    box-shadow 0.2s ease,
     border-color 0.2s ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
     border-color: var(--el-border-color);
   }
 }
@@ -674,7 +667,7 @@ function formatTime(d: Date): string {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: box-shadow 0.2s ease;
+  transition: border-color 0.2s ease;
 }
 
 .card-head {
@@ -783,7 +776,7 @@ function formatTime(d: Date): string {
 }
 
 .module-stat {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -847,7 +840,7 @@ function formatTime(d: Date): string {
   display: inline-block;
   padding: 1px 6px;
   border-radius: var(--global-border-radius);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -965,7 +958,7 @@ function formatTime(d: Date): string {
 .monitor-percent.critical { color: var(--el-color-danger); }
 
 .monitor-detail {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
 }
 
@@ -1037,7 +1030,7 @@ function formatTime(d: Date): string {
 }
 
 .timeline-time {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
@@ -1059,14 +1052,14 @@ function formatTime(d: Date): string {
 
 .hero-updated {
   margin-left: 4px;
-  color: var(--el-text-color-placeholder);
+  color: var(--el-text-color-secondary);
   font-variant-numeric: tabular-nums;
 }
 
 .todo-todo-banner {
   padding: 8px 20px;
-  font-size: 11px;
-  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
   text-align: center;
   border-top: var(--unified-border-bottom);
   background-color: var(--el-fill-color-blank);

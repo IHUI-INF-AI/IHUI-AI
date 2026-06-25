@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="business-card-page page-container">
     <!-- 页面头部 -->
     <div class="page-header radius-auto">
@@ -396,8 +396,7 @@ onMounted(() => {
     max-height: 400px;
     border-radius: var(--global-border-radius);
     object-fit: contain;
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 .share-options {

@@ -406,8 +406,7 @@ onMounted(async () => {
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     padding: clamp(16px, 2vw, 24px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   // ---- 头部 ----
   .bi-header {
@@ -748,7 +747,7 @@ onMounted(async () => {
   }
 
   .bi-anomaly-sev {
-    font-size: 11px;
+    font-size: 12px;
     padding: 2px 6px;
     border-radius: var(--global-border-radius);
     border: var(--unified-border);

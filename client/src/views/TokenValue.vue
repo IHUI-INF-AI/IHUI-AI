@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="token-value-page page-container">
     <!-- 页面头部 -->
     <div class="page-header radius-auto">
@@ -48,7 +48,7 @@
         </el-table-column>
         <el-table-column prop="token" :label="t('tokenValue.table.consumption')" width="120">
           <template #default="{ row }">
-            <span style="color: var(--el-color-danger); font-weight: bold">-{{ row.token }}</span>
+            <span style="color: var(--el-color-danger); font-weight: 700">-{{ row.token }}</span>
           </template>
         </el-table-column>
       </el-table>

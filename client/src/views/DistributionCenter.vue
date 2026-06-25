@@ -189,9 +189,9 @@ import {
   getWxCode,
   realAuth,
 } from '@/api/distribution/distribution'
-import PersonalInfoCard from '../distribution/components/PersonalInfoCard.vue'
-import EarningsStatisticsCard from '../distribution/components/EarningsStatisticsCard.vue'
-import FunctionBlockColumn from '../distribution/components/FunctionBlockColumn.vue'
+import PersonalInfoCard from './distribution/components/PersonalInfoCard.vue'
+import EarningsStatisticsCard from './distribution/components/EarningsStatisticsCard.vue'
+import FunctionBlockColumn from './distribution/components/FunctionBlockColumn.vue'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -749,8 +749,6 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     backdrop-filter: blur(30px);
-    box-shadow: var(--global-box-shadow);
-
     .el-dialog__header {
       border-bottom: var(--unified-border-bottom);
       padding: 20px 24px;
@@ -845,7 +843,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   }
 
   .dc-qrcode-copyright {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-muted;
     letter-spacing: 0.02em;
     margin-bottom: 20px;
@@ -996,7 +994,6 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   backdrop-filter: blur(20px);
-  box-shadow: var(--global-box-shadow);
   z-index: calc(var(--z-base) + 9);
   min-width: 160px;
   padding: 4px 0;

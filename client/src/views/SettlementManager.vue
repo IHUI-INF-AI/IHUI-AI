@@ -83,7 +83,7 @@
         <el-table-column prop="order_no" :label="t('settlement.orderNo')" min-width="150" />
         <el-table-column :label="t('settlement.amount')" width="120">
           <template #default="{ row }">
-            <span style="color: var(--el-color-primary); font-weight: bold">
+            <span style="color: var(--el-color-primary); font-weight: 700">
               ¥{{ ((row.amount || 0) / 100).toFixed(2) }}
             </span>
           </template>
@@ -470,7 +470,7 @@ onMounted(() => {
 
       .stat-value {
         font-size: 24px;
-        font-weight: bold;
+        font-weight: 700;
         margin-bottom: 8px;
 
         &.primary {

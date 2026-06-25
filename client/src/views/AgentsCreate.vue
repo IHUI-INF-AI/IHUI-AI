@@ -712,7 +712,7 @@ $glass-border-hover: var(--border-unified-color-hover);
   }
 
   .footer-text {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
     letter-spacing: 0.2em;
     color: $industrial-text-dim;

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="customer-service-page page-container">
     <!-- 页面头部 -->
     <div class="page-header radius-auto">

@@ -762,7 +762,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   .back-link {
     color: var(--el-text-color-secondary);
     font-family: var(--font-family-mono);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     letter-spacing: 1px;
     transition: all 0.3s ease;
@@ -775,7 +775,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   
   .version-tag {
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     color: $accent-pink;
     font-weight: 800;
     letter-spacing: 2px;
@@ -812,7 +812,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     
     .label-text {
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-secondary);
       font-weight: 600;
       letter-spacing: 2px;
@@ -934,7 +934,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
 .section-label {
   font-family: var(--font-family-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--el-color-danger-light-3);
   font-weight: 800;
   letter-spacing: 4px;
@@ -1000,7 +1000,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       top: 12px;
       right: 12px;
       font-family: var(--font-family-mono);
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 800;
       color: var(--el-text-color-placeholder);
       
@@ -1146,7 +1146,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       
       .card-tag {
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 800;
         color: var(--el-color-primary);
         letter-spacing: 1px;
@@ -1205,7 +1205,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         }
         
         .flow-label {
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 700;
           color: var(--el-text-color-placeholder);
           display: block;
@@ -1282,7 +1282,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       
       .level-tag {
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 800;
         color: var(--el-color-primary-light-3);
         letter-spacing: 1px;
@@ -1476,7 +1476,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       gap: 8px;
       
       span {
-        font-size: 11px;
+        font-size: 12px;
         color: var(--el-text-color-regular);
         padding: 6px 12px;
         background: var(--el-fill-color-extra-light);
@@ -1692,7 +1692,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       border: none;
       color: var(--el-text-color-placeholder);
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 800;
       letter-spacing: 1px;
       cursor: pointer;

@@ -282,7 +282,7 @@ const teamMembers = computed(() => [
   }
 
   .version-tag {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-placeholder);
     border: var(--unified-border);
     padding: 4px 10px;
@@ -433,7 +433,7 @@ const teamMembers = computed(() => [
 
 .section-tag {
   display: inline-block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: hsl(var(--primary));
@@ -689,7 +689,7 @@ const teamMembers = computed(() => [
 }
 
 .timeline-date {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: hsl(var(--primary));
@@ -734,8 +734,7 @@ const teamMembers = computed(() => [
   border-radius: var(--global-border-radius);
   background: hsl(var(--primary));
   flex-shrink: 0;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .timeline-row-track .timeline-line {
   flex: 0 0 40px;
@@ -796,7 +795,7 @@ const teamMembers = computed(() => [
   min-width: 0;
 
   .team-role {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.05em;
     color: hsl(var(--primary));

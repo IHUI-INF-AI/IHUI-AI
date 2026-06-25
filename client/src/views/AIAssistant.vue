@@ -1732,7 +1732,7 @@ html.dark .ai-assistant-page {
     background: transparent;
     border-radius: var(--global-border-radius);
     color: var(--el-text-color-secondary);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
     cursor: pointer;
@@ -1892,7 +1892,7 @@ html.dark .ai-assistant-page {
 }
 
 .read-status {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   margin-top: 4px;
   text-align: right;

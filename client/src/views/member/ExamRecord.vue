@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <MemberLayout active="exam-record">
     <div class="member-exam-record-page" v-loading="loading">
       <h2 class="page-title">{{ t('memberExamRecord.title') }}</h2>

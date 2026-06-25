@@ -1087,14 +1087,12 @@ $login-header-gap: 12px;
 :where(html.dark) .login-content.login-page :deep(.login-content.login-page) {
   background: var(--color-dark-1e293b-95);
   backdrop-filter: blur(10px);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(html.dark) .login-content.login-page :deep(.el-button--primary:hover) {
   background-color: var(--el-color-primary-dark-2);
   border-color: var(--el-color-primary-dark-2);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 
 /* 登录页专用收敛 - 使用单类与 :deep，使用 CSS 变量与低特异性 */
@@ -1680,7 +1678,6 @@ input.verification-code-digit {
     text-align: center;
     letter-spacing: 0.2px;
     border-radius: var(--global-border-radius);
-    box-shadow: var(--global-box-shadow);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     opacity: 0;
@@ -1722,7 +1719,6 @@ input.verification-code-digit {
     font-weight: 500;
     line-height: 1.5;
     letter-spacing: 0.2px;
-    box-shadow: var(--global-box-shadow);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
@@ -1797,7 +1793,7 @@ input.verification-code-digit {
   }
 
   .login-content.login-page :deep(.platform-name) {
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 
@@ -1961,8 +1957,6 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 .login-content.login-page {
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-
   // 登录标题
   .login-title,
   :deep(.login-title) {
@@ -2009,8 +2003,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     &:hover {
       background: var(--el-bg-color);
       transform: translateY(-2px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
 
     &:active {
       transform: translateY(0);
@@ -2026,7 +2019,6 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
     &:hover {
       border-color: var(--el-border-color);
-      box-shadow: var(--global-box-shadow);
       transform: translateY(-2px);
     }
   }
@@ -2051,8 +2043,6 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 :where(html.dark) .login-content.login-page {
   background: var(--color-dark-121212-95);
   border-color: var(--border-unified-color);
-  box-shadow: var(--global-box-shadow);
-
   :deep(.el-input__wrapper) {
     background: var(--color-white-3);
     border-color: var(--border-unified-color);

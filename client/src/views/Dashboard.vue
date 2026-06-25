@@ -510,7 +510,7 @@ $accent-red: var(--el-color-danger);
     padding: 6px 14px;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.1em;
     color: $text-sec;
@@ -672,7 +672,7 @@ $accent-red: var(--el-color-danger);
     }
     
     .card-tag {
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 800;
       letter-spacing: 0.1em;
       color: $accent-green;
@@ -802,7 +802,7 @@ $accent-red: var(--el-color-danger);
     }
     
     .section-tag {
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 800;
       letter-spacing: 0.1em;
       color: $text-sec;

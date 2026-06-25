@@ -280,8 +280,7 @@ onMounted(async () => {
 .page-header {
   background: var(--el-bg-color);
   padding: 20px;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .page-title {
   margin: 0;
@@ -383,13 +382,11 @@ onMounted(async () => {
   padding: 16px;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .agent-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .agent-avatar {
   width: 64px;

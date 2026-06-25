@@ -367,7 +367,7 @@ onMounted(() => {
     justify-content: space-between;
     margin-bottom: 40px;
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     .id-block { color: var(--el-text-color-secondary); }
     .status-block { color: var(--el-color-primary); display: flex; align-items: center; gap: 8px; .dot { width: 6px; height: 6px; border-radius: var(--global-border-radius); background: var(--el-color-primary); } }
@@ -376,7 +376,7 @@ onMounted(() => {
 
 .form-section {
   margin-bottom: 40px;
-  label { font-family: var(--font-family-mono); font-size: 10px; color: var(--el-text-color-secondary); font-weight: 800; display: block; margin-bottom: 20px; letter-spacing: 2px; }
+  label { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; display: block; margin-bottom: 20px; letter-spacing: 2px; }
 }
 
 .type-matrix {
@@ -436,7 +436,7 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.3s;
   .upload-ico { color: var(--el-text-color-secondary); font-size: 24px; }
-  .upload-txt { font-family: var(--font-family-mono); font-size: 10px; color: var(--el-text-color-secondary); font-weight: 800; }
+  .upload-txt { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
   &:hover, &.active { border: 2px solid var(--border-unified-color-hover); background: var(--el-fill-color-light); .upload-ico, .upload-txt { color: var(--el-color-primary); } }
 }
 
@@ -453,7 +453,7 @@ onMounted(() => {
     position: relative;
     overflow: hidden;
     img { width: 100%; height: 100%; object-fit: cover; }
-    button { position: absolute; top: 2px; right: 2px; background: var(--el-mask-color); border: none; color: var(--el-text-color-primary); width: 16px; height: 16px; font-size: 10px; cursor: pointer; }
+    button { position: absolute; top: 2px; right: 2px; background: var(--el-mask-color); border: none; color: var(--el-text-color-primary); width: 16px; height: 16px; font-size: 12px; cursor: pointer; }
   }
 }
 
@@ -465,7 +465,7 @@ onMounted(() => {
   align-items: center;
   gap: 40px;
   .btn-transmit { background: var(--el-text-color-primary); color: var(--el-bg-color-page); border: none; padding: 16px 40px; border-radius: var(--global-border-radius); font-family: var(--font-family-mono); font-size: 13px; font-weight: 900; cursor: pointer; transition: all 0.3s; &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); } }
-  .btn-reset { font-family: var(--font-family-mono); font-size: 11px; color: var(--el-text-color-secondary); font-weight: 800; }
+  .btn-reset { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
 }
 
 .feedback-list {
@@ -496,7 +496,7 @@ onMounted(() => {
 
   .item-type-badge {
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     padding: 2px 8px;
     border-radius: var(--global-border-radius);
@@ -511,7 +511,7 @@ onMounted(() => {
 
   .item-status {
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;
     color: var(--el-text-color-secondary);

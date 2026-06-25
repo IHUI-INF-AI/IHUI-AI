@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="top-up-page page-container">
     <!-- Loading 遮罩层 -->
     <div v-if="loading" class="loading-mask">

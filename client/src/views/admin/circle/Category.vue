@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <AdminTableV2
     :data="list"
     :columns="columns"

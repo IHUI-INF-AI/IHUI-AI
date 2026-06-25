@@ -1,4 +1,4 @@
-﻿.distribution-page {
+.distribution-page {
   background: var(--el-bg-color-page);
   position: relative;
 }
@@ -41,7 +41,7 @@
     .header-info {
       .page-title {
         font-size: 32px;
-        font-weight: bold;
+        font-weight: 700;
         margin-bottom: 12px;
         display: flex;
         align-items: center;
@@ -73,7 +73,7 @@
 
         .stat-value {
           font-size: 24px;
-          font-weight: bold;
+          font-weight: 700;
           margin-bottom: 8px;
         }
 
@@ -108,8 +108,7 @@
 
       &:hover {
         transform: translateY(-4px);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
 
       .action-icon {
         width: 60px;
@@ -126,7 +125,7 @@
 
       h3 {
         font-size: 18px;
-        font-weight: bold;
+        font-weight: 700;
         margin-bottom: 8px;
         color: var(--el-text-color-primary);
       }
@@ -151,8 +150,7 @@
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     padding: 24px;
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 // 概览内容
@@ -169,7 +167,7 @@
 
       h3 {
         font-size: 18px;
-        font-weight: bold;
+        font-weight: 700;
         color: var(--el-text-color-primary);
       }
     }
@@ -203,7 +201,7 @@
 
       h3 {
         font-size: 18px;
-        font-weight: bold;
+        font-weight: 700;
         color: var(--el-text-color-primary);
       }
     }
@@ -229,7 +227,7 @@
         .rank-number {
           width: 40px;
           text-align: center;
-          font-weight: bold;
+          font-weight: 700;
 
           .medal {
             font-size: 20px;
@@ -250,7 +248,7 @@
 
           .user-details {
             .username {
-              font-weight: bold;
+              font-weight: 700;
               color: var(--el-text-color-primary);
             }
 
@@ -263,7 +261,7 @@
 
         .earnings {
           font-size: 16px;
-          font-weight: bold;
+          font-weight: 700;
           color: var(--el-text-color-primary);
         }
       }
@@ -279,7 +277,7 @@
 
       h3 {
         font-size: 18px;
-        font-weight: bold;
+        font-weight: 700;
         color: var(--el-text-color-primary);
       }
     }
@@ -303,7 +301,7 @@
           margin-left: 12px;
 
           .invite-name {
-            font-weight: bold;
+            font-weight: 700;
             color: var(--el-text-color-primary);
           }
 
@@ -318,7 +316,7 @@
         }
 
         .invite-commission {
-          font-weight: bold;
+          font-weight: 700;
           color: var(--el-text-color-primary);
 
           .pending {
@@ -364,17 +362,17 @@
 
 .commission-amount {
   color: var(--el-text-color-primary);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .amount-positive {
   color: var(--el-text-color-primary);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .amount-negative {
   color: var(--el-text-color-primary);
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .pagination-wrapper {
@@ -390,7 +388,7 @@
 
     h3 {
       font-size: 20px;
-      font-weight: bold;
+      font-weight: 700;
       margin-bottom: 24px;
       color: var(--el-text-color-primary);
     }
@@ -409,8 +407,7 @@
 
         &:hover {
           transform: translateY(-4px);
-          box-shadow: var(--global-box-shadow);
-        }
+          }
 
         .rule-icon {
           width: 60px;
@@ -427,14 +424,14 @@
 
         h4 {
           font-size: 16px;
-          font-weight: bold;
+          font-weight: 700;
           margin-bottom: 8px;
           color: var(--el-text-color-primary);
         }
 
         .rule-amount {
           font-size: 24px;
-          font-weight: bold;
+          font-weight: 700;
           color: var(--el-text-color-primary);
           margin-bottom: 12px;
         }
@@ -468,7 +465,7 @@
 
           h4 {
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 700;
             margin-bottom: 8px;
             color: var(--el-text-color-primary);
           }
@@ -499,7 +496,7 @@
 
       h3 {
         font-size: 18px;
-        font-weight: bold;
+        font-weight: 700;
         margin-bottom: 8px;
         color: var(--el-text-color-primary);
       }

@@ -1100,7 +1100,7 @@ $brand-secondary: var(--color-gray-333);
     padding: 8px 20px;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 900;
     letter-spacing: 0.05em;
     margin-bottom: 16px;
@@ -1148,8 +1148,7 @@ $brand-secondary: var(--color-gray-333);
 
   &:focus-within {
     background: var(--color-white-90);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 .search-icon {
@@ -1224,15 +1223,12 @@ $brand-secondary: var(--color-gray-333);
     background: var(--color-white-90);
     border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   &.active {
     background: $brand-primary;
     color: var(--el-bg-color);
     border-color: $brand-primary;
-    box-shadow: var(--global-box-shadow);
-
     .tab-count {
       background: var(--color-white-20);
       color: var(--el-bg-color);
@@ -1361,8 +1357,7 @@ $brand-secondary: var(--color-gray-333);
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 .retry-btn {
@@ -1507,32 +1502,27 @@ $brand-secondary: var(--color-gray-333);
 .status-pending {
   background: var(--color-orange-ff9800);
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .status-shipping {
   background: $brand-primary;
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .status-finished {
   background: var(--el-text-color-primary);
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .status-cancelled {
   background: var(--el-text-color-placeholder);
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .status-refund {
   background: var(--el-text-color-primary);
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .card-body {
   display: flex;
@@ -1688,18 +1678,13 @@ $brand-secondary: var(--color-gray-333);
     &:hover {
       background: $brand-secondary;
       border-color: $brand-secondary;
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 
   &.warning {
     background: var(--color-orange-ff9800);
     color: var(--el-bg-color);
     border-color: transparent;
-
-    &:hover {
-      box-shadow: var(--global-box-shadow);
-    }
   }
 
   &.more-btn {
@@ -1736,8 +1721,7 @@ $brand-secondary: var(--color-gray-333);
     color: var(--el-bg-color);
     border-color: $brand-primary;
     transform: translateY(-3px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 .no-more {
@@ -1783,8 +1767,7 @@ $brand-secondary: var(--color-gray-333);
   background: var(--color-white-95);
   backdrop-filter: blur(24px);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .modal-header {
   display: flex;
@@ -2012,7 +1995,7 @@ $brand-secondary: var(--color-gray-333);
 
     .header-badge {
       padding: 6px 14px;
-      font-size: 10px;
+      font-size: 12px;
     }
   }
 

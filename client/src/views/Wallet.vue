@@ -842,7 +842,7 @@ $brand-primary: v.$primary-color;
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
-    font-size: 11px;
+    font-size: 12px;
     color: $text-sec;
   }
 
@@ -1193,6 +1193,78 @@ $brand-primary: v.$primary-color;
 
   .summary-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ==================== 移动端响应式补强 ==================== */
+@media (max-width: 768px) {
+  .balance-card { padding: 24px; }
+  .balance-card .balance-amount .value { font-size: 40px; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .filter-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  .wallet-page { padding: 12px 0 40px; }
+  .container { padding: 0 12px; gap: 14px; }
+  .balance-card {
+    padding: 20px 16px;
+    gap: 16px;
+  }
+  .balance-card .balance-amount .value { font-size: 32px; }
+  .balance-card .balance-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .balance-card .action-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+  .summary-card { padding: 14px; }
+  .summary-card .summary-value { font-size: 16px; }
+  .filter-tab {
+    padding: 10px 14px;
+    font-size: 13px;
+    min-height: 44px;
+  }
+  .filter-select {
+    height: 44px;
+    width: 100%;
+  }
+  .export-btn {
+    padding: 10px 16px;
+    min-height: 44px;
+    width: 100%;
+  }
+  .filter-advanced {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .filter-advanced .adv-field {
+    min-width: 0;
+    width: 100%;
+  }
+  .filter-advanced .adv-input {
+    height: 44px;
+    font-size: 14px;
+  }
+  .tx-item {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .page-btn {
+    padding: 10px 16px;
+    min-height: 44px;
   }
 }
 </style>

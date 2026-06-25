@@ -469,7 +469,7 @@ onMounted(() => {
     background: var(--el-fill-color-light);
     padding: 2px 6px;
     border-radius: var(--global-border-radius);
-    font-size: 10px;
+    font-size: 12px;
     color: var(--el-text-color-placeholder);
   }
 }
@@ -592,7 +592,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 10px;
-    .id { font-family: var(--font-family-mono); font-size: 10px; color: var(--el-border-color-darker); font-weight: 700; transition: color 0.3s; }
+    .id { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-border-color-darker); font-weight: 700; transition: color 0.3s; }
     .title { font-size: 12px; color: var(--el-text-color-regular); font-weight: 500; transition: color 0.3s; }
   }
   .arrow { color: var(--el-border-color-extra-light); transition: all 0.3s; font-size: 13px; }
@@ -607,7 +607,7 @@ onMounted(() => {
 
 .section-label {
   font-family: var(--font-family-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-color-primary);
   font-weight: 700;
   letter-spacing: 2px;
@@ -677,7 +677,7 @@ onMounted(() => {
 
     .entry-num {
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-placeholder);
       font-weight: 700;
       min-width: 24px;
@@ -734,7 +734,7 @@ onMounted(() => {
 
         span {
           font-family: var(--font-family-mono);
-          font-size: 10px;
+          font-size: 12px;
           color: var(--el-text-color-placeholder);
           font-weight: 600;
         }
@@ -744,7 +744,7 @@ onMounted(() => {
         display: flex;
         align-items: center;
         gap: 10px;
-        font-size: 11px;
+        font-size: 12px;
         color: var(--el-text-color-placeholder);
 
         .btn-vote {
@@ -754,7 +754,7 @@ onMounted(() => {
           padding: 2px 10px;
           border-radius: var(--global-border-radius);
           cursor: pointer;
-          font-size: 11px;
+          font-size: 12px;
           transition: all 0.3s;
 
           &:hover {
@@ -836,7 +836,7 @@ onMounted(() => {
 
     .ch-status {
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-placeholder);
       font-weight: 600;
       letter-spacing: 0.5px;
@@ -890,7 +890,7 @@ onMounted(() => {
 
     .node-id {
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-placeholder);
       font-weight: 800;
     }
@@ -900,7 +900,7 @@ onMounted(() => {
 
   .node-footer .read-btn {
     font-family: var(--font-family-mono);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     color: var(--el-text-color-placeholder);
     display: inline-flex;
@@ -927,7 +927,7 @@ onMounted(() => {
 
     button {
       background: none; border: none; color: var(--el-text-color-placeholder); font-family: var(--font-family-mono);
-      font-size: 11px; font-weight: 700; letter-spacing: 1.5px; cursor: pointer;
+      font-size: 12px; font-weight: 700; letter-spacing: 1.5px; cursor: pointer;
       transition: color 0.3s;
       &:hover { color: var(--el-color-primary); }
     }

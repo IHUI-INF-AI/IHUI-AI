@@ -419,10 +419,10 @@ $brand-primary: v.$primary-color;
   &.sla-red { background: var(--el-color-danger-light-9); border-color: var(--el-color-danger-light-7); .sla-value { color: var(--el-color-danger); } }
 
   &.sla-critical {
-    background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
-    border-color: var(--el-text-color-primary);
-    .sla-value { color: var(--el-bg-color); }
+    background: var(--el-color-danger);
+    color: #fff;
+    border-color: var(--el-color-danger);
+    .sla-value { color: #fff; }
   }
 }
 
@@ -543,7 +543,7 @@ $brand-primary: v.$primary-color;
 }
 
 .table-head {
-  background: var(--color-black-2);
+  background: var(--el-fill-color-blank);
   font-size: 12px;
   font-weight: 700;
   color: $text-sec;
@@ -555,7 +555,7 @@ $brand-primary: v.$primary-color;
   border-bottom: var(--unified-border-bottom);
 
   &:last-child { border-bottom: none; }
-  &:hover { background: var(--color-black-2); }
+  &:hover { background: var(--el-fill-color-light); }
 
   &.row-sla-critical {
     background: var(--el-color-danger-light-9);
@@ -586,7 +586,7 @@ $brand-primary: v.$primary-color;
   display: inline-block;
   padding: 2px 8px;
   border-radius: var(--global-border-radius);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 
   &.status-pending, &.status-reviewing { background: var(--el-color-primary-light-9); color: var(--color-blue-1890ff); }
@@ -599,18 +599,18 @@ $brand-primary: v.$primary-color;
   display: inline-block;
   padding: 2px 6px;
   border-radius: var(--global-border-radius);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   margin-right: 4px;
 
   &.sla-green { background: var(--el-color-success-light-7); color: var(--el-color-success); }
   &.sla-yellow { background: var(--el-color-warning-light-7); color: var(--el-color-warning); }
   &.sla-red { background: var(--el-color-danger-light-7); color: var(--el-color-danger); }
-  &.sla-critical { background: var(--el-text-color-primary); color: var(--el-bg-color); }
+  &.sla-critical { background: var(--el-color-danger); color: #fff; }
 }
 
 .sla-hours {
-  font-size: 11px;
+  font-size: 12px;
   color: $text-sec;
   font-variant-numeric: tabular-nums;
 }

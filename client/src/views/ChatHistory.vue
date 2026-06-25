@@ -696,8 +696,7 @@ onMounted(async () => {
 .ai-message {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 .message-usage {
   margin-top: 8px;

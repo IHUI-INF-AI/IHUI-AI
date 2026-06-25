@@ -389,7 +389,7 @@ onMounted(() => getData())
 
   .back-link {
     color: var(--el-text-color-secondary);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
 
     &:hover {
@@ -398,7 +398,7 @@ onMounted(() => getData())
   }
 
   .plaza-id {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--el-text-color-placeholder);
     font-weight: 800;
     letter-spacing: 2px;
@@ -753,7 +753,7 @@ html.dark .empty-action-btn {
 :deep(.tech-form) {
   .el-form-item__label {
     font-family: var(--font-family-mono);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     color: var(--el-text-color-placeholder);
     letter-spacing: 1px;
@@ -813,7 +813,7 @@ html.dark .empty-action-btn {
 
   .btn-abort {
     font-family: var(--font-family-mono);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-placeholder);
     font-weight: 800;
   }

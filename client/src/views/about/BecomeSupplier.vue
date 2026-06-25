@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="become-supplier-page">
     <div class="container">
       <!-- 头部 -->
@@ -222,7 +222,7 @@ const handleReset = () => formRef.value?.resetFields()
     padding: 8px 20px;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 900;
     margin-bottom: 16px;
 
@@ -261,7 +261,7 @@ const handleReset = () => formRef.value?.resetFields()
 
 .section-label {
   font-family: var(--font-family-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--el-color-primary);
   font-weight: 800;
   letter-spacing: 3px;
@@ -437,7 +437,7 @@ const handleReset = () => formRef.value?.resetFields()
 }
 
 :deep(.tech-form) {
-  .el-form-item__label { font-family: var(--font-family-mono); font-size: 11px; font-weight: 800; color: var(--el-text-color-secondary); text-transform: uppercase; }
+  .el-form-item__label { font-family: var(--font-family-mono); font-size: 12px; font-weight: 800; color: var(--el-text-color-secondary); text-transform: uppercase; }
 
   .el-input .el-input__wrapper,
   .el-input__wrapper {
@@ -472,7 +472,7 @@ const handleReset = () => formRef.value?.resetFields()
     transition: all 0.3s;
     &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); }
   }
-  .btn-reset { font-family: var(--font-family-mono); font-size: 11px; color: var(--el-text-color-secondary); font-weight: 800; }
+  .btn-reset { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
 }
 
 /* ---------- 暗色模式覆盖 ---------- */

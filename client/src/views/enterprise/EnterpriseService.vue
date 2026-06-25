@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="enterprise-service-page" ref="pageRef" role="main">
     <!-- 跳过导航链接 - 无障碍 -->
     <a href="#main-content" class="skip-link">{{ t('enterpriseService.skipToMain') }}</a>
@@ -1634,7 +1634,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   .back-link {
     color: var(--el-text-color-secondary);
     font-family: var(--font-family-mono);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     letter-spacing: 1px;
     transition: all 0.3s ease;
@@ -1647,7 +1647,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
   .version-tag {
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     color: $accent-blue;
     font-weight: 800;
     letter-spacing: 2px;
@@ -1684,7 +1684,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
     .label-text {
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-secondary);
       font-weight: 500;
       letter-spacing: 3px;
@@ -1816,7 +1816,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         top: 0;
         right: 32px;
         font-family: var(--font-family-mono);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 600;
         color: var(--el-color-success);
         background: var(--el-color-success-light-9);
@@ -1944,7 +1944,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
 .section-label {
   font-family: var(--font-family-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
   font-weight: 500;
   letter-spacing: 2px;
@@ -2110,7 +2110,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
         :where(.tag) {
           font-family: var(--font-family-mono);
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 800;
           letter-spacing: 1px;
           color: var(--el-text-color-secondary);
@@ -2199,7 +2199,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         top: 20px;
         right: 20px;
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 600;
         color: $accent-blue;
         background: rgba($accent-blue, 0.08);
@@ -2263,7 +2263,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
       :where(.module-tag) {
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 500;
         color: var(--el-text-color-placeholder);
         letter-spacing: 0.5px;
@@ -2401,7 +2401,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
       :where(.layer-tag) {
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 600;
         color: var(--el-text-color-secondary);
         letter-spacing: 0.5px;
@@ -2504,7 +2504,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       :where(.level-label) {
         display: block;
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 800;
         letter-spacing: 1px;
         margin-bottom: 16px;
@@ -2724,7 +2724,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     :where(.axis-label) {
       position: absolute;
       font-family: var(--font-family-mono);
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--el-text-color-placeholder);
       letter-spacing: 1px;
@@ -2881,7 +2881,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
       :where(.quadrant-tag) {
         font-family: var(--font-family-mono);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 800;
         color: $accent-blue;
         letter-spacing: 1px;
@@ -2918,7 +2918,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       margin-bottom: 20px;
 
       span {
-        font-size: 11px;
+        font-size: 12px;
         color: var(--el-text-color-regular);
         padding: 4px 10px;
         background: var(--el-fill-color-extra-light);
@@ -2943,7 +2943,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
       :where(.progress-label) {
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         color: var(--el-text-color-placeholder);
         letter-spacing: 0.5px;
       }
@@ -3039,7 +3039,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
       .phase-number {
         font-family: var(--font-family-mono);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 600;
         color: var(--el-text-color-placeholder);
         padding: 4px 8px;
@@ -3176,7 +3176,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
         :where(.phase-tag) {
           font-family: var(--font-family-mono);
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 800;
           letter-spacing: 1px;
           color: var(--el-text-color-placeholder);
@@ -3220,7 +3220,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
         :where(.course-duration) {
           font-family: var(--font-family-mono);
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 800;
           color: $accent-purple;
           padding: 4px 10px;
@@ -3535,7 +3535,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         left: 50%;
         transform: translateX(-50%);
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 600;
         color: var(--el-color-black);
         background: var(--el-color-success);
@@ -3687,7 +3687,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       border: none;
       color: var(--el-text-color-placeholder);
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 800;
       letter-spacing: 1px;
       cursor: pointer;

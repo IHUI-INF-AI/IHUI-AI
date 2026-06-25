@@ -1450,7 +1450,7 @@ html.dark {
       align-items: center;
       gap: 10px;
       padding: 8px 18px;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.18em;
       color: var(--accent);
@@ -2284,7 +2284,7 @@ html.dark {
       }
 
       .follow-btn {
-        font-size: 11px;
+        font-size: 12px;
         padding: 6px 14px;
         border-radius: var(--global-border-radius);
         background: transparent;
@@ -2423,7 +2423,7 @@ html.dark {
           justify-content: center;
           background: var(--border-subtle);
           border-radius: var(--global-border-radius);
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 700;
           color: var(--text-secondary);
           font-family: var(--font-family-mono);
@@ -2812,7 +2812,7 @@ html.dark .btn-luxe {
 
     .hero-content {
       .hero-badge {
-        font-size: 10px;
+        font-size: 12px;
         padding: 6px 14px;
         gap: 8px;
       }

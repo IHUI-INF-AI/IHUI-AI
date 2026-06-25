@@ -308,7 +308,7 @@ onMounted(async () => {
 
   .back-btn {
     color: var(--el-text-color-secondary);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
 
     &:hover {
@@ -320,7 +320,7 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 10px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     font-weight: 800;
 
@@ -564,8 +564,6 @@ onMounted(async () => {
       border-color: var(--el-border-color-light);
       background: var(--el-fill-color);
       transform: translateY(-4px);
-      box-shadow: var(--global-box-shadow);
-
       .entry-image img {
         transform: scale(1.05);
       }
@@ -622,7 +620,7 @@ onMounted(async () => {
 
       .entry-cat {
         font-family: var(--font-family-mono);
-        font-size: 10px;
+        font-size: 12px;
         color: var(--el-color-primary);
         font-weight: 800;
         text-transform: uppercase;
@@ -662,7 +660,7 @@ onMounted(async () => {
 
     .more-link {
       font-family: var(--font-family-mono);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 800;
       color: var(--el-text-color-secondary);
       transition: all 0.3s;
@@ -712,7 +710,7 @@ onMounted(async () => {
 
   .page-info {
     font-family: var(--font-family-mono);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     font-weight: 800;
     padding: 0 40px;

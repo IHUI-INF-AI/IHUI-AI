@@ -799,7 +799,7 @@ $bg-page: var(--el-bg-color-page);
     padding: 6px 14px;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 900;
     margin-bottom: 8px;
     background: rgb(var(--el-fill-color-light-rgb), 0.5);
@@ -1119,7 +1119,7 @@ $bg-page: var(--el-bg-color-page);
       border-radius: var(--global-border-radius);
       background: var(--color-black-70);
       color: var(--color-white);
-      font-size: 11px;
+      font-size: 12px;
     }
   }
 

@@ -530,7 +530,6 @@ const _handleBack = () => {
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   overflow: hidden;
 }
 
@@ -762,7 +761,6 @@ const _handleBack = () => {
   max-height: 300px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   z-index: var(--z-notification);
 }
 

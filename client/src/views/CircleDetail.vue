@@ -301,7 +301,7 @@ onMounted(loadDetail)
 }
 
 .flag {
-  font-size: 11px;
+  font-size: 12px;
   padding: 1px 6px;
   background: var(--el-color-warning-light-9);
   color: var(--el-color-warning-dark-2);

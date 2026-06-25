@@ -391,7 +391,7 @@ $font-family-mono: monospace;
   border-radius: var(--global-border-radius);
   margin-bottom: 20px;
   font-family: $font-family-mono;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.05em;
   
   &__label {
@@ -546,7 +546,7 @@ $font-family-mono: monospace;
   
   &__text {
     font-family: $font-family-mono;
-    font-size: 10px;
+    font-size: 12px;
     color: $local-text-muted;
     letter-spacing: 0.1em;
     text-transform: uppercase;

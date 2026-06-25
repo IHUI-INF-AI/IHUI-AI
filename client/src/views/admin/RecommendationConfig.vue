@@ -351,7 +351,7 @@ onMounted(() => {
 
 .stat-value {
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 700;
   margin-top: 10px;
 }
 

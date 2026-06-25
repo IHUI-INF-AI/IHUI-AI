@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="distribution-orders-page page-container">
     <!-- 页面头部 -->
     <div class="page-header radius-auto">

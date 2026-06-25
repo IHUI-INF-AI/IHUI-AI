@@ -219,7 +219,6 @@ function selectGenerator(type: string) {
 
 .generation-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--global-box-shadow);
   border-color: var(--el-color-primary-light-5);
 }
 

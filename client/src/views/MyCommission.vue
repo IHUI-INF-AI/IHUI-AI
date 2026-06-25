@@ -222,7 +222,6 @@ onMounted(() => {
   margin: 0 auto 24px;
   background: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
   display: flex;
   align-items: flex-start;
   padding: 24px;
@@ -247,7 +246,7 @@ onMounted(() => {
 
 .main-amount {
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--color-orange-ff9800);
   margin-bottom: 8px;
   display: flex;
@@ -257,7 +256,7 @@ onMounted(() => {
 .amount-highlight {
   color: var(--color-orange-ff9800);
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 700;
   margin: 0 4px;
 }
 
@@ -299,7 +298,6 @@ onMounted(() => {
   font-size: 14px;
   padding: 0 30px;
   height: 40px;
-  box-shadow: var(--global-box-shadow);
   background: var(--color-purple-8278f0);
   border: var(--unified-border);
   font-weight: 500;

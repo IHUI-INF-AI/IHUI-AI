@@ -613,7 +613,7 @@ $glow-white: var(--color-white-15);
 }
 
 .status-text {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: $text-muted;
   letter-spacing: 0.1em;
@@ -683,7 +683,7 @@ $glow-white: var(--color-white-15);
   justify-content: center;
   min-width: 36px;
   height: 20px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.05em;
   background: var(--color-white-8);
@@ -1059,7 +1059,7 @@ $glow-white: var(--color-white-15);
 }
 
 .footer-text {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: $text-muted;
   letter-spacing: 0.2em;

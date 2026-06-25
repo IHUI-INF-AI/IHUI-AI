@@ -160,7 +160,7 @@ function buyNow() {
     .title {
       font-size: 20px;
       color: var(--color-white);
-      font-weight: bold;
+      font-weight: 700;
       margin-bottom: 4px;
     }
 
@@ -197,7 +197,7 @@ function buyNow() {
 
   .section-title {
     font-size: 16px;
-    font-weight: bold;
+    font-weight: 700;
     color: var(--color-gray-333);
     margin-bottom: 12px;
   }
@@ -248,8 +248,6 @@ function buyNow() {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  box-shadow: var(--global-box-shadow);
-
   .price {
     .symbol {
       font-size: 14px;
@@ -259,7 +257,7 @@ function buyNow() {
     .amount {
       font-size: 22px;
       color: var(--color-blue-4080ff);
-      font-weight: bold;
+      font-weight: 700;
     }
   }
 

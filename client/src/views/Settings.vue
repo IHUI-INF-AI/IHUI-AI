@@ -1988,7 +1988,7 @@ $brand-secondary: var(--color-gray-333);
     background: var(--el-fill-color-light);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.05em;
     color: var(--el-text-color-secondary);
@@ -2089,7 +2089,7 @@ $brand-secondary: var(--color-gray-333);
 
   .section-idx {
     font-family: monospace;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 900;
     color: $brand-primary;
     opacity: 0.4;
@@ -2468,7 +2468,7 @@ $brand-secondary: var(--color-gray-333);
   gap: 4px;
 
   span {
-    font-size: 11px;
+    font-size: 12px;
     padding: 2px 6px;
     background: var(--el-color-warning-light-9);
     color: var(--el-color-warning-dark-2);

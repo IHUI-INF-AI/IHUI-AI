@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="vip-page">
     <!-- 深度背景系统 -->
     <div class="vip-page__background">
@@ -714,7 +714,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: var(--global-border-radius);
 
     span {
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--el-bg-color);
       letter-spacing: 0.05em;

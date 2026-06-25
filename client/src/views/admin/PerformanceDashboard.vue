@@ -143,10 +143,10 @@ const THRESHOLDS = {
 
 const getScoreColor = (value: number, metric: string): string => {
   const threshold = THRESHOLDS[metric as keyof typeof THRESHOLDS]
-  if (!threshold) return 'var(--color-success)'
-  if (value <= threshold.good) return 'var(--color-success)'
-  if (value <= threshold.poor) return 'var(--color-warning-variant)'
-  return 'var(--color-danger-variant)'
+  if (!threshold) return cssVar('--color-success')
+  if (value <= threshold.good) return cssVar('--color-success')
+  if (value <= threshold.poor) return cssVar('--color-warning-variant')
+  return cssVar('--color-danger-variant')
 }
 
 const getScoreClass = (_value: number): string => {
@@ -197,7 +197,13 @@ const initDistributionChart = async (): Promise<void> => {
       data: [120, 350, 280, 95, 25],
       itemStyle: {
         color: (params: { dataIndex: number }) => {
-          const colors = ['var(--color-success)', 'var(--color-success)', 'var(--color-warning-variant)', 'var(--color-warning-variant)', 'var(--color-danger-variant)']
+          const colors = [
+            cssVar('--color-success'),
+            cssVar('--color-success'),
+            cssVar('--color-warning-variant'),
+            cssVar('--color-warning-variant'),
+            cssVar('--color-danger-variant'),
+          ]
           return colors[params.dataIndex]
         },
       },
@@ -283,7 +289,7 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 
 .stat-value {
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 700;
   margin-bottom: 4px;
 }
 

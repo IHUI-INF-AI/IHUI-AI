@@ -363,4 +363,44 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
 }
+
+/* ==================== 移动端响应式 ==================== */
+@media (max-width: 768px) {
+  .tasks-container { padding: 16px; }
+  .tasks-header {
+    margin-bottom: 16px;
+    .page-title { font-size: 22px; }
+    .page-subtitle { font-size: 13px; }
+  }
+  .tasks-list { gap: 12px; }
+  .task-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .task-info {
+    gap: 8px;
+    flex: 1 1 100%;
+  }
+  .task-title { font-size: 15px; }
+  .task-meta {
+    gap: 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tasks-container { padding: 12px; }
+  .task-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .task-actions {
+    width: 100%;
+    :deep(.el-button) {
+      min-height: 44px;
+      width: 100%;
+    }
+  }
+}
 </style>

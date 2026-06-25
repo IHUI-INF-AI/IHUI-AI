@@ -249,7 +249,7 @@ onMounted(() => {
   .top-badge {
     display: inline-flex; align-items: center; gap: 2px;
     padding: 1px 6px;
-    font-size: 11px; font-weight: 500;
+    font-size: 12px; font-weight: 500;
     border-radius: var(--global-border-radius);
     background: var(--el-color-danger-light-9);
     color: var(--el-color-danger);
@@ -258,7 +258,7 @@ onMounted(() => {
 
   /* 来源标签 (已读时显示) */
   .source-tag {
-    font-size: 11px;
+    font-size: 12px;
     padding: 1px 6px;
     border-radius: var(--global-border-radius);
     color: var(--color-white-50);
@@ -276,7 +276,7 @@ onMounted(() => {
     word-break: break-all;
   }
   .notify-meta {
-    margin-top: 4px; font-size: 11px; color: var(--color-white-40);
+    margin-top: 4px; font-size: 12px; color: var(--color-white-40);
   }
 }
 </style>

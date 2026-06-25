@@ -265,6 +265,18 @@ const renderChart = async () => {
   }
   const isDark = darkModeStore.isDarkMode
   const getVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  const toRgba = (hexOrRgb: string, alpha: number): string => {
+    const hexMatch = hexOrRgb.match(/^#([0-9a-f]{6})$/i)
+    if (hexMatch) {
+      const n = parseInt(hexMatch[1], 16)
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
+    }
+    const rgbMatch = hexOrRgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i)
+    if (rgbMatch) {
+      return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${alpha})`
+    }
+    return hexOrRgb
+  }
   const bgColor = getVar('--el-bg-color') || 'var(--el-bg-color)'
   const borderColor = getVar('--el-border-color') || 'var(--el-border-color)'
   const textPrimary = getVar('--el-text-color-primary') || 'var(--el-text-color-primary)'
@@ -295,7 +307,7 @@ const renderChart = async () => {
         const redisColor = p.redisOk ? successColor : dangerColor
         return `
           <div style="line-height:1.6">
-            <div style="font-weight:bold;margin-bottom:4px">${formatTime(p.ts)}</div>
+            <div style="font-weight:700;margin-bottom:4px">${formatTime(p.ts)}</div>
             <div>响应时间: <b>${p.latency} ms</b></div>
             <div>总状态: <span style="color:${statusColor}">${p.status}</span></div>
             <div>DB: <span style="color:${dbColor}">${p.dbOk ? '✓ ok' : '✗ fail'}</span></div>
@@ -315,7 +327,7 @@ const renderChart = async () => {
       symbolSize: 6,
       lineStyle: { color: primaryColor, width: 2 },
       itemStyle: { color: primaryColor },
-      areaStyle: { color: primaryColor + (isDark ? '1a' : '26') },
+      areaStyle: { color: toRgba(primaryColor, isDark ? 0.1 : 0.15) },
       markPoint: {
         data: abnormalIdx.map(i => ({ coord: [xs[i], ys[i]], itemStyle: { color: dangerColor } })),
         symbol: 'pin',
@@ -370,10 +382,10 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .stat-item { text-align: center; }
 .stat-label { font-size: 14px; color: var(--el-text-color-primary); margin-bottom: 10px; }
-.stat-value { font-size: 24px; font-weight: bold; }
+.stat-value { font-size: 24px; font-weight: 700; }
 .engine-list { display: flex; flex-direction: column; gap: 12px; }
 .engine-item { display: flex; align-items: center; gap: 12px; }
-.engine-name { font-weight: bold; min-width: 70px; }
+.engine-name { font-weight: 700; min-width: 70px; }
 .engine-msg { color: var(--el-text-color-secondary); font-size: 13px; }
 .redis-info { display: flex; flex-direction: column; gap: 12px; }
 .info-row { display: flex; align-items: center; gap: 12px; }

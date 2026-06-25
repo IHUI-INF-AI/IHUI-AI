@@ -565,8 +565,7 @@ $border-light: var(--el-border-color-lighter);
   width: 100%;
   height: auto;
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 /* Section */
 .banner-detail__section {
@@ -642,11 +641,7 @@ $border-light: var(--el-border-color-lighter);
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-
-  &:hover {
-    box-shadow: var(--global-box-shadow);
-  }
+  transition: transform 0.2s ease;
 
   &--compact {
     padding: 20px;
@@ -769,11 +764,6 @@ $border-light: var(--el-border-color-lighter);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   overflow: hidden;
-  transition: box-shadow 0.2s ease;
-
-  &:hover {
-    box-shadow: var(--global-box-shadow);
-  }
 }
 
 .banner-detail__solution-img {
@@ -815,11 +805,6 @@ $border-light: var(--el-border-color-lighter);
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: box-shadow 0.2s ease;
-
-  &:hover {
-    box-shadow: var(--global-box-shadow);
-  }
 }
 
 .banner-detail__section--light .banner-detail__dev-card {
@@ -909,8 +894,7 @@ $border-light: var(--el-border-color-lighter);
   width: 100%;
   height: auto;
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 </style>
 

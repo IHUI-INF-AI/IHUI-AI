@@ -370,15 +370,13 @@ cleanup.add(() => {
   background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
   border: var(--unified-border);
   backdrop-filter: blur(10px);
-  box-shadow: var(--global-box-shadow);
   border-radius: var(--global-border-radius);
   overflow: hidden;
   transition: all 0.3s ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 .order-card-header {
@@ -486,7 +484,7 @@ cleanup.add(() => {
 .order-product-price {
   font-size: 18px;
   color: var(--el-text-color-primary);
-  font-weight: bold;
+  font-weight: 700;
   position: absolute;
   right: 20px;
   top: 60%;
@@ -518,7 +516,7 @@ cleanup.add(() => {
 .order-commission-amount {
   color: var(--el-color-danger);
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .empty-state {

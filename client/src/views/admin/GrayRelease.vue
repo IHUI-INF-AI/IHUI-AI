@@ -416,7 +416,7 @@ onMounted(() => {
 
 .metric-value {
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--el-color-primary);
 }
 
@@ -438,6 +438,6 @@ onMounted(() => {
 
 .error-high {
   color: var(--el-color-danger);
-  font-weight: bold;
+  font-weight: 700;
 }
 </style>

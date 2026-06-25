@@ -395,7 +395,7 @@ async function runTests() {
 
 .stat-value {
   font-size: 32px;
-  font-weight: bold;
+  font-weight: 700;
   margin-bottom: 8px;
 }
 

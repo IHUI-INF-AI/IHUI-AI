@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="open-platform-docs page-container">
     <div class="docs-layout">
       <!-- 左侧目录 -->
@@ -651,8 +651,6 @@ const startResize = (e: MouseEvent) => {
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   z-index: var(--z-header); // 低于顶部菜单栏（z-index: 2000）
-  box-shadow: var(--global-box-shadow);
-
   &.collapsed {
     // 使用选择器特异性替代 
     &.docs-sidebar {
@@ -680,8 +678,6 @@ const startResize = (e: MouseEvent) => {
   @media (width <= $desktop-breakpoint-sm) {
     position: fixed;
     z-index: var(--z-dropdown);
-    box-shadow: var(--global-box-shadow);
-
     // 使用选择器特异性替代 
     &.docs-sidebar {
       width: 300px;

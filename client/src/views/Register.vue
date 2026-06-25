@@ -892,8 +892,7 @@ $bg-page: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
   overflow: hidden;
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 // ============ 侧边栏 ============
 .register-sidebar {
@@ -1021,7 +1020,6 @@ $bg-page: var(--el-bg-color-page);
   backdrop-filter: blur(30px);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
@@ -1034,8 +1032,7 @@ html.dark .glass-card,
 body.dark .glass-card {
   background: var(--color-dark-1c1c1c-92);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 // 卡片顶部装饰
 .card-top-accent {
@@ -1088,7 +1085,6 @@ body.dark .glass-card {
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     opacity: 0;
-    box-shadow: var(--global-box-shadow);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: var(--z-base);
   }
@@ -1150,7 +1146,6 @@ body.dark .glass-card {
 
   &.is-focus {
     border-color: var(--el-color-primary);
-    box-shadow: var(--global-box-shadow);
     background: var(--el-bg-color);
   }
 }
@@ -1227,7 +1222,7 @@ body.dark .glass-card {
 }
 
 .strength-text {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1416,8 +1411,7 @@ body.dark .glass-card {
 // ============ 表单验证错误 ============
 :where(.register-container) :deep(.el-form-item.is-error .el-input__wrapper) {
   border-color: var(--el-color-danger);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :deep(.el-form-item__error) {
   font-size: 12px;

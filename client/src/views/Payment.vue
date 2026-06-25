@@ -953,4 +953,40 @@ getUserInfo()
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* ==================== 移动端响应式 ==================== */
+@media (max-width: 768px) {
+  .payment-page { padding: 16px; }
+  .payment-container { padding: 24px; }
+  .header .title { font-size: 24px; }
+  .package-container .package { padding: 20px; }
+  .package-container .package .package-price .price { font-size: 28px; }
+}
+
+@media (max-width: 480px) {
+  .payment-page { padding: 12px; }
+  .payment-container { padding: 16px; }
+  .header {
+    margin-bottom: 24px;
+    .title { font-size: 22px; }
+    .subtitle { font-size: 13px; }
+  }
+  .package-container {
+    margin-bottom: 24px;
+    .package {
+      padding: 16px;
+      .package-header { margin-bottom: 12px; }
+      .package-title { font-size: 16px; }
+      .package-price .price { font-size: 24px; }
+    }
+  }
+  .payment-methods {
+    margin-bottom: 24px;
+    .method {
+      padding: 14px 12px;
+      min-height: 44px;
+    }
+  }
+  .pay-button { height: 52px; font-size: 16px; min-height: 44px; }
+}
 </style>

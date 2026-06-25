@@ -859,7 +859,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .wd-label-icon {
-  font-size: 10px;
+  font-size: 12px;
   color: $text-muted;
 }
 
@@ -1049,7 +1049,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 12px;
   color: $brand-primary;
   font-weight: 700;
   animation: wd-pop 0.3s $ease-out-back;

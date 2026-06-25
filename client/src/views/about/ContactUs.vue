@@ -153,7 +153,7 @@ const getSplit = (key: string, index: number): string => {
   .back-link {
     color: var(--el-text-color-secondary);
     font-family: var(--font-family-mono);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
 
     &:hover {
@@ -163,7 +163,7 @@ const getSplit = (key: string, index: number): string => {
 
   .version-tag {
     font-family: var(--font-family-mono);
-    font-size: 10px;
+    font-size: 12px;
     color: var(--el-text-color-placeholder);
     border: var(--unified-border);
     padding: 2px 8px;
@@ -192,7 +192,7 @@ const getSplit = (key: string, index: number): string => {
 
 .section-label {
   font-family: var(--font-family-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--el-color-primary);
   font-weight: 800;
   letter-spacing: 4px;
@@ -231,8 +231,7 @@ const getSplit = (key: string, index: number): string => {
     &:hover {
       border: var(--el-border-width-primary) solid var(--el-color-primary);
       transform: translateY(-4px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
 
     .card-icon {
       flex-shrink: 0;

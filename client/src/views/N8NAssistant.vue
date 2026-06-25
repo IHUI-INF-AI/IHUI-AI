@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="n8n-assistant-page">
     <!-- Deep Background System -->
     <div class="cyber-background">
@@ -612,8 +612,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
 // Glow Effect Mixin
 @mixin glow-effect($color: $accent-cyan, $intensity: 0.3) {
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 // ============================================
 // MAIN CONTAINER
@@ -848,7 +847,6 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     height: 8px;
     border-radius: var(--global-border-radius);
     background: $accent-cyan;
-    box-shadow: var(--global-box-shadow);
     animation: pulse 2s ease-in-out infinite;
   }
 }
@@ -911,8 +909,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
     &.active {
       background: $accent-cyan;
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 }
 
@@ -974,8 +971,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         margin-right: 12px;
         margin-top: 6px;
         flex-shrink: 0;
-        box-shadow: var(--global-box-shadow);
-      }
+        }
 
       .item-text {
         font-size: 14px;
@@ -1277,8 +1273,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         border-radius: var(--global-border-radius);
         background: $accent-cyan;
         margin-right: 8px;
-        box-shadow: var(--global-box-shadow);
-      }
+        }
 
       .token-value {
         margin-left: 4px;
@@ -1362,7 +1357,6 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
       height: 12px;
       border-radius: var(--global-border-radius);
       background: $accent-cyan;
-      box-shadow: var(--global-box-shadow);
       animation: loaderPulse 1s ease-in-out infinite;
     }
   }
@@ -1489,8 +1483,6 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         background: $accent-cyan;
         border-radius: var(--global-border-radius);
         animation: bounce 1.4s infinite ease-in-out both;
-        box-shadow: var(--global-box-shadow);
-
         &:nth-child(1) { animation-delay: -0.32s; }
         &:nth-child(2) { animation-delay: -0.16s; }
         &:nth-child(3) { animation-delay: -0.08s; }
@@ -1601,8 +1593,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         &:hover,
         &.is-focus {
           border-color: $accent-cyan;
-          box-shadow: var(--global-box-shadow);
-        }
+          }
 
         .el-input__inner {
           color: $text-primary;
@@ -1646,8 +1637,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
           &:focus {
             border-color: $accent-cyan;
-            box-shadow: var(--global-box-shadow);
-          }
+            }
         }
       }
 

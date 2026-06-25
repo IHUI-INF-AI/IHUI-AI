@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="xuqiu-detail-page page-container">
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-container">

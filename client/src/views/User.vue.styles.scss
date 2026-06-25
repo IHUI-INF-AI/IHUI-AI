@@ -1,4 +1,4 @@
-﻿// User.vue 样式文件
+// User.vue 样式文件
 // ?User.vue 中提取的样式代码
 
 // 主容?- 现代化设?
@@ -494,12 +494,6 @@
 
     .el-input__wrapper {
       border-radius: var(--global-border-radius);
-
-      &:hover {
-      }
-
-      &.is-focus {
-      }
     }
   }
 
@@ -1008,12 +1002,6 @@
   :deep(.el-input__wrapper) {
     border-radius: var(--global-border-radius);
     transition: all 0.2s;
-
-    &:hover {
-    }
-
-    &.is-focus {
-    }
   }
 
   // 选择器样?

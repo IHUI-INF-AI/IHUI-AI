@@ -287,7 +287,7 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 
 .stat-value {
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 700;
   color: var(--el-text-color-primary);
 }
 

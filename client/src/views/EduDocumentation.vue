@@ -2040,7 +2040,6 @@ $sidebar-width: 200px;
 .glass-panel {
   background: var(--el-bg-color);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
   border-radius: var(--global-border-radius);
 }
 
@@ -2085,8 +2084,7 @@ $sidebar-width: 200px;
       background: var(--el-color-primary-light-3);
       color: var(--el-bg-color-page);
       transform: translateY(-1px);
-      box-shadow: var(--global-box-shadow);
-    }
+      }
   }
 
   &--float {
@@ -2100,11 +2098,6 @@ $sidebar-width: 200px;
     gap: 0;
     background: var(--el-bg-color);
     border: var(--unified-border);
-    box-shadow: var(--global-box-shadow);
-
-    &:hover {
-      box-shadow: var(--global-box-shadow);
-    }
 
     /* primary 浮动按钮保持主色，不被 --float 的默认背景覆盖 */
     &.cyber-btn--primary {
@@ -2276,8 +2269,6 @@ $sidebar-width: 200px;
   transition: transform 0.3s ease, width 0.15s ease;
   background: var(--el-bg-color);
   border: var(--unified-border);
-  box-shadow: var(--global-box-shadow);
-
   &::-webkit-scrollbar {
     width: 4px;
     background: transparent;
@@ -2315,7 +2306,7 @@ $sidebar-width: 200px;
   }
 
   .search-hint {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-muted;
     margin: 0 0 10px 12px;
   }
@@ -2385,7 +2376,7 @@ $sidebar-width: 200px;
     }
 
     .doc-time {
-      font-size: 10px;
+      font-size: 12px;
       color: $text-muted;
     }
 
@@ -2441,7 +2432,7 @@ $sidebar-width: 200px;
   }
 
   .empty-hint {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-muted;
     text-align: center;
     padding: 12px;
@@ -3094,8 +3085,6 @@ $sidebar-width: 200px;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  box-shadow: var(--global-box-shadow);
-
   &:hover {
     border-color: $brand-primary;
     color: $brand-primary;
@@ -3122,8 +3111,6 @@ $sidebar-width: 200px;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  box-shadow: var(--global-box-shadow);
-
   &:hover {
     border-color: var(--color-danger-variant);
     color: var(--color-danger-variant);
@@ -3198,8 +3185,6 @@ $sidebar-width: 200px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   color: var(--el-color-primary);
-  box-shadow: var(--global-box-shadow);
-
   /* 与浮动聊天触发按钮统一样式（46×46px 含边框） */
   &.cyber-btn--float {
     width: 46px;
@@ -3225,8 +3210,7 @@ $sidebar-width: 200px;
     background: var(--el-bg-color-page);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 
   :deep(.el-dialog__title) {
     color: var(--el-text-color-primary);
@@ -3330,7 +3314,7 @@ $sidebar-width: 200px;
     min-width: 0;
     margin: 0;
     padding: 8px 10px;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--el-text-color-secondary);
     line-height: 1.5;
     background: var(--upload-field-bg);
@@ -3354,7 +3338,7 @@ $sidebar-width: 200px;
       padding: 3px 8px;
       background: var(--el-bg-color-page);
       border-radius: var(--global-border-radius);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--el-text-color-secondary);
     }
   }
@@ -3523,7 +3507,7 @@ $sidebar-width: 200px;
       }
 
       .mode-desc {
-        font-size: 11px;
+        font-size: 12px;
         color: var(--el-text-color-secondary);
         line-height: 1.4;
       }
@@ -3984,8 +3968,7 @@ $sidebar-width: 200px;
 :where(html.dark) body .edu-docs-root .glass-panel {
   background: var(--el-bg-color);
   border-color: var(--el-border-color);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(html.dark) body .edu-docs-root .cyber-btn {
   background: var(--el-bg-color);
@@ -4007,15 +3990,12 @@ $sidebar-width: 200px;
   &--float {
     background: var(--el-bg-color);
     border-color: var(--el-border-color);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 :where(html.dark) body .edu-docs-root .docs-sidebar {
   background: var(--el-bg-color);
   border-color: var(--el-border-color);
-  box-shadow: var(--global-box-shadow);
-
   .toc-title,
   .doc-list-title {
     color: var(--el-text-color-primary);
@@ -4258,8 +4238,7 @@ body.route-edu-docs .el-overlay:has(.upload-dialog) {
   max-width: 92vw;
   max-height: 90vh;
   overflow: auto;
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 /* 亮色模式下上传表单区域使用中性灰，避免偏蓝/过暗 */
 html:not(.dark) .upload-dialog-content {

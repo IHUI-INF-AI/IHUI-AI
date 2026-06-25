@@ -348,7 +348,7 @@ $brand-primary: v.$primary-color;
   }
 
   .dash-time {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-sec;
   }
 }
@@ -369,7 +369,7 @@ $brand-primary: v.$primary-color;
   gap: 4px;
 
   .headline-label {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-sec;
   }
 
@@ -381,7 +381,7 @@ $brand-primary: v.$primary-color;
   }
 
   .headline-delta {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
 
     &.up { color: var(--el-color-success); }
@@ -431,7 +431,7 @@ $brand-primary: v.$primary-color;
   display: flex;
   justify-content: space-between;
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 12px;
   color: $text-sec;
 }
 
@@ -476,7 +476,7 @@ $brand-primary: v.$primary-color;
 }
 
 .forecast-meta {
-  font-size: 10px;
+  font-size: 12px;
   color: $text-sec;
   margin-top: 8px;
   text-align: center;
@@ -520,7 +520,7 @@ $brand-primary: v.$primary-color;
   }
 
   .sub-desc {
-    font-size: 11px;
+    font-size: 12px;
     color: $text-sec;
   }
 }

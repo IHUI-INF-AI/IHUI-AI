@@ -1335,9 +1335,6 @@ p {
   box-shadow: none;
 }
 
-:where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) {
-  box-shadow: var(--global-box-shadow);
-}
 
 :where(html:not(.dark)) :where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) {
   background: color-mix(in srgb, var(--el-bg-color) 100%, transparent);
@@ -1347,8 +1344,7 @@ p {
 :where(html.dark) :where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) {
   background: var(--color-white-8);
   border-color: var(--el-fill-color-dark);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(#second-page) .features-grid .feature-card:hover:not(.is-navigating)::before {
   opacity: 1;
@@ -1369,7 +1365,6 @@ p {
   border-radius: var(--global-border-radius);
   background: var(--el-color-primary-light-9);
   color: var(--el-color-primary);
-  box-shadow: var(--global-box-shadow);
   pointer-events: auto;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -1379,23 +1374,17 @@ p {
 :where(html:not(.dark)) :where(#second-page) .features-grid .feature-card .feature-icon {
   background: var(--el-color-primary-light-9);
   color: var(--el-color-primary);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(html.dark) :where(#second-page) .features-grid .feature-card .feature-icon {
   background: var(--color-black-15);
   color: var(--el-color-primary);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(#second-page) :where(.features-grid) .feature-card:hover:not(.is-navigating) .feature-icon {
   transform: scale(1.1) rotate(5deg);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
-:where(html.dark) :where(#second-page) :where(.features-grid) .feature-card:hover:not(.is-navigating) .feature-icon {
-  box-shadow: var(--global-box-shadow);
-}
 
 :where(html:not(.dark)) :where(#second-page) .features-grid .feature-card span {
   color: var(--el-text-color-primary);
@@ -1568,9 +1557,6 @@ p {
   pointer-events: none;
 }
 
-:where(#second-page) .advantage-card:hover:not(.is-navigating) {
-  box-shadow: var(--global-box-shadow);
-}
 
 :where(html:not(.dark)) :where(#second-page) .advantage-card:hover:not(.is-navigating) {
   background: color-mix(in srgb, var(--el-bg-color) 100%, transparent);
@@ -1580,8 +1566,7 @@ p {
 :where(html.dark) :where(#second-page) .advantage-card:hover:not(.is-navigating) {
   background: var(--color-white-10);
   border-color: var(--el-fill-color-dark, color-mix(in srgb, var(--el-text-color-primary) 35%, transparent));
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(#second-page) .advantage-card:hover:not(.is-navigating)::before {
   opacity: 1;
@@ -1612,53 +1597,45 @@ p {
 :where(#second-page) .advantage-card:nth-child(1) .advantage-icon {
   background: var(--el-color-primary-light-9);
   color: var(--color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(html.dark) :where(#second-page) .advantage-card:nth-child(1) .advantage-icon {
   background: var(--el-color-primary);
   color: var(--color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 /* 高效图标 */
 :where(#second-page) .advantage-card:nth-child(2) .advantage-icon {
   background: var(--el-color-primary-light-9);
   color: var(--color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(html.dark) :where(#second-page) .advantage-card:nth-child(2) .advantage-icon {
   background: var(--el-color-primary);
   color: var(--color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 /* 可靠图标 */
 :where(#second-page) .advantage-card:nth-child(3) .advantage-icon {
   background: var(--el-color-primary-light-9);
   color: var(--color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(html.dark) :where(#second-page) .advantage-card:nth-child(3) .advantage-icon {
   background: var(--el-color-primary);
   color: var(--color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 /* 创新图标 */
 :where(#second-page) .advantage-card:nth-child(4) .advantage-icon {
   background: var(--el-color-primary-light-9);
   color: var(--color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(html.dark) :where(#second-page) .advantage-card:nth-child(4) .advantage-icon {
   background: var(--el-color-primary);
   color: var(--color-white);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 :where(#second-page) .advantage-card:hover:not(.is-navigating) .advantage-icon {
   transform: scale(1.15) rotate(5deg);
@@ -1836,8 +1813,7 @@ html.dark .home-container {
 
 :where(.dark-content) .feature-card .feature-icon {
   background: var(--color-white-5);
-  box-shadow: var(--global-box-shadow);
-}
+  }
 
 /* 超宽屏幕优化 */
 @media (width >= 1440px) {
@@ -2406,9 +2382,6 @@ html.dark .home-container {
 :where(html.dark) :where(#third-page) .third-page-content .news-card-container .glass,
 :where(html.dark) :where(#third-page) [class*="news-card"] .glass,
 html.dark main#third-page .news-card-container .glass,
-:where(html.dark) :where(#third-page) .news-container .news-card-container .glass {
-  box-shadow: var(--global-box-shadow);
-}
 
 /* 暗色模式：hover状? */
 :where(html.dark) :where(#third-page) .news-card-container .glass:hover,
@@ -2417,47 +2390,10 @@ html.dark main#third-page .news-card-container .glass,
 :where(html.dark) :where(#third-page) [class*="news-card"] .glass:hover,
 html.dark main#third-page .news-card-container .glass:hover,
 :where(html.dark) :where(#third-page) .news-container .news-card-container .glass:hover {
-  box-shadow: var(--global-box-shadow);
+  /* 暗色模式下 hover 效果由扁平化边框处理，无需额外 box-shadow */
 }
 
-/* 响应式断?- 1024px */
-@media (width <= 1024px) {
-  :where(html.dark) :where(#third-page) .news-card-container .glass,
-  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass {
-    box-shadow: var(--global-box-shadow);
-  }
-
-  :where(html.dark) :where(#third-page) .news-card-container .glass:hover,
-  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass:hover {
-    box-shadow: var(--global-box-shadow);
-  }
-}
-
-/* 响应式断?- 768px */
-@media (width <= 768px) {
-  :where(html.dark) :where(#third-page) .news-card-container .glass,
-  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass {
-    box-shadow: var(--global-box-shadow);
-  }
-
-  :where(html.dark) :where(#third-page) .news-card-container .glass:hover,
-  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass:hover {
-    box-shadow: var(--global-box-shadow);
-  }
-}
-
-/* 响应式断?- 480px */
-@media (width <= 480px) {
-  :where(html.dark) :where(#third-page) .news-card-container .glass,
-  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass {
-    box-shadow: var(--global-box-shadow);
-  }
-
-  :where(html.dark) :where(#third-page) .news-card-container .glass:hover,
-  :where(html.dark) :where(#third-page) .news-grid .news-card-container .glass:hover {
-    box-shadow: var(--global-box-shadow);
-  }
-}
+/* 响应式断点 - 1024px / 768px / 480px: 暗色模式 news-card 样式继承桌面端，无需额外覆盖 */
 
 // ===== 极简科技风格增强 (Minimalist Tech Style Enhancement) =====
 // 基于企业服务页面设计系统，统一首页视觉风格
@@ -2497,8 +2433,7 @@ html.dark .brand-welcome-text {
       &:hover {
         background: var(--el-text-color-regular);
         border-color: var(--el-text-color-regular);
-        box-shadow: var(--global-box-shadow);
-      }
+        }
 
       &:active {
         background: var(--el-text-color-secondary);
@@ -2558,8 +2493,7 @@ html.dark .feature-card {
   
   &:hover {
     border-color: var(--el-border-color);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 html.dark .advantage-card {
@@ -2595,7 +2529,7 @@ html.dark .advantage-card {
     letter-spacing: 0.5px;
     text-transform: uppercase;
     opacity: 0.6;
-    font-size: 11px;
+    font-size: 12px;
   }
   
   .advantages-subtitle {
@@ -2610,9 +2544,6 @@ html.dark .advantage-card {
   border: var(--unified-border);
   transition: all 0.3s $transition-smooth;
 
-  &:hover {
-    box-shadow: var(--global-box-shadow);
-  }
 }
 
 :where(html.dark) .news-card-container .glass {
@@ -2620,8 +2551,7 @@ html.dark .advantage-card {
   
   &:hover {
     border-color: var(--color-white-15);
-    box-shadow: var(--global-box-shadow);
-  }
+    }
 }
 
 // 入场动画优化 - 更流?

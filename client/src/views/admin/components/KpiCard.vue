@@ -64,13 +64,11 @@ const TrendDown = Warning
   border-radius: var(--global-border-radius);
   transition:
     transform 0.2s ease,
-    box-shadow 0.2s ease,
     border-color 0.2s ease;
 }
 
 .kpi-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--global-box-shadow);
   border-color: var(--el-border-color);
 }
 

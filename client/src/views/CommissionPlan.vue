@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="commission-plan-page page-container">
     <div class="page-header radius-auto">
       <h1 class="page-title">

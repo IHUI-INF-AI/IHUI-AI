@@ -391,7 +391,7 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
 .status-text { font-size: 14px; color: var(--el-text-color-secondary); }
 
 .model-tag {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--el-color-primary-light-5);
   background: var(--el-color-primary-light-9);
   padding: 2px 8px;
@@ -465,7 +465,7 @@ html.dark .message-avatar {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
 }
-.message-time { font-size: 11px; color: var(--el-text-color-secondary); padding: 0 4px; }
+.message-time { font-size: 12px; color: var(--el-text-color-secondary); padding: 0 4px; }
 
 .empty-messages {
   margin: auto;

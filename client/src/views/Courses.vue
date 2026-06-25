@@ -1001,7 +1001,7 @@ $brand-secondary: var(--color-gray-333);
       padding: 8px 20px;
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 900;
       margin-bottom: 16px;
       background: rgb(var(--el-fill-color-light-rgb), 0.3);
@@ -1058,8 +1058,7 @@ $brand-secondary: var(--color-gray-333);
 
       &:hover, &.is-focus {
         border-color: $brand-primary;
-        box-shadow: var(--global-box-shadow);
-      }
+        }
     }
 
     :deep(.el-input__append) {
@@ -1440,8 +1439,7 @@ $brand-secondary: var(--color-gray-333);
         &:hover {
           background: $brand-secondary;
           transform: translateY(-2px);
-          box-shadow: var(--global-box-shadow);
-        }
+          }
       }
     }
   }
@@ -1613,8 +1611,7 @@ $brand-secondary: var(--color-gray-333);
         &:hover {
           background: $brand-secondary;
           transform: translateY(-3px);
-          box-shadow: var(--global-box-shadow);
-        }
+          }
       }
     }
   }
