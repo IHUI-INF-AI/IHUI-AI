@@ -33,7 +33,7 @@ import threading
 from typing import Any, ClassVar
 
 from sqlalchemy import MetaData
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 
 from app.core.tenant import get_current_tenant_id
 

@@ -1,6 +1,6 @@
 # 后端静态审计报告
 
-扫描文件数: 782
+扫描文件数: 779
 
 ## P0-SyncIO (0 个)
 
@@ -11,7 +11,7 @@
 ## P0-MixedPK (0 个)
 
 
-## P1-MissingSoftDelete (1257 个)
+## P1-MissingSoftDelete (1205 个)
 
 - **[app\api\admin_migration.py:424]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
@@ -212,170 +212,6 @@
 - **[app\api\v1\article_invoice_exam_legacy.py:751]** P1-MissingSoftDelete: 查询 Exam 缺少软删除过滤
   ```
   q = db.query(Exam).join(ExamSignUp, ExamSignUp.exam_id == Exam.id).filter(ExamSignUp.member_id == member_id)
-  ```
-- **[app\api\v1\legacy_supplement.py:75]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
-  ```
-  item = db.query(ZhsActivity).filter(ZhsActivity.id == activity_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:87]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
-  ```
-  item = db.query(ZhsActivity).filter(ZhsActivity.id == activity_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:97]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
-  ```
-  items = db.query(ZhsActivity).order_by(ZhsActivity.id.desc()).limit(1000).all()
-  ```
-- **[app\api\v1\legacy_supplement.py:104]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
-  ```
-  total = db.query(ZhsActivity).count()
-  ```
-- **[app\api\v1\legacy_supplement.py:105]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
-  ```
-  active = db.query(ZhsActivity).filter(ZhsActivity.status == 1).count()
-  ```
-- **[app\api\v1\legacy_supplement.py:116]** P1-MissingSoftDelete: 查询 ZhsAgentSettlement 缺少软删除过滤
-  ```
-  item = db.query(ZhsAgentSettlement).filter(ZhsAgentSettlement.id == settlement_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:128]** P1-MissingSoftDelete: 查询 ZhsAgentSettlement 缺少软删除过滤
-  ```
-  q = db.query(ZhsAgentSettlement)
-  ```
-- **[app\api\v1\legacy_supplement.py:145]** P1-MissingSoftDelete: 查询 ZhsAgentUsedetail 缺少软删除过滤
-  ```
-  q = db.query(ZhsAgentUsedetail)
-  ```
-- **[app\api\v1\legacy_supplement.py:165]** P1-MissingSoftDelete: 查询 ZhsInformation 缺少软删除过滤
-  ```
-  item = db.query(ZhsInformation).filter(ZhsInformation.id == info_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:177]** P1-MissingSoftDelete: 查询 ZhsInformation 缺少软删除过滤
-  ```
-  item = db.query(ZhsInformation).filter(ZhsInformation.id == info_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:187]** P1-MissingSoftDelete: 查询 ZhsInformation 缺少软删除过滤
-  ```
-  item = db.query(ZhsInformation).filter(ZhsInformation.id == info_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:205]** P1-MissingSoftDelete: 查询 ZhsUserAgentImage 缺少软删除过滤
-  ```
-  item = db.query(ZhsUserAgentImage).filter(ZhsUserAgentImage.id == image_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:222]** P1-MissingSoftDelete: 查询 ZhsUserAgentImage 缺少软删除过滤
-  ```
-  items = db.query(ZhsUserAgentImage).filter(ZhsUserAgentImage.id.in_(req.ids)).all()
-  ```
-- **[app\api\v1\legacy_supplement.py:242]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
-  ```
-  existing = db.query(UserThirdPartyAccount).filter(
-  ```
-- **[app\api\v1\legacy_supplement.py:262]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
-  ```
-  item = db.query(UserThirdPartyAccount).filter(
-  ```
-- **[app\api\v1\legacy_supplement.py:278]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
-  ```
-  q = db.query(UserThirdPartyAccount)
-  ```
-- **[app\api\v1\legacy_supplement.py:291]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
-  ```
-  items = db.query(UserThirdPartyAccount).filter(UserThirdPartyAccount.user_uuid == user_uuid).all()
-  ```
-- **[app\api\v1\legacy_supplement.py:307]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
-  ```
-  item = db.query(AiFileStorage).filter(AiFileStorage.file_id == file_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:316]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
-  ```
-  item = db.query(AiFileStorage).filter(AiFileStorage.file_id == file_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:329]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
-  ```
-  items = db.query(AiFileStorage).filter(AiFileStorage.file_id.in_(req.ids)).all()
-  ```
-- **[app\api\v1\legacy_supplement.py:338]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
-  ```
-  total = db.query(AiFileStorage).count()
-  ```
-- **[app\api\v1\legacy_supplement.py:339]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
-  ```
-  active = db.query(AiFileStorage).filter(AiFileStorage.status == 0).count()
-  ```
-- **[app\api\v1\legacy_supplement.py:350]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
-  ```
-  item = db.query(UserAuthInfo).filter(UserAuthInfo.id == identity_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:363]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
-  ```
-  q = db.query(UserAuthInfo)
-  ```
-- **[app\api\v1\legacy_supplement.py:377]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
-  ```
-  item = db.query(ZhsUserCommentLog).filter(ZhsUserCommentLog.id == log_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:386]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
-  ```
-  item = db.query(ZhsUserCommentLog).filter(ZhsUserCommentLog.id == log_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:396]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
-  ```
-  items = db.query(ZhsUserCommentLog).order_by(ZhsUserCommentLog.id.desc()).limit(1000).all()
-  ```
-- **[app\api\v1\legacy_supplement.py:410]** P1-MissingSoftDelete: 查询 ZhsUserVideoComment 缺少软删除过滤
-  ```
-  q = db.query(ZhsUserVideoComment)
-  ```
-- **[app\api\v1\legacy_supplement.py:429]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
-  ```
-  q = db.query(Lecturer)
-  ```
-- **[app\api\v1\legacy_supplement.py:440]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
-  ```
-  item = db.query(Lecturer).filter(Lecturer.id == lecturer_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:449]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
-  ```
-  item = db.query(Lecturer).filter(Lecturer.id == lecturer_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:463]** P1-MissingSoftDelete: 查询 Department 缺少软删除过滤
-  ```
-  items = db.query(Department).order_by(Department.sort_order.asc()).all()
-  ```
-- **[app\api\v1\legacy_supplement.py:489]** P1-MissingSoftDelete: 查询 Company 缺少软删除过滤
-  ```
-  item = db.query(Company).filter(Company.id == company_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:498]** P1-MissingSoftDelete: 查询 Company 缺少软删除过滤
-  ```
-  item = db.query(Company).filter(Company.id == company_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:636]** P1-MissingSoftDelete: 查询 ZhsOperateTokenFlow 缺少软删除过滤
-  ```
-  item = db.query(ZhsOperateTokenFlow).filter(ZhsOperateTokenFlow.id == flow_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:649]** P1-MissingSoftDelete: 查询 ZhsOperateTokenFlow 缺少软删除过滤
-  ```
-  item = db.query(ZhsOperateTokenFlow).filter(ZhsOperateTokenFlow.id == flow_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:662]** P1-MissingSoftDelete: 查询 ZhsOperateTokenFlow 缺少软删除过滤
-  ```
-  q = db.query(ZhsOperateTokenFlow)
-  ```
-- **[app\api\v1\legacy_supplement.py:682]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
-  ```
-  q = db.query(ZhsCoursePayLog)
-  ```
-- **[app\api\v1\legacy_supplement.py:695]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
-  ```
-  item = db.query(ZhsCoursePayLog).filter(ZhsCoursePayLog.id == pay_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:709]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
-  ```
-  item = db.query(ZhsCoursePayLog).filter(ZhsCoursePayLog.id == req.pay_id).first()
-  ```
-- **[app\api\v1\legacy_supplement.py:723]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
-  ```
-  q = db.query(ZhsCoursePayLog)
   ```
 - **[app\api\v1\orders.py:176]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
@@ -688,30 +524,6 @@
 - **[app\api\v1\agents\categories.py:145]** P1-MissingSoftDelete: 查询 AgentCategory 缺少软删除过滤
   ```
   cat = db.query(AgentCategory).filter(AgentCategory.id == category_id).first()
-  ```
-- **[app\api\v1\agents\category_link.py:43]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
-  ```
-  q = db.query(AgentCategoryLink)
-  ```
-- **[app\api\v1\agents\category_link.py:57]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
-  ```
-  existing = db.query(AgentCategoryLink).filter(
-  ```
-- **[app\api\v1\agents\category_link.py:73]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
-  ```
-  item = db.query(AgentCategoryLink).filter(AgentCategoryLink.id == link_id).first()
-  ```
-- **[app\api\v1\agents\category_link.py:84]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
-  ```
-  items = db.query(AgentCategoryLink).filter(AgentCategoryLink.agent_id == agent_id).order_by(AgentCategoryLink.sort_order
-  ```
-- **[app\api\v1\agents\category_link.py:92]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
-  ```
-  items = db.query(AgentCategoryLink).filter(AgentCategoryLink.category_id == category_id).order_by(AgentCategoryLink.sort
-  ```
-- **[app\api\v1\agents\category_link.py:103]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
-  ```
-  item = db.query(AgentCategoryLink).filter(AgentCategoryLink.id == link_id).first()
   ```
 - **[app\api\v1\agents\creation.py:129]** P1-MissingSoftDelete: 查询 UserAgentContext 缺少软删除过滤
   ```
@@ -2032,26 +1844,6 @@
 - **[app\api\v1\finance\distribution.py:216]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
   q = db.query(Order).filter(Order.user_id.in_(all_uuids))
-  ```
-- **[app\api\v1\finance\fund_info.py:46]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
-  ```
-  q = db.query(UserFundInfo)
-  ```
-- **[app\api\v1\finance\fund_info.py:60]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
-  ```
-  item = db.query(UserFundInfo).filter(UserFundInfo.user_uuid == user_uuid).first()
-  ```
-- **[app\api\v1\finance\fund_info.py:87]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
-  ```
-  item = db.query(UserFundInfo).filter(UserFundInfo.user_uuid == user_uuid).first()
-  ```
-- **[app\api\v1\finance\fund_info.py:102]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
-  ```
-  item = db.query(UserFundInfo).filter(UserFundInfo.user_uuid == user_uuid).first()
-  ```
-- **[app\api\v1\finance\fund_info.py:116]** P1-MissingSoftDelete: 查询 UserFundInfo 缺少软删除过滤
-  ```
-  q = db.query(UserFundInfo)
   ```
 - **[app\api\v1\finance\margin.py:190]** P1-MissingSoftDelete: 查询 OperateTokenFlow 缺少软删除过滤
   ```
@@ -3853,199 +3645,199 @@
   ```
   session = db.query(CrewSession).filter(CrewSession.id == session_id).first()
   ```
-- **[app\services\database_service.py:332]** P1-MissingSoftDelete: 查询 FileRecord 缺少软删除过滤
+- **[app\services\database_service.py:331]** P1-MissingSoftDelete: 查询 FileRecord 缺少软删除过滤
   ```
   return db.query(FileRecord).filter(FileRecord.file_id == file_id).first()
   ```
-- **[app\services\database_service.py:336]** P1-MissingSoftDelete: 查询 FileRecord 缺少软删除过滤
+- **[app\services\database_service.py:335]** P1-MissingSoftDelete: 查询 FileRecord 缺少软删除过滤
   ```
   file_record = db.query(FileRecord).filter(FileRecord.file_id == file_id).first()
   ```
-- **[app\services\database_service.py:360]** P1-MissingSoftDelete: 查询 OperationRecord 缺少软删除过滤
+- **[app\services\database_service.py:359]** P1-MissingSoftDelete: 查询 OperationRecord 缺少软删除过滤
   ```
   op = db.query(OperationRecord).filter(OperationRecord.id == op_id).first()
   ```
-- **[app\services\database_service.py:373]** P1-MissingSoftDelete: 查询 OperationRecord 缺少软删除过滤
+- **[app\services\database_service.py:372]** P1-MissingSoftDelete: 查询 OperationRecord 缺少软删除过滤
   ```
   return db.query(OperationRecord).filter(OperationRecord.file_id == file_id).all()
   ```
-- **[app\services\database_service.py:393]** P1-MissingSoftDelete: 查询 CertificateRecord 缺少软删除过滤
+- **[app\services\database_service.py:392]** P1-MissingSoftDelete: 查询 CertificateRecord 缺少软删除过滤
   ```
   return db.query(CertificateRecord).filter(
   ```
-- **[app\services\database_service.py:399]** P1-MissingSoftDelete: 查询 CertificateRecord 缺少软删除过滤
+- **[app\services\database_service.py:398]** P1-MissingSoftDelete: 查询 CertificateRecord 缺少软删除过滤
   ```
   cert = db.query(CertificateRecord).filter(
   ```
-- **[app\services\database_service.py:412]** P1-MissingSoftDelete: 查询 FileRecord 缺少软删除过滤
+- **[app\services\database_service.py:411]** P1-MissingSoftDelete: 查询 FileRecord 缺少软删除过滤
   ```
   expired = db.query(FileRecord).filter(FileRecord.created_at < cutoff).all()
   ```
-- **[app\services\database_service.py:431]** P1-MissingSoftDelete: 查询 UploadRecord 缺少软删除过滤
+- **[app\services\database_service.py:430]** P1-MissingSoftDelete: 查询 UploadRecord 缺少软删除过滤
   ```
   return db.query(UploadRecord).filter(UploadRecord.upload_id == upload_id).first()
   ```
-- **[app\services\database_service.py:435]** P1-MissingSoftDelete: 查询 UploadRecord 缺少软删除过滤
+- **[app\services\database_service.py:434]** P1-MissingSoftDelete: 查询 UploadRecord 缺少软删除过滤
   ```
   record = db.query(UploadRecord).filter(UploadRecord.upload_id == upload_id).first()
   ```
-- **[app\services\database_service.py:447]** P1-MissingSoftDelete: 查询 UploadRecord 缺少软删除过滤
+- **[app\services\database_service.py:446]** P1-MissingSoftDelete: 查询 UploadRecord 缺少软删除过滤
   ```
   record = db.query(UploadRecord).filter(UploadRecord.upload_id == upload_id).first()
   ```
-- **[app\services\database_service.py:457]** P1-MissingSoftDelete: 查询 UploadRecord 缺少软删除过滤
+- **[app\services\database_service.py:456]** P1-MissingSoftDelete: 查询 UploadRecord 缺少软删除过滤
   ```
   record = db.query(UploadRecord).filter(UploadRecord.upload_id == upload_id).first()
   ```
-- **[app\services\database_service.py:476]** P1-MissingSoftDelete: 查询 UploadedFileRecord 缺少软删除过滤
+- **[app\services\database_service.py:475]** P1-MissingSoftDelete: 查询 UploadedFileRecord 缺少软删除过滤
   ```
   return db.query(UploadedFileRecord).filter(UploadedFileRecord.file_id == file_id).first()
   ```
-- **[app\services\database_service.py:480]** P1-MissingSoftDelete: 查询 UploadedFileRecord 缺少软删除过滤
+- **[app\services\database_service.py:479]** P1-MissingSoftDelete: 查询 UploadedFileRecord 缺少软删除过滤
   ```
   query = db.query(UploadedFileRecord)
   ```
-- **[app\services\database_service.py:487]** P1-MissingSoftDelete: 查询 UploadedFileRecord 缺少软删除过滤
+- **[app\services\database_service.py:486]** P1-MissingSoftDelete: 查询 UploadedFileRecord 缺少软删除过滤
   ```
   record = db.query(UploadedFileRecord).filter(UploadedFileRecord.file_id == file_id).first()
   ```
-- **[app\services\database_service.py:496]** P1-MissingSoftDelete: 查询 UploadedFileRecord 缺少软删除过滤
+- **[app\services\database_service.py:495]** P1-MissingSoftDelete: 查询 UploadedFileRecord 缺少软删除过滤
   ```
   query = db.query(UploadedFileRecord)
   ```
-- **[app\services\database_service.py:513]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
+- **[app\services\database_service.py:512]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
   ```
   return db.query(ShareRecord).filter(ShareRecord.share_id == share_id).first()
   ```
-- **[app\services\database_service.py:517]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
+- **[app\services\database_service.py:516]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
   ```
   record = db.query(ShareRecord).filter(ShareRecord.share_id == share_id).first()
   ```
-- **[app\services\database_service.py:527]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
+- **[app\services\database_service.py:526]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
   ```
   record = db.query(ShareRecord).filter(ShareRecord.share_id == share_id).first()
   ```
-- **[app\services\database_service.py:536]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
+- **[app\services\database_service.py:535]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
   ```
   record = db.query(ShareRecord).filter(ShareRecord.share_id == share_id).first()
   ```
-- **[app\services\database_service.py:545]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
+- **[app\services\database_service.py:544]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
   ```
   return db.query(ShareRecord).filter(
   ```
-- **[app\services\database_service.py:551]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
+- **[app\services\database_service.py:550]** P1-MissingSoftDelete: 查询 ShareRecord 缺少软删除过滤
   ```
   expired = db.query(ShareRecord).filter(
   ```
-- **[app\services\database_service.py:566]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
+- **[app\services\database_service.py:565]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
   ```
   db.query(FileVersionRecord).filter(
   ```
-- **[app\services\database_service.py:570]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
+- **[app\services\database_service.py:569]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
   ```
   latest = db.query(FileVersionRecord).filter(
   ```
-- **[app\services\database_service.py:595]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
+- **[app\services\database_service.py:594]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
   ```
   return db.query(FileVersionRecord).filter(
   ```
-- **[app\services\database_service.py:601]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
+- **[app\services\database_service.py:600]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
   ```
   return db.query(FileVersionRecord).filter(
   ```
-- **[app\services\database_service.py:607]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
+- **[app\services\database_service.py:606]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
   ```
   return db.query(FileVersionRecord).filter(
   ```
-- **[app\services\database_service.py:614]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
+- **[app\services\database_service.py:613]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
   ```
   version = db.query(FileVersionRecord).filter(
   ```
-- **[app\services\database_service.py:620]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
+- **[app\services\database_service.py:619]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
   ```
   db.query(FileVersionRecord).filter(
   ```
-- **[app\services\database_service.py:631]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
+- **[app\services\database_service.py:630]** P1-MissingSoftDelete: 查询 FileVersionRecord 缺少软删除过滤
   ```
   version = db.query(FileVersionRecord).filter(
   ```
-- **[app\services\database_service.py:685]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
+- **[app\services\database_service.py:684]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
   ```
   return db.query(UserRecord).filter(UserRecord.user_id == user_id).first()
   ```
-- **[app\services\database_service.py:689]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
+- **[app\services\database_service.py:688]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
   ```
   return db.query(UserRecord).filter(UserRecord.id == id).first()
   ```
-- **[app\services\database_service.py:693]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
+- **[app\services\database_service.py:692]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
   ```
   return db.query(UserRecord).filter(UserRecord.username == username).first()
   ```
-- **[app\services\database_service.py:697]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
+- **[app\services\database_service.py:696]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
   ```
   user = db.query(UserRecord).filter(UserRecord.id == user_id).first()
   ```
-- **[app\services\database_service.py:706]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
+- **[app\services\database_service.py:705]** P1-MissingSoftDelete: 查询 UserRecord 缺少软删除过滤
   ```
   user = db.query(UserRecord).filter(UserRecord.user_id == user_id).first()
   ```
-- **[app\services\database_service.py:728]** P1-MissingSoftDelete: 查询 UserRoleRecord 缺少软删除过滤
+- **[app\services\database_service.py:727]** P1-MissingSoftDelete: 查询 UserRoleRecord 缺少软删除过滤
   ```
   user_roles = db.query(UserRoleRecord).filter(
   ```
-- **[app\services\database_service.py:732]** P1-MissingSoftDelete: 查询 RoleRecord 缺少软删除过滤
+- **[app\services\database_service.py:731]** P1-MissingSoftDelete: 查询 RoleRecord 缺少软删除过滤
   ```
   return db.query(RoleRecord).filter(RoleRecord.role_id.in_(role_ids)).all()
   ```
-- **[app\services\database_service.py:736]** P1-MissingSoftDelete: 查询 UserRoleRecord 缺少软删除过滤
+- **[app\services\database_service.py:735]** P1-MissingSoftDelete: 查询 UserRoleRecord 缺少软删除过滤
   ```
   user_roles = db.query(UserRoleRecord).filter(
   ```
-- **[app\services\database_service.py:741]** P1-MissingSoftDelete: 查询 RolePermissionRecord 缺少软删除过滤
+- **[app\services\database_service.py:740]** P1-MissingSoftDelete: 查询 RolePermissionRecord 缺少软删除过滤
   ```
   role_perms = db.query(RolePermissionRecord).filter(
   ```
-- **[app\services\database_service.py:746]** P1-MissingSoftDelete: 查询 PermissionRecord 缺少软删除过滤
+- **[app\services\database_service.py:745]** P1-MissingSoftDelete: 查询 PermissionRecord 缺少软删除过滤
   ```
   return db.query(PermissionRecord).filter(
   ```
-- **[app\services\database_service.py:769]** P1-MissingSoftDelete: 查询 RoleRecord 缺少软删除过滤
+- **[app\services\database_service.py:768]** P1-MissingSoftDelete: 查询 RoleRecord 缺少软删除过滤
   ```
   return db.query(RoleRecord).filter(RoleRecord.role_id == role_id).first()
   ```
-- **[app\services\database_service.py:773]** P1-MissingSoftDelete: 查询 RoleRecord 缺少软删除过滤
+- **[app\services\database_service.py:772]** P1-MissingSoftDelete: 查询 RoleRecord 缺少软删除过滤
   ```
   return db.query(RoleRecord).limit(500).all()
   ```
-- **[app\services\database_service.py:785]** P1-MissingSoftDelete: 查询 RolePermissionRecord 缺少软删除过滤
+- **[app\services\database_service.py:784]** P1-MissingSoftDelete: 查询 RolePermissionRecord 缺少软删除过滤
   ```
   role_perms = db.query(RolePermissionRecord).filter(
   ```
-- **[app\services\database_service.py:789]** P1-MissingSoftDelete: 查询 PermissionRecord 缺少软删除过滤
+- **[app\services\database_service.py:788]** P1-MissingSoftDelete: 查询 PermissionRecord 缺少软删除过滤
   ```
   return db.query(PermissionRecord).filter(
   ```
-- **[app\services\database_service.py:813]** P1-MissingSoftDelete: 查询 PermissionRecord 缺少软删除过滤
+- **[app\services\database_service.py:812]** P1-MissingSoftDelete: 查询 PermissionRecord 缺少软删除过滤
   ```
   return db.query(PermissionRecord).limit(500).all()
   ```
-- **[app\services\database_service.py:817]** P1-MissingSoftDelete: 查询 PermissionRecord 缺少软删除过滤
+- **[app\services\database_service.py:816]** P1-MissingSoftDelete: 查询 PermissionRecord 缺少软删除过滤
   ```
   return db.query(PermissionRecord).filter(
   ```
-- **[app\services\database_service.py:841]** P1-MissingSoftDelete: 查询 FileAccessRecord 缺少软删除过滤
+- **[app\services\database_service.py:840]** P1-MissingSoftDelete: 查询 FileAccessRecord 缺少软删除过滤
   ```
   record = db.query(FileAccessRecord).filter(
   ```
-- **[app\services\database_service.py:854]** P1-MissingSoftDelete: 查询 FileAccessRecord 缺少软删除过滤
+- **[app\services\database_service.py:853]** P1-MissingSoftDelete: 查询 FileAccessRecord 缺少软删除过滤
   ```
   return db.query(FileAccessRecord).filter(
   ```
-- **[app\services\database_service.py:860]** P1-MissingSoftDelete: 查询 FileAccessRecord 缺少软删除过滤
+- **[app\services\database_service.py:859]** P1-MissingSoftDelete: 查询 FileAccessRecord 缺少软删除过滤
   ```
   records = db.query(FileAccessRecord).filter(
   ```
-- **[app\services\database_service.py:873]** P1-MissingSoftDelete: 查询 RoleRecord 缺少软删除过滤
+- **[app\services\database_service.py:872]** P1-MissingSoftDelete: 查询 RoleRecord 缺少软删除过滤
   ```
   existing = db.query(RoleRecord).first()
   ```
@@ -5001,19 +4793,19 @@
   ```
   q = db.query(OperateTokenFlow).filter(
   ```
-- **[app\services\token_utils_service.py:27]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
+- **[app\services\token_utils_service.py:28]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
   ```
   db.query(Activity)
   ```
-- **[app\services\token_utils_service.py:119]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\services\token_utils_service.py:123]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == user_uuid).first()
   ```
-- **[app\services\token_utils_service.py:137]** P1-MissingSoftDelete: 查询 UserMargin 缺少软删除过滤
+- **[app\services\token_utils_service.py:141]** P1-MissingSoftDelete: 查询 UserMargin 缺少软删除过滤
   ```
   margin = db.query(UserMargin).filter(UserMargin.user_uuid == user_uuid).first()
   ```
-- **[app\services\token_utils_service.py:176]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\services\token_utils_service.py:180]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == user_uuid).first()
   ```
@@ -5082,11 +4874,11 @@
   ```
   logger.error("LLM-Mini WS 错误: %s", e)
   ```
-- **[app\api\outbound.py:65]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\outbound.py:66]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.info(
   ```
-- **[app\api\outbound.py:100]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\outbound.py:101]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("[Outbound] 处理外呼回调异常: %s", e)
   ```
@@ -5826,23 +5618,23 @@
   ```
   logger.error(f"Redis delete error for {user_uuid}: {e}")
   ```
-- **[app\services\token_utils_service.py:124]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:128]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"Check user vip error: {e}")
   ```
-- **[app\services\token_utils_service.py:144]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:148]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"Check token error: {e}")
   ```
-- **[app\services\token_utils_service.py:205]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:209]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"Calculate tokens per yuan error: {e}")
   ```
-- **[app\services\token_utils_service.py:250]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:254]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"calculate_and_deduct_tokens_by_cost error: {e}")
   ```
-- **[app\services\token_utils_service.py:283]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:287]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"calculate_and_deduct_tokens_for_hunyuan3d error: {e}")
   ```
