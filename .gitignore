@@ -171,6 +171,12 @@ migration-final-audit
 migration-final-audit-2026
 migration-report
 migration-verification-report
+# 2026-06-26: server/audit 运行时动态输出 (hot-reload + rollout sampling), 不应入库
+server/audit/hot_config.json
+server/audit/rollout_sampling.jsonl
+# 2026-06-26: 一次性 app 路由冒烟脚本 (替代为 CI smoke-fast-gate, 避免本地误提交)
+server/tests/_smoke_app_routes.py
+# 注: server/tests/test_alembic_008_static.py + _verify_alembic_chain.py 是真测试, 已入库, 不 ignore
 
 # ===== 历史遗留防御性规则（截断的垃圾文件名，保留以防再次入库）=====
 # Skill/tool directories (not part of project)
