@@ -1,7 +1,7 @@
 {
   "summary": {
     "java_total_endpoints": 677,
-    "python_in_domains": 11912,
+    "python_in_domains": 12613,
     "matched": 677,
     "coverage": "100.0%"
   },
