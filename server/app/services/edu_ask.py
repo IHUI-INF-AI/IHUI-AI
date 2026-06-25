@@ -48,7 +48,7 @@ def create_question(
         raise EduValidationError("content is required")
 
     q = EduAskQuestion(
-        user_id=user_id,
+        member_id=user_id,
         title=title,
         content=content,
         course_id=course_id,
@@ -165,7 +165,7 @@ def create_answer(
     q = get_or_404(db, EduAskQuestion, question_id, "question")
     a = EduAskAnswer(
         question_id=question_id,
-        user_id=user_id,
+        member_id=user_id,
         content=content,
         is_best=False,
         like_count=0,

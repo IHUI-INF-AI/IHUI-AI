@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+from typing import Optional, Tuple
 from app.utils.datetime_helper import utcnow
+from app.utils.redis_util import get_key, set_key
 
 from sqlalchemy import or_, select
 
@@ -80,7 +82,20 @@ def login(db: Session, username: str, password: str) -> Tuple[dict, str, str]:
     db.flush()
     access_token = f"edu_at_{secrets.token_urlsafe(32)}"
     refresh_token = f"edu_rt_{secrets.token_urlsafe(32)}"
+    # 持久化 access_token 到 Redis (TTL 7天), 供 verify_edu_token 校验.
+    # Redis 不可用时 set_key 静默失败, 降级为不校验 (保持原行为).
+    set_key(f"edu:token:{access_token}", str(user.uuid), ex=7 * 24 * 3600)
     return {"uuid": user.uuid, "phone": user.phone, "nickname": user.nickname}, access_token, refresh_token
+
+
+def verify_edu_token(token: str) -> Optional[str]:
+    """校验 edu access_token, 返回对应的 user_uuid; 无效或 Redis 不可用时返回 None.
+
+    Redis 不可用时 get_key 静默返回 None, 降级为不校验 (保持原行为).
+    """
+    if not token:
+        return None
+    return get_key(f"edu:token:{token}")
 
 
 def update_profile(db: Session, user_uuid: str, **fields) -> User:

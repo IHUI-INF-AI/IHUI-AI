@@ -54,14 +54,13 @@ FILE_WHITELIST = [
     "test_alertmanager_integration.py",  # 字符串断言 (检查 prometheus 配置内容)
     "test_ebpf_observability.py",  # eBPF mock 数据
     "test_pg_monitoring_e2e.py",  # 字符串断言 (检查 prometheus 配置内容)
-    "_cleanup_g_users_dir.py",  # 本会话创建的 G 盘根清理工具
-    "_investigate_g_users_deep.py",  # 本会话创建的 G:\Users 调查工具
-    "_investigate_g_users.py",  # 本会话创建的 G:\Users 调查工具
     "_final_path_verification.py",  # 本会话创建的最终验证脚本
     # 2026-06-25 扩展: client 子项目
     "client/deploy.sh",  # client Linux 部署脚本
     "client/public/pdf.worker.mjs",  # pdf.js 源 (vendored lib, 含 /home/web_user)
     "client/public/pdf.worker.min.mjs",  # pdf.js 压缩包 (vendored lib)
+    # 2026-06-25 归档: 一次性 G:\Users 调查脚本已移至 archive/_investigation_2026-06-25/
+    # 不再需要在 FILE_WHITELIST 中 (archive/ 目录已被 EXCLUDE_DIRS 排除扫描)
 ]
 
 
@@ -79,6 +78,8 @@ def _is_whitelisted(path: str, line: str) -> bool:
         "_verify_outdir_no_g_drive", "_scan_hardcoded_g_drive_paths",
         "_scan_client_hardcoded_paths", "_final_path_verification",
         "test_path_hygiene", "test_pitr_cross_cloud",
+        # 2026-06-25 归档: 一次性调查脚本已移至 archive/
+        "archive/_investigation_2026-06-25",
     ])
 
 

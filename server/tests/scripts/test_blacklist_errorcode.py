@@ -3,6 +3,10 @@ import json
 import urllib.error
 import urllib.request
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
 BASE = "http://127.0.0.1:8000"
 
 

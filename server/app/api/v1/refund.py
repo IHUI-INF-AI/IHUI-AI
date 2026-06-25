@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
+from loguru import logger
 from pydantic import BaseModel, Field
 from sqlalchemy import func as sa_func, select
 from sqlalchemy.orm import Session
@@ -187,13 +188,45 @@ def create_refund(
         if not order:
             raise HTTPException(404, "订单不存在或不属于当前用户")
 
+        # 安全修复: 校验订单状态为已支付 (status=1) 才允许退款
+        if order.status != 1:
+            raise HTTPException(400, f"订单状态不允许退款 (当前状态: {order.status})")
+
+        # 安全修复: 累加同订单已退款金额, 校验 已退 + 本次退 <= 订单总额
+        # 仅统计有效退款单 (排除已撤销/已拒绝)
+        _INVALID_REFUND_STATUS = {
+            RefundStatus.CANCELLED.value,
+            RefundStatus.REJECTED.value,
+        }
+        refunded_rows = db.execute(
+            select(Refund.amount)
+            .where(Refund.order_no == req.order_no)
+            .where(Refund.status.notin_(_INVALID_REFUND_STATUS))
+        ).scalars().all()
+        already_refunded = sum(int(r or 0) for r in refunded_rows)
+        order_total = int(order.amount or 0)
+
+        # 本次退款金额: 未传则默认退剩余可退金额
+        this_refund = (
+            req.amount
+            if req.amount is not None
+            else max(order_total - already_refunded, 0)
+        )
+        if this_refund <= 0:
+            raise HTTPException(400, "可退款金额不足")
+        if already_refunded + this_refund > order_total:
+            raise HTTPException(
+                400,
+                f"退款金额超出限制: 已退 {already_refunded} + 本次 {this_refund} > 订单总额 {order_total}",
+            )
+
         refund_id = f"RF{uuid.uuid4().hex[:12].upper()}"
         refund = Refund(
             refund_id=refund_id,
             user_id=user_uuid,
             order_no=req.order_no,
             reason=req.reason,
-            amount=req.amount,
+            amount=this_refund,
             description=req.description,
             status=RefundStatus.PENDING.value,
             retry_count=0,
@@ -387,13 +420,35 @@ def review_refund(
         if not _can_transition(current, target):
             raise HTTPException(400, f"状态 {current.value} 无法转为 {target.value}")
         old_status = refund.status
+
+        if approved:
+            # 安全修复: 审核通过后推进到 PROCESSING (APPROVED 仅作中间态校验).
+            # 真实退款需人工触发或对接资金通道, 此处告警提示, 避免审核通过后停滞.
+            refund.status = RefundStatus.PROCESSING.value
+            _add_timeline(
+                db,
+                refund_id,
+                "review",
+                user_uuid,
+                note or "审核通过, 进入退款处理",
+                status_from=old_status,
+            )
+            db.commit()
+            db.refresh(refund)
+            logger.warning(
+                f"refund {refund_id} approved -> PROCESSING, "
+                f"real refund must be triggered manually (order_no={refund.order_no})"
+            )
+            return {"code": 0, "data": _refund_to_dict(refund), "message": "审核通过, 退款处理中"}
+
+        # 审核拒绝
         refund.status = target.value
         _add_timeline(
             db,
             refund_id,
             "review",
             user_uuid,
-            note or ("审核通过" if approved else "审核拒绝"),
+            note or "审核拒绝",
             status_from=old_status,
         )
         db.commit()

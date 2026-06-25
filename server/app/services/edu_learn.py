@@ -222,7 +222,7 @@ def update_progress(
 
     if not record:
         record = EduLearnRecord(
-            user_id=user_id, course_id=course_id, section_id=section_id,
+            member_id=user_id, course_id=course_id, section_id=section_id,
             progress_seconds=progress_seconds, total_seconds=total_seconds,
             progress_percent=progress_percent, is_completed=is_completed,
             last_position=last_position,
@@ -348,7 +348,7 @@ def issue_certificate(
     if existing:
         return existing
     cert = EduCertificate(
-        user_id=user_id, course_id=course_id,
+        member_id=user_id, course_id=course_id,
         certificate_no=f"CERT{datetime.now().strftime('%Y%m%d')}{secrets.token_hex(4).upper()}",
         title=title, issue_date=utcnow(), score=score,
     )
