@@ -27,23 +27,73 @@ export interface UseEduPlatformNavOptions {
 
 /**
  * 教育平台跳转逻辑，与头部导航「用户端」「总管理端」行为一致。
+ *
+ * 2026-06-25 修复（与 src/composables/useAppLifecycle.ts 同形）:
+ * 顶层 useAuthStore 改为 try/catch + 懒加载, 解决 Pinia 尚未激活时
+ * （Vite HMR / 早期 setup 竞态）抛
+ *   '[🍍]: "getActivePinia()" was called but there was no active Pinia'
+ * 导致 HeaderNavigation.vue setup 整体失败、render 时访问
+ *   'Cannot read properties of undefined (reading "length")'
+ * 崩溃的连锁问题（见控制台 20 条日志根因 #1）。
  */
 export function useEduPlatformNav(options: UseEduPlatformNavOptions = {}) {
   const router = useRouter()
   const { t } = useI18n()
-  const authStore = useAuthStore()
   const { onDone } = options
 
+  // 顶层懒加载 + 兜底：避免 Pinia 未就绪时整个 composable 抛错，
+  // 连带导致调用方（HeaderNavigation.vue）setup 整体失败。
+  let authStore: ReturnType<typeof useAuthStore> | null = null
+  try {
+    authStore = useAuthStore()
+  } catch (e) {
+    logger.debug('[useEduPlatformNav] authStore unavailable on init, will lazy load:', e)
+  }
+
+  /**
+   * 在事件真正触发时（用户点击「用户端 / 总管理端」菜单）再次尝试获取 store。
+   * 由于 main.ts 顺序保证了 setActivePinia(pinia) 先于 app.mount，理论上此时
+   * Pinia 一定已就绪；这里的多重兜底只是为了对抗 HMR 边界情况。
+   */
+  const getAuthStore = (): ReturnType<typeof useAuthStore> | null => {
+    if (authStore) return authStore
+    try {
+      authStore = useAuthStore()
+      return authStore
+    } catch (e) {
+      logger.debug('[useEduPlatformNav] authStore lazy load failed:', e)
+      return null
+    }
+  }
+
   async function goToEduPlatform(platform: EduPlatformKey): Promise<void> {
+    const auth = getAuthStore()
+
+    // Pinia 仍未就绪：保守退化为「请先登录」流程，避免在用户态未知时继续走 SSO。
+    if (!auth) {
+      logger.warn('[useEduPlatformNav] authStore unavailable when navigating, fallback to login', {
+        platform,
+      })
+      try {
+        sessionStorage.setItem('edu_redirect_platform', platform)
+      } catch {
+        // sessionStorage 不可用时静默
+      }
+      ElMessage.warning(t('auth.pleaseLoginFirst'))
+      onDone?.()
+      void router.push('/login')
+      return
+    }
+
     try {
       const baseUrl = EDU_PLATFORM_URLS[platform]
 
       let userUuid = ''
-      const storeWithUuid = authStore as unknown as { userUuid?: string }
+      const storeWithUuid = auth as unknown as { userUuid?: string }
       userUuid = storeWithUuid.userUuid || ''
 
       if (!userUuid) {
-        const user = authStore.user as {
+        const user = auth.user as {
           uuid?: string
           id?: string
           userId?: string
@@ -52,14 +102,14 @@ export function useEduPlatformNav(options: UseEduPlatformNavOptions = {}) {
         userUuid = user?.uuid || user?.id || user?.userId || user?.userUuid || ''
       }
 
-      if (!userUuid && authStore.isLoggedIn && authStore.token) {
+      if (!userUuid && auth.isLoggedIn && auth.token) {
         try {
-          const fetchUserInfo = (authStore as { fetchUserInfo?: () => Promise<void> }).fetchUserInfo
+          const fetchUserInfo = (auth as { fetchUserInfo?: () => Promise<void> }).fetchUserInfo
           if (fetchUserInfo) {
             await fetchUserInfo()
             userUuid = storeWithUuid.userUuid || ''
             if (!userUuid) {
-              const user = authStore.user as {
+              const user = auth.user as {
                 uuid?: string
                 id?: string
                 userId?: string
@@ -78,7 +128,7 @@ export function useEduPlatformNav(options: UseEduPlatformNavOptions = {}) {
         userUuid = (stored?.uuid ?? stored?.id ?? stored?.userId ?? stored?.userUuid ?? '') as string
       }
 
-      if (!authStore.isLoggedIn) {
+      if (!auth.isLoggedIn) {
         sessionStorage.setItem('edu_redirect_platform', platform)
         ElMessage.warning(t('auth.pleaseLoginFirst'))
         onDone?.()
@@ -88,13 +138,13 @@ export function useEduPlatformNav(options: UseEduPlatformNavOptions = {}) {
 
       if (!userUuid) {
         logger.warn('[useEduPlatformNav] User logged in but uuid is empty', {
-          isLoggedIn: authStore.isLoggedIn,
-          hasToken: !!authStore.token,
-          hasUser: !!authStore.user,
+          isLoggedIn: auth.isLoggedIn,
+          hasToken: !!auth.token,
+          hasUser: !!auth.user,
         })
         ElMessage.warning(t('header.userInfoIncomplete'))
         onDone?.()
-        authStore.logout()
+        auth.logout()
         void router.push('/login')
         return
       }

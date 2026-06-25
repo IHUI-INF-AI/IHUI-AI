@@ -132,8 +132,9 @@ const filteredItems = computed(() => {
 async function fetchList() {
   loading.value = true
   try {
+    // 后端只支持 only_unread 一维过滤, levelFilter 由前端 filteredItems 完成
     const resp: any = await http.get('/api/admin/migration/notify', {
-      params: { only_unread: filter.value === 'unread', limit: 100 },
+      params: { only_unread: readFilter.value === 'unread', limit: 100 },
     })
     items.value = resp?.data?.items ?? []
     // P1: 未读数由 useNotifyBadge 全局轮询, 列表拉取后无需再拉一次

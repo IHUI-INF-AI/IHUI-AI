@@ -8,10 +8,21 @@
 import { createI18n } from 'vue-i18n'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
-// 2026-06-24 优化：Element Plus 语言包按需懒加载
-// 之前: 顶层 import 5 个 EP 语言包 (zhCn/zhTw/en/ja/ko)，全部打进主 chunk ~ 30KB
-// 现在: 改为动态 import，仅在 getElementPlusLocale 调用时按需加载当前语言
-// 收益: 首屏不加载其它 4 种 EP 语言包
+// 2026-06-25 修复: Element Plus 语言包改为静态 import
+// 历史: 顶层 import 5 个 EP 语言包 (~30KB) -> 改为 dynamic import (按需, 但触发 Vite optimizeDeps hash 失效循环)
+// 问题: 每次 Vite HMR / dev server 重启, optimizeDeps 重新生成 element-plus_es_locale_lang_*.js?v=<新hash>,
+//       但 App.vue 的 watch(locale, immediate:true) 仍持有旧 hash 引用, 触发
+//       "Failed to fetch dynamically imported module: .../element-plus_es_locale_lang_zh-cn__mjs.js?v=<旧hash>"
+//       循环报错 (设置 → 模型记录页面 88 条日志主因).
+// 修复: 改为 static import, 一次打入 chunk, 加载后不存在 hash 失效.
+// 成本: 5 个 EP locale 总计 ~12KB (gzip 后 ~5KB), 可接受.
+
+// Element Plus 5 个语言包 — 静态导入，避免 dynamic import 命中 Vite optimizeDeps hash 失效
+import zhCn from 'element-plus/es/locale/lang/zh-cn.mjs'
+import zhTw from 'element-plus/es/locale/lang/zh-tw.mjs'
+import enUs from 'element-plus/es/locale/lang/en.mjs'
+import jaJp from 'element-plus/es/locale/lang/ja.mjs'
+import koKr from 'element-plus/es/locale/lang/ko.mjs'
 
 // 支持的语言列表
 export const languages = [
@@ -421,14 +432,15 @@ export function getI18nGlobal() {
 const _epLocaleCache = new Map<string, Record<string, unknown>>()
 const _epLocaleLoading = new Map<string, Promise<Record<string, unknown>>>()
 
-// 静态映射表，确保 Vite 8 optimizeDeps 阶段预构建这 5 个 EP 语言包，
-// 避免动态 import 命中 .vite/deps/element-plus_es_locale_lang_*.js 404
-const _epLoaders: Record<string, () => Promise<Record<string, unknown>>> = {
-  'zh-cn': () => import('element-plus/es/locale/lang/zh-cn.mjs'),
-  'zh-tw': () => import('element-plus/es/locale/lang/zh-tw.mjs'),
-  en: () => import('element-plus/es/locale/lang/en.mjs'),
-  ja: () => import('element-plus/es/locale/lang/ja.mjs'),
-  ko: () => import('element-plus/es/locale/lang/ko.mjs'),
+// 2026-06-25 修复: 改为静态映射表 (模块级常量, 避免每次调用重建)
+// 5 个 EP locale 已在文件顶部 static import, 这里直接拿引用
+// 之前的 () => import('...') 形式会在每次 dev HMR 后变成失效 hash
+const _epLocales: Record<string, Record<string, unknown>> = {
+  'zh-cn': zhCn as unknown as Record<string, unknown>,
+  'zh-tw': zhTw as unknown as Record<string, unknown>,
+  en: enUs as unknown as Record<string, unknown>,
+  ja: jaJp as unknown as Record<string, unknown>,
+  ko: koKr as unknown as Record<string, unknown>,
 }
 
 function _epKey(lang: string): string {
@@ -442,51 +454,38 @@ function _epKey(lang: string): string {
 }
 
 /**
- * 2026-06-24 优化：按需加载 Element Plus 语言包
- * 首次访问某语言时动态 import，后续命中缓存
+ * 2026-06-25 修复：按需加载 Element Plus 语言包（静态导入版）
+ * 首次访问某语言时同步取出引用，后续命中缓存
  * 注意: 此函数必须在调用前已通过 loadElementPlusLocale 预加载，
  *       否则返回 en 兜底 (避免阻塞 UI)
  */
 export function getElementPlusLocale(lang: string): Record<string, unknown> {
   const key = _epKey(lang)
-  return _epLocaleCache.get(key) || _epLocaleCache.get('en') || {}
+  return _epLocaleCache.get(key) || _epLocaleCache.get('en') || _epLocales.en || {}
 }
 
 /**
- * 2026-06-24 优化：异步预加载 EP 语言包
+ * 2026-06-25 修复：同步预加载 EP 语言包
  * App.vue 在 locale 变化时调用，确保 el-config-provider 能拿到正确语言
+ *
+ * 历史: 之前是 async + dynamic import, HMR 后 hash 失效会循环报错
+ * 现在: 静态 import, 模块加载时即就绪, 函数体直接命中缓存或兜底
+ * 仍保持 async 签名以兼容外部调用方 (App.vue 的 watch callback await)
  */
 export async function loadElementPlusLocale(lang: string): Promise<Record<string, unknown>> {
   const key = _epKey(lang)
+  // 命中缓存：直接返回（clone 避免外部修改内部缓存）
   if (_epLocaleCache.has(key)) {
     return _epLocaleCache.get(key)!
   }
-  if (_epLocaleLoading.has(key)) {
-    return _epLocaleLoading.get(key)!
+  // 静态导入：模块已在顶部加载完成，直接取引用 + 缓存
+  const locale = _epLocales[key] || _epLocales.en
+  _epLocaleCache.set(key, locale)
+  // 兜底英文：异步启动预热，确保 UI 始终有可用的 EP 语言包
+  if (key !== 'en' && !_epLocaleCache.has('en')) {
+    _epLocaleCache.set('en', _epLocales.en)
   }
-  // 确保兜底英文包至少可用，避免 UI 突然空白
-  if (!_epLocaleCache.has('en') && key !== 'en') {
-    void loadElementPlusLocale('en').catch(() => {})
-  }
-  // 使用模块级 _epLoaders（已提取为常量，避免每次调用重新创建）
-  const loader = (async () => {
-    const loaderFn = _epLoaders[key]
-    if (loaderFn) {
-      const m = await loaderFn()
-      return (m && (m as { default?: Record<string, unknown> }).default) || (m as Record<string, unknown>)
-    }
-    // 兜底英文包，避免 UI 空白
-    const m = await _epLoaders.en()
-    return (m && (m as { default?: Record<string, unknown> }).default) || (m as Record<string, unknown>)
-  })()
-  _epLocaleLoading.set(key, loader)
-  try {
-    const mod = await loader
-    _epLocaleCache.set(key, mod)
-    return mod
-  } finally {
-    _epLocaleLoading.delete(key)
-  }
+  return locale
 }
 
 // 初始化i18n

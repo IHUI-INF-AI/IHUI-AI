@@ -83,20 +83,71 @@ function _startSocket(): void {
       reconnectionDelay: 3000,
     })
     _socket.on('connect', () => {
-      // 可选: 加入 admin 房间 (后端若支持)
+      // 加入 admin 房间 (后端 sio.enter_room), join 事件会校验 room 名
+      // 命名规范: notify:admin (群组) / notify:<user_uuid> (单点)
       _socket?.emit('join', { room: 'notify:admin' })
     })
-    _socket.on('notify:new', (payload: { id: string; level?: string }) => {
+    _socket.on('joined', (data: { room?: string }) => {
+      // 加入成功, 调试用 (生产可关)
+      if (data?.room) {
+         
+        console.debug('[notify] joined room:', data.room)
+      }
+    })
+    _socket.on('notify:new', (payload: { id: string; level?: string; title?: string; body?: string }) => {
       // 收到推送: 立即 +1 (后端已写入 DB, 下一轮轮询会校正)
       if (payload && typeof payload.id === 'string') {
         _unreadCount.value = _unreadCount.value + 1
+        // error 级别实时弹窗 (P1 增强: 让运维立即看到严重告警, 无需切到通知中心)
+        if (payload.level === 'error') {
+          _showErrorToast(payload)
+        }
       }
     })
     _socket.on('connect_error', () => {
       // 静默: 轮询兜底
     })
+    _socket.on('disconnect', (_reason: string) => {
+      // P1 增强: socket 断开立即拉一次, 避免漏掉最后几条推送
+      // 场景: 推送事件刚好在断线时发出, client 永远不会收到, 必须靠轮询兜底
+      void _fetch()
+    })
+    _socket.on('error', (err: { code?: number; msg?: string }) => {
+      // 静默: 轮询兜底
+       
+      console.warn('[notify] socket error:', err?.msg ?? err)
+    })
   } catch {
     // 静默: 轮询兜底
+  }
+}
+
+/** error 级别实时弹窗 (动态 import ElMessage 避免循环依赖). */
+function _showErrorToast(payload: { title?: string; body?: string }) {
+  try {
+    // 动态 import: useNotifyBadge 可能在 Element Plus 加载前被调用
+    void import('element-plus').then((m) => {
+      // ElMessage 5.x: error(msg, options?) 接受 {duration, showClose, ...}
+      const mod = m as {
+        ElMessage?: {
+          error: (s: string, opts?: { duration?: number; showClose?: boolean; grouping?: boolean }) => void
+        }
+      }
+      const ElMessage = mod.ElMessage
+      if (ElMessage && typeof ElMessage.error === 'function') {
+        const title = payload.title || '严重告警'
+        const body = payload.body ? `\n${payload.body}` : ''
+        // P1 增强: duration: 0 = 不自动关闭, showClose: true = 显示 X 按钮
+        // grouping: false = 多个 error 不合并, 避免重要告警被新消息覆盖
+        ElMessage.error(`${title}${body}`, {
+          duration: 0,
+          showClose: true,
+          grouping: false,
+        })
+      }
+    })
+  } catch {
+    // ignore
   }
 }
 

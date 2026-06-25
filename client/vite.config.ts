@@ -1812,7 +1812,11 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         'pinia',
         'axios',
         'element-plus',
-        // 2026-06-24: 预声明 Element Plus 5 个语言包, 避免 loadElementPlusLocale 首次调用时 Vite 才扫描构建导致 EP locale undefined -> ElConfigProvider 崩溃 -> ErrorBoundary 级联
+        // 2026-06-25: Element Plus 5 个语言包已在 src/locales/index.ts 顶部 static import,
+        // 这里仍保留 optimizeDeps.include 作为显式声明, 让 Vite 在首次启动时主动预构建这 5 个 .mjs,
+        // 避免在 watcher 首次触发 loadElementPlusLocale 时 Vite 还要按需扫描构建导致首屏卡顿
+        // 历史: 此前依赖 dynamic import + optimizeDeps.include, 但 HMR 后 .vite/deps/* 的 ?v=<hash>
+        //       会失效, App.vue 的 watch(locale, immediate:true) 仍持有旧 hash 引发循环报错
         'element-plus/es/locale/lang/zh-cn.mjs',
         'element-plus/es/locale/lang/zh-tw.mjs',
         'element-plus/es/locale/lang/en.mjs',

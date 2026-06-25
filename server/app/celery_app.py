@@ -86,6 +86,14 @@ def _build_celery() -> object | None:
             "kwargs": {},
             "options": {"queue": "reconcile"},
         },
+        # 每天 04:00 归档已读超过 7 天的非置顶站内信
+        "archive-old-notifications-4am": {
+            "task": "app.tasks.reconcile_tasks.archive_old_notifications_task",
+            "schedule": crontab(minute=0, hour=4),
+            "args": (),
+            "kwargs": {},
+            "options": {"queue": "reconcile"},
+        },
     }
 
     return app

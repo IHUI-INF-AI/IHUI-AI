@@ -156,3 +156,100 @@ def auto_reconcile_yesterday_task(self) -> dict:
         if hasattr(self, "retry"):
             raise self.retry(exc=e, countdown=60 * (2 ** getattr(self.request, "retries", 0)))
         raise
+
+
+# ===========================================================================
+# P1 增强: 站内信归档任务
+# ===========================================================================
+# 每日凌晨 04:00 清理: 已读超过 7 天且非置顶的站内信 (归档/删除)
+# 置顶 (is_top=True) 永不归档 (operator 必须能看到 error 告警)
+# 保留期可通过 NOTIFY_ARCHIVE_DAYS 环境变量配置 (默认 7 天)
+
+@celery_app.task(name="app.tasks.reconcile_tasks.archive_old_notifications_task", bind=True, max_retries=2)
+def archive_old_notifications_task(self) -> dict:
+    """每日凌晨 04:00 触发: 归档已读超过 N 天的非置顶站内信.
+
+    环境变量:
+        NOTIFY_ARCHIVE_DAYS (int, 默认 7): 归档阈值天数, 范围 [1, 365]
+        NOTIFY_ARCHIVE_DRY_RUN (str, 默认 "0"): 设为 "1"/"true"/"yes" 时只统计不删
+
+    Returns:
+        dict: {
+            archived: int,             # 实际删除条数 (dry-run 时为 0)
+            would_archive: int,        # dry-run 时命中条数
+            threshold_days: int,
+            dry_run: bool,
+            duration_s: float,
+        }
+    """
+    import os
+    from datetime import datetime, timedelta
+
+    threshold_days = int(os.getenv("NOTIFY_ARCHIVE_DAYS", "7"))
+    if threshold_days < 1:
+        threshold_days = 7  # 安全: 至少保留 1 天
+    if threshold_days > 365:
+        threshold_days = 365  # 安全: 最多保留 365 天
+
+    dry_run_raw = str(os.getenv("NOTIFY_ARCHIVE_DRY_RUN", "0")).strip().lower()
+    dry_run = dry_run_raw in ("1", "true", "yes", "on")
+
+    started_at = datetime.utcnow()
+    logger.info(
+        f"[celery] archive_old_notifications_task started: threshold={threshold_days}d, dry_run={dry_run}"
+    )
+    try:
+        from app.database import get_session
+        from app.models.message import Message
+
+        cutoff = started_at - timedelta(days=threshold_days)
+        archived = 0
+        would_archive = 0
+        with get_session() as db:
+            # 候选: 已读 + read_time 早于 cutoff + 非置顶 (含 NULL)
+            q = (
+                db.query(Message)
+                .filter(Message.is_read.is_(True))
+                .filter(Message.read_time.isnot(None))
+                .filter(Message.read_time < cutoff)
+                .filter(Message.is_top.isnot(True))  # NULL 和 False 都被归档
+            )
+            if dry_run:
+                # dry-run 模式: 只统计条数, 不实际删除
+                # 用 count() 而非 load all, 避免大表 OOM
+                would_archive = q.count()
+            else:
+                # 正常模式: 批量删除 (每批 500, 防长事务)
+                batch_size = 500
+                while True:
+                    batch = q.limit(batch_size).all()
+                    if not batch:
+                        break
+                    for m in batch:
+                        db.delete(m)
+                    db.commit()
+                    archived += len(batch)
+                    if len(batch) < batch_size:
+                        break
+
+        duration = (datetime.utcnow() - started_at).total_seconds()
+        summary = {
+            "archived": archived,
+            "would_archive": would_archive,
+            "threshold_days": threshold_days,
+            "dry_run": dry_run,
+            "duration_s": round(duration, 2),
+        }
+        if dry_run:
+            logger.info(
+                f"[celery] archive_old_notifications_task finished (DRY-RUN): "
+                f"would archive {would_archive} 条, 阈值 {threshold_days}d, 耗时 {duration:.2f}s"
+            )
+        else:
+            logger.info(f"[celery] archive_old_notifications_task finished: {summary}")
+        return summary
+    except Exception as e:
+        logger.exception(f"[celery] archive_old_notifications_task failed: {e}")
+        if hasattr(self, "retry"):
+            raise self.retry(exc=e, countdown=60 * (2 ** getattr(self.request, "retries", 0)))
+        raise

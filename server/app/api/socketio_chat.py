@@ -236,6 +236,57 @@ async def disconnect(sid):
         logger.error("❌ disconnect 失败: %s", e)
 
 
+# ----- P1: 站内信房间订阅 -----
+# 客户端 useNotifyBadge 在 connect 后 emit('join', {room: 'notify:admin'})
+# 后端把该 sid 加入对应房间, 后续 server push emit('notify:new', ..., room=...) 才能送达
+# 注意: socket.io 的 room 是 sid 的多对多标签, enter_room 后即收房间广播
+@sio.event
+async def join(sid, data):
+    """客户端加入指定房间 (供 server 端定向推送).
+
+    Payload 格式: {"room": "notify:admin"} 或 str 直接当 room 名
+    房间命名规范: notify:<user_uuid> (单点) / notify:admin (admin 群组) / chat:<sid> (单聊)
+    """
+    try:
+        room: str = ""
+        if isinstance(data, dict):
+            room = str(data.get("room") or data.get("rid") or "").strip()
+        elif isinstance(data, str):
+            room = data.strip()
+        if not room:
+            await sio.emit("error", {"code": 400, "msg": "join: room 必填"}, room=sid)
+            return
+        # 房间名安全校验: 仅允许 [a-zA-Z0-9_:-], 防止注入
+        import re
+        if not re.match(r"^[a-zA-Z0-9_:.-]{1,64}$", room):
+            await sio.emit("error", {"code": 400, "msg": f"join: 非法 room 名: {room}"}, room=sid)
+            return
+        sio.enter_room(sid, room)
+        logger.info("Socket.IO sid=%s join room=%s", sid, room)
+        await sio.emit("joined", {"room": room, "sid": sid}, room=sid)
+    except Exception as e:
+        logger.error("❌ Socket.IO join 失败: %s", e)
+        await sio.emit("error", {"code": 500, "msg": f"join 失败: {e}"}, room=sid)
+
+
+@sio.event
+async def leave(sid, data):
+    """客户端离开房间 (清理用, 不强制要求客户端调用)."""
+    try:
+        room: str = ""
+        if isinstance(data, dict):
+            room = str(data.get("room") or "").strip()
+        elif isinstance(data, str):
+            room = data.strip()
+        if not room:
+            return
+        sio.leave_room(sid, room)
+        logger.info("Socket.IO sid=%s leave room=%s", sid, room)
+        await sio.emit("left", {"room": room}, room=sid)
+    except Exception as e:
+        logger.debug("Socket.IO leave 失败: %s", e)
+
+
 @sio.event
 async def message(sid, data):
     try:
