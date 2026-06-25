@@ -129,7 +129,7 @@ from app.api.v1.system.audit import router as sys_audit_router
 from app.api.v1.system.codegen import router as sys_codegen_router
 
 # --- System ---
-# 2026-06-26: system.dictionary 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不导入
+from app.api.v1.system.dictionary import router as sys_dictionary_router
 from app.api.v1.system.user import router as sys_user_router
 
 # --- Tools ---
