@@ -55,16 +55,18 @@ def create_member(db: Session, user_id: int, **fields) -> EduMember:
     return member
 
 
-def get_member_by_user_id(db: Session, user_id: int) -> EduMember:
-    """Get member by user_id (stored in description)."""
+def get_member_by_user_id(db: Session, user_id: int = None, user_uuid: str = None) -> EduMember:
+    """Get member by user_id (accept both user_id and user_uuid args)."""
+    if user_uuid is None:
+        user_uuid = str(user_id) if user_id is not None else None
     m = db.execute(
-        select(EduMember).where(EduMember.description == f"uid:{user_id}")
+        select(EduMember).where(EduMember.description == f"uid:{user_uuid}")
     ).scalar_one_or_none()
     if not m:
         # Fallback: search any member (returns first one for testing)
         m = db.execute(select(EduMember).limit(1)).scalar_one_or_none()
     if not m:
-        raise EduNotFoundError("member", user_id)
+        raise EduNotFoundError("member", 0)
     return m
 
 
