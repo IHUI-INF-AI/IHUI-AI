@@ -10,6 +10,7 @@ from app.core.current_user import current_user_id_or_guest
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
+from app.utils.datetime_helper import utcnow
 
 
 class RankingList(TimestampMixin, Base):

@@ -13,6 +13,7 @@ from app.services.database_service import (
     get_db,
     init_default_roles_and_permissions,
 )
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
