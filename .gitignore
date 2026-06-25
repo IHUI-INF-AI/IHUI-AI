@@ -179,6 +179,7 @@ server/test_result_full.txt
 server/run_test.py
 server/_run_e2e.py
 server/tests/_smoke_fix_*.py
+client/src/locales/full/
 ssl
 storage
 uploads
