@@ -931,12 +931,12 @@ $bg-page: var(--el-bg-color-page);
 
   .logo-svg {
     margin-right: 16px;
-    filter: drop-shadow(0 4px 12px var(--color-black-30));
+    filter: none;
   }
 
   .logo-text {
     font-size: 26px;
-    font-weight: 800;
+    font-weight: 700;
     margin: 0;
     letter-spacing: -0.02em;
   }
@@ -947,7 +947,7 @@ $bg-page: var(--el-bg-color-page);
 
   h2 {
     font-size: 28px;
-    font-weight: 900;
+    font-weight: 700;
     margin: 0 0 12px;
     letter-spacing: -0.02em;
     line-height: 1.3;
@@ -980,7 +980,7 @@ $bg-page: var(--el-bg-color-page);
 
   &:hover {
     background: var(--color-white-8);
-    border: 2px solid var(--border-unified-color-hover);
+    border-color: var(--border-unified-color-hover);
     transform: translateX(6px);
   }
 
@@ -1021,7 +1021,6 @@ $bg-page: var(--el-bg-color-page);
   backdrop-filter: blur(30px);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  border: var(--unified-border);
   box-shadow: var(--global-box-shadow);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -1034,7 +1033,6 @@ $bg-page: var(--el-bg-color-page);
 html.dark .glass-card,
 body.dark .glass-card {
   background: var(--color-dark-1c1c1c-92);
-  border-color: var(--border-unified-color);
   border: var(--unified-border);
   box-shadow: var(--global-box-shadow);
 }
@@ -1117,7 +1115,7 @@ body.dark .glass-card {
 
 .form-title {
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 700;
   margin: 0 0 28px;
   color: $text-main;
   text-align: center;
@@ -1151,8 +1149,7 @@ body.dark .glass-card {
   }
 
   &.is-focus {
-    border-width: 2px;
-    border: var(--el-border-width-primary) solid var(--el-color-primary);
+    border-color: var(--el-color-primary);
     box-shadow: var(--global-box-shadow);
     background: var(--el-bg-color);
   }
@@ -1185,7 +1182,7 @@ body.dark .glass-card {
 
   &:hover:not(:disabled) {
     border-color: $brand-secondary;
-    background: rgba($brand-primary, 0.05);
+    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
     transform: translateY(-2px);
   }
 
@@ -1276,7 +1273,7 @@ body.dark .glass-card {
 
   &:hover:not(:disabled) {
     transform: translateY(-3px);
-    box-shadow: var(--global-box-shadow);
+    border-color: var(--el-color-primary);
   }
 
   &:active:not(:disabled) {
@@ -1404,10 +1401,9 @@ body.dark .glass-card {
   }
 
   &:hover {
-    border-color: $brand-secondary;
-    background: rgba($brand-primary, 0.05);
+    border-color: var(--el-color-primary);
+    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
     transform: translateY(-3px);
-    box-shadow: var(--global-box-shadow);
   }
 }
 

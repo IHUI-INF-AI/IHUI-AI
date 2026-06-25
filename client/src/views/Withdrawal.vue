@@ -506,7 +506,7 @@ $border-subtle: var(--border-unified-color);
 $border-active: var(--border-unified-color-hover);
 $text-primary: var(--color-gray-ededed);
 $text-secondary: var(--color-gray-a1a1a1);
-$text-muted: var(--color-gray-666);
+$text-muted: var(--color-gray-999);
 $glow-color: var(--color-white-15);
 $accent-green: var(--el-text-color-primary);
 
@@ -897,7 +897,6 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 
     &.is-focus {
       border-color: $text-secondary;
-      box-shadow: var(--global-box-shadow);
     }
   }
 
@@ -940,7 +939,6 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 
     &:focus {
       border-color: $text-secondary;
-      box-shadow: var(--global-box-shadow);
     }
   }
 }

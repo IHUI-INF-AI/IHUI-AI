@@ -1018,7 +1018,7 @@ $brand-secondary: var(--color-gray-333);
 
     .page-title {
       font-size: clamp(32px, 5vw, 48px);
-      font-weight: 950;
+      font-weight: 800;
       font-family: var(--font-family-chinese);
       color: $text-main;
       margin: 0 0 12px;
@@ -1353,7 +1353,7 @@ $brand-secondary: var(--color-gray-333);
       }
 
       .continue-btn {
-        background: rgba($brand-primary, 0.1);
+        background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
         color: $brand-primary;
 
         &:hover {

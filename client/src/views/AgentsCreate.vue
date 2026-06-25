@@ -17,7 +17,6 @@
           </div>
           <h1 class="page-title">{{ t('agents.createAgent') }}</h1>
           <p class="page-subtitle">{{ t('agents.createAgentDesc') }}</p>
-          <p class="page-subtitle">{{ t('agents.createAgentDesc') }}</p>
         </div>
         <div class="header-decoration">
           <div class="decoration-line"></div>
@@ -397,7 +396,7 @@ $glass-border-hover: var(--border-unified-color-hover);
 
 .page-title {
   font-size: clamp(32px, 5vw, 48px);
-  font-weight: 800;
+  font-weight: 700;
   color: $industrial-text;
   margin: 0 0 12px;
   letter-spacing: -0.02em;
@@ -528,7 +527,7 @@ $glass-border-hover: var(--border-unified-color-hover);
   }
 
   .section-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.1em;
     color: $industrial-text-muted;
@@ -554,9 +553,8 @@ $glass-border-hover: var(--border-unified-color-hover);
 
     &:focus,
     &.is-focus {
-      border-color: var(--border-unified-color-hover);
+      border-color: var(--el-color-primary);
       background: var(--color-black-50);
-      box-shadow: var(--global-box-shadow);
     }
   }
 
@@ -629,7 +627,6 @@ $glass-border-hover: var(--border-unified-color-hover);
 
     &:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: var(--global-box-shadow);
     }
 
     &:active:not(:disabled) {

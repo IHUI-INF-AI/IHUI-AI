@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P9-7 A/B 测试灰度远程配置接入验证
  * - src/api/remote-config.ts 存在且导出完整 API
  * - RemoteExperimentConfig 接口定义完整
@@ -10,8 +10,14 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'fs'
 import { successResponse, errorResponse } from './helpers/api-mock'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
 
-const ROOT = 'g:/1/client'
+// 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:/1/client
+// client/e2e/remote-config.spec.ts -> ../../ (项目 client 根)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const ROOT = resolve(__dirname, '..')
 const REMOTE_CONFIG_PATH = `${ROOT}/src/api/remote-config.ts`
 
 function readText(path: string): string {

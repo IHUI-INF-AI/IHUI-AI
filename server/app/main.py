@@ -331,12 +331,10 @@ def create_app() -> FastAPI:
             router as _ticket_router,
         )
         from app.api.v1.docs.routes import router as _docs_router
-        from app.api.v1.pdf.pdf_routes import router as _pdf_router
         from app.api.v1.rbac.routes import router as _rbac_router
         from app.api.v1.upload.routes import router as _upload_router
         from app.api.v1.version.routes import router as _version_router
 
-        app.include_router(_pdf_router, prefix="/api/pdf", tags=["Legacy PDF"])
         app.include_router(_upload_router, prefix="/api/upload", tags=["Legacy Upload"])
         app.include_router(_version_router, prefix="/api/version", tags=["Legacy Version"])
         app.include_router(_rbac_router, prefix="/api/rbac", tags=["Legacy RBAC"])

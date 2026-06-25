@@ -16,7 +16,9 @@ from pathlib import Path
 
 import pytest
 
-SERVER = Path(r"g:\1\server")
+# 2026-06-25 修复: 改用脚本自身位置计算 SERVER 根, 避免硬编码 g:\1\server
+# server/tests/test_alembic_008_static.py -> ../../ (server 根)
+SERVER = Path(__file__).resolve().parent.parent
 VERSIONS = SERVER / "alembic" / "versions"
 TARGET_FILE = VERSIONS / "008_add_missing_tables.py"
 INIT_SQL = VERSIONS / "001_init.sql"

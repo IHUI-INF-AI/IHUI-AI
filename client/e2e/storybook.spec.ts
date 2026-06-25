@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P9-8 Storybook 体系升级 + Chromatic 视觉回归验证
  * - .storybook/main.ts 存在且配置正确
  * - .storybook/preview.ts 存在并导入全局样式
@@ -10,8 +10,14 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'fs'
 import { execSync } from 'child_process'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
 
-const ROOT = 'g:/1/client'
+// 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:/1/client
+// client/e2e/storybook.spec.ts -> ../../ (项目 client 根)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const ROOT = resolve(__dirname, '..')
 const STORYBOOK_MAIN = `${ROOT}/.storybook/main.ts`
 const STORYBOOK_PREVIEW = `${ROOT}/.storybook/preview.ts`
 const CHROMATIC_CONFIG = `${ROOT}/chromatic.config.json`

@@ -64,7 +64,7 @@
 }
 
 .search-input::placeholder {
-  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+  color: var(--el-text-color-placeholder);
 }
 
 .clear-btn {
@@ -72,7 +72,7 @@
   border: none;
   padding: 0.25rem;
   cursor: pointer;
-  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+  color: var(--el-text-color-secondary);
   border-radius: var(--global-border-radius);
   transition: background-color 0.2s;
 }
@@ -145,7 +145,7 @@
 .loading-state {
   text-align: center;
   padding: 3rem;
-  color: var(--el-bg-color-page);
+  color: var(--el-text-color-secondary);
 }
 
 .loading-spinner {
@@ -210,12 +210,12 @@
 .orders-list {
   display: flex;
   flex-direction: column;
-  gap: 0.24rem;
+  gap: 16px;
 }
 
 .order-card {
-  padding: 0.23rem 0.24rem 0.24rem;
-  font-size: 0.28rem;
+  padding: 16px;
+  font-size: 14px;
   border-radius: var(--global-border-radius);
   background: var(--color-blue-f0f1f9-30);
   border-width: 0.02rem;
@@ -231,7 +231,6 @@
   &:hover {
     background: var(--color-blue-f0f1f9-50);
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
   }
 }
 
@@ -244,7 +243,7 @@
 
 .order-no {
   color: var(--el-text-color-secondary);
-  font-size: 0.28rem;
+  font-size: 13px;
 }
 
 .order-no span {
@@ -254,10 +253,10 @@
 
 .order-status {
   padding: 0 0.24rem;
-  height: 0.48rem;
-  line-height: 0.48rem;
+  height: 32px;
+  line-height: 32px;
   border-radius: var(--global-border-radius);
-  font-size: 0.26rem;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.3s ease;
 }
@@ -267,7 +266,6 @@
   background: var(--color-orange-ff953a);
   color: var(--el-bg-color);
   border: 0.02rem solid var(--border-unified-color);
-  box-shadow: var(--global-box-shadow);
   position: relative;
   overflow: hidden;
   font-weight: 600;
@@ -277,28 +275,24 @@
 .status-shipping {
   background: var(--el-text-color-secondary);
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
 }
 
 /* 已退款状态 - 红色系 */
 .status-refund {
   background: var(--el-text-color-primary);
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
 }
 
 /* 已完成状态 - 绿色系 */
 .status-finished {
   background: var(--el-text-color-primary);
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
 }
 
 /* 已取消状态 - 灰色系 */
 .status-cancelled {
   background: var(--el-text-color-primary);
   color: var(--el-bg-color);
-  box-shadow: var(--global-box-shadow);
 }
 
 .card-body {
@@ -326,9 +320,9 @@
 }
 
 .card-title {
-  font-size: 0.32rem;
+  font-size: 16px;
   color: var(--el-text-color-primary);
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 0.08rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -337,7 +331,7 @@
 
 .card-desc {
   color: var(--el-text-color-placeholder);
-  font-size: 0.26rem;
+  font-size: 13px;
   margin-bottom: 0.08rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -361,15 +355,15 @@
 
 .time-label {
   color: var(--el-text-color-primary);
-  font-weight: bold;
-  font-size: 0.26rem;
+  font-weight: 600;
+  font-size: 12px;
 }
 
 .time-value {
   color: var(--el-text-color-placeholder);
-  font-weight: bold;
+  font-weight: 600;
   margin-left: 0.04rem;
-  font-size: 0.26rem;
+  font-size: 12px;
 }
 
 .card-price {
@@ -380,7 +374,7 @@
 
 .price {
   color: var(--color-red-ff0b0b);
-  font-size: 0.36rem;
+  font-size: 18px;
   font-weight: bold;
 }
 
@@ -395,8 +389,8 @@
 }
 
 .action-btn {
-  padding: 0.12rem 0.32rem;
-  font-size: 0.26rem;
+  padding: 8px 16px;
+  font-size: 13px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   background: var(--el-bg-color-page);
@@ -411,7 +405,7 @@
   &:hover {
     border: var(--el-border-width-primary) solid var(--el-color-primary);
     color: var(--el-color-primary);
-    background: rgb(var(--el-color-primary-rgb), 0.05);
+    background: rgb(var(--el-color-primary-rgb) / 0.05);
   }
 
   &.primary {

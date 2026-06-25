@@ -769,7 +769,7 @@ $brand-secondary: var(--color-gray-333);
       height: 400px;
       top: 10%;
       right: 10%;
-      background: rgba($brand-primary, 0.3);
+      background: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
     }
 
     &.orb-2 {
@@ -852,7 +852,7 @@ $brand-secondary: var(--color-gray-333);
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       font-size: 12px;
-      font-weight: 900;
+      font-weight: 700;
       letter-spacing: 0.05em;
       width: fit-content;
       background: rgb(var(--el-fill-color-light-rgb), 0.3);
@@ -869,7 +869,7 @@ $brand-secondary: var(--color-gray-333);
 
     .page-title {
       font-size: clamp(32px, 5vw, 48px);
-      font-weight: 950;
+      font-weight: 800;
       font-family: var(--font-family-chinese);
       color: $text-main;
       margin: 0;
@@ -919,7 +919,7 @@ $brand-secondary: var(--color-gray-333);
 
     .meta-badge {
       font-size: 12px;
-      font-weight: 900;
+      font-weight: 700;
       padding: 3px 8px;
       background: $brand-primary;
       color: var(--el-bg-color);
@@ -1001,7 +1001,7 @@ $brand-secondary: var(--color-gray-333);
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
       &:hover {
-        border-color: rgba($brand-primary, 0.3);
+        border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
       }
     }
   }
@@ -1032,7 +1032,7 @@ $brand-secondary: var(--color-gray-333);
       transition: all 0.3s;
 
       &:hover {
-        background: rgba($brand-primary, 0.1);
+        background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
       }
 
       &.is-active {
@@ -1048,7 +1048,7 @@ $brand-secondary: var(--color-gray-333);
       transition: all 0.3s;
 
       &:hover {
-        background: rgba($brand-primary, 0.1);
+        background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
       }
     }
   }
@@ -1227,7 +1227,7 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.3s;
 
   &:hover {
-    border-color: rgba($brand-primary, 0.3);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
   }
 }
 

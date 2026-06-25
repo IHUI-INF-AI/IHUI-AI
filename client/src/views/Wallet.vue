@@ -684,7 +684,6 @@ $brand-primary: v.$primary-color;
 .glass {
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
 }
 
 .balance-card {
@@ -695,7 +694,6 @@ $brand-primary: v.$primary-color;
   background: linear-gradient(135deg, var(--el-text-color-primary), var(--el-text-color-regular));
   color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
 
   .balance-info {
     display: flex;
@@ -1083,6 +1081,7 @@ $brand-primary: v.$primary-color;
   padding: 16px 24px;
   border-bottom: var(--unified-border-bottom);
   transition: background 0.2s;
+  cursor: pointer;
 
   &:hover {
     background: var(--color-black-2);

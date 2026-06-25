@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P7-3 CDN / 缓存策略验证
  * - dist 资源文件名带 hash
  * - nginx 配置中关键资源缓存策略正确
@@ -9,9 +9,14 @@
 
 import { test, expect } from '@playwright/test'
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs'
-import { join } from 'path'
+import { join, dirname, resolve } from 'path'
+import { fileURLToPath } from 'url'
 
-const ROOT = 'g:/1/client'
+// 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:/1/client
+// client/e2e/cdn-cache.spec.ts -> ../../ (项目 client 根)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const ROOT = resolve(__dirname, '..')
 const NGINX = `${ROOT}/nginx-production.conf`
 const DIST = `${ROOT}/dist/web`
 

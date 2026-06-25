@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 # =====================================================================
 class TestPerfQueryE2E:
     def test_bug149_n1_alert(self):
-        from app.utils.bug149_n1_detector import N1Config, N1Detector
+        from app.utils.n1_detector import N1Config, N1Detector
 
         cfg = N1Config(max_parents=1, max_fanout_ratio=3.0, cooldown_sec=0)
         g = N1Detector(cfg)
@@ -38,7 +38,7 @@ class TestPerfQueryE2E:
         assert st["tracked_children"] >= 8
 
     def test_bug150_slow_sql_breaker(self):
-        from app.utils.bug150_slow_sql_killer import (
+        from app.utils.slow_sql_killer import (
             CircuitOpen,
             SlowSQLConfig,
             SlowSQLKiller,
@@ -58,7 +58,7 @@ class TestPerfQueryE2E:
         assert raised, "慢 SQL 熔断未生效"
 
     def test_bug151_cache_warm(self):
-        from app.utils.bug151_cache_warmer import CacheWarmer
+        from app.utils.cache_warmer import CacheWarmer
 
         store = {}
         g = CacheWarmer(
@@ -86,7 +86,7 @@ class TestPerfQueryE2E:
 # =====================================================================
 class TestPerfResourceE2E:
     def test_bug152_pool_borrow_release(self):
-        from app.utils.bug152_pool_monitor import ConnPool, PoolConfig
+        from app.utils.pool_monitor import ConnPool, PoolConfig
 
         pool = ConnPool("db", PoolConfig(max_size=3, saturation_warn=0.5))
         c1 = pool.borrow()
@@ -97,7 +97,7 @@ class TestPerfResourceE2E:
         assert pool.stats()["in_use"] == 0
 
     def test_bug153_memory_leak_snapshot(self):
-        from app.utils.bug153_memory_leak import MemoryLeakDetector
+        from app.utils.memory_leak import MemoryLeakDetector
 
         g = MemoryLeakDetector()
         # 触发一次分配让 tracemalloc 有数据
@@ -109,7 +109,7 @@ class TestPerfResourceE2E:
         assert st["samples"] >= 1
 
     def test_bug154_gc_pressure(self):
-        from app.utils.bug154_gc_pressure import GCPressureMonitor
+        from app.utils.gc_pressure import GCPressureMonitor
 
         g = GCPressureMonitor()
         g.snapshot()
@@ -124,7 +124,7 @@ class TestPerfResourceE2E:
 # =====================================================================
 class TestObsTraceE2E:
     def test_bug155_trace_roundtrip(self):
-        from app.utils.bug155_trace_context import (
+        from app.utils.trace_context import (
             SpanContext,
             TraceRecorder,
             current_span,
@@ -144,7 +144,7 @@ class TestObsTraceE2E:
         assert st["ends"] == 1
 
     def test_bug156_sampler_priority(self):
-        from app.utils.bug156_sampler import Priority, SamplerConfig, TraceSampler
+        from app.utils.sampler import Priority, SamplerConfig, TraceSampler
 
         cfg = SamplerConfig(
             rate_by_priority={
@@ -163,8 +163,8 @@ class TestObsTraceE2E:
             assert not g.should_sample(f"t{i}", Priority.LOW)
 
     def test_bug157_propagation(self):
-        from app.utils.bug155_trace_context import SpanContext, span_scope
-        from app.utils.bug157_propagator import TracePropagator
+        from app.utils.trace_context import SpanContext, span_scope
+        from app.utils.propagator import TracePropagator
 
         p = TracePropagator()
         ctx = SpanContext.new_root()
@@ -184,7 +184,7 @@ class TestObsTraceE2E:
 # =====================================================================
 class TestObsMetricE2E:
     def test_bug158_cardinality_bucket(self):
-        from app.utils.bug158_cardinality import CardinalityConfig, MetricRegistry
+        from app.utils.cardinality import CardinalityConfig, MetricRegistry
 
         g = MetricRegistry(CardinalityConfig(bucket_count=8))
         for i in range(500):
@@ -193,7 +193,7 @@ class TestObsMetricE2E:
         assert g.series_count("http_req") <= 8
 
     def test_bug159_sla_burn(self):
-        from app.utils.bug159_sla import SLACalculator, SLATarget
+        from app.utils.sla import SLACalculator, SLATarget
 
         g = SLACalculator(SLATarget(name="t", slo=0.99))
         for _ in range(99):
@@ -203,7 +203,7 @@ class TestObsMetricE2E:
         assert g.burn_rate("24h") > 0
 
     def test_bug160_health_3_states(self):
-        from app.utils.bug160_health import Check, HealthChecker
+        from app.utils.health import Check, HealthChecker
 
         g = HealthChecker()
         g.add_liveness(Check(name="proc", fn=lambda: True))
@@ -221,7 +221,7 @@ class TestObsMetricE2E:
 # =====================================================================
 class TestObsAlertE2E:
     def test_bug161_alert_dedup(self):
-        from app.utils.bug161_alert_dedup import AlertDeduplicator
+        from app.utils.alert_dedup import AlertDeduplicator
 
         g = AlertDeduplicator()
         for _ in range(20):
@@ -232,7 +232,7 @@ class TestObsAlertE2E:
         assert g.stats()["active_buckets"] == 2
 
     def test_bug162_alert_silence_and_inhibit(self):
-        from app.utils.bug162_alert_inhibit import (
+        from app.utils.alert_inhibit import (
             AlertSuppressor,
             SilenceRule,
         )
@@ -247,7 +247,7 @@ class TestObsAlertE2E:
         assert not d2.silenced
 
     def test_bug163_escalation_ladder(self):
-        from app.utils.bug163_alert_escalation import (
+        from app.utils.alert_escalation import (
             Channel,
             EscalationEngine,
             EscalationPolicy,
@@ -281,7 +281,7 @@ class TestObsAlertE2E:
 # =====================================================================
 class TestObsLogAsyncE2E:
     def test_bug164_log_redact(self):
-        from app.utils.bug164_log_redactor import LogRedactor
+        from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
         # 手机号/身份证/邮箱/Bearer
@@ -297,7 +297,7 @@ class TestObsLogAsyncE2E:
         assert d["api_key"] == "[REDACTED]"
 
     def test_bug165_dlq_lifecycle(self):
-        from app.utils.bug165_dlq import DeadLetterQueue, DLQAction, DLQConfig
+        from app.utils.dlq import DeadLetterQueue, DLQAction, DLQConfig
 
         g = DeadLetterQueue(DLQConfig(max_attempts=3), replay=lambda x: True)
         # 不到阈值不入队
@@ -313,7 +313,7 @@ class TestObsLogAsyncE2E:
         assert "t2" in g.export_json()
 
     def test_bug166_idempotent_task(self):
-        from app.utils.bug166_idempotent_task import (
+        from app.utils.idempotent_task import (
             IdempotentTaskRunner,
             TaskState,
         )

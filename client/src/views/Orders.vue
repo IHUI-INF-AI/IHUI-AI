@@ -1118,7 +1118,7 @@ $brand-secondary: var(--color-gray-333);
 
   .page-title {
     font-size: clamp(32px, 4vw, 48px);
-    font-weight: 950;
+    font-weight: 800;
     letter-spacing: -0.03em;
     margin: 0 0 12px;
   }
@@ -1179,7 +1179,7 @@ $brand-secondary: var(--color-gray-333);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba($brand-primary, 0.05);
+  background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
   border: none;
   border-radius: var(--global-border-radius);
   cursor: pointer;
@@ -1187,7 +1187,7 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.2s;
 
   &:hover {
-    background: rgba($brand-primary, 0.1);
+    background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
     color: $text-main;
   }
 
@@ -1222,7 +1222,7 @@ $brand-secondary: var(--color-gray-333);
 
   &:hover {
     background: var(--color-white-90);
-    border-color: rgba($brand-primary, 0.2);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
     transform: translateY(-2px);
     box-shadow: var(--global-box-shadow);
   }
@@ -1246,7 +1246,7 @@ $brand-secondary: var(--color-gray-333);
   padding: 2px 8px;
   font-size: 12px;
   font-weight: 800;
-  background: rgba($brand-primary, 0.1);
+  background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
   color: $brand-primary;
   border-radius: var(--global-border-radius);
   min-width: 24px;
@@ -1309,7 +1309,7 @@ $brand-secondary: var(--color-gray-333);
     width: 100px;
     height: 100px;
     margin: 0 auto 24px;
-    background: rgba($brand-primary, 0.05);
+    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
     border-radius: var(--global-border-radius);
     display: flex;
     align-items: center;
@@ -1403,7 +1403,7 @@ $brand-secondary: var(--color-gray-333);
     width: 80px;
     height: 80px;
     margin: 0 auto 20px;
-    background: rgba($brand-primary, 0.05);
+    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
     border-radius: var(--global-border-radius);
     display: flex;
     align-items: center;
@@ -1546,7 +1546,7 @@ $brand-secondary: var(--color-gray-333);
   width: 80px;
   height: 80px;
   border-radius: var(--global-border-radius);
-  background: rgba($brand-primary, 0.03);
+  background: color-mix(in srgb, var(--el-text-color-primary) 3%, transparent);
   border: var(--unified-border);
   flex-shrink: 0;
   overflow: hidden;
@@ -1638,7 +1638,7 @@ $brand-secondary: var(--color-gray-333);
 
   .price {
     font-size: 24px;
-    font-weight: 950;
+    font-weight: 800;
     color: $brand-primary;
     letter-spacing: -0.02em;
   }
@@ -1674,8 +1674,8 @@ $brand-secondary: var(--color-gray-333);
   gap: 6px;
 
   &:hover {
-    background: rgba($brand-primary, 0.05);
-    border-color: rgba($brand-primary, 0.2);
+    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
     color: $brand-primary;
     transform: translateY(-2px);
   }
@@ -1722,7 +1722,7 @@ $brand-secondary: var(--color-gray-333);
   justify-content: center;
   height: 52px;
   padding: 0 40px;
-  background: rgba($brand-primary, 0.05);
+  background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
   color: $brand-primary;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
@@ -1806,7 +1806,7 @@ $brand-secondary: var(--color-gray-333);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba($brand-primary, 0.05);
+  background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
   border: none;
   border-radius: var(--global-border-radius);
   cursor: pointer;
@@ -1814,7 +1814,7 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.2s;
 
   &:hover {
-    background: rgba($brand-primary, 0.1);
+    background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
     color: $text-main;
   }
 
@@ -1880,7 +1880,7 @@ $brand-secondary: var(--color-gray-333);
 
     &.amount {
       font-size: 20px;
-      font-weight: 950;
+      font-weight: 800;
       color: $brand-primary;
     }
 

@@ -485,12 +485,10 @@ $font-family-mono: monospace;
   &--primary {
     background: $tf-error-color;
     color: var(--el-bg-color-page);
-    box-shadow: var(--global-box-shadow);
-    
+
     &:hover {
       transform: translateY(-2px);
-      box-shadow: var(--global-box-shadow);
-      
+
       .tf-btn__icon {
         transform: rotate(-45deg);
       }

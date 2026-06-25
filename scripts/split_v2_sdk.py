@@ -15,7 +15,10 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-SDK = Path(r"g:\1\client\src\api\v2-sdk\index.ts")
+# 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:\1\client
+# scripts/split_v2_sdk.py -> ../../client
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SDK = _PROJECT_ROOT / "client" / "src" / "api" / "v2-sdk" / "index.ts"
 SDK_DIR = SDK.parent
 
 # 与 P14-5 桶保持一致

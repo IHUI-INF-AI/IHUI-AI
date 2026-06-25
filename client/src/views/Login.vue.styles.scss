@@ -848,9 +848,8 @@ $login-header-gap: 12px;
   }
 }
 
-/* 移动端响应式 - 使用高特异性选择器 */
+/* 移动端响应式 */
 @media (width <= 768px) {
-  #app .login-content.login-page,
   .login-content.login-page {
     padding: 20px 16px;
   }
@@ -974,13 +973,7 @@ $login-header-gap: 12px;
 }
 
 /* 暗色模式 - 通过覆盖 CSS 变量实现 */
-:where(html.dark) .switch-project-btn,
-:where(html.dark) .login-content.login-page .switch-project-btn,
-:where(body.dark) .switch-project-btn,
-:where(body.dark) .login-content.login-page .switch-project-btn,
-:where(.login-content.login-page.dark) .switch-project-btn,
-.dark-mode .switch-project-btn,
-:where(.login-content.login-page.dark-mode) .switch-project-btn {
+:where(html.dark, body.dark, .dark-mode) .switch-project-btn {
   --spb-color: var(--el-color-white);
   --spb-bg: transparent;
   --spb-hover-bg: var(--el-fill-color-light);
@@ -1228,50 +1221,6 @@ $login-header-gap: 12px;
   font-size: 16px;
 }
 
-/* 确保隐藏的按钮也有最小尺寸（避免0x0警告） */
-.login-content.login-page :deep(button[style*="display: none"]),
-.login-content.login-page :deep(button[style*="display:none"]),
-:global(button[style*="display: none"]),
-:global(button[style*="display:none"]),
-button[style*="display: none"],
-button[style*="display:none"] {
-  min-width: 44px;
-  min-height: 44px;
-  visibility: hidden; /* 使用visibility而不是display */
-  position: absolute;
-  left: 0; /* 改为0，避免超出视口 */
-  top: 0; /* 改为0，避免超出视口 */
-  width: 44px; /* 保持最小尺寸 */
-  height: 44px; /* 保持最小尺寸 */
-  overflow: hidden;
-  z-index: -1;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* 确保所有按钮都有最小尺寸 */
-.login-content.login-page :deep(button:not(.quick-tool-item)),
-:global(button:not(.quick-tool-item)),
-body button:not(.quick-tool-item),
-html button:not(.quick-tool-item) {
-  min-width: 44px;
-  min-height: 44px;
-
-  /* 如果按钮被隐藏，使用visibility而不是display */
-  &[style*="display: none"],
-  &[style*="display:none"] {
-    visibility: hidden;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 44px;
-    height: 44px;
-    opacity: 0;
-    pointer-events: none;
-    z-index: -1;
-  }
-}
-
 /* 强制隐藏头部装饰元素（更高优先级） */
 :where(.main-content.login-route) svg.light-ray,
 :where(.main-content.login-route) .slider svg.light-ray,
@@ -1459,30 +1408,6 @@ body :where(.main-content.login-route) svg.light-ray {
 
 /* ========== 全面修复87个样式问题 ========== */
 
-/* 1. 强制隐藏所有 svg.light-ray（最高优先级） */
-
-/* 强制隐藏 light-ray 元素 */
-:where(.main-content.login-route) svg.light-ray,
-:where(.main-content.login-route) .slider svg.light-ray,
-:where(.main-content.login-route) .theme-toggle svg.light-ray,
-.login-content.login-page svg.light-ray,
-.login-content.login-page :deep(svg.light-ray),
-body svg.light-ray,
-html svg.light-ray {
-  display: none;
-  width: 0;
-  height: 0;
-  max-width: 0;
-  max-height: 0;
-  overflow: hidden;
-  visibility: hidden;
-  opacity: 0;
-  position: absolute;
-  left: -9999px;
-  top: -9999px;
-  pointer-events: none;
-}
-
 /* 2. 修复 INPUT.input 溢出 - 最高优先级 */
 .login-content.login-page :deep(.el-input),
 .login-content.login-page :deep(.el-input__wrapper),
@@ -1507,36 +1432,7 @@ input.verification-code-digit {
   overflow: hidden;
 }
 
-input.input {
-  display: inline-block;
-  width: 32px;
-  max-width: 32px;
-  min-width: 0;
-  height: auto;
-  padding: 2px;
-  margin: 0;
-  border: 0;
-  transform: none;
-  box-sizing: border-box;
-  overflow: hidden;
-  position: absolute;
-  left: -9999px;
-  top: -9999px;
-}
-
-body input.input,
-html input.input {
-  display: inline-block;
-  width: 32px;
-  max-width: 32px;
-  min-width: 0;
-  height: auto;
-  padding: 2px;
-  margin: 0;
-  border: 0;
-  transform: none;
-  box-sizing: border-box;
-  overflow: hidden;
+.login-content.login-page input.input {
   position: absolute;
   left: -9999px;
   top: -9999px;
@@ -1552,7 +1448,7 @@ html input.input {
   overflow: hidden;
 }
 
-:global(input.input) {
+.login-content.login-page input.input {
   width: clamp(24px, 6vw, 32px);
   max-width: clamp(24px, 6vw, 32px);
   min-width: 0;
@@ -1567,39 +1463,6 @@ html input.input {
   overflow: hidden;
   box-sizing: border-box;
   gap: 4px;
-}
-
-/* ============================================
-   修复项目选择器横幅溢出问题（统一规范）
-   ============================================ */
-.login-content.login-page .project-selector-banner {
-  /* 尺寸规范：自适应内容，不超出容器 */
-  max-width: 100%;
-  width: auto;
-  min-width: auto;
-  box-sizing: border-box;
-  overflow: visible; // 允许内容显示
-
-  /* 布局规范：保持横向布局，禁止换行 */
-  flex-wrap: nowrap;
-  flex-shrink: 0; // 禁止收缩
-}
-
-.login-content.login-page .selector-content {
-  /* 尺寸规范：自适应内容 */
-  max-width: 100%;
-  width: auto;
-  min-width: auto;
-  box-sizing: border-box;
-  overflow: visible; // 允许内容显示
-
-  /* 布局规范：不伸缩，自适应内容 */
-  flex: 0 0 auto;
-  flex-shrink: 0; // 禁止收缩
-
-  /* 文字样式：禁止换行 */
-  text-overflow: clip;
-  white-space: nowrap;
 }
 
 /* 登录内项目选项 - 单类 / :deep */
@@ -2195,7 +2058,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     border-color: var(--border-unified-color);
 
     &:hover {
-      border: 2px solid var(--border-unified-color-hover);
+      border-color: var(--border-unified-color-hover);
     }
 
     &.is-focus {
@@ -2219,7 +2082,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     border-color: var(--border-unified-color);
 
     &:hover {
-      border: 2px solid var(--border-unified-color-hover);
+      border-color: var(--border-unified-color-hover);
       background: var(--color-white-6);
     }
   }

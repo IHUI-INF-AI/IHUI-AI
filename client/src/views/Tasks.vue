@@ -27,7 +27,7 @@
 
       <!-- 任务列表 -->
       <div v-else class="tasks-list">
-        <el-card v-for="task in tasks" :key="task.taskId" class="task-card" shadow="hover">
+        <el-card v-for="task in tasks" :key="task.taskId" class="task-card" shadow="never">
           <div class="task-content">
             <div class="task-header">
               <div class="task-info">
@@ -288,73 +288,79 @@ onUnmounted(() => {
 }
 
 .tasks-content {
-  .loading-container,
-  .error-container {
-    padding: 40px 0;
-  }
+  /* 容器自身样式 */
+}
 
-  .tasks-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
+.loading-container,
+.error-container {
+  padding: 40px 0;
+}
 
-  .task-card {
-    .task-content {
-      .task-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 16px;
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-        .task-info {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex: 1;
+.task-card {
+  /* 卡片样式 */
+}
 
-          .task-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin: 0;
-          }
-        }
-      }
+.task-content {
+  /* 内容样式 */
+}
 
-      .task-progress {
-        margin-bottom: 16px;
-      }
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
 
-      .task-result {
-        margin-bottom: 16px;
+.task-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
 
-        .result-content {
-          background: var(--el-fill-color-light);
-          padding: 12px;
-          border-radius: var(--global-border-radius);
-          font-size: 12px;
-          overflow-x: auto;
-        }
-      }
+.task-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
 
-      .task-error {
-        margin-bottom: 16px;
-      }
+.task-progress {
+  margin-bottom: 16px;
+}
 
-      .task-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        font-size: 12px;
-        color: var(--el-text-color-regular);
+.task-result {
+  margin-bottom: 16px;
+}
 
-        .meta-item {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-      }
-    }
-  }
+.result-content {
+  background: var(--el-fill-color-light);
+  padding: 12px;
+  border-radius: var(--global-border-radius);
+  font-size: 13px;
+  overflow-x: auto;
+}
+
+.task-error {
+  margin-bottom: 16px;
+}
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 </style>

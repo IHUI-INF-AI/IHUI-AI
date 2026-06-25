@@ -32,7 +32,10 @@ except ImportError:
 
 BASE = os.environ.get("ZHS_BASE", "http://127.0.0.1:8888")
 API_BASE = os.environ.get("ZHS_API_BASE", "http://127.0.0.1:8000")
-OUT_DIR = r"g:\1\pw-output"
+# 2026-06-25 修复: 原硬编码 G:\1\pw-output 会在 G 盘根目录创建临时目录
+# 改为相对 server/pw-output/ + 环境变量可覆盖 (ZHS_E2E_OUT_DIR)
+_SERVER_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT_DIR = os.environ.get("ZHS_E2E_OUT_DIR") or os.path.join(_SERVER_ROOT, "pw-output")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 

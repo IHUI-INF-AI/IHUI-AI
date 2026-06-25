@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="recharge-page">
     <!-- 深度背景系统 -->
     <div class="page-bg">
@@ -608,8 +608,8 @@ $glow-white: var(--color-white-15);
 }
 
 @keyframes statusPulse {
-  0%, 100% { opacity: 1; box-shadow: var(--global-box-shadow); }
-  50% { opacity: 0.6; box-shadow: var(--global-box-shadow); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .status-text {
@@ -770,7 +770,6 @@ $glow-white: var(--color-white-15);
 
   .amount-item.active & {
     border-color: $brand-accent;
-    box-shadow: var(--global-box-shadow);
   }
 }
 
@@ -781,7 +780,7 @@ $glow-white: var(--color-white-15);
   transition: filter 0.3s ease;
 
   .amount-item.active & {
-    filter: grayscale(0) drop-shadow(0 0 8px var(--color-yellow-ffd700-50));
+    filter: grayscale(0);
   }
 }
 
@@ -874,7 +873,6 @@ $glow-white: var(--color-white-15);
 
   .pay-item.active & {
     border-color: $brand-accent;
-    box-shadow: var(--global-box-shadow);
   }
 }
 
@@ -1009,10 +1007,6 @@ $glow-white: var(--color-white-15);
   border: 2px solid $brand-accent;
   border-radius: var(--global-border-radius);
   transition: all 0.3s ease;
-
-  .recharge-btn:hover:not(:disabled) & {
-    box-shadow: var(--global-box-shadow);
-  }
 
   .recharge-btn:active:not(:disabled) & {
     transform: scale(0.98);

@@ -12,7 +12,7 @@ import unittest
 # =====================================================================
 class TestBug167Chaos(unittest.TestCase):
     def test_add_and_disable(self):
-        from app.utils.bug167_chaos import ChaosInjector, FaultRule, FaultType
+        from app.utils.chaos import ChaosInjector, FaultRule, FaultType
 
         g = ChaosInjector(seed=1)
         g.add(FaultRule(target="svc.a", fault=FaultType.LATENCY, latency_ms=5, probability=1.0))
@@ -22,7 +22,7 @@ class TestBug167Chaos(unittest.TestCase):
         self.assertEqual(r, 42)
 
     def test_latency_inject(self):
-        from app.utils.bug167_chaos import ChaosInjector, FaultRule, FaultType
+        from app.utils.chaos import ChaosInjector, FaultRule, FaultType
 
         g = ChaosInjector(seed=1)
         g.add(FaultRule(target="svc.b", fault=FaultType.LATENCY, latency_ms=20, probability=1.0))
@@ -32,7 +32,7 @@ class TestBug167Chaos(unittest.TestCase):
         self.assertGreaterEqual(elapsed, 18)
 
     def test_exception_inject(self):
-        from app.utils.bug167_chaos import ChaosInjector, FaultRule, FaultType
+        from app.utils.chaos import ChaosInjector, FaultRule, FaultType
 
         g = ChaosInjector(seed=1)
         g.add(
@@ -48,7 +48,7 @@ class TestBug167Chaos(unittest.TestCase):
             g.wrap("svc.c", lambda: 1)
 
     def test_stats(self):
-        from app.utils.bug167_chaos import ChaosInjector, FaultRule, FaultType
+        from app.utils.chaos import ChaosInjector, FaultRule, FaultType
 
         g = ChaosInjector(seed=1)
         g.add(
@@ -70,7 +70,7 @@ class TestBug167Chaos(unittest.TestCase):
 
 class TestBug168Degrade(unittest.TestCase):
     def test_full_path(self):
-        from app.utils.bug168_degrade import DegradeChain
+        from app.utils.degrade import DegradeChain
 
         g = DegradeChain("x")
         r = g.execute(lambda: "primary")
@@ -78,7 +78,7 @@ class TestBug168Degrade(unittest.TestCase):
         self.assertEqual(r.level.value, "FULL")
 
     def test_fallback_default(self):
-        from app.utils.bug168_degrade import DegradeChain
+        from app.utils.degrade import DegradeChain
 
         g = DegradeChain("x", default="DEFAULT-VAL")
         r = g.execute(lambda: (_ for _ in ()).throw(RuntimeError("boom")))
@@ -86,7 +86,7 @@ class TestBug168Degrade(unittest.TestCase):
         self.assertEqual(r.value, "DEFAULT-VAL")
 
     def test_fallback_cache(self):
-        from app.utils.bug168_degrade import DegradeChain
+        from app.utils.degrade import DegradeChain
 
         g = DegradeChain("x", cache_get=lambda: "CACHED", default="D")
         r = g.execute(lambda: (_ for _ in ()).throw(RuntimeError("boom")))
@@ -94,7 +94,7 @@ class TestBug168Degrade(unittest.TestCase):
         self.assertEqual(r.value, "CACHED")
 
     def test_fail(self):
-        from app.utils.bug168_degrade import DegradeChain
+        from app.utils.degrade import DegradeChain
 
         g = DegradeChain("x")
         r = g.execute(lambda: (_ for _ in ()).throw(RuntimeError("boom")))
@@ -104,7 +104,7 @@ class TestBug168Degrade(unittest.TestCase):
 
 class TestBug169Retry(unittest.TestCase):
     def test_success_first_try(self):
-        from app.utils.bug169_retry import Retrier, RetryConfig
+        from app.utils.retry import Retrier, RetryConfig
 
         g = Retrier(RetryConfig(max_attempts=3))
         r = g.call(lambda: 42)
@@ -112,7 +112,7 @@ class TestBug169Retry(unittest.TestCase):
         self.assertEqual(r.attempts, 1)
 
     def test_retry_then_success(self):
-        from app.utils.bug169_retry import Retrier, RetryConfig
+        from app.utils.retry import Retrier, RetryConfig
 
         counter = {"n": 0}
 
@@ -129,7 +129,7 @@ class TestBug169Retry(unittest.TestCase):
         self.assertEqual(len(r.delays_ms), 2)
 
     def test_exhausted(self):
-        from app.utils.bug169_retry import Retrier, RetryConfig
+        from app.utils.retry import Retrier, RetryConfig
 
         g = Retrier(RetryConfig(max_attempts=3, base_delay_ms=1))
         r = g.call(lambda: (_ for _ in ()).throw(RuntimeError("always")))
@@ -138,7 +138,7 @@ class TestBug169Retry(unittest.TestCase):
         self.assertEqual(g.stats()["exhausted"], 1)
 
     def test_non_retriable(self):
-        from app.utils.bug169_retry import Retrier, RetryConfig
+        from app.utils.retry import Retrier, RetryConfig
 
         g = Retrier(RetryConfig(max_attempts=3, retriable=(ValueError,)))
         r = g.call(lambda: (_ for _ in ()).throw(KeyError("k")))
@@ -152,7 +152,7 @@ class TestBug169Retry(unittest.TestCase):
 # =====================================================================
 class TestBug170DbFailover(unittest.TestCase):
     def test_init_with_master(self):
-        from app.utils.bug170_db_failover import DbRole, FailoverManager
+        from app.utils.db_failover import DbRole, FailoverManager
 
         m = FailoverManager()
         m.add("db1", role=DbRole.MASTER, priority=100)
@@ -162,7 +162,7 @@ class TestBug170DbFailover(unittest.TestCase):
         self.assertEqual(st["db2"]["role"], "SLAVE")
 
     def test_failover_on_master_down(self):
-        from app.utils.bug170_db_failover import DbRole, FailoverManager
+        from app.utils.db_failover import DbRole, FailoverManager
 
         m = FailoverManager()
         m.add("db1", role=DbRole.MASTER, priority=100)
@@ -174,7 +174,7 @@ class TestBug170DbFailover(unittest.TestCase):
         self.assertEqual(st["db2"]["role"], "MASTER")
 
     def test_force_failover(self):
-        from app.utils.bug170_db_failover import DbRole, FailoverManager
+        from app.utils.db_failover import DbRole, FailoverManager
 
         m = FailoverManager()
         m.add("db1", role=DbRole.MASTER, priority=100)
@@ -187,7 +187,7 @@ class TestBug170DbFailover(unittest.TestCase):
 
 class TestBug171ReplicaRouter(unittest.TestCase):
     def test_write_to_master(self):
-        from app.utils.bug171_replica_router import QueryType, ReplicaRouter
+        from app.utils.replica_router import QueryType, ReplicaRouter
 
         r = ReplicaRouter()
         r.set_nodes("m1", ["f1", "f2"])
@@ -196,7 +196,7 @@ class TestBug171ReplicaRouter(unittest.TestCase):
         self.assertEqual(d.target, "m1")
 
     def test_read_to_follower(self):
-        from app.utils.bug171_replica_router import QueryType, ReplicaRouter
+        from app.utils.replica_router import QueryType, ReplicaRouter
 
         r = ReplicaRouter()
         r.set_nodes("m1", ["f1", "f2"])
@@ -205,7 +205,7 @@ class TestBug171ReplicaRouter(unittest.TestCase):
         self.assertIn(d.target, ("f1", "f2"))
 
     def test_consistency_force_master(self):
-        from app.utils.bug171_replica_router import QueryType, ReplicaRouter
+        from app.utils.replica_router import QueryType, ReplicaRouter
 
         r = ReplicaRouter()
         r.set_nodes("m1", ["f1"])
@@ -213,7 +213,7 @@ class TestBug171ReplicaRouter(unittest.TestCase):
         self.assertTrue(d.is_master)
 
     def test_follower_down_fallback(self):
-        from app.utils.bug171_replica_router import QueryType, ReplicaRouter
+        from app.utils.replica_router import QueryType, ReplicaRouter
 
         r = ReplicaRouter()
         r.set_nodes("m1", ["f1", "f2"])
@@ -226,7 +226,7 @@ class TestBug171ReplicaRouter(unittest.TestCase):
 
 class TestBug172FollowerGuard(unittest.TestCase):
     def test_acquire_release(self):
-        from app.utils.bug172_follower_guard import FollowerGuard, FollowerGuardConfig
+        from app.utils.follower_guard import FollowerGuard, FollowerGuardConfig
 
         cfg = FollowerGuardConfig(max_lag_sec=5, max_inflight=10)
         g = FollowerGuard(cfg)
@@ -235,7 +235,7 @@ class TestBug172FollowerGuard(unittest.TestCase):
         self.assertTrue(g.acquire("f1"))
 
     def test_lag_blocked(self):
-        from app.utils.bug172_follower_guard import FollowerGuard, FollowerGuardConfig
+        from app.utils.follower_guard import FollowerGuard, FollowerGuardConfig
 
         cfg = FollowerGuardConfig(max_lag_sec=5, max_inflight=10, recovery_sec=100)
         g = FollowerGuard(cfg)
@@ -244,7 +244,7 @@ class TestBug172FollowerGuard(unittest.TestCase):
         self.assertFalse(g.acquire("f1"))
 
     def test_inflight_limit(self):
-        from app.utils.bug172_follower_guard import FollowerGuard, FollowerGuardConfig
+        from app.utils.follower_guard import FollowerGuard, FollowerGuardConfig
 
         cfg = FollowerGuardConfig(max_inflight=2)
         g = FollowerGuard(cfg)
@@ -260,7 +260,7 @@ class TestBug172FollowerGuard(unittest.TestCase):
 # =====================================================================
 class TestBug173SingleFlight(unittest.TestCase):
     def test_merged(self):
-        from app.utils.bug173_singleflight import SingleFlight
+        from app.utils.singleflight import SingleFlight
 
         g = SingleFlight()
         v1, from_cache1 = g.do("k1", lambda: "v")
@@ -276,7 +276,7 @@ class TestBug173SingleFlight(unittest.TestCase):
 
 class TestBug174Avalanche(unittest.TestCase):
     def test_jitter(self):
-        from app.utils.bug174_avalanche import AvalancheConfig, AvalancheGuard
+        from app.utils.avalanche import AvalancheConfig, AvalancheGuard
 
         g = AvalancheGuard(AvalancheConfig(base_ttl=300, jitter_pct=0.2))
         results = {g.ttl("k") for _ in range(100)}
@@ -284,7 +284,7 @@ class TestBug174Avalanche(unittest.TestCase):
         self.assertGreater(len(results), 1)
 
     def test_register_and_tick(self):
-        from app.utils.bug174_avalanche import AvalancheConfig, AvalancheGuard
+        from app.utils.avalanche import AvalancheConfig, AvalancheGuard
 
         g = AvalancheGuard(AvalancheConfig(base_ttl=300, preload_ahead_sec=1))
         g.register("k1", ttl=300)  # 300 秒后过期, 离 preload 提前量 1 秒太远
@@ -295,7 +295,7 @@ class TestBug174Avalanche(unittest.TestCase):
         self.assertIn("k2", out2)
 
     def test_stats(self):
-        from app.utils.bug174_avalanche import AvalancheGuard
+        from app.utils.avalanche import AvalancheGuard
 
         g = AvalancheGuard()
         g.register("k1", ttl=300)
@@ -305,7 +305,7 @@ class TestBug174Avalanche(unittest.TestCase):
 
 class TestBug175RedisSentinel(unittest.TestCase):
     def test_init_master(self):
-        from app.utils.bug175_redis_sentinel import RedisSentinel
+        from app.utils.redis_sentinel import RedisSentinel
 
         g = RedisSentinel()
         g.add("m1", is_master=True)
@@ -314,7 +314,7 @@ class TestBug175RedisSentinel(unittest.TestCase):
         self.assertEqual(g.get_master(), "m1")
 
     def test_failover(self):
-        from app.utils.bug175_redis_sentinel import RedisSentinel
+        from app.utils.redis_sentinel import RedisSentinel
 
         g = RedisSentinel()
         g.add("m1", is_master=True)
@@ -326,7 +326,7 @@ class TestBug175RedisSentinel(unittest.TestCase):
         self.assertNotEqual(g.get_master(), "m1")
 
     def test_attach(self):
-        from app.utils.bug175_redis_sentinel import RedisSentinel
+        from app.utils.redis_sentinel import RedisSentinel
 
         g = RedisSentinel()
         g.add("m1", is_master=True)
@@ -339,7 +339,7 @@ class TestBug175RedisSentinel(unittest.TestCase):
 # =====================================================================
 class TestBug176GeoRouter(unittest.TestCase):
     def test_local(self):
-        from app.utils.bug176_geo_router import GeoRouter, Region
+        from app.utils.geo_router import GeoRouter, Region
 
         g = GeoRouter()
         g.add(Region(id="cn", distance={"us": 12000}))
@@ -349,7 +349,7 @@ class TestBug176GeoRouter(unittest.TestCase):
         self.assertEqual(r.reason, "local")
 
     def test_fallback(self):
-        from app.utils.bug176_geo_router import GeoRouter, Region
+        from app.utils.geo_router import GeoRouter, Region
 
         g = GeoRouter()
         g.add(Region(id="cn", distance={"us": 12000}))
@@ -360,7 +360,7 @@ class TestBug176GeoRouter(unittest.TestCase):
         self.assertEqual(r.reason, "nearest-healthy")
 
     def test_no_healthy(self):
-        from app.utils.bug176_geo_router import GeoRouter, Region
+        from app.utils.geo_router import GeoRouter, Region
 
         g = GeoRouter()
         g.add(Region(id="cn"))
@@ -371,7 +371,7 @@ class TestBug176GeoRouter(unittest.TestCase):
 
 class TestBug177Replication(unittest.TestCase):
     def test_write_replicate(self):
-        from app.utils.bug177_replication import CrossRegionReplicator
+        from app.utils.replication import CrossRegionReplicator
 
         g = CrossRegionReplicator()
         g.write("k1", "v1", region="cn")
@@ -380,7 +380,7 @@ class TestBug177Replication(unittest.TestCase):
         self.assertEqual(log.source, "cn")
 
     def test_replicate_drops_old(self):
-        from app.utils.bug177_replication import CrossRegionReplicator, ReplicaLog
+        from app.utils.replication import CrossRegionReplicator, ReplicaLog
 
         g = CrossRegionReplicator()
         g.write("k1", "v1", region="cn")
@@ -389,7 +389,7 @@ class TestBug177Replication(unittest.TestCase):
         self.assertFalse(g.replicate(old))
 
     def test_conflict(self):
-        from app.utils.bug177_replication import CrossRegionReplicator, ReplicaLog
+        from app.utils.replication import CrossRegionReplicator, ReplicaLog
 
         g = CrossRegionReplicator()
         g.write("k1", "v1", region="cn")
@@ -402,7 +402,7 @@ class TestBug177Replication(unittest.TestCase):
 
 class TestBug178Consistency(unittest.TestCase):
     def test_force_master_after_write(self):
-        from app.utils.bug178_consistency_window import ConsistencyConfig, ConsistencyWindow
+        from app.utils.consistency_window import ConsistencyConfig, ConsistencyWindow
 
         cfg = ConsistencyConfig(window_sec=10)
         g = ConsistencyWindow(cfg)
@@ -411,7 +411,7 @@ class TestBug178Consistency(unittest.TestCase):
         self.assertTrue(g.can_read_follower("k1", region="cn"))
 
     def test_window_expire(self):
-        from app.utils.bug178_consistency_window import ConsistencyConfig, ConsistencyWindow
+        from app.utils.consistency_window import ConsistencyConfig, ConsistencyWindow
 
         cfg = ConsistencyConfig(window_sec=0.1)
         g = ConsistencyWindow(cfg)
@@ -420,7 +420,7 @@ class TestBug178Consistency(unittest.TestCase):
         self.assertTrue(g.can_read_follower("k1", region="us"))
 
     def test_no_mark(self):
-        from app.utils.bug178_consistency_window import ConsistencyWindow
+        from app.utils.consistency_window import ConsistencyWindow
 
         g = ConsistencyWindow()
         self.assertTrue(g.can_read_follower("k1", region="us"))
@@ -431,7 +431,7 @@ class TestBug178Consistency(unittest.TestCase):
 # =====================================================================
 class TestBug179TokenBucket(unittest.TestCase):
     def test_burst_then_throttle(self):
-        from app.utils.bug179_token_bucket import TokenBucketConfig, TokenBucketLimiter
+        from app.utils.token_bucket import TokenBucketConfig, TokenBucketLimiter
 
         cfg = TokenBucketConfig(capacity=5, refill_rate=1)
         g = TokenBucketLimiter(cfg)
@@ -445,7 +445,7 @@ class TestBug179TokenBucket(unittest.TestCase):
         self.assertEqual(st["denied"], 1)
 
     def test_refill(self):
-        from app.utils.bug179_token_bucket import TokenBucketConfig, TokenBucketLimiter
+        from app.utils.token_bucket import TokenBucketConfig, TokenBucketLimiter
 
         cfg = TokenBucketConfig(capacity=10, refill_rate=100)
         g = TokenBucketLimiter(cfg)
@@ -457,7 +457,7 @@ class TestBug179TokenBucket(unittest.TestCase):
 
 class TestBug180SlidingWindow(unittest.TestCase):
     def test_basic(self):
-        from app.utils.bug180_sliding_window import SlidingWindowConfig, SlidingWindowLimiter
+        from app.utils.sliding_window import SlidingWindowConfig, SlidingWindowLimiter
 
         cfg = SlidingWindowConfig(window_sec=1.0, max_count=3)
         g = SlidingWindowLimiter(cfg)
@@ -467,7 +467,7 @@ class TestBug180SlidingWindow(unittest.TestCase):
         self.assertFalse(g.acquire("k"))  # 第 4 个被拒
 
     def test_window_slide(self):
-        from app.utils.bug180_sliding_window import SlidingWindowConfig, SlidingWindowLimiter
+        from app.utils.sliding_window import SlidingWindowConfig, SlidingWindowLimiter
 
         cfg = SlidingWindowConfig(window_sec=0.1, max_count=2)
         g = SlidingWindowLimiter(cfg)
@@ -480,7 +480,7 @@ class TestBug180SlidingWindow(unittest.TestCase):
 
 class TestBug181Adaptive(unittest.TestCase):
     def test_initial_qps(self):
-        from app.utils.bug181_adaptive import AdaptiveLimiter
+        from app.utils.adaptive import AdaptiveLimiter
 
         g = AdaptiveLimiter()
         # 默认 100, 100 个全过
@@ -489,7 +489,7 @@ class TestBug181Adaptive(unittest.TestCase):
         self.assertFalse(g.acquire())
 
     def test_step_down(self):
-        from app.utils.bug181_adaptive import AdaptiveConfig, AdaptiveLimiter
+        from app.utils.adaptive import AdaptiveConfig, AdaptiveLimiter
 
         cfg = AdaptiveConfig(initial_qps=100, p99_target_ms=100, step_down=0.5, cooldown_sec=0)
         g = AdaptiveLimiter(cfg)
@@ -500,7 +500,7 @@ class TestBug181Adaptive(unittest.TestCase):
         self.assertLess(st["qps"], 100)
 
     def test_step_up(self):
-        from app.utils.bug181_adaptive import AdaptiveConfig, AdaptiveLimiter
+        from app.utils.adaptive import AdaptiveConfig, AdaptiveLimiter
 
         cfg = AdaptiveConfig(initial_qps=10, max_qps=1000, p99_target_ms=200, step_up=2.0, cooldown_sec=0)
         g = AdaptiveLimiter(cfg)
@@ -514,7 +514,7 @@ class TestBug181Adaptive(unittest.TestCase):
 # =====================================================================
 class TestBug182GracefulShutdown(unittest.TestCase):
     def test_in_flight_counter(self):
-        from app.utils.bug182_graceful_shutdown import GracefulShutdown
+        from app.utils.graceful_shutdown import GracefulShutdown
 
         g = GracefulShutdown(drain_timeout_sec=0.5)
         self.assertTrue(g.in_flight_begin())
@@ -525,7 +525,7 @@ class TestBug182GracefulShutdown(unittest.TestCase):
         self.assertEqual(st["inflight"], 0)
 
     def test_register_and_shutdown(self):
-        from app.utils.bug182_graceful_shutdown import GracefulShutdown, ShutdownHook, ShutdownState
+        from app.utils.graceful_shutdown import GracefulShutdown, ShutdownHook, ShutdownState
 
         g = GracefulShutdown(drain_timeout_sec=0.5)
         results = []
@@ -542,7 +542,7 @@ class TestBug182GracefulShutdown(unittest.TestCase):
         self.assertEqual(g.state(), ShutdownState.CLOSED)
 
     def test_refuse_after_draining(self):
-        from app.utils.bug182_graceful_shutdown import GracefulShutdown
+        from app.utils.graceful_shutdown import GracefulShutdown
 
         g = GracefulShutdown(drain_timeout_sec=0.5)
         g.shutdown()
@@ -552,14 +552,14 @@ class TestBug182GracefulShutdown(unittest.TestCase):
 
 class TestBug183HotConfig(unittest.TestCase):
     def test_set_and_get(self):
-        from app.utils.bug183_hot_config import HotConfigCenter
+        from app.utils.hot_config import HotConfigCenter
 
         g = HotConfigCenter()
         g.set("k1", "v1")
         self.assertEqual(g.get("k1"), "v1")
 
     def test_subscribe(self):
-        from app.utils.bug183_hot_config import HotConfigCenter
+        from app.utils.hot_config import HotConfigCenter
 
         g = HotConfigCenter()
         received = []
@@ -569,7 +569,7 @@ class TestBug183HotConfig(unittest.TestCase):
         self.assertEqual(received, ["v1", "v2"])
 
     def test_no_change_no_notify(self):
-        from app.utils.bug183_hot_config import HotConfigCenter
+        from app.utils.hot_config import HotConfigCenter
 
         g = HotConfigCenter()
         g.set("k1", "v1")
@@ -580,7 +580,7 @@ class TestBug183HotConfig(unittest.TestCase):
         self.assertEqual(received, [])
 
     def test_diff(self):
-        from app.utils.bug183_hot_config import HotConfigCenter
+        from app.utils.hot_config import HotConfigCenter
 
         g = HotConfigCenter()
         g.set("k1", "v1")
@@ -590,7 +590,7 @@ class TestBug183HotConfig(unittest.TestCase):
 
 class TestBug184StartupProbe(unittest.TestCase):
     def test_all_ok(self):
-        from app.utils.bug184_startup_probe import StartupProbe
+        from app.utils.startup_probe import StartupProbe
 
         g = StartupProbe()
         g.register("db", lambda: True)
@@ -599,7 +599,7 @@ class TestBug184StartupProbe(unittest.TestCase):
         self.assertTrue(g.is_ready())
 
     def test_partial_failed(self):
-        from app.utils.bug184_startup_probe import StartupProbe
+        from app.utils.startup_probe import StartupProbe
 
         g = StartupProbe()
         g.register("db", lambda: True)
@@ -607,7 +607,7 @@ class TestBug184StartupProbe(unittest.TestCase):
         self.assertFalse(g.run_all())
 
     def test_progress(self):
-        from app.utils.bug184_startup_probe import StartupProbe
+        from app.utils.startup_probe import StartupProbe
 
         g = StartupProbe()
         g.progress(2)

@@ -75,7 +75,7 @@ import PdfToolsPanel from './PdfToolsPanel.vue'
 
 const { t } = useI18n()
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 const props = withDefaults(
   defineProps<{

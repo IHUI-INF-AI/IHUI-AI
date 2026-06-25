@@ -4,7 +4,7 @@ echo ========================================
 echo   ZHS Platform - 后端启动
 echo ========================================
 echo.
-cd /d G:\1\server
+cd /d "%~dp0"
 echo [1/2] 启动 uvicorn (端口 8000)...
 start /B python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --env-file local_data/dev-config.ini --log-level info
 echo [2/2] 等待启动...

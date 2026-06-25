@@ -1729,7 +1729,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    border-color: rgba($brand-primary, 0.3);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
   }
 }
 
@@ -1784,9 +1784,9 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
   .hero-title {
     font-size: clamp(42px, 5vw, 72px);
-    font-weight: 950;
+    font-weight: 800;
     line-height: 1.2;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.02em;
 
     .accent-gradient {
       color: $brand-primary;
@@ -1857,7 +1857,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   background: transparent;
 
   &:hover {
-    border-color: rgba($brand-primary, 0.25);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
 
     .ai-icon {
       color: var(--el-bg-color);
@@ -1924,7 +1924,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   background: transparent;
 
   &:hover {
-    border-color: rgba($brand-primary, 0.25);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
 
     .ind-line {
       width: 100%;
@@ -1995,7 +1995,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
-      border-color: rgba($brand-primary, 0.25);
+      border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
       transform: translateY(-4px);
     }
   }
@@ -2048,7 +2048,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
     .stat-num {
       font-size: 36px;
-      font-weight: 950;
+      font-weight: 800;
       color: $text-main;
       line-height: 1;
       transition: color 0.3s ease;
@@ -2092,7 +2092,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       transition: all 0.3s ease;
 
       &:hover {
-        border-color: rgba($brand-primary, 0.3);
+        border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
         color: $brand-primary;
       }
     }
@@ -2591,7 +2591,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   background: transparent;
 
   &:hover {
-    border-color: rgba($brand-primary, 0.25);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
 
     .stat-icon {
       color: var(--el-bg-color);
@@ -2625,7 +2625,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
     .number {
       font-size: 42px;
-      font-weight: 950;
+      font-weight: 800;
       letter-spacing: -0.02em;
       color: $brand-primary;
     }
@@ -2854,13 +2854,13 @@ html.dark .course-tab.active {
   background: transparent;
 
   &:hover {
-    border-color: rgba($brand-primary, 0.2);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
   }
 
   .uc-number {
     font-size: 48px;
-    font-weight: 950;
-    color: rgba($brand-primary, 0.15);
+    font-weight: 800;
+    color: var(--el-fill-color-dark);
     margin-bottom: 16px;
   }
 
@@ -3065,11 +3065,11 @@ html.dark .course-tab.active {
   background: transparent;
 
   &:hover {
-    border-color: rgba($brand-primary, 0.25);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
 
     .case-logo {
       transform: scale(1.05);
-      border-color: rgba($brand-primary, 0.35);
+      border-color: color-mix(in srgb, var(--el-text-color-primary) 35%, transparent);
     }
   }
 
@@ -3150,7 +3150,7 @@ html.dark .course-tab.active {
       .result-value {
         display: block;
         font-size: 18px;
-        font-weight: 950;
+        font-weight: 800;
         color: $brand-primary;
         margin-bottom: 4px;
       }
@@ -3183,11 +3183,11 @@ html.dark .course-tab.active {
   background: transparent;
 
   &:hover {
-    border-color: rgba($brand-primary, 0.2);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
 
     .quote-icon {
       transform: scale(1.1);
-      color: rgba($brand-primary, 0.2);
+      color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
     }
 
     .author-avatar {
@@ -3201,7 +3201,7 @@ html.dark .course-tab.active {
     left: 32px;
     font-size: 72px;
     font-weight: 900;
-    color: rgba($brand-primary, 0.15);
+    color: color-mix(in srgb, var(--el-text-color-primary) 15%, transparent);
     line-height: 1;
     transition: all 0.3s;
   }
@@ -3287,7 +3287,7 @@ html.dark .course-tab.active {
 
     &:hover {
       transform: translateY(-4px);
-      border-color: rgba($brand-primary, 0.2);
+      border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
     }
   }
 }
@@ -3314,7 +3314,7 @@ html.dark .course-tab.active {
 
   &:hover {
     transform: translateY(-6px);
-    border-color: rgba($brand-primary, 0.25);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
 
     &::before {
       opacity: 1;
@@ -3417,7 +3417,7 @@ html.dark .course-tab.active {
 
   &:hover {
     transform: translateY(-4px);
-    border-color: rgba($brand-primary, 0.2);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
   }
 
   .resource-icon {
@@ -3485,7 +3485,7 @@ html.dark .course-tab.active {
 
     h2 {
       font-size: 36px;
-      font-weight: 950;
+      font-weight: 800;
       margin: 0 0 16px;
     }
 
@@ -3532,7 +3532,7 @@ html.dark .course-tab.active {
 
   h2 {
     font-size: 42px;
-    font-weight: 950;
+    font-weight: 800;
     letter-spacing: -0.02em;
   }
 

@@ -8,7 +8,7 @@ echo ========================================
 echo   Officialsite - 前端启动
 echo ========================================
 echo.
-cd /d G:\1\client
+cd /d "%~dp0"
 echo [1/2] 启动 Vite Dev Server (端口 8888)...
 start /B node node_modules\vite\bin\vite.js --port 8888
 echo [2/2] 等待启动...

@@ -863,7 +863,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
     .vip-bottom-amount {
       font-size: 32px;
-      font-weight: 950;
+      font-weight: 800;
       color: var(--color-white);
     }
 
@@ -879,7 +879,7 @@ $accent-highlight: var(--el-text-color-secondary);
     background: linear-gradient(135deg, var(--color-vip-gold-start), var(--color-vip-gold-end));
     border-radius: var(--global-border-radius);
     font-size: 16px;
-    font-weight: 900;
+    font-weight: 700;
     color: var(--color-gray-1f2937);
     border: none;
     cursor: pointer;
@@ -924,7 +924,7 @@ $accent-highlight: var(--el-text-color-secondary);
       height: 500px;
       top: 5%;
       right: 5%;
-      background: rgba($brand-primary, 0.3);
+      background: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
     }
 
     &.orb-2 {
@@ -1056,12 +1056,12 @@ $accent-highlight: var(--el-text-color-secondary);
 // ============ Section 标题 ============
 .section-header {
   text-align: center;
-  margin-bottom: 80px;
+  margin-bottom: 48px;
 
   .section-idx {
     font-family: var(--font-family-mono);
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 700;
     color: $brand-primary;
     opacity: 0.6;
     letter-spacing: 0.1em;
@@ -1069,7 +1069,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
   h2 {
     font-size: clamp(32px, 5vw, 48px);
-    font-weight: 950;
+    font-weight: 800;
     letter-spacing: -0.02em;
     margin: 12px 0 16px;
   }
@@ -1124,7 +1124,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
   .hero-title {
     font-size: clamp(40px, 5vw, 64px);
-    font-weight: 950;
+    font-weight: 800;
     line-height: 1.2;
     letter-spacing: -0.03em;
     margin-bottom: 24px;
@@ -1155,7 +1155,7 @@ $accent-highlight: var(--el-text-color-secondary);
       .stat-number {
         display: block;
         font-size: clamp(32px, 4vw, 48px);
-        font-weight: 950;
+        font-weight: 800;
         letter-spacing: -0.02em;
         margin-bottom: 8px;
       }
@@ -1280,7 +1280,7 @@ $accent-highlight: var(--el-text-color-secondary);
         justify-content: center;
         margin-bottom: 28px;
         color: $brand-primary;
-        background: rgba($brand-primary, 0.08);
+        background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent);
         transition: all 0.4s;
       }
 
@@ -1292,7 +1292,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
       .benefit-title {
         font-size: 24px;
-        font-weight: 900;
+        font-weight: 700;
         margin-bottom: 16px;
       }
 
@@ -1332,7 +1332,7 @@ $accent-highlight: var(--el-text-color-secondary);
 // ============ 价格套餐 ============
 :where(.pricing-section) {
   padding: 120px 0;
-  background: rgba($brand-primary, 0.02);
+  background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
 
   .pricing-toggle {
     display: flex;
@@ -1428,7 +1428,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
           .amount {
             font-size: 56px;
-            font-weight: 950;
+            font-weight: 800;
             letter-spacing: -0.02em;
           }
 
@@ -1498,7 +1498,7 @@ $accent-highlight: var(--el-text-color-secondary);
           height: 56px;
           border-radius: var(--global-border-radius);
           font-size: 16px;
-          font-weight: 900;
+          font-weight: 700;
           cursor: pointer;
           border: var(--unified-border);
           background: transparent;
@@ -1569,7 +1569,7 @@ $accent-highlight: var(--el-text-color-secondary);
           left: -8px;
           font-size: 72px;
           font-weight: 900;
-          color: rgba($brand-primary, 0.15);
+          color: color-mix(in srgb, var(--el-text-color-primary) 15%, transparent);
           line-height: 1;
           transition: transform 0.3s;
         }
@@ -1613,7 +1613,7 @@ $accent-highlight: var(--el-text-color-secondary);
 // ============ 常见问题 ============
 :where(.faq-section) {
   padding: 120px 0;
-  background: rgba($brand-primary, 0.02);
+  background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
 
   .faq-content {
     max-width: 900px;
@@ -1649,11 +1649,11 @@ $accent-highlight: var(--el-text-color-secondary);
     padding: 80px;
     border-radius: var(--global-border-radius);
     text-align: center;
-    background: rgba($brand-primary, 0.05);
+    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
 
     h2 {
       font-size: clamp(32px, 4vw, 42px);
-      font-weight: 950;
+      font-weight: 800;
       margin-bottom: 16px;
     }
 
@@ -1693,7 +1693,7 @@ $accent-highlight: var(--el-text-color-secondary);
           color: inherit;
 
           &:hover {
-            background: rgba($brand-primary, 0.05);
+            background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
             border-color: $brand-primary;
           }
         }
@@ -1767,7 +1767,7 @@ html.dark .cta-btn.primary {
 
     .item-price {
       font-size: 24px;
-      font-weight: 900;
+      font-weight: 700;
       color: $brand-primary;
     }
   }
@@ -1801,7 +1801,7 @@ html.dark .cta-btn.primary {
 
       .total-amount {
         font-size: 28px;
-        font-weight: 950;
+        font-weight: 800;
         color: $brand-primary;
       }
     }
@@ -1829,7 +1829,7 @@ html.dark .cta-btn.primary {
         transition: all 0.3s;
 
         &:hover {
-          background: rgba($brand-primary, 0.05);
+          background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
         }
 
         .payment-icon {

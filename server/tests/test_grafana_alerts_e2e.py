@@ -16,7 +16,9 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path("g:/1")
+# 2026-06-25 修复: 改用脚本自身位置计算 ROOT, 避免硬编码 g:/1
+# server/tests/test_grafana_alerts_e2e.py -> ../../ (项目根)
+ROOT = Path(__file__).resolve().parent.parent.parent
 ALERT_FILES = [
     ROOT / "server" / "deploy" / "grafana" / "alerts" / "zhs-biz-alerts.yml",
     ROOT / "deploy" / "grafana" / "alerts" / "zhs-biz-alerts.yml",

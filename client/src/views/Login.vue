@@ -640,7 +640,7 @@ $border-light: var(--el-border-color-lighter);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    border-color: rgba($brand-primary, 0.2);
+    border-color: var(--el-border-color);
   }
 }
 
@@ -696,7 +696,7 @@ $border-light: var(--el-border-color-lighter);
 
     &:hover {
       transform: scale(1.05);
-      border-color: rgba($brand-primary, 0.35);
+      border-color: color-mix(in srgb, var(--el-text-color-primary) 35%, transparent);
     }
 
     .logo-image {
@@ -715,7 +715,7 @@ $border-light: var(--el-border-color-lighter);
 
     .brand-name {
       font-size: 20px;
-      font-weight: 800;
+      font-weight: 700;
       color: $text-main;
       letter-spacing: 0.05em;
       line-height: 1.1;
@@ -768,14 +768,14 @@ $border-light: var(--el-border-color-lighter);
 
     .title-prefix {
       font-size: clamp(42px, 4vw, 56px);
-      font-weight: 900;
+      font-weight: 700;
       color: $text-main;
       letter-spacing: 0.05em;
     }
 
     :where(.title-main) {
       font-size: clamp(36px, 4.5vw, 56px);
-      font-weight: 900;
+      font-weight: 700;
       color: var(--el-text-color-primary);
       letter-spacing: -0.02em;
       line-height: 1.05;
@@ -814,7 +814,7 @@ $border-light: var(--el-border-color-lighter);
 
       .metric-value {
         font-size: 28px;
-        font-weight: 800;
+        font-weight: 700;
         color: $brand-primary;
         font-variant-numeric: tabular-nums;
         letter-spacing: -0.02em;
@@ -935,12 +935,12 @@ $border-light: var(--el-border-color-lighter);
     border: var(--unified-border);
 
     &:hover {
-      border-color: rgba($brand-primary, 0.15);
+      border-color: color-mix(in srgb, var(--el-text-color-primary) 15%, transparent);
     }
 
     &.is-focus {
       border-color: $brand-primary;
-      outline: 2px solid rgba($brand-primary, 0.25);
+      outline: 2px solid color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
       outline-offset: 2px;
     }
   }
@@ -1030,20 +1030,14 @@ $border-light: var(--el-border-color-lighter);
     .ambient-aura {
       mix-blend-mode: normal;
     }
+
+    .mouse-glow-effect {
+      opacity: 0;
+    }
   }
 
   &.mouse-active .mouse-glow-effect {
     opacity: 0;
-  }
-}
-
-// ============ 暗色模式适配 ============
-:where(html.dark) .login-page-root,
-:where(body.dark) :where(.login-page-root) {
-  :where(.login-bg-system) {
-    .mouse-glow-effect {
-      opacity: 0;
-    }
   }
 
   .glass-card {

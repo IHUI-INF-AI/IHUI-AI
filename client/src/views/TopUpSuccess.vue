@@ -376,7 +376,6 @@ $ts-text-muted: var(--color-white-50);
   justify-content: center;
   background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
 }
 
 // SVG 勾选动画
@@ -528,13 +527,11 @@ $ts-text-muted: var(--color-white-50);
   &--primary {
     background: $brand-accent;
     color: var(--el-bg-color);
-    box-shadow: var(--global-box-shadow);
 
     // 扫光效果已移至全局样式 (styles/index.scss)
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: var(--global-box-shadow);
     }
 
     &:active {
@@ -558,7 +555,6 @@ $ts-text-muted: var(--color-white-50);
     &:hover {
       .btn-border {
         border-color: var(--border-unified-color-hover);
-        box-shadow: var(--global-box-shadow);
       }
     }
 
@@ -624,7 +620,6 @@ $ts-text-muted: var(--color-white-50);
   .glass-card {
     background: var(--color-white-70);
     border-color: var(--border-unified-color);
-    box-shadow: var(--global-box-shadow);
 
     &:hover {
       border-color: var(--border-unified-color-hover);
@@ -648,7 +643,6 @@ $ts-text-muted: var(--color-white-50);
 
     &:hover .btn-border {
       border-color: var(--border-unified-color-hover);
-      box-shadow: var(--global-box-shadow);
     }
   }
 

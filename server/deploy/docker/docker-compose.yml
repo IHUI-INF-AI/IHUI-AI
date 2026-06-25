@@ -1,7 +1,7 @@
 # Docker Compose 编排 — ZHS Platform 生产环境
 # 完整 PostgreSQL 架构
 # 用法:
-#   cp .env.production.template .env.production  # 填入真实值
+#   cp .env.production.example .env.production  # 填入真实值
 #   docker compose up -d
 #   docker compose exec api alembic upgrade head
 #   docker compose logs -f api

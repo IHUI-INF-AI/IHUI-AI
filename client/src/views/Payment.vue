@@ -555,7 +555,7 @@ getUserInfo()
 <style scoped lang="scss">
 .payment-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--color-payment-purple-start) 0%, var(--color-payment-purple-end) 100%);
+  background: var(--el-bg-color-page);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -568,7 +568,6 @@ getUserInfo()
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   padding: 32px;
-  box-shadow: var(--global-box-shadow);
 }
 
 .header {
@@ -577,7 +576,7 @@ getUserInfo()
 
   .title {
     font-size: 28px;
-    font-weight: bold;
+    font-weight: 600;
     color: var(--color-gray-333);
     margin: 0 0 8px;
   }
@@ -597,7 +596,7 @@ getUserInfo()
     border-radius: var(--global-border-radius);
     background: var(--color-gray-f8f8f8);
     position: relative;
-    border: 2px solid transparent;
+    border: 1px solid var(--el-border-color);
     transition: all 0.3s;
 
     &.active {
@@ -613,7 +612,7 @@ getUserInfo()
 
       .package-title {
         font-size: 18px;
-        font-weight: bold;
+        font-weight: 600;
         color: var(--color-gray-333);
       }
 
@@ -631,7 +630,7 @@ getUserInfo()
 
       .price {
         font-size: 32px;
-        font-weight: bold;
+        font-weight: 600;
         color: var(--color-blue-0056d6);
         margin-right: 12px;
       }
@@ -682,7 +681,7 @@ getUserInfo()
 
   .section-title {
     font-size: 16px;
-    font-weight: bold;
+    font-weight: 600;
     color: var(--color-gray-333);
     margin: 0 0 16px;
   }
@@ -693,7 +692,7 @@ getUserInfo()
     padding: 16px;
     border-radius: var(--global-border-radius);
     background: var(--color-gray-f8f8f8);
-    border: 2px solid transparent;
+    border: 1px solid var(--el-border-color);
     cursor: pointer;
     transition: all 0.3s;
 
@@ -757,7 +756,7 @@ getUserInfo()
   width: 100%;
   height: 56px;
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 600;
   border-radius: var(--global-border-radius);
 
   &:disabled {
@@ -774,7 +773,7 @@ getUserInfo()
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: var(--color--ff5252);
+    background: var(--el-color-danger);
     color: var(--color-white);
     display: flex;
     align-items: center;
@@ -789,7 +788,7 @@ getUserInfo()
 
   .result-title {
     font-size: 20px;
-    font-weight: bold;
+    font-weight: 600;
     color: var(--color-gray-333);
     margin: 0 0 16px;
   }
@@ -831,7 +830,7 @@ getUserInfo()
     height: 200px;
     border-radius: var(--global-border-radius);
     background: var(--color-gray-f8f8f8);
-    border: 2px solid var(--color-gray-e5e5e5);
+    border: 1px solid var(--el-border-color);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -890,12 +889,12 @@ getUserInfo()
 
     .countdown-value {
       font-size: 24px;
-      font-weight: 800;
+      font-weight: 700;
       color: var(--color-blue-0056d6);
       font-variant-numeric: tabular-nums;
 
       &.urgent {
-        color: var(--color--ff5252);
+        color: var(--el-color-danger);
         animation: qr-pulse 1s ease-in-out infinite;
       }
     }

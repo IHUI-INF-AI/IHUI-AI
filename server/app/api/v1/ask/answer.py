@@ -98,7 +98,7 @@ def list_answers(
 ):
     with get_session() as db:
         try:
-            q = db.query(AskAnswer).filter(not AskAnswer.deleted)
+            q = db.query(AskAnswer).filter(AskAnswer.deleted.is_(False))
             if question_id:
                 q = q.filter(AskAnswer.question_id == question_id)
             if member_id:
@@ -121,7 +121,7 @@ def public_list_answers(
 ):
     with get_session() as db:
         try:
-            q = db.query(AskAnswer).filter(not AskAnswer.deleted)
+            q = db.query(AskAnswer).filter(AskAnswer.deleted.is_(False))
             if question_id:
                 q = q.filter(AskAnswer.question_id == question_id)
             total = q.count()
@@ -141,7 +141,7 @@ def public_list_answers(
 def get_answer(id: int = Query(...)):
     with get_session() as db:
         try:
-            a = db.query(AskAnswer).filter(AskAnswer.id == id, not AskAnswer.deleted).first()
+            a = db.query(AskAnswer).filter(AskAnswer.id == id, AskAnswer.deleted.is_(False)).first()
             if not a:
                 return error("回答不存在", "404")
             return success(_a_to_dict(a))

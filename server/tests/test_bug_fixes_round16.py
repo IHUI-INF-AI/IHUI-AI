@@ -12,7 +12,7 @@ import unittest
 # =====================================================================
 class TestBug149N1Detector(unittest.TestCase):
     def test_fingerprint_stable(self):
-        from app.utils.bug149_n1_detector import N1Detector
+        from app.utils.n1_detector import N1Detector
 
         fp1 = N1Detector.fingerprint("SELECT * FROM user WHERE id = ?")
         fp2 = N1Detector.fingerprint("select *  from  user where id=?")
@@ -20,7 +20,7 @@ class TestBug149N1Detector(unittest.TestCase):
         self.assertEqual(len(fp1), 12)
 
     def test_alert_on_high_fanout(self):
-        from app.utils.bug149_n1_detector import N1Config, N1Detector
+        from app.utils.n1_detector import N1Config, N1Detector
 
         cfg = N1Config(max_parents=1, max_fanout_ratio=3.0, window_sec=60, cooldown_sec=0)
         g = N1Detector(cfg)
@@ -31,7 +31,7 @@ class TestBug149N1Detector(unittest.TestCase):
         self.assertGreaterEqual(st["alerts"], 1)
 
     def test_no_alert_low_fanout(self):
-        from app.utils.bug149_n1_detector import N1Config, N1Detector
+        from app.utils.n1_detector import N1Config, N1Detector
 
         cfg = N1Config(max_parents=1, max_fanout_ratio=10.0, window_sec=60, cooldown_sec=0)
         g = N1Detector(cfg)
@@ -40,7 +40,7 @@ class TestBug149N1Detector(unittest.TestCase):
         self.assertEqual(g.stats()["alerts"], 0)
 
     def test_cooldown(self):
-        from app.utils.bug149_n1_detector import N1Config, N1Detector
+        from app.utils.n1_detector import N1Config, N1Detector
 
         cfg = N1Config(max_parents=1, max_fanout_ratio=3.0, window_sec=60, cooldown_sec=999)
         g = N1Detector(cfg)
@@ -55,7 +55,7 @@ class TestBug149N1Detector(unittest.TestCase):
 
 class TestBug150SlowSQLKiller(unittest.TestCase):
     def test_record_normal(self):
-        from app.utils.bug150_slow_sql_killer import CircuitState, SlowSQLConfig, SlowSQLKiller
+        from app.utils.slow_sql_killer import CircuitState, SlowSQLConfig, SlowSQLKiller
 
         cfg = SlowSQLConfig(window_size=10, breaker_p_ms=10_000)
         g = SlowSQLKiller(cfg)
@@ -64,7 +64,7 @@ class TestBug150SlowSQLKiller(unittest.TestCase):
         self.assertEqual(g.stats()["closed"], 1)
 
     def test_breaker_open(self):
-        from app.utils.bug150_slow_sql_killer import CircuitOpen, SlowSQLConfig, SlowSQLKiller
+        from app.utils.slow_sql_killer import CircuitOpen, SlowSQLConfig, SlowSQLKiller
 
         cfg = SlowSQLConfig(window_size=10, breaker_p_ms=100, open_sec=1, slow_ms=80)
         g = SlowSQLKiller(cfg)
@@ -80,7 +80,7 @@ class TestBug150SlowSQLKiller(unittest.TestCase):
         self.assertTrue(raised, "熔断未生效")
 
     def test_half_open_recovery(self):
-        from app.utils.bug150_slow_sql_killer import SlowSQLConfig, SlowSQLKiller
+        from app.utils.slow_sql_killer import SlowSQLConfig, SlowSQLKiller
 
         cfg = SlowSQLConfig(window_size=10, breaker_p_ms=50, open_sec=0, cooldown_ms=100, half_open_probes=2)
         g = SlowSQLKiller(cfg)
@@ -93,7 +93,7 @@ class TestBug150SlowSQLKiller(unittest.TestCase):
 
 class TestBug151CacheWarmer(unittest.TestCase):
     def test_warm_and_hit(self):
-        from app.utils.bug151_cache_warmer import CacheWarmer, WarmConfig
+        from app.utils.cache_warmer import CacheWarmer, WarmConfig
 
         store = {}
         g = CacheWarmer(
@@ -108,7 +108,7 @@ class TestBug151CacheWarmer(unittest.TestCase):
         self.assertEqual(store["k0"], "v0")
 
     def test_hit_rate(self):
-        from app.utils.bug151_cache_warmer import CacheWarmer
+        from app.utils.cache_warmer import CacheWarmer
 
         store = {"k1": "v1"}
         g = CacheWarmer(cache_get=lambda k: store.get(k), cache_set=lambda k, v, t: None)
@@ -118,7 +118,7 @@ class TestBug151CacheWarmer(unittest.TestCase):
         self.assertAlmostEqual(g.hit_rate(), 2 / 3, places=3)
 
     def test_retry_on_failure(self):
-        from app.utils.bug151_cache_warmer import CacheWarmer
+        from app.utils.cache_warmer import CacheWarmer
 
         store = {}
         g = CacheWarmer(cache_get=lambda k: store.get(k), cache_set=lambda k, v, t: store.__setitem__(k, v))
@@ -128,7 +128,7 @@ class TestBug151CacheWarmer(unittest.TestCase):
         self.assertEqual(results[0].attempts, 3)
 
     def test_force_bypass_interval(self):
-        from app.utils.bug151_cache_warmer import CacheWarmer, WarmConfig
+        from app.utils.cache_warmer import CacheWarmer, WarmConfig
 
         store = {}
         g = CacheWarmer(
@@ -153,7 +153,7 @@ class TestBug151CacheWarmer(unittest.TestCase):
 # =====================================================================
 class TestBug152PoolMonitor(unittest.TestCase):
     def test_borrow_release(self):
-        from app.utils.bug152_pool_monitor import ConnPool, PoolConfig
+        from app.utils.pool_monitor import ConnPool, PoolConfig
 
         cfg = PoolConfig(max_size=2)
         pool = ConnPool("db", cfg)
@@ -164,7 +164,7 @@ class TestBug152PoolMonitor(unittest.TestCase):
         self.assertEqual(pool.stats()["in_use"], 1)
 
     def test_pool_exhausted(self):
-        from app.utils.bug152_pool_monitor import ConnPool, PoolConfig
+        from app.utils.pool_monitor import ConnPool, PoolConfig
 
         cfg = PoolConfig(max_size=1, borrow_timeout_sec=0.3)
         pool = ConnPool("db", cfg)
@@ -178,7 +178,7 @@ class TestBug152PoolMonitor(unittest.TestCase):
         pool.release(c1)
 
     def test_saturation_warn(self):
-        from app.utils.bug152_pool_monitor import ConnPool, PoolConfig
+        from app.utils.pool_monitor import ConnPool, PoolConfig
 
         cfg = PoolConfig(max_size=2, saturation_warn=0.5, saturation_crit=0.9)
         pool = ConnPool("db", cfg)
@@ -189,7 +189,7 @@ class TestBug152PoolMonitor(unittest.TestCase):
 
 class TestBug153MemoryLeak(unittest.TestCase):
     def test_snapshot(self):
-        from app.utils.bug153_memory_leak import MemoryLeakDetector
+        from app.utils.memory_leak import MemoryLeakDetector
 
         g = MemoryLeakDetector()
         s = g.snapshot()
@@ -197,7 +197,7 @@ class TestBug153MemoryLeak(unittest.TestCase):
         self.assertGreaterEqual(s.obj_count, 0)
 
     def test_stats(self):
-        from app.utils.bug153_memory_leak import MemoryLeakDetector
+        from app.utils.memory_leak import MemoryLeakDetector
 
         g = MemoryLeakDetector()
         g.snapshot()
@@ -208,7 +208,7 @@ class TestBug153MemoryLeak(unittest.TestCase):
 
 class TestBug154GCPressure(unittest.TestCase):
     def test_snapshot(self):
-        from app.utils.bug154_gc_pressure import GCPressureMonitor
+        from app.utils.gc_pressure import GCPressureMonitor
 
         g = GCPressureMonitor()
         s = g.snapshot()
@@ -216,7 +216,7 @@ class TestBug154GCPressure(unittest.TestCase):
         self.assertGreater(s.obj_count, 0)
 
     def test_force_collect(self):
-        from app.utils.bug154_gc_pressure import GCPressureMonitor
+        from app.utils.gc_pressure import GCPressureMonitor
 
         g = GCPressureMonitor()
         r = g.force_collect()
@@ -224,7 +224,7 @@ class TestBug154GCPressure(unittest.TestCase):
         self.assertIn("after", r)
 
     def test_stats(self):
-        from app.utils.bug154_gc_pressure import GCPressureMonitor
+        from app.utils.gc_pressure import GCPressureMonitor
 
         g = GCPressureMonitor()
         g.snapshot()
@@ -237,7 +237,7 @@ class TestBug154GCPressure(unittest.TestCase):
 # =====================================================================
 class TestBug155TraceContext(unittest.TestCase):
     def test_root_and_child(self):
-        from app.utils.bug155_trace_context import SpanContext, span_scope
+        from app.utils.trace_context import SpanContext, span_scope
 
         root = SpanContext.new_root()
         self.assertEqual(len(root.trace_id), 32)
@@ -246,12 +246,12 @@ class TestBug155TraceContext(unittest.TestCase):
         self.assertEqual(child.trace_id, root.trace_id)
         self.assertEqual(child.parent_span_id, root.span_id)
         with span_scope(root):
-            from app.utils.bug155_trace_context import current_span
+            from app.utils.trace_context import current_span
 
             self.assertEqual(current_span().trace_id, root.trace_id)
 
     def test_header_roundtrip(self):
-        from app.utils.bug155_trace_context import SpanContext
+        from app.utils.trace_context import SpanContext
 
         c = SpanContext.new_root()
         h = c.to_header()
@@ -261,7 +261,7 @@ class TestBug155TraceContext(unittest.TestCase):
         self.assertEqual(c2.span_id, c.span_id)
 
     def test_baggage(self):
-        from app.utils.bug155_trace_context import SpanContext
+        from app.utils.trace_context import SpanContext
 
         c = SpanContext.new_root()
         c.set_baggage("user_id", "u1")
@@ -270,7 +270,7 @@ class TestBug155TraceContext(unittest.TestCase):
         self.assertEqual(c2.baggage.get("user_id"), "u1")
 
     def test_recorder(self):
-        from app.utils.bug155_trace_context import SpanContext, TraceRecorder
+        from app.utils.trace_context import SpanContext, TraceRecorder
 
         rec = TraceRecorder()
         c = SpanContext.new_root()
@@ -284,20 +284,20 @@ class TestBug155TraceContext(unittest.TestCase):
 
 class TestBug156Sampler(unittest.TestCase):
     def test_should_sample_high_priority(self):
-        from app.utils.bug156_sampler import Priority, SamplerConfig, TraceSampler
+        from app.utils.sampler import Priority, SamplerConfig, TraceSampler
 
         g = TraceSampler(SamplerConfig(rate_by_priority={"HIGH": 1.0}))
         self.assertTrue(g.should_sample("t1", Priority.HIGH))
         self.assertTrue(g.should_sample("t2", Priority.HIGH))
 
     def test_should_sample_normal_partial(self):
-        from app.utils.bug156_sampler import Priority, SamplerConfig, TraceSampler
+        from app.utils.sampler import Priority, SamplerConfig, TraceSampler
 
         g = TraceSampler(SamplerConfig(rate_by_priority={"NORMAL": 0.0}))
         self.assertFalse(g.should_sample("t1", Priority.NORMAL))
 
     def test_stable_bucket(self):
-        from app.utils.bug156_sampler import TraceSampler
+        from app.utils.sampler import TraceSampler
 
         for _ in range(10):
             b = TraceSampler._bucket("trace-abc")
@@ -306,8 +306,8 @@ class TestBug156Sampler(unittest.TestCase):
 
 class TestBug157Propagator(unittest.TestCase):
     def test_http_roundtrip(self):
-        from app.utils.bug155_trace_context import SpanContext, span_scope
-        from app.utils.bug157_propagator import TracePropagator
+        from app.utils.trace_context import SpanContext, span_scope
+        from app.utils.propagator import TracePropagator
 
         p = TracePropagator()
         ctx = SpanContext.new_root()
@@ -319,8 +319,8 @@ class TestBug157Propagator(unittest.TestCase):
         self.assertEqual(c2.trace_id, ctx.trace_id)
 
     def test_kafka_roundtrip(self):
-        from app.utils.bug155_trace_context import SpanContext, span_scope
-        from app.utils.bug157_propagator import TracePropagator
+        from app.utils.trace_context import SpanContext, span_scope
+        from app.utils.propagator import TracePropagator
 
         p = TracePropagator()
         ctx = SpanContext.new_root()
@@ -330,7 +330,7 @@ class TestBug157Propagator(unittest.TestCase):
         self.assertEqual(c2.trace_id, ctx.trace_id)
 
     def test_extract_invalid(self):
-        from app.utils.bug157_propagator import TracePropagator
+        from app.utils.propagator import TracePropagator
 
         p = TracePropagator()
         self.assertIsNone(p.extract_http({}))
@@ -343,7 +343,7 @@ class TestBug157Propagator(unittest.TestCase):
 # =====================================================================
 class TestBug158Cardinality(unittest.TestCase):
     def test_observe_and_bucketing(self):
-        from app.utils.bug158_cardinality import CardinalityConfig, MetricRegistry
+        from app.utils.cardinality import CardinalityConfig, MetricRegistry
 
         cfg = CardinalityConfig(bucket_count=4)
         g = MetricRegistry(cfg)
@@ -354,7 +354,7 @@ class TestBug158Cardinality(unittest.TestCase):
         self.assertLessEqual(sc, 4)
 
     def test_low_cardinality_passthrough(self):
-        from app.utils.bug158_cardinality import MetricRegistry
+        from app.utils.cardinality import MetricRegistry
 
         g = MetricRegistry()
         g.observe("http", {"method": "GET"}, 1.0)
@@ -362,7 +362,7 @@ class TestBug158Cardinality(unittest.TestCase):
         self.assertEqual(g.series_count("http"), 2)
 
     def test_stats(self):
-        from app.utils.bug158_cardinality import MetricRegistry
+        from app.utils.cardinality import MetricRegistry
 
         g = MetricRegistry()
         g.observe("m", {"k": "v"}, 1.0)
@@ -372,7 +372,7 @@ class TestBug158Cardinality(unittest.TestCase):
 
 class TestBug159SLA(unittest.TestCase):
     def test_availability(self):
-        from app.utils.bug159_sla import SLACalculator, SLATarget
+        from app.utils.sla import SLACalculator, SLATarget
 
         g = SLACalculator(SLATarget(name="t", slo=0.99))
         for _ in range(100):
@@ -382,7 +382,7 @@ class TestBug159SLA(unittest.TestCase):
         self.assertGreater(av, 0.98)
 
     def test_error_budget(self):
-        from app.utils.bug159_sla import SLACalculator, SLATarget
+        from app.utils.sla import SLACalculator, SLATarget
 
         g = SLACalculator(SLATarget(name="t", slo=0.99))
         for _ in range(1000):
@@ -391,7 +391,7 @@ class TestBug159SLA(unittest.TestCase):
         self.assertGreaterEqual(rem, 0.0)
 
     def test_burn_rate(self):
-        from app.utils.bug159_sla import SLACalculator, SLATarget
+        from app.utils.sla import SLACalculator, SLATarget
 
         g = SLACalculator(SLATarget(name="t", slo=0.99))
         for _ in range(99):
@@ -401,7 +401,7 @@ class TestBug159SLA(unittest.TestCase):
         self.assertGreaterEqual(br, 0.0)
 
     def test_stats(self):
-        from app.utils.bug159_sla import SLACalculator
+        from app.utils.sla import SLACalculator
 
         g = SLACalculator()
         g.record(ok=True)
@@ -411,7 +411,7 @@ class TestBug159SLA(unittest.TestCase):
 
 class TestBug160Health(unittest.TestCase):
     def test_liveness_ok(self):
-        from app.utils.bug160_health import Check, HealthChecker
+        from app.utils.health import Check, HealthChecker
 
         g = HealthChecker()
         g.add_liveness(Check(name="ping", fn=lambda: True))
@@ -419,7 +419,7 @@ class TestBug160Health(unittest.TestCase):
         self.assertEqual(level.value, "OK")
 
     def test_liveness_critical_down(self):
-        from app.utils.bug160_health import Check, HealthChecker
+        from app.utils.health import Check, HealthChecker
 
         g = HealthChecker()
         g.add_liveness(Check(name="ping", fn=lambda: False, critical=True))
@@ -427,7 +427,7 @@ class TestBug160Health(unittest.TestCase):
         self.assertEqual(level.value, "DOWN")
 
     def test_readiness_degraded(self):
-        from app.utils.bug160_health import Check, HealthChecker
+        from app.utils.health import Check, HealthChecker
 
         g = HealthChecker()
         g.add_readiness(Check(name="ping", fn=lambda: True))
@@ -436,7 +436,7 @@ class TestBug160Health(unittest.TestCase):
         self.assertEqual(level.value, "DEGRADED")
 
     def test_startup_blocked_until_done(self):
-        from app.utils.bug160_health import Check, HealthChecker
+        from app.utils.health import Check, HealthChecker
 
         g = HealthChecker()
         g.start()
@@ -453,7 +453,7 @@ class TestBug160Health(unittest.TestCase):
 # =====================================================================
 class TestBug161AlertDedup(unittest.TestCase):
     def test_aggregate_same_fp(self):
-        from app.utils.bug161_alert_dedup import AlertDeduplicator
+        from app.utils.alert_dedup import AlertDeduplicator
 
         g = AlertDeduplicator()
         a1 = g.push("HIGH", {"svc": "x"}, "cpu 99%")
@@ -463,7 +463,7 @@ class TestBug161AlertDedup(unittest.TestCase):
         self.assertEqual(a3.fp, a1.fp)
 
     def test_different_labels_different_buckets(self):
-        from app.utils.bug161_alert_dedup import AlertDeduplicator
+        from app.utils.alert_dedup import AlertDeduplicator
 
         g = AlertDeduplicator()
         a1 = g.push("HIGH", {"svc": "x"}, "msg")
@@ -472,7 +472,7 @@ class TestBug161AlertDedup(unittest.TestCase):
         self.assertEqual(g.stats()["active_buckets"], 2)
 
     def test_force_flush(self):
-        from app.utils.bug161_alert_dedup import AlertDeduplicator
+        from app.utils.alert_dedup import AlertDeduplicator
 
         g = AlertDeduplicator()
         g.push("LOW", {"k": "v"}, "m")
@@ -483,7 +483,7 @@ class TestBug161AlertDedup(unittest.TestCase):
 
 class TestBug162AlertInhibit(unittest.TestCase):
     def test_silence_match(self):
-        from app.utils.bug162_alert_inhibit import AlertSuppressor, SilenceRule
+        from app.utils.alert_inhibit import AlertSuppressor, SilenceRule
 
         g = AlertSuppressor()
         g.add_silence(
@@ -498,7 +498,7 @@ class TestBug162AlertInhibit(unittest.TestCase):
         self.assertTrue(d.silenced)
 
     def test_inhibit_by_critical(self):
-        from app.utils.bug162_alert_inhibit import AlertSuppressor, InhibitRule
+        from app.utils.alert_inhibit import AlertSuppressor, InhibitRule
 
         g = AlertSuppressor()
         g.add_inhibit(
@@ -517,7 +517,7 @@ class TestBug162AlertInhibit(unittest.TestCase):
         self.assertTrue(d.inhibited)
 
     def test_pass_through(self):
-        from app.utils.bug162_alert_inhibit import AlertSuppressor
+        from app.utils.alert_inhibit import AlertSuppressor
 
         g = AlertSuppressor()
         d = g.evaluate({"svc": "y"}, "LOW")
@@ -525,7 +525,7 @@ class TestBug162AlertInhibit(unittest.TestCase):
         self.assertFalse(d.inhibited)
 
     def test_remove_silence(self):
-        from app.utils.bug162_alert_inhibit import AlertSuppressor, SilenceRule
+        from app.utils.alert_inhibit import AlertSuppressor, SilenceRule
 
         g = AlertSuppressor()
         g.add_silence(SilenceRule(id="s1", match_labels={}, start_ts=0, end_ts=time.time() + 60))
@@ -534,7 +534,7 @@ class TestBug162AlertInhibit(unittest.TestCase):
 
 class TestBug163AlertEscalation(unittest.TestCase):
     def test_fire_and_ack(self):
-        from app.utils.bug163_alert_escalation import EscalationEngine
+        from app.utils.alert_escalation import EscalationEngine
 
         g = EscalationEngine()
         a = g.fire("a1", "HIGH", {"svc": "x"})
@@ -542,7 +542,7 @@ class TestBug163AlertEscalation(unittest.TestCase):
         self.assertTrue(g.ack("a1"))
 
     def test_escalate_steps(self):
-        from app.utils.bug163_alert_escalation import Channel, EscalationEngine, EscalationPolicy, EscalationStep
+        from app.utils.alert_escalation import Channel, EscalationEngine, EscalationPolicy, EscalationStep
 
         g = EscalationEngine(
             EscalationPolicy(
@@ -560,7 +560,7 @@ class TestBug163AlertEscalation(unittest.TestCase):
         self.assertIn(Channel.SMS, chs)
 
     def test_ack_stops(self):
-        from app.utils.bug163_alert_escalation import Channel, EscalationEngine, EscalationPolicy, EscalationStep
+        from app.utils.alert_escalation import Channel, EscalationEngine, EscalationPolicy, EscalationStep
 
         g = EscalationEngine(EscalationPolicy(name="p", steps=[EscalationStep(Channel.EMAIL, 0)]))
         g.fire("a1", "HIGH", {})
@@ -569,7 +569,7 @@ class TestBug163AlertEscalation(unittest.TestCase):
         self.assertEqual(out, [])
 
     def test_stats(self):
-        from app.utils.bug163_alert_escalation import EscalationEngine
+        from app.utils.alert_escalation import EscalationEngine
 
         g = EscalationEngine()
         g.fire("a1", "HIGH", {})
@@ -581,7 +581,7 @@ class TestBug163AlertEscalation(unittest.TestCase):
 # =====================================================================
 class TestBug164LogRedactor(unittest.TestCase):
     def test_phone_redact(self):
-        from app.utils.bug164_log_redactor import LogRedactor
+        from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
         out = g.redact_text("用户手机 13812345678 注册成功")
@@ -589,7 +589,7 @@ class TestBug164LogRedactor(unittest.TestCase):
         self.assertNotIn("13812345678", out)
 
     def test_id_card_redact(self):
-        from app.utils.bug164_log_redactor import LogRedactor
+        from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
         out = g.redact_text("身份证 11010119900101123X 验证通过")
@@ -597,14 +597,14 @@ class TestBug164LogRedactor(unittest.TestCase):
         self.assertNotIn("11010119900101123X", out)
 
     def test_bearer_redact(self):
-        from app.utils.bug164_log_redactor import LogRedactor
+        from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
         out = g.redact_text("Authorization: Bearer abcdefghijklmnop12345")
         self.assertIn("[REDACTED]", out)
 
     def test_dict_redact(self):
-        from app.utils.bug164_log_redactor import LogRedactor
+        from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
         out = g.redact_dict({"user": "u1", "password": "secret", "phone": "13812345678"})
@@ -613,7 +613,7 @@ class TestBug164LogRedactor(unittest.TestCase):
         self.assertEqual(out["phone"], "[REDACTED]")
 
     def test_custom_rule(self):
-        from app.utils.bug164_log_redactor import LogRedactor
+        from app.utils.log_redactor import LogRedactor
 
         g = LogRedactor()
         g.add_rule("order_no", r"OD\d{10}", replace="[ORDER]")
@@ -621,7 +621,7 @@ class TestBug164LogRedactor(unittest.TestCase):
         self.assertIn("[ORDER]", out)
 
     def test_hash_replace(self):
-        from app.utils.bug164_log_redactor import DEFAULT_RULES, LogRedactor, RedactionRule
+        from app.utils.log_redactor import DEFAULT_RULES, LogRedactor, RedactionRule
 
         rules = list(DEFAULT_RULES) + [
             RedactionRule("user_hash", __import__("re").compile(r"u_\d+"), hash_salt=True),
@@ -634,7 +634,7 @@ class TestBug164LogRedactor(unittest.TestCase):
 
 class TestBug165DLQ(unittest.TestCase):
     def test_enter_dlq_after_max_attempts(self):
-        from app.utils.bug165_dlq import DeadLetterQueue, DLQConfig
+        from app.utils.dlq import DeadLetterQueue, DLQConfig
 
         g = DeadLetterQueue(DLQConfig(max_attempts=3))
         item = g.push("t1", "send_email", {"to": "x"}, "timeout", attempts=3)
@@ -642,7 +642,7 @@ class TestBug165DLQ(unittest.TestCase):
         self.assertEqual(item.attempts, 3)
 
     def test_no_dlq_below_max(self):
-        from app.utils.bug165_dlq import DeadLetterQueue, DLQConfig
+        from app.utils.dlq import DeadLetterQueue, DLQConfig
 
         g = DeadLetterQueue(DLQConfig(max_attempts=5))
         item = g.push("t1", "send_email", {}, "err", attempts=2)
@@ -650,7 +650,7 @@ class TestBug165DLQ(unittest.TestCase):
         self.assertIsNone(g.get("t1"))
 
     def test_replay_success(self):
-        from app.utils.bug165_dlq import DeadLetterQueue, DLQAction, DLQConfig
+        from app.utils.dlq import DeadLetterQueue, DLQAction, DLQConfig
 
         g = DeadLetterQueue(DLQConfig(max_attempts=2), replay=lambda x: True)
         g.push("t1", "x", {}, "err", attempts=2)
@@ -659,7 +659,7 @@ class TestBug165DLQ(unittest.TestCase):
         self.assertIsNone(g.get("t1"))
 
     def test_replay_quarantine(self):
-        from app.utils.bug165_dlq import DeadLetterQueue, DLQAction, DLQConfig
+        from app.utils.dlq import DeadLetterQueue, DLQAction, DLQConfig
 
         g = DeadLetterQueue(DLQConfig(max_attempts=2), replay=lambda x: False)
         g.push("t1", "x", {}, "err", attempts=2)
@@ -668,7 +668,7 @@ class TestBug165DLQ(unittest.TestCase):
         self.assertIsNotNone(g.get("t1"))
 
     def test_export_and_stats(self):
-        from app.utils.bug165_dlq import DeadLetterQueue
+        from app.utils.dlq import DeadLetterQueue
 
         g = DeadLetterQueue()
         g.push("t1", "x", {}, "err", attempts=5)
@@ -681,7 +681,7 @@ class TestBug165DLQ(unittest.TestCase):
 
 class TestBug166IdempotentTask(unittest.TestCase):
     def test_first_run(self):
-        from app.utils.bug166_idempotent_task import IdempotentTaskRunner, TaskState
+        from app.utils.idempotent_task import IdempotentTaskRunner, TaskState
 
         g = IdempotentTaskRunner()
         r = g.run("k1", lambda: "v1")
@@ -689,7 +689,7 @@ class TestBug166IdempotentTask(unittest.TestCase):
         self.assertEqual(r.value, "v1")
 
     def test_replay_returns_duplicate(self):
-        from app.utils.bug166_idempotent_task import IdempotentTaskRunner, TaskState
+        from app.utils.idempotent_task import IdempotentTaskRunner, TaskState
 
         g = IdempotentTaskRunner()
         g.run("k1", lambda: "v1")
@@ -698,7 +698,7 @@ class TestBug166IdempotentTask(unittest.TestCase):
         self.assertEqual(r.value, "v1")
 
     def test_failed_recorded(self):
-        from app.utils.bug166_idempotent_task import IdempotentTaskRunner, TaskState
+        from app.utils.idempotent_task import IdempotentTaskRunner, TaskState
 
         g = IdempotentTaskRunner()
         r = g.run("k1", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
@@ -706,7 +706,7 @@ class TestBug166IdempotentTask(unittest.TestCase):
         self.assertIn("boom", r.error)
 
     def test_inflight(self):
-        from app.utils.bug166_idempotent_task import IdempotentTaskRunner, TaskState
+        from app.utils.idempotent_task import IdempotentTaskRunner, TaskState
 
         g = IdempotentTaskRunner()
         # 模拟 inflight: 通过 run 后立即查 inflight

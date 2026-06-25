@@ -12,7 +12,7 @@
 """
 import pytest
 
-from app.utils.bug199_deadlock_retry import (
+from app.utils.deadlock_retry import (
     DeadlockRetryConfig,
     DeadlockRetrier,
 )

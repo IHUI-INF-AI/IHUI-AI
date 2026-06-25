@@ -78,7 +78,7 @@ python -m pytest tests/ -q
 
 ```bash
 # 1. 复制环境变量模板
-cp .env.production.template .env.production
+cp .env.production.example .env.production
 # 填入真实值: PG_PASSWORD, GOOGLE_APP_IDS, OSS_ACCESS_KEY_ID ...
 
 # 2. 启动 (自动跑 alembic upgrade head + uvicorn)
@@ -185,7 +185,7 @@ zhs-platform/
 
 ## 配置
 
-所有配置通过环境变量注入 (Pydantic Settings)，参考 [.env.production.template](.env.production.template)：
+所有配置通过环境变量注入 (Pydantic Settings)，参考 [.env.production.example](.env.production.example)：
 
 ```bash
 # 数据库 (PostgreSQL — 已完成 MySQL → PG 迁移)

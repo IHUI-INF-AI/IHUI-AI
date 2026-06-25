@@ -825,7 +825,7 @@ $bg-page: var(--el-bg-color-page);
 
   .page-title {
     font-size: clamp(28px, 4vw, 40px);
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: -0.03em;
     line-height: 1.1;
   }
@@ -1034,6 +1034,7 @@ $bg-page: var(--el-bg-color-page);
   display: flex;
   flex-direction: column;
   border-radius: var(--global-border-radius);
+  border: 1px solid transparent;
   overflow: hidden;
   background: var(--el-fill-color-lighter);
   cursor: pointer;
@@ -1041,7 +1042,7 @@ $bg-page: var(--el-bg-color-page);
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
+    border-color: var(--el-border-color);
   }
 
   .study-image-thumb {
@@ -1073,6 +1074,7 @@ $bg-page: var(--el-bg-color-page);
   gap: 14px;
   padding: 12px;
   border-radius: var(--global-border-radius);
+  border: 1px solid transparent;
   background: var(--el-fill-color-lighter);
   cursor: pointer;
   transition: all 0.25s;
@@ -1080,7 +1082,7 @@ $bg-page: var(--el-bg-color-page);
   &:hover {
     background: var(--el-fill-color);
     transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
+    border-color: var(--el-border-color);
   }
 
   .video-cover {

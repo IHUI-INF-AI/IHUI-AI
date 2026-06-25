@@ -1,4 +1,4 @@
-﻿.settings-container {
+.settings-container {
   width: 100%;
   margin: 0 auto;
   padding: 20px; /* 顶部间距由App.vue的main-content处理 */
@@ -92,7 +92,7 @@
 
 .setting-description {
   font-size: 0.85rem;
-  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+  color: var(--el-text-color-secondary);
   line-height: 1.4;
 }
 
@@ -104,26 +104,28 @@
 .setting-input {
   width: 200px;
   padding: 8px 12px;
-  border: none;
+  border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
 }
 
 .setting-input:focus {
-  outline: none;
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
 }
 
 .setting-select {
   width: 150px;
   padding: 8px 12px;
-  border: none;
+  border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
   background: var(--el-bg-color);
 }
 
 .setting-select:focus {
-  outline: none;
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
 }
 
 .action-btn {
@@ -138,7 +140,7 @@
 }
 
 .action-btn:hover {
-  background: var(--el-bg-color);
+  background: var(--el-color-primary-light-3);
 }
 
 .danger-btn {
@@ -236,7 +238,7 @@ input:checked + .slider::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-dropdown);
+  z-index: var(--z-modal);
 }
 
 .dialog {
@@ -287,7 +289,7 @@ input:checked + .slider::before {
 .dialog-content p {
   margin: 0 0 15px;
   line-height: 1.5;
-  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+  color: var(--el-text-color-regular);
 }
 
 .dialog-content ul {
@@ -297,7 +299,7 @@ input:checked + .slider::before {
 
 .dialog-content li {
   margin: 5px 0;
-  color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
+  color: var(--el-text-color-regular);
 }
 
 .form-group {
@@ -314,15 +316,15 @@ input:checked + .slider::before {
 .form-input {
   width: 100%;
   padding: 10px 12px;
-  border: none;
+  border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
   box-sizing: border-box;
 }
 
 .form-input:focus {
-  outline: none;
-  box-shadow: none;
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
 }
 
 .dialog-footer {
@@ -346,7 +348,7 @@ input:checked + .slider::before {
 }
 
 .cancel-btn:hover {
-  background: var(--el-bg-color);
+  background: var(--el-fill-color-light);
 }
 
 .confirm-btn {
@@ -361,7 +363,7 @@ input:checked + .slider::before {
 }
 
 .confirm-btn:hover {
-  background: var(--el-bg-color);
+  background: var(--el-color-primary-light-3);
 }
 
 /* 响应式设计 */

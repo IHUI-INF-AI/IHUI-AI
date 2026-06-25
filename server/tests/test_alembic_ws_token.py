@@ -16,10 +16,14 @@ import socket
 import subprocess
 import urllib.error
 import urllib.request
+from pathlib import Path
 
+# 2026-06-25 修复: 改用脚本自身位置计算 PROJECT_ROOT, 避免硬编码 g:\1\client / g:\1\server
+# server/tests/test_alembic_ws_token.py -> ../../ (项目根)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 BASE = "http://127.0.0.1:8000"
-CLIENT = r"g:\1\client"
-SERVER = r"g:\1\server"
+CLIENT = str(PROJECT_ROOT / "client")
+SERVER = str(PROJECT_ROOT / "server")
 
 
 # ─── WS 握手工具 (供网络测试用) ───

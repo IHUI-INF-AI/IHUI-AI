@@ -47,7 +47,10 @@ def test_with_playwright():
         """)
 
         # 截图
-        page.screenshot(path="g:\\1\\server\\logs\\round14_style_audit.png", full_page=True)
+        # 2026-06-25 修复: 改用脚本自身位置计算 server 根, 避免硬编码 G:\1\server
+        _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+        _SCREENSHOT_PATH = os.path.join(os.path.dirname(_SCRIPT_DIR), "logs", "round14_style_audit.png")
+        page.screenshot(path=_SCREENSHOT_PATH, full_page=True)
 
         print("=" * 60)
         print("Playwright 渲染验证 - Round 14 样式审计页面")

@@ -466,7 +466,7 @@ section {
 
 .section-title {
   font-size: clamp(26px, 3.8vw, 40px);
-  font-weight: 900;
+  font-weight: 700;
   color: $text-main;
   letter-spacing: -0.03em;
   margin: 0;
@@ -488,14 +488,12 @@ section {
   -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   border-radius: v.$border-radius;
-  box-shadow: var(--global-box-shadow);
   transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 
   &:hover {
-    border-color: rgba($brand-primary, 0.18);
-    box-shadow: var(--global-box-shadow);
+    border-color: var(--el-color-primary);
   }
 }
 
@@ -529,7 +527,7 @@ section {
 
   .hero-title {
     font-size: clamp(32px, 5.5vw, 56px);
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.12;
     color: $text-main;
     letter-spacing: -0.04em;
@@ -571,14 +569,13 @@ section {
   transition: all 0.25s ease;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--global-box-shadow);
+    transform: translateY(-1px);
   }
 }
 
 html.dark .btn-primary {
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
+  background: var(--el-color-primary);
+  color: #fff;
 }
 
 .btn-ghost {
@@ -604,7 +601,7 @@ html.dark .btn-primary {
 // Stats Section - 卡片式分隔
 .stats-section {
   padding: clamp(56px, 8vw, 88px) 0;
-  background: rgba($brand-primary, 0.02);
+  background: var(--el-fill-color-light);
 
   .stats-grid {
     display: grid;
@@ -633,7 +630,7 @@ html.dark .btn-primary {
 
   .stat-value {
     font-size: clamp(28px, 4vw, 44px);
-    font-weight: 900;
+    font-weight: 700;
     color: $text-main;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
@@ -699,7 +696,7 @@ html.dark .btn-primary {
 
     .feature-tag {
       font-size: 12px;
-      font-weight: 900;
+      font-weight: 700;
       letter-spacing: 0.1em;
       color: $accent-color;
       margin-bottom: v.$spacing-md;
@@ -789,7 +786,6 @@ html.dark .btn-primary {
     background: $brand-primary;
     border-radius: var(--global-border-radius);
     flex-shrink: 0;
-    box-shadow: var(--global-box-shadow);
   }
 
   .timeline-row-track .marker-line {
@@ -808,7 +804,7 @@ html.dark .btn-primary {
 
     .timeline-year {
       font-size: v.$font-size-xs;
-      font-weight: 900;
+      font-weight: 700;
       color: $accent-color;
       letter-spacing: 0.1em;
       margin-bottom: v.$spacing-sm;
@@ -890,7 +886,7 @@ html.dark .btn-primary {
         align-items: center;
         justify-content: center;
         font-size: v.$font-size-3xl;
-        font-weight: 900;
+        font-weight: 700;
         color: var(--el-bg-color-page);
       }
 

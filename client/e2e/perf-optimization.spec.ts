@@ -8,10 +8,16 @@
 
 import { test, expect } from '@playwright/test'
 import { readFileSync, readdirSync } from 'fs'
-import { join } from 'path'
+import { join, dirname, resolve } from 'path'
+import { fileURLToPath } from 'url'
+
+// 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:/1/client
+// client/e2e/perf-optimization.spec.ts -> ../../ (项目 client 根)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const ROOT = resolve(__dirname, '..')
 
 const BASE_PROD = 'http://127.0.0.1:4173'
-const ROOT = 'g:/1/client'
 const VITE_CONFIG_PATH = `${ROOT}/vite.config.ts`
 const DIST_JS_DIR = `${ROOT}/dist/web/assets/js`
 

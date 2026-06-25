@@ -251,6 +251,126 @@ def check_doc_cross_references() -> tuple[bool, list[str]]:
 
 
 # ============================================================
+# 10. 遗漏文件完整性（第 3 轮补齐迁移）
+# ============================================================
+
+# 期望的教程 JSON 文件（11 个）
+EDU_TUTORIAL_JSONS = [
+    "ai-agent-tutorials.json",
+    "ai-coding-communities.json",
+    "ai-coding-tools-comparison.json",
+    "claude-code-tutorials.json",
+    "clawdbot-import-articles.json",
+    "clawdbot-import-resources.json",
+    "clawdbot-resources.json",
+    "cursor-skills-tutorials.json",
+    "mcp-tutorials.json",
+    "prompt-engineering-tutorials.json",
+    "vibe-coding-tutorials.json",
+]
+
+# 期望的 Python API 文档（6 个）
+COZE_PY_DOCS = [
+    "agent_category_optimization.md",
+    "deduct_user_token_call_sites.md",
+    "langchain_api.md",
+    "langchain_api_interface.md",
+    "langchain_api_接口说明.md",
+    "public_socket_api.md",
+]
+
+# 期望的 Java 微服务 API 文档（21 个 service + README）
+JAVA_SERVICE_DOCS = [
+    "cloud-learning-ask-service.md",
+    "cloud-learning-auth-service.md",
+    "cloud-learning-behavior-service.md",
+    "cloud-learning-circle-service.md",
+    "cloud-learning-content-service.md",
+    "cloud-learning-exam-service.md",
+    "cloud-learning-gateway-service.md",
+    "cloud-learning-learn-service.md",
+    "cloud-learning-live-service.md",
+    "cloud-learning-member-service.md",
+    "cloud-learning-message-service.md",
+    "cloud-learning-notification-service.md",
+    "cloud-learning-order-service.md",
+    "cloud-learning-oss-service.md",
+    "cloud-learning-pay-service.md",
+    "cloud-learning-point-service.md",
+    "cloud-learning-resource-service.md",
+    "cloud-learning-schedule-service.md",
+    "cloud-learning-search-service.md",
+    "cloud-learning-setting-service.md",
+    "cloud-learning-trace-service.md",
+]
+
+# 期望的 PS1 脚本（3 个）
+PS1_SCRIPTS = [
+    "download_videos.ps1",
+    "upload_to_oss.ps1",
+    "upload_all_videos.ps1",
+]
+
+
+def check_missing_files() -> tuple[bool, list[str]]:
+    """检查第 3 轮补齐迁移的遗漏文件是否全部到位"""
+    issues = []
+
+    # 1. AI 教程 JSON 数据
+    edu_dir = ROOT / "backup" / "data" / "edu-tutorials"
+    if not edu_dir.exists():
+        issues.append(f"[FAIL] 缺失目录: {edu_dir.relative_to(ROOT)}")
+    else:
+        for f in EDU_TUTORIAL_JSONS:
+            p = edu_dir / f
+            if not p.exists():
+                issues.append(f"[FAIL] 缺失教程数据: backup/data/edu-tutorials/{f}")
+
+    # 2. Python API 文档
+    py_docs_dir = DOCS / "legacy" / "coze_zhs_py"
+    if not py_docs_dir.exists():
+        issues.append(f"[FAIL] 缺失目录: docs/legacy/coze_zhs_py")
+    else:
+        for f in COZE_PY_DOCS:
+            p = py_docs_dir / f
+            if not p.exists():
+                issues.append(f"[FAIL] 缺失 Python API 文档: docs/legacy/coze_zhs_py/{f}")
+
+    # 3. Java 微服务 API 文档
+    java_dir = DOCS / "legacy" / "java-service-api"
+    if not java_dir.exists():
+        issues.append(f"[FAIL] 缺失目录: docs/legacy/java-service-api")
+    else:
+        for f in JAVA_SERVICE_DOCS:
+            p = java_dir / f
+            if not p.exists():
+                issues.append(f"[FAIL] 缺失 Java 服务文档: docs/legacy/java-service-api/{f}")
+
+    # 4. Java 单体 API 文档
+    for f in ["ZHS_Server_java_API.md", "ZHS_Server_java_API.txt"]:
+        p = DOCS / "legacy" / f
+        if not p.exists():
+            issues.append(f"[FAIL] 缺失: docs/legacy/{f}")
+
+    # 5. PS1 视频采集脚本
+    ps1_dir = ROOT / "backup" / "scripts" / "content-acquisition"
+    if not ps1_dir.exists():
+        issues.append(f"[FAIL] 缺失目录: backup/scripts/content-acquisition")
+    else:
+        for f in PS1_SCRIPTS:
+            p = ps1_dir / f
+            if not p.exists():
+                issues.append(f"[FAIL] 缺失脚本: backup/scripts/content-acquisition/{f}")
+
+    # 6. README_live_categories.md
+    readme_live = DOCS / "legacy" / "README_live_categories.md"
+    if not readme_live.exists():
+        issues.append("[FAIL] 缺失: docs/legacy/README_live_categories.md")
+
+    return (len(issues) == 0, issues)
+
+
+# ============================================================
 # 主函数
 # ============================================================
 
@@ -270,6 +390,7 @@ def main():
         ("7. 配置项完整性", check_config_completeness),
         ("8. 后端模块可导入", check_backend_modules),
         ("9. 文档交叉引用", check_doc_cross_references),
+        ("10. 遗漏文件完整性（第 3 轮补齐）", check_missing_files),
     ]
 
     total_pass = 0

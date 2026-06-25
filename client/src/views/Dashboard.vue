@@ -487,7 +487,7 @@ $accent-red: var(--el-color-danger);
   overflow: hidden;
   
   &:hover {
-    border-color: rgba($brand-primary, 0.15);
+    border-color: color-mix(in srgb, var(--el-text-color-primary) 15%, transparent);
   }
 }
 
@@ -578,7 +578,7 @@ $accent-red: var(--el-color-danger);
   .stat-icon-wrap {
     width: 52px;
     height: 52px;
-    background: rgba($brand-primary, 0.08);
+    background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent);
     border-radius: var(--global-border-radius);
     display: flex;
     align-items: center;
@@ -635,7 +635,7 @@ $accent-red: var(--el-color-danger);
   .stat-glow {
     position: absolute;
     inset: 0;
-    background: rgba($brand-primary, 0.02);
+    background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
     pointer-events: none;
   }
 }
@@ -721,7 +721,7 @@ $accent-red: var(--el-color-danger);
   
   .examine-bar {
     height: 4px;
-    background: rgba($brand-primary, 0.08);
+    background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent);
     border-radius: var(--global-border-radius);
     overflow: hidden;
     
@@ -749,12 +749,12 @@ $accent-red: var(--el-color-danger);
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: rgba($brand-primary, 0.02);
+  background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
   border-radius: var(--global-border-radius);
   transition: all 0.3s;
   
   &:hover {
-    background: rgba($brand-primary, 0.04);
+    background: color-mix(in srgb, var(--el-text-color-primary) 4%, transparent);
   }
   
   .category-icon {
@@ -767,7 +767,7 @@ $accent-red: var(--el-color-danger);
     
     &.free { background: rgba($accent-green, 0.1); color: $accent-green; }
     &.limit { background: rgba($accent-yellow, 0.1); color: $accent-yellow; }
-    &.paid { background: rgba($brand-primary, 0.08); color: $brand-primary; }
+    &.paid { background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent); color: var(--el-text-color-primary); }
   }
   
   .category-info {

@@ -63,7 +63,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 
 const { t } = useI18n()
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 const props = defineProps<{
   src: string

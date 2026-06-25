@@ -2022,20 +2022,20 @@ html.dark .dropdown-item {
   }
 }
 
-/* 深色模式下顶部菜单项：未选中为白色，选中/悬停为黑色（悬停与选中为浅色底） */
+/* 深色模式下顶部菜单项：未选中为浅色文字（与暗色背景对比），选中/悬停沿用主文本色（与浅色底色对比） */
 :where(.glass-header.dark-mode) .main-menu-items,
 :where(html.dark) :where(.glass-header) .main-menu-items {
-  --menu-item-color: var(--el-bg-color);
+  --menu-item-color: var(--el-text-color-regular);
   --menu-item-hover-color: var(--el-text-color-primary);
   --menu-item-active-color: var(--el-text-color-primary);
 }
 
-/* 直接覆盖按钮文字颜色，确保深色模式下为白色 */
+/* 直接覆盖按钮文字颜色，确保深色模式下为浅色文字（变量定义在 line 2025，--el-text-color-regular 在暗色主题下为浅灰白） */
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item,
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) button.menu-item,
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) .menu-item,
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) button.menu-item {
-  color: var(--el-bg-color);
+  color: var(--el-text-color-regular);
 }
 
 /* 悬停或展开时浅色底，文字改为黑色 */

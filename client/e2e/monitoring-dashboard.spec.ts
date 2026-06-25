@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P9-6 监控数据看板验证
  * - src/config/monitoring-dashboard.ts 存在且导出完整配置
  * - grafana/dashboard.json 是有效的 Grafana 看板配置
@@ -9,8 +9,14 @@
 
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
 
-const ROOT = 'g:/1/client'
+// 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:/1/client
+// client/e2e/monitoring-dashboard.spec.ts -> ../../ (项目 client 根)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const ROOT = resolve(__dirname, '..')
 const DASHBOARD_TS_PATH = `${ROOT}/src/config/monitoring-dashboard.ts`
 const GRAFANA_DASHBOARD_PATH = `${ROOT}/grafana/dashboard.json`
 const GRAFANA_DATASOURCES_PATH = `${ROOT}/grafana/datasources.json`

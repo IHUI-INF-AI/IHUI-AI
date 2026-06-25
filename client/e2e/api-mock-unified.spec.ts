@@ -10,8 +10,14 @@
 
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
 
-const ROOT = 'g:/1/client'
+// 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:/1/client
+// client/e2e/api-mock-unified.spec.ts -> ../../ (项目 client 根)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const ROOT = resolve(__dirname, '..')
 const API_MOCK_PATH = `${ROOT}/e2e/helpers/api-mock.ts`
 
 function readText(path: string): string {
