@@ -12,13 +12,17 @@
       >
         <el-icon v-if="m.icon" :size="16"><component :is="m.icon" /></el-icon>
         <span>{{ m.title }}</span>
-        <!-- 站内信未读红点 (P1 封版) -->
+        <!-- 站内信未读红点 (P1 封版 + 增强) -->
         <span
           v-if="m.badgeKey === 'notify' && unreadCount > 0"
           class="menu-badge"
-          :class="{ 'menu-badge-dot': unreadCount === 0, 'menu-badge-num': unreadCount > 0 }"
+          :class="{
+            // > 100 降级为纯红点 (无数字), 避免菜单拥挤
+            'menu-badge-dot': unreadCount > 100,
+            'menu-badge-num': unreadCount <= 100,
+          }"
           :title="`${unreadCount} 条未读`"
-        >{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+        >{{ unreadCount > 999 ? '999+' : unreadCount > 100 ? '' : unreadCount }}</span>
       </router-link>
     </div>
   </nav>

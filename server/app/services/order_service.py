@@ -8,6 +8,7 @@ from datetime import datetime
 
 from app.database import SessionFactory1, get_session
 from app.telemetry import trace_business
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ def update_order_status(out_trade_no, status, payment_status=None, trade_no=None
             if payment_status is not None:
                 order.payment_status = payment_status
             if status == 1:
-                order.paid_at = datetime.utcnow()
+                order.paid_at = utcnow()
             return {"success": True}
         except Exception as e:
             logger.error(f"Update order status error: {e}")

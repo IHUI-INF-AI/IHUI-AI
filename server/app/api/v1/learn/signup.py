@@ -4,7 +4,7 @@
 提供课程报名、取消报名、报名查询、进度更新、完成课程、报名数量统计等功能.
 """
 
-from datetime import datetime
+from app.utils.datetime_helper import utcnow
 
 from fastapi import APIRouter, Query
 from loguru import logger

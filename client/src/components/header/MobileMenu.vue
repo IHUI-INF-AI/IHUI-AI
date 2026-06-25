@@ -506,7 +506,8 @@ const showLoginPopup = (event?: MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
   }
-  router.push('/login')
+  const r = getRouter()
+  if (r) r.push('/login')
   closeMenus()
 }
 

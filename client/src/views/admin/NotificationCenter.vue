@@ -107,8 +107,8 @@ const levelFilter = ref<'all' | 'info' | 'warn' | 'error'>('all')
 const { unreadCount, setUnread } = useNotifyBadge()
 let pollTimer: number | null = null
 
-/** 顶部 toolbar 显示: 99+ 格式化 (与 Menu.vue 红点保持一致). */
-const unreadDisplay = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
+/** 顶部 toolbar 显示: 999+ 格式化 (与 Menu.vue 红点保持一致). */
+const unreadDisplay = computed(() => (unreadCount.value > 999 ? '999+' : String(unreadCount.value)))
 
 /** level→i18n key 映射, 集中维护. */
 const LEVEL_LABEL: Record<NotifyItem['level'], string> = {

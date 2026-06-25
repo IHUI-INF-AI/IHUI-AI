@@ -1,6 +1,6 @@
 """排行榜"""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Query
 from loguru import logger

@@ -40,7 +40,8 @@
 import type { Plugin } from 'vite'
 
 const ELEMENT_PLUS_MODULE = /['"]element-plus['"]/
-const EL_NAME_RE = /\bEl[A-Z][A-Za-z0-9]+\b/g
+// 注: 之前版本里有个 EL_NAME_RE = /\bEl[A-Z][A-Za-z0-9]+\b/g 用来识别 El* 命名,
+// 重写逻辑被改写在 rewriteImport 内联正则, 这里不再保留, 避免 lint 报未使用变量。
 
 /**
  * 特殊映射表：ElRadioGroup / ElRadioButton 等"复合组件" 实际在父组件目录
@@ -91,7 +92,7 @@ function rewriteImport(code: string, excluded: RegExp): string {
   // 跳过 type-only import
   const re = /import\s+(?!type\s)(?:\{([^}]+)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+(['"])element-plus\4/g
   let changed = false
-  const result = code.replace(re, (_match, named, namespace, defaultName, quote) => {
+  const result = code.replace(re, (_match, named, namespace, defaultName) => {
     if (namespace || defaultName) {
       // import * as X / import X (default 导入) 不处理，保留原样
       return _match
