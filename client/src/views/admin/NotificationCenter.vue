@@ -4,18 +4,32 @@
       <h2>{{ t('notificationCenter.title') }}</h2>
       <div class="header-actions">
         <el-button :disabled="!unreadCount" @click="markAllRead">{{ t('notificationCenter.markAllRead') }}</el-button>
-        <el-radio-group v-model="filter" size="small">
+        <el-radio-group v-model="readFilter" size="small">
           <el-radio-button label="all">{{ t('notificationCenter.all') }}</el-radio-button>
           <el-radio-button label="unread">
             <span class="unread-label">
               {{ t('notificationCenter.unread') }} ({{ unreadDisplay }})
-              <!-- 未读红点 (与 Menu.vue 风格一致) -->
               <span
                 v-if="unreadCount > 0"
                 class="unread-dot"
                 :title="`${unreadCount} 条未读`"
               ></span>
             </span>
+          </el-radio-button>
+        </el-radio-group>
+        <el-radio-group v-model="levelFilter" size="small">
+          <el-radio-button label="all">{{ t('notificationCenter.allTypes') }}</el-radio-button>
+          <el-radio-button label="info">
+            <el-icon :size="12"><Bell /></el-icon>
+            <span>{{ t('notificationCenter.level.info') }}</span>
+          </el-radio-button>
+          <el-radio-button label="warn">
+            <el-icon :size="12"><Warning /></el-icon>
+            <span>{{ t('notificationCenter.level.warn') }}</span>
+          </el-radio-button>
+          <el-radio-button label="error">
+            <el-icon :size="12"><CircleClose /></el-icon>
+            <span>{{ t('notificationCenter.level.error') }}</span>
           </el-radio-button>
         </el-radio-group>
       </div>
@@ -84,7 +98,10 @@ interface NotifyItem {
 
 const items = ref<NotifyItem[]>([])
 const loading = ref(false)
-const filter = ref<'all' | 'unread'>('all')
+/** 已读/未读过滤 (单选). */
+const readFilter = ref<'all' | 'unread'>('all')
+/** 级别过滤 (单选). */
+const levelFilter = ref<'all' | 'info' | 'warn' | 'error'>('all')
 /** 复用菜单红点的全局未读数 (模块级单例, 与 useNotifyBadge 共享同一 ref). */
 const { unreadCount, setUnread } = useNotifyBadge()
 let pollTimer: number | null = null
@@ -98,6 +115,18 @@ const LEVEL_LABEL: Record<NotifyItem['level'], string> = {
   warn: 'notificationCenter.level.warn',
   error: 'notificationCenter.level.error',
 }
+
+/** 客户端二次过滤: 已读状态 + 级别. */
+const filteredItems = computed(() => {
+  let arr = items.value
+  if (readFilter.value === 'unread') {
+    arr = arr.filter((n) => !n.read)
+  }
+  if (levelFilter.value !== 'all') {
+    arr = arr.filter((n) => n.level === levelFilter.value)
+  }
+  return arr
+})
 
 async function fetchList() {
   loading.value = true
