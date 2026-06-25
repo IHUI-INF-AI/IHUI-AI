@@ -36,6 +36,7 @@
     </header>
 
     <el-empty v-if="!loading && items.length === 0" description="暂无通知" />
+    <el-empty v-else-if="!loading && filteredItems.length === 0" description="当前过滤条件下无通知" />
     <el-skeleton v-else-if="loading" :rows="6" animated />
 
     <ul v-else class="notify-list">
