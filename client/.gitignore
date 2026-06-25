@@ -29,8 +29,12 @@ build/
 .env.test.local
 .env.production.local
 .env.production
-.env.production.example
+.env.production.example   (注: 历史版本忽略，新规则见下方白名单)
 .env.docker
+# 白名单: .example 模板文件需要提交（生产环境配置迁移）
+!.env.production.example
+!.env.development.example
+!.env.example
 
 # Logs
 logs
