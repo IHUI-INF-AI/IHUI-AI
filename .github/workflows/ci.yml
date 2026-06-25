@@ -306,6 +306,14 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npx playwright test e2e/login-flow-e2e.spec.ts --reporter=list
+      # 2026-06-26: 封版阶段 - 跑 HTTP e2e smoke (后端 8000 已起, 验证 7 个核心端点可达)
+      - name: 跑 HTTP e2e smoke (后端 8000 端点契约)
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8000
+        run: |
+          cd server
+          .venv/Scripts/python.exe tests/e2e/e2e_smoke_test.py --base http://127.0.0.1:8000 || \
+          python tests/e2e/e2e_smoke_test.py --base http://127.0.0.1:8000
       - name: 阻断提示
         if: failure()
         run: |
