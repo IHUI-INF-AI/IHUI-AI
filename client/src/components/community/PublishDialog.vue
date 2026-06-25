@@ -212,7 +212,7 @@ import {
   Image, VideoPlay, Headphones, Music, Document, Code,
   Upload, Close, Link
 } from '@/lib/lucide-fallback'
-import { publishCreation, getHotTags, type ContentType, type AISource, type PublishCreationParams } from '@/api/ai-community'
+import { publishCreation, getHotTags, type ContentType, type AISource, type PublishCreationParams } from '@/api/ai/ai/ai-community'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 
 interface Props {

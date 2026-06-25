@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getOrders, type Order } from '@/api/orders'
+import { getOrders, type Order } from '@/api/payment/orders'
 import { useApiError } from '@/composables/useApiError'
 import { formatTime } from '@/shared'
 import { usePagination } from './usePagination'

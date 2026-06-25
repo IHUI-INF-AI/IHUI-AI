@@ -170,7 +170,7 @@ import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useCleanup } from '@/composables/useCleanup'
 import { MessageSquare, Phone, CircleCheck } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
-import { resetPassword, sendVerificationCode, verifyCode } from '@/api/user'
+import { resetPassword, sendVerificationCode, verifyCode } from '@/api/user/user'
 import { InputValidator } from '@/utils/security'
 import { FormValidator } from '@/utils/formValidation'
 

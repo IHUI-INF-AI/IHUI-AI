@@ -35,7 +35,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useRoute } from 'vue-router'
 import { Star, Collection } from '@element-plus/icons-vue'
-import { newsApi } from '@/api/news'
+import { newsApi } from '@/api/content/news'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 import Breadcrumb from '@/components/learn/Breadcrumb.vue'
 

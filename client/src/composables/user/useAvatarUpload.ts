@@ -22,7 +22,7 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { uploadFile } from '@/api/file-upload'
+import { uploadFile } from '@/api/file/file-upload'
 import { logger } from '@/utils/logger'
 
 /**

@@ -39,7 +39,7 @@ import { useRouter } from 'vue-router'
 import { Workflow, Plus } from '@/lib/lucide-fallback'
 import GlobalLoading from '@/components/common/GlobalLoading.vue'
 import AgentCard from '@/components/agents/AgentCard.vue'
-import { getN8NAgents } from '@/api/n8n-agents'
+import { getN8NAgents } from '@/api/n8n/n8n/n8n-agents'
 import { useI18n } from 'vue-i18n'
 import { useApiError } from '@/composables/useApiError'
 

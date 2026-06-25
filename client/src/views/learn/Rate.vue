@@ -45,7 +45,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ElMessage } from 'element-plus'
-import { learnApi } from '@/api/learn'
+import { learnApi } from '@/api/learn/learn'
 
 const props = defineProps<{ lessonId: string }>()
 

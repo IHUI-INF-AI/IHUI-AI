@@ -185,7 +185,7 @@ import {
   updateAgentCategory,
   deleteAgentCategory,
   type AgentCategory,
-} from '@/api/agent-category'
+} from '@/api/agent/agent/agent-category'
 import { useAuthStore } from '@/stores/auth'
 import { validateForm, commonRules } from '@/shared'
 import type { FormInstance } from 'element-plus'

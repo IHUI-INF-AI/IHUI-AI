@@ -7,7 +7,7 @@ import { t } from '@/utils/i18n'
 
 import { ref, onUnmounted } from 'vue'
 import { io, Socket } from 'socket.io-client'
-import type { TaskEvent, TaskEventType } from '@/api/tasks'
+import type { TaskEvent, TaskEventType } from '@/api/system/tasks'
 
 /**
  * WebSocket连接配置

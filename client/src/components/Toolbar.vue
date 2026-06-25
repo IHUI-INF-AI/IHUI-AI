@@ -83,7 +83,7 @@ import { useRouter } from 'vue-router'
 import { useSafeNavigation } from '@/composables/useSafeNavigation'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { openCustomerServiceChat } from '@/composables/useOpenCustomerServiceChat'
-import { getPopularTools, getToolCategoriesList, getAllToolsList } from '@/api/tools'
+import { getPopularTools, getToolCategoriesList, getAllToolsList } from '@/api/tools/tools'
 
 // 兼容旧代码的别名
 const _getToolCategories = getToolCategoriesList

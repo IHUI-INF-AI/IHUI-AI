@@ -49,7 +49,7 @@ import { VideoPlay } from '@element-plus/icons-vue'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import LearnVideo from '@/components/learn/Video.vue'
-import { learnApi } from '@/api/learn'
+import { learnApi } from '@/api/learn/learn'
 
 const route = useRoute()
 const lessonId = String(route.params.id || route.query.lessonId || '')

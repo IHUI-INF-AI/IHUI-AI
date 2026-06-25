@@ -21,7 +21,7 @@
 import { ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth'
-import type { UserInfoData } from '@/api/user'
+import type { UserInfoData } from '@/api/user/user'
 import { logger } from '@/utils/logger'
 import {
   cancelRequest,

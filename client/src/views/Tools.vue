@@ -75,7 +75,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getToolsList, getToolCategoriesList } from '@/api/tools'
+import { getToolsList, getToolCategoriesList } from '@/api/tools/tools'
 import { logger } from '@/utils/logger'
 import { useSEO } from '@/composables/useSEO'
 

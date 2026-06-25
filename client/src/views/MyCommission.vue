@@ -91,7 +91,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { getUserCommissionDetail } from '@/api/distribution'
+import { getUserCommissionDetail } from '@/api/distribution/distribution'
 import { logger } from '@/utils/logger'
 
 interface CommissionItem {

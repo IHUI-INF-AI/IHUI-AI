@@ -110,7 +110,7 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import type { AgentCategory, AgentPlatform } from '@/api/agents'
+import type { AgentCategory, AgentPlatform } from '@/api/agent/agent/agents'
 
 const { t } = useI18n()
 

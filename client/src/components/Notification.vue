@@ -126,11 +126,11 @@ import {
   type Message,
   MessageStatus,
   MessageType,
-} from '@/api/message'
+} from '@/api/system/message'
 import { useAuthStore } from '@/stores/auth'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { User, Loader2, LogOut } from '@/lib/lucide-fallback'
-import type { UserInfoData } from '@/api/user'
+import type { UserInfoData } from '@/api/user/user'
 
 interface Props {
   isDarkMode?: boolean

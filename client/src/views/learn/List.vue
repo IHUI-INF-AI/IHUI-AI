@@ -63,7 +63,7 @@ import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import LearnPage from '@/components/learn/Page.vue'
 import Rectangle from '@/components/module/Rectangle.vue'
-import { learnApi } from '@/api/learn'
+import { learnApi } from '@/api/learn/learn'
 
 const route = useRoute()
 const categories = ref<any[]>([])

@@ -267,7 +267,7 @@ const shareToPlatform = async (platformId: string) => {
     case 'wechat':
       // 微信分享需要JSSDK配置
       try {
-        const { getWechatShareConfig, recordShare } = await import('@/api/share')
+        const { getWechatShareConfig, recordShare } = await import('@/api/content/share')
         const config = await getWechatShareConfig(shareUrl)
         
         if (config.success && config.data) {
@@ -303,7 +303,7 @@ const shareToPlatform = async (platformId: string) => {
       shareLink = `https://service.weibo.com/share/share.php?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareTitle)}`
       window.open(shareLink, '_blank')
       // 记录分享事件
-      import('@/api/share').then(({ recordShare }) => {
+      import('@/api/content/share').then(({ recordShare }) => {
         recordShare({
           shareType: 'weibo',
           shareUrl,
@@ -324,7 +324,7 @@ const shareToPlatform = async (platformId: string) => {
       shareLink = `https://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareTitle)}&summary=${encodeURIComponent(shareDesc)}`
       window.open(shareLink, '_blank')
       // 记录分享事件
-      import('@/api/share').then(({ recordShare }) => {
+      import('@/api/content/share').then(({ recordShare }) => {
         recordShare({
           shareType: 'qq',
           shareUrl,
@@ -348,7 +348,7 @@ const shareToPlatform = async (platformId: string) => {
     case 'link':
       copyLink()
       // 记录分享事件
-      import('@/api/share').then(({ recordShare }) => {
+      import('@/api/content/share').then(({ recordShare }) => {
         recordShare({
           shareType: 'link',
           shareUrl,
@@ -455,7 +455,7 @@ const copyLink = async () => {
     ElMessage.success(t('share.linkCopied'))
     
     // 记录链接分享事件
-    const { recordShare } = await import('@/api/share')
+    const { recordShare } = await import('@/api/content/share')
     recordShare({
       shareType: 'link',
       shareUrl: link,
@@ -544,7 +544,7 @@ const downloadImage = () => {
 
 // 加载分享统计
 const loadShareStats = async () => {
-  const { getShareStats } = await import('@/api/share')
+  const { getShareStats } = await import('@/api/content/share')
   const contentId = route.params.id as string
   const data = await executeApi(() => getShareStats(contentId, 'share'))
   

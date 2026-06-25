@@ -159,7 +159,7 @@ import {
   unfavoriteAgent,
   type Agent,
   type AgentCategory,
-} from '@/api/agents'
+} from '@/api/agent/agent/agents'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import AgentsSquareList from '@/components/agents/AgentsSquareList.vue'
 

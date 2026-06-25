@@ -78,7 +78,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
 import { useCleanup } from '@/composables/useCleanup'
-import { examApi } from '@/api/exam'
+import { examApi } from '@/api/learn/exam'
 
 const { t } = useI18n()
 const route = useRoute()

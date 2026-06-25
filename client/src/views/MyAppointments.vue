@@ -276,7 +276,7 @@ import {
   type ServiceAppointment,
   type GetAppointmentsParams,
 } from '@/api/service-appointment'
-import { sendAppointmentCancelledNotification } from '@/api/notification'
+import { sendAppointmentCancelledNotification } from '@/api/system/notification'
 import { formatTime } from '@/utils/format'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'

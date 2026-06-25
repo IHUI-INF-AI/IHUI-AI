@@ -396,7 +396,7 @@ import {
   type Course,
   type CourseLesson,
   type CourseCategory,
-} from '@/api/courses'
+} from '@/api/course/course/courses'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'

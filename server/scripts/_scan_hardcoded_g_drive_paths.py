@@ -2,6 +2,9 @@
 仅扫描代码文件 (.py/.ts/.tsx/.js/.mjs/.cjs/.vue/.sh/.ps1/.bat/.yml/.yaml/.toml/.json)
 排除: .git/, node_modules/, dist/, .vite/, build/, pw-output/, logs/, test-results/, .github/
 报告: 输出到 G:\\dev\\stdout 不行 — 我们改输出到 server/pw-output/ 中转一下, 然后清理
+
+2026-06-25 扩展: 增加 Linux 风格硬编码路径扫描 (/tmp/, /var/lib/, /ai_zhs/ 等)
+确保在 Windows 上不会把 /tmp/... 错误解释为 G:\\tmp\\...
 """
 import os
 import re
@@ -25,6 +28,10 @@ PATTERNS = [
     # 兼容不带引号的 (出现在 bash 字符串等)
     re.compile(r"""\bG:\\1[\\\/]\S*"""),
     re.compile(r"""\bG:/1/\S*"""),
+    # 2026-06-25 扩展: Linux 风格 /tmp/ 硬编码 (Windows 会解释成 G:\\tmp\\)
+    re.compile(r"""['"]/tmp/[a-zA-Z_][a-zA-Z0-9_/.-]*['"]"""),
+    # 2026-06-25 扩展: /var/lib/zhs/ 容器路径 (生产环境正确, 开发环境可能误用)
+    re.compile(r"""['"]/var/lib/zhs/[a-zA-Z_][a-zA-Z0-9_/.-]*['"]"""),
 ]
 
 EXCLUDE_DIRS = {
@@ -32,6 +39,8 @@ EXCLUDE_DIRS = {
     "logs", "test-results", "storybook-static", ".github", ".ruff_cache",
     "audit", "coverage", "__pycache__", ".vscode", ".idea",
     "screenshots", "tmp", "out",
+    # 2026-06-25: 排除 Python 虚拟环境目录, 里面大量 docstring 提及 /tmp/...
+    ".venv", "venv", "env", "site-packages",
     # 历史文档/归档, 不会运行, 无需修复
     "docs", "archive",
 }
@@ -83,7 +92,12 @@ def main():
     if not matches:
         print("NO HARDCODED PATHS FOUND")
         return 0
-    print(f"FOUND {len(matches)} hardcoded G:\\1/G:\\dev/G:\\tmp references:")
+    # 分类: G 盘根 vs Linux 路径
+    g_drive = [m for m in matches if "G:" in m[0] or "G:" in m[2]]
+    linux_paths = [m for m in matches if "/tmp/" in m[2] or "/var/lib/" in m[2]]
+    print(f"FOUND {len(matches)} hardcoded path references:")
+    print(f"  - G:\\1/G:\\dev/G:\\tmp 风格: {len(g_drive)}")
+    print(f"  - Linux 风格 (/tmp/, /var/lib/): {len(linux_paths)}")
     print("=" * 100)
     for path, lineno, line in matches:
         print(f"{path}:{lineno}")

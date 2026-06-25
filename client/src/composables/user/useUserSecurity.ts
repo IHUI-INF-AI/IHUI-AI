@@ -6,14 +6,14 @@ import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useApiError } from '@/composables/useApiError'
 import { InputValidator } from '@/utils/security'
-import { updatePassword, type UserInfoData } from '@/api/user'
+import { updatePassword, type UserInfoData } from '@/api/user/user'
 import {
   getLoginDevices,
   removeLoginDevice,
   getLoginHistory,
   type LoginDevice,
   type LoginHistory,
-} from '@/api/security'
+} from '@/api/system/security'
 
 /**
  * 用户安全相关功能的 Composable

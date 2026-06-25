@@ -3,7 +3,7 @@ import request from '@/utils/request'
 import { t } from '@/utils/i18n'
 import { logger } from '../utils/logger'
 import type { ApiResponse } from '@/types'
-import type { AuthResponse } from '@/api/auth'
+import type { AuthResponse } from '@/api/auth/auth'
 import { refreshAuthToken } from '@aizhs/shared-services'
 import type { SharedRequestAdapter, SharedRequestConfig } from '@aizhs/shared-services'
 

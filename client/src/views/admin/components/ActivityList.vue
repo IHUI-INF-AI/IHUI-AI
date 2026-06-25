@@ -76,7 +76,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import AdminListPage from '@/components/admin/AdminListPage.vue'
 import type { TableColumn } from '@/components/admin/AdminListPage.vue'
-import { getAdminActivities, type AdminActivity } from '@/api/admin-activities'
+import { getAdminActivities, type AdminActivity } from '@/api/admin/admin/admin-activities'
 
 const { t } = useI18n()
 

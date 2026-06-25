@@ -22,7 +22,7 @@ import {
   MessageType as MsgType,
   MessageStatus,
   type MessageStats,
-} from '@/api/message'
+} from '@/api/system/message'
 import { AlertCircle, MessageSquare, Bell, Info } from '@/lib/lucide-fallback'
 
 /**

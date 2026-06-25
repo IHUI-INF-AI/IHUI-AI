@@ -442,8 +442,8 @@ import {
   fetchAgentDetails,
   updateAgent as _updateAgent,
   deleteAgent as _deleteAgent,
-} from '@/api/agents'
-import { buyAgent } from '@/api/agent-buy'
+} from '@/api/agent/agent/agents'
+import { buyAgent } from '@/api/agent/agent/agent-buy'
 import { logger } from '@/utils/logger'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 
@@ -571,7 +571,7 @@ const loadRelatedWrench = async () => {
 
   try {
     // 根据智能体标签加载相关工具
-    const { getToolsList } = await import('@/api/tools')
+    const { getToolsList } = await import('@/api/tools/tools')
     const tags = agent.value.tags.slice(0, 3) // 使用前3个标签
 
     // 尝试根据标签搜索工具

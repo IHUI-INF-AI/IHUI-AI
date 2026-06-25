@@ -15,7 +15,7 @@ import { getStoredData } from '@/utils/request'
 import type { LoginParams, RegisterParams } from '@/types'
 
 // Mock API 用户模块
-vi.mock('@/api/user', () => ({
+vi.mock('@/api/user/user', () => ({
   login: vi.fn(),
   register: vi.fn(),
   phoneLogin: vi.fn(),
@@ -31,7 +31,7 @@ import {
   completePhoneLogin,
   refreshToken as refreshTokenApi,
   getUserInfo,
-} from '@/api/user'
+} from '@/api/user/user'
 
 // Mock 存储管理
 const mockStorage: Record<string, unknown> = {}

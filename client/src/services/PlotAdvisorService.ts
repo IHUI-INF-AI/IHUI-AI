@@ -16,7 +16,7 @@ import { t } from '@/utils/i18n'
 
 import { ref, type Ref } from 'vue'
 import { logger } from '@/utils/logger'
-import { streamGenerateContent } from '@/api/ai'
+import { streamGenerateContent } from '@/api/ai/ai'
 import type { SceneFragment, Character } from '@/types/ai-platform.types'
 
 // ============================================================================

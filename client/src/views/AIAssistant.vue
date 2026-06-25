@@ -362,10 +362,10 @@ import VoiceInput from '@/components/ai/VoiceInput.vue'
 import type { FileInfo } from '@/api/services/file.service'
 import { logger } from '@/utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { sendMessage as sendCozeMessage } from '@/api/chat'
-import { getAgentsList, type Agent } from '@/api/agents'
+import { sendMessage as sendCozeMessage } from '@/api/chat/chat'
+import { getAgentsList, type Agent } from '@/api/agent/agent/agents'
 import { useApiError } from '@/composables/useApiError'
-import { getRoomHistory, markRoomAsRead } from '@/api/chatRoom'
+import { getRoomHistory, markRoomAsRead } from '@/api/chat/chat/chatRoom'
 import { websocketService, type WebSocketStatus } from '@/utils/websocket'
 
 // =============================================

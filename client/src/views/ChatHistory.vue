@@ -200,8 +200,8 @@ import {
   updateConversationTitle,
   type Conversation,
   type ChatMessage,
-} from '@/api/chat-history'
-import { getAvailableModels, type AIModelInfo } from '@/api/models'
+} from '@/api/chat/chat/chat-history'
+import { getAvailableModels, type AIModelInfo } from '@/api/models/models'
 import { formatTime } from '@/utils/format'
 import DOMPurify from 'dompurify'
 import { logger } from '@/utils/logger'

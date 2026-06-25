@@ -507,7 +507,7 @@ export function useUnifiedAIChat(initialConfig: UnifiedAIChatConfig = {}): Unifi
   /** 加载历史对话 */
   async function loadConversation(convId: string): Promise<void> {
     try {
-      const { getConversationMessages } = await import('@/api/chat-history')
+      const { getConversationMessages } = await import('@/api/chat/chat/chat-history')
       const response = await getConversationMessages(convId, { limit: 100 })
       
       if (response.code === 200 && response.data?.messages) {

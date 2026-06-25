@@ -10,7 +10,7 @@ import { ref, computed } from 'vue'
 import { logger } from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getSubordinates, type SubordinateUser } from '@/api/distribution'
+import { getSubordinates, type SubordinateUser } from '@/api/distribution/distribution'
 import { usePagination } from '@/composables/user/usePagination'
 
 /**

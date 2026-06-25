@@ -104,7 +104,7 @@ import {
   removeFavorite,
   type Favorite,
   type FavoriteResourceType,
-} from '@/api/favorites'
+} from '@/api/content/favorites'
 import type { PaginationParams } from '@/types'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'

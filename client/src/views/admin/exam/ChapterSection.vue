@@ -22,7 +22,7 @@ const { t } = useI18n()
 import { ref, reactive, onMounted, h } from 'vue'
 import { ElButton, ElMessageBox, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/admin/admin'
 import AdminChapterSectionDialog from './ChapterSectionDialog.vue'
 
 const keyword = ref('')

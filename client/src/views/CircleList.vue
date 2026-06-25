@@ -56,7 +56,7 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useRouter } from 'vue-router'
-import { circleApi } from '@/api/circle'
+import { circleApi } from '@/api/content/circle'
 
 const router = useRouter()
 const loading = ref(false)

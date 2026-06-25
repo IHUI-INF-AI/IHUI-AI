@@ -1,7 +1,7 @@
 <!--
   总管理端首页(目录此前缺失)
   设计语言:现代简洁(柔和圆角 + 微阴影 + 清晰层级),与 admin-classic 的传统后台风格区分
-  数据接入:@/api/admin-dashboard (getDashboardAll) → KPI / 监控 / 活动时间线
+  数据接入:@/api/admin/admin/admin-dashboard (getDashboardAll) → KPI / 监控 / 活动时间线
           + getModuleStats() → 12 业务模块的总数
   待办项暂用本地 mock,待后端 /admin/todos 接口上线后接入
 -->
@@ -209,7 +209,7 @@ import {
   type DashboardOverview,
   type MonitorItem,
   type ModuleStatsResult,
-} from '@/api/admin-dashboard'
+} from '@/api/admin/admin/admin-dashboard'
 
 const { t } = useI18n()
 const router = useRouter()

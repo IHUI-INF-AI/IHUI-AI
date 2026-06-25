@@ -13,7 +13,7 @@
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { dingTalkLogin } from '@/api/auth'
+import { dingTalkLogin } from '@/api/auth/auth'
 import { setToken, setRefreshToken } from '@/utils/auth'
 
 const route = useRoute()

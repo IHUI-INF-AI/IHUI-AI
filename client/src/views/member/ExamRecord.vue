@@ -26,7 +26,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import MemberLayout from '@/components/member/Layout.vue'
 import { useRouter } from 'vue-router'
-import { examApi } from '@/api/exam'
+import { examApi } from '@/api/learn/exam'
 
 const router = useRouter()
 const list = ref<any[]>([])

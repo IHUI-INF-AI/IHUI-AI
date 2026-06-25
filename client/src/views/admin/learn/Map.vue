@@ -43,7 +43,7 @@ import { ElButton, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
 import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/admin/admin'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { useAdminCrud } from '@/composables/useAdminCrud'
 

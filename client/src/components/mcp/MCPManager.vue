@@ -374,7 +374,7 @@ import {
   type MCPProtocol,
   type MCPTool,
   type MCPResource,
-} from '@/api/mcp'
+} from '@/api/tools/mcp'
 import MCPResourceViewer from './MCPResourceViewer.vue'
 import MCPToolParameterForm from './MCPToolParameterForm.vue'
 import MCPToolCallResult from './MCPToolCallResult.vue'

@@ -1,6 +1,6 @@
 # 后端静态审计报告
 
-扫描文件数: 753
+扫描文件数: 746
 
 ## P0-SyncIO (92 个)
 
@@ -32,11 +32,11 @@
   ```
   db.commit()
   ```
-- **[app\api\v1\refund.py:292]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
+- **[app\api\v1\refund.py:296]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
   ```
   refund = db.execute(
   ```
-- **[app\api\v1\refund.py:338]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
+- **[app\api\v1\refund.py:342]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
   ```
   db.commit()
   ```
@@ -1095,15 +1095,15 @@
   ```
 - **[app\api\v1\ask\answer.py:101]** P1-MissingSoftDelete: 查询 AskAnswer 缺少软删除过滤
   ```
-  q = db.query(AskAnswer).filter(not AskAnswer.deleted)
+  q = db.query(AskAnswer).filter(AskAnswer.deleted.is_(False))
   ```
 - **[app\api\v1\ask\answer.py:124]** P1-MissingSoftDelete: 查询 AskAnswer 缺少软删除过滤
   ```
-  q = db.query(AskAnswer).filter(not AskAnswer.deleted)
+  q = db.query(AskAnswer).filter(AskAnswer.deleted.is_(False))
   ```
 - **[app\api\v1\ask\answer.py:144]** P1-MissingSoftDelete: 查询 AskAnswer 缺少软删除过滤
   ```
-  a = db.query(AskAnswer).filter(AskAnswer.id == id, not AskAnswer.deleted).first()
+  a = db.query(AskAnswer).filter(AskAnswer.id == id, AskAnswer.deleted.is_(False)).first()
   ```
 - **[app\api\v1\ask\answer.py:159]** P1-MissingSoftDelete: 查询 AskAnswer 缺少软删除过滤
   ```
@@ -4026,7 +4026,7 @@
   ```
   logger.error(f"Failed to register gzip middleware: {e}")
   ```
-- **[app\main.py:690]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\main.py:688]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.debug(f"TenantRoutingMiddleware skipped: {e}")
   ```
@@ -4054,15 +4054,15 @@
   ```
   logger.error("[Outbound] 处理外呼回调异常: %s", e)
   ```
-- **[app\api\v1\canary_routes.py:156]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\v1\canary_routes.py:157]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("Canary promote cooldown: %s", e)
   ```
-- **[app\api\v1\canary_routes.py:159]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\v1\canary_routes.py:160]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("Canary promote stage error: %s", e)
   ```
-- **[app\api\v1\canary_routes.py:177]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\v1\canary_routes.py:178]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("Canary rollback stage error: %s", e)
   ```

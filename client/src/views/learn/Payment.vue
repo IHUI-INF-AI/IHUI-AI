@@ -47,7 +47,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
-import { learnApi } from '@/api/learn'
+import { learnApi } from '@/api/learn/learn'
 
 const { t } = useI18n()
 const route = useRoute()

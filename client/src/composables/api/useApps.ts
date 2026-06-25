@@ -14,7 +14,7 @@ import {
   type App,
   type CreateAppRequest,
   type UpdateAppRequest,
-} from '@/api/apps'
+} from '@/api/app/apps'
 import { logger } from '@/utils/logger'
 
 export function useApps() {

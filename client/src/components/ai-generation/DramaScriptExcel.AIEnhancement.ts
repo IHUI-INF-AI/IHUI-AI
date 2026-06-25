@@ -8,7 +8,7 @@
  * 4. 风格一致性检测
  */
 
-import { streamGenerateContent } from '@/api/ai'
+import { streamGenerateContent } from '@/api/ai/ai'
 import { logger } from '@/utils/logger'
 import type {
   SceneFragment,

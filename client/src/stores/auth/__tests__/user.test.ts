@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useUserStore } from '../user'
 import { createPinia, setActivePinia } from 'pinia'
 
-vi.mock('@/api/user', () => ({
+vi.mock('@/api/user/user', () => ({
   getUserInfo: vi.fn().mockResolvedValue({
     code: 200,
     data: {

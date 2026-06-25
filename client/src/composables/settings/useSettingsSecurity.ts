@@ -9,7 +9,7 @@
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { changePassword } from '@/api/user'
+import { changePassword } from '@/api/user/user'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import {
   LOGIN_DURATION_OPTIONS,

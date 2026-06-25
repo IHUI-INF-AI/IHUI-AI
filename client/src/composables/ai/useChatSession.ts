@@ -6,7 +6,7 @@ import {
   updateConversationTitle as _updateConversationTitle,
   deleteConversation,
   getConversationMessages,
-} from '@/api/chat-history'
+} from '@/api/chat/chat/chat-history'
 import {
   queryChatRecords,
   getChatHistoryMessages as _getChatHistoryMessages,

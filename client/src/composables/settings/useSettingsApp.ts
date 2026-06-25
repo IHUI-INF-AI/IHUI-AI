@@ -3,7 +3,7 @@ import { useLocalStorage } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useDarkModeStore } from '@/stores/darkMode'
-import { updatePreferences } from '@/api/settings'
+import { updatePreferences } from '@/api/system/settings'
 import { switchLanguage } from '@/composables/useLang'
 
 /**

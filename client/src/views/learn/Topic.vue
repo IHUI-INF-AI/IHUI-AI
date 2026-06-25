@@ -38,7 +38,7 @@ import { useRouter } from 'vue-router'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import LearnPage from '@/components/learn/Page.vue'
-import { learnApi } from '@/api/learn'
+import { learnApi } from '@/api/learn/learn'
 
 const router = useRouter()
 const list = ref<any[]>([])

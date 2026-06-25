@@ -13,7 +13,7 @@ import { t } from '@/utils/i18n'
 import { logger } from '@/utils/logger'
 import type { ApiResponse } from '@/types'
 import httpRequest from '@/utils/request'
-import { getAvailableModels } from '@/api/models'
+import { getAvailableModels } from '@/api/models/models'
 
 // ============================================================================
 // 类型定义
@@ -313,7 +313,7 @@ class UnifiedGenerationService {
             displayName.includes('通义') ||
             displayName.includes('万相')
           )
-        }) as (import('@/api/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
+        }) as (import('@/api/models/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
 
         if (!imageModel?.remark) {
           throw new Error(

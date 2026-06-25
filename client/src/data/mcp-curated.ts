@@ -2,7 +2,7 @@
  * 项目内置 MCP 服务器列表（项目自有数据）
  * 数据已从 mcp.so、魔搭 mcps.live 等公开生态整理并集成到本仓库，供后端无配置时展示与使用。
  */
-import type { MCPServer } from '@/api/mcp'
+import type { MCPServer } from '@/api/tools/mcp'
 
 export const MCP_CURATED_SERVERS: MCPServer[] = [
   // ----- 文件与存储 -----

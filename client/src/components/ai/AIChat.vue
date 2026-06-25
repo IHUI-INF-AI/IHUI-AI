@@ -1763,7 +1763,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCommunityPublish } from '@/composables/useCommunityPublish'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useAuthStore } from '@/stores/auth'
-import { streamGenerateContent } from '@/api/ai'
+import { streamGenerateContent } from '@/api/ai/ai'
 import {
   createQwenWebSocket,
   createQwenOmniWebSocket,
@@ -1774,8 +1774,8 @@ import {
 } from '@/api/services/llmChat.service'
 import request, { getUserToken } from '@/utils/request'
 import { createAuthWebSocket } from '@/utils/websocket'
-import { getAvailableModels } from '@/api/models'
-import { getAgentsList } from '@/api/agents'
+import { getAvailableModels } from '@/api/models/models'
+import { getAgentsList } from '@/api/agent/agent/agents'
 import { createAgenticSwarm, getSwarmStatus } from '@/api/services/agentic.service'
 import {
   generateDashScopeImage,
@@ -1795,14 +1795,14 @@ import {
   startOneClickVideo,
   getOneClickVideoStatus,
 } from '@/api/services/aiGeneration.service'
-import { uploadFormFile } from '@/api/file-upload'
+import { uploadFormFile } from '@/api/file/file-upload'
 import {
   getConversations,
   createConversation,
   updateConversationTitle,
   deleteConversation,
   getConversationMessages,
-} from '@/api/chat-history'
+} from '@/api/chat/chat/chat-history'
 import {
   queryChatRecords,
   getChatHistoryMessages,
@@ -1862,7 +1862,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { getUserUuid } from '@/utils/auth'
 import type { AICapabilityRequest } from '@/services/unified-ai-orchestrator'
-import type { Agent } from '@/api/agents'
+import type { Agent } from '@/api/agent/agent/agents'
 import {
   MessageCircle,
   X,
@@ -7050,7 +7050,7 @@ const _handleImageGeneration = async (
               displayName.includes('通义') ||
               displayName.includes('万相')
             )
-          }) as (import('@/api/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
+          }) as (import('@/api/models/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
 
           if (!modelFromList?.remark) {
             // 最后兜底：不再报错中断体验，回退到原通义默认接口（仅当列表没配置时）
@@ -7797,7 +7797,7 @@ const handleAudioGeneration = async (
 
   try {
     // 导入音频生成API
-    const { aliGenerateTimbre } = await import('@/api/ai-models')
+    const { aliGenerateTimbre } = await import('@/api/ai/ai/ai-models')
 
     // 调用阿里语音合成API
     const response = await aliGenerateTimbre({

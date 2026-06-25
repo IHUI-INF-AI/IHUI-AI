@@ -53,7 +53,7 @@ import type { FormInstance } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { FormValidator } from '@/utils/formValidation'
 import { InputValidator } from '@/utils/security'
-import { setEmail, setPwd } from '@/api/user'
+import { setEmail, setPwd } from '@/api/user/user'
 
 // needPwd 为 0 时使用的占位密码（仅展示，不可编辑）
 const DEFAULT_PASSWORD_PLACEHOLDER = '********'

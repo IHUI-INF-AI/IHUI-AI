@@ -134,7 +134,7 @@ import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import { Check } from '@element-plus/icons-vue'
 import { logger } from '@/utils/logger'
-import { getVipProducts, purchaseVip } from '@/api/user'
+import { getVipProducts, purchaseVip } from '@/api/user/user'
 import { useVipAnalytics } from '@/composables/useAnalytics'
 import { useCleanup } from '@/composables/useCleanup'
 

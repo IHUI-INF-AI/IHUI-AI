@@ -309,7 +309,7 @@ import {
   testModel,
   type AIModel,
   type ModelType,
-} from '@/api/models'
+} from '@/api/models/models'
 
 const { t } = useI18n()
 const router = useRouter()

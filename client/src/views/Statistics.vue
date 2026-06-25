@@ -141,7 +141,7 @@ import {
   View,
 } from '@/lib/lucide-fallback'
 import { useAuthStore } from '@/stores/auth'
-import { getUsageStatistics, getAgentStatistics } from '@/api/statistics'
+import { getUsageStatistics, getAgentStatistics } from '@/api/statistics/statistics'
 import UsageStatistics from '@/components/statistics/UsageStatistics.vue'
 import BehaviorStatistics from '@/components/statistics/BehaviorStatistics.vue'
 import OrderStatistics from '@/components/statistics/OrderStatistics.vue'

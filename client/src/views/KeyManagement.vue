@@ -166,7 +166,7 @@ import {
   USER_SK_TYPE_OPTIONS,
   type UserSkItem,
   type UserSkCreateRes,
-} from '@/api/userSk'
+} from '@/api/user/user/userSk'
 
 const typeOptions = USER_SK_TYPE_OPTIONS
 const maxKeys = 20

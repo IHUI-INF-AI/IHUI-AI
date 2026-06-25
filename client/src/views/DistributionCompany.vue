@@ -107,7 +107,7 @@ import {
   getWxCode,
   getInviteCode,
   type OperatorDataCardData,
-} from '@/api/distribution'
+} from '@/api/distribution/distribution'
 import PersonalInformationCard from '@/components/distribution/PersonalInformationCard.vue'
 import EarningsStatisticsCard from '@/components/distribution/EarningsStatisticsCard.vue'
 import FunctionBlockColumn from '@/components/distribution/FunctionBlockColumn.vue'

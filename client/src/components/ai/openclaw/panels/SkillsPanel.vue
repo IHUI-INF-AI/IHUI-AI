@@ -52,8 +52,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getApiErrorMessage } from './utils'
-import { getSkills, getInstalledSkills, installSkill, uninstallSkill } from '@/api/openclaw'
-import type { Skill, SkillInstallation } from '@/api/openclaw'
+import { getSkills, getInstalledSkills, installSkill, uninstallSkill } from '@/api/tools/tools/openclaw'
+import type { Skill, SkillInstallation } from '@/api/tools/tools/openclaw'
 
 const { t } = useI18n()
 

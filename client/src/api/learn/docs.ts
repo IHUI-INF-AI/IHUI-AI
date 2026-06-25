@@ -1,6 +1,6 @@
 import type { ApiResponse } from '@/types'
 import { normalizeApiResponse } from '@/utils/api-response'
-import { uploadFile as uploadFileToServer } from './files'
+import { uploadFile as uploadFileToServer } from './file/files'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
 

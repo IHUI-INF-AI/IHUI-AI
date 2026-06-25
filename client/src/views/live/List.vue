@@ -70,7 +70,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import LearnPage from '@/components/learn/Page.vue'
-import { liveApi } from '@/api/live'
+import { liveApi } from '@/api/learn/live'
 
 const { t } = useI18n()
 const router = useRouter()

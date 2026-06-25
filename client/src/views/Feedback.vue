@@ -191,7 +191,7 @@ import { useI18n } from 'vue-i18n'
 import { UploadCloud, Loading } from '@/lib/lucide-fallback'
 import { ElMessage } from 'element-plus'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { submitFeedback as submitFeedbackApi, getFeedbacks, type Feedback } from '@/api/feedback'
+import { submitFeedback as submitFeedbackApi, getFeedbacks, type Feedback } from '@/api/content/feedback'
 import { logger } from '@/utils/logger'
 
 const { t } = useI18n()

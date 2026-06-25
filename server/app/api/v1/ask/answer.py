@@ -159,7 +159,7 @@ def member_answer_count(member_id: str | None = None):
                 db.query(AskAnswer)
                 .filter(
                     AskAnswer.member_id == uid,
-                    not AskAnswer.deleted,
+                    AskAnswer.deleted.is_(False),
                 )
                 .count()
             )

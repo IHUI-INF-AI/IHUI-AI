@@ -42,7 +42,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { realAuth } from '@/api/distribution'
+import { realAuth } from '@/api/distribution/distribution'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import type { FormInstance, FormRules } from 'element-plus'
 import { logger } from '@/utils/logger'

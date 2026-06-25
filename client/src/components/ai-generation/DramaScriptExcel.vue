@@ -2043,10 +2043,10 @@ import SearchIcon from '@/components/common/SearchIcon.vue'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { createDashScopeVideoWebSocket } from '@/api/services/aiGeneration.service'
 import request from '@/utils/request'
-import { getAvailableModels } from '@/api/models'
-import { streamGenerateContent } from '@/api/ai'
+import { getAvailableModels } from '@/api/models/models'
+import { streamGenerateContent } from '@/api/ai/ai'
 import { getUserUuid } from '@/utils/auth'
-import { uploadFormFile } from '@/api/file-upload'
+import { uploadFormFile } from '@/api/file/file-upload'
 import { logger } from '@/utils/logger'
 import { useDramaScriptEnhancement } from '@/composables/useDramaScriptEnhancement'
 import CharacterManager from './DramaScriptExcel.CharacterManager.vue'
@@ -3549,7 +3549,7 @@ const generateVideo = async (fragment: SceneFragment) => {
               displayName.includes('通义') ||
               displayName.includes('万相')
             )
-          }) as (import('@/api/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
+          }) as (import('@/api/models/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
 
           if (!imageModel?.remark) {
             throw new Error(t('dramaScript.firstFrameModelRemarkMissing'))

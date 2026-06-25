@@ -22,7 +22,7 @@ import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import Banner from '@/components/module/Banner.vue'
 import Hot from '@/components/module/Hot.vue'
 import RowTabs from '@/components/module/RowTabs.vue'
-import { learnApi } from '@/api/learn'
+import { learnApi } from '@/api/learn/learn'
 
 const { t } = useI18n()
 

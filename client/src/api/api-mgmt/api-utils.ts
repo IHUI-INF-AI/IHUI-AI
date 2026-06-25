@@ -8,8 +8,8 @@ import request from '@/utils/request'
 import { withApiResponseHandler, normalizeApiResponse } from '@/utils/api-response'
 import { logger } from '@/utils/logger'
 import type { ApiResponse } from '@/types'
-import type { UserToken } from './user'
-import type { AuthResponse } from './auth'
+import type { UserToken } from './user/user'
+import type { AuthResponse } from './auth/auth'
 
 // 统一登录 - 总管理端：POST /auth/login，body: username, password, code, uuid
 export const unifiedLogin = withApiResponseHandler(

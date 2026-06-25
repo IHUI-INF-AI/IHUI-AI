@@ -10,7 +10,7 @@ import { ref, computed } from 'vue'
 import { logger } from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getCommissionFlow, type CommissionFlow } from '@/api/distribution'
+import { getCommissionFlow, type CommissionFlow } from '@/api/distribution/distribution'
 import { usePagination } from '@/composables/user/usePagination'
 
 /**

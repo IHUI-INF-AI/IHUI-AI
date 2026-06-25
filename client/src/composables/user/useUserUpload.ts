@@ -1,8 +1,8 @@
 import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import type { UserInfoData } from '@/api/user'
-import { uploadAgentAndCreateExamine } from '@/api/file-upload'
+import type { UserInfoData } from '@/api/user/user'
+import { uploadAgentAndCreateExamine } from '@/api/file/file-upload'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 
 /**

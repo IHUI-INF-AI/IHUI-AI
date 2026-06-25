@@ -81,8 +81,8 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Document, Cpu, UserFilled, Connection, Key } from '@element-plus/icons-vue'
 import { getSdks } from '@/api/sdks'
-import { getAvailableModels } from '@/api/models'
-import { getAgentsList } from '@/api/agents'
+import { getAvailableModels } from '@/api/models/models'
+import { getAgentsList } from '@/api/agent/agent/agents'
 import { logger } from '@/utils/logger'
 
 const { t } = useI18n()

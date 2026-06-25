@@ -10,7 +10,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useCleanup } from '@/composables/useCleanup'
-import { clearAllData, deleteAccount } from '@/api/settings'
+import { clearAllData, deleteAccount } from '@/api/system/settings'
 
 /**
  * useSettingsDanger 配置选项

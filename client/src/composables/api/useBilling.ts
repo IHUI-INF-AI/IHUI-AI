@@ -12,7 +12,7 @@ import {
   type BillingRecord,
   type BillingStats,
   type BillingTrend,
-} from '@/api/billing'
+} from '@/api/payment/payment/billing'
 import { logger } from '@/utils/logger'
 
 export function useBilling() {

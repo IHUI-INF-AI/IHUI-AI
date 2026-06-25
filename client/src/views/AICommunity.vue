@@ -583,12 +583,12 @@ import {
   getCreations, getHotCreators, getHotTags as getAIHotTags,
   likeCreation, unlikeCreation, favoriteCreation, unfavoriteCreation,
   type AICreation, type ContentType, type Creator,
-} from '@/api/ai-community'
+} from '@/api/ai/ai/ai-community'
 import {
   getPostsList, createPost, likePost, unlikePost, favoritePost, unfavoritePost, createComment, getHotTopics,
   type CommunityPost, type Topic,
-} from '@/api/community'
-import { followDemandUser, unfollowDemandUser } from '@/api/xuqiu'
+} from '@/api/content/community'
+import { followDemandUser, unfollowDemandUser } from '@/api/content/xuqiu'
 
 const { t } = useI18n()
 const route = useRoute()

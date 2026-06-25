@@ -134,7 +134,7 @@ import {
   getDefaultCountryCode,
   type CountryCode,
 } from '@/utils/countryCodes'
-import { sendPhoneLoginCode, verifyPhoneCode, completePhoneLogin } from '@/api/user'
+import { sendPhoneLoginCode, verifyPhoneCode, completePhoneLogin } from '@/api/user/user'
 import { useAuthStore } from '@/stores/auth'
 import { AuthFlowService } from '@/services/auth-flow.service'
 import { ElMessage } from 'element-plus'

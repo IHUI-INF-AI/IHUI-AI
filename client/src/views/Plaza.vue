@@ -199,7 +199,7 @@ import {
   getDemandsList,
   createDemand,
   type PlazaDemand,
-} from '@/api/xuqiu'
+} from '@/api/content/xuqiu'
 import { useApiError } from '@/composables/useApiError'
 import { useSEO } from '@/composables/useSEO'
 

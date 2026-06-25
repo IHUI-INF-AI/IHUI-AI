@@ -47,7 +47,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElDialog, ElDescriptions, ElDescriptionsItem, ElDivider, ElTag, ElInput, ElInputNumber, ElButton } from 'element-plus'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/admin/admin'
 
 const props = withDefaults(
   defineProps<{

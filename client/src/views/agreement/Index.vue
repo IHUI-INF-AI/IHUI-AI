@@ -16,7 +16,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { getAgreement } from '@/api/settings'
+import { getAgreement } from '@/api/system/settings'
 
 const { t } = useI18n()
 const route = useRoute()

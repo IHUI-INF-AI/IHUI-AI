@@ -3,7 +3,7 @@ import { t } from '@/utils/i18n'
 
 import request from '@/utils/request'
 import type { ApiResponse } from '@/types'
-import type { PricingConfig, ProxyConfig } from '@/api/models'
+import type { PricingConfig, ProxyConfig } from '@/api/models/models'
 
 // 定价相关API
 

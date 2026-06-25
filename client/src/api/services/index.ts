@@ -19,7 +19,7 @@ export {
   type RegisterRequest,
   type AuthToken,
   type LoginResponse,
-} from './auth.service'
+} from './auth/auth.service'
 
 // 文件服务
 export * from './file.service'

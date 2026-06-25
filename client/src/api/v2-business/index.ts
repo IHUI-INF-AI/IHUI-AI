@@ -5,10 +5,10 @@
  * 保留导出名称 (v2Agents/v2Courses/v2Orders/v2User) 以避免业务页面改动.
  */
 
-import * as v1Agents from '@/api/agents'
-import * as v1Courses from '@/api/courses'
-import * as v1Orders from '@/api/orders'
-import * as v1User from '@/api/user'
+import * as v1Agents from '@/api/agent/agent/agents'
+import * as v1Courses from '@/api/course/course/courses'
+import * as v1Orders from '@/api/payment/orders'
+import * as v1User from '@/api/user/user'
 
 // ========== Agents 业务封装 ==========
 export const v2Agents = {

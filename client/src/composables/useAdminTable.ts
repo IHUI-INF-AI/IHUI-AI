@@ -9,7 +9,7 @@
  */
 import { ref, type Ref } from 'vue'
 import type { ApiResponse } from '@/types'
-import type { ListParams } from '@/api/admin'
+import type { ListParams } from '@/api/admin/admin'
 
 export interface UseAdminTableOptions<T = any> {
   /** 列表查询函数，接收 { current, size, keyword } 返回分页数据 */

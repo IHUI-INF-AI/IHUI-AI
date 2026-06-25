@@ -874,8 +874,8 @@ const saveHistoryPhone = (phone: string): void => {
       })
   }
 }
-import { register, type RegisterRequest } from '@/api/auth'
-import { unifiedLogin, unifiedRegister, isValidSource, type LoginSource } from '@/api/unified-auth'
+import { register, type RegisterRequest } from '@/api/auth/auth'
+import { unifiedLogin, unifiedRegister, isValidSource, type LoginSource } from '@/api/unified/unified-auth'
 import request from '@/utils/request'
 import { LOGIN_PWD_PATHS } from '@/config/backend-paths'
 import { AuthFlowService } from '@/services/auth-flow.service'
@@ -886,7 +886,7 @@ import {
   verifyPhoneCode,
   completePhoneLogin,
   type UserInfoData,
-} from '@/api/user'
+} from '@/api/user/user'
 import CaptchaInput from './components/CaptchaInput.vue'
 import { useAuthStore } from '@/stores/auth'
 import { StorageManager } from '@/utils/storage'

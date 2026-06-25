@@ -22,8 +22,8 @@ import {
   type LoginSource,
   type UnifiedLoginRequest,
   type UnifiedLoginResponse,
-} from '@/api/unified-auth'
-import { completePhoneLogin, type UserInfoData } from '@/api/user'
+} from '@/api/unified/unified-auth'
+import { completePhoneLogin, type UserInfoData } from '@/api/user/user'
 
 // 手机登录参数类型
 interface PhoneLoginParams {

@@ -10,7 +10,7 @@
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { isExpiryTimePassed } from '@/utils/login-duration'
 import { deepEqual } from '@/utils/object-utils'
-import type { UserInfoData } from '@/api/user'
+import type { UserInfoData } from '@/api/user/user'
 import { logger } from '@/utils/logger'
 
 /**

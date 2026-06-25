@@ -113,7 +113,7 @@ import { useRouter } from 'vue-router'
 import { Wallet, CreditCard, Smartphone } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { createTopUpOrder } from '@/api/top-up'
+import { createTopUpOrder } from '@/api/payment/top-up'
 import UserInfoCard from '@/components/user/UserInfoCard.vue'
 import { logger } from '@/utils/logger'
 

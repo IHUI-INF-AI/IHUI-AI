@@ -28,8 +28,8 @@
 import { useI18n } from 'vue-i18n'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { adminApi } from '@/api/admin'
-import { getAdminActivities } from '@/api/admin-activities'
+import { adminApi } from '@/api/admin/admin'
+import { getAdminActivities } from '@/api/admin/admin/admin-activities'
 
 const { t } = useI18n()
 const loading = ref(false)

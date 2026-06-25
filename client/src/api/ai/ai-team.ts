@@ -6,7 +6,7 @@
 import request from '@/utils/request'
 import type { ApiResponse } from '@/types'
 import { withApiResponseHandler, normalizeApiResponse } from '@/utils/api-response'
-import type { Agent } from '@/api/agents'
+import type { Agent } from '@/api/agent/agent/agents'
 
 // AI团队列表响应
 export interface AITeamListResponse {

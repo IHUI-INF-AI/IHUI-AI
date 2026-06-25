@@ -132,7 +132,7 @@ import {
   deleteKnowledgeBaseDocument,
   type KnowledgeBase,
   type KnowledgeDocument,
-} from '@/api/knowledge'
+} from '@/api/knowledge/knowledge'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const route = useRoute()

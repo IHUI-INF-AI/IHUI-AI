@@ -254,7 +254,7 @@ import {
   batchSyncAgentAvatar,
   type AgentExamine,
   type AgentExamineStats,
-} from '@/api/agent-examine'
+} from '@/api/agent/agent/agent-examine'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime as _formatTime } from '@/utils/format'
 

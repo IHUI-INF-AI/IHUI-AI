@@ -98,7 +98,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Clock, Refresh, Close } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { getTasks, cancelTask, type Task } from '@/api/tasks'
+import { getTasks, cancelTask, type Task } from '@/api/system/tasks'
 import { useTaskWebSocket } from '@/composables/useTaskWebSocket'
 import { useAuthStore } from '@/stores/auth'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'

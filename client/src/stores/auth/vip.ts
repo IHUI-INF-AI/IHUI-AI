@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import type { UserVipInfo } from '@/api/user'
+import type { UserVipInfo } from '@/api/user/user'
 import { getStoredData } from '@/utils/request'
 
 export const useVipStore = defineStore('vip', () => {

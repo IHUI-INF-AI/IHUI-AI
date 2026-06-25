@@ -47,10 +47,10 @@ import type {
   CapabilityItemData,
   MCPTool,
 } from './types'
-import type { AIModelInfo } from '@/api/aiModelInfo'
-import type { Agent } from '@/api/agents'
-import { getAIModelList } from '@/api/aiModelInfo'
-import { getAgentList, type AgentInfo } from '@/api/agent-plaza'
+import type { AIModelInfo } from '@/api/ai/ai/aiModelInfo'
+import type { Agent } from '@/api/agent/agent/agents'
+import { getAIModelList } from '@/api/ai/ai/aiModelInfo'
+import { getAgentList, type AgentInfo } from '@/api/agent/agent/agent-plaza'
 
 // Props
 const props = withDefaults(

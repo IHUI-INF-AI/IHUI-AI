@@ -125,11 +125,11 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { Picture, Reading, ChatDotRound, Connection, Collection, VideoCamera, Document, EditPen } from '@element-plus/icons-vue'
-import { newsApi } from '@/api/news'
-import { articleApi } from '@/api/article'
-import { liveApi } from '@/api/live'
-import { examApi } from '@/api/exam'
-import { learnApi } from '@/api/learn'
+import { newsApi } from '@/api/content/news'
+import { articleApi } from '@/api/content/article'
+import { liveApi } from '@/api/learn/live'
+import { examApi } from '@/api/learn/exam'
+import { learnApi } from '@/api/learn/learn'
 import SearchBar from '@/components/module/SearchBar.vue'
 
 const loading = ref(false)

@@ -44,7 +44,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useRouter } from 'vue-router'
-import { articleApi } from '@/api/article'
+import { articleApi } from '@/api/content/article'
 import Pagination from '@/components/learn/Page.vue'
 
 const router = useRouter()

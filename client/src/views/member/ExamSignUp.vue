@@ -30,7 +30,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import MemberLayout from '@/components/member/Layout.vue'
-import { examApi } from '@/api/exam'
+import { examApi } from '@/api/learn/exam'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()

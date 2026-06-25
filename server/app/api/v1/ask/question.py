@@ -97,7 +97,7 @@ def update_question(body: QuestionUpdate):
     with get_session() as db:
         try:
             q = db.query(AskQuestion).filter(
-                AskQuestion.id == body.id, not AskQuestion.deleted
+                AskQuestion.id == body.id, AskQuestion.deleted.is_(False)
             ).first()
             if not q:
                 return error("问题不存在", "404")
@@ -147,7 +147,7 @@ def list_questions(
 ):
     with get_session() as db:
         try:
-            q = db.query(AskQuestion).filter(not AskQuestion.deleted)
+            q = db.query(AskQuestion).filter(AskQuestion.deleted.is_(False))
             if keyword:
                 q = q.filter(AskQuestion.title.like(f"%{keyword}%"))
             if status:
@@ -205,7 +205,7 @@ def public_list_questions(
     with get_session() as db:
         try:
             q = db.query(AskQuestion).filter(
-                not AskQuestion.deleted,
+                AskQuestion.deleted.is_(False),
                 AskQuestion.status == "published",
             )
             if keyword:
@@ -253,7 +253,7 @@ def public_list_questions(
 def get_question(id: int = Query(...)):
     with get_session() as db:
         try:
-            q = db.query(AskQuestion).filter(AskQuestion.id == id, not AskQuestion.deleted).first()
+            q = db.query(AskQuestion).filter(AskQuestion.id == id, AskQuestion.deleted.is_(False)).first()
             if not q:
                 return error("问题不存在", "404")
             q.watch_num = (q.watch_num or 0) + 1
@@ -279,7 +279,7 @@ def member_question_count(member_id: str | None = None):
                 db.query(AskQuestion)
                 .filter(
                     AskQuestion.member_id == uid,
-                    not AskQuestion.deleted,
+                    AskQuestion.deleted.is_(False),
                 )
                 .count()
             )

@@ -14,7 +14,7 @@ import {
   type Ticket,
   type CreateTicketRequest,
   type ReplyTicketRequest,
-} from '@/api/tickets'
+} from '@/api/system/tickets'
 import { logger } from '@/utils/logger'
 
 export function useTickets() {

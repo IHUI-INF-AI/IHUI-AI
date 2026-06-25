@@ -64,7 +64,10 @@ def _get_controller() -> CanaryStageController:
     global _CTRL
     with _LOCK:
         if _CTRL is None:
-            state_file = os.environ.get("ZHS_CANARY_STATE_FILE", "/tmp/zhs_canary_state.json")
+            # 2026-06-25 修复: 原硬编码 /tmp/zhs_canary_state.json 在 Windows 上会创建到当前盘根 (G:\tmp\...)
+            # 改用 tempfile.gettempdir() 跨平台; 仍可由环境变量 ZHS_CANARY_STATE_FILE 覆盖
+            default_state = os.path.join(tempfile.gettempdir(), "zhs_canary_state.json")
+            state_file = os.environ.get("ZHS_CANARY_STATE_FILE", default_state)
             _CTRL = CanaryStageController(state_file=state_file)
         return _CTRL
 

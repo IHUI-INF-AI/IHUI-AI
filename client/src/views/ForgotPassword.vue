@@ -300,7 +300,7 @@ import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { sendVerificationCode, verifyCode, resetPassword } from '@/api/user'
+import { sendVerificationCode, verifyCode, resetPassword } from '@/api/user/user'
 import { useCleanup } from '@/composables/useCleanup'
 
 const { t } = useI18n()

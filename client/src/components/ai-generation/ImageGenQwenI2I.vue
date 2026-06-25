@@ -72,7 +72,7 @@ import { Mic } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { generateDashScopeImageToImage } from '@/api/services/aiGeneration.service'
-import { uploadFormFile } from '@/api/file-upload'
+import { uploadFormFile } from '@/api/file/file-upload'
 import type { FormInstance } from 'element-plus'
 import { useApiError } from '@/composables/useApiError'
 

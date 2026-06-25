@@ -7,7 +7,7 @@ import { t } from '@/utils/i18n'
 
 import { ref, onUnmounted } from 'vue'
 import { useWebSocket, type WebSocketMessage, WebSocketStatus } from '@/composables/useWebSocket'
-import { getOrderDetail, type Order } from '@/api/orders'
+import { getOrderDetail, type Order } from '@/api/payment/orders'
 import { logger } from '@/utils/logger'
 
 export interface PaymentStatus {

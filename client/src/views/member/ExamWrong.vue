@@ -35,7 +35,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import MemberLayout from '@/components/member/Layout.vue'
 import { useRouter } from 'vue-router'
-import { examApi } from '@/api/exam'
+import { examApi } from '@/api/learn/exam'
 
 const { t } = useI18n()
 const router = useRouter()

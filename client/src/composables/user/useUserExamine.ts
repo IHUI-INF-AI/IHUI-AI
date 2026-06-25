@@ -2,13 +2,13 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import type { UserInfoData } from '@/api/user'
+import type { UserInfoData } from '@/api/user/user'
 import {
   getAgentExamineList,
   getAgentExamineDetail,
   updateAgentExamine,
   type AgentExamine,
-} from '@/api/agent-examine'
+} from '@/api/agent/agent/agent-examine'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { logger } from '@/utils/logger'
 import { formatTime } from '@/shared'

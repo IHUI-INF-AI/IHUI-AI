@@ -109,7 +109,7 @@ vi.mock('@/services/cozeApiService', () => ({
   },
 }))
 
-vi.mock('@/api/payment', () => ({
+vi.mock('@/api/payment/payment', () => ({
   findMockAgentById: vi.fn().mockReturnValue(null),
 }))
 

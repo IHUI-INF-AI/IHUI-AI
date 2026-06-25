@@ -47,6 +47,7 @@ categories = {
 
 for svc, eps in missing_data["by_service"].items():
     for ep in eps:
+        ep_with_svc = {**ep, "service": svc}
         java_http = ep["http"].upper()
         java_norm = ep["norm"]
         # 标准化 Java path (去 {x} -> {id})
@@ -56,7 +57,7 @@ for svc, eps in missing_data["by_service"].items():
         if java_norm_p in py_norm_index:
             for py in py_norm_index[java_norm_p]:
                 if py["http"] == java_http:
-                    categories["alias_only"].append({**ep, "py_match": py, "match_type": "exact"})
+                    categories["alias_only"].append({**ep_with_svc, "py_match": py, "match_type": "exact"})
                     break
             else:
                 continue
@@ -70,7 +71,7 @@ for svc, eps in missing_data["by_service"].items():
                 if stripped in py_norm_index:
                     for py in py_norm_index[stripped]:
                         if py["http"] == java_http:
-                            categories["alias_only"].append({**ep, "py_match": py, "match_type": f"strip_{prefix}"})
+                            categories["alias_only"].append({**ep_with_svc, "py_match": py, "match_type": f"strip_{prefix}"})
                             break
                     else:
                         continue
@@ -83,14 +84,14 @@ for svc, eps in missing_data["by_service"].items():
                 if java_last == py_last and len(java_last) >= 4:
                     for py in py_eps:
                         if py["http"] == java_http:
-                            categories["alias_only"].append({**ep, "py_match": py, "match_type": "last_seg"})
+                            categories["alias_only"].append({**ep_with_svc, "py_match": py, "match_type": "last_seg"})
                             break
                     else:
                         continue
                     break
             else:
                 # 4. 真正缺失
-                categories["truly_missing"].append(ep)
+                categories["truly_missing"].append(ep_with_svc)
 
 # 统计
 print("=" * 80)

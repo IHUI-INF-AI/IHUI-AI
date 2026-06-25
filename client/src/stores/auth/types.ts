@@ -1,4 +1,4 @@
-import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
+import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user/user'
 
 export interface RawUserInfo {
   id?: string

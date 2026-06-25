@@ -94,7 +94,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { Iphone, Lock } from '@element-plus/icons-vue'
-import { sendPhoneLoginCode, phoneLogin, completePhoneLogin } from '@/api/user'
+import { sendPhoneLoginCode, phoneLogin, completePhoneLogin } from '@/api/user/user'
 import { useAuthStore } from '@/stores/auth'
 import { useCleanup } from '@/composables/useCleanup'
 

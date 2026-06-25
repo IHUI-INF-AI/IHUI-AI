@@ -69,7 +69,7 @@ import { ElMessage } from 'element-plus'
 import StatsPanel from '@/components/common/StatsPanel.vue'
 import type { StatItem } from '@/components/common/StatsPanel.vue'
 import { useUserStatistics } from '@/composables/user/useUserStatistics'
-import { getTokenValueRecords } from '@/api/token-value'
+import { getTokenValueRecords } from '@/api/statistics/statistics/token-value'
 import { useApiError } from '@/composables/useApiError'
 import { formatDateTime } from '@/utils/format'
 

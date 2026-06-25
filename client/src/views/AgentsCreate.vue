@@ -123,7 +123,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { type FormInstance, type FormRules } from 'element-plus'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getAgentCategories, type AgentCategory } from '@/api/agents'
+import { getAgentCategories, type AgentCategory } from '@/api/agent/agent/agents'
 import AISDK from '@/utils/ai-sdk'
 
 const { t } = useI18n()

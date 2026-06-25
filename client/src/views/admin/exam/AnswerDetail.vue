@@ -56,7 +56,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/admin/admin'
 
 const route = useRoute()
 const loading = ref(false)

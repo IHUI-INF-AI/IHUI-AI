@@ -8,7 +8,7 @@ import {
   bindThirdPartyAccount as bindThirdPartyAccountApi,
   unbindThirdPartyAccount as unbindThirdPartyAccountApi,
   getUserThirdPartyAccounts,
-} from '@/api/user'
+} from '@/api/user/user'
 
 // 第三方平台类型
 export type ThirdPartyPlatform = 'alipay' | 'google'

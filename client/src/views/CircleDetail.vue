@@ -60,7 +60,7 @@ import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
-import { circleApi } from '@/api/circle'
+import { circleApi } from '@/api/content/circle'
 
 const route = useRoute()
 const router = useRouter()

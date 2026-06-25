@@ -40,7 +40,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { newsApi } from '@/api/news'
+import { newsApi } from '@/api/content/news'
 import Pagination from '@/components/learn/Page.vue'
 
 const { t } = useI18n()

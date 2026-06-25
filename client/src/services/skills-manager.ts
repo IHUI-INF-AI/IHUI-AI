@@ -14,7 +14,7 @@ import {
   getSkillsListFromBackend,
   getSkillMetadataFromBackend,
   getSkillContentFromBackend,
-} from '@/api/skills-backend'
+} from '@/api/skills/skills/skills-backend'
 import type {
   SkillMetadata,
   SkillContent,

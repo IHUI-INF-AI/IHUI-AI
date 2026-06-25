@@ -136,8 +136,8 @@ import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { RefreshCw, Copy, Download } from '@/lib/lucide-fallback'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import { useMCP } from '@/composables/useMCP'
-import { callMCPPrompt } from '@/api/mcp'
-import type { MCPPrompt } from '@/api/mcp'
+import { callMCPPrompt } from '@/api/tools/mcp'
+import type { MCPPrompt } from '@/api/tools/mcp'
 
 const { t } = useI18n()
 const { showSuccess, showError, showWarning } = useOperationFeedback()

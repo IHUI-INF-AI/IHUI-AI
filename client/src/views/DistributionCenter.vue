@@ -181,14 +181,14 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
-import type { UserInfoData } from '@/api/user'
+import type { UserInfoData } from '@/api/user/user'
 import { useCleanup } from '@/composables/useCleanup'
 import {
   getOperatorDataCardData,
   getInviteCode,
   getWxCode,
   realAuth,
-} from '@/api/distribution'
+} from '@/api/distribution/distribution'
 import PersonalInfoCard from './distribution/components/PersonalInfoCard.vue'
 import EarningsStatisticsCard from './distribution/components/EarningsStatisticsCard.vue'
 import FunctionBlockColumn from './distribution/components/FunctionBlockColumn.vue'

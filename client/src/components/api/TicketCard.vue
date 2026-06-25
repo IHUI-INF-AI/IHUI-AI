@@ -52,7 +52,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ChatDotRound } from '@element-plus/icons-vue'
-import type { Ticket } from '@/api/tickets'
+import type { Ticket } from '@/api/system/tickets'
 import { formatTime } from '@/utils/format'
 
 defineOptions({

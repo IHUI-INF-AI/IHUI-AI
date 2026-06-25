@@ -120,7 +120,7 @@ import {
   updateFeedbackStatus,
   type Feedback as ApiFeedback,
   type FeedbackStatus,
-} from '@/api/feedback'
+} from '@/api/content/feedback'
 
 interface Feedback {
   id: string

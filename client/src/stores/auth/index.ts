@@ -8,12 +8,12 @@ import {
   phoneLogin,
   completePhoneLogin,
   logout as apiLogout,
-} from '@/api/user'
+} from '@/api/user/user'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
 import type { LoginDuration } from '@/utils/login-duration'
 import type { LoginParams, RegisterParams } from '@/types'
-import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
+import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user/user'
 import type { LoginResponseData } from './types'
 import { buildUserFromLoginResponse } from './utils'
 import { useTokenStore } from './token'
@@ -605,7 +605,7 @@ export const useAuthStore = defineStore('auth', () => {
       us.isLoading = true
       logger.info('[AuthStore] Attempting to auto-login with refreshToken')
 
-      const { refreshToken: refreshTokenApi } = await import('@/api/user')
+      const { refreshToken: refreshTokenApi } = await import('@/api/user/user')
       const response = await refreshTokenApi(savedRefreshToken)
 
       if (response.success && response.data) {

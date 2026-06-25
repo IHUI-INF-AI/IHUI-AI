@@ -20,7 +20,7 @@ const { t } = useI18n()
 import { ref, onMounted, h } from 'vue'
 import { ElButton, ElTag, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/admin/admin'
 
 const keyword = ref('')
 const page = ref(1)

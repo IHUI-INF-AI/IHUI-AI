@@ -23,7 +23,7 @@
 import { useI18n } from 'vue-i18n'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getWalletInfo } from '@/api/wallet'
+import { getWalletInfo } from '@/api/payment/wallet'
 
 const { t } = useI18n()
 const loading = ref(false)

@@ -26,7 +26,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/member'
+import { memberApi } from '@/api/learn/learn/member'
 
 const list = ref<any[]>([])
 const loading = ref(false)

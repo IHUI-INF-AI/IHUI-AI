@@ -268,8 +268,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { useRouter } from 'vue-router'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getMCPServersList, getMCPResource } from '@/api/mcp'
-import type { MCPServer } from '@/api/mcp'
+import { getMCPServersList, getMCPResource } from '@/api/tools/mcp'
+import type { MCPServer } from '@/api/tools/mcp'
 import { useApiError } from '@/composables/useApiError'
 
 import {

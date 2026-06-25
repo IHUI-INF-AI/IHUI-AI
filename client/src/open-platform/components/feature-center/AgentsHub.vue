@@ -124,7 +124,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { View, UserFilled, VideoPlay } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { getAgentsList, getAgentCategories, type Agent, type AgentCategory } from '@/api/agents'
+import { getAgentsList, getAgentCategories, type Agent, type AgentCategory } from '@/api/agent/agent/agents'
 import { logger } from '@/utils/logger'
 import { usePagination } from '@/composables/user/usePagination'
 

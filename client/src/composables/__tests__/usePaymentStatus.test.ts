@@ -3,7 +3,7 @@ import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { usePaymentStatus, PaymentStatus } from '../usePaymentStatus'
 import { useWebSocket } from '../useWebSocket'
-import { getOrderDetail } from '@/api/orders'
+import { getOrderDetail } from '@/api/payment/orders'
 
 vi.mock('@/utils/logger', () => ({
   logger: {
@@ -32,7 +32,7 @@ vi.mock('../useWebSocket', () => ({
   },
 }))
 
-vi.mock('@/api/orders', () => ({
+vi.mock('@/api/payment/orders', () => ({
   getOrderDetail: vi.fn().mockResolvedValue({
     code: 200,
     data: {

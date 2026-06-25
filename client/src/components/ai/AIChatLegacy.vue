@@ -506,14 +506,14 @@ import {
 } from '@/utils/speechRecognition'
 import {
   streamGenerateContent,
-} from '@/api/ai'
+} from '@/api/ai/ai'
 import {
   getAvailableModels,
-} from '@/api/models'
+} from '@/api/models/models'
 import { exportMessagesToFile } from '@/utils/messageExport'
-import { getConversations, type Conversation } from '@/api/chat-history'
+import { getConversations, type Conversation } from '@/api/chat/chat/chat-history'
 import { getChatHistoryMessages, deleteChatRecord } from '@/api/services'
-import type { AIModelInfo } from '@/api/models'
+import type { AIModelInfo } from '@/api/models/models'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Loader2,

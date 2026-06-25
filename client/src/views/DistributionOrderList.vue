@@ -108,7 +108,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { useI18n } from 'vue-i18n'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { getCommissionFlow } from '@/api/distribution'
+import { getCommissionFlow } from '@/api/distribution/distribution'
 import { logger } from '@/utils/logger'
 import { formatMoney } from '@/utils/format'
 

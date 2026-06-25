@@ -72,7 +72,7 @@ import { ElButton, ElDialog, ElTag, ElRadioGroup, ElRadioButton, type Column } f
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
 import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/admin/admin'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { useAdminCrud } from '@/composables/useAdminCrud'
 import { useI18n } from 'vue-i18n'

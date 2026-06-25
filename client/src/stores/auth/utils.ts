@@ -1,6 +1,6 @@
 import { getStoredData } from '@/utils/request'
 import { StorageManager, SecureStorageManager, STORAGE_KEYS } from '@/utils/storage'
-import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
+import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user/user'
 import type { LoginResponseData, RawUserInfo } from './types'
 
 export const saveUserDataToStorage = (userData: UserInfoData) => {

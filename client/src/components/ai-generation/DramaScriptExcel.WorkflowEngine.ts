@@ -9,7 +9,7 @@
  */
 
 import { logger } from '@/utils/logger'
-import { streamGenerateContent } from '@/api/ai'
+import { streamGenerateContent } from '@/api/ai/ai'
 import type {
   SceneFragment,
   Character,

@@ -9,7 +9,7 @@
 import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { updatePrivacySettings } from '@/api/settings'
+import { updatePrivacySettings } from '@/api/system/settings'
 import type { UserSettings } from '@/shared/api'
 
 /**

@@ -39,7 +39,7 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { Star, Collection } from '@element-plus/icons-vue'
-import { articleApi } from '@/api/article'
+import { articleApi } from '@/api/content/article'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 import Breadcrumb from '@/components/learn/Breadcrumb.vue'
 

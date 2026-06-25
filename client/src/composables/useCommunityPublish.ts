@@ -6,7 +6,7 @@
  */
 import { ref, computed, type ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
-import type { PublishCreationParams, ContentType, AISource } from '@/api/ai-community'
+import type { PublishCreationParams, ContentType, AISource } from '@/api/ai/ai/ai-community'
 
 /** 发布预填数据 */
 interface PublishPrefillData extends Partial<PublishCreationParams> {

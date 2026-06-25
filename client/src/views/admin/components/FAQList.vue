@@ -70,7 +70,7 @@ import {
   deleteAdminFAQ,
   toggleAdminFAQTop,
   type AdminFAQ,
-} from '@/api/admin-faq'
+} from '@/api/admin/admin/admin-faq'
 
 const { t } = useI18n()
 

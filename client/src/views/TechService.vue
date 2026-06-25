@@ -108,7 +108,7 @@ import { ElMessage } from 'element-plus'
 import { Setting, Phone, Reading, ChatLineRound, Calendar } from '@element-plus/icons-vue'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { createAppointment, type CreateAppointmentRequest } from '@/api/service-appointment'
-import { sendAppointmentCreatedNotification } from '@/api/notification'
+import { sendAppointmentCreatedNotification } from '@/api/system/notification'
 import { logger } from '@/utils/logger'
 import { openCustomerServiceChat } from '@/composables/useOpenCustomerServiceChat'
 

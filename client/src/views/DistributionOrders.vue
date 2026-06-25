@@ -126,7 +126,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { FileText } from '@/lib/lucide-fallback'
-import { getUserAndChildrenOrders, type DistributionOrder } from '@/api/distribution'
+import { getUserAndChildrenOrders, type DistributionOrder } from '@/api/distribution/distribution'
 import GlobalLoading from '@/components/common/GlobalLoading.vue'
 import { useApiError } from '@/composables/useApiError'
 

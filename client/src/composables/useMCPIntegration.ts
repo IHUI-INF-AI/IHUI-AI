@@ -7,7 +7,7 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getI18nGlobal } from '@/locales'
 import { useMCP, type MCPCallResult } from './useMCP'
-import type { MCPTool } from '@/api/mcp'
+import type { MCPTool } from '@/api/tools/mcp'
 
 // 工具调用上下文
 interface ToolCallContext {

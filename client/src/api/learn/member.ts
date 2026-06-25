@@ -17,8 +17,8 @@
  */
 import http from '@/utils/request'
 import type { ApiResponse, PaginationParams, PaginationResponse } from '@/types'
-import type { Comment } from '@/api/community'
-import type { Certificate } from '@/api/learn'
+import type { Comment } from '@/api/content/community'
+import type { Certificate } from '@/api/learn/learn'
 
 export interface MemberProfile {
   id: string
@@ -47,7 +47,7 @@ export interface PointLog {
   createTime: string
 }
 
-export type { ExamPaper, ExamQuestion, ExamRecord } from '@/api/exam'
+export type { ExamPaper, ExamQuestion, ExamRecord } from '@/api/learn/exam'
 
 export interface FollowUser {
   id: string | number
@@ -121,12 +121,12 @@ export const memberApi = {
       '/user/learn/stat'
     ),
 
-  signUps: (params?: Record<string, unknown>) => import('@/api/exam').then((m) => m.examApi.records(params)),
-  records: (params?: Record<string, unknown>) => import('@/api/exam').then((m) => m.examApi.records(params)),
-  recordDetail: (id: number | string) => import('@/api/exam').then((m) => m.examApi.recordDetail(Number(id))),
-  wrongList: (params?: Record<string, unknown>) => import('@/api/exam').then((m) => m.examApi.wrongList(params)),
+  signUps: (params?: Record<string, unknown>) => import('@/api/learn/exam').then((m) => m.examApi.records(params)),
+  records: (params?: Record<string, unknown>) => import('@/api/learn/exam').then((m) => m.examApi.records(params)),
+  recordDetail: (id: number | string) => import('@/api/learn/exam').then((m) => m.examApi.recordDetail(Number(id))),
+  wrongList: (params?: Record<string, unknown>) => import('@/api/learn/exam').then((m) => m.examApi.wrongList(params)),
   markWrongMastered: (id: number | string) =>
-    import('@/api/exam').then((m) => m.examApi.markWrongMastered(Number(id))),
+    import('@/api/learn/exam').then((m) => m.examApi.markWrongMastered(Number(id))),
 
   myAskDetail: (id: string | number) => http.get<ApiResponse<unknown>>(`/ask/${id}`),
   myAskReply: (data: { askId: string | number; content: string }) =>

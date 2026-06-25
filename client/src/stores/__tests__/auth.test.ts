@@ -11,14 +11,14 @@ import {
   phoneLogin,
   completePhoneLogin,
   getUserInfo,
-} from '@/api/user'
+} from '@/api/user/user'
 import { isLoginExpired, isExpiryTimePassed } from '@/utils/login-duration'
 
 // 模拟存储数据（闭包方式，与 wallet.test.ts 一致）
 const mockStorageData: Record<string, unknown> = {}
 const mockSecureStorageData: Record<string, unknown> = {}
 
-vi.mock('@/api/user', () => ({
+vi.mock('@/api/user/user', () => ({
   login: vi.fn(),
   logout: vi.fn(),
   register: vi.fn(),

@@ -25,7 +25,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/admin/admin'
 const loading = ref(false)
 const form = ref({ password: '', twoFactor: false, securityEmail: '', securityMobile: '' })
 async function load() {

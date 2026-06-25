@@ -159,7 +159,7 @@ import {
   deleteKnowledgeBase,
   searchKnowledge,
   type KnowledgeBase,
-} from '@/api/knowledge'
+} from '@/api/knowledge/knowledge'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const { t } = useI18n()

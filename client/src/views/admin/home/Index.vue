@@ -24,7 +24,7 @@
 import { ref, onMounted, markRaw } from 'vue'
 import { User, Reading, ShoppingCart, Money, Promotion, VideoCamera, ChatDotRound, EditPen } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { adminApi } from '@/api/admin'
+import { adminApi } from '@/api/admin/admin'
 
 const { t } = useI18n()
 const loading = ref(false)

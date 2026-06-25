@@ -53,7 +53,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MoreFilled, Connection, Box } from '@element-plus/icons-vue'
-import type { App } from '@/api/apps'
+import type { App } from '@/api/app/apps'
 import { formatTime, formatNumber } from '@/utils/format'
 
 defineOptions({

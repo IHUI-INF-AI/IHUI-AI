@@ -7,14 +7,14 @@
  * 前端可据此显示空态或"暂无数据"。
  */
 
-import { adminApi } from './admin'
+import { adminApi } from './admin/admin'
 import {
   getSystemStatistics,
   getRealtimeStatistics,
   getOrderStatistics,
   getUsageStatistics,
-} from './statistics'
-import { getAdminActivities, type AdminActivity } from './admin-activities'
+} from './statistics/statistics'
+import { getAdminActivities, type AdminActivity } from './admin/admin/admin-activities'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
 

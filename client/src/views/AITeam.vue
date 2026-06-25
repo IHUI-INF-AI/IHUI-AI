@@ -106,9 +106,9 @@ import { Menu, Loading, Star, Collection } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { logger } from '@/utils/logger'
-import { toggleAgentThumbs, toggleAgentCollect, getUserFavorites } from '@/api/agents'
+import { toggleAgentThumbs, toggleAgentCollect, getUserFavorites } from '@/api/agent/agent/agents'
 import { category } from '@/services/api'
-import type { UserInfoData } from '@/api/user'
+import type { UserInfoData } from '@/api/user/user'
 import { useApiError } from '@/composables/useApiError'
 
 interface Agent {

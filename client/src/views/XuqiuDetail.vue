@@ -242,11 +242,11 @@ import {
   Share,
 } from '@element-plus/icons-vue'
 import { CollectionFilled } from '@/lib/lucide-fallback'
-import { getDemandDetail, likeDemand, unlikeDemand, collectDemand, uncollectDemand, shareDemand } from '@/api/xuqiu'
+import { getDemandDetail, likeDemand, unlikeDemand, collectDemand, uncollectDemand, shareDemand } from '@/api/content/xuqiu'
 import { logger } from '@/utils/logger'
 import { escapeHtml, sanitizeHtml } from '@/utils/htmlSanitizer'
 import { formatTimeDistance } from '@/utils/time-utils'
-import type { Demand, DemandComment, PlazaDemand } from '@/api/xuqiu'
+import type { Demand, DemandComment, PlazaDemand } from '@/api/content/xuqiu'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -446,7 +446,7 @@ const loadComments = async () => {
   if (!demand.value) return
 
   try {
-    const { getDemandComments } = await import('@/api/xuqiu')
+    const { getDemandComments } = await import('@/api/content/xuqiu')
     const response = await getDemandComments(String(demand.value.id), {
       page: 1,
       pageSize: 50,
@@ -470,7 +470,7 @@ const handleSubmitComment = async () => {
 
   commentLoading.value = true
   try {
-    const { createDemandComment } = await import('@/api/xuqiu')
+    const { createDemandComment } = await import('@/api/content/xuqiu')
     const response = await createDemandComment({
       demandId: String(demand.value.id),
       content: commentText.value.trim(),
@@ -517,7 +517,7 @@ const handleLikeComment = async (comment: { id: string; likeCount?: number; isLi
 
   commentLikeLoading.value[comment.id] = true
   try {
-    const { likeComment, unlikeComment } = await import('@/api/xuqiu')
+    const { likeComment, unlikeComment } = await import('@/api/content/xuqiu')
 
     if (comment.isLiked) {
       const response = await unlikeComment(comment.id)
@@ -546,7 +546,7 @@ const handleSubmitReply = async () => {
 
   commentLoading.value = true
   try {
-    const { createDemandComment } = await import('@/api/xuqiu')
+    const { createDemandComment } = await import('@/api/content/xuqiu')
     const response = await createDemandComment({
       demandId: String(demand.value.id),
       content: replyText.value.trim(),

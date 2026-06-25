@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getI18nGlobal } from '@/locales'
-import { getUserInfo } from '@/api/user'
+import { getUserInfo } from '@/api/user/user'
 import { getStoredData } from '@/utils/request'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
-import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
+import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user/user'
 import type { RawUserInfo } from './types'
 import {
   extractNickname,

@@ -15,7 +15,7 @@ import {
   type MCPTool,
   type MCPResource,
   type MCPPrompt,
-} from '@/api/mcp'
+} from '@/api/tools/mcp'
 import { useMCPPerformance } from './useMCPPerformance'
 
 // MCP 调用结果

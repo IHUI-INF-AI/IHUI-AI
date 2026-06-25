@@ -121,7 +121,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { getAgentStatistics, type AgentStatistics } from '@/api/statistics'
+import { getAgentStatistics, type AgentStatistics } from '@/api/statistics/statistics'
 import { useApiError } from '@/composables/useApiError'
 import { useI18n } from 'vue-i18n'
 

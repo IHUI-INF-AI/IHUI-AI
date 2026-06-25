@@ -6,7 +6,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { updateUserInfo, sendVerificationCode, type UserInfoData } from '@/api/user'
+import { updateUserInfo, sendVerificationCode, type UserInfoData } from '@/api/user/user'
 import { FormValidator } from '@/utils/formValidation'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useApiError } from '@/composables/useApiError'

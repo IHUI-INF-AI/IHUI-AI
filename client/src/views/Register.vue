@@ -598,7 +598,7 @@ const sendPhoneCode = async () => {
     }
 
     // 调用发送验证码API - 匹配后端参数
-    const { sendVerificationCode } = await import('@/api/user')
+    const { sendVerificationCode } = await import('@/api/user/user')
     const response = await sendVerificationCode({
       type: 'phone',
       target: phone,

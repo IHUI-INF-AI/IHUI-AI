@@ -4,7 +4,7 @@
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getinformationListnews } from '@/api/knowledge-planet'
+import { getinformationListnews } from '@/api/knowledge/knowledge/knowledge-planet'
 import { getProxiedImageUrl } from '@/utils/imageProxy'
 import { logger } from '@/utils/logger'
 

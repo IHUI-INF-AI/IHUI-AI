@@ -97,7 +97,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import LearnVideo from '@/components/learn/Video.vue'
-import { liveApi } from '@/api/live'
+import { liveApi } from '@/api/learn/live'
 
 const { t } = useI18n()
 const route = useRoute()

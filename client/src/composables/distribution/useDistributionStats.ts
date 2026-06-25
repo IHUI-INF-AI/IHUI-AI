@@ -10,7 +10,7 @@ import { ref } from 'vue'
 import { logger } from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getInviteCode, getDistributionStatistics } from '@/api/distribution'
+import { getInviteCode, getDistributionStatistics } from '@/api/distribution/distribution'
 
 /**
  * 分销统计数据接口

@@ -101,7 +101,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElLoading } from 'element-plus'
 import SettingsPageLayout from './SettingsPageLayout.vue'
-import { sendTextMsg, sendTextMsgNew, editPhone } from '@/api/auth'
+import { sendTextMsg, sendTextMsgNew, editPhone } from '@/api/auth/auth'
 import { useUserStore } from '@/stores/auth'
 import { useCleanup } from '@/composables/useCleanup'
 

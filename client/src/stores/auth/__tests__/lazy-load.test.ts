@@ -105,7 +105,7 @@ vi.mock('@/utils/rememberMeService', () => ({
   },
 }))
 
-vi.mock('@/api/user', () => ({
+vi.mock('@/api/user/user', () => ({
   login: vi.fn(),
   register: vi.fn(),
   phoneLogin: vi.fn(),

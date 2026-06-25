@@ -106,7 +106,7 @@ import {
   Clock,
   InfoFilled,
 } from '@/lib/lucide-fallback'
-import { generateWechatQrCode, checkWechatQrStatus } from '@/api/unified-wechat'
+import { generateWechatQrCode, checkWechatQrStatus } from '@/api/unified/unified-wechat'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
 

@@ -10,7 +10,7 @@
  */
 
 import { logger } from '@/utils/logger'
-import { streamGenerateContent } from '@/api/ai'
+import { streamGenerateContent } from '@/api/ai/ai'
 import { t } from '@/utils/i18n'
 import type { SceneFragment } from './DramaScriptExcel.types'
 

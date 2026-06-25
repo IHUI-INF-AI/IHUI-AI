@@ -135,7 +135,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Setting, Cpu, Document } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { getAvailableModels, type AIModelInfo } from '@/api/models'
+import { getAvailableModels, type AIModelInfo } from '@/api/models/models'
 import { logger } from '@/utils/logger'
 import { usePagination } from '@/composables/user/usePagination'
 

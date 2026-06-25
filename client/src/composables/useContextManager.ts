@@ -13,7 +13,7 @@
 
 import { ref, computed, type Ref } from 'vue'
 import { logger } from '@/utils/logger'
-import { streamGenerateContent } from '@/api/ai'
+import { streamGenerateContent } from '@/api/ai/ai'
 import type {
   ChatMessage,
   ContextConfig,

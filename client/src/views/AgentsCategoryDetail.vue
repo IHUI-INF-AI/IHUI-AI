@@ -96,7 +96,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Server, Loading, Star, CollectionFilled } from '@/lib/lucide-fallback'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { getAgentList, getAgentCollect, getAgentLike, type AgentInfo } from '@/api/agent-plaza'
+import { getAgentList, getAgentCollect, getAgentLike, type AgentInfo } from '@/api/agent/agent/agent-plaza'
 
 const { t } = useI18n()
 const route = useRoute()

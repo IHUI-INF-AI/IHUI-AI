@@ -81,7 +81,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getBehaviorStatistics, type BehaviorStatistics } from '@/api/statistics'
+import { getBehaviorStatistics, type BehaviorStatistics } from '@/api/statistics/statistics'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useApiError } from '@/composables/useApiError'
 import { useChartConfig } from '@/composables/useChartConfig'

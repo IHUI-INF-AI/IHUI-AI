@@ -355,7 +355,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { type Order } from '@/api/orders'
+import { type Order } from '@/api/payment/orders'
 import { v2Orders } from '@/api/v2-business'
 import { ElMessageBox } from 'element-plus'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
@@ -625,8 +625,8 @@ const mapTabToApiStatus = (tabStatus: string): string | undefined => {
   }
 }
 
-// transformApiOrder 函数：将 @/api/orders 返回的 Order 转换为视图需要的 Order 格式
-// 注意：@/api/orders 返回的 Order 已经包含了视图需要的字段，这里只需要类型转换
+// transformApiOrder 函数：将 @/api/payment/orders 返回的 Order 转换为视图需要的 Order 格式
+// 注意：@/api/payment/orders 返回的 Order 已经包含了视图需要的字段，这里只需要类型转换
 const transformApiOrder = (o: Order | Record<string, unknown>): Order => {
   const order = o as Record<string, unknown>
   return {
@@ -894,7 +894,7 @@ const requestRefund = async (order: Order) => {
 
     if (!form || !form.trim()) return
 
-    const { applyRefund } = await import('@/api/refund')
+    const { applyRefund } = await import('@/api/payment/refund')
     const response = await applyRefund({
       orderNo: order.orderNo || order.id,
       reason: form.trim(),

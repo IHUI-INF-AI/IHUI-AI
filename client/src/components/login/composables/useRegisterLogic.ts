@@ -7,8 +7,8 @@ import { ref, reactive, type Ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { register } from '@/api/auth'
-import { unifiedRegister, isValidSource, type LoginSource } from '@/api/unified-auth'
+import { register } from '@/api/auth/auth'
+import { unifiedRegister, isValidSource, type LoginSource } from '@/api/unified/unified-auth'
 import { FormValidator } from '@/utils/formValidation'
 import { InputValidator } from '@/utils/security'
 import { logger } from '@/utils/logger'
@@ -96,7 +96,7 @@ export function useRegisterLogic(options: RegisterLogicOptions) {
     }
 
     try {
-      const { sendVerificationCode } = await import('@/api/user')
+      const { sendVerificationCode } = await import('@/api/user/user')
       await sendVerificationCode({
         type: 'phone',
         target: formData.phone,

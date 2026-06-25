@@ -249,7 +249,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { GraduationCap } from '@/lib/lucide-fallback'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { submitAICareerForm, type AICareerFormData } from '@/api/ai-career'
+import { submitAICareerForm, type AICareerFormData } from '@/api/ai/ai/ai-career'
 import { logger } from '@/utils/logger'
 
 const { t } = useI18n()
