@@ -239,7 +239,7 @@ function selectPayMethod(method: string) {
 }
 
 function openAgreement() {
-  window.open('/agreement/service', '_blank')
+  window.open('/terms-of-service', '_blank')
 }
 
 async function doPayment() {
@@ -507,7 +507,7 @@ function closeResultPopup() {
   showResultDialog.value = false
 
   if (paymentSuccess.value) {
-    window.location.href = '/member'
+    window.location.href = '/member/personal'
   }
 }
 

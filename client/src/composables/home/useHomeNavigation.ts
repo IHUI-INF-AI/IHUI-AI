@@ -83,7 +83,7 @@ export function useHomeNavigation(options: UseHomeNavigationOptions = {}) {
    * 跳转到文档中心
    */
   const goToDocCenter = (event?: MouseEvent) => {
-    void safeNavigate('/doc-center', event)
+    void safeNavigate('/support/document-center', event)
   }
 
   return {

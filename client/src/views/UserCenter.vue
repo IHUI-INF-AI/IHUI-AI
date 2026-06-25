@@ -332,19 +332,19 @@ function handleCloseLoginPopup() {
 }
 
 function handleOpenLevelIntroducePopup() {
-  router.push('/vip-details?type=levelPopup')
+  router.push('/vip/details?type=levelPopup')
 }
 
 function handleOpenIntroducePopup() {
-  router.push('/vip-details?type=IntroducePopup')
+  router.push('/vip/details?type=IntroducePopup')
 }
 
 function handleOpenIntroducePopups() {
-  router.push('/vip-details?type=IntroducePopups')
+  router.push('/vip/details?type=IntroducePopups')
 }
 
 function handleOpenPrivateAdvisoryPopup() {
-  router.push('/vip-details?type=PrivateAdvisory')
+  router.push('/vip/details?type=PrivateAdvisory')
 }
 
 function handleOpenIntroduces() {
