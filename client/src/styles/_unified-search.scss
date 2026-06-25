@@ -33,7 +33,6 @@ html.dark {
   border-radius: var(--global-border-radius);
   background: var(--unified-search-bg);
   border: 1px solid var(--unified-search-border);
-  box-shadow: var(--unified-search-shadow);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: border-color $transition-base;
@@ -44,11 +43,9 @@ html.dark {
   }
 
   html.dark & {
-    box-shadow: var(--unified-search-shadow);
     &:focus-within {
       border-width: 2px;
       border-color: var(--unified-search-focus-color);
-      box-shadow: var(--unified-search-shadow);
     }
   }
 
@@ -115,7 +112,6 @@ html.dark {
     background: var(--unified-search-bg);
     border: 1px solid var(--unified-search-border);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--unified-search-shadow);
     padding: 6px 16px;
     height: 44px;
     transition: all $transition-base ease;
@@ -154,7 +150,6 @@ html.dark {
   border-radius: var(--global-border-radius);
   background: var(--unified-search-bg);
   border: 1px solid var(--unified-search-border);
-  box-shadow: var(--unified-search-shadow);
   transition: border-color $transition-base;
 
   &:focus-within {
@@ -165,7 +160,6 @@ html.dark {
   html.dark &:focus-within {
     border-width: 2px;
     border-color: var(--unified-search-focus-color);
-    box-shadow: var(--unified-search-shadow);
   }
 
   input,
@@ -194,7 +188,6 @@ html.dark {
       background: var(--unified-search-bg);
       border: 1px solid var(--unified-search-border);
       border-radius: var(--global-border-radius);
-      box-shadow: var(--unified-search-shadow);
       padding: 6px 16px;
       height: 44px;
       transition: all $transition-base ease;

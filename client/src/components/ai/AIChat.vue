@@ -9323,7 +9323,6 @@ cleanup.add(() => {
     background: var(--unified-search-bg);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--unified-search-shadow, none);
     padding: 6px 16px;
     height: 44px;
 
@@ -9339,7 +9338,6 @@ cleanup.add(() => {
 
     &.is-focus {
       border-color: var(--unified-search-focus-color);
-      box-shadow: var(--unified-search-shadow, none);
     }
   }
 }
