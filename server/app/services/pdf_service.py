@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import uuid
+import warnings
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -10,7 +11,15 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
-from PyPDF2 import PdfReader, PdfWriter
+
+# 优先使用 pypdf（PyPDF2 的继任者），降级到 PyPDF2 时抑制废弃警告
+try:
+    from pypdf import PdfReader, PdfWriter
+except ImportError:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        from PyPDF2 import PdfReader, PdfWriter
+
 from reportlab.pdfgen import canvas
 
 from app.services._legacy_settings import settings as _legacy_settings
