@@ -126,6 +126,28 @@ class AskFavorite(TimestampMixin, Base):
     target_id = Column(BigInteger, nullable=False, comment="目标ID")
 
 
+class AskWatch(TimestampMixin, Base):
+    """观看/订阅表(通用:问题/回答/圈子).
+
+    迁移自 H:\\edu server\\ihui-ai-edu-ask-service\\WatchController
+    字段:
+    - topic_type: question/answer/circle
+    - topic_id: 目标对象 ID
+    - member_id: 观看者 UUID
+    """
+
+    __tablename__ = "ask_watch"
+    __table_args__ = (
+        Index("idx_aw_topic", "topic_type", "topic_id"),
+        Index("idx_aw_member", "member_id"),
+    )
+
+    id = id_column(comment="ID")
+    topic_type = Column(String(20), nullable=False, comment="question/answer/circle")
+    topic_id = Column(BigInteger, nullable=False, comment="目标对象ID")
+    member_id = Column(String(64), nullable=False, comment="观看者UUID")
+
+
 class AskComment(TimestampMixin, Base):
     """评论表(对问题/回答评论)"""
 

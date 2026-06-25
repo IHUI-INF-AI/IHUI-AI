@@ -981,6 +981,26 @@ from app.api.v1.resource.watermark import router as resource_watermark_router  #
 
 api_router.include_router(resource_watermark_router, tags=["Resource Watermark"])
 
+# --- Member Legacy Routes: Java MemberController 1:1 兼容 (80+ 个端点) ---
+# 注意: 必须在 admin_panel 之前注册, 因为两者都定义了 /post/list, /post, /group/list 等路径.
+# Member 业务域的语义优先于 SysPost / SysGroup (admin_panel 概念).
+from app.api.v1.member_legacy import router as member_legacy_router  # noqa: E402
+
+api_router.include_router(member_legacy_router)
+
+# --- Resource Legacy Routes: Java ResourceController 1:1 兼容 (42 个端点) ---
+# 必须在 admin_panel 之前注册, 因为两者都定义了 /category/*, /statistics 等路径.
+# Resource 业务域的语义优先于 SysCategory / SysStatistics (admin_panel 概念).
+from app.api.v1.resource_legacy import router as resource_legacy_router  # noqa: E402
+
+api_router.include_router(resource_legacy_router)
+
+# --- Article + Invoice + Exam Legacy Routes: 1:1 兼容 Java (42 端点) ---
+# 必须在 admin_panel 之前注册, 因为都定义了 /exam/*, /article/* 等路径.
+from app.api.v1.article_invoice_exam_legacy import router as article_invoice_exam_legacy_router  # noqa: E402
+
+api_router.include_router(article_invoice_exam_legacy_router)
+
 # --- Admin 管理后台 (13 个核心模块: profile/logininfor/notice-job/user-mgmt/menu-role/dept-post/dict-type-data/dictionary/config/online/codegen) ---
 from app.api.v1.admin_panel import register_routers as _register_admin_panel  # noqa: E402
 
@@ -991,12 +1011,84 @@ from app.api.v1.edu import register_routers as _register_edu_panel  # noqa: E402
 
 _register_edu_panel(api_router)
 
-# --- Member Legacy Routes: Java MemberController 1:1 兼容 (80 个端点) ---
-from app.api.v1.member_legacy import router as member_legacy_router  # noqa: E402
-
-api_router.include_router(member_legacy_router)
-
-# --- Legacy Compat: Java 旧 API 1:1 兼容 (488 个端点) ---
+# --- Legacy Compat: Java 旧 API 1:1 兼容 (已清空, 历史路径由各业务模块真实路由覆盖) ---
 from app.api.legacy_compat import router as legacy_compat_router  # noqa: E402
 
 api_router.include_router(legacy_compat_router)
+
+# --- 封存前补齐: A 类 4 个完全未迁移 Controller + B 类 3 个模型已建无 API Controller ---
+# A1: 算力购买规则 (迁移自 ai-smart-society-java: PowerPurchaseRuleController)
+from app.api.v1.finance.power_purchase_rule import router as power_purchase_rule_router  # noqa: E402
+
+api_router.include_router(power_purchase_rule_router)
+
+# A2: 开发者资金日志 (迁移自 ai-smart-society-java: ZhsDeveloperFundLogsController)
+from app.api.v1.finance.developer_fund_logs import router as developer_fund_logs_router  # noqa: E402
+
+api_router.include_router(developer_fund_logs_router)
+
+# A3: 用户系统链接 (迁移自 ai-smart-society-java: ZhsUserSysLinkController)
+from app.api.v1.user.user_sys_link import router as user_sys_link_router  # noqa: E402
+
+api_router.include_router(user_sys_link_router)
+
+# B1: 热门课程推荐 (迁移自 ai-smart-society-java: ZhsPopularCoursesController)
+from app.api.v1.courses.popular_courses import router as popular_courses_router  # noqa: E402
+
+api_router.include_router(popular_courses_router)
+
+# B2: 课程临时表 (迁移自 ai-smart-society-java: ZhsCourseTempController)
+from app.api.v1.courses.course_temp import router as course_temp_router  # noqa: E402
+
+api_router.include_router(course_temp_router)
+
+# B3: 课程视频临时表 (迁移自 ai-smart-society-java: ZhsCourseVideoTempController)
+from app.api.v1.courses.video_temp import router as video_temp_router  # noqa: E402
+
+api_router.include_router(video_temp_router)
+
+# --- Category Legacy Routes: 1:1 兼容 Java CategoryController (47 端点) ---
+# 必须在 admin_panel 之前注册, 避免 /category/* 被 admin 路由屏蔽.
+from app.api.v1.category_legacy import router as category_legacy_router  # noqa: E402
+
+api_router.include_router(category_legacy_router)
+
+# --- Learn Legacy Routes: 1:1 兼容 Java LearnController 17 模块 (75 端点) ---
+from app.api.v1.learn_legacy import router as learn_legacy_router  # noqa: E402
+
+api_router.include_router(learn_legacy_router)
+
+# --- Certificate Legacy Routes: 1:1 兼容 Java CertificateController (15 端点) ---
+from app.api.v1.certificate_legacy import router as certificate_legacy_router  # noqa: E402
+
+api_router.include_router(certificate_legacy_router)
+
+# --- Exam Legacy Routes: 1:1 兼容 Java ExamController 8 模块 (23 端点) ---
+from app.api.v1.exam_legacy import router as exam_legacy_router  # noqa: E402
+
+api_router.include_router(exam_legacy_router)
+
+# --- News Legacy Routes: 1:1 兼容 Java NewsController (12 端点) ---
+from app.api.v1.news_legacy import router as news_legacy_router  # noqa: E402
+
+api_router.include_router(news_legacy_router)
+
+# --- Live Legacy Routes: 1:1 兼容 Java LiveController 7 模块 (15 端点) ---
+from app.api.v1.live_legacy import router as live_legacy_router  # noqa: E402
+
+api_router.include_router(live_legacy_router)
+
+# --- Ask / Circle Legacy Routes: 1:1 兼容 Java AskController 9 模块 (29 端点) ---
+from app.api.v1.ask_legacy import router as ask_legacy_router  # noqa: E402
+
+api_router.include_router(ask_legacy_router)
+
+# --- Misc Legacy Routes: 1:1 兼容 Java 杂项 Controller 25+ (55 端点) ---
+from app.api.v1.misc_legacy import router as misc_legacy_router  # noqa: E402
+
+api_router.include_router(misc_legacy_router)
+
+# --- Invoice Title Legacy Routes: 1:1 兼容 Java InvoiceTitleController (7 端点) ---
+from app.api.v1.invoice_title_legacy import router as invoice_title_legacy_router  # noqa: E402
+
+api_router.include_router(invoice_title_legacy_router)
