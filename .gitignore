@@ -159,6 +159,11 @@ migration-final-audit-2026
 migration-report
 migration-verification-report
 pw-output
+
+# Runtime logs and test output (封版阶段新增)
+dev.log
+server/test_out.txt
+server/tests/_smoke_fix_*.py
 ssl
 storage
 uploads
