@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.services.database_service import engine
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
