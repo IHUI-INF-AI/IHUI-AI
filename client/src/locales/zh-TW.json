@@ -15475,6 +15475,11 @@
     "markAllRead": "全部已讀",
     "allTypes": "全部類型",
     "noNotifications": "暫無通知",
+    "level": {
+      "info": "提示",
+      "warn": "警告",
+      "error": "嚴重"
+    },
     "typeOrder": "訂單",
     "typeWallet": "錢包",
     "typeSystem": "系統",
