@@ -442,8 +442,8 @@ import {
   fetchAgentDetails,
   updateAgent as _updateAgent,
   deleteAgent as _deleteAgent,
-} from '@/api/agent/agent/agents'
-import { buyAgent } from '@/api/agent/agent/agent-buy'
+} from '@/api/agent/agents'
+import { buyAgent } from '@/api/agent/agent-buy'
 import { logger } from '@/utils/logger'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 

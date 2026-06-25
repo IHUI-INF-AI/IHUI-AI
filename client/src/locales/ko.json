@@ -1611,11 +1611,9 @@
   },
   "errorBoundary": {
     "reload": "다시 로드",
-    "go홈": "홈으로",
     "unknownError": "알 수 없는 오류",
     "retry": "재시도",
     "errorDetails": "오류상세",
-    "핵심 장점": "제목",
     "componentError": "컴포넌트오류",
     "goHome": "홈으로",
     "currentPath": "현재 경로"

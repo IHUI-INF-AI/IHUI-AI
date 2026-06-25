@@ -172,8 +172,8 @@ import {
   getAgentCollect,
   getAgentLike,
   type AgentInfo,
-} from '@/api/agent/agent/agent-plaza'
-import type { Agent } from '@/api/agent/agent/agents'
+} from '@/api/agent/agent-plaza'
+import type { Agent } from '@/api/agent/agents'
 import choucangActive from '@/assets/images/choucang_active.png'
 import likeActive from '@/assets/images/like_active.png'
 

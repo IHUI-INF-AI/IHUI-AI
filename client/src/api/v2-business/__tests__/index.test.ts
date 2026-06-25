@@ -2,12 +2,12 @@
 // 2026-06-21: v2-business 已简化为纯 v1 调用, 测试改为验证 v1 转发逻辑
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/api/agent/agent/agents', () => ({
+vi.mock('@/api/agent/agents', () => ({
   getAgentsList: vi.fn(() => Promise.resolve({ list: [], total: 0 })),
   getAgentDetail: vi.fn(() => Promise.resolve({ id: 'a1' })),
 }))
 
-vi.mock('@/api/course/course/courses', () => ({
+vi.mock('@/api/course/courses', () => ({
   getCoursesList: vi.fn(() => Promise.resolve({ list: [], total: 0 })),
   getCourseDetail: vi.fn(() => Promise.resolve({ id: 'c1' })),
   enrollCourse: vi.fn(() => Promise.resolve({ ok: true })),
@@ -28,8 +28,8 @@ vi.mock('@/api/user/user', () => ({
 }))
 
 import * as api from '../index'
-import * as v1Agents from '@/api/agent/agent/agents'
-import * as v1Courses from '@/api/course/course/courses'
+import * as v1Agents from '@/api/agent/agents'
+import * as v1Courses from '@/api/course/courses'
 import * as v1Orders from '@/api/payment/orders'
 import * as v1User from '@/api/user/user'
 

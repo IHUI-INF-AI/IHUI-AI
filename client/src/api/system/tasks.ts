@@ -3,7 +3,7 @@
  * 提供任务查询、取消和WebSocket实时更新功能
  */
 
-import { apiClient } from './client'
+import { apiClient } from '../core/client'
 import type { ApiResponse } from '@/types'
 
 /**

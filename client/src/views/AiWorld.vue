@@ -178,8 +178,8 @@ import {
   buildSectionWithSubs,
   isSubTitleRedundant,
   formatSubTitleForDisplay,
-} from '@/api/ai/ai/ai-world'
-import type { AiWorldSection, AiWorldSectionWithSubs, AiWorldItem } from '@/api/ai/ai/ai-world'
+} from '@/api/ai/ai-world'
+import type { AiWorldSection, AiWorldSectionWithSubs, AiWorldItem } from '@/api/ai/ai-world'
 import aiWorldLb1 from '@/assets/images/aiWorldLb1.jpg?url'
 import aiWorldLb2 from '@/assets/images/aiWorldLb2.jpg?url'
 import aiWorldLb3 from '@/assets/images/aiWorldLb3.jpg?url'

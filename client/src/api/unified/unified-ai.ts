@@ -12,8 +12,8 @@ import type { ApiResponse } from '@/types'
 import { UNIFIED_AI_PATHS } from '@/config/backend-paths'
 import { callModel } from '../models/models'
 import type { AIModelInfo } from '../models/models'
-import { getAgentsList } from '../agent/agent/agents'
-import type { Agent } from '../agent/agent/agents'
+import { getAgentsList } from '../agent/agents'
+import type { Agent } from '../agent/agents'
 import { createAgenticSwarm } from '../services/agentic.service'
 import type { MCPServer, MCPTool } from '../tools/mcp'
 
@@ -169,7 +169,7 @@ async function callUnifiedAIFallback(
           throw new Error(t('error.unified_ai.AgentID不8'))
         }
         // 调用Agent功能
-        const { callAgent } = await import('./agents')
+        const { callAgent } = await import('../agent/agents')
         const agentResponse = await callAgent(req.capabilityId, {
           input: req.context?.userMessage || String(req.input),
           context: req.context,
@@ -442,7 +442,7 @@ async function getAvailableCapabilitiesFallback(type?: UnifiedAICapabilityType):
 > {
   try {
     const [modelsResponse, agentsResponse, mcpServersResponse] = await Promise.all([
-      import('./models').then(m => m.getAvailableModels()),
+      import('../models/models').then(m => m.getAvailableModels()),
       getAgentsList({ page: 1, pageSize: 100, platform: 'all' }),
       getMCPServersList({ page: 1, pageSize: 100 }),
     ])

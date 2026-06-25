@@ -511,7 +511,7 @@ import {
   getAvailableModels,
 } from '@/api/models/models'
 import { exportMessagesToFile } from '@/utils/messageExport'
-import { getConversations, type Conversation } from '@/api/chat/chat/chat-history'
+import { getConversations, type Conversation } from '@/api/chat/chat-history'
 import { getChatHistoryMessages, deleteChatRecord } from '@/api/services'
 import type { AIModelInfo } from '@/api/models/models'
 import { ElMessage, ElMessageBox } from 'element-plus'

@@ -3,7 +3,7 @@
  * 提供数据库优化监控和管理功能（仅管理员）
  */
 
-import { apiClient } from './client'
+import { apiClient } from '../core/client'
 import type { ApiResponse } from '@/types'
 
 /**

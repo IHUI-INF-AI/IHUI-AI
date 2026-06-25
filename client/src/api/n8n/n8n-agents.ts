@@ -6,7 +6,7 @@
 import request from '@/utils/request'
 import type { ApiResponse } from '@/types'
 import { withApiResponseHandler, normalizeApiResponse } from '@/utils/api-response'
-import type { Agent } from '@/api/agent/agent/agents'
+import type { Agent } from '@/api/agent/agents'
 import { logger } from '@/utils/logger'
 
 // N8N智能体列表响应

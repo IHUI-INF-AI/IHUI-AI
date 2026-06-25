@@ -14,7 +14,7 @@ import {
   getOrderStatistics,
   getUsageStatistics,
 } from '../statistics/statistics'
-import { getAdminActivities, type AdminActivity } from '../admin/admin/admin-activities'
+import { getAdminActivities, type AdminActivity } from '../admin/admin-activities'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
 
@@ -238,7 +238,7 @@ export async function getMonitorOverview(): Promise<DashboardFetchResult<Monitor
 
   // 2) DB 连接池(若可用)
   try {
-    const { getPoolStats } = await import('./monitoring')
+    const { getPoolStats } = await import('../system/monitoring')
     const r = await getPoolStats()
     if (r.success && r.data) {
       source = 'api'

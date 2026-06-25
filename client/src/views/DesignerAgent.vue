@@ -67,7 +67,7 @@ import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 
 import { getAvailableModels, type AIModelInfo } from '@/api/models/models'
-import { chatCompletionsStream, type ChatMessage } from '@/api/ai/ai/ai-proxy'
+import { chatCompletionsStream, type ChatMessage } from '@/api/ai/ai-proxy'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 
 const { t } = useI18n()

@@ -3,8 +3,8 @@
  * @module components/ai/AICapabilitySelector/types
  */
 
-import type { AIModelInfo } from '@/api/ai/ai/aiModelInfo'
-import type { Agent } from '@/api/agent/agent/agents'
+import type { AIModelInfo } from '@/api/ai/aiModelInfo'
+import type { Agent } from '@/api/agent/agents'
 
 /** AI 能力模式 */
 export type AICapabilityMode = 'model' | 'agent' | 'agentic' | 'mcp' | 'generation'

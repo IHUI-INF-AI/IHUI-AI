@@ -1,5 +1,5 @@
 // admin/index.vue smoke test
-// 验证:@/api/admin/admin/admin-dashboard 的返回值正确流入 4 个数据区(KPI / 模块 / 监控 / 时间线)
+// 验证:@/api/admin/admin-dashboard 的返回值正确流入 4 个数据区(KPI / 模块 / 监控 / 时间线)
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
@@ -22,7 +22,7 @@ vi.mock('element-plus', () => ({
 }))
 
 const mockGetDashboardAll = vi.fn()
-vi.mock('@/api/admin/admin/admin-dashboard', () => ({
+vi.mock('@/api/admin/admin-dashboard', () => ({
   getDashboardAll: () => mockGetDashboardAll(),
 }))
 

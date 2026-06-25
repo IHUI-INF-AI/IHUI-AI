@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import type { UserInfoData } from '@/api/user/user'
-import { getAgentBuyList } from '@/api/agent/agent/agent-buy'
+import { getAgentBuyList } from '@/api/agent/agent-buy'
 import { logger } from '@/utils/logger'
 import { formatTime } from '@/shared'
 import { useDebounceFn } from '@vueuse/core'

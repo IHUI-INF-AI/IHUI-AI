@@ -61,7 +61,7 @@ import {
   completeAdminOrder,
   cancelAdminOrder,
   type AdminOrder,
-} from '@/api/admin/admin/admin-orders'
+} from '@/api/admin/admin-orders'
 
 const { t } = useI18n()
 

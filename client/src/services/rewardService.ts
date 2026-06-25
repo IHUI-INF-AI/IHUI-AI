@@ -4,7 +4,7 @@
  */
 
 import { useAuthStore } from '@/stores/auth'
-import { getUserTokenBalance, updateUserTokenBalance } from '@/api/agent/agent/agents'
+import { getUserTokenBalance, updateUserTokenBalance } from '@/api/agent/agents'
 import { logger } from '@/utils/logger'
 import { StorageManager } from '@/utils/storage'
 

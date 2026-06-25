@@ -30,8 +30,14 @@ defineProps<Props>()
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 12px 8px;
+  background-color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--global-border-radius);
   z-index: var(--z-dropdown);
   pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .indicator-dot {

@@ -123,7 +123,7 @@ import {
   rollbackBatch,
   runMigration,
   verifyBatch,
-} from '@/api/admin/admin/admin-migration'
+} from '@/api/admin/admin-migration'
 
 const { t } = useI18n()
 const batches = ref<BatchInfo[]>([])

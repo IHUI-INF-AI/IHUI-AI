@@ -19,10 +19,10 @@ export {
   type RegisterRequest,
   type AuthToken,
   type LoginResponse,
-} from '../auth/auth.service'
+} from './auth.service'
 
 // 文件服务
-export * from '../file.service'
+export * from './file.service'
 
 // AI内容生成服务
 export * from './aiGeneration.service'

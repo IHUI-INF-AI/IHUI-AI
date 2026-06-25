@@ -84,7 +84,7 @@ import {
   deleteAdminProduct,
   toggleAdminProductStatus,
   type AdminProduct,
-} from '@/api/admin/admin/admin-products'
+} from '@/api/admin/admin-products'
 
 const { t } = useI18n()
 

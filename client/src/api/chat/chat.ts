@@ -59,7 +59,7 @@ export async function sendMessage(data: {
   context?: Record<string, unknown>
 }): Promise<ApiResponse<ChatSessionResponse>> {
   try {
-    const { streamChat } = await import('./services/cozeChatStream.service')
+    const { streamChat } = await import('../services/cozeChatStream.service')
 
     const userUuid = getUserUuid()
 

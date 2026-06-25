@@ -1316,7 +1316,6 @@
   "errorBoundary": {
     "reload": "再読み込み",
     "currentPath": "現在のパス",
-    "goホーム": "ホームに戻る",
     "unknownError": "不明なエラー",
     "retry": "再試行",
     "errorDetails": "エラー詳細",

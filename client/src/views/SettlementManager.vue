@@ -245,7 +245,7 @@ import {
   syncExistingToSettlement,
   type AgentSettlement,
   type SettlementOverview,
-} from '@/api/agent/agent/agent-settlement'
+} from '@/api/agent/agent-settlement'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime as _formatTime } from '@/utils/format'
 

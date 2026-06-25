@@ -189,9 +189,9 @@ import {
   getWxCode,
   realAuth,
 } from '@/api/distribution/distribution'
-import PersonalInfoCard from './distribution/components/PersonalInfoCard.vue'
-import EarningsStatisticsCard from './distribution/components/EarningsStatisticsCard.vue'
-import FunctionBlockColumn from './distribution/components/FunctionBlockColumn.vue'
+import PersonalInfoCard from '../distribution/components/PersonalInfoCard.vue'
+import EarningsStatisticsCard from '../distribution/components/EarningsStatisticsCard.vue'
+import FunctionBlockColumn from '../distribution/components/FunctionBlockColumn.vue'
 
 const { t } = useI18n()
 const authStore = useAuthStore()

@@ -507,7 +507,7 @@ class UnifiedGenerationService {
       }
       
       case 'sora-video': {
-        const { soraRequest } = await import('../ai-models')
+        const { soraRequest } = await import('../ai/ai-models')
         const response = await soraRequest({
           prompt: request.prompt,
           ...request.metadata,
@@ -654,7 +654,7 @@ class UnifiedGenerationService {
   ): Promise<ApiResponse<UnifiedGenerationResponse>> {
     switch (provider) {
       case 'ali-timbre': {
-        const { aliGenerateTimbre } = await import('../ai-models')
+        const { aliGenerateTimbre } = await import('../ai/ai-models')
         const response = await aliGenerateTimbre({
           prompt: request.prompt,
           ...request.metadata,
@@ -677,7 +677,7 @@ class UnifiedGenerationService {
       
       case 'cosyvoice': {
         // CosyVoice语音合成
-        const { audioStart, audioEnd } = await import('../ai-models')
+        const { audioStart, audioEnd } = await import('../ai/ai-models')
         const startResponse = await audioStart({
           prompt: request.prompt,
           voice: request.voice,

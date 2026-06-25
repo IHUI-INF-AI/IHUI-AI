@@ -2,7 +2,7 @@
 import { ref, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import type { UserInfoData } from '@/api/user/user'
-import { getDeveloperList, createDeveloper } from '@/api/agent/agent/agent-developer'
+import { getDeveloperList, createDeveloper } from '@/api/agent/agent-developer'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { logger } from '@/utils/logger'
 import { formatTime } from '@/shared'

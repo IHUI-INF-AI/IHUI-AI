@@ -131,8 +131,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Server, Star, Eye } from '@/lib/lucide-fallback'
-import type { Agent, AgentPlatform } from '@/api/agent/agent/agents'
-import { getAgentDisplayName, getAgentDisplayDescription } from '@/api/agent/agent/agents'
+import type { Agent, AgentPlatform } from '@/api/agent/agents'
+import { getAgentDisplayName, getAgentDisplayDescription } from '@/api/agent/agents'
 import { formatNumber } from '@/utils/format'
 
 interface Props {

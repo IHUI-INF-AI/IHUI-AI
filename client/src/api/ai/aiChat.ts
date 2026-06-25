@@ -31,7 +31,7 @@ export interface AIChatResponse {
 export async function sendAIChatMessage(data: AIChatRequest): Promise<ApiResponse<AIChatResponse>> {
   try {
     // If using Agentic AI mode, use task creation endpoint    if (data.useAgentic) {
-      const { createTask } = await import('./fastapi')
+      const { createTask } = await import('../system/fastapi')
       const userUuid =
         (window as { userUuid?: string }).userUuid ||
         String(StorageManager.getItem(STORAGE_KEYS.USER_UUID) || '') ||

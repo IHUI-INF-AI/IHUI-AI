@@ -1,7 +1,7 @@
 // skills-manager.ts 单元测试
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/api/skills/skills/skills-backend', () => ({
+vi.mock('@/api/skills/skills-backend', () => ({
   getSkillsListFromBackend: vi.fn(() =>
     Promise.resolve({
       success: true,

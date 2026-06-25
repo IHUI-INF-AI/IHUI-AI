@@ -9192,7 +9192,6 @@
     "errorDetails": "Error Details",
     "reload": "Reload",
     "unknownError": "Unknown Error",
-    "${componentName} - Website NametError": "Component Error",
     "componentError": "ComponentWrong"
   },
   "errorNotification": {

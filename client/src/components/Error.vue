@@ -12,20 +12,20 @@
     <div v-else-if="hasError" class="error-fallback">
       <div class="error-content">
         <div class="error-icon">⚠️</div>
-        <h2>{{ t('app.errorTitle') || '出错了' }}</h2>
+        <h2>{{ t('cmpErrorBoundary.pageError') }}</h2>
         <p v-if="errorMessage">{{ errorMessage }}</p>
         <div class="error-details" v-if="errorDetails">
           <details>
-            <summary>{{ t('app.showErrorDetails') || '显示错误详情' }}</summary>
+            <summary>{{ t('errorBoundary.showDetails') }}</summary>
             <pre>{{ errorDetails }}</pre>
           </details>
         </div>
         <div class="actions">
           <button @click="handleReload" class="btn-primary">
-            {{ t('app.reload') || '重新加载' }}
+            {{ t('errorBoundary.reload') }}
           </button>
           <button @click="handleGoHome" class="btn-secondary">
-            {{ t('app.goHome') || '返回首页' }}
+            {{ t('errorBoundary.goHome') }}
           </button>
         </div>
       </div>
@@ -52,7 +52,7 @@ onErrorCaptured((err: Error) => {
     stack: error.stack,
   })
   hasError.value = true
-  errorMessage.value = error.message || t('app.unknownError') || '未知错误'
+  errorMessage.value = error.message || t('errorBoundary.unknownError')
   errorDetails.value = error.stack || ''
   return false
 })

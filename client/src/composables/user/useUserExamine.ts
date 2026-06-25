@@ -8,7 +8,7 @@ import {
   getAgentExamineDetail,
   updateAgentExamine,
   type AgentExamine,
-} from '@/api/agent/agent/agent-examine'
+} from '@/api/agent/agent-examine'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { logger } from '@/utils/logger'
 import { formatTime } from '@/shared'

@@ -5,10 +5,10 @@ import { useLanguageStore } from '@/stores/language'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { StorageManager } from '@/utils/storage'
-import { downloadUserData, type UserExportData } from '@/api/user/user/user-export'
+import { downloadUserData, type UserExportData } from '@/api/user/user-export'
 import { getUserInfo } from '@/api/user/user'
 import { getOrders, type Order } from '@/api/payment/orders'
-import { getConversations, type Conversation } from '@/api/chat/chat/chat-history'
+import { getConversations, type Conversation } from '@/api/chat/chat-history'
 import { logger } from '@/utils/logger'
 
 /**

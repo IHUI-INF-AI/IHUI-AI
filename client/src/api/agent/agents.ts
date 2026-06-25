@@ -10,7 +10,7 @@ import {
   AGENTS_LEGACY_PATHS,
 } from '@/config/backend-paths'
 import { getAgentList, GUEST_AGENT_LIST_FALLBACK } from '@/services/api'
-import { findMockAgentById } from '@/api/agent/agent/agent-plaza'
+import { findMockAgentById } from '@/api/agent/agent-plaza'
 import { cozeApiService } from '@/services/cozeApiService'
 import {
   withApiResponseHandler,
@@ -323,7 +323,7 @@ export async function callAgent(
 ): Promise<ApiResponse<unknown>> {
   try {
     // 优先使用 ihui API 接口
-    const { sendChatCompletion } = await import('./fastapi')
+    const { sendChatCompletion } = await import('../system/fastapi')
 
     // 构建消息历史
     const messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = []

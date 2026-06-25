@@ -53,7 +53,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ElMessage } from 'element-plus'
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/learn/member'
+import { memberApi } from '@/api/learn/member'
 
 const loading = ref(false)
 const saving = ref(false)

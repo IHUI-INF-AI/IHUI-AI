@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_session
+from app.security import require_role
 
 
 def _get_db():
@@ -16,11 +17,13 @@ def _get_db():
         yield db
 
 
-try:
-    from app.dependencies import get_current_user_id
-except ImportError:
-    def get_current_user_id() -> int:
-        return 1  # dev stub
+def get_current_user_id():
+    try:
+        from app.dependencies import get_current_user_id as _real
+        return _real()
+    except ImportError as e:
+        raise RuntimeError(f"authentication dependency unavailable: {e}") from e
+
 
 from app.schemas.common import success
 
@@ -74,10 +77,10 @@ def sso_login_endpoint(payload: dict = {}, db: Session = Depends(_get_db)):
     result = sso_login(db, **{k: v for k, v in payload.items() if v is not None})
     return success(data=result)
 
-@router.post("/sso/keypair", summary="Generate SSO keypair (admin)")
-def generate_sso_keypair_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
+@router.post("/sso/keypair", summary="Generate SSO keypair (admin)", dependencies=[Depends(require_role("admin"))])
+def generate_sso_keypair_endpoint(payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_auth import generate_sso_keypair
-    result = generate_sso_keypair(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
+    result = generate_sso_keypair(db, client_id=payload.get("client_id"), name=payload.get("name"))
     return success(data=result)
 
 @router.post("/third-party/login", summary="Third-party OAuth login")

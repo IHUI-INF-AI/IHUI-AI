@@ -484,7 +484,6 @@
   },
   "errorBoundary": {
     "reload": "重新載入",
-    "go首頁": "返回首頁",
     "unknownError": "未知錯誤",
     "retry": "重試",
     "errorDetails": "錯誤詳情",

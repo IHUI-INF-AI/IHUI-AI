@@ -145,7 +145,7 @@ import {
   VideoPlay, Headphones, Document, Star,
   CircleCheck, Link, Image, FileText, Code, Music, Box, Eye
 } from '@/lib/lucide-fallback'
-import type { AICreation, ContentType, AISource } from '@/api/ai/ai/ai-community'
+import type { AICreation, ContentType, AISource } from '@/api/ai/ai-community'
 import { formatNumber } from '@/utils/format'
 
 const { t } = useI18n()

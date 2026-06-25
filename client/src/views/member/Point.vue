@@ -55,8 +55,8 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/learn/member'
-import type { PointLog } from '@/api/learn/learn/member'
+import { memberApi } from '@/api/learn/member'
+import type { PointLog } from '@/api/learn/member'
 
 const { t } = useI18n()
 const account = ref<Record<string, unknown>>({})

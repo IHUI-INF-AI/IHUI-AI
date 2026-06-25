@@ -54,7 +54,7 @@ import { ElMessage } from 'element-plus'
 import { loadEcharts } from '@/utils/echarts-lazy'
 import type { ECharts } from '@/utils/echarts'
 import { adminApi } from '@/api/admin/admin'
-import { getAdminOrders } from '@/api/admin/admin/admin-orders'
+import { getAdminOrders } from '@/api/admin/admin-orders'
 import { v2Agents } from '@/api/v2-business'
 import { useDarkModeStore } from '@/stores/darkMode'
 

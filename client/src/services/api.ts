@@ -6,7 +6,7 @@ import http from '@/utils/request'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { isTokenExpired } from '@/config/error-codes'
 
-export * from '../api/user'
+export * from '../api/user/user'
 
 // 正式环境地址
 // 开发环境通过 Vite 代理访问，生产环境直接访问

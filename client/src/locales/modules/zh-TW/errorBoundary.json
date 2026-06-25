@@ -1,7 +1,6 @@
 {
   "errorBoundary": {
     "reload": "重新載入",
-    "go首頁": "返回首頁",
     "pageLoadError": "頁面加載失敗",
     "unknownError": "未知錯誤",
     "loadTimeout": "加載超時，請稍後重試",

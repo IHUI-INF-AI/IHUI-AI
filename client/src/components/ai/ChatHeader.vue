@@ -224,7 +224,7 @@ import {
 } from '@/lib/lucide-fallback'
 import { AIStarIcon } from '@/components/icons'
 import type { Model } from '@/types/api'
-import type { Agent } from '@/api/agent/agent/agents'
+import type { Agent } from '@/api/agent/agents'
 
 type AIMode = 'model' | 'agent' | 'agentic' | 'mcp' | 'hybrid' | 'generation'
 

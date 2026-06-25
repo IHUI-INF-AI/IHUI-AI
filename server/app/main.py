@@ -36,7 +36,7 @@ logger.add(
 
 
 @asynccontextmanager
-def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     logger.info("Starting ZHS Platform...")
 

@@ -4,10 +4,11 @@ Migrated from ihui-ai-edu-member-service.
 Complete Phase B implementation.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_session
+from app.security import require_role
 
 
 def _get_db():
@@ -16,11 +17,13 @@ def _get_db():
         yield db
 
 
-try:
-    from app.dependencies import get_current_user_id
-except ImportError:
-    def get_current_user_id() -> int:
-        return 1  # dev stub
+def get_current_user_id():
+    try:
+        from app.dependencies import get_current_user_id as _real
+        return _real()
+    except ImportError as e:
+        raise RuntimeError(f"authentication dependency unavailable: {e}") from e
+
 
 from app.schemas.common import success
 
@@ -46,21 +49,26 @@ def update_member_endpoint(user_id: int = Depends(get_current_user_id), payload:
     return success(data=result)
 
 @router.get("/{member_id}", summary="Get member by id")
-def get_member_by_id_endpoint(member_id: int, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
-    from app.services.edu_member import get_member_by_id
+def get_member_by_id_endpoint(member_id: int, current_user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
+    from app.services.edu_member import get_member_by_id, _extract_user_id
     result = get_member_by_id(db, member_id=member_id)
+    # 权限校验: 仅本人或管理员可访问
+    if str(_extract_user_id(result)) != str(current_user_id):
+        from app.security import _check_role_sync
+        if not _check_role_sync(str(current_user_id), "admin"):
+            raise HTTPException(status_code=403, detail="admin or owner required")
     return success(data=result)
 
-@router.post("/{user_id}/points/add", summary="Add points")
-def add_points_endpoint(user_id: int, payload: dict = {}, db: Session = Depends(_get_db), current_user_id: int = Depends(get_current_user_id)):
+@router.post("/{user_id}/points/add", summary="Add points", dependencies=[Depends(require_role("admin"))])
+def add_points_endpoint(user_id: int, payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_member import add_points
-    result = add_points(db, user_id=user_id, current_user_id=current_user_id, **{k: v for k, v in payload.items() if v is not None})
+    result = add_points(db, user_id=user_id, amount=payload.get("amount"), source=payload.get("source", "earn"))
     return success(data=result)
 
-@router.post("/{user_id}/points/deduct", summary="Deduct points")
-def deduct_points_endpoint(user_id: int, payload: dict = {}, db: Session = Depends(_get_db), current_user_id: int = Depends(get_current_user_id)):
+@router.post("/{user_id}/points/deduct", summary="Deduct points", dependencies=[Depends(require_role("admin"))])
+def deduct_points_endpoint(user_id: int, payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_member import deduct_points
-    result = deduct_points(db, user_id=user_id, current_user_id=current_user_id, **{k: v for k, v in payload.items() if v is not None})
+    result = deduct_points(db, user_id=user_id, amount=payload.get("amount"))
     return success(data=result)
 
 @router.get("", summary="List members")

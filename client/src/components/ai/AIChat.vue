@@ -1775,7 +1775,7 @@ import {
 import request, { getUserToken } from '@/utils/request'
 import { createAuthWebSocket } from '@/utils/websocket'
 import { getAvailableModels } from '@/api/models/models'
-import { getAgentsList } from '@/api/agent/agent/agents'
+import { getAgentsList } from '@/api/agent/agents'
 import { createAgenticSwarm, getSwarmStatus } from '@/api/services/agentic.service'
 import {
   generateDashScopeImage,
@@ -1802,7 +1802,7 @@ import {
   updateConversationTitle,
   deleteConversation,
   getConversationMessages,
-} from '@/api/chat/chat/chat-history'
+} from '@/api/chat/chat-history'
 import {
   queryChatRecords,
   getChatHistoryMessages,
@@ -1862,7 +1862,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { getUserUuid } from '@/utils/auth'
 import type { AICapabilityRequest } from '@/services/unified-ai-orchestrator'
-import type { Agent } from '@/api/agent/agent/agents'
+import type { Agent } from '@/api/agent/agents'
 import {
   MessageCircle,
   X,
@@ -7797,7 +7797,7 @@ const handleAudioGeneration = async (
 
   try {
     // 导入音频生成API
-    const { aliGenerateTimbre } = await import('@/api/ai/ai/ai-models')
+    const { aliGenerateTimbre } = await import('@/api/ai/ai-models')
 
     // 调用阿里语音合成API
     const response = await aliGenerateTimbre({

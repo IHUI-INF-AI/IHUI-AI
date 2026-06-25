@@ -72,8 +72,8 @@ import {
   connectChannel,
   disconnectChannel,
   deleteChannel as apiDeleteChannel,
-} from '@/api/tools/tools/openclaw'
-import type { ChannelConfig, ChannelType } from '@/api/tools/tools/openclaw'
+} from '@/api/tools/openclaw'
+import type { ChannelConfig, ChannelType } from '@/api/tools/openclaw'
 
 const { t } = useI18n()
 const router = useRouter()

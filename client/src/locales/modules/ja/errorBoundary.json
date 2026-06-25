@@ -1,7 +1,6 @@
 {
   "errorBoundary": {
     "reload": "再読み込み",
-    "goホーム": "ホームに戻る",
     "pageLoadError": "ページの読み込みに失敗しました",
     "unknownError": "不明なエラー",
     "loadTimeout": "読み込みがタイムアウトしました。しばらくしてから再試行してください",

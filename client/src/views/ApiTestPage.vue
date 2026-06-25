@@ -205,7 +205,7 @@ async function runTests() {
     
     // 测试Agent服务
     allResults.push(await runSingleTest(t('apiTestPage.testName.agentImport'), t('apiTestPage.category.chat'), async () => {
-      const module = await import('@/api/agent/agent/agents')
+      const module = await import('@/api/agent/agents')
       if (!module.callAgent) throw new Error(t('error.api_test_page.callAgen4'))
       if (!module.getAgentsList) throw new Error(t('error.api_test_page.getAgent5'))
       return { available: true }
@@ -260,7 +260,7 @@ async function runTests() {
     
     // 测试AI模型服务
     allResults.push(await runSingleTest(t('apiTestPage.testName.aiModelImport'), t('apiTestPage.category.generation'), async () => {
-      const module = await import('@/api/ai/ai/ai-models')
+      const module = await import('@/api/ai/ai-models')
       if (!module.audioStart) throw new Error(t('error.api_test_page.audioSta20'))
       if (!module.aliGenerateTimbre) throw new Error(t('error.api_test_page.aliGener21'))
       if (!module.soraRequest) throw new Error(t('error.api_test_page.soraRequ22'))
@@ -269,7 +269,7 @@ async function runTests() {
     
     // 测试AI生成适配器
     allResults.push(await runSingleTest(t('apiTestPage.testName.aiGenAdapterImport'), t('apiTestPage.category.generation'), async () => {
-      const module = await import('@/api/ai/ai/ai-generation')
+      const module = await import('@/api/ai/ai-generation')
       if (!module.generateImageQwen) throw new Error(t('error.api_test_page.generate23'))
       if (!module.generateVideoKling) throw new Error(t('error.api_test_page.generate24'))
       if (!module.generate3DModel) throw new Error(t('error.api_test_page.generate25'))
@@ -289,7 +289,7 @@ async function runTests() {
     log(t('apiTest.typeTest'))
     
     allResults.push(await runSingleTest(t('apiTestPage.testName.aiChatTypeImport'), t('apiTestPage.category.type'), async () => {
-      const module = await import('@/api/ai/ai/ai-chat-types')
+      const module = await import('@/api/ai/ai-chat-types')
       if (!module.isFastAPIChatResponse) throw new Error(t('error.api_test_page.类型守卫未导出27'))
       return { available: true }
     }))
