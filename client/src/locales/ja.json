@@ -883,7 +883,6 @@
     "errorTitle": "エラーが発生しました",
     "showErrorDetails": "エラー詳細をテーブル示",
     "reload": "再読み込み",
-    "goホーム": "ホームに戻る",
     "unknownError": "不明なエラー",
     "skipToMain": "ジャンプ到主要コンテンツ",
     "offlineWarning": "ネットワーク接続済み切断，请チェック您的ネットワーク設定",
@@ -8491,7 +8490,6 @@
   "simpleFallback": {
     "loading": "页面読み込み中...",
     "reload": "再読み込み",
-    "goホーム": "ホームに戻る",
     "defaultMessage": "如果页面長時間未読み込み，请尝试更新しい",
     "goHome": "戻るホーム"
   },

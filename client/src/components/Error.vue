@@ -11,9 +11,11 @@
     </template>
     <div v-else-if="hasError" class="error-fallback">
       <div class="error-content">
-        <div class="error-icon">⚠️</div>
-        <h2>{{ t('cmpErrorBoundary.pageError') }}</h2>
-        <p v-if="errorMessage">{{ errorMessage }}</p>
+        <div class="error-icon">
+          <AlertTriangle :size="48" />
+        </div>
+        <h2 class="error-title">{{ t('cmpErrorBoundary.pageError') }}</h2>
+        <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
         <div class="error-details" v-if="errorDetails">
           <details>
             <summary>{{ t('errorBoundary.showDetails') }}</summary>
@@ -21,11 +23,13 @@
           </details>
         </div>
         <div class="actions">
-          <button @click="handleReload" class="btn-primary">
-            {{ t('errorBoundary.reload') }}
+          <button @click="handleReload" class="btn-primary" :aria-label="t('errorBoundary.reload')">
+            <RefreshCw :size="16" class="btn-icon" aria-hidden="true" />
+            <span>{{ t('errorBoundary.reload') }}</span>
           </button>
-          <button @click="handleGoHome" class="btn-secondary">
-            {{ t('errorBoundary.goHome') }}
+          <button @click="handleGoHome" class="btn-secondary" :aria-label="t('errorBoundary.goHome')">
+            <Home :size="16" class="btn-icon" aria-hidden="true" />
+            <span>{{ t('errorBoundary.goHome') }}</span>
           </button>
         </div>
       </div>
@@ -37,6 +41,9 @@
 import { ref, onErrorCaptured } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/utils/logger'
+// lucide-fallback 在 lucide-vue-next 缺失时回退到 Element Plus 图标组件,
+// 保持与 common/ErrorBoundary.vue 的图标风格一致, 避免混用 emoji 与 EP 图标.
+import { AlertTriangle, RefreshCw, Home } from '@/lib/lucide-fallback'
 
 const { t } = useI18n()
 
@@ -77,6 +84,7 @@ defineExpose({
 </script>
 
 <style scoped>
+/* 2026-06-25 修复: 移除 box-shadow, 改用 border 分隔元素, 符合项目扁平化设计规范 */
 .error-boundary {
   width: 100%;
   min-height: calc(100vh - 60px);
@@ -98,21 +106,28 @@ defineExpose({
   background: var(--el-bg-color);
   padding: 40px;
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
+  border: var(--unified-border);
 }
 
 .error-icon {
-  font-size: 64px;
+  display: flex;
+  justify-content: center;
   margin-bottom: 20px;
+  color: var(--el-color-danger);
 }
 
-h2 {
+.error-icon :deep(svg) {
+  display: block;
+}
+
+.error-title {
   margin: 0 0 12px;
   font-size: 24px;
+  font-weight: 600;
   color: var(--el-text-color-primary);
 }
 
-p {
+.error-message {
   margin: 0 0 24px;
   color: var(--el-text-color-regular);
   font-size: 14px;
@@ -128,6 +143,7 @@ p {
   padding: 12px;
   border-radius: var(--global-border-radius);
   cursor: pointer;
+  border: var(--unified-border);
 }
 
 .error-details summary {
@@ -156,8 +172,11 @@ p {
 }
 
 button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 20px;
-  border: none;
+  border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
   font-size: 14px;
@@ -168,9 +187,14 @@ button:hover {
   opacity: 0.8;
 }
 
+.btn-icon {
+  flex-shrink: 0;
+}
+
 .btn-primary {
   background: var(--el-color-primary);
   color: var(--color-on-primary);
+  border-color: var(--el-color-primary);
 }
 
 .btn-secondary {
