@@ -17098,6 +17098,11 @@
     "markAllRead": "Mark All as Read",
     "allTypes": "All Types",
     "noNotifications": "No notifications",
+    "level": {
+      "info": "Info",
+      "warn": "Warning",
+      "error": "Critical"
+    },
     "typeOrder": "Order",
     "typeWallet": "Wallet",
     "typeSystem": "System",

@@ -35,13 +35,17 @@ class TestSwagger:
 
 class TestAuthEndpoints:
     async def test_exist_phone_returns_200(self, client):
-        resp = await client.get("/api/v1/auth/auth/exist/13800000000")
+        # 2026-06-25 修复#D 暴露: login_router 无 prefix 注册, 实际路径是 /api/v1/exist/{phone}
+        # 原路径 /api/v1/auth/auth/exist/... 错误, 之前靠 mock catch-all 兜底返回 200 "通过"
+        resp = await client.get("/api/v1/exist/13800000000")
         assert resp.status_code in (200, 401, 500)
         if resp.status_code == 200:
             assert "data" in resp.json()
 
     async def test_login_missing_phone(self, client):
-        resp = await client.post("/api/v1/auth/auth/login", json={})
+        # 2026-06-25 修复#D 暴露: login_router 无 prefix 注册, 实际路径是 /api/v1/login
+        # 原路径 /api/v1/auth/auth/login 错误, 之前靠 mock catch-all 兜底返回 200 "通过"
+        resp = await client.post("/api/v1/login", json={})
         assert resp.status_code in (200, 422)
 
 

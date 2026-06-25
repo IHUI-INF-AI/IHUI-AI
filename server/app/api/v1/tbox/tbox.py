@@ -140,14 +140,13 @@ async def activate_device(device_no: str, user_id: str = Query(...),
                             user_name: str | None = None):
     with get_session() as db:
         try:
-            from datetime import datetime
             d = db.query(TboxDevice).filter(TboxDevice.device_no == device_no).first()
             if not d:
                 return error("设备不存在", "404")
             d.user_id = user_id
             d.user_name = user_name or "匿名用户"
             d.status = 1
-            d.activated_at = datetime.utcnow()
+            d.activated_at = utcnow()
             return success()
         except Exception as e:
             logger.error(f"tbox device activate error: {e}")

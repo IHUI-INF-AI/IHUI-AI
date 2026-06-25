@@ -25,7 +25,7 @@ PREDICTION_TYPES = ["risk", "capacity", "failure", "performance"]
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

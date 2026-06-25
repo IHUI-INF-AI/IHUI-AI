@@ -150,6 +150,6 @@ onMounted(async () => {
 .menu-label {
   margin-top: 12px;
   font-size: 14px;
-  color: #606266;
+  color: var(--el-text-color-regular);
 }
 </style>

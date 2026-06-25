@@ -105,7 +105,7 @@ const isAdmin = computed(() => {
   min-height: calc(100vh - 64px);
 }
 .edu-sidebar {
-  background: #001529;
+  background: var(--el-text-color-primary);
 }
 .edu-menu {
   border-right: 0;
@@ -113,7 +113,7 @@ const isAdmin = computed(() => {
 }
 .edu-main {
   padding: 24px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
 }
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.2s ease;
