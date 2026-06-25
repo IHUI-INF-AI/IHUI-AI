@@ -1,0 +1,1171 @@
+{
+  "summary": {
+    "java_total": 677,
+    "python_total_in_domains": 982,
+    "domain_coverage": "145.1%"
+  },
+  "by_domain": {
+    "ihui-ai-edu-ask-service": {
+      "java": 29,
+      "python": 31,
+      "py_files": [
+        "v1/ask/answer.py",
+        "v1/ask/category.py",
+        "v1/ask/question.py",
+        "v1/edu/ask.py"
+      ]
+    },
+    "ihui-ai-edu-auth-service": {
+      "java": 19,
+      "python": 98,
+      "py_files": [
+        "v1/auth/ali_login.py",
+        "v1/auth/bindings.py",
+        "v1/auth/captcha.py",
+        "v1/auth/coze_oauth.py",
+        "v1/auth/dingtalk.py",
+        "v1/auth/enterprise_wechat.py",
+        "v1/auth/feishu.py",
+        "v1/auth/google.py",
+        "v1/auth/keypair.py",
+        "v1/auth/legacy_local.py",
+        "v1/auth/login.py",
+        "v1/auth/oauth.py",
+        "v1/auth/sms.py",
+        "v1/auth/sms_proxy.py",
+        "v1/auth/sso.py",
+        "v1/auth/username_login.py",
+        "v1/auth/user_sk.py",
+        "v1/auth/wechat.py",
+        "v1/auth_identity/auth_identity.py",
+        "v1/edu/auth.py",
+        "v1/rbac/routes.py"
+      ]
+    },
+    "ihui-ai-edu-behavior-service": {
+      "java": 28,
+      "python": 21,
+      "py_files": [
+        "v1/behavior/behavior.py",
+        "v1/edu/behavior.py"
+      ]
+    },
+    "ihui-ai-edu-circle-service": {
+      "java": 35,
+      "python": 28,
+      "py_files": [
+        "v1/circle/circle.py",
+        "v1/circle/post.py",
+        "v1/edu/circle.py"
+      ]
+    },
+    "ihui-ai-edu-content-service": {
+      "java": 39,
+      "python": 49,
+      "py_files": [
+        "v1/content/about_us.py",
+        "v1/content/activity.py",
+        "v1/content/aigc.py",
+        "v1/content/cms.py",
+        "v1/content/contact.py",
+        "v1/content/file_storage.py",
+        "v1/content/file_upload.py",
+        "v1/content/information.py",
+        "v1/edu/content.py"
+      ]
+    },
+    "ihui-ai-edu-exam-service": {
+      "java": 81,
+      "python": 30,
+      "py_files": [
+        "v1/edu/exam.py",
+        "v1/exam/paper.py"
+      ]
+    },
+    "ihui-ai-edu-gateway-service": {
+      "java": 0,
+      "python": 155,
+      "py_files": [
+        "v1/auth/ali_login.py",
+        "v1/auth/bindings.py",
+        "v1/auth/captcha.py",
+        "v1/auth/coze_oauth.py",
+        "v1/auth/dingtalk.py",
+        "v1/auth/enterprise_wechat.py",
+        "v1/auth/feishu.py",
+        "v1/auth/google.py",
+        "v1/auth/keypair.py",
+        "v1/auth/legacy_local.py",
+        "v1/auth/login.py",
+        "v1/auth/oauth.py",
+        "v1/auth/sms.py",
+        "v1/auth/sms_proxy.py",
+        "v1/auth/sso.py",
+        "v1/auth/username_login.py",
+        "v1/auth/user_sk.py",
+        "v1/auth/wechat.py",
+        "v1/auth_identity/auth_identity.py",
+        "v1/system/admin.py",
+        "v1/system/audit.py",
+        "v1/system/codegen.py",
+        "v1/system/dual_write.py",
+        "v1/system/user.py"
+      ]
+    },
+    "ihui-ai-edu-learn-service": {
+      "java": 145,
+      "python": 139,
+      "py_files": [
+        "v1/edu/learn.py",
+        "v1/learn/access.py",
+        "v1/learn/category.py",
+        "v1/learn/certificate.py",
+        "v1/learn/exampaper.py",
+        "v1/learn/homework.py",
+        "v1/learn/learnmap.py",
+        "v1/learn/lesson.py",
+        "v1/learn/rate.py",
+        "v1/learn/record.py",
+        "v1/learn/report.py",
+        "v1/learn/signup.py",
+        "v1/learn/statistics.py",
+        "v1/learn/task.py",
+        "v1/learn/topic.py"
+      ]
+    },
+    "ihui-ai-edu-live-service": {
+      "java": 30,
+      "python": 53,
+      "py_files": [
+        "v1/edu/live.py",
+        "v1/live/category.py",
+        "v1/live/channel.py",
+        "v1/live/lecturer.py",
+        "v1/live/statistics.py",
+        "v1/live/subscribe.py",
+        "v1/live/tencent.py"
+      ]
+    },
+    "ihui-ai-edu-member-service": {
+      "java": 80,
+      "python": 28,
+      "py_files": [
+        "v1/member.py",
+        "v1/edu/member.py"
+      ]
+    },
+    "ihui-ai-edu-message-service": {
+      "java": 23,
+      "python": 19,
+      "py_files": [
+        "v1/edu/message.py",
+        "v1/message/message.py"
+      ]
+    },
+    "ihui-ai-edu-notification-service": {
+      "java": 3,
+      "python": 16,
+      "py_files": [
+        "v1/edu/notification.py",
+        "v1/notification/notification.py"
+      ]
+    },
+    "ihui-ai-edu-order-service": {
+      "java": 32,
+      "python": 21,
+      "py_files": [
+        "v1/orders.py",
+        "v1/orders_pdf.py",
+        "v1/refund.py",
+        "v1/edu/order.py"
+      ]
+    },
+    "ihui-ai-edu-oss-service": {
+      "java": 4,
+      "python": 18,
+      "py_files": [
+        "v1/edu/oss.py",
+        "v1/upload/routes.py"
+      ]
+    },
+    "ihui-ai-edu-pay-service": {
+      "java": 5,
+      "python": 36,
+      "py_files": [
+        "v1/edu/pay.py",
+        "v1/payments/alipay.py",
+        "v1/payments/alipay_fund.py",
+        "v1/payments/fund.py",
+        "v1/payments/reconciliation.py",
+        "v1/payments/wechat.py"
+      ]
+    },
+    "ihui-ai-edu-point-service": {
+      "java": 21,
+      "python": 20,
+      "py_files": [
+        "v1/edu/point.py",
+        "v1/point/point.py"
+      ]
+    },
+    "ihui-ai-edu-resource-service": {
+      "java": 42,
+      "python": 29,
+      "py_files": [
+        "v1/edu/resource.py",
+        "v1/resource/context.py",
+        "v1/resource/home.py",
+        "v1/resource/watermark.py"
+      ]
+    },
+    "ihui-ai-edu-schedule-service": {
+      "java": 1,
+      "python": 7,
+      "py_files": [
+        "v1/edu/schedule.py",
+        "v1/schedule/schedule.py"
+      ]
+    },
+    "ihui-ai-edu-search-service": {
+      "java": 11,
+      "python": 12,
+      "py_files": [
+        "v1/edu/search.py",
+        "v1/search/search.py"
+      ]
+    },
+    "ihui-ai-edu-setting-service": {
+      "java": 6,
+      "python": 51,
+      "py_files": [
+        "v1/content/about_us.py",
+        "v1/content/activity.py",
+        "v1/content/aigc.py",
+        "v1/content/cms.py",
+        "v1/content/contact.py",
+        "v1/content/file_storage.py",
+        "v1/content/file_upload.py",
+        "v1/content/information.py",
+        "v1/edu/setting.py"
+      ]
+    },
+    "ihui-ai-edu-usercenter-service": {
+      "java": 38,
+      "python": 110,
+      "py_files": [
+        "v1/edu/usercenter.py",
+        "v1/system/admin.py",
+        "v1/system/audit.py",
+        "v1/system/codegen.py",
+        "v1/system/dual_write.py",
+        "v1/system/user.py",
+        "v1/user/users.py",
+        "v1/user/vip.py",
+        "v1/user_agent_context/user_agent_context.py",
+        "v1/user_agent_image/user_agent_image.py",
+        "v1/user_comment_log/user_comment_log.py",
+        "v1/user_model_chat/user_model_chat.py",
+        "v1/user_video_comment/user_video_comment.py",
+        "v1/user_video_log/user_video_log.py"
+      ]
+    },
+    "ihui-ai-edu-visit-tracking-service": {
+      "java": 5,
+      "python": 11,
+      "py_files": [
+        "v1/edu/visit_tracking.py",
+        "v1/visit/visit.py"
+      ]
+    }
+  },
+  "by_controller": [
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberController",
+      "java_endpoints": 35,
+      "python_related_endpoints": 10,
+      "py_submodule": "member",
+      "coverage_pct": "29%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonController",
+      "java_endpoints": 19,
+      "python_related_endpoints": 21,
+      "py_submodule": "lesson",
+      "coverage_pct": "111%"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ArticleController",
+      "java_endpoints": 15,
+      "python_related_endpoints": 5,
+      "py_submodule": "article",
+      "coverage_pct": "33%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceController",
+      "java_endpoints": 15,
+      "python_related_endpoints": 5,
+      "py_submodule": "resource",
+      "coverage_pct": "33%"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceApplicationController",
+      "java_endpoints": 14,
+      "python_related_endpoints": 0,
+      "py_submodule": "invoice",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "NewsController",
+      "java_endpoints": 13,
+      "python_related_endpoints": 6,
+      "py_submodule": "news",
+      "coverage_pct": "46%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamController",
+      "java_endpoints": 13,
+      "python_related_endpoints": 0,
+      "py_submodule": "exam",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateController",
+      "java_endpoints": 12,
+      "python_related_endpoints": 6,
+      "py_submodule": "certificate",
+      "coverage_pct": "50%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LearnMapController",
+      "java_endpoints": 12,
+      "python_related_endpoints": 0,
+      "py_submodule": "learn_map",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicController",
+      "java_endpoints": 12,
+      "python_related_endpoints": 16,
+      "py_submodule": "topic",
+      "coverage_pct": "133%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleController",
+      "java_endpoints": 11,
+      "python_related_endpoints": 11,
+      "py_submodule": "circles",
+      "coverage_pct": "100%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "RecordController",
+      "java_endpoints": 11,
+      "python_related_endpoints": 8,
+      "py_submodule": "record",
+      "coverage_pct": "73%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ExamPaperRecordController",
+      "java_endpoints": 11,
+      "python_related_endpoints": 0,
+      "py_submodule": "exam_paper_record",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 0,
+      "py_submodule": "category",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "CommentController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 3,
+      "py_submodule": "comment",
+      "coverage_pct": "30%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 1,
+      "py_submodule": "category",
+      "coverage_pct": "10%"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 0,
+      "py_submodule": "category",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 1,
+      "py_submodule": "category",
+      "coverage_pct": "10%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "SignUpController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 5,
+      "py_submodule": "signup",
+      "coverage_pct": "50%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 10,
+      "py_submodule": "category",
+      "coverage_pct": "100%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "CategoryController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 0,
+      "py_submodule": "category",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserController",
+      "java_endpoints": 10,
+      "python_related_endpoints": 14,
+      "py_submodule": "user",
+      "coverage_pct": "140%"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AnswerController",
+      "java_endpoints": 9,
+      "python_related_endpoints": 5,
+      "py_submodule": "answer",
+      "coverage_pct": "56%"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "QuestionController",
+      "java_endpoints": 9,
+      "python_related_endpoints": 9,
+      "py_submodule": "question",
+      "coverage_pct": "100%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "RoleController",
+      "java_endpoints": 9,
+      "python_related_endpoints": 5,
+      "py_submodule": "rbac",
+      "coverage_pct": "56%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "DynamicController",
+      "java_endpoints": 9,
+      "python_related_endpoints": 0,
+      "py_submodule": "dynamic",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "ChannelController",
+      "java_endpoints": 9,
+      "python_related_endpoints": 16,
+      "py_submodule": "channel",
+      "coverage_pct": "178%"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "InvoiceTitleController",
+      "java_endpoints": 9,
+      "python_related_endpoints": 0,
+      "py_submodule": "invoice_title",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-order-service",
+      "controller": "OrderController",
+      "java_endpoints": 9,
+      "python_related_endpoints": 10,
+      "py_submodule": "order",
+      "coverage_pct": "111%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperCategoryController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 0,
+      "py_submodule": "paper_category",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 10,
+      "py_submodule": "paper",
+      "coverage_pct": "125%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionCategoryController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 0,
+      "py_submodule": "question_category",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CategoryController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 6,
+      "py_submodule": "category",
+      "coverage_pct": "75%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "CertificateTemplateController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 0,
+      "py_submodule": "certificate_template",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonTaskController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 0,
+      "py_submodule": "lesson_task",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "TopicCategoryController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 0,
+      "py_submodule": "topic_category",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 0,
+      "py_submodule": "company",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "AnnouncementController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 5,
+      "py_submodule": "announcement",
+      "coverage_pct": "62%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceProductController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 0,
+      "py_submodule": "product",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceTagController",
+      "java_endpoints": 8,
+      "python_related_endpoints": 0,
+      "py_submodule": "tag",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberCompanyTypeController",
+      "java_endpoints": 7,
+      "python_related_endpoints": 0,
+      "py_submodule": "company_type",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "FollowController",
+      "java_endpoints": 7,
+      "python_related_endpoints": 3,
+      "py_submodule": "follow",
+      "coverage_pct": "43%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "PrivateLetterController",
+      "java_endpoints": 7,
+      "python_related_endpoints": 0,
+      "py_submodule": "letter",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "RecordController",
+      "java_endpoints": 7,
+      "python_related_endpoints": 1,
+      "py_submodule": "record",
+      "coverage_pct": "14%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "FavoriteController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 2,
+      "py_submodule": "favorite",
+      "coverage_pct": "33%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 0,
+      "py_submodule": "chapter",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkRecordController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 0,
+      "py_submodule": "homework_record",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 0,
+      "py_submodule": "lesson_chapter",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RateController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 2,
+      "py_submodule": "rate",
+      "coverage_pct": "33%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberGroupController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 0,
+      "py_submodule": "group",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberPostController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 0,
+      "py_submodule": "post",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "ChannelController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 0,
+      "py_submodule": "channel",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DepartmentController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 0,
+      "py_submodule": "dept",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "LecturerController",
+      "java_endpoints": 6,
+      "python_related_endpoints": 0,
+      "py_submodule": "lecturer",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "SsoController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 2,
+      "py_submodule": "sso",
+      "coverage_pct": "40%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "QuestionController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 7,
+      "py_submodule": "question",
+      "coverage_pct": "140%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "SubscribeController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 6,
+      "py_submodule": "subscribe",
+      "coverage_pct": "120%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberLevelController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 0,
+      "py_submodule": "level",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "NoticeController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 0,
+      "py_submodule": "notice",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 4,
+      "py_submodule": "point",
+      "coverage_pct": "80%"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "ContentController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 0,
+      "py_submodule": "content",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "HotWordController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 0,
+      "py_submodule": "hotword",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "PostController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 3,
+      "py_submodule": "post",
+      "coverage_pct": "60%"
+    },
+    {
+      "service": "ihui-ai-edu-visit-tracking-service",
+      "controller": "VisitLogController",
+      "java_endpoints": 5,
+      "python_related_endpoints": 0,
+      "py_submodule": "visit",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "LikeController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 2,
+      "py_submodule": "like",
+      "coverage_pct": "50%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WordController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 0,
+      "py_submodule": "word",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-behavior-service",
+      "controller": "WatchController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 0,
+      "py_submodule": "watch",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleMemberController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 0,
+      "py_submodule": "member",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "SignUpController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 0,
+      "py_submodule": "signup",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "ReportController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 0,
+      "py_submodule": "report",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "MemberTagController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 0,
+      "py_submodule": "tag",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-oss-service",
+      "controller": "OssController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 0,
+      "py_submodule": "upload",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "AgreementController",
+      "java_endpoints": 4,
+      "python_related_endpoints": 0,
+      "py_submodule": "agreement",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamChapterSectionController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 0,
+      "py_submodule": "section",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "WrongQuestionController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 0,
+      "py_submodule": "wrong",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "HomeworkController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 5,
+      "py_submodule": "homework",
+      "coverage_pct": "167%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonChapterSectionController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 0,
+      "py_submodule": "lesson_section",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonOrderController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 0,
+      "py_submodule": "lesson_order",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "RecordController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 6,
+      "py_submodule": "record",
+      "coverage_pct": "200%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveStreamController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 0,
+      "py_submodule": "tencent_live",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "CompanyController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 0,
+      "py_submodule": "company",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WorkWeChatController",
+      "java_endpoints": 3,
+      "python_related_endpoints": 0,
+      "py_submodule": "enterprise_wechat",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "AuthorityController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "rbac",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "AuthController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 1,
+      "py_submodule": "auth",
+      "coverage_pct": "50%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "LessonAccessController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "lesson_access",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "TencentCloudLiveNotifyController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "tencent_live",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-member-service",
+      "controller": "CheckInController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 2,
+      "py_submodule": "checkin",
+      "coverage_pct": "100%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "TemplateController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 2,
+      "py_submodule": "template",
+      "coverage_pct": "100%"
+    },
+    {
+      "service": "ihui-ai-edu-notification-service",
+      "controller": "MailController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "mail",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "TradeController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 2,
+      "py_submodule": "trade",
+      "coverage_pct": "100%"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "WechatpayNotifyController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "wechat",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointChannelRelationController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "relation",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-setting-service",
+      "controller": "CarouselController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "carousel",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "DingTalkController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "dingtalk",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "WechatOauthController",
+      "java_endpoints": 2,
+      "python_related_endpoints": 0,
+      "py_submodule": "wechat",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-ask-service",
+      "controller": "AskStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-auth-service",
+      "controller": "KeyPairController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 1,
+      "py_submodule": "keypair",
+      "coverage_pct": "100%"
+    },
+    {
+      "service": "ihui-ai-edu-circle-service",
+      "controller": "CircleStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-content-service",
+      "controller": "ContentStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "PaperQuestionController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "paper_question",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-exam-service",
+      "controller": "ExamStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-learn-service",
+      "controller": "StatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 1,
+      "py_submodule": "statistics",
+      "coverage_pct": "100%"
+    },
+    {
+      "service": "ihui-ai-edu-live-service",
+      "controller": "LiveStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-message-service",
+      "controller": "MessageStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-notification-service",
+      "controller": "SmsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "sms",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-pay-service",
+      "controller": "AliPayNotifyController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "alipay",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-point-service",
+      "controller": "PointStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-resource-service",
+      "controller": "ResourceStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-schedule-service",
+      "controller": "WatchController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "watch",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-search-service",
+      "controller": "RecordController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "record",
+      "coverage_pct": "0%"
+    },
+    {
+      "service": "ihui-ai-edu-usercenter-service",
+      "controller": "UserCenterStatisticsController",
+      "java_endpoints": 1,
+      "python_related_endpoints": 0,
+      "py_submodule": "statistics",
+      "coverage_pct": "0%"
+    }
+  ]
+}
