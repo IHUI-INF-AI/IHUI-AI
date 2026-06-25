@@ -51,7 +51,7 @@ class AuditLogService:
                         "user_agent": log_data.user_agent,
                         "status": log_data.status,
                         "error_message": log_data.error_message,
-                        "created_at": datetime.utcnow()
+                        "created_at": utcnow()
                     }
                 )
                 conn.commit()
