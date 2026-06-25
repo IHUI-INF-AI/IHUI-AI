@@ -165,12 +165,12 @@ for ep in all_missing:
         routes_code.append(f'    return _not_implemented("{java_path}", "{controller}")')
         routes_code.append('')
 
-output_code = output.format(
-    total=alias_count + stub_count,
-    alias_count=alias_count,
-    stub_count=stub_count,
-    imports='\n'.join(sorted(imports_set))
-)
+output_code = output
+output_code = output_code.replace('{total}', str(alias_count + stub_count))
+output_code = output_code.replace('{alias_count}', str(alias_count))
+output_code = output_code.replace('{stub_count}', str(stub_count))
+output_code = output_code.replace('{imports}', '\n'.join(sorted(imports_set)))
+output_code = output_code.replace('{routes}', '\n'.join(routes_code))
 
 out_path = Path(r"G:\IHUI-AI\server\app\api\legacy_compat.py")
 out_path.write_text(output_code, encoding="utf-8")
