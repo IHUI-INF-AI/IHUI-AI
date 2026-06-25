@@ -556,8 +556,202 @@ curl -s https://<DOMAIN>/health | jq .
 
 ---
 
+## 14. 补充凭证清单（2026-06-26 封版前扫描发现）
+
+> 本节由 `server/.env` + `server/.env.production` + `client/.env*` + `server/.env.vapid` + 根目录 `.env` 全量扫描得出, 补充第 0-13 节未覆盖的字段.
+> **掩码规则**: 仅显示前 4 位 + `***`, 完整值见 `PRODUCTION_CREDENTIALS.md`.
+
+### 14.1 P0 必改（部署前阻塞, 明文/dev 默认值流入生产将导致严重安全风险）
+
+| 字段 | 当前值（掩码） | 文件 | 风险 | 轮换动作 |
+|---|---|---|---|---|
+| `JWT_SECRET_KEY` (dev) | `zhs-p***` | `server/.env` | dev 弱密钥, 若误用生产可伪造任意 JWT | 生产必须用 `server/.env.production` 中的 64 位随机值; 确保 dev 值不外泄 |
+| `SESSION_SECRET_KEY` (dev) | `zhs_p***` | `server/.env` | 同上 | 同上 |
+| `INTERNAL_AUTH_KEY` | `dev-i***` | `server/.env` | dev 占位, 标注 "change-in-production" | 生产替换为 32+ 位随机串 |
+| `TBOX_NOTIFY_SECRET` | `dev-t***` | `server/.env` | dev 占位, 标注 "change-in-production" | 生产替换为 32+ 位随机串 |
+| `SEED_ADMIN_PWD` | `Admin***` | `server/.env` | 种子管理员密码, 部署后必须立即改 | 首次登录后强制改密 + 删除 env |
+| `SEED_RY_PWD` | `Ry@20***` | `server/.env` | 同上 | 同上 |
+| `VITE_ENCRYPTION_KEY` (dev) | `ihui-***` | `client/.env` | 前端加密 key 弱密钥, 可解密本地缓存 | 生产用 `client/.env.production` 中的 64 位 hex |
+| `DINGTALK_SECRET` (dev) | `test_***` | `server/.env` | dev 占位 | 生产替换为真实钉钉机器人 secret |
+| `PAGERDUTY_ROUTING_KEY` (dev) | `mock-***` | `server/.env` | dev 占位 | 生产替换或留空（如未启用 PagerDuty） |
+| `VAPID_PRIVATE_KEY` | `PKYI***` | `server/.env.vapid` | Web Push 私钥, 泄露可冒充推送 | 见 §14.4 轮换步骤 |
+| `VAPID_PUBLIC_KEY` | `BEiE***` | `server/.env.vapid` | 配对公钥 | 与私钥一起重新生成 |
+| `COZE_PRIVATE_KEY` | `-----BEGIN...` | `server/.env` | RSA-2048 私钥内嵌 env, 历史项目已泄露 | 见 §9 (已规划) |
+| `WX_PAY_PUB_KEY_ID` | `PUB_K***` | `server/.env.production` | 微信支付公钥 ID | 与微信支付证书绑定, 证书轮换时同步 |
+| `WX_PAY_CERT_PASS` | `xmx7***` | `server/.env.production` | 微信支付证书密码 | 重新申请证书时同步改 |
+
+### 14.2 P1 30 天内轮换（生产已配置真实值, 但来源历史项目已视为泄露）
+
+| 字段 | 当前值（掩码） | 文件 | 类别 | 轮换动作 |
+|---|---|---|---|---|
+| `MINIO_ACCESS_KEY` | `WFEF***` | `server/.env.production` + 根 `.env` | 对象存储 | 见 §8 |
+| `MINIO_SECRET_KEY` | `xGpr***` | 同上 | 对象存储 | 见 §8 |
+| `REDIS_PASSWORD` | `BfSY***` | 同上 | 缓存/会话 | 见 §7 |
+| `DB_PASSWORD` | `N1Zb***` | 根 `.env` | Docker MySQL root | 见 §3 |
+| `JWT_SECRET` | `889a***` | 根 `.env` | Docker JWT | 与 `JWT_SECRET_KEY` 同步 |
+| `SESSION_SECRET` | `9cd4***` | 根 `.env` | Docker Session | 与 `SESSION_SECRET_KEY` 同步 |
+| `NOTIFY_SMTP_PASSWORD` | `eE6B***` | `server/.env.production` | 通知邮箱 SMTP | 登录邮箱服务商重置 |
+| `SMTP_PASSWORD` | (空) | `server/.env` | 通用 SMTP | dev 为空, 生产需配置 |
+| `SMS_WUXI_CLIENT_ID` | `wuxi` | `server/.env.production` | 无锡短信 | 联系短信服务商重置 |
+| `SMS_WUXI_CLIENT_SECRET` | `e1f4***` | `server/.env.production` | 无锡短信 | 同上 |
+| `TENCENT_LIVE_SECRET_ID` | `AKID***` | `server/.env.production` | 腾讯云直播 | 腾讯云控制台重置 |
+| `TENCENT_LIVE_SECRET_KEY` | `mV0F***` | `server/.env.production` | 腾讯云直播 | 同上 |
+| `TENCENT_LIVE_CALLBACK_KEY` | `learn***` | `server/.env.production` | 直播回调签名 | 弱密钥, 替换为 32+ 位随机串 |
+| `TENCENT_COS_SECRET_ID` | `AKID***` | `server/.env.production` | 腾讯云 COS | 腾讯云控制台重置 |
+| `TENCENT_COS_SECRET_KEY` | `LSN5***` | `server/.env.production` | 腾讯云 COS | 同上 |
+| `DASHSCOPE_API_KEY` | `sk-7c***` | `server/.env.production` | 通义千问 | 见 §6 |
+| `DOUBAO_API_KEY` | `af6a***` | `server/.env.production` | 豆包 | 见 §6 |
+| `DOUBAO_JM_API_KEY` | `AKLT***` | `server/.env.production` | 即梦 | 见 §6 |
+| `DOUBAO_JM_SECRET_KEY` | `WVRj***` | `server/.env.production` | 即梦 | 见 §6 |
+| `DEEPSEEK_API_KEY` | `sk-af***` | `server/.env.production` | DeepSeek | 见 §6 |
+| `KLING_ACCESS_KEY` | `A3CN***` | `server/.env.production` | 可灵 | 见 §6 |
+| `KLING_SECRET_KEY` | `FBf8***` | `server/.env.production` | 可灵 | 见 §6 |
+| `KLING_ALT_ACCESS_KEY` | `ANmA***` | `server/.env.production` | 可灵备用 | 见 §6 |
+| `KLING_ALT_SECRET_KEY` | `yfHL***` | `server/.env.production` | 可灵备用 | 见 §6 |
+| `OPENROUTER_API_KEY` | `sk-o***` | `server/.env.production` | OpenRouter | 见 §6 |
+| `LUYALA_API_KEY` | `sk-f***` | `server/.env.production` | Luyala | 见 §6 |
+| `TENCENT_SECRET_ID` | `AKID***` | `server/.env.production` | 腾讯云通用 | 见 §6 |
+| `TENCENT_SECRET_KEY` | `NYd8***` | `server/.env.production` | 腾讯云通用 | 见 §6 |
+| `BAIDU_API_KEY` | `bce-***` | `server/.env.production` | 百度智能云 | 见 §6 |
+| `BAILIAN_APP_ID` | `c2st***` | `server/.env.production` | 阿里百炼 | 见 §6 |
+| `ZHIPU_API_KEY` | `7b07***` | `server/.env` + `.env.production` | 智谱 GLM | 见 §2 (已规划) |
+| `WECOM_SECRET` | `DdVz***` | `server/.env` + `.env.production` | 企业微信应用 Secret | 企微管理后台重置 |
+| `DINGTALK_APP_SECRET` | `TkSe***` | `server/.env` + `.env.production` | 钉钉应用 Secret | 钉钉开放平台重置 |
+| `DINGTALK_LOGIN_APP_SECRET` | `SuOD***` | `server/.env` + `.env.production` | 钉钉登录 Secret | 钉钉开放平台重置 |
+| `WX_MINI_SECRET` | `59c2***` | `server/.env.production` | 微信小程序 Secret | 见 §4.1 (已规划) |
+| `WX_APP_SECRET` | `ee79***` | `server/.env.production` | 微信 APP Secret | 微信开放平台重置 |
+| `ALIPAY_APP_ID` | `2021***` | `server/.env.production` | 支付宝应用 ID | 应用 ID 不可改, 但需确认公钥已轮换 |
+| `VOLC_APP_KEY` | `Plgv***` | `server/.env.production` | 火山语音 APP_KEY | 火山引擎控制台重置 |
+| `VITE_COZE_WORKFLOW_ID` | `7490***` | `client/.env.production` | Coze workflow ID (非密钥) | 无需轮换, 记录在册 |
+
+### 14.3 P2 可选轮换（dev 为空, 生产未启用, 上线后再配置）
+
+| 字段 | 文件 | 说明 |
+|---|---|---|
+| `BAIDU_API_KEY` (dev) | `server/.env` | dev 为空 |
+| `SUNO_API_KEY` | `server/.env` + `.env.production` | 均为空, 启用时配置 |
+| `GEMINI_API_KEY` | `server/.env` + `.env.production` | 均为空 |
+| `LANGCHAIN_API_KEY` | `server/.env` + `.env.production` | 均为空 |
+| `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` | `server/.env` + `.env.production` | 均为空, 用 MinIO 替代 |
+| `ALI_SMS_ACCESS_KEY_ID` / `ALI_SMS_ACCESS_KEY_SECRET` | `server/.env` + `.env.production` | 均为空, 用 SMS_WUXI 替代 |
+| `FEISHU_APP_ID` / `FEISHU_APP_SECRET` / `FEISHU_SECRET` | `server/.env` + `.env.production` | 均为空, 启用时配置 |
+| `GOOGLE_APP_ID` / `GOOGLE_SECRET` | `server/.env` + `.env.production` | 均为空 |
+| `ALI_LOGIN_APP_ID` / `ALI_LOGIN_APP_SECRET` | `server/.env` + `.env.production` | 均为空 |
+| `STOCK_ANALYSE_API_TOKEN` | `server/.env` + `.env.production` | 均为空 |
+| `ZHS_MONITOR_DINGTALK_SECRET` 等 | `server/.env` + `.env.production` | 均为空 |
+
+### 14.4 VAPID 密钥轮换步骤（Web Push 推送）
+
+```bash
+# 1. 安装 web-push CLI (若未安装)
+npm install -g web-push
+
+# 2. 生成新 VAPID 密钥对
+web-push generate-vapid-keys --json
+# 输出:
+# {
+#   "privateKey": "<NEW_PRIVATE_KEY>",
+#   "publicKey": "<NEW_PUBLIC_KEY>"
+# }
+
+# 3. 更新 server/.env.vapid
+# VAPID_PRIVATE_KEY=<NEW_PRIVATE_KEY>
+# VAPID_PUBLIC_KEY=<NEW_PUBLIC_KEY>
+# VAPID_SUBJECT=mailto:alert@<DOMAIN>
+
+# 4. 重启后端
+systemctl restart ihui-ai-backend
+
+# 5. 验证: 前端重新订阅推送 (旧订阅会失效, 用户需重新授权)
+#    在浏览器 console:
+#    await navigator.serviceWorker.ready
+#    await pushManager.subscribe({userVisibleOnly: true, applicationServerKey: '<NEW_PUBLIC_KEY>'})
+
+# 6. 撤销旧密钥: 删除 server/.env.vapid.bak 备份
+```
+
+### 14.5 INTERNAL_AUTH_KEY / TBOX_NOTIFY_SECRET 轮换（服务间鉴权）
+
+```bash
+# 1. 生成新密钥 (32 字节随机 hex)
+openssl rand -hex 32
+# 输出: <NEW_INTERNAL_AUTH_KEY>
+
+# 2. 更新 server/.env.production
+sed -i 's|^INTERNAL_AUTH_KEY=.*|INTERNAL_AUTH_KEY=<NEW_INTERNAL_AUTH_KEY>|' /ai_zhs/.env.production
+sed -i 's|^TBOX_NOTIFY_SECRET=.*|TBOX_NOTIFY_SECRET=<NEW_TBOX_SECRET>|' /ai_zhs/.env.production
+
+# 3. 同步到 TBOX 服务端 (若部署了 TBOX 通知服务)
+# 编辑 TBOX 服务的 .env, 使用相同的 INTERNAL_AUTH_KEY
+
+# 4. 滚动重启所有服务
+systemctl restart ihui-ai-backend
+systemctl restart tbox-notify  # 若存在
+```
+
+### 14.6 SEED 密码处理（首次部署后必做）
+
+```bash
+# 1. 首次登录后端管理后台
+#    用户名: admin (或 ry)
+#    密码: 见 SEED_ADMIN_PWD / SEED_RY_PWD
+
+# 2. 立即修改密码
+#    管理后台 → 个人中心 → 修改密码
+
+# 3. 删除 .env 中的 SEED_* 字段 (生产环境)
+sed -i '/^SEED_ADMIN_PWD=/d' /ai_zhs/.env.production
+sed -i '/^SEED_RY_PWD=/d' /ai_zhs/.env.production
+
+# 4. 重启 (确保密码已持久化到 DB)
+systemctl restart ihui-ai-backend
+
+# 5. 验证: 用新密码登录
+```
+
+### 14.7 VITE_ENCRYPTION_KEY 轮换（前端本地缓存加密）
+
+```bash
+# 1. 生成新密钥 (32 字节 hex)
+openssl rand -hex 32
+# 输出: <NEW_VITE_ENCRYPTION_KEY>
+
+# 2. 更新 client/.env.production
+sed -i 's|^VITE_ENCRYPTION_KEY=.*|VITE_ENCRYPTION_KEY=<NEW_VITE_ENCRYPTION_KEY>|' client/.env.production
+
+# 3. 重新构建前端
+cd client && pnpm build
+
+# 4. 部署新前端静态资源
+#    (用户浏览器本地缓存会用旧 key 加密, 部署后会自动清空并重新登录)
+
+# 5. 验证: 浏览器无痕模式访问, 登录后检查 localStorage 是否用新 key 加密
+```
+
+### 14.8 补充检查清单（封版前必做）
+
+- [ ] P0: `INTERNAL_AUTH_KEY` 生产值已替换 (非 dev-internal-auth-key-***)
+- [ ] P0: `TBOX_NOTIFY_SECRET` 生产值已替换 (非 dev-tbox-notify-***)
+- [ ] P0: `SEED_ADMIN_PWD` / `SEED_RY_PWD` 首次登录后已删除
+- [ ] P0: `VITE_ENCRYPTION_KEY` 生产值已是 64 位 hex (非 ihui-ai-***)
+- [ ] P0: `VAPID_PRIVATE_KEY` / `VAPID_PUBLIC_KEY` 已轮换
+- [ ] P0: `JWT_SECRET_KEY` 生产值已是 64 位随机 (非 zhs-platform-***)
+- [ ] P1: `NOTIFY_SMTP_PASSWORD` 已重置
+- [ ] P1: `SMS_WUXI_CLIENT_SECRET` 已重置
+- [ ] P1: `TENCENT_LIVE_*` 3 项已重置
+- [ ] P1: `TENCENT_COS_*` 2 项已重置
+- [ ] P1: `WECOM_SECRET` 已重置
+- [ ] P1: `DINGTALK_APP_SECRET` + `DINGTALK_LOGIN_APP_SECRET` 已重置
+- [ ] P1: `WX_APP_SECRET` 已重置
+- [ ] P1: `VOLC_APP_KEY` 已重置
+- [ ] P2: dev 为空的可选项上线前确认配置 (FEISHU/GOOGLE/ALI_LOGIN/SUNO/GEMINI/LANGCHAIN/OSS/ALI_SMS)
+- [ ] 第十五节审计记录补充本次轮换
+
+---
+
 **维护记录**:
 
 | 日期 | 变更 | 操作人 |
 |---|---|---|
 | 2026-06-25 | 初始版本 (从 INTEGRATION_DELIVERY_REPORT.md 9.3/9.4 扩展) | IHUI-AI Assistant |
+| 2026-06-26 | 新增第 14 节: 封版前补充凭证清单 (VAPID/SEED/INTERNAL_AUTH/TBOX_NOTIFY/VITE_ENCRYPTION/SMS_WUXI/TENCENT_LIVE/TENCENT_COS/WECOM/DINGTALK 等 40+ 字段) | IHUI-AI Assistant |
