@@ -24,7 +24,7 @@ SAMPLING_STRATEGIES = ["always_on", "always_off", "probabilistic", "rate_limitin
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

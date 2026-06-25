@@ -25,7 +25,7 @@ FUNCTION_STATUSES = ["active", "inactive", "deploying", "error"]
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:
