@@ -2,8 +2,6 @@
 鑰冭瘯绯荤粺 - 鍒嗙敮鐩囬厤缃
 """
 
-from datetime import datetime
-
 from fastapi import APIRouter, Query
 from loguru import logger
 
@@ -11,6 +9,7 @@ from app.core.current_user import current_user_id_or_guest
 from app.database import get_session
 from app.models.exam_models import ExamCategory, ExamPaper, ExamQuestion, ExamRecord, ExamWrongQuestion
 from app.schemas.common import error, success
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -342,7 +341,7 @@ async def start_exam(paper_id: int = Query(...)):
                 total_score=p.total_score,
                 pass_score=p.pass_score,
                 status=0,
-                start_time=datetime.utcnow(),
+                start_time=utcnow(),
             )
             db.add(r)
             db.flush()
@@ -386,7 +385,7 @@ async def submit_exam(record_id: int = Query(...), answers: str = Query(..., des
                     )
                     if exist:
                         exist.wrong_count = (exist.wrong_count or 0) + 1
-                        exist.last_wrong_time = datetime.utcnow()
+                        exist.last_wrong_time = utcnow()
                         exist.user_answer = ua
                         exist.right_answer = q.answer
                     else:
@@ -398,7 +397,7 @@ async def submit_exam(record_id: int = Query(...), answers: str = Query(..., des
                                 paper_title=r.paper_title,
                                 user_answer=ua,
                                 right_answer=q.answer,
-                                last_wrong_time=datetime.utcnow(),
+                                last_wrong_time=utcnow(),
                             )
                         )
             r.score = score
@@ -407,7 +406,7 @@ async def submit_exam(record_id: int = Query(...), answers: str = Query(..., des
             r.is_pass = score >= r.pass_score
             r.status = 1
             r.answer_data = answers
-            r.submit_time = datetime.utcnow()
+            r.submit_time = utcnow()
             if r.start_time:
                 r.cost_time = int((r.submit_time - r.start_time).total_seconds())
             p = db.query(ExamPaper).filter(ExamPaper.id == r.paper_id).first()

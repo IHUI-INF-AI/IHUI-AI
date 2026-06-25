@@ -42,16 +42,20 @@
         <div class="notify-body">
           <div class="notify-title">
             <span>{{ n.title }}</span>
-            <el-tag v-if="!n.read" size="small" type="danger" effect="dark">{{ t('notificationCenter.unread') }}</el-tag>
-            <el-tag v-else size="small" type="info" effect="plain">{{ n.source }}</el-tag>
+            <!-- 级别标签 (统一从 LEVEL_LABEL 翻译) -->
+            <el-tag :type="n.level === 'error' ? 'danger' : n.level === 'warn' ? 'warning' : 'info'" size="small" effect="plain">
+              {{ t(LEVEL_LABEL[n.level]) }}
+            </el-tag>
             <!-- 置顶徽章 (P1: error 级别自动置顶) -->
             <span v-if="n.top" class="top-badge" :title="'已置顶'">
               <el-icon :size="12"><Top /></el-icon>
               <span>置顶</span>
             </span>
+            <!-- 来源 (已读时显示, 顶部一处, meta 不再重复) -->
+            <span v-if="n.read" class="source-tag">{{ n.source }}</span>
           </div>
           <div class="notify-text">{{ n.body }}</div>
-          <div class="notify-meta">{{ formatTime(n.created_at) }} · {{ n.source }}</div>
+          <div class="notify-meta">{{ formatTime(n.created_at) }}</div>
         </div>
       </li>
     </ul>
@@ -215,6 +219,16 @@ onUnmounted(() => {
     background: var(--el-color-danger-light-9);
     color: var(--el-color-danger);
     border: 1px solid var(--el-color-danger-light-7);
+  }
+
+  /* 来源标签 (已读时显示) */
+  .source-tag {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: var(--global-border-radius);
+    color: var(--color-white-50);
+    background: var(--color-white-8);
+    border: 1px solid var(--el-border-color-lighter);
   }
 
   /* 置顶行视觉强化 (轻微背景色 + 边框粗) */

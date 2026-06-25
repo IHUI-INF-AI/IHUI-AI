@@ -500,4 +500,29 @@ async function onFinalConfirm() {
   line-height: 1.6;
   margin: 0;
 }
+
+/* 暗色模式适配 */
+:where(html.dark) {
+  .account-cancel {
+    background-color: var(--el-bg-color);
+  }
+
+  .account-cancel__notice {
+    background-color: color-mix(in srgb, var(--el-color-danger) 8%, var(--el-bg-color));
+    border-color: color-mix(in srgb, var(--el-color-danger) 20%, var(--el-border-color));
+  }
+
+  .account-cancel__consequences {
+    border-color: var(--el-border-color);
+  }
+
+  .account-cancel__confirm-ref {
+    background-color: var(--el-fill-color);
+    border-color: var(--el-border-color);
+  }
+
+  .account-cancel__code-btn {
+    background-color: var(--el-bg-color);
+  }
+}
 </style>
