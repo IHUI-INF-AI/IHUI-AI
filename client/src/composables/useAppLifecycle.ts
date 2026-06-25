@@ -32,14 +32,21 @@ export interface AppLifecycle {
 }
 
 export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle {
-  const router = useRouter()
-  const { t } = useI18n()
-
   // 2026-06-24 修复: 不在 useAppLifecycle 顶层直接调用 useAuthStore/useDarkModeStore,
   // 因为 App.vue setup 执行时机可能早于 main.ts 中某些动态 import 完成后的 Pinia
   // 状态完全就绪, 触发 'getActivePinia() was called but there was no active Pinia' 错误.
   // 改为: 1) 顶层先用 try/catch 兜底, 失败时 store 引用为 null, 事件触发时再懒加载.
   //      2) 在 install()/onMounted 中重新尝试拿一次, 避免生命周期内重复尝试.
+  // 2026-06-25 扩展: 同样保护 useRouter / useRoute, Vite HMR 重载早期 setup 时
+  //   app.use(router) 注入尚未完成, 会抛 'injection "Symbol(router)" not found',
+  //   同样是 HMR 抖动暴露, 不属于生产问题, 但需要兜底不让 setup 整体失败.
+  let router: ReturnType<typeof useRouter> | null = null
+  try {
+    router = useRouter()
+  } catch (e) {
+    logger.debug('[useAppLifecycle] router unavailable on init, will lazy load:', e)
+  }
+
   let authStore: ReturnType<typeof useAuthStore> | null = null
   let darkModeStore: ReturnType<typeof useDarkModeStore> | null = null
   try {
@@ -51,6 +58,17 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     darkModeStore = useDarkModeStore()
   } catch (e) {
     logger.debug('[useAppLifecycle] darkModeStore unavailable on init, will lazy load:', e)
+  }
+
+  const getRouter = (): ReturnType<typeof useRouter> | null => {
+    if (router) return router
+    try {
+      router = useRouter()
+      return router
+    } catch (e) {
+      logger.debug('[useAppLifecycle] router lazy load failed:', e)
+      return null
+    }
   }
 
   const getAuthStore = (): ReturnType<typeof useAuthStore> | null => {
