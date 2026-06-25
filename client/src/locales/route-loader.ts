@@ -55,6 +55,7 @@ const pathModuleMap: Array<{ prefix: string; module: string }> = [
   { prefix: '/purchase', module: 'purchase' },
   { prefix: '/api-test', module: 'apiTest' },
   { prefix: '/settlement-stats', module: 'cmpindex' },
+  { prefix: '/edu', module: 'edu' },
   { prefix: '/dashboard', module: 'dashboard' },
   { prefix: '/learn-ai', module: 'learn' },
   { prefix: '/learn', module: 'learn' },
