@@ -35,8 +35,9 @@ def _pcm_to_wav(pcm_data: bytes) -> bytes:
 async def _send(websocket: WebSocket, payload: dict[str, Any]) -> None:
     try:
         await websocket.send_text(json.dumps(payload, ensure_ascii=False))
-    except Exception:
-        pass
+    except Exception as e:
+        # 2026-06-25 P2 加固: 记录异常
+        logger.debug(f"tts _send failed: {e}")
 
 
 async def _stream_synthesize(text: str, voice: str = "Cherry", model: str = "qwen3-tts-flash-realtime") -> bytes:
@@ -128,5 +129,6 @@ async def tts_stream_ws(websocket: WebSocket):
     finally:
         try:
             await websocket.close()
-        except Exception:
-            pass
+        except Exception as e:
+            # 2026-06-25 P2 加固: 记录异常
+            logger.debug(f"tts websocket close failed: {e}")

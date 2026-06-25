@@ -23,8 +23,9 @@ ACTIVE_TIMBRE_TASKS: dict[str, dict[str, Any]] = {}
 async def _send(websocket: WebSocket, payload: dict[str, Any]) -> None:
     try:
         await websocket.send_text(json.dumps(payload, ensure_ascii=False))
-    except Exception:
-        pass
+    except Exception as e:
+        # 2026-06-25 P2 加固: 记录异常便于排查, 不再静默吞噬
+        logger.debug(f"_send to {websocket.client} failed: {e}")
 
 
 @router.websocket("/ws/timbre/generate")
@@ -101,5 +102,6 @@ async def timbre_generate_ws(websocket: WebSocket):
             ACTIVE_TIMBRE_TASKS[task_id]["closed"] = True
         try:
             await websocket.close()
-        except Exception:
-            pass
+        except Exception as e:
+            # 2026-06-25 P2 加固: 记录异常便于排查
+            logger.debug(f"websocket close failed (timbre): {e}")

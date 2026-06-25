@@ -88,8 +88,9 @@ def ws_require_auth(func: Callable) -> Callable:
                     if payload and payload.get("exp"):
                         exp = payload["exp"]
                         token_exp = exp.timestamp() if hasattr(exp, "timestamp") else float(exp)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 2026-06-25 P2 加固: 记录异常, 便于排查 token 解析失败
+                    logger.debug(f"ws token decode failed: {e}")
             kwargs["token_exp"] = token_exp
 
         return await func(*args, **kwargs)

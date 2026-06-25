@@ -108,8 +108,9 @@ class WebSocketAutoRecoveryManager:
                         size = self.ws_manager.message_queue.qsize()
                         if size > self.ws_manager.queue_size * 0.9:
                             await self._clear_message_queue()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        # 2026-06-25 P2 加固: 记录异常
+                        logger.debug(f"message_queue qsize check failed: {e}")
                 self.consecutive_errors = 0
                 self.last_health_check = time.time()
             except Exception as e:

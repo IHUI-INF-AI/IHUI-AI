@@ -345,8 +345,9 @@ class ConnectionManager:
                                 code=4401,
                                 reason="Token expired, please refresh and reconnect",
                             )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        # 2026-06-25 P2 加固: 记录异常
+                        logger.debug(f"WS close failed (TTL): {e}")
                     await self.disconnect(conn_id)
                 await asyncio.sleep(self.WS_TTL_CHECK_INTERVAL_SEC)
             except asyncio.CancelledError:
