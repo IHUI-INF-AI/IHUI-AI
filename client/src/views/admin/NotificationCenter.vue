@@ -78,14 +78,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+// 2026-06-25 修复 ESLint:
+//   - InfoFilled import 未在模板中使用, 删除避免 no-unused-vars
+//   - fetchList 中 catch (e) 中 e 未使用, 改为 catch
+//   - onUnmounted + clearInterval 改用 useCleanup, 触发 ihui/no-manual-cleanup
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Bell, Warning, CircleClose, Top, InfoFilled } from '@element-plus/icons-vue'
+import { Bell, Warning, CircleClose, Top } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import http from '@/utils/request'
 import { useNotifyBadge } from '@/composables/useNotifyBadge'
+import { useCleanup } from '@/composables/useCleanup'
 
 const { t } = useI18n()
+const cleanup = useCleanup()
 interface NotifyItem {
   id: string
   title: string
@@ -138,7 +144,7 @@ async function fetchList() {
     })
     items.value = resp?.data?.items ?? []
     // P1: 未读数由 useNotifyBadge 全局轮询, 列表拉取后无需再拉一次
-  } catch (e) {
+  } catch {
     ElMessage.error('加载通知失败')
   } finally {
     loading.value = false

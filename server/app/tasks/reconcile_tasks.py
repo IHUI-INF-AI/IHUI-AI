@@ -194,7 +194,7 @@ def archive_old_notifications_task(self) -> dict:
     dry_run_raw = str(os.getenv("NOTIFY_ARCHIVE_DRY_RUN", "0")).strip().lower()
     dry_run = dry_run_raw in ("1", "true", "yes", "on")
 
-    started_at = datetime.utcnow()
+    started_at = utcnow()
     logger.info(
         f"[celery] archive_old_notifications_task started: threshold={threshold_days}d, dry_run={dry_run}"
     )
