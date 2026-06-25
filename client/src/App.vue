@@ -194,26 +194,15 @@ logger.info('[App] App.vue 开始初始化...')
 // ═══ 路由 / 国际化 ═══
 // 2026-06-25 修复: useRoute 顶层调用无兜底, HMR 抖动期 app.use(router) 还没执行
 // 会抛 'injection "Symbol(route location)" not found', 整个 setup 失败触发
-// ErrorBoundary 兜底页白屏. 这里用与 useAppLifecycle 一致的懒加载兜底策略:
-// 顶层 try/catch, 失败时 route 引用为 null, 事件触发时再懒加载重试.
+// ErrorBoundary 兜底页白屏. 顶层 try/catch, 失败时 route 引用为 null,
+// safeRoute computed 兜底返回空对象, 避免 template/computed 访问 .path/.name/.meta 抛错.
+// 注意: 占位对象必须保持响应式读取, 因此用 computed 包装而不是 const 普通对象.
 let route: ReturnType<typeof useRoute> | null = null
 try {
   route = useRoute()
 } catch (e) {
-  logger.warn('[App] useRoute failed on init, will lazy retry:', e)
+  logger.warn('[App] useRoute failed on init, route fallback to empty:', e)
 }
-const getRoute = (): ReturnType<typeof useRoute> | null => {
-  if (route) return route
-  try {
-    route = useRoute()
-    return route
-  } catch (e) {
-    logger.debug('[App] useRoute lazy retry failed:', e)
-    return null
-  }
-}
-// 安全 route 代理: route 不存在时返回空对象占位, 避免 template/computed 访问 .path/.name/.meta 抛错
-// 注意: 占位对象必须保持响应式读取, 因此用 computed 包装而不是 const 普通对象
 const safeRoute = computed(() => (route || ({} as unknown as ReturnType<typeof useRoute>)))
 const { t, locale } = useI18n()
 // 2026-06-24 优化：EP 语言包懒加载，computed 同步返回（先 en 兜底），异步预加载后自动更新

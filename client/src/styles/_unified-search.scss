@@ -9,25 +9,19 @@
   --unified-search-bg: var(--el-bg-color);
   --unified-search-border: var(--border
 -unified-color);
-  --unified-search-shadow: var(--global-box-shadow);
   --unified-search-focus-color: var(--el-text-color-primary);
   --unified-search-btn-bg: var(--el-text-color-primary);
   --unified-search-btn-color: var(--el-bg-color);
   --unified-search-btn-hover-bg: var(--el-text-color-primary);
-  --unified-search-btn-shadow: var(--global-box-shadow);
-  --unified-search-btn-hover-shadow: var(--global-box-shadow);
 }
 
 html.dark {
   --unified-search-bg: var(--el-bg-color);
   --unified-search-border: var(--border-unified-color);
-  --unified-search-shadow: var(--global-box-shadow);
   --unified-search-focus-color: var(--el-text-color-primary);
   --unified-search-btn-bg: var(--el-text-color-primary);
   --unified-search-btn-color: var(--el-bg-color);
   --unified-search-btn-hover-bg: var(--el-text-color-primary);
-  --unified-search-btn-shadow: var(--global-box-shadow);
-  --unified-search-btn-hover-shadow: var(--global-box-shadow);
 }
 
 // 统一搜索栏容器（包裹 el-input，可选右侧搜索按钮）

@@ -118,7 +118,7 @@ function _startSocket(): void {
     _socket.on('error', (err: { code?: number; msg?: string }) => {
       // P1 增强: 记录最近一次 error 时间, UI 可展示"连接异常 N 分钟前"
       _lastErrorAt.value = new Date()
-      // eslint-disable-next-line no-console
+       
       console.warn('[notify] socket error:', err?.msg ?? err)
     })
   } catch {

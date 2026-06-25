@@ -3096,7 +3096,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
 .ai-chat {
   // 扁平化设计变?
-  --aic-flat-shadow: none;
   --aic-flat-filter: none;
   
   // 首页模式布局变量
@@ -3190,7 +3189,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       justify-content: flex-start;
       padding: 0;
       z-index: var(--aic-home-z-index-overlay);
-      box-shadow: var(--aic-flat-shadow); // 扁平化设计：确保无投?
       filter: var(--aic-flat-filter); // 扁平化设计：移除可能?filter 效果
 
       // 首页时：底部固定小对话框，不显示全屏遮罩
@@ -3211,7 +3209,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         pointer-events: none;
         visibility: visible;
         opacity: 1;
-        box-shadow: var(--aic-flat-shadow); // 扁平化设计：确保无投?
         filter: var(--aic-flat-filter); // 扁平化设计：移除可能?filter 效果
       }
     }
@@ -3239,7 +3236,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
-      box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投影
       border: 0;
       text-rendering: optimizelegibility;
 
@@ -3257,7 +3253,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         max-height: var(--aic-home-max-height);
         min-height: var(--aic-home-min-height);
         border-radius: var(--aic-home-border-radius);
-        box-shadow: var(--aic-flat-shadow); // 扁平化设计：移除所有投?
         border: 0;
         margin: 0 auto;
         position: relative;
@@ -3298,7 +3293,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       justify-content: flex-start;
       padding: 0;
       z-index: var(--aic-home-z-index-overlay);
-      box-shadow: var(--aic-flat-shadow); // 扁平化设计：确保无投?
       filter: var(--aic-flat-filter); // 扁平化设计：移除可能?filter 效果
 
       // 首页时：底部固定小对话框，不显示全屏遮罩
@@ -3319,7 +3313,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         pointer-events: none;
         visibility: visible;
         opacity: 1;
-        box-shadow: var(--aic-flat-shadow); // 扁平化设计：确保无投?
         filter: var(--aic-flat-filter); // 扁平化设计：移除可能?filter 效果
       }
     }
@@ -3347,7 +3340,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
-      box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投影
       border: 0;
       text-rendering: optimizelegibility;
 
@@ -3365,7 +3357,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         max-height: var(--aic-home-max-height);
         min-height: var(--aic-home-min-height);
         border-radius: var(--aic-home-border-radius);
-        box-shadow: var(--aic-flat-shadow); // 扁平化设计：移除所有投?
         border: 0;
         margin: 0 auto;
         position: relative;
@@ -3624,7 +3615,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
 
     .el-card__header {
       display: flex;
@@ -3681,7 +3671,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       }
 
       &:hover {
-        box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
         transform: translateX(0); // 扁平化设计：移除位移
         border-color: var(--el-color-primary-light-5);
       }
@@ -4029,7 +4018,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
         &:hover:not(:disabled) {
           transform: translateY(0); // 扁平化设计：移除位移
-          box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
         }
 
         &:active:not(:disabled) {
@@ -4095,7 +4083,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         background-color: var(--el-color-primary-dark-2);
         border-color: var(--el-color-primary-dark-2);
         color: var(--aic-send-btn-color);
-        box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
 
         :deep(.el-icon) {
           color: var(--aic-send-btn-color);
@@ -4376,7 +4363,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     }
 
     &:hover {
-      box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
       transform: translateY(0); // 扁平化设计：移除位移
       border-color: var(--el-border-color);
 
@@ -4561,7 +4547,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
       &:hover {
         transform: translateY(0); // 扁平化设计：移除位移
-        box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
       }
 
       &.el-button--primary {

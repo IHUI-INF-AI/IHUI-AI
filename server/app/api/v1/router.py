@@ -646,7 +646,8 @@ api_router.include_router(identity_router, prefix="/agents/identity", tags=["Age
 api_router.include_router(creation_router, prefix="/agents/creation", tags=["Agent Creation"])
 api_router.include_router(cache_router, prefix="/agents/cache", tags=["Agent Cache"])
 api_router.include_router(rule_params_router, tags=["Agent Rule Params"])
-# 2026-06-26: agents_category_link_router 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不注册
+# 2026-06-26: 用户确认纳入封版, 注册 agents_category_link_router
+api_router.include_router(agents_category_link_router, prefix="/agents/category-link", tags=["Agent Category Link"])
 
 # Bots
 api_router.include_router(bots_router, prefix="/bots", tags=["Bots"])
