@@ -401,11 +401,11 @@ const currentLanguage = computed(() => {
   const globalLang = getCurrentLanguage.value as string | undefined
   if (globalLang) return globalLang as Language
 
-  const localeObj = locale as unknown
-  if (localeObj && typeof localeObj === 'object' && 'value' in localeObj) {
-    return (localeObj as { value: string | undefined }).value || 'zh-CN'
+  const lc = getLocale()
+  if (lc && typeof lc === 'object' && 'value' in lc) {
+    return lc.value || 'zh-CN'
   }
-  return (locale as unknown as string) || 'zh-CN'
+  return 'zh-CN'
 })
 
 // 计算当前语言显示文本
@@ -530,8 +530,10 @@ const toggleAboutMenu = () => {
 
 // 检查服务与支持相关页面是否激活
 // 2026-06-24 修复: route 可能为 undefined, 加可选链
+// 2026-06-25 扩展: 改用 getRoute() 兜底
 const isSupportActive = computed(() => {
-  const routePath = (route as unknown as { path?: string } | undefined)?.path || ''
+  const r = getRoute()
+  const routePath = (r as unknown as { path?: string } | undefined)?.path || ''
   return (
     routePath.startsWith('/support/') ||
     activeIndex.value === 'documentCenter'
@@ -540,8 +542,10 @@ const isSupportActive = computed(() => {
 
 // 检查关于我们相关页面是否激活
 // 2026-06-24 修复: route 可能为 undefined, 加可选链
+// 2026-06-25 扩展: 改用 getRoute() 兜底
 const isAboutActive = computed(() => {
-  const routePath = (route as unknown as { path?: string } | undefined)?.path || ''
+  const r = getRoute()
+  const routePath = (r as unknown as { path?: string } | undefined)?.path || ''
   return (
     routePath.startsWith('/about/') ||
     activeIndex.value === 'newsCenter' ||

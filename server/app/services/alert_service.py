@@ -16,6 +16,7 @@ from email.mime.text import MIMEText
 import httpx
 
 from app.config import settings
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
