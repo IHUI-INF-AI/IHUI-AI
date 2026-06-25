@@ -4,7 +4,7 @@
 模型: ExamPaperRecord
 状态: 0=未提交 1=已提交 2=已评分
 """
-from datetime import datetime
+from app.utils.datetime_helper import utcnow
 
 from fastapi import APIRouter, Query
 from loguru import logger

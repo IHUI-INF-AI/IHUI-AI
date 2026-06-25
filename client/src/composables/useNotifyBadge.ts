@@ -115,8 +115,9 @@ function _startSocket(): void {
       void _fetch()
     })
     _socket.on('error', (err: { code?: number; msg?: string }) => {
-      // 静默: 轮询兜底
-       
+      // P1 增强: 记录最近一次 error 时间, UI 可展示"连接异常 N 分钟前"
+      _lastErrorAt.value = new Date()
+      // eslint-disable-next-line no-console
       console.warn('[notify] socket error:', err?.msg ?? err)
     })
   } catch {
@@ -189,5 +190,7 @@ export function useNotifyBadge() {
     refresh: _fetch,
     /** 本地覆盖未读数 (供通知中心 markRead/markAllRead 立即更新, 避免轮询延迟) */
     setUnread: _setUnread,
+    /** 最近一次 socket error 时间 (null = 无错) */
+    lastErrorAt: _lastErrorAt,
   }
 }

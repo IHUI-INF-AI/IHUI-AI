@@ -148,8 +148,8 @@ class CertificateAuthority:
                 .issuer_name(ca_cert.subject)
                 .public_key(user_key.public_key())
                 .serial_number(x509.random_serial_number())
-                .not_valid_before(datetime.utcnow())
-                .not_valid_after(datetime.utcnow() + timedelta(days=validity_days))
+                .not_valid_before(utcnow())
+                .not_valid_after(utcnow() + timedelta(days=validity_days))
                 .add_extension(
                     x509.BasicConstraints(ca=False, path_length=None),
                     critical=True,
@@ -191,7 +191,7 @@ class CertificateAuthority:
 
             issuer_match = user_cert.issuer == ca_cert.subject
 
-            now = datetime.utcnow()
+            now = utcnow()
             validity_ok = user_cert.not_valid_before <= now <= user_cert.not_valid_after
 
             subject_info = {}

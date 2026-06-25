@@ -265,7 +265,7 @@ def issue_certificate(serial: str, service_identity: str,
                       validity_days: int = 90) -> str:
     """签发 SPIFFE 证书 (Stub)"""
     cid = str(uuid.uuid4())
-    now = datetime.utcnow()
+    now = utcnow()
     not_before = now.isoformat() + "Z"
     not_after = (now + timedelta(days=validity_days)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
@@ -278,7 +278,7 @@ def issue_certificate(serial: str, service_identity: str,
 
 def get_telemetry_summary(minutes: int = 60) -> Dict[str, Any]:
     """遥测汇总"""
-    since = (datetime.utcnow() - timedelta(minutes=minutes)).isoformat() + "Z"
+    since = (utcnow() - timedelta(minutes=minutes)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT source_service, dest_service,
             COUNT(*) as cnt, AVG(rtt_ms) as avg_rtt,

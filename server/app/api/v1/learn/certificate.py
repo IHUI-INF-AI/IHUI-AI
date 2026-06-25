@@ -18,6 +18,7 @@ from app.models.learn_models import (
     CertificateTemplate,
 )
 from app.schemas.common import error, page_result, success
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
