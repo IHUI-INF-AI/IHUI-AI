@@ -804,12 +804,14 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   text-align: center;
+  box-sizing: border-box;
   margin-left: 8px;
+  padding: 0 4px;
   font-size: 12px;
-  width: 16px;
+  min-width: 16px;
   height: 16px;
   background-color: var(--notif-bg-color-sup);
-  border-radius: var(--global-border-radius);
+  border-radius: 8px;
 }
 
 @keyframes active-status {

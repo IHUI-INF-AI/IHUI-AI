@@ -1838,12 +1838,27 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
       // (避免 dev 启动时间从 3s 涨到 30s+).
       entries: [
         'src/main.ts',
-        // 首屏 router-view 可能 mount 的 4 个最常访问路由
+        // 首屏 router-view 可能 mount 的 5 个最常访问路由
         'src/views/Home.vue',
         'src/views/Agents.vue',
         'src/views/Login.vue',
         'src/views/Register.vue',
         'src/views/Chat.vue',
+        // 2026-06-25 补充: App.vue 顶层 defineAsyncComponent 触发的首屏动态组件
+        // 不预先声明, 首次访问触发 dynamic import 时 Vite 还在构建, 会 ERR_ABORTED
+        // 触发 ErrorBoundary 兜底页白屏. componentLoader 12s 重试也救不回来.
+        'src/components/ErrorNotification.vue',
+        'src/components/common/GlobalCommandPalette.vue',
+        'src/components/common/GlobalLoading.vue',
+        'src/components/common/PWAInstallPrompt.vue',
+        'src/components/common/PWAUpdatePrompt.vue',
+        'src/components/mobile/MobileBottomNav.vue',
+        'src/components/ThemeLoadingIndicator.vue',
+        'src/components/ai/AIChat.vue',
+        'src/components/ai/AIChatLegacy.vue',
+        // Header.vue 内嵌的 SearchTrigger (触发 Cmd+K 指令面板) 同样动态加载
+        'src/components/login/SearchTrigger.vue',
+        'src/components/Header.vue',
       ],
       exclude: [
         '@langchain/openai',

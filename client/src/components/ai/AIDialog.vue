@@ -1129,8 +1129,8 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           
           .tag-icon {
             font-size: 12px;
-            width: 11px;
-            height: 11px;
+            width: 14px;
+            height: 14px;
             flex-shrink: 0;
             display: inline-flex;
             align-items: center;

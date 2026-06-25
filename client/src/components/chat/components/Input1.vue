@@ -1139,9 +1139,9 @@ import { useI18n } from 'vue-i18n';
   }
   
   .primary-btn {
-    height: 12px;
+    height: 32px;
     padding: 0 12px;
-    min-width: 12px;
+    min-width: 48px;
     border-radius: var(--global-border-radius);
     border: none;
     background: var(--el-color-primary);
