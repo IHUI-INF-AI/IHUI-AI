@@ -1858,7 +1858,7 @@ $brand-secondary: var(--color-gray-333);
       height: 400px;
       top: 10%;
       right: 10%;
-      background: rgba($brand-primary, 0.3);
+      background: color-mix(in srgb, $brand-primary 30%, transparent);
     }
 
     &.orb-2 {
@@ -2069,7 +2069,7 @@ $brand-secondary: var(--color-gray-333);
   .section-icon {
     width: 52px;
     height: 52px;
-    background: rgba($brand-primary, 0.08);
+    background: color-mix(in srgb, $brand-primary 8%, transparent);
     color: $brand-primary;
     border-radius: var(--global-border-radius);
     display: flex;
@@ -2140,7 +2140,7 @@ $brand-secondary: var(--color-gray-333);
   }
 
   &:hover {
-    background: rgba($brand-primary, 0.02);
+    background: color-mix(in srgb, $brand-primary 2%, transparent);
   }
 }
 
@@ -2316,8 +2316,8 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.3s;
 
   &:hover {
-    background: rgba($brand-primary, 0.08);
-    border-color: rgba($brand-primary, 0.3);
+    background: color-mix(in srgb, $brand-primary 8%, transparent);
+    border-color: color-mix(in srgb, $brand-primary 30%, transparent);
   }
 }
 
@@ -2380,7 +2380,7 @@ $brand-secondary: var(--color-gray-333);
     transition: all 0.3s;
 
     &:hover {
-      background: rgba($brand-primary, 0.1);
+      background: color-mix(in srgb, $brand-primary 10%, transparent);
     }
   }
 }
@@ -2435,7 +2435,7 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.3s;
 
   &:focus {
-    outline: 2px solid rgba($brand-primary, 0.4);
+    outline: 2px solid color-mix(in srgb, $brand-primary 40%, transparent);
     outline-offset: 2px;
     border-color: $brand-primary;
   }

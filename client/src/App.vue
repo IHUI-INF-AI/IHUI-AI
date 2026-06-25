@@ -205,8 +205,9 @@ const hasValidEpLocale = computed(() => {
 watch(
   locale,
   async (lang) => {
-    // vue-i18n 9.x: locale 是 Ref<string>，watch 回调参数可能是 string 或 Ref<string>
-    const code = typeof lang === 'string' ? lang : (lang as { value: string }).value
+    // vue-i18n 9.x: locale 是 Ref<string>, watch 回调参数可能是 string 或 Ref<string>
+    // vue-tsc 5.x 在 strict 模式下对 typeof 守卫不彻底 narrow, 用显式 string 注解强制收窄
+    const code: string = typeof lang === 'string' ? lang : String((lang as { value: unknown }).value ?? '')
     const loaded = await loadElementPlusLocale(code)
     epLocale.value = loaded
   },
