@@ -269,8 +269,10 @@ class TestCLI:
 
     def test_status_no_state(self, monkeypatch, capsys):
         """--status 无 state file 时不抛."""
+        # 2026-06-25 修复: 用纯文件名代替 /tmp/nonexistent_backfill.json
+        # 避免在 Windows 上被误解释为 G:\tmp\...; 此处只检查 CLI 不抛错, 不会真的访问文件
         monkeypatch.setattr(
-            "sys.argv", ["backfill_tenants.py", "--status", "--state-file", "/tmp/nonexistent_backfill.json"]
+            "sys.argv", ["backfill_tenants.py", "--status", "--state-file", "nonexistent_backfill.json"]
         )
         from backfill_tenants import main
 

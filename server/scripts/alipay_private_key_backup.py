@@ -39,6 +39,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -302,8 +303,9 @@ def backup_to_kms(secret_name: str, key_path: Path, key_hash: str) -> bool:
         # 读取私钥内容 (避免命令行泄露, 使用 stdin)
         with open(key_path, "r", encoding="utf-8") as f:
             key_content = f.read()
-        # 写入临时文件 (受保护)
-        tmp = Path("/tmp/alipay_key_for_kms.tmp")
+        # 2026-06-25 修复: 原硬编码 /tmp/alipay_key_for_kms.tmp 在 Windows 上会创建到 G:\tmp\...
+        # 改用 tempfile.gettempdir() 跨平台
+        tmp = Path(tempfile.gettempdir()) / "alipay_key_for_kms.tmp"
         tmp.write_text(key_content)
         tmp.chmod(0o600)
         try:

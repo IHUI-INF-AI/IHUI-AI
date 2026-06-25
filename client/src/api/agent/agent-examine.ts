@@ -1,4 +1,4 @@
-import { COZE_PATHS } from '../config/backend-paths'
+import { COZE_PATHS } from '../../config/backend-paths'
 
 /**
  * 智能体审核管理API

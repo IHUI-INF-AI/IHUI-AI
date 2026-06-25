@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 import { t } from '@/utils/i18n'
-import { logger } from '../utils/logger'
+import { logger } from '../../utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import type { ApiResponse, PaginationParams, PaginationResponse } from '@/types'
 import {

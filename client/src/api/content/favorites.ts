@@ -3,7 +3,7 @@
  * 提供通用收藏系统的CRUD操作
  */
 
-import { apiClient } from './core/client'
+import { apiClient } from '../core/client'
 import type { ApiResponse, PaginationParams } from '@/types'
 import { logger } from '@/utils/logger'
 

@@ -1,5 +1,5 @@
-import request from '../utils/request'
-import { withApiResponseHandler, normalizeApiResponse } from '../utils/apiResponseHandler'
+import request from '../../utils/request'
+import { withApiResponseHandler, normalizeApiResponse } from '../../utils/apiResponseHandler'
 import type { ApiResponse, PageResult } from '@/types/api'
 
 export interface AuthToken {

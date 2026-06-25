@@ -4,7 +4,7 @@
  */
 
 import request from '@/utils/request'
-import { logger } from '../utils/logger'
+import { logger } from '../../utils/logger'
 import type { ApiResponse } from '@/types'
 import { withApiResponseHandler, normalizeApiResponse } from '@/utils/api-response'
 

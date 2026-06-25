@@ -8,7 +8,7 @@
 import request from '@/utils/request'
 import { t } from '@/utils/i18n'
 import { normalizeApiResponse } from '@/utils/api-response'
-import { withApiResponseHandler } from '../utils/apiResponseHandler'
+import { withApiResponseHandler } from '../../utils/apiResponseHandler'
 import { logger } from '@/utils/logger'
 import type { ApiResponse } from '@/types/api'
 

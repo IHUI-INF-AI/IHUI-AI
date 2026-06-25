@@ -7,7 +7,7 @@ import { t } from '@/utils/i18n'
 
 import { COZE_PATHS } from '@/config/backend-paths'
 import request from '@/utils/request'
-import { logger } from '../utils/logger'
+import { logger } from '../../utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import type { ApiResponse } from '@/types'
 import { withApiResponseHandler, normalizeApiResponse } from '@/utils/api-response'

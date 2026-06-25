@@ -11,7 +11,7 @@
 
 import { getI18nGlobal } from '@/locales'
 
-import { sendChatCompletion, type ChatCompletionRequest } from './system/fastapi'
+import { sendChatCompletion, type ChatCompletionRequest } from '../system/fastapi'
 
 const { t } = getI18nGlobal()
 import { useSkills } from '@/composables/useSkills'

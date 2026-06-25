@@ -10,12 +10,12 @@ import { t } from '@/utils/i18n'
 import request from '@/utils/request'
 import type { ApiResponse } from '@/types'
 import { UNIFIED_AI_PATHS } from '@/config/backend-paths'
-import { callModel } from './models/models'
-import type { AIModelInfo } from './models/models'
-import { getAgentsList } from './agent/agent/agents'
-import type { Agent } from './agent/agent/agents'
-import { createAgenticSwarm } from './services/agentic.service'
-import type { MCPServer, MCPTool } from './tools/mcp'
+import { callModel } from '../models/models'
+import type { AIModelInfo } from '../models/models'
+import { getAgentsList } from '../agent/agent/agents'
+import type { Agent } from '../agent/agent/agents'
+import { createAgenticSwarm } from '../services/agentic.service'
+import type { MCPServer, MCPTool } from '../tools/mcp'
 
 // AgenticSwarmConfig 类型定义
 export interface AgenticSwarmConfig {
@@ -27,7 +27,7 @@ export interface AgenticSwarmConfig {
     agentSpecs?: unknown[]
   }
 }
-import { callMCPTool, getMCPServersList } from './tools/mcp'
+import { callMCPTool, getMCPServersList } from '../tools/mcp'
 
 // AI 能力类型
 export enum UnifiedAICapabilityType {

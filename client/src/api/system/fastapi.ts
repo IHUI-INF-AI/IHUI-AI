@@ -7,7 +7,7 @@ import { t } from '@/utils/i18n'
 
 import request from '@/utils/request'
 import { createAuthWebSocket } from '@/utils/websocket'
-import { logger } from '../utils/logger'
+import { logger } from '../../utils/logger'
 import type { ApiResponse } from '@/types'
 
 // FastAPI服务基础URL（通过Vite代理）

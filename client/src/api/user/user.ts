@@ -1,7 +1,7 @@
 import { COZE_PATHS, LOGIN_PWD_PATHS } from '@/config/backend-paths'
 import request from '@/utils/request'
 import { t } from '@/utils/i18n'
-import { logger } from '../utils/logger'
+import { logger } from '../../utils/logger'
 import type { ApiResponse } from '@/types'
 import type { AuthResponse } from '@/api/auth/auth'
 import { refreshAuthToken } from '@aizhs/shared-services'

@@ -1,7 +1,7 @@
 import { t } from '@/utils/i18n'
 
 import request from '@/utils/request'
-import { logger } from '../utils/logger'
+import { logger } from '../../utils/logger'
 import { isDemoMode } from '@/utils/envUtils'
 import type { ApiResponse, PaginationParams, PaginationResponse } from '@/types'
 import { DEVELOPER_PATHS, COZE_PATHS, API_V1_PATHS } from '@/config/backend-paths'

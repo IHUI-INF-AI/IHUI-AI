@@ -1,24 +1,38 @@
 """
-Java 历史项目 API 兼容层 (Legacy Compatibility Layer)
-=====================================================
+Java 历史项目 API 兼容层 (Legacy Compatibility Layer) - STUB
+============================================================
 
-为 Java 旧 API 路径 (/auth-api/* /public-api/*) 提供 URL 别名, 内部调用现有 Python handler。
-
-核心原则:
-- 0 业务逻辑, 100% import-and-reuse 避免代码重复
-- 所有 alias 路由直接调用现有 Python handler 函数
-- 业务实现 100% 在现有 handler 中, 此文件仅做 URL 重写
+为 Java 旧 API 路径提供 URL 1:1 兼容, 内部实现状态:
+- alias 路由: 调用现有 Python handler (URL 重写, 0 业务代码重复)
+- stub 路由: 抛 NotImplementedError, 业务实现标记为 TODO
 
 生成时间: 2026-06-26
-alias 路由: 0 个
-目标文件: 0 个
+总路由数: 488
+  - alias 路由 (复用现有): 0
+  - stub 路由 (待实现): 488
+目标 Java 服务: 22 个
+
+后续迭代计划:
+- 按 Controller 优先级分批实现 stub 路由的真实业务逻辑
+- 每个 Controller 实现完成后, 移除其 stub, 改为真实 handler
 """
-from fastapi import APIRouter, Request
+from __future__ import annotations
 
-router = APIRouter(prefix="", tags=["legacy-compat"])
+from fastapi import APIRouter, Request, HTTPException
+from loguru import logger
 
-# 导入目标 handler (避免代码重复)
+router = APIRouter(prefix="", tags=["legacy-compat"], include_in_schema=False)
 
 
-# === 别名路由 ===
+def _not_implemented(java_path: str, controller: str):
+    """Stub handler - 标记待实现."""
+    logger.warning(f"[legacy-stub] Not implemented: {java_path} ({controller})")
+    raise HTTPException(
+        status_code=501,
+        detail=f"Legacy endpoint not yet implemented: {java_path} ({controller})"
+    )
+
+
+# 导入目标 handler (alias 路由使用)
+
 

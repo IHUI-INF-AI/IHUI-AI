@@ -9,9 +9,12 @@ Phase B: complete implementation extracted from 4 controllers and 9 services.
 
 from __future__ import annotations
 
+from typing import Optional, List, Tuple, Dict, Any
+
 from app.utils.datetime_helper import utcnow
 
 from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy.orm import Session
 
 from app.models.edu_models import EduAskAnswer, EduAskQuestion
 from app.services.edu_base import (
@@ -120,7 +123,7 @@ def list_questions(
     """
     filters = []
     if user_id is not None:
-        filters.append(EduAskQuestion.uuid == user_id)
+        filters.append(EduAskQuestion.member_id == user_id)
     if course_id is not None:
         filters.append(EduAskQuestion.course_id == course_id)
     if is_resolved is not None:
@@ -271,15 +274,15 @@ def get_user_stats(db: Session, user_id: int = None, user_uuid: str = None) -> d
     Java source: StatisticsService.userStats(Long userId)
     """
     question_count = db.execute(
-        select(func.count(EduAskQuestion.id)).where(EduAskQuestion.uuid == user_id)
+        select(func.count(EduAskQuestion.id)).where(EduAskQuestion.member_id == user_id)
     ).scalar() or 0
     answer_count = db.execute(
-        select(func.count(EduAskAnswer.id)).where(EduAskAnswer.uuid == user_id)
+        select(func.count(EduAskAnswer.id)).where(EduAskAnswer.member_id == user_id)
     ).scalar() or 0
     resolved_count = db.execute(
         select(func.count(EduAskQuestion.id)).where(
             and_(
-                EduAskQuestion.uuid == user_id,
+                EduAskQuestion.member_id == user_id,
                 EduAskQuestion.is_resolved == True,
             )
         )
@@ -287,14 +290,14 @@ def get_user_stats(db: Session, user_id: int = None, user_uuid: str = None) -> d
     best_answer_count = db.execute(
         select(func.count(EduAskAnswer.id)).where(
             and_(
-                EduAskAnswer.uuid == user_id,
+                EduAskAnswer.member_id == user_id,
                 EduAskAnswer.is_best == True,
             )
         )
     ).scalar() or 0
     total_view = db.execute(
         select(func.coalesce(func.sum(EduAskQuestion.watch_num), 0)).where(
-            EduAskQuestion.uuid == user_id
+            EduAskQuestion.member_id == user_id
         )
     ).scalar() or 0
     return {

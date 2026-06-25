@@ -1,6 +1,6 @@
 // 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
-import request from '../utils/request'
-import { withApiResponseHandler, normalizeApiResponse } from '../utils/apiResponseHandler'
+import request from '../../utils/request'
+import { withApiResponseHandler, normalizeApiResponse } from '../../utils/apiResponseHandler'
 import type { ApiResponse } from '@/types/api'
 
 export interface AliPayCreateParams {

@@ -34,8 +34,11 @@ charset-normalizer==3.4.3
 click==8.2.1
 cobble==0.1.4
 colorama==0.4.6
-crewai==1.14.7
-crewai-tools==1.14.7
+# crewai 与 crewai-tools 移为可选依赖（与 opentelemetry-api 版本冲突）
+# 项目 crew_orchestrator.py 已设计为 try/except ImportError 回退到简化模式
+# 如需完整多智能体协作，请单独安装：pip install crewai==1.14.7 crewai-tools==1.14.7
+# crewai==1.14.7
+# crewai-tools==1.14.7
 ConfigArgParse==1.7.5
 coverage==7.14.1
 cozepy==0.20.0
@@ -101,7 +104,7 @@ Mako==1.3.12
 Markdown==3.9
 MarkupSafe==3.0.2
 mccabe==0.7.0
-mcp>=1.13.1,<2.0.0
+mcp>=1.13.1,<2.0.0  # 原锁 1.13.1，松动以兼容其他包
 mergedeep==1.3.4
 minio==7.2.20
 mkdocs==1.6.1
@@ -117,7 +120,7 @@ mypy_extensions==1.1.0
 nodeenv==1.10.0
 notify-bridge==0.3.0
 numpy==2.4.2
-openai==1.108.0
+openai>=1.108.0,<2.0.0
 openpyxl==3.1.5
 opentelemetry-api==1.42.1
 opentelemetry-exporter-otlp-proto-common==1.42.1

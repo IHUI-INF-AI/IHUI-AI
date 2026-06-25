@@ -3,7 +3,7 @@
  * 提供订单相关的接口
  */
 
-import { apiClient } from './core/client'
+import { apiClient } from '../core/client'
 import type { ApiResponse } from '@/types/api'
 
 /**

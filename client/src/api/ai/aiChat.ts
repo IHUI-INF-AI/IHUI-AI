@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import { logger } from '../utils/logger'
+import { logger } from '../../utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import type { ApiResponse } from '@/types'
 import { DEVELOPER_PATHS, API_V1_PATHS, COZE_PATHS } from '@/config/backend-paths'

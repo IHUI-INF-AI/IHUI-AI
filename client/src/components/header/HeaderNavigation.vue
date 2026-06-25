@@ -2006,28 +2006,34 @@ html.dark .dropdown-item {
   }
 }
 
-/* 暗色模式选中/展开/激活的按钮文字始终为白色（与品牌色背景保持高对比度） */
+/* 暗色模式下选中/展开/激活的按钮：白底黑字（与未选中浅色文字、悬停浅色文字形成清晰层次） */
 @layer utilities {
 
   html.dark button.menu-item.active,
   html.dark a.menu-item.active {
-    color: var(--el-color-white);
+    background-color: var(--el-color-white);
+    color: var(--el-color-black);
+    border-color: var(--el-color-primary);
   }
 
   body .glass-header.dark-mode button.menu-item.active,
   body .glass-header.dark-mode a.menu-item.active,
   body html.dark .glass-header button.menu-item.active,
   body html.dark .glass-header a.menu-item.active {
-    color: var(--el-color-white);
+    background-color: var(--el-color-white);
+    color: var(--el-color-black);
+    border-color: var(--el-color-primary);
   }
 }
 
-/* 深色模式下顶部菜单项：未选中/悬停用 Element Plus 暗色文字 token */
+/* 深色模式下顶部菜单项：未选中/悬停用 Element Plus 暗色文字 token；选中用白底黑字 */
 :where(.glass-header.dark-mode) .main-menu-items,
 :where(html.dark) :where(.glass-header) .main-menu-items {
   --menu-item-color: var(--el-text-color-regular);
   --menu-item-hover-color: var(--el-text-color-primary);
-  --menu-item-active-color: var(--el-color-white);
+  --menu-item-active-bg: var(--el-color-white);
+  --menu-item-active-color: var(--el-color-black);
+  --menu-item-active-border: var(--el-border-width-primary) solid var(--el-color-primary);
 }
 
 /* 默认态（未选中/未悬停/未展开）按钮文字：暗色主题下为浅色文字 */
@@ -2055,7 +2061,7 @@ html.dark .dropdown-item {
   color: var(--el-text-color-primary);
 }
 
-/* 选中/展开：白色文字（与品牌色背景对比），所有主题统一 */
+/* 选中/展开：白底黑字（暗色主题下与未选中态形成强对比） */
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item.active,
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) button.menu-item.active,
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item.open,
@@ -2064,6 +2070,8 @@ html.dark .dropdown-item {
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) button.menu-item.active,
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) .menu-item.open,
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) button.menu-item.open {
-  color: var(--el-color-white);
+  background-color: var(--el-color-white);
+  color: var(--el-color-black);
+  border-color: var(--el-color-primary);
 }
 </style>

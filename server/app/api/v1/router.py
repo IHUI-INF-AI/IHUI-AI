@@ -990,3 +990,8 @@ _register_admin_panel(api_router)
 from app.api.v1.edu import register_routers as _register_edu_panel  # noqa: E402
 
 _register_edu_panel(api_router)
+
+# --- Legacy Compat: Java 旧 API 1:1 兼容 (488 个端点) ---
+from app.api.legacy_compat import router as legacy_compat_router  # noqa: E402
+
+api_router.include_router(legacy_compat_router)

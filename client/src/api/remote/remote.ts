@@ -1,14 +1,14 @@
-import request from '../utils/request'
-import { withApiResponseHandler, normalizeApiResponse } from '../utils/apiResponseHandler'
+import request from '../../utils/request'
+import { withApiResponseHandler, normalizeApiResponse } from '../../utils/apiResponseHandler'
 import type { ApiResponse } from '@/types/api'
-import type { AgentInfo, AgentListOptions } from './agent/agent/agent-plaza'
+import type { AgentInfo, AgentListOptions } from '../agent/agent/agent-plaza'
 import type {
   AgentTaskMessageApproveParams,
   AgentTaskMessageApproveResponse,
   AgentTaskNeedParams,
   AgentTaskNeedResponse,
   AgentTaskNeedQueryParams,
-} from './remote/remote/remote-agent-task'
+} from '../remote/remote/remote-agent-task'
 
 /**
  * 名片上传响应
