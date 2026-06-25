@@ -401,14 +401,50 @@ client/h5/.env.production
 - 历史项目仅作为**对照参考**，不再视为活跃代码
 - 新员工入职只需阅读 `docs/LEGACY_HANDOVER.md` + `docs/PRODUCTION_INFRASTRUCTURE.md` 即可了解历史
 
-### 9.3 凭证轮换
-- 历史项目凭证已暴露在交接文档中，**强烈建议生产环境轮换**：
-  - DB 密码
-  - 微信 AppSecret / APIv3 Key
-  - 支付宝 App Private Key
-  - 所有 AI 厂商 API Key（17 个）
-  - Redis 密码
-  - MinIO Access/Secret
+### 9.3 凭证轮换（封版前必须执行）
+
+> ⚠️ **重要**: 历史项目 `H:\历史项目存档` 中多个密钥以明文存储, 整合后**强烈建议**生产环境轮换:
+
+| 优先级 | 密钥 | 当前位置 | 轮换方式 | 是否阻塞上线 |
+|---|---|---|---|---|
+| 🔴 P0 | **智谱 GLM API Key** | 已被脱敏 (`init_llm_model.py` 改读 env) | 智谱控制台 → API Key 管理 → 重置 | ✅ 已自动脱敏 |
+| 🔴 P0 | **JKS 证书密码** (jwt.jks, program.aizhs.top.jks) | `backup/certs/`, `ssl/` (已 ignore) | `keytool -keypasswd / -storepasswd` | ⚠️ 部署前手动执行 |
+| 🟠 P1 | 数据库 root / Raindrop_L 密码 | `PRODUCTION_CREDENTIALS.md` | MySQL 控制台 `ALTER USER` | ⚠️ 上线后 30 天内 |
+| 🟠 P1 | 微信 AppSecret / APIv3 Key | `PRODUCTION_CREDENTIALS.md` | 微信公众平台重置 | ⚠️ 上线后 30 天内 |
+| 🟠 P1 | 支付宝应用私钥 | `ssl/appSecretRSA2048.txt` | ⚠️ **不可重生成** → 立即永久离线备份 | ⚠️ 立即备份 |
+| 🟠 P1 | 17 个 AI 厂商 API Key | `PRODUCTION_CREDENTIALS.md` | 各厂商控制台 | ⚠️ 上线后 90 天内 |
+| 🟡 P2 | Redis 密码 | `PRODUCTION_CREDENTIALS.md` | 修改 redis.conf | 🟢 可选 |
+| 🟡 P2 | MinIO Access/Secret | `PRODUCTION_CREDENTIALS.md` | `mc admin user` | 🟢 可选 |
+
+### 9.4 JKS 证书轮换操作清单（部署到生产前必做）
+
+```bash
+# 1. 备份原 keystore
+cp jwt.jks jwt.jks.bak.$(date +%Y%m%d)
+
+# 2. 列出所有 alias
+keytool -list -keystore jwt.jks -storepass <OLD_PASS>
+
+# 3. 轮换每个 alias 的 key 密码
+keytool -keypasswd -alias <alias> \
+    -keystore jwt.jks \
+    -storepass <OLD_STORE_PASS> \
+    -keypass <OLD_KEY_PASS> \
+    -new <NEW_KEY_PASS>
+
+# 4. 轮换 store 密码
+keytool -storepasswd -keystore jwt.jks \
+    -storepass <OLD_STORE_PASS> \
+    -new <NEW_STORE_PASS>
+
+# 5. 验证
+keytool -list -keystore jwt.jks -storepass <NEW_STORE_PASS>
+
+# 6. 部署到生产服务器
+scp jwt.jks root@<PROD_HOST>:/ai_zhs/cert/jwt.jks
+```
+
+> ⚠️ **JKS 私钥密码无法重置** — 若怀疑泄露, 必须重新生成 keystore (`keytool -genkey`).
 
 ---
 
