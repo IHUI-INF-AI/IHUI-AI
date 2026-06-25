@@ -419,7 +419,8 @@ describe('backend-paths.ts', () => {
     })
 
     it('agentWithdrawalDetail 路径应该正确', () => {
-      expect(COZE_PATHS.agentWithdrawalDetail.list).toBe('/cozeZhsApi/agent-withdrawal-detail/list')
+      // 2026-06-25 修复#L: 对齐到 Python 后端真实端点
+      expect(COZE_PATHS.agentWithdrawalDetail.list).toBe('/api/v1/agents/withdrawal/list')
     })
 
     it('agentSettlement 路径应该正确', () => {
