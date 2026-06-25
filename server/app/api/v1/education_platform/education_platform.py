@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, St
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
+from app.utils.datetime_helper import utcnow
 
 
 class EducationPlatform(TimestampMixin, Base):
@@ -124,7 +125,6 @@ async def delete_platform(pid: int):
 async def sync_platform(pid: int, type: str = "course", sync_type: str = "pull"):
     with get_session() as db:
         try:
-            from datetime import datetime
             p = db.query(EducationPlatform).filter(EducationPlatform.id == pid).first()
             if not p:
                 return error("平台不存在", "404")
@@ -133,7 +133,7 @@ async def sync_platform(pid: int, type: str = "course", sync_type: str = "pull")
                 success=True, record_count=0,
             )
             db.add(log)
-            p.last_sync_time = datetime.utcnow()
+            p.last_sync_time = utcnow()
             db.flush()
             return success({"id": log.id, "platform_code": p.code})
         except Exception as e:
