@@ -112,17 +112,16 @@ const currentLocale = computed<SupportedLocale>(() => {
 // 异步加载 + 全局快捷键注册放在同一个 hook 里, 避免 HMR/重渲染竞态.
 // 注意: visible.value 用 ref 包装因为 v-model 是 props, 不能在 hook 里直接改 props.
 // 监听 visible 用 watch 在文件下方处理.
-onMounted(async () => {
-  // 1. 主动加载 commandPalette i18n 模块 (asyncModules, 不会在首屏自动加载)
-  try {
-    await loadModule(currentLocale.value, 'commandPalette')
-  } catch (e) {
-    logger.warn('[GlobalCommandPalette] Failed to load i18n module:', e)
-  }
+onMounted(() => {
+  // 2026-06-25 修复: 同一 setup() 中只能注册一个 onMounted hook, 否则 HMR/重渲染时
+  // 可能被后者覆盖前者, 导致 i18n 异步加载和键盘监听丢失. 这里合并为单一 hook,
+  // 并按"关键路径优先"顺序执行: 先同步注册键盘监听 + 全局函数 (关键交互),
+  // 再异步加载 i18n 模块 (面板打开时再解析 key). 这样即使 loadModule 因 Vite
+  // optimizeDeps race condition 阻塞, 快捷键和 openCommandPalette 仍能立即响应.
 
-  // 2. 注册 Cmd+K 全局快捷键
+  // 1. 同步: 注册 Cmd+K 全局快捷键 (关键交互, 不能被 await 阻塞)
   cleanup.addEventListener(window, 'keydown', handleKeyDown as EventListener)
-  // 3. 注册全局打开函数 (供 SearchTrigger 等外部调用)
+  // 2. 同步: 注册全局打开函数 (供 SearchTrigger 等外部调用)
   if (typeof window !== 'undefined') {
     ;(window as unknown as Record<string, unknown>).openCommandPalette = () => {
       visible.value = true
@@ -131,6 +130,24 @@ onMounted(async () => {
       delete (window as unknown as Record<string, unknown>).openCommandPalette
     })
   }
+
+  // 3. 异步: 加载 commandPalette i18n 模块 (asyncModules, 不会在首屏自动加载)
+  loadModule(currentLocale.value, 'commandPalette').catch((e) => {
+    logger.warn('[GlobalCommandPalette] Failed to load i18n module:', e)
+  })
+})
+
+// 2026-06-25 修复: 监听 i18n locale 变化, 切换语言时重新加载 commandPalette 模块.
+// 注意: currentLocale 是 computed, watch 触发时 callback 收到的是 unwrap 后的值
+// (vue-tsc 5.x 在 strict 模式下偶尔会推断为 { value: SupportedLocale }, 这里用显式类型断言收窄).
+watch(currentLocale, (loc) => {
+  const code: SupportedLocale =
+    typeof loc === 'string' && (loc === 'zh-CN' || loc === 'zh-TW' || loc === 'en' || loc === 'ja' || loc === 'ko')
+      ? loc
+      : currentLocale.value
+  loadModule(code, 'commandPalette').catch((e) => {
+    logger.warn('[GlobalCommandPalette] Failed to reload i18n module on locale change:', e)
+  })
 })
 
 const visible = computed({
