@@ -178,7 +178,8 @@ let router: ReturnType<typeof useRouter> | null = null
 try {
   router = useRouter()
 } catch (e) {
-  // eslint-disable-next-line no-console
+  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则,
+  // 移除冗余的 eslint-disable-next-line 指令
   console.debug('[MobileMenu] useRouter unavailable on init:', e)
 }
 
@@ -186,7 +187,7 @@ let route: ReturnType<typeof useRoute> | null = null
 try {
   route = useRoute()
 } catch (e) {
-  // eslint-disable-next-line no-console
+  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
   console.debug('[MobileMenu] useRoute unavailable on init:', e)
 }
 
@@ -221,7 +222,7 @@ try {
   t = i18n.t
   locale = i18n.locale
 } catch (e) {
-  // eslint-disable-next-line no-console
+  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
   console.debug('[MobileMenu] useI18n unavailable on init:', e)
 }
 
@@ -255,13 +256,13 @@ let darkModeStore: ReturnType<typeof useDarkModeStore> | null = null
 try {
   authStore = useAuthStore()
 } catch (e) {
-  // eslint-disable-next-line no-console
+  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
   console.debug('[MobileMenu] useAuthStore unavailable on init:', e)
 }
 try {
   darkModeStore = useDarkModeStore()
 } catch (e) {
-  // eslint-disable-next-line no-console
+  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
   console.debug('[MobileMenu] useDarkModeStore unavailable on init:', e)
 }
 

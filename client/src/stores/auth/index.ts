@@ -583,7 +583,13 @@ export const useAuthStore = defineStore('auth', () => {
       return { success }
     } catch (error) {
       logger.error(getI18nGlobal().t('logs.refreshTokenFailed'), error)
-      await logout()
+      // 2026-06-25 加固: logout 单独 try/catch, 防止其失败绕过本 catch,
+      // 进而绕过 throw error 导致 refreshTokens 出现"半崩溃"状态.
+      try {
+        await logout()
+      } catch (logoutErr) {
+        logger.warn('[AuthStore] logout during refreshTokens error recovery also failed:', logoutErr)
+      }
       throw error
     }
   }
@@ -783,7 +789,14 @@ export const useAuthStore = defineStore('auth', () => {
       logger.warn('[AuthStore] walletStore unavailable, cannot consumeBalance')
       return false
     }
-    return ws.consumeBalance(amount)
+    try {
+      return ws.consumeBalance(amount)
+    } catch (e) {
+      // 2026-06-25 加固: 子 store 内部抛错 (Pinia 未激活 / ref 抛错) 不应外溢
+      // 业务上 consume 失败等价于余额不足, 返回 false
+      logger.warn('[AuthStore] walletStore.consumeBalance threw, treat as failed:', e)
+      return false
+    }
   }
   const rechargeBalance = (amount: number) => {
     const ws = getWalletStore()
