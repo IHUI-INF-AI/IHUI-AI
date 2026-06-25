@@ -12,10 +12,13 @@
   - msg / message 互相补全 (前端 normalizeApiResponse 用 `resp.msg || resp.message` 兼容)
   - 不改 code 的类型和值 (避免破坏前端严格判断)
   - 不删任何原有字段 (total/data/success/fileId/url 等保留)
-  - 跳过流式响应、WebSocket、非 JSON、非 dict
-  - 出错时返回原始响应 (绝不阻断请求)
+  - 跳过流式响应、WebSocket、非 JSON、非 dict、已压缩响应
+  - 出错时用已读取的 body 重建 Response (绝不返回 body_iterator 已消费的空响应)
 
-注册顺序: 应在 gzip 之后注册 (后注册先执行, 规范化先于压缩).
+注意: 本中间件注册在 Gzip 之后 (外层), 响应方向 Gzip 先处理.
+  - Gzip 压缩后的响应 content-encoding=gzip, body 是二进制, 本中间件检测到
+    content-encoding 后直接跳过 (用已读取的 body 重建 Response 保留压缩).
+  - Gzip 未压缩的响应 (小于 MIN_SIZE) body 是原始 JSON, 本中间件正常处理.
 """
 from __future__ import annotations
 
@@ -49,7 +52,14 @@ class ResponseNormalizerMiddleware(BaseHTTPMiddleware):
         if response.headers.get("transfer-encoding") == "chunked":
             return response
 
+        # 跳过已压缩响应 (Gzip 已处理, body 是二进制, 无法解析 JSON)
+        # 用已读取的 body 重建 Response 保留压缩 (见下方统一处理)
+        content_encoding = response.headers.get("content-encoding", "").lower()
+        is_compressed = content_encoding in ("gzip", "br", "deflate")
+
         # 读取 body (参考 gzip_middleware 模式)
+        # 注意: body_iterator 是一次性消费的, 读取后必须用 body 重建 Response,
+        # 不能返回原始 response (其 body_iterator 已空, 客户端会拿到空 body)
         try:
             body = b""
             async for chunk in response.body_iterator:
@@ -61,15 +71,35 @@ class ResponseNormalizerMiddleware(BaseHTTPMiddleware):
         if not body:
             return response
 
+        # 已压缩响应: 无法解析 JSON, 直接用 body 重建 Response (保留压缩)
+        if is_compressed:
+            return Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.media_type,
+            )
+
         # 解析 JSON
         try:
             data = json.loads(body)
         except Exception:
-            return response  # 非 JSON, 不动
+            # 非 JSON (但 content-type 声称是 JSON), 用 body 重建 Response
+            return Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.media_type,
+            )
 
         # 只对 dict 响应做补全
         if not isinstance(data, dict):
-            return response
+            return Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.media_type,
+            )
 
         # 补全 msg / message 互相 (不改 code, 不删字段)
         changed = False

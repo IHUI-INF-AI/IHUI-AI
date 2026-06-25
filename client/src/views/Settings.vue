@@ -2178,7 +2178,7 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.3s;
 
   &:focus {
-    outline: 2px solid rgba($brand-primary, 0.3);
+    outline: 2px solid color-mix(in srgb, $brand-primary 30%, transparent);
     outline-offset: 2px;
     border-color: $brand-primary;
   }
@@ -2195,7 +2195,7 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.3s;
 
   &:focus {
-    outline: 2px solid rgba($brand-primary, 0.3);
+    outline: 2px solid color-mix(in srgb, $brand-primary 30%, transparent);
     outline-offset: 2px;
     border-color: $brand-primary;
   }
@@ -2262,7 +2262,7 @@ $brand-secondary: var(--color-gray-333);
   &:hover {
     background: $brand-secondary;
     transform: translateY(-2px);
-    border-color: rgba($brand-primary, 0.3);
+    border-color: color-mix(in srgb, $brand-primary 30%, transparent);
   }
 }
 
