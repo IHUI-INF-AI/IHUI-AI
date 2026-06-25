@@ -123,7 +123,7 @@ def _get_or_create_serial(db, now: datetime) -> CertificateSerialNumber:
 
 
 def _generate_code(db) -> str:
-    now = datetime.utcnow()
+    now = utcnow()
     serial = _get_or_create_serial(db, now)
     serial.current_serial = (serial.current_serial or 0) + 1
     db.flush()
@@ -434,7 +434,7 @@ async def issue_certificates(body: CertificateIssue):
                     design=tpl.design if tpl else None,
                     award_conditions=tpl.award_conditions if tpl else None,
                     validity_policy=tpl.validity_policy if tpl else None,
-                    award_date=datetime.utcnow(),
+                    award_date=utcnow(),
                     status=0,
                     member_id=su.member_id,
                     lesson_id=body.lesson_id,
@@ -721,7 +721,7 @@ async def update_template_status(
 async def get_next_serial():
     with get_session() as db:
         try:
-            now = datetime.utcnow()
+            now = utcnow()
             serial = _get_or_create_serial(db, now)
             db.flush()
             return success(
@@ -741,7 +741,7 @@ async def get_next_serial():
 async def get_current_serial():
     with get_session() as db:
         try:
-            now = datetime.utcnow()
+            now = utcnow()
             serial = _get_or_create_serial(db, now)
             return success(_serial_to_dict(serial))
         except Exception as e:

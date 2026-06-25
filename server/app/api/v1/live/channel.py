@@ -195,7 +195,7 @@ async def start_live(cid: int):
             if not c:
                 return error("直播不存在", "404")
             c.status = 1
-            c.start_time = datetime.utcnow()
+            c.start_time = utcnow()
             if not c.pull_url and c.push_url:
                 c.pull_url = c.push_url.replace("rtmp://", "http://").replace("live", "pull/live")
                 c.play_url_flv = c.pull_url + ".flv"
@@ -215,7 +215,7 @@ async def stop_live(cid: int):
             if not c:
                 return error("直播不存在", "404")
             c.status = 2
-            c.end_time = datetime.utcnow()
+            c.end_time = utcnow()
             return success(_c_to_dict(c))
         except Exception as e:
             logger.error(f"live stop error: {e}")
