@@ -61,9 +61,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Bell, Warning, CircleClose, Top } from '@element-plus/icons-vue'
+import { Bell, Warning, CircleClose, Top, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import http from '@/utils/request'
+import { useNotifyBadge } from '@/composables/useNotifyBadge'
 
 const { t } = useI18n()
 interface NotifyItem {

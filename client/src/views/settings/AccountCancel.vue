@@ -294,7 +294,7 @@ async function onFinalConfirm() {
 
 .account-cancel {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--el-bg-color-page);
 }
 
 .account-cancel__inner {
@@ -309,8 +309,8 @@ async function onFinalConfirm() {
 
 /* 浅红提醒区 */
 .account-cancel__notice {
-  background-color: #fff5f5;
-  border: 1px solid #ffd4d4;
+  background-color: var(--el-color-danger-light-9);
+  border: 1px solid var(--el-color-danger-light-5);
   border-radius: 8px;
   padding: 16px 14px;
   box-sizing: border-box;
@@ -320,37 +320,37 @@ async function onFinalConfirm() {
 .account-cancel__notice-title {
   font-size: 15px;
   font-weight: 600;
-  color: #c62828;
+  color: var(--el-color-danger-dark-2);
   line-height: 1.5;
   margin-bottom: 10px;
 }
 
 .account-cancel__notice-desc {
   font-size: 14px;
-  color: #b71c1c;
+  color: var(--el-color-danger);
   line-height: 1.6;
   opacity: 0.95;
 }
 
 /* 注销后果区 */
 .account-cancel__consequences {
-  background-color: #fff;
+  background-color: var(--el-bg-color);
   border-radius: 8px;
   padding: 14px;
   box-sizing: border-box;
-  border: 1px solid #eee;
+  border: 1px solid var(--el-border-color-lighter);
 }
 
 .account-cancel__consequences-intro {
   font-size: 13px;
-  color: #333;
+  color: var(--el-text-color-primary);
   line-height: 1.7;
   margin-bottom: 12px;
 }
 
 .account-cancel__consequence {
   font-size: 13px;
-  color: #666;
+  color: var(--el-text-color-secondary);
   line-height: 1.8;
   margin-bottom: 10px;
 }
@@ -358,22 +358,22 @@ async function onFinalConfirm() {
 .account-cancel__consequence--remind {
   margin-top: 4px;
   padding-top: 10px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--el-border-color-extra-light);
 }
 
 .account-cancel__item-num {
   font-weight: 600;
-  color: #333;
+  color: var(--el-text-color-primary);
 }
 
 .account-cancel__highlight {
-  color: #c62828;
+  color: var(--el-color-danger-dark-2);
   font-weight: 600;
 }
 
 .account-cancel__highlight--sentence {
   display: block;
-  color: #c62828;
+  color: var(--el-color-danger-dark-2);
   font-weight: 600;
   font-size: 13px;
   line-height: 1.7;
