@@ -146,7 +146,7 @@ import { useOptimization } from './utils/optimization'
 import { initCspReport } from './utils/cspReport'
 import { sessionManager } from './utils/sessionManager'
 import { AlertTriangle } from '@/lib/lucide-fallback'
-import { getElementPlusLocale, loadElementPlusLocale } from '@/locales'
+import { getElementPlusLocale, loadElementPlusLocale, loadModules, type SupportedLocale } from '@/locales'
 
 import { useLanguageStore } from '@/stores/language'
 import { useDarkModeStore } from '@/stores/darkMode'
@@ -214,6 +214,34 @@ const hasValidEpLocale = computed(() => {
   const v = epLocale.value as { name?: unknown } | null | undefined
   return !!(v && typeof v === 'object' && typeof v.name === 'string' && v.name.length > 0)
 })
+// ═══ 首屏关键 i18n 模块预加载 ═══
+// 2026-06-25 修复: 首屏可见页面 (Home.vue, HomePage4.vue, useNews.ts, Footer.vue) 依赖
+// home/title/footer 三个 async 模块. 之前因 asyncModules 不会自动加载,
+// 页面打开时出现大量键名裸露 (homePage4.subscribe, title.home_page3.XXX, footer.acknowledgments
+// 等), 影响上线体验. 在 onMounted 主动预加载, watch(locale) 切换语言时重新加载.
+// 注意: 失败不阻塞首屏, 静默走 fallback, 避免 i18n 错误引发 ErrorBoundary 兜底.
+const FIRST_SCREEN_I18N_MODULES = ['home', 'title', 'footer'] as const
+function preloadFirstScreenI18n(target: SupportedLocale) {
+  // 用 queueMicrotask 不阻塞当前同步流程, 并捕获错误避免未处理 promise rejection
+  queueMicrotask(() => {
+    loadModules(target, [...FIRST_SCREEN_I18N_MODULES]).catch((e) => {
+      logger.warn(`[App] Preload first-screen i18n modules failed for ${target}:`, e)
+    })
+  })
+}
+watch(
+  locale,
+  (lang) => {
+    // 跟随语言切换重新加载首屏关键 i18n 模块
+    const code: string = typeof lang === 'string' ? lang : String((lang as { value: unknown }).value ?? '')
+    const target: SupportedLocale = (code === 'zh-CN' || code === 'zh-TW' || code === 'en' || code === 'ja' || code === 'ko')
+      ? code
+      : 'zh-CN'
+    preloadFirstScreenI18n(target)
+  },
+  { immediate: true },
+)
+
 watch(
   locale,
   async (lang) => {
