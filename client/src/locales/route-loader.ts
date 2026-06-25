@@ -86,6 +86,14 @@ export function setupRouteLanguageLoader(router: Router) {
         // 加载失败也放行
       }
     }
+    // /ai-generation 路径额外加载 dramaScript 模块（DramaScriptExcel.vue 大量使用 t('dramaScript.*')）
+    if (to.path.startsWith('/ai-generation')) {
+      try {
+        await loadModule(getCurrentLocale(), 'dramaScript')
+      } catch {
+        // 加载失败也放行
+      }
+    }
     // /admin 路径批量加载管理后台模块
     if (to.path.startsWith('/admin')) {
       try {
