@@ -282,7 +282,7 @@ async function onSubmit() {
 
 .change-phone {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--el-bg-color-page);
 }
 
 .change-phone__inner {
@@ -297,8 +297,8 @@ async function onSubmit() {
 
 /* 说明区 */
 .change-phone__intro {
-  background-color: #fff;
-  border-radius: 8px;
+  background-color: var(--el-bg-color);
+  border-radius: var(--global-border-radius);
   padding: 14px;
   margin-bottom: 12px;
   border: 1px solid #eee;
@@ -308,20 +308,20 @@ async function onSubmit() {
 .change-phone__intro-title {
   font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: var(--el-text-color-primary);
   margin-bottom: 8px;
 }
 
 .change-phone__intro-desc {
   font-size: 13px;
-  color: #666;
+  color: var(--el-text-color-secondary);
   line-height: 1.6;
 }
 
 /* 核心操作区 */
 .change-phone__form {
-  background-color: #fff;
-  border-radius: 8px;
+  background-color: var(--el-bg-color);
+  border-radius: var(--global-border-radius);
   padding: 14px;
   margin-bottom: 12px;
   border: 1px solid #eee;
@@ -334,7 +334,7 @@ async function onSubmit() {
 
 .change-phone__step-done-tip {
   font-size: 13px;
-  color: #07c160;
+  color: var(--el-color-success);
   margin-bottom: 12px;
   padding: 8px 0;
 }
@@ -342,13 +342,13 @@ async function onSubmit() {
 .change-phone__section-label {
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--el-text-color-primary);
   margin-bottom: 8px;
 }
 
 .change-phone__phone-display {
   font-size: 15px;
-  color: #333;
+  color: var(--el-text-color-primary);
   margin-bottom: 8px;
   letter-spacing: 1px;
 }
@@ -389,9 +389,9 @@ async function onSubmit() {
 
 /* 底部提示：更换后影响 */
 .change-phone__notice {
-  background-color: #f0f9f4;
-  border: 1px solid #b8e6cf;
-  border-radius: 8px;
+  background-color: var(--el-color-success-light-9);
+  border: 1px solid var(--el-color-success-light-5);
+  border-radius: var(--global-border-radius);
   padding: 14px;
   box-sizing: border-box;
 }
@@ -399,7 +399,7 @@ async function onSubmit() {
 .change-phone__notice-title {
   font-size: 14px;
   font-weight: 600;
-  color: #07c160;
+  color: var(--el-color-success);
   margin-bottom: 6px;
 }
 
