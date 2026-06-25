@@ -172,6 +172,8 @@ server/e2e_output.txt
 server/e2e_v.txt
 server/e2e_lines.txt
 server/e2e_long.txt
+server/e2e_junit.xml
+server/test_result_full.txt
 server/run_test.py
 server/_run_e2e.py
 server/tests/_smoke_fix_*.py
