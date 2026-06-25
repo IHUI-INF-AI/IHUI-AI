@@ -149,10 +149,10 @@ async def audit(aid: int, status: int = Query(..., ge=1, le=3), remark: str | No
                 return error("认证记录不存在", "404")
             a.status = status
             a.audit_user = "admin"
-            a.audit_time = datetime.utcnow()
+            a.audit_time = utcnow()
             a.audit_remark = remark
             if status == 1:
-                a.expire_time = datetime.utcnow() + __import__("datetime").timedelta(days=expire_days)
+                a.expire_time = utcnow() + __import__("datetime").timedelta(days=expire_days)
             return success()
         except Exception as e:
             logger.error(f"identity audit error: {e}")
