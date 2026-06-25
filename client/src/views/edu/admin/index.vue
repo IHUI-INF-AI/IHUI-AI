@@ -37,7 +37,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import {
-  Reading, Notebook, EditPen, ChatLineRound, Connection,
+  Reading, EditPen, ChatLineRound, Connection,
   VideoCamera, User, Coin, List, ChatDotRound, Folder, Search, Setting, Bell, Document
 } from '@element-plus/icons-vue'
 

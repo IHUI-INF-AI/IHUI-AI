@@ -30,7 +30,7 @@ onMounted(async () => {
   try {
     const res: any = await getAgreement({ type })
     agreement.value = res?.data || res || {}
-  } catch (e) {
+  } catch {
     ElMessage.warning('协议内容加载失败')
   } finally {
     loading.value = false

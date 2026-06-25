@@ -276,11 +276,21 @@ export const useUserStore = defineStore('user', () => {
 
         if (user.value) {
           const storedData = (getStoredData() as Record<string, unknown>) || {}
-          const tokenStore = useTokenStore()
+          // 2026-06-25 修复: useTokenStore 也做 try/catch, 失败时只影响 thirdPartyAccounts 写入
+          let ts: ReturnType<typeof useTokenStore> | null = null
+          try {
+            ts = useTokenStore()
+          } catch (e) {
+            logger.debug('[UserStore] tokenStore unavailable in save:', e)
+          }
+          const storedAccounts = (storedData.thirdPartyAccounts as Record<string, unknown>) || {}
           StorageManager.setItem(STORAGE_KEYS.USER_DATA, {
             ...storedData,
             ...user.value,
-            thirdPartyAccounts: { ...((storedData.thirdPartyAccounts as Record<string, unknown>) || {}), accessToken: tokenStore.token || (storedData.thirdPartyAccounts as Record<string, unknown>)?.accessToken },
+            thirdPartyAccounts: {
+              ...storedAccounts,
+              accessToken: ts?.token || (storedAccounts.accessToken as string | undefined) || '',
+            },
             fundInfo,
             vipInfo,
           })

@@ -281,7 +281,7 @@ def _write_archive_history(summary: dict) -> None:
             import tempfile
             log_path = Path(tempfile.gettempdir()) / "notify_archive_history.jsonl"
         record = {
-            "ts": datetime.utcnow().isoformat() + "Z",
+            "ts": utcnow().isoformat() + "Z",
             **summary,
         }
         with open(log_path, "a", encoding="utf-8") as f:
