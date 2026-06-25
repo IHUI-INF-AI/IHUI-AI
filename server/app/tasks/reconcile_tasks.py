@@ -9,7 +9,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ def run_reconcile_task(self) -> dict:
     Returns:
         dict: { total: int, balanced: int, unbalanced: int, duration_s: float }
     """
-    started_at = datetime.utcnow()
+    started_at = utcnow()
     logger.info(f"[celery] run_reconcile_task started at {started_at.isoformat()}")
     try:
         from app.services.dual_write import full_reconcile
@@ -72,7 +73,7 @@ def run_reconcile_task(self) -> dict:
         total = len(reports)
         balanced = sum(1 for r in reports if r.is_balanced)
         unbalanced = total - balanced
-        duration = (datetime.utcnow() - started_at).total_seconds()
+        duration = (utcnow() - started_at).total_seconds()
 
         summary = {
             "total": total,
@@ -80,7 +81,7 @@ def run_reconcile_task(self) -> dict:
             "unbalanced": unbalanced,
             "duration_s": round(duration, 2),
             "started_at": started_at.isoformat(),
-            "finished_at": datetime.utcnow().isoformat(),
+            "finished_at": utcnow().isoformat(),
         }
         logger.info(f"[celery] run_reconcile_task finished: {summary}")
 

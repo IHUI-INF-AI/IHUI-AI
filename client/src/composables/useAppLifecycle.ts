@@ -34,8 +34,44 @@ export interface AppLifecycle {
 export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle {
   const router = useRouter()
   const { t } = useI18n()
-  const authStore = useAuthStore()
-  const darkModeStore = useDarkModeStore()
+
+  // 2026-06-24 修复: 不在 useAppLifecycle 顶层直接调用 useAuthStore/useDarkModeStore,
+  // 因为 App.vue setup 执行时机可能早于 main.ts 中某些动态 import 完成后的 Pinia
+  // 状态完全就绪, 触发 'getActivePinia() was called but there was no active Pinia' 错误.
+  // 改为: 1) 顶层先用 try/catch 兜底, 失败时 store 引用为 null, 事件触发时再懒加载.
+  //      2) 在 install()/onMounted 中重新尝试拿一次, 避免生命周期内重复尝试.
+  let authStore: ReturnType<typeof useAuthStore> | null = null
+  let darkModeStore: ReturnType<typeof useDarkModeStore> | null = null
+  try {
+    authStore = useAuthStore()
+  } catch (e) {
+    logger.debug('[useAppLifecycle] authStore unavailable on init, will lazy load:', e)
+  }
+  try {
+    darkModeStore = useDarkModeStore()
+  } catch (e) {
+    logger.debug('[useAppLifecycle] darkModeStore unavailable on init, will lazy load:', e)
+  }
+
+  const getAuthStore = (): ReturnType<typeof useAuthStore> | null => {
+    if (authStore) return authStore
+    try {
+      authStore = useAuthStore()
+      return authStore
+    } catch {
+      return null
+    }
+  }
+
+  const getDarkModeStore = (): ReturnType<typeof useDarkModeStore> | null => {
+    if (darkModeStore) return darkModeStore
+    try {
+      darkModeStore = useDarkModeStore()
+      return darkModeStore
+    } catch {
+      return null
+    }
+  }
 
   const isHome = ref(false)
 
@@ -64,8 +100,10 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     handleThemeShortcut = (event: KeyboardEvent) => {
       if (event.altKey && (event.key === 't' || event.key === 'T')) {
         event.preventDefault()
-        darkModeStore.toggleDarkMode()
-        const mode = darkModeStore.isDarkMode ? 'dark' : 'light'
+        const dm = getDarkModeStore()
+        if (!dm) return
+        dm.toggleDarkMode()
+        const mode = dm.isDarkMode ? 'dark' : 'light'
         import('element-plus').then(({ ElMessage }) => {
           ElMessage.success({
             message: `已切换至${mode === 'dark' ? '深色' : '浅色'}模式`,
@@ -80,7 +118,8 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     // 2) 会话过期事件
     handleSessionExpired = (event: Event) => {
       const detail = (event as CustomEvent).detail
-      authStore.logout()
+      const auth = getAuthStore()
+      if (auth) auth.logout()
       void router.push('/login')
       const reason = detail?.reason || t('auth.sessionExpiredMessage')
       if (typeof window !== 'undefined' && (window as any).showGlobalNotification) {

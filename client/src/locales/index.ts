@@ -51,13 +51,11 @@ const loadedModules = new Map<string, Set<string>>()
 // 已加载完整语言包的 locale 缓存（用于按当前语言从对应文件反显翻译）
 const fullLocaleLoaded = new Set<string>()
 
-// 模块消息缓存
-const moduleMessages = new Map<string, Record<string, unknown>>()
-
 // 按当前语言加载拆分后的语言包 chunk 并合并到 i18n
 // 完整语言包已按顶级键前缀拆分到 full/{locale}/*.json, 避免单个 674KB 大 chunk
+// 2026-06-25 修复: 导出 loadFullLocaleMessages, 修复 I18nDashboard.vue 的 MISSING_EXPORT 构建错误
 const _fullLocaleLoading = new Map<string, Promise<void>>()
-async function loadFullLocaleMessages(locale: SupportedLocale): Promise<void> {
+export async function loadFullLocaleMessages(locale: SupportedLocale): Promise<void> {
   if (fullLocaleLoaded.has(locale)) return
   // 竞态保护：并发调用时复用同一个 Promise
   const pending = _fullLocaleLoading.get(locale)
@@ -148,45 +146,6 @@ async function loadAsyncModuleWithFallback(
       return null
     }
   }
-}
-
-// 动态加载异步模块
-async function loadAsyncModule(
-  locale: SupportedLocale,
-  module: string
-): Promise<Record<string, unknown> | null> {
-  if (isModuleLoaded(locale, module)) {
-    return null
-  }
-  
-  try {
-    const messages = await import(`./modules/${locale}/${module}.json`)
-    markModuleLoaded(locale, module)
-    return messages.default || messages
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      logger.warn(`[i18n] Failed to load module ${module} for ${locale}:`, error)
-    }
-    return null
-  }
-}
-
-// 批量加载异步模块
-async function _loadAsyncModules(
-  locale: SupportedLocale,
-  modules: readonly string[]
-): Promise<Record<string, unknown>> {
-  const results = await Promise.all(
-    modules.map(module => loadAsyncModule(locale, module))
-  )
-  
-  const merged: Record<string, unknown> = {}
-  for (const messages of results) {
-    if (messages) {
-      Object.assign(merged, messages)
-    }
-  }
-  return merged
 }
 
 // 检查模块是否已加载
@@ -317,9 +276,6 @@ async function initializeCoreMessages(): Promise<void> {
 
     // 使用 mergeLocaleMessage 合并消息
     mergeI18nMessages(locale, coreMessages)
-
-    // 缓存模块消息
-    moduleMessages.set(locale, { ...coreMessages })
 
     // 2026-06-24 优化：启动时不再加载完整语言包
     // 原行为: await loadFullLocaleMessages(locale)

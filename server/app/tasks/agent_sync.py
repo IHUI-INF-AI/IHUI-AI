@@ -4,6 +4,7 @@ from loguru import logger
 
 from app.database import get_session
 from app.models.agent_models import Agent
+from app.utils.datetime_helper import utcnow
 
 
 def sync_agent_counters() -> int:
@@ -27,9 +28,9 @@ def mark_inactive_agents(days_since_used: int = 180) -> int:
     """将长期未使用的 Agent 标记为非公开."""
     with get_session() as db:
         try:
-            from datetime import datetime, timedelta
+            from datetime import timedelta
 
-            threshold = datetime.utcnow() - timedelta(days=days_since_used)
+            threshold = utcnow() - timedelta(days=days_since_used)
             rows = (
                 db.query(Agent)
                 .filter(

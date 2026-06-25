@@ -487,7 +487,42 @@ def push_notification(
         _trim_notify_queue()
     except Exception as e:  # noqa: BLE001
         logger.warning(f"push_notification: FIFO 淘汰失败: {e}")
+    # P1 增强: 通过 Socket.IO 实时推送到在线 admin 客户端 (省去 30s 轮询延迟)
+    _emit_notify_new(item)
     return item
+
+
+def _emit_notify_new(item: NotifyItem) -> None:
+    """通过 Socket.IO 推送新站内信 (后台任务, 失败不影响主流程).
+
+    房间: notify:admin (admin 角色房间).
+    事件: notify:new
+    payload: NotifyItem 的 dict 形式 (id/title/body/level/source/top/created_at)
+    """
+    try:
+        # 延迟 import: 避免在 alembic 迁移时引入 socketio 依赖
+        from app.api.socketio_chat import sio
+        import asyncio
+
+        # 序列化为 dict (dataclass → asdict)
+        from dataclasses import asdict
+        payload = asdict(item)
+        # 事件名 + admin 房间 (前端 useNotifyBadge 订阅 notify:new 事件)
+        room = f"notify:{NOTIFY_RECIPIENT_UUID}"
+
+        # sio.emit 是协程, 用 start_background_task 在事件循环中异步发
+        # (兼容 FastAPI 同步路由调用 + Celery 同步任务调用两种场景)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None and loop.is_running():
+            loop.create_task(sio.emit("notify:new", payload, room=room))
+        else:
+            # 无运行中的 loop (如 Celery worker), 退化用后台任务
+            sio.start_background_task(sio.emit, "notify:new", payload, room=room)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"push_notification: Socket.IO emit 失败: {e}")
 
 
 class PushNotifyReq(BaseModel):
