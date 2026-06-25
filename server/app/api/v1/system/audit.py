@@ -1,7 +1,5 @@
 """操作日志 / 登录信息审计路由."""
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import desc
@@ -10,6 +8,7 @@ from app.database import get_session
 from app.models.sys_models import SysLoginInfo, SysOperLog
 from app.schemas.common import error, success
 from app.security import require_login
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -76,7 +75,7 @@ async def create_oper_log(
                 oper_ip=oper_ip,
                 status=status,
                 error_msg=error_msg,
-                oper_time=datetime.utcnow(),
+                oper_time=utcnow(),
             )
             db.add(log)
             db.commit()
@@ -90,7 +89,7 @@ async def clean_oper_log(days: int = Query(90, description="保留天数")):
     with get_session() as db:
         from datetime import timedelta
 
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = utcnow() - timedelta(days=days)
         deleted = db.query(SysOperLog).filter(SysOperLog.oper_time < cutoff).delete()
         db.commit()
         return success({"deleted": deleted})
@@ -154,7 +153,7 @@ async def create_login_info(
                 os=os,
                 status=status,
                 msg=msg,
-                login_time=datetime.utcnow(),
+                login_time=utcnow(),
             )
             db.add(info)
             db.commit()
@@ -168,7 +167,7 @@ async def clean_login_info(days: int = Query(90)):
     with get_session() as db:
         from datetime import timedelta
 
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = utcnow() - timedelta(days=days)
         deleted = db.query(SysLoginInfo).filter(SysLoginInfo.login_time < cutoff).delete()
         db.commit()
         return success({"deleted": deleted})

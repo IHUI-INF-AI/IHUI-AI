@@ -8,7 +8,7 @@ import os
 import sys
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -25,6 +25,7 @@ from sqlalchemy import create_engine
 from app.database import Base
 from app.main import create_app
 from app.security import create_access_token
+from app.utils.datetime_helper import utcnow
 
 # 建表
 eng = create_engine("sqlite:///./zhs_prod_drill.db", connect_args={"check_same_thread": False})

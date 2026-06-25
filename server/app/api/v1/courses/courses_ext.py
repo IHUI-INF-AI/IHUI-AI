@@ -1,7 +1,5 @@
 """教育平台扩展端点 -- 视频 / 分类 / 平台 / 支付 / 评论 / 日志 / 用户绑定 全量 CRUD."""
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -11,6 +9,7 @@ from app.schemas.common import error, success
 from app.security import require_login
 from app.services.order_service import create_order
 from app.services.token_service import check_user_token, deduct_user_token
+from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -747,7 +746,7 @@ async def create_comment(body: CommentCreate, user_uuid: str = Depends(require_l
                 "content": body.content,
                 "star": body.star,
                 "pid": body.parent_id or 0,
-                "now": datetime.utcnow(),
+                "now": utcnow(),
             },
         )
         db.commit()
@@ -851,7 +850,7 @@ async def create_video_log(
                     "UPDATE zhs_user_video_log SET progress = :prog, duration = :dur, updated_at = :now "
                     "WHERE id = :id"
                 ),
-                {"prog": progress, "dur": duration, "now": datetime.utcnow(), "id": existing[0]},
+                {"prog": progress, "dur": duration, "now": utcnow(), "id": existing[0]},
             )
             db.commit()
             return success({"id": existing[0], "action": "updated"})
@@ -867,7 +866,7 @@ async def create_video_log(
                 "cid": course_id,
                 "prog": progress,
                 "dur": duration,
-                "now": datetime.utcnow(),
+                "now": utcnow(),
             },
         )
         db.commit()
@@ -1057,7 +1056,7 @@ async def bind_user_platform(body: UserPlatformBind, user_uuid: str = Depends(re
                 "pid": body.platform_id,
                 "acc": body.account,
                 "remark": body.remark,
-                "now": datetime.utcnow(),
+                "now": utcnow(),
             },
         )
         db.commit()
