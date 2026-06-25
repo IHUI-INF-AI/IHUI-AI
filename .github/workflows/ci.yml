@@ -83,6 +83,39 @@ jobs:
           fi
           echo "✓ 工作区卫生检查通过"
 
+  path-hygiene:
+    # 2026-06-25: 路径卫生检查 - 防止 G 盘根目录硬编码路径回归
+    # 覆盖: G:\\1/G:\\dev/G:\\tmp 硬编码 + Linux /tmp/ 硬编码 + .gitignore 兜底
+    name: 路径卫生检查
+    runs-on: ubuntu-latest
+    needs: [workspace-hygiene]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: 安装 pytest
+        run: pip install pytest pytest-asyncio
+      - name: 运行 path-hygiene 测试
+        run: |
+          set -e
+          cd server
+          python -m pytest tests/test_path_hygiene.py -v --tb=short
+      - name: 静态扫描 (双重保险)
+        run: |
+          set -e
+          cd server
+          python scripts/_scan_hardcoded_g_drive_paths.py || {
+            echo "::error::硬编码 G:\\1/G:\\dev/G:\\tmp 路径扫描失败"
+            exit 1
+          }
+          python scripts/_scan_client_hardcoded_paths.py || {
+            echo "::error::client 子项目硬编码路径扫描失败"
+            exit 1
+          }
+          echo "✓ 静态扫描通过"
+
   backend-lint:
     name: 后端 lint
     runs-on: ubuntu-latest
