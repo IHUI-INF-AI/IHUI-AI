@@ -20,6 +20,7 @@ import json
 import re
 import sys
 from datetime import datetime, timezone
+from app.utils.datetime_helper import utcnow
 from pathlib import Path
 
 SERVER_ROOT = Path(__file__).resolve().parent.parent
@@ -117,13 +118,13 @@ def render_all_ddl() -> dict:
         user_uuid = Column(String(36), unique=True, nullable=False)
         nickname = Column(String(64))
         password_hash = Column(String(255))
-        created_at = Column(DateTime, default=datetime.utcnow)
+        created_at = Column(DateTime, default=utcnow)
 
     class Tenant(Base):
         __tablename__ = "tenant_metadata"
         id = Column(Integer, primary_key=True)
         schema_name = Column(String(64), unique=True, nullable=False)
-        created_at = Column(DateTime, default=datetime.utcnow)
+        created_at = Column(DateTime, default=utcnow)
 
     class Order(Base):
         __tablename__ = "zhs_order"
@@ -131,7 +132,7 @@ def render_all_ddl() -> dict:
         user_uuid = Column(String(36), index=True)
         amount = Column(postgresql.NUMERIC(10, 2))
         status = Column(String(16))
-        created_at = Column(DateTime, default=datetime.utcnow)
+        created_at = Column(DateTime, default=utcnow)
 
     class ChatLog(Base):
         __tablename__ = "zhs_chat_log"
@@ -139,7 +140,7 @@ def render_all_ddl() -> dict:
         user_uuid = Column(String(36), index=True)
         content = Column(Text)
         is_human = Column(Boolean, default=True)
-        created_at = Column(DateTime, default=datetime.utcnow)
+        created_at = Column(DateTime, default=utcnow)
 
     samples = [User.__table__, Tenant.__table__, Order.__table__, ChatLog.__table__]
     rendered = {}

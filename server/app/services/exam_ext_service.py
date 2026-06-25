@@ -19,6 +19,7 @@ from app.models.exam_models import (
     QuestionCategory,
     QuestionCategoryRelation,
 )
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 

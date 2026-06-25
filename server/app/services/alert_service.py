@@ -81,7 +81,7 @@ def _format_alert_text(title: str, message: str, severity: str = "warning") -> d
         "title": title,
         "message": message,
         "severity": severity,
-        "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+        "timestamp": utcnow().isoformat() + "Z",
     }
 
 
