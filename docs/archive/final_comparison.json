@@ -1,9 +1,9 @@
 {
   "summary": {
     "java_total_endpoints": 677,
-    "python_in_domains": 11682,
-    "matched": 669,
-    "coverage": "98.8%"
+    "python_in_domains": 11912,
+    "matched": 677,
+    "coverage": "100.0%"
   },
   "by_controller": [
     {
@@ -444,15 +444,15 @@
       "service": "ihui-ai-edu-member-service",
       "controller": "CheckInController",
       "java_endpoints": 2,
-      "matched": 0,
-      "coverage": "0.0%"
+      "matched": 2,
+      "coverage": "100.0%"
     },
     {
       "service": "ihui-ai-edu-member-service",
       "controller": "FollowController",
       "java_endpoints": 7,
-      "matched": 5,
-      "coverage": "71.4%"
+      "matched": 7,
+      "coverage": "100.0%"
     },
     {
       "service": "ihui-ai-edu-member-service",
@@ -465,15 +465,15 @@
       "service": "ihui-ai-edu-member-service",
       "controller": "MemberCompanyTypeController",
       "java_endpoints": 7,
-      "matched": 4,
-      "coverage": "57.1%"
+      "matched": 7,
+      "coverage": "100.0%"
     },
     {
       "service": "ihui-ai-edu-member-service",
       "controller": "MemberController",
       "java_endpoints": 35,
-      "matched": 34,
-      "coverage": "97.1%"
+      "matched": 35,
+      "coverage": "100.0%"
     },
     {
       "service": "ihui-ai-edu-member-service",
