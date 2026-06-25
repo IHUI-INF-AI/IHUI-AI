@@ -4674,8 +4674,6 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
   --aic-global-home-border-radius: var(--global-border-radius);
   --aic-global-home-z-index-overlay: 2000;
   --aic-global-home-z-index-dialog: 2001;
-  --aic-global-flat-shadow: none;
-  --aic-global-flat-filter: none;
   --aic-global-messages-bottom: 180px;
   --aic-global-input-min-height: 106px;
 }
@@ -4699,8 +4697,6 @@ body .ai-chat-dialog-overlay.is-home,
   pointer-events: none;
   visibility: visible;
   opacity: 1;
-  box-shadow: var(--aic-global-flat-shadow);
-  filter: var(--aic-global-flat-filter);
   
   // 首页模式下的关闭动画
   &.dialog-fade-leave-active {
@@ -4721,8 +4717,6 @@ body .ai-chat-dialog-overlay.is-home,
 :where(html.dark) .ai-chat-dialog-overlay.is-home {
   background: transparent;
   overflow: visible; // 确保暗色模式下也不被裁切
-  box-shadow: var(--aic-global-flat-shadow); // 扁平化设计：确保无投?
-  filter: var(--aic-global-flat-filter); // 扁平化设计：移除可能?filter 效果
 }
 
 // 首页对话框样?- 使用 CSS 变量和高特异性选择?
@@ -4734,7 +4728,6 @@ body .ai-chat-dialog.is-home,
   max-height: var(--aic-global-home-max-height); // 增加最大高度从 600px ?700px
   min-height: var(--aic-global-home-min-height); // 增加最小高度从 400px ?500px
   border-radius: var(--aic-global-home-border-radius);
-  box-shadow: var(--aic-global-flat-shadow); // 扁平化设计：移除所有投?
   border: 0;
   margin: 0 auto;
   position: relative;
@@ -5002,19 +4995,6 @@ body .ai-chat-dialog.is-home,
   }
 }
 
-/* 全局扁平化设计规则：确保所有对话框容器完全无投? */
-
-/* 使用 CSS 变量和高特异性选择? */
-.ai-chat-dialog-overlay,
-.ai-chat-dialog-overlay.is-home,
-.ai-chat-dialog,
-.ai-chat-dialog.is-home,
-.ai-chat-dialog-overlay .ai-chat-dialog,
-.ai-chat-dialog-overlay.is-home .ai-chat-dialog.is-home {
-  box-shadow: var(--aic-global-flat-shadow, none);
-  filter: var(--aic-global-flat-filter, none);
-}
-
 /* 全局规则：确保首页模式下 input-wrapper 正确定位 */
 
 /* 使用 :where() 与单类，使用 CSS 变量控制 */
@@ -5094,16 +5074,5 @@ body .ai-chat-dialog.is-home > .ai-dialog > .input-wrapper,
   padding: 0 20px 20px;
   box-sizing: border-box;
   border-radius: var(--global-border-radius);
-}
-
-/* 伪元素扁平化设计规则 */
-.ai-chat-dialog-overlay::before,
-.ai-chat-dialog-overlay::after,
-.ai-chat-dialog::before,
-.ai-chat-dialog::after,
-.ai-chat-dialog.is-home::before,
-.ai-chat-dialog.is-home::after {
-  box-shadow: var(--aic-global-flat-shadow, none);
-  filter: var(--aic-global-flat-filter, none);
 }
 </style>
