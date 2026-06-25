@@ -44,5 +44,5 @@ async def mark_paid_endpoint(pay_order_id: int, user_id: int = Depends(get_curre
 @router.get("/pay-orders/me", summary="My payments")
 async def list_user_payments_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_pay import list_user_payments
-    result = list_user_payments(db, user_id=user_id)
+    result = list_user_payments(db, user_uuid=str(user_id))
     return success(data=result)

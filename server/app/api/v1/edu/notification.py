@@ -44,5 +44,5 @@ async def batch_send_endpoint(user_id: int = Depends(get_current_user_id), paylo
 @router.get("/notifications/me", summary="My notifications")
 async def list_user_notifications_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_notification import list_user_notifications
-    result = list_user_notifications(db, user_id=user_id)
+    result = list_user_notifications(db, user_uuid=str(user_id))
     return success(data=result)

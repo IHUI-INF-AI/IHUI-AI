@@ -44,11 +44,11 @@ async def mark_read_endpoint(message_id: int, user_id: int = Depends(get_current
 @router.get("/messages/inbox", summary="Inbox")
 async def list_inbox_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_message import list_inbox
-    result = list_inbox(db, user_id=user_id)
+    result = list_inbox(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.get("/messages/unread-count", summary="Unread count")
 async def get_unread_count_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_message import get_unread_count
-    result = get_unread_count(db, user_id=user_id)
+    result = get_unread_count(db, user_uuid=str(user_id))
     return success(data=result)

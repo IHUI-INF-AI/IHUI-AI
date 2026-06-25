@@ -38,7 +38,7 @@ async def create_member_endpoint(user_id: int = Depends(get_current_user_id), pa
 @router.get("/me", summary="Get my member")
 async def get_member_by_user_id_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_member import get_member_by_user_id
-    result = get_member_by_user_id(db, user_id=user_id)
+    result = get_member_by_user_id(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.put("/me", summary="Update my member")

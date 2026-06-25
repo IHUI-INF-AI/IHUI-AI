@@ -86,7 +86,7 @@ async def get_exam_record_endpoint(record_id: int, page: int = Query(1, ge=1), s
 @router.get("/records/me", summary="My records")
 async def list_user_exams_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_exam import list_user_exams
-    result = list_user_exams(db, user_id=user_id)
+    result = list_user_exams(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.post("/wrong-book/{question_id}", summary="Add to wrong book")
@@ -104,5 +104,5 @@ async def mark_mastered_endpoint(wrong_book_id: int, user_id: int = Depends(get_
 @router.get("/wrong-book/me", summary="My wrong book")
 async def list_wrong_book_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_exam import list_wrong_book
-    result = list_wrong_book(db, user_id=user_id)
+    result = list_wrong_book(db, user_uuid=str(user_id))
     return success(data=result)

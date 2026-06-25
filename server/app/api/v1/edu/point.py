@@ -44,11 +44,11 @@ async def spend_points_endpoint(user_id: int = Depends(get_current_user_id), pay
 @router.get("/points/me", summary="My point account")
 async def get_account_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_point import get_account
-    result = get_account(db, user_id=user_id)
+    result = get_account(db, user_uuid=str(user_id))
     return success(data=result)
 
 @router.get("/points/records", summary="My point records")
 async def list_records_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_point import list_records
-    result = list_records(db, user_id=user_id)
+    result = list_records(db, user_uuid=str(user_id))
     return success(data=result)

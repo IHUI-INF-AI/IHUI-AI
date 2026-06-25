@@ -81,6 +81,14 @@
 //   Login.vue.styles.scss (--spb-active-color 亮色+暗色变量定义)
 //   保留 72 处非 primary 背景上的独立白色用法不变
 //   构建验证通过 (npm run build, 48.78s, exit 0)
+// 2026-06-25 深度前端 bug 修复 (构建验证通过, exit 0):
+//   [暗色对比度] Home.vue.styles.scss ghost 按钮 color: var(--el-bg-color)→var(--el-color-white) (暗色黑底黑字)
+//   [暗色对比度] Login.vue.styles.scss .login-button color: var(--el-text-color-primary)→var(--color-on-primary) (暗色白底浅灰字)
+//   [暗色变量] _global-tokens.scss 补充 --color-gray-f9fafb / --color-gray-e8e8e8 暗色覆盖
+//   [XSS] agreement/Index.vue v-html→v-safe-html (后端内容渲染防 XSS)
+//   [响应式] Input1.vue .dialogue-panel / .template-dialog-panel 添加 max-width 兜底
+//   [CSS兼容] Settings.vue 9 处 rgba($brand-primary,...)→color-mix() (CSS 变量无法被 rgba 解析)
+//   [CSS兼容] AIChat.vue 5 处 rgba($cs-accent-blue,...)→color-mix() (同上)
 // ════════════════════════════════════════════════════════════════════
 //
 // ════════════════════════════════════════════════════════════════════

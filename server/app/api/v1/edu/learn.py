@@ -140,5 +140,5 @@ async def issue_certificate_endpoint(user_id: int = Depends(get_current_user_id)
 @router.get("/certificates/me", summary="My certificates")
 async def list_user_certificates_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_learn import list_user_certificates
-    result = list_user_certificates(db, user_id=user_id)
+    result = list_user_certificates(db, user_uuid=str(user_id))
     return success(data=result)
