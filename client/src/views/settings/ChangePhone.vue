@@ -301,7 +301,7 @@ async function onSubmit() {
   border-radius: var(--global-border-radius);
   padding: 14px;
   margin-bottom: 12px;
-  border: 1px solid #eee;
+  border: 1px solid var(--el-border-color-lighter);
   box-sizing: border-box;
 }
 
@@ -324,7 +324,7 @@ async function onSubmit() {
   border-radius: var(--global-border-radius);
   padding: 14px;
   margin-bottom: 12px;
-  border: 1px solid #eee;
+  border: 1px solid var(--el-border-color-lighter);
   box-sizing: border-box;
 }
 
@@ -370,14 +370,14 @@ async function onSubmit() {
 
 .change-phone__code-btn {
   flex-shrink: 0;
-  color: #07c160;
-  background-color: #fff;
-  border: 1px solid #07c160;
+  color: var(--el-color-success);
+  background-color: var(--el-bg-color);
+  border: 1px solid var(--el-color-success);
 }
 
 .change-phone__code-btn.is-disabled {
-  color: #999;
-  border-color: #ddd;
+  color: var(--el-text-color-placeholder);
+  border-color: var(--el-border-color);
 }
 
 .change-phone__submit {
@@ -405,7 +405,26 @@ async function onSubmit() {
 
 .change-phone__notice-desc {
   font-size: 13px;
-  color: #333;
+  color: var(--el-text-color-primary);
   line-height: 1.6;
+}
+
+/* 暗色模式适配 */
+:where(html.dark) {
+  .change-phone {
+    background-color: var(--el-bg-color);
+  }
+
+  .change-phone__intro {
+    border-color: var(--el-border-color);
+  }
+
+  .change-phone__form {
+    border-color: var(--el-border-color);
+  }
+
+  .change-phone__code-btn {
+    background-color: var(--el-bg-color);
+  }
 }
 </style>

@@ -36,11 +36,15 @@ import { ref } from 'vue'
 import { Picture, Loading } from '@element-plus/icons-vue'
 import SettingsPageLayout from './SettingsPageLayout.vue'
 
+// 2026-06-24 修复: 真实模型备案图片由用户/运营提供, 在素材到位前先指向 /images/common/empty-box.svg 兜底,
+// 避免浏览器控制台 404 错误. 收到真实图片后直接把 empty-box.svg 替换为 modelRecord1-4.png 即可,
+// 页面其它逻辑(预览、点击查看大图)无需修改.
+const MODEL_RECORD_PLACEHOLDER = '/images/common/empty-box.svg'
 const imageList = ref([
-  '/static/images/modelRecord1.png',
-  '/static/images/modelRecord2.png',
-  '/static/images/modelRecord3.png',
-  '/static/images/modelRecord4.png'
+  MODEL_RECORD_PLACEHOLDER,
+  MODEL_RECORD_PLACEHOLDER,
+  MODEL_RECORD_PLACEHOLDER,
+  MODEL_RECORD_PLACEHOLDER,
 ])
 </script>
 

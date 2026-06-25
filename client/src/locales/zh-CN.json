@@ -13368,6 +13368,11 @@
     "markAllRead": "全部已读",
     "allTypes": "全部类型",
     "noNotifications": "暂无通知",
+    "level": {
+      "info": "提示",
+      "warn": "警告",
+      "error": "严重"
+    },
     "typeOrder": "订单",
     "typeWallet": "钱包",
     "typeSystem": "系统",

@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, St
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
+from app.utils.datetime_helper import utcnow
 
 
 class TboxDevice(TimestampMixin, Base):

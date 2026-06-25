@@ -3,7 +3,6 @@
 迁移自 coze_zhs_py/api/outbound.py.
 """
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -14,6 +13,7 @@ from sqlalchemy import BigInteger, Column, Index, Integer, String, Text
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
+from app.utils.datetime_helper import utcnow
 
 
 class CallBackLog(TimestampMixin, Base):
@@ -50,7 +50,7 @@ async def call_callback(
 ):
     with get_session() as db:
         try:
-            start = datetime.utcnow()
+            start = utcnow()
             body = await request.body()
             ip = request.client.host if request.client else None
             log = CallBackLog(
@@ -64,7 +64,7 @@ async def call_callback(
             db.add(log)
             db.flush()
             log.response_body = '{"code":0,"message":"ok"}'
-            log.process_time = int((datetime.utcnow() - start).total_seconds() * 1000)
+            log.process_time = int((utcnow() - start).total_seconds() * 1000)
             return success({"callback_id": log.id})
         except Exception as e:
             logger.error(f"call callback error: {e}")

@@ -4,7 +4,6 @@
 """
 import logging
 import uuid
-from datetime import datetime
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 
@@ -15,6 +14,7 @@ from app.core.customer_service_db import (
     load_conversations,
 )
 from app.security import require_login
+from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ async def post_message(
     if storage_key not in _conversations:
         _conversations[storage_key] = []
     msg_id = f"{conv_id}_{uuid.uuid4().hex[:12]}"
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     # 简化:不实际上传文件,仅记录文本;如需文件可存到 storage 并返回 url
     file_list = []
     if files:
@@ -138,7 +138,7 @@ async def post_message(
 
 def _make_staff_reply(conv_id: str) -> dict | None:
     import random
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     replies = [
         "您好,您的留言我们已收到,客服将尽快回复.如需紧急帮助请前往「工单」提交问题.",
         "感谢您的反馈,我们会尽快处理.您也可以先查看「常见问题」获取自助解答.",
