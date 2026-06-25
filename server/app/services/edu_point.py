@@ -14,7 +14,7 @@ from app.models.edu_models import EduPointAccount, EduPointRecord
 from app.services.edu_base import EduValidationError, paginate, get_or_404
 
 
-def get_or_create_account(db: Session, user_id: str) -> EduPointAccount:
+def get_or_create_account(db: Session, user_id: str = None, user_uuid: str = None) -> EduPointAccount:
     a = db.execute(
         select(EduPointAccount).where(EduPointAccount.user_id == str(user_id))
     ).scalar_one_or_none()
@@ -62,7 +62,7 @@ def spend_points(db: Session, user_id: str, amount: int, source: str = "spend", 
     return a
 
 
-def get_account(db: Session, user_id: str) -> EduPointAccount:
+def get_account(db: Session, user_id: str = None, user_uuid: str = None) -> EduPointAccount:
     return get_or_create_account(db, user_id)
 
 

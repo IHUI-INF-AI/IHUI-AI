@@ -62,7 +62,7 @@ def list_inbox(
     return paginate(db, EduMessage, page=page, size=size, filters=filters, order_by=desc(EduMessage.id))
 
 
-def get_unread_count(db: Session, user_id: str) -> int:
+def get_unread_count(db: Session, user_id: str = None, user_uuid: str = None) -> int:
     from sqlalchemy import func
     return db.execute(
         select(func.count(EduMessage.id)).where(

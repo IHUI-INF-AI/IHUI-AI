@@ -356,7 +356,7 @@ def issue_certificate(
     return cert
 
 
-def list_user_certificates(db: Session, user_id: int) -> List[EduCertificate]:
+def list_user_certificates(db: Session, user_id: int = None, user_uuid: str = None) -> List[EduCertificate]:
     return list(db.execute(
         select(EduCertificate).where(EduCertificate.uuid == user_id)
         .order_by(desc(EduCertificate.issue_date))

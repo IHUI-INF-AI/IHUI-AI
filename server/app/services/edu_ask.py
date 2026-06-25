@@ -268,7 +268,7 @@ def like_answer(db: Session, answer_id: int, user_id: int) -> int:
 # Statistics (迁移自 StatisticsController + StatisticsService)
 # ============================================================================
 
-def get_user_stats(db: Session, user_id: int) -> dict:
+def get_user_stats(db: Session, user_id: int = None, user_uuid: str = None) -> dict:
     """Get user's Q&A statistics.
 
     Java source: StatisticsService.userStats(Long userId)
