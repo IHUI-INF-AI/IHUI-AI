@@ -1902,10 +1902,11 @@ class JobRunReq(BaseModel):
 
 
 @job_router.put("/run", summary="立即执行一次任务")
-async def run_job_once(body: JobRunReq):
+def run_job_once(body: JobRunReq):
     """对应 Java: PUT /job/run -- 从 DB 取 invoke_target,立即调用一次.
 
     2026-06-25 P1 加固: 软删除过滤
+    2026-06-25 P0 修复: _run_job_now 是同步函数返回 dict, 不能 await; 改为 def 路由让 FastAPI 放入 threadpool 执行.
     """
     with get_session() as db:
         job = db.query(SysJob).filter(
@@ -1915,7 +1916,7 @@ async def run_job_once(body: JobRunReq):
             return fail("任务不存在", code=404)
 
         invoke_target = job.invoke_target or ""
-        result = await _run_job_now(invoke_target)
+        result = _run_job_now(invoke_target)
 
         # 记录日志
         log = SysJobLog(

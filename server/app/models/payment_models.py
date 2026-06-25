@@ -345,3 +345,21 @@ class InvoiceTitle(TimestampMixin, Base):
     default_flag = Column(Boolean, default=False, comment="是否默认发票抬头")
     create_user_id = Column(String(64), nullable=True, comment="创建人UUID")
     update_user_id = Column(String(64), nullable=True, comment="更新人UUID")
+
+
+class UserFundInfo(TimestampMixin, Base):
+    """用户资金信息 (迁移自 H:ai-smart-society-java\\UserFundInfoController)."""
+
+    __tablename__ = "zhs_user_fund_info"
+    __table_args__ = (
+        Index("idx_ufi_user_uuid", "user_uuid"),
+        Index("idx_ufi_status", "status"),
+    )
+
+    id = id_column(comment="ID")
+    user_uuid = Column(String(64), nullable=False, comment="用户UUID")
+    balance = Column(BigInteger, default=0, comment="可用余额(分)")
+    frozen = Column(BigInteger, default=0, comment="冻结余额(分)")
+    total_recharge = Column(BigInteger, default=0, comment="累计充值(分)")
+    total_consume = Column(BigInteger, default=0, comment="累计消费(分)")
+    status = Column(Integer, default=0, comment="0=正常 1=冻结 2=注销")

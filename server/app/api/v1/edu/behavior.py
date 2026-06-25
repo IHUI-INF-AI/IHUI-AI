@@ -28,27 +28,22 @@ from app.schemas.common import success
 
 router = APIRouter()
 
+# 封版阶段：edu_behavior service 字段全部漂移、功能不可用，路由暂时禁用，统一返回 501。
+_DISABLED_MSG = {"code": 501, "msg": "此功能暂未开放，请联系管理员"}
+
 
 @router.post("/events", summary="Track event")
 def track_event_endpoint(payload: dict = {}, db: Session = Depends(_get_db)):
-    from app.services.edu_behavior import track_event
-    result = track_event(db, **{k: v for k, v in payload.items() if v is not None})
-    return success(data=result)
+    return _DISABLED_MSG
 
 @router.get("/users/{user_id}/metrics", summary="User metrics")
 def get_user_study_metrics_endpoint(user_id: int, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
-    from app.services.edu_behavior import get_user_study_metrics
-    result = get_user_study_metrics(db, user_uuid=str(user_id))
-    return success(data=result)
+    return _DISABLED_MSG
 
 @router.get("/entities/{entity_type}/{entity_id}/views", summary="Entity views")
 def get_entity_view_count_endpoint(entity_type: str, entity_id: int, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
-    from app.services.edu_behavior import get_entity_view_count
-    result = get_entity_view_count(db, entity_type=entity_type, entity_id=entity_id)
-    return success(data=result)
+    return _DISABLED_MSG
 
 @router.get("/events/me", summary="My events")
 def list_user_events_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
-    from app.services.edu_behavior import list_user_events
-    result = list_user_events(db, user_uuid=str(user_id))
-    return success(data=result)
+    return _DISABLED_MSG

@@ -241,7 +241,7 @@ watch(
     border-radius: var(--global-border-radius);
     cursor: pointer;
     text-decoration: none;
-    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
 
     &:hover {
       background: var(--el-color-primary-light-3);

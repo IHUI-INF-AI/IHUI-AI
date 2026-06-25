@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import enum
 import json
 import os
@@ -313,18 +314,11 @@ def list_refunds(
         }
 
 
-@router.post("/{refund_id}/evidence")
-async def upload_evidence(
-    refund_id: str,
-    file: UploadFile = File(...),
-    description: str = Form(""),
-    user_uuid: str = Depends(require_login),
-) -> dict:
-    """上传退款凭证."""
-    # 校验文件类型
-    if file.content_type not in _ALLOWED_CONTENT_TYPES:
-        raise HTTPException(400, f"不支持的文件类型: {file.content_type}")
+def _load_refund_for_evidence(refund_id: str, user_uuid: str) -> None:
+    """加载退款单并校验上传权限 (同步, 由 asyncio.to_thread 调用).
 
+    校验失败时抛 HTTPException; 成功直接返回 (无需返回 refund 对象, 保存阶段会重新加载).
+    """
     with get_session() as db:
         refund = db.execute(
             select(Refund).where(Refund.refund_id == refund_id).limit(1)
@@ -336,24 +330,29 @@ async def upload_evidence(
         if refund.status in [RefundStatus.COMPLETED.value, RefundStatus.CANCELLED.value]:
             raise HTTPException(400, "已结束退款单不允许上传凭证")
 
-        # 读取并校验大小
-        content = await file.read()
-        if len(content) > _MAX_UPLOAD_BYTES:
-            raise HTTPException(400, "文件大小超过 10MB 限制")
 
-        # 清洗文件名并保存
-        original_name = _sanitize_filename(file.filename or "file")
-        ext = Path(original_name).suffix
-        stored_name = f"{refund_id}_{uuid.uuid4().hex[:8]}{ext}"
-        file_path = _evidence_dir / stored_name
-        file_path.write_bytes(content)
-
+def _save_refund_evidence(
+    refund_id: str,
+    user_uuid: str,
+    original_name: str,
+    file_path: Path,
+    content: bytes,
+    content_type: str,
+    description: str,
+) -> dict:
+    """保存凭证文件已写入磁盘后, 更新退款单 evidence 并写时间线 (同步, 由 asyncio.to_thread 调用)."""
+    with get_session() as db:
+        refund = db.execute(
+            select(Refund).where(Refund.refund_id == refund_id).limit(1)
+        ).scalar_one_or_none()
+        if not refund:
+            raise HTTPException(404, "退款单不存在")
         evidence_entry = {
             "id": uuid.uuid4().hex[:8],
             "filename": original_name,
             "stored_path": str(file_path),
             "size": len(content),
-            "content_type": file.content_type,
+            "content_type": content_type,
             "description": description,
             "uploaded_at": _now_iso(),
         }
@@ -373,7 +372,52 @@ async def upload_evidence(
             status_from=refund.status,
         )
         db.commit()
-        return {"code": 0, "data": evidence_entry, "message": "凭证已上传"}
+        return evidence_entry
+
+
+@router.post("/{refund_id}/evidence")
+async def upload_evidence(
+    refund_id: str,
+    file: UploadFile = File(...),
+    description: str = Form(""),
+    user_uuid: str = Depends(require_login),
+) -> dict:
+    """上传退款凭证.
+
+    P0 修复: DB 调用通过 asyncio.to_thread 放到 threadpool, 避免在事件循环线程中阻塞;
+    await file.read() 保留在事件循环中.
+    """
+    # 校验文件类型
+    if file.content_type not in _ALLOWED_CONTENT_TYPES:
+        raise HTTPException(400, f"不支持的文件类型: {file.content_type}")
+
+    # 1. 加载并校验退款单 (sync DB -> thread)
+    await asyncio.to_thread(_load_refund_for_evidence, refund_id, user_uuid)
+
+    # 2. 读取并校验大小 (async, 必须在事件循环中)
+    content = await file.read()
+    if len(content) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(400, "文件大小超过 10MB 限制")
+
+    # 3. 清洗文件名并保存到磁盘 (CPU/IO, 轻量, 直接执行)
+    original_name = _sanitize_filename(file.filename or "file")
+    ext = Path(original_name).suffix
+    stored_name = f"{refund_id}_{uuid.uuid4().hex[:8]}{ext}"
+    file_path = _evidence_dir / stored_name
+    file_path.write_bytes(content)
+
+    # 4. 更新 DB (sync DB -> thread)
+    evidence_entry = await asyncio.to_thread(
+        _save_refund_evidence,
+        refund_id,
+        user_uuid,
+        original_name,
+        file_path,
+        content,
+        file.content_type,
+        description,
+    )
+    return {"code": 0, "data": evidence_entry, "message": "凭证已上传"}
 
 
 @router.post("/{refund_id}/cancel")

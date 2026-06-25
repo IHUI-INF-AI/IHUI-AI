@@ -26,33 +26,26 @@ from app.schemas.common import success
 
 router = APIRouter()
 
+# 封版阶段：edu_content service 字段全部漂移、功能不可用，路由暂时禁用，统一返回 501。
+_DISABLED_MSG = {"code": 501, "msg": "此功能暂未开放，请联系管理员"}
+
 
 @router.post("/articles", summary="Create article")
 def create_article_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
-    from app.services.edu_content import create_article
-    result = create_article(db, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
-    return success(data=result)
+    return _DISABLED_MSG
 
 @router.put("/articles/{article_id}/publish", summary="Publish article")
 def publish_article_endpoint(article_id: int, user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
-    from app.services.edu_content import publish_article
-    result = publish_article(db, article_id=article_id, user_id=user_id, **{k: v for k, v in payload.items() if v is not None})
-    return success(data=result)
+    return _DISABLED_MSG
 
 @router.get("/articles/{article_id}", summary="Get article")
 def get_article_endpoint(article_id: int, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
-    from app.services.edu_content import get_article
-    result = get_article(db, article_id=article_id)
-    return success(data=result)
+    return _DISABLED_MSG
 
 @router.post("/articles/{article_id}/like", summary="Like article")
 def like_article_endpoint(article_id: int, payload: dict = {}, db: Session = Depends(_get_db)):
-    from app.services.edu_content import like_article
-    result = like_article(db, article_id=article_id, **{k: v for k, v in payload.items() if v is not None})
-    return success(data=result)
+    return _DISABLED_MSG
 
 @router.get("/articles", summary="List articles")
 def list_articles_endpoint(page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
-    from app.services.edu_content import list_articles
-    result = list_articles(db)
-    return success(data=result)
+    return _DISABLED_MSG

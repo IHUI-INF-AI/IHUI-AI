@@ -7,6 +7,8 @@
   - calculate_and_deduct_tokens_by_cost: 扣费 (success=False 不扣)
   - calculate_and_deduct_tokens_for_hunyuan3d: 固定 1.5 元
   - is_active_promotion_period: 异常路径
+
+2026-06-25 修复: 同步函数去掉 await, mock 目标从 SessionFactory1/2 改为 get_session.
 """
 
 from __future__ import annotations
@@ -17,104 +19,99 @@ import pytest
 
 from app.services import token_utils_service as tu
 
+
+def _mock_db(mock_get_session):
+    """辅助: 从 patch get_session 取出上下文管理器内部的 mock db."""
+    return mock_get_session.return_value.__enter__.return_value
+
+
 # ---------------------------------------------------------------------------
-# 1. check_user_is_vip (7 测试)
+# 1. check_user_is_vip (7 测试) — 同步函数
 # ---------------------------------------------------------------------------
 
 
 class TestCheckUserIsVip:
-    @pytest.mark.asyncio
-    async def test_empty_uuid_returns_false(self):
-        assert await tu.check_user_is_vip("") is False
+    def test_empty_uuid_returns_false(self):
+        assert tu.check_user_is_vip("") is False
 
-    @pytest.mark.asyncio
-    async def test_none_uuid_returns_false(self):
-        assert await tu.check_user_is_vip(None) is False
+    def test_none_uuid_returns_false(self):
+        assert tu.check_user_is_vip(None) is False
 
-    @pytest.mark.asyncio
-    async def test_normal_user_returns_false(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+    def test_normal_user_returns_false(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_user = mock_db.query.return_value.filter.return_value.first.return_value
             mock_user.is_vip = 0
-            assert await tu.check_user_is_vip("user-001") is False
+            assert tu.check_user_is_vip("user-001") is False
 
-    @pytest.mark.asyncio
-    async def test_vip_level_1_returns_true(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+    def test_vip_level_1_returns_true(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_user = mock_db.query.return_value.filter.return_value.first.return_value
             mock_user.is_vip = 1
-            assert await tu.check_user_is_vip("user-002") is True
+            assert tu.check_user_is_vip("user-002") is True
 
-    @pytest.mark.asyncio
-    async def test_trader_level_2_returns_true(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+    def test_trader_level_2_returns_true(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_user = mock_db.query.return_value.filter.return_value.first.return_value
             mock_user.is_vip = 2
-            assert await tu.check_user_is_vip("user-003") is True
+            assert tu.check_user_is_vip("user-003") is True
 
-    @pytest.mark.asyncio
-    async def test_user_not_found_returns_false(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+    def test_user_not_found_returns_false(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_db.query.return_value.filter.return_value.first.return_value = None
-            assert await tu.check_user_is_vip("ghost") is False
+            assert tu.check_user_is_vip("ghost") is False
 
-    @pytest.mark.asyncio
-    async def test_db_error_returns_false(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_sf.return_value.query.side_effect = Exception("db down")
-            assert await tu.check_user_is_vip("user-err") is False
+    def test_db_error_returns_false(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_gs.return_value.__enter__.return_value.query.side_effect = Exception("db down")
+            assert tu.check_user_is_vip("user-err") is False
 
 
 # ---------------------------------------------------------------------------
-# 2. check_user_token_sufficient (4 测试)
+# 2. check_user_token_sufficient (4 测试) — 同步函数
 # ---------------------------------------------------------------------------
 
 
 class TestCheckUserTokenSufficient:
-    @pytest.mark.asyncio
-    async def test_empty_uuid_returns_insufficient(self):
-        r = await tu.check_user_token_sufficient("", min_tokens=1)
+    def test_empty_uuid_returns_insufficient(self):
+        r = tu.check_user_token_sufficient("", min_tokens=1)
         assert r["sufficient"] is False
         assert r["balance"] == 0
         assert r["user_uuid"] == ""
 
-    @pytest.mark.asyncio
-    async def test_user_not_found_returns_insufficient(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+    def test_user_not_found_returns_insufficient(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_db.query.return_value.filter.return_value.first.return_value = None
-            r = await tu.check_user_token_sufficient("ghost")
+            r = tu.check_user_token_sufficient("ghost")
             assert r["sufficient"] is False
             assert r["balance"] == 0
             assert "user not found" in r["error"]
 
-    @pytest.mark.asyncio
-    async def test_balance_meets_min_returns_sufficient(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+    def test_balance_meets_min_returns_sufficient(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_margin = mock_db.query.return_value.filter.return_value.first.return_value
             mock_margin.token_quantity = 100
-            r = await tu.check_user_token_sufficient("user-001", min_tokens=10)
+            r = tu.check_user_token_sufficient("user-001", min_tokens=10)
             assert r["sufficient"] is True
             assert r["balance"] == 100
 
-    @pytest.mark.asyncio
-    async def test_balance_below_min_returns_insufficient(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+    def test_balance_below_min_returns_insufficient(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_margin = mock_db.query.return_value.filter.return_value.first.return_value
             mock_margin.token_quantity = 5
-            r = await tu.check_user_token_sufficient("user-002", min_tokens=10)
+            r = tu.check_user_token_sufficient("user-002", min_tokens=10)
             assert r["sufficient"] is False
             assert r["balance"] == 5
 
 
 # ---------------------------------------------------------------------------
-# 3. calculate_tokens_per_yuan (6 测试)
+# 3. calculate_tokens_per_yuan (6 测试) — 异步函数 (asyncio.to_thread 包装同步调用)
 # ---------------------------------------------------------------------------
 
 
@@ -128,17 +125,18 @@ class TestCalculateTokensPerYuan:
 
     @pytest.mark.asyncio
     async def test_user_not_found_returns_normal_rate(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_db.query.return_value.filter.return_value.first.return_value = None
-            r = await tu.calculate_tokens_per_yuan("ghost")
-            assert r["reason"] == "user not found"
-            assert r["tokens_per_yuan"] == tu.settings.TOKEN_NORMAL_USER_PER_YUAN
+            with patch.object(tu, "is_active_promotion_period", return_value={"is_active": False}):
+                r = await tu.calculate_tokens_per_yuan("ghost")
+                assert r["reason"] == "user not found"
+                assert r["tokens_per_yuan"] == tu.settings.TOKEN_NORMAL_USER_PER_YUAN
 
     @pytest.mark.asyncio
     async def test_normal_level_returns_normal_rate(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_user = mock_db.query.return_value.filter.return_value.first.return_value
             mock_user.is_vip = 0
             with patch.object(tu, "is_active_promotion_period", return_value={"is_active": False}):
@@ -148,8 +146,8 @@ class TestCalculateTokensPerYuan:
 
     @pytest.mark.asyncio
     async def test_vip_level_1_returns_vip_rate(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_user = mock_db.query.return_value.filter.return_value.first.return_value
             mock_user.is_vip = 1
             with patch.object(tu, "is_active_promotion_period", return_value={"is_active": False}):
@@ -159,8 +157,8 @@ class TestCalculateTokensPerYuan:
 
     @pytest.mark.asyncio
     async def test_trader_level_2_returns_trader_rate(self):
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_user = mock_db.query.return_value.filter.return_value.first.return_value
             mock_user.is_vip = 2
             with patch.object(tu, "is_active_promotion_period", return_value={"is_active": False}):
@@ -171,8 +169,8 @@ class TestCalculateTokensPerYuan:
     @pytest.mark.asyncio
     async def test_promotion_overrides_vip(self):
         """促销期生效时, 不论 VIP 等级都用促销价."""
-        with patch.object(tu, "SessionFactory2") as mock_sf:
-            mock_db = mock_sf.return_value
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             mock_user = mock_db.query.return_value.filter.return_value.first.return_value
             mock_user.is_vip = 2
             with patch.object(tu, "is_active_promotion_period", return_value={"is_active": True}):
@@ -239,25 +237,23 @@ class TestCalculateAndDeductHunyuan3D:
 
 
 # ---------------------------------------------------------------------------
-# 6. is_active_promotion_period (2 测试)
+# 6. is_active_promotion_period (2 测试) — 同步函数
 # ---------------------------------------------------------------------------
 
 
 class TestIsActivePromotionPeriod:
-    @pytest.mark.asyncio
-    async def test_no_active_promo_returns_false(self):
-        with patch.object(tu, "SessionFactory1") as mock_sf:
-            mock_db = mock_sf.return_value
+    def test_no_active_promo_returns_false(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_db = _mock_db(mock_gs)
             chain = mock_db.query.return_value.filter.return_value.filter.return_value
             chain.order_by.return_value.first.return_value = None
-            r = await tu.is_active_promotion_period()
+            r = tu.is_active_promotion_period()
             assert r["is_active"] is False
             assert "error" not in r
 
-    @pytest.mark.asyncio
-    async def test_db_error_returns_false_with_error_msg(self):
-        with patch.object(tu, "SessionFactory1") as mock_sf:
-            mock_sf.return_value.query.side_effect = Exception("db boom")
-            r = await tu.is_active_promotion_period()
+    def test_db_error_returns_false_with_error_msg(self):
+        with patch.object(tu, "get_session") as mock_gs:
+            mock_gs.return_value.__enter__.return_value.query.side_effect = Exception("db boom")
+            r = tu.is_active_promotion_period()
             assert r["is_active"] is False
             assert "db boom" in r["error"]

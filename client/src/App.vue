@@ -59,7 +59,7 @@
             </Transition>
           </RouterView>
         </main>
-        <Footer v-if="route.meta?.showFooter === true" />
+        <Footer v-if="safeRoute.meta?.showFooter === true" />
 
         <!-- 网络离线提示 -->
         <Transition name="slide-down">
@@ -88,7 +88,7 @@
         <!-- AI 对话(管理端不显示) -->
         <AIChat
           v-if="showAIChat && showGlobalChat && !useLegacyChat && !isAdminRoute"
-          :key="route.fullPath"
+          :key="safeRoute.fullPath"
           ref="floatingChatRef"
           v-model:visible="showAIChat"
           :show-toggle="true"
@@ -192,7 +192,29 @@ const AIChatLegacy = defineAsyncComponent(() => import('@/components/ai/AIChatLe
 logger.info('[App] App.vue 开始初始化...')
 
 // ═══ 路由 / 国际化 ═══
-const route = useRoute()
+// 2026-06-25 修复: useRoute 顶层调用无兜底, HMR 抖动期 app.use(router) 还没执行
+// 会抛 'injection "Symbol(route location)" not found', 整个 setup 失败触发
+// ErrorBoundary 兜底页白屏. 这里用与 useAppLifecycle 一致的懒加载兜底策略:
+// 顶层 try/catch, 失败时 route 引用为 null, 事件触发时再懒加载重试.
+let route: ReturnType<typeof useRoute> | null = null
+try {
+  route = useRoute()
+} catch (e) {
+  logger.warn('[App] useRoute failed on init, will lazy retry:', e)
+}
+const getRoute = (): ReturnType<typeof useRoute> | null => {
+  if (route) return route
+  try {
+    route = useRoute()
+    return route
+  } catch (e) {
+    logger.debug('[App] useRoute lazy retry failed:', e)
+    return null
+  }
+}
+// 安全 route 代理: route 不存在时返回空对象占位, 避免 template/computed 访问 .path/.name/.meta 抛错
+// 注意: 占位对象必须保持响应式读取, 因此用 computed 包装而不是 const 普通对象
+const safeRoute = computed(() => (route || ({} as unknown as ReturnType<typeof useRoute>)))
 const { t, locale } = useI18n()
 // 2026-06-24 优化：EP 语言包懒加载，computed 同步返回（先 en 兜底），异步预加载后自动更新
 // vue-i18n 9.x 的 locale 是 Ref<string>, 直接 .value 即可
@@ -223,12 +245,15 @@ const chatModeStore = useChatModeStore()
 darkModeStore.initDarkMode?.()
 
 // ═══ 路由判断 ═══
-const isLoginRoute = computed(() => route.name === 'login' || route.path === '/login')
-const isRegisterRoute = computed(() => route.name === 'register' || route.path === '/register')
-const isHomeRoute = computed(() => route.name === 'home' || route.path === '/')
-const isOpenPlatformRoute = computed(() => route.name === 'openPlatform' || route.path === '/open')
+// 2026-06-25 修复: 全部使用 safeRoute.value 访问, 避免 HMR 抖动期 route 为 null 时
+// .path/.name/.meta 抛 'Cannot read properties of undefined (reading path)'
+// 触发 watcher getter / computed 异常, 进而被 ErrorBoundary 兜底为白屏.
+const isLoginRoute = computed(() => safeRoute.value.name === 'login' || safeRoute.value.path === '/login')
+const isRegisterRoute = computed(() => safeRoute.value.name === 'register' || safeRoute.value.path === '/register')
+const isHomeRoute = computed(() => safeRoute.value.name === 'home' || safeRoute.value.path === '/')
+const isOpenPlatformRoute = computed(() => safeRoute.value.name === 'openPlatform' || safeRoute.value.path === '/open')
 const isAdminRoute = computed(
-  () => route.path.startsWith('/admin-classic') || route.path.startsWith('/m/admin'),
+  () => (safeRoute.value.path?.startsWith('/admin-classic') ?? false) || (safeRoute.value.path?.startsWith('/m/admin') ?? false),
 )
 
 const isBareRoute = (r: { name?: string | symbol; path: string }) =>
@@ -280,9 +305,9 @@ const globalLoadingText = computed(() => loadingStore.globalLoadingText)
 const chatMode = computed<'global' | 'dialog' | 'agent'>(() => chatModeStore.mode)
 const showGlobalChat = computed(
   () =>
-    route.name !== 'AIManagement' &&
-    route.name !== 'login' &&
-    route.name !== 'register' &&
+    safeRoute.value.name !== 'AIManagement' &&
+    safeRoute.value.name !== 'login' &&
+    safeRoute.value.name !== 'register' &&
     !isAdminRoute.value,
 )
 const defaultCollapsed = computed(() => false)
@@ -387,7 +412,7 @@ onMounted(async () => {
 
 // 路由切换时同步滚动渐变
 watch(
-  () => route.path,
+  () => safeRoute.value.path,
   () => {
     nextTick(() => {
       if (isHomeRoute.value) updateChatFade(0)

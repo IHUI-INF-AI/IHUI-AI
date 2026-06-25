@@ -125,10 +125,15 @@ async def get_node_history(req: WorkflowNodeExecuteReq):
 
 @router.post("/search/model/workflow/run")
 async def search_model_workflow(req: ModelSearchReq):
+    import asyncio
+
     try:
-        with get_session() as db:
-            result = db.execute(text("SELECT id, source, type FROM zhs_ai_model_info WHERE is_del = 0"))
-            models = [{"id": r[0], "model_name": r[1], "type": r[2]} for r in result.fetchall()]
+        def _load_models():
+            with get_session() as db:
+                result = db.execute(text("SELECT id, source, type FROM zhs_ai_model_info WHERE is_del = 0"))
+                return [{"id": r[0], "model_name": r[1], "type": r[2]} for r in result.fetchall()]
+
+        models = await asyncio.to_thread(_load_models)
         access_token = await get_coze_jwt_access_token()
         url = "https://api.coze.cn/v1/workflow/run"
         payload = {

@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from typing import Optional, List, Tuple, Dict, Any
 
-from app.utils.datetime_helper import utcnow
-
 from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -68,7 +66,7 @@ def update_question(
     Java source: QuestionService.update(QuestionDTO)
     """
     q = get_or_404(db, EduAskQuestion, question_id, "question")
-    if q.user_id != user_id:
+    if q.member_id != user_id:
         raise EduPermissionError("only the author can update the question")
     for k, v in fields.items():
         if v is not None and hasattr(q, k):
@@ -84,10 +82,9 @@ def delete_question(db: Session, question_id: int, user_id: int) -> bool:
     Java source: QuestionService.delete(Long id, Long userId)
     """
     q = get_or_404(db, EduAskQuestion, question_id, "question")
-    if q.user_id != user_id:
+    if q.member_id != user_id:
         raise EduPermissionError("only the author can delete the question")
-    q.is_deleted = True
-    q.deleted_at = utcnow()
+    q.deleted = True
     db.flush()
     return True
 
@@ -99,7 +96,7 @@ def get_question(db: Session, question_id: int, increment_view: bool = True) -> 
     """
     q = get_or_404(db, EduAskQuestion, question_id, "question")
     if increment_view:
-        q.view_count = (q.view_count or 0) + 1
+        q.watch_num = (q.watch_num or 0) + 1
         db.flush()
     return q
 
@@ -121,24 +118,19 @@ def list_questions(
     filters = []
     if user_id is not None:
         filters.append(EduAskQuestion.member_id == user_id)
-    if course_id is not None:
-        filters.append(EduAskQuestion.course_id == course_id)
-    if is_resolved is not None:
-        filters.append(EduAskQuestion.is_resolved == is_resolved)
     if keyword:
         kw = f"%{keyword}%"
         filters.append(
             or_(
                 EduAskQuestion.title.ilike(kw),
                 EduAskQuestion.content.ilike(kw),
-                EduAskQuestion.tags.ilike(kw),
             )
         )
 
     if order_by == "hot":
         order = desc(EduAskQuestion.watch_num + EduAskQuestion.answer_num * 5)
     elif order_by == "unresolved":
-        filters.append(EduAskQuestion.is_resolved == False)
+        # FIXME: 字段映射不确定 - AskQuestion 无 is_resolved 字段, 暂按最新排序
         order = desc(EduAskQuestion.created_at)
     else:
         order = desc(EduAskQuestion.created_at)
@@ -153,7 +145,7 @@ def list_questions(
 def create_answer(
     db: Session, question_id: int, user_id: int, content: str
 ) -> EduAskAnswer:
-    """Post an answer to a question. Auto-increment answer_count.
+    """Post an answer to a question. Auto-increment answer_num.
 
     Java source: AnswerService.create(AnswerDTO)
     """
@@ -181,17 +173,14 @@ def delete_answer(db: Session, answer_id: int, user_id: int) -> bool:
     Java source: AnswerService.delete(Long id, Long userId)
     """
     a = get_or_404(db, EduAskAnswer, answer_id, "answer")
-    if a.user_id != user_id:
+    if a.member_id != user_id:
         raise EduPermissionError("only the author can delete the answer")
     question_id = a.question_id
-    is_best = a.is_best
+    # AskQuestion 无 is_resolved/best_answer_id 字段; 采纳状态以 AskAnswer.is_adopted 为准, 删除回答即自动失效
     db.delete(a)
     q = db.get(EduAskQuestion, question_id)
-    if q and q.answer_count and q.answer_count > 0:
-        q.answer_count -= 1
-        if is_best:
-            q.is_resolved = False
-            q.best_answer_id = None
+    if q and q.answer_num and q.answer_num > 0:
+        q.answer_num -= 1
     db.flush()
     return True
 
@@ -213,8 +202,8 @@ def list_answers(
         items = sorted(
             items,
             key=lambda a: (
-                not a.is_best,
-                -(a.like_count or 0),
+                not a.is_adopted,
+                -(a.like_num or 0),
                 -(a.created_at.timestamp() if a.created_at else 0),
             ),
         )
@@ -228,7 +217,7 @@ def adopt_answer(db: Session, answer_id: int, user_id: int) -> EduAskAnswer:
     """
     a = get_or_404(db, EduAskAnswer, answer_id, "answer")
     q = get_or_404(db, EduAskQuestion, a.question_id, "question")
-    if q.user_id != user_id:
+    if q.member_id != user_id:
         raise EduPermissionError("only the question author can adopt an answer")
 
     # Unset other best answers for this question
@@ -236,14 +225,11 @@ def adopt_answer(db: Session, answer_id: int, user_id: int) -> EduAskAnswer:
         and_(
             EduAskAnswer.question_id == q.id,
             EduAskAnswer.id != answer_id,
-            EduAskAnswer.is_best == True,
+            EduAskAnswer.is_adopted == True,
         )
-    ).update({"is_best": False})
+    ).update({"is_adopted": False})
 
-    a.is_best = True
-    a.adopted_at = utcnow()
-    q.is_resolved = True
-    q.best_answer_id = answer_id
+    a.is_adopted = True
     db.flush()
     db.refresh(a)
     return a
@@ -256,9 +242,9 @@ def like_answer(db: Session, answer_id: int, user_id: int) -> int:
     Note: simplified; production should use Redis to dedupe user likes.
     """
     a = get_or_404(db, EduAskAnswer, answer_id, "answer")
-    a.like_count = (a.like_count or 0) + 1
+    a.like_num = (a.like_num or 0) + 1
     db.flush()
-    return a.like_count
+    return a.like_num
 
 
 # ============================================================================
@@ -280,7 +266,11 @@ def get_user_stats(db: Session, user_id: int = None, user_uuid: str = None) -> d
         select(func.count(EduAskQuestion.id)).where(
             and_(
                 EduAskQuestion.member_id == user_id,
-                EduAskQuestion.is_resolved == True,
+                EduAskQuestion.id.in_(
+                    select(EduAskAnswer.question_id).where(
+                        EduAskAnswer.is_adopted == True
+                    )
+                ),
             )
         )
     ).scalar() or 0
@@ -288,7 +278,7 @@ def get_user_stats(db: Session, user_id: int = None, user_uuid: str = None) -> d
         select(func.count(EduAskAnswer.id)).where(
             and_(
                 EduAskAnswer.member_id == user_id,
-                EduAskAnswer.is_best == True,
+                EduAskAnswer.is_adopted == True,
             )
         )
     ).scalar() or 0
@@ -313,19 +303,25 @@ def get_question_stats(db: Session, question_id: int) -> dict:
     Java source: StatisticsService.questionStats(Long questionId)
     """
     q = get_or_404(db, EduAskQuestion, question_id, "question")
-    best_answer = None
-    if q.best_answer_id:
-        best_answer = db.get(EduAskAnswer, q.best_answer_id)
+    # AskQuestion 无 best_answer_id 字段; 改为按 AskAnswer.is_adopted 查询采纳回答
+    best_answer = db.execute(
+        select(EduAskAnswer).where(
+            and_(
+                EduAskAnswer.question_id == question_id,
+                EduAskAnswer.is_adopted == True,
+            )
+        ).limit(1)
+    ).scalars().first()
     return {
         "question_id": question_id,
-        "view_count": q.view_count or 0,
-        "answer_count": q.answer_count or 0,
-        "is_resolved": q.is_resolved,
+        "view_count": q.watch_num or 0,
+        "answer_count": q.answer_num or 0,
+        "is_resolved": bool(best_answer),
         "best_answer": {
             "id": best_answer.id,
             "content": best_answer.content,
-            "user_id": best_answer.user_id,
-            "adopted_at": best_answer.adopted_at,
+            "user_id": best_answer.member_id,
+            "adopted_at": best_answer.updated_at,
         } if best_answer else None,
     }
 

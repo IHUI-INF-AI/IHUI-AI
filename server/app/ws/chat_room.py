@@ -4,6 +4,7 @@
 持久化表: zhs_station_room / zhs_station_user / zhs_station_letter.
 """
 
+import asyncio
 import json
 import time
 import uuid
@@ -210,106 +211,21 @@ def _save_message(
     return msg_ids
 
 
-# ---------------------------------------------------------------------------
-# WebSocket 端点
-# ---------------------------------------------------------------------------
-
-
-@router.websocket("/ws/room/{room_id}")
-@ws_require_auth
-async def chat_room(
-    ws: WebSocket,
-    room_id: str,
-    user_uuid: str = Query(""),
-    nickname: str = Query(""),
-    token_exp: float = 0,
-):
-    """进入指定房间，支持实时成员列表、消息广播、数据库持久化."""
-    conn_id = f"{room_id}_{user_uuid}_{uuid.uuid4().hex[:6]}"
-    await connection_manager.connect(
-        conn_id, ws, user_uuid=user_uuid, room_id=room_id, token_exp=token_exp
-    )
-    nick = nickname or user_uuid[:8]
-
-    if str(room_id).isdigit():
-        _ensure_room_user(user_uuid, int(room_id))
-
+def _mark_user_leave(user_uuid: str, room_id: str) -> None:
+    """标记用户离开房间 (is_leave=1)."""
     try:
-        await connection_manager.broadcast_room(
-            room_id,
-            {
-                "type": "room",
-                "event": "member_join",
-                "user": user_uuid,
-                "nickname": nick,
-                "ts": time.time(),
-            },
-            exclude=conn_id,
-        )
-        await connection_manager.send_to(
-            conn_id,
-            {"type": "room", "event": "joined", "room": room_id, "you": user_uuid},
-        )
-        while True:
-            raw = await ws.receive_text()
-            try:
-                msg = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            mtype = msg.get("type", "text")
-            if mtype == "text":
-                text_content = msg.get("text", "")
-                receiver = msg.get("receiver_uuid") or None
-                _save_message(user_uuid, receiver, room_id, text_content, message_type=1)
-                await connection_manager.broadcast_room(
-                    room_id,
-                    {
-                        "type": "text",
-                        "from": user_uuid,
-                        "nickname": nick,
-                        "text": text_content,
-                        "ts": time.time(),
-                    },
-                )
-            elif mtype == "typing":
-                await connection_manager.broadcast_room(
-                    room_id,
-                    {"type": "typing", "user": user_uuid, "nickname": nick},
-                    exclude=conn_id,
-                )
-    except WebSocketDisconnect:
-        pass
-    finally:
-        if str(room_id).isdigit():
-            try:
-                with get_session() as db:
-                    db.query(ChatRoomUser).filter(
-                        ChatRoomUser.user_uuid == user_uuid,
-                        ChatRoomUser.room_id == int(room_id),
-                        ChatRoomUser.is_leave == 0,
-                    ).update({"is_leave": 1, "leave_at": datetime.utcnow()})
-            except Exception as e:
-                logger.warning(f"mark leave error: {e}")
-        await connection_manager.broadcast_room(
-            room_id,
-            {
-                "type": "room",
-                "event": "member_leave",
-                "user": user_uuid,
-                "nickname": nick,
-            },
-        )
-        await connection_manager.disconnect(conn_id)
+        with get_session() as db:
+            db.query(ChatRoomUser).filter(
+                ChatRoomUser.user_uuid == user_uuid,
+                ChatRoomUser.room_id == int(room_id),
+                ChatRoomUser.is_leave == 0,
+            ).update({"is_leave": 1, "leave_at": datetime.utcnow()})
+    except Exception as e:
+        logger.warning(f"mark leave error: {e}")
 
 
-# ---------------------------------------------------------------------------
-# HTTP API 端点
-# ---------------------------------------------------------------------------
-
-
-@router.get("/api/v1/chat-room/rooms/{room_id}/users", summary="获取房间用户列表")
-async def get_room_users(room_id: str):
-    """获取指定房间内的用户列表（数据库中 is_leave=0 且 is_del=0 的用户）."""
+def _get_room_users_list(room_id: str) -> list[str]:
+    """获取房间内用户 UUID 列表 (is_leave=0 且 is_del=0)."""
     try:
         with get_session() as db:
             if str(room_id).isdigit():
@@ -322,28 +238,17 @@ async def get_room_users(room_id: str):
                     )
                     .all()
                 )
-                user_list = [u[0] for u in users]
-            else:
-                user_list = []
-            return success(
-                {
-                    "room_id": room_id,
-                    "users": user_list,
-                    "count": len(user_list),
-                }
-            )
+                return [u[0] for u in users]
     except Exception as e:
-        logger.error(f"get_room_users error: {e}")
-        return error(str(e))
+        logger.error(f"get_room_users_list error: {e}")
+    return []
 
 
-@router.get("/api/v1/chat-room/users/{user_uuid}/rooms", summary="获取用户房间列表(含未读数)")
-async def get_user_rooms(user_uuid: str):
+def _get_user_rooms_data(user_uuid: str) -> list[dict]:
     """查询用户所在的所有房间，包含未读消息数、最后一条消息、发送者信息."""
+    rooms_data: list[dict] = []
     try:
         with get_session() as db:
-            rooms_data: list[dict] = []
-
             # 系统消息房间
             system_chat_id = f"system_{user_uuid}"
             sys_unread = (
@@ -448,27 +353,20 @@ async def get_user_rooms(user_uuid: str):
                         else None,
                     }
                 )
-
-            return success(
-                {
-                    "user_uuid": user_uuid,
-                    "rooms": rooms_data,
-                    "count": len(rooms_data),
-                }
-            )
     except Exception as e:
-        logger.error(f"get_user_rooms error: {e}")
-        return error(str(e))
+        logger.error(f"get_user_rooms_data error: {e}")
+    return rooms_data
 
 
-@router.get("/api/v1/chat-room/history", summary="获取消息历史")
-async def get_message_history(
-    user_uuid: str = Query(..., description="用户UUID"),
-    room_id: str | None = Query(None, description="房间ID(可选)"),
-    limit: int = Query(50, ge=1, le=500),
-    offset: int = Query(0, ge=0),
-):
-    """查询用户发送和接收的所有消息历史，支持按房间过滤和分页."""
+def _get_message_history_data(
+    user_uuid: str,
+    room_id: str | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[dict], int]:
+    """查询用户消息历史，返回 (msg_list, total)."""
+    msg_list: list[dict] = []
+    total = 0
     try:
         with get_session() as db:
             q = db.query(ChatLetter).filter(
@@ -484,7 +382,6 @@ async def get_message_history(
                 .limit(limit)
                 .all()
             )
-            msg_list = []
             for m in messages:
                 info = _get_user_info(m.user_uuid)
                 msg_list.append(
@@ -501,15 +398,235 @@ async def get_message_history(
                         "sender_avatar": info["avatar"],
                     }
                 )
-            return success(
-                {
-                    "user_uuid": user_uuid,
-                    "room_id": room_id,
-                    "messages": msg_list,
-                    "count": len(msg_list),
-                },
-                total=total,
+    except Exception as e:
+        logger.error(f"get_message_history_data error: {e}")
+    return msg_list, total
+
+
+def _delete_message_by_id(message_id: int, user_uuid: str) -> tuple[bool, str, str]:
+    """逻辑删除消息，返回 (success, error_msg, error_code)."""
+    try:
+        with get_session() as db:
+            msg = db.query(ChatLetter).filter(ChatLetter.id == message_id).first()
+            if not msg:
+                return False, "消息不存在", "404"
+            if msg.user_uuid != user_uuid and msg.receiver_uuid != user_uuid:
+                return False, "无权删除此消息", "403"
+            if msg.is_del == 1:
+                return False, "消息已被删除", "400"
+            msg.is_del = 1
+        return True, "", ""
+    except Exception as e:
+        logger.error(f"delete_message_by_id error: {e}")
+        return False, str(e), "500"
+
+
+def _mark_messages_read(user_uuid: str, room_id: str) -> int:
+    """标记指定用户在指定房间的所有未读消息为已读，返回 affected 行数."""
+    try:
+        with get_session() as db:
+            return (
+                db.query(ChatLetter)
+                .filter(
+                    ChatLetter.receiver_uuid == user_uuid,
+                    ChatLetter.chat_id == room_id,
+                    ChatLetter.is_read == 0,
+                    ChatLetter.is_del == 0,
+                )
+                .update({"is_read": 1})
             )
+    except Exception as e:
+        logger.error(f"mark_messages_read error: {e}")
+        return 0
+
+
+def _rename_room(old_room_id: str, new_room_name: str) -> tuple[bool, str, str]:
+    """修改房间名称，返回 (success, error_msg, error_code)."""
+    try:
+        with get_session() as db:
+            if not str(old_room_id).isdigit():
+                return False, "房间ID必须为数字", "400"
+            room = db.query(ChatRoom).filter(ChatRoom.id == int(old_room_id)).first()
+            if not room:
+                return False, "房间不存在", "404"
+            room.room_name = new_room_name
+        return True, "", ""
+    except Exception as e:
+        logger.error(f"rename_room error: {e}")
+        return False, str(e), "500"
+
+
+def _leave_room(user_uuid: str, room_id: str) -> tuple[bool, str, str]:
+    """逻辑删除用户与房间的关联记录，返回 (success, error_msg, error_code)."""
+    try:
+        with get_session() as db:
+            if not str(room_id).isdigit():
+                return False, "房间ID必须为数字", "400"
+            ru = (
+                db.query(ChatRoomUser)
+                .filter(
+                    ChatRoomUser.user_uuid == user_uuid,
+                    ChatRoomUser.room_id == int(room_id),
+                )
+                .first()
+            )
+            if not ru:
+                return False, "用户房间关系不存在", "404"
+            if ru.is_del == 1:
+                return False, "已被删除", "400"
+            ru.is_del = 1
+            ru.is_leave = 1
+            ru.leave_at = datetime.utcnow()
+        return True, "", ""
+    except Exception as e:
+        logger.error(f"leave_room error: {e}")
+        return False, str(e), "500"
+
+
+# ---------------------------------------------------------------------------
+# WebSocket 端点
+# ---------------------------------------------------------------------------
+
+
+@router.websocket("/ws/room/{room_id}")
+@ws_require_auth
+async def chat_room(
+    ws: WebSocket,
+    room_id: str,
+    user_uuid: str = Query(""),
+    nickname: str = Query(""),
+    token_exp: float = 0,
+):
+    """进入指定房间，支持实时成员列表、消息广播、数据库持久化."""
+    conn_id = f"{room_id}_{user_uuid}_{uuid.uuid4().hex[:6]}"
+    await connection_manager.connect(
+        conn_id, ws, user_uuid=user_uuid, room_id=room_id, token_exp=token_exp
+    )
+    nick = nickname or user_uuid[:8]
+
+    if str(room_id).isdigit():
+        await asyncio.to_thread(_ensure_room_user, user_uuid, int(room_id))
+
+    try:
+        await connection_manager.broadcast_room(
+            room_id,
+            {
+                "type": "room",
+                "event": "member_join",
+                "user": user_uuid,
+                "nickname": nick,
+                "ts": time.time(),
+            },
+            exclude=conn_id,
+        )
+        await connection_manager.send_to(
+            conn_id,
+            {"type": "room", "event": "joined", "room": room_id, "you": user_uuid},
+        )
+        while True:
+            raw = await ws.receive_text()
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            mtype = msg.get("type", "text")
+            if mtype == "text":
+                text_content = msg.get("text", "")
+                receiver = msg.get("receiver_uuid") or None
+                await asyncio.to_thread(_save_message, user_uuid, receiver, room_id, text_content, message_type=1)
+                await connection_manager.broadcast_room(
+                    room_id,
+                    {
+                        "type": "text",
+                        "from": user_uuid,
+                        "nickname": nick,
+                        "text": text_content,
+                        "ts": time.time(),
+                    },
+                )
+            elif mtype == "typing":
+                await connection_manager.broadcast_room(
+                    room_id,
+                    {"type": "typing", "user": user_uuid, "nickname": nick},
+                    exclude=conn_id,
+                )
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if str(room_id).isdigit():
+            await asyncio.to_thread(_mark_user_leave, user_uuid, room_id)
+        await connection_manager.broadcast_room(
+            room_id,
+            {
+                "type": "room",
+                "event": "member_leave",
+                "user": user_uuid,
+                "nickname": nick,
+            },
+        )
+        await connection_manager.disconnect(conn_id)
+
+
+# ---------------------------------------------------------------------------
+# HTTP API 端点
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/v1/chat-room/rooms/{room_id}/users", summary="获取房间用户列表")
+async def get_room_users(room_id: str):
+    """获取指定房间内的用户列表（数据库中 is_leave=0 且 is_del=0 的用户）."""
+    try:
+        user_list = await asyncio.to_thread(_get_room_users_list, room_id)
+        return success(
+            {
+                "room_id": room_id,
+                "users": user_list,
+                "count": len(user_list),
+            }
+        )
+    except Exception as e:
+        logger.error(f"get_room_users error: {e}")
+        return error(str(e))
+
+
+@router.get("/api/v1/chat-room/users/{user_uuid}/rooms", summary="获取用户房间列表(含未读数)")
+async def get_user_rooms(user_uuid: str):
+    """查询用户所在的所有房间，包含未读消息数、最后一条消息、发送者信息."""
+    try:
+        rooms_data = await asyncio.to_thread(_get_user_rooms_data, user_uuid)
+        return success(
+            {
+                "user_uuid": user_uuid,
+                "rooms": rooms_data,
+                "count": len(rooms_data),
+            }
+        )
+    except Exception as e:
+        logger.error(f"get_user_rooms error: {e}")
+        return error(str(e))
+
+
+@router.get("/api/v1/chat-room/history", summary="获取消息历史")
+async def get_message_history(
+    user_uuid: str = Query(..., description="用户UUID"),
+    room_id: str | None = Query(None, description="房间ID(可选)"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    """查询用户发送和接收的所有消息历史，支持按房间过滤和分页."""
+    try:
+        msg_list, total = await asyncio.to_thread(
+            _get_message_history_data, user_uuid, room_id, limit, offset
+        )
+        return success(
+            {
+                "user_uuid": user_uuid,
+                "room_id": room_id,
+                "messages": msg_list,
+                "count": len(msg_list),
+            },
+            total=total,
+        )
     except Exception as e:
         logger.error(f"get_message_history error: {e}")
         return error(str(e))
@@ -519,15 +636,11 @@ async def get_message_history(
 async def delete_message(message_id: int, user_uuid: str = Query(...)):
     """逻辑删除指定消息（is_del=1），需校验消息所有者."""
     try:
-        with get_session() as db:
-            msg = db.query(ChatLetter).filter(ChatLetter.id == message_id).first()
-            if not msg:
-                return error("消息不存在", "404")
-            if msg.user_uuid != user_uuid and msg.receiver_uuid != user_uuid:
-                return error("无权删除此消息", "403")
-            if msg.is_del == 1:
-                return error("消息已被删除", "400")
-            msg.is_del = 1
+        ok, err_msg, err_code = await asyncio.to_thread(
+            _delete_message_by_id, message_id, user_uuid
+        )
+        if not ok:
+            return error(err_msg, err_code)
         return success({"message_id": message_id}, msg="消息删除成功")
     except Exception as e:
         logger.error(f"delete_message error: {e}")
@@ -566,12 +679,14 @@ async def send_message(payload: dict = Body(...)):
     if message_type != 1:
         user_uuid = "system"
 
-    msg_ids = _save_message(user_uuid, receiver_uuid, chat_id, content, message_type)
+    msg_ids = await asyncio.to_thread(
+        _save_message, user_uuid, receiver_uuid, chat_id, content, message_type
+    )
     if not msg_ids:
         return error("消息保存失败", "500")
 
     # WebSocket 推送
-    sender_info = _get_user_info(user_uuid)
+    sender_info = await asyncio.to_thread(_get_user_info, user_uuid)
     push_data = {
         "type": "room_message",
         "id": msg_ids[0],
@@ -611,17 +726,7 @@ async def mark_messages_as_read(
     修复历史项目 bug: 使用 receiver_uuid(而非 user_uuid)过滤，与未读统计逻辑一致。
     """
     try:
-        with get_session() as db:
-            affected = (
-                db.query(ChatLetter)
-                .filter(
-                    ChatLetter.receiver_uuid == user_uuid,
-                    ChatLetter.chat_id == room_id,
-                    ChatLetter.is_read == 0,
-                    ChatLetter.is_del == 0,
-                )
-                .update({"is_read": 1})
-            )
+        affected = await asyncio.to_thread(_mark_messages_read, user_uuid, room_id)
         return success(
             {
                 "user_uuid": user_uuid,
@@ -642,13 +747,11 @@ async def rename_room(
 ):
     """修改房间名称（更新数据库 zhs_station_room.room_name）."""
     try:
-        with get_session() as db:
-            if not str(old_room_id).isdigit():
-                return error("房间ID必须为数字", "400")
-            room = db.query(ChatRoom).filter(ChatRoom.id == int(old_room_id)).first()
-            if not room:
-                return error("房间不存在", "404")
-            room.room_name = new_room_name
+        ok, err_msg, err_code = await asyncio.to_thread(
+            _rename_room, old_room_id, new_room_name
+        )
+        if not ok:
+            return error(err_msg, err_code)
         return success(
             {
                 "room_id": old_room_id,
@@ -668,24 +771,11 @@ async def rename_room(
 async def leave_room(user_uuid: str, room_id: str):
     """逻辑删除用户与房间的关联记录（is_del=1）."""
     try:
-        with get_session() as db:
-            if not str(room_id).isdigit():
-                return error("房间ID必须为数字", "400")
-            ru = (
-                db.query(ChatRoomUser)
-                .filter(
-                    ChatRoomUser.user_uuid == user_uuid,
-                    ChatRoomUser.room_id == int(room_id),
-                )
-                .first()
-            )
-            if not ru:
-                return error("用户房间关系不存在", "404")
-            if ru.is_del == 1:
-                return error("已被删除", "400")
-            ru.is_del = 1
-            ru.is_leave = 1
-            ru.leave_at = datetime.utcnow()
+        ok, err_msg, err_code = await asyncio.to_thread(
+            _leave_room, user_uuid, room_id
+        )
+        if not ok:
+            return error(err_msg, err_code)
         return success(
             {"user_uuid": user_uuid, "room_id": room_id},
             msg="删除成功",
@@ -711,7 +801,7 @@ async def create_room_api(payload: dict = Body(...)):
     if not user_uuid:
         return error("user_uuid 不能为空", "400")
 
-    room_id = _create_room(user_uuid, room_name, receiver_uuid)
+    room_id = await asyncio.to_thread(_create_room, user_uuid, room_name, receiver_uuid)
     if not room_id:
         return error("创建房间失败", "500")
 

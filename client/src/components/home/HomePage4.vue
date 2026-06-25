@@ -350,12 +350,12 @@ defineExpose({
   border-radius: var(--global-border-radius);
   text-align: center;
   cursor: pointer;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: stretch;
   justify-content: center;
   user-select: none;
-  font-weight: bolder;
+  font-weight: 700;
   color: var(--el-text-color-primary);
   position: relative;
   margin: 0;

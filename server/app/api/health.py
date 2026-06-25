@@ -208,7 +208,7 @@ async def health():
 
 
 @router.get("/health/history", summary="健康检查历史 (持久化, 最近 7 天, 默认 100 条)")
-async def health_history(limit: int = Query(50, ge=1, le=10000)):
+def health_history(limit: int = Query(50, ge=1, le=10000)):
     """返回最近 N 条健康检查记录 (新 → 旧), 用于前端趋势图跨页面共享数据.
 
     持久化到 zhs_health_history 表, 保留 7 天, 后端重启不丢失.

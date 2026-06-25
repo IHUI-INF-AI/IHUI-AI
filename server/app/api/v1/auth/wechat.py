@@ -37,7 +37,7 @@ def _generate_unique_invite_code(db) -> str:
 WX_ACCESS_TOKEN_KEY = "wx:access_token"
 
 
-async def _get_wechat_access_token() -> str | None:
+def _get_wechat_access_token() -> str | None:
     """Get WeChat mini-program access_token, cached in Redis."""
     from app.utils.redis_util import get_key, set_key
 
@@ -54,8 +54,8 @@ async def _get_wechat_access_token() -> str | None:
         f"&secret={settings.WX_MINI_SECRET}"
     )
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url)
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(url)
             data = resp.json()
         if "access_token" not in data:
             logger.error(f"Failed to get WeChat access_token: {data}")
@@ -71,7 +71,7 @@ async def _get_wechat_access_token() -> str | None:
 
 
 @router.get("/mini/login", summary="WeChat mini-program login")
-async def wechat_mini_login(
+def wechat_mini_login(
     code: str = Query(...),
     parent_id: str = Query("", description="Parent invite code for referral"),
 ):
@@ -90,8 +90,8 @@ async def wechat_mini_login(
         f"&secret={settings.WX_MINI_SECRET}"
         f"&js_code={code}&grant_type=authorization_code"
     )
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(url)
+    with httpx.Client(timeout=10) as client:
+        resp = client.get(url)
         data = resp.json()
     if "openid" not in data:
         return error(data.get("errmsg", "WeChat auth failed"), "401")
@@ -174,7 +174,7 @@ async def wechat_mini_login(
 
 
 @router.post("/mini/phone", summary="Get WeChat phone number")
-async def get_wechat_phone(
+def get_wechat_phone(
     code: str = Query(..., description="Code from wx.getPhoneNumber component"),
     user_uuid: str = Depends(require_login),
 ):
@@ -188,15 +188,15 @@ async def get_wechat_phone(
     5. Otherwise: update user's phone and set isVIP=0
     """
     # Step 1: Get access_token
-    access_token = await _get_wechat_access_token()
+    access_token = _get_wechat_access_token()
     if not access_token:
         return error("获取微信凭证失败,请稍后重试")
 
     # Step 2: Call getuserphonenumber API
     url = f"https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token={access_token}"
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json={"code": code})
+        with httpx.Client(timeout=10) as client:
+            resp = client.post(url, json={"code": code})
             data = resp.json()
 
         if data.get("errcode") != 0:
@@ -296,7 +296,7 @@ async def get_wechat_phone(
 
 
 @router.post("/mini/rebind", summary="Rebind WeChat mini-program account")
-async def wechat_rebind(
+def wechat_rebind(
     code: str = Query(..., description="New WeChat login code"),
     user_uuid: str = Depends(require_login),
 ):
@@ -309,8 +309,8 @@ async def wechat_rebind(
         f"&js_code={code}&grant_type=authorization_code"
     )
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url)
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(url)
             data = resp.json()
         if "openid" not in data:
             return error(data.get("errmsg", "WeChat auth failed"), "401")
@@ -400,20 +400,20 @@ def wechat_rebind_by_phone(
 
 
 @router.get("/mini/qrcode", summary="Get WeChat mini-program QR code")
-async def get_wechat_qrcode(
+def get_wechat_qrcode(
     scene: str = Query(..., description="Scene string for QR code"),
     page: str = Query("pages/index/index", description="Mini-program page path"),
     user_uuid: str = Depends(require_login),
 ):
     """Generate WeChat mini-program unlimited QR code via getwxacodeunlimit."""
-    access_token = await _get_wechat_access_token()
+    access_token = _get_wechat_access_token()
     if not access_token:
         return error("获取微信凭证失败,请稍后重试")
 
     url = f"https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token={access_token}"
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
+        with httpx.Client(timeout=15) as client:
+            resp = client.post(
                 url,
                 json={
                     "scene": scene,
@@ -493,7 +493,7 @@ window.addEventListener('message', function(event) {{
 
 
 @router.get("/pc/callback", summary="微信PC扫码登录回调")
-async def wechat_pc_callback(code: str = Query(..., description="微信授权码")):
+def wechat_pc_callback(code: str = Query(..., description="微信授权码")):
     """微信PC扫码登录回调, 用 code 换取用户信息并登录.
 
     公开接口, 微信扫码授权后回调.
@@ -506,13 +506,13 @@ async def wechat_pc_callback(code: str = Query(..., description="微信授权码
         return error("微信PC登录未配置")
 
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        with httpx.Client(timeout=15) as client:
             # 1. 用 code 换 access_token
             token_url = (
                 f"https://api.weixin.qq.com/sns/oauth2/access_token"
                 f"?appid={app_id}&secret={secret}&code={code}&grant_type=authorization_code"
             )
-            token_resp = await client.get(token_url)
+            token_resp = client.get(token_url)
             token_data = token_resp.json()
 
             if "errcode" in token_data:
@@ -527,7 +527,7 @@ async def wechat_pc_callback(code: str = Query(..., description="微信授权码
                 f"https://api.weixin.qq.com/sns/userinfo"
                 f"?access_token={access_token}&openid={openid}"
             )
-            user_resp = await client.get(user_url)
+            user_resp = client.get(user_url)
             user_data = user_resp.json()
 
             if "errcode" in user_data:

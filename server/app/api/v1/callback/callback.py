@@ -48,27 +48,37 @@ async def call_callback(
     source: str | None = None,
     payload: dict = Body(default_factory=dict, embed=True),
 ):
-    with get_session() as db:
+    import asyncio
+
+    start = utcnow()
+    body = await request.body()
+    ip = request.client.host if request.client else None
+    body_str = body.decode("utf-8") if body else ""
+
+    def _save_log():
         try:
-            start = utcnow()
-            body = await request.body()
-            ip = request.client.host if request.client else None
-            log = CallBackLog(
-                biz_type=biz_type,
-                biz_id=biz_id,
-                source=source,
-                request_body=body.decode("utf-8") if body else "",
-                status=1,
-                ip=ip,
-            )
-            db.add(log)
-            db.flush()
-            log.response_body = '{"code":0,"message":"ok"}'
-            log.process_time = int((utcnow() - start).total_seconds() * 1000)
-            return success({"callback_id": log.id})
+            with get_session() as db:
+                log = CallBackLog(
+                    biz_type=biz_type,
+                    biz_id=biz_id,
+                    source=source,
+                    request_body=body_str,
+                    status=1,
+                    ip=ip,
+                )
+                db.add(log)
+                db.flush()
+                log.response_body = '{"code":0,"message":"ok"}'
+                log.process_time = int((utcnow() - start).total_seconds() * 1000)
+                return log.id, None
         except Exception as e:
             logger.error(f"call callback error: {e}")
-            return error(str(e))
+            return None, str(e)
+
+    log_id, err = await asyncio.to_thread(_save_log)
+    if err is not None:
+        return error(err)
+    return success({"callback_id": log_id})
 
 
 @router.post("/sms", summary="短信回调")

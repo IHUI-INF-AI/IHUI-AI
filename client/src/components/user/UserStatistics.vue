@@ -99,7 +99,7 @@ const _props = defineProps<{
   padding: 20px;
   background: var(--bg-secondary);
   border-radius: var(--global-border-radius);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s;
 }
 
 .stat-card:hover {

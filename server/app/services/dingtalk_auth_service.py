@@ -1,5 +1,6 @@
 # DingTalk (钉钉) OAuth authentication service.
 # Provides DingTalk login config and code-to-user login flow.
+import asyncio
 from typing import Any
 
 import httpx
@@ -86,10 +87,6 @@ async def dingtalk_login_by_code(code: str) -> dict[str, Any]:
     Returns:
         dict: {"code": "200", "message": "success", "data": {"token": ..., "user": ...}}
     """
-    from app.database import get_session
-    from app.models.user_models import User, UserThirdPartyAccount
-    from app.security import create_access_token
-
     # 1. 获取企业 access_token
     access_token = await _get_dingtalk_access_token()
     if not access_token:
@@ -106,46 +103,54 @@ async def dingtalk_login_by_code(code: str) -> dict[str, Any]:
     avatar = user_info.get("avatar", "")
 
     # 3. 查找或创建用户
-    with get_session() as db:
-        user = None
-        tp_query = db.query(UserThirdPartyAccount).filter(
-            UserThirdPartyAccount.platform == "dingtalk",
-            UserThirdPartyAccount.deleted_at.is_(None),
-        )
-        tp = None
-        if unionid:
-            tp = tp_query.filter(UserThirdPartyAccount.union_id == unionid).first()
-        if not tp and userid:
-            tp = tp_query.filter(UserThirdPartyAccount.open_id == userid).first()
+    def _do_db():
+        from app.database import get_session
+        from app.models.user_models import User, UserThirdPartyAccount
+        from app.security import create_access_token
 
-        if tp:
-            user = db.query(User).filter(User.uuid == tp.user_uuid).first()
-
-        if user:
-            if name and not user.nickname:
-                user.nickname = name
-            if avatar and not user.avatar:
-                user.avatar = avatar
-            db.commit()
-        else:
-            user = User(
-                nickname=name or f"dt_{userid[:8]}",
-                avatar=avatar,
+        with get_session() as db:
+            user = None
+            tp_query = db.query(UserThirdPartyAccount).filter(
+                UserThirdPartyAccount.platform == "dingtalk",
+                UserThirdPartyAccount.deleted_at.is_(None),
             )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+            tp = None
+            if unionid:
+                tp = tp_query.filter(UserThirdPartyAccount.union_id == unionid).first()
+            if not tp and userid:
+                tp = tp_query.filter(UserThirdPartyAccount.open_id == userid).first()
 
-            binding = UserThirdPartyAccount(
-                user_uuid=user.uuid,
-                open_id=userid,
-                union_id=unionid,
-                platform="dingtalk",
-            )
-            db.add(binding)
-            db.commit()
+            if tp:
+                user = db.query(User).filter(User.uuid == tp.user_uuid).first()
 
-        jwt_token = create_access_token({"sub": user.uuid})
+            if user:
+                if name and not user.nickname:
+                    user.nickname = name
+                if avatar and not user.avatar:
+                    user.avatar = avatar
+                db.commit()
+            else:
+                user = User(
+                    nickname=name or f"dt_{userid[:8]}",
+                    avatar=avatar,
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+
+                binding = UserThirdPartyAccount(
+                    user_uuid=user.uuid,
+                    open_id=userid,
+                    union_id=unionid,
+                    platform="dingtalk",
+                )
+                db.add(binding)
+                db.commit()
+
+            jwt_token = create_access_token({"sub": user.uuid})
+            return user, jwt_token
+
+    user, jwt_token = await asyncio.to_thread(_do_db)
 
     return {
         "code": "200",

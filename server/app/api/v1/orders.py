@@ -12,6 +12,7 @@
   - POST /auth-api/order/payment → /{order_id}/pay
 """
 
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query, Body
@@ -383,6 +384,49 @@ def update_order_status(
             return error(str(e))
 
 
+def _load_order_for_pay(order_id: int, user_id: str):
+    """加载订单并校验支付前置条件 (同步, 由 asyncio.to_thread 调用).
+
+    返回 (order_dict, error_response):
+      - 校验失败: (None, error(...))
+      - 成功: ({"id", "open_id", "amount", "out_trade_no"}, None)
+    """
+    with get_session() as db:
+        try:
+            order = db.query(Order).filter(
+                Order.id == order_id,
+                Order.user_id == user_id,
+            ).first()
+            if not order:
+                return None, error("订单不存在", code="404000")
+            if order.status != 0:
+                return None, error("订单状态不允许支付")
+            return (
+                {
+                    "id": order.id,
+                    "open_id": order.open_id,
+                    "amount": order.amount,
+                    "out_trade_no": order.out_trade_no,
+                },
+                None,
+            )
+        except Exception as e:
+            logger.error(f"pay order load error: {e}")
+            return None, error(str(e))
+
+
+def _mark_order_pay_type(order_id: int, pay_type: str) -> None:
+    """支付网关下单成功后, 更新订单 pay_type 并提交 (同步, 由 asyncio.to_thread 调用)."""
+    with get_session() as db:
+        try:
+            order = db.query(Order).filter(Order.id == order_id).first()
+            if order:
+                order.pay_type = pay_type
+                db.commit()
+        except Exception as e:
+            logger.error(f"pay order update pay_type error: {e}")
+
+
 @router.post("/{order_id}/pay", summary="支付订单")
 async def pay_order(
     order_id: int,
@@ -396,65 +440,60 @@ async def pay_order(
       - alipay: 生成支付宝页面支付链接
 
     返回对应渠道的支付参数, 前端据此调起支付.
+
+    P0 修复: DB 调用通过 asyncio.to_thread 放到 threadpool, 避免在事件循环线程中阻塞.
     """
-    with get_session() as db:
-        try:
-            order = db.query(Order).filter(
-                Order.id == order_id,
-                Order.user_id == user_id,
-            ).first()
-            if not order:
-                return error("订单不存在", code="404000")
-            if order.status != 0:
-                return error("订单状态不允许支付")
+    # 1. 加载并校验订单 (sync DB -> thread)
+    order_dict, err_resp = await asyncio.to_thread(_load_order_for_pay, order_id, user_id)
+    if err_resp is not None:
+        return err_resp
 
-            if pay_type == "wechat":
-                from app.utils import wechat_pay_util as wx
+    try:
+        if pay_type == "wechat":
+            from app.utils import wechat_pay_util as wx
 
-                if order.open_id:
-                    result = await wx.jsapi_prepay(
-                        open_id=order.open_id,
-                        amount_cents=order.amount,
-                        out_trade_no=order.out_trade_no,
-                        description="订单支付",
-                    )
-                else:
-                    result = await wx.app_prepay(
-                        amount_cents=order.amount,
-                        out_trade_no=order.out_trade_no,
-                        description="订单支付",
-                    )
-                if not result.get("prepay_id"):
-                    return error(result.get("message", "微信支付下单失败"))
-                # 支付网关成功后才更新并提交 pay_type
-                order.pay_type = pay_type
-                db.commit()
-                return success(result)
-
-            elif pay_type == "alipay":
-                from app.utils import alipay_util as alipay
-
-                total_amount = f"{order.amount / 100:.2f}"
-                biz = {
-                    "out_trade_no": order.out_trade_no,
-                    "total_amount": total_amount,
-                    "subject": "订单支付",
-                    "product_code": "FAST_INSTANT_TRADE_PAY",
-                }
-                pay_url = alipay.build_signed_url(biz, method="alipay.trade.page.pay")
-                # 支付网关成功后才更新并提交 pay_type
-                order.pay_type = pay_type
-                db.commit()
-                return success(
-                    {
-                        "out_trade_no": order.out_trade_no,
-                        "pay_url": pay_url,
-                        "amount": order.amount,
-                    }
+            if order_dict["open_id"]:
+                result = await wx.jsapi_prepay(
+                    open_id=order_dict["open_id"],
+                    amount_cents=order_dict["amount"],
+                    out_trade_no=order_dict["out_trade_no"],
+                    description="订单支付",
                 )
-
             else:
-                return error(f"不支持的支付方式: {pay_type}")
-        except Exception as e:
-            logger.error(f"pay order error: {e}")
-            return error(str(e))
+                result = await wx.app_prepay(
+                    amount_cents=order_dict["amount"],
+                    out_trade_no=order_dict["out_trade_no"],
+                    description="订单支付",
+                )
+            if not result.get("prepay_id"):
+                return error(result.get("message", "微信支付下单失败"))
+            # 支付网关成功后才更新并提交 pay_type (sync DB -> thread)
+            await asyncio.to_thread(_mark_order_pay_type, order_id, pay_type)
+            return success(result)
+
+        elif pay_type == "alipay":
+            from app.utils import alipay_util as alipay
+
+            total_amount = f"{order_dict['amount'] / 100:.2f}"
+            biz = {
+                "out_trade_no": order_dict["out_trade_no"],
+                "total_amount": total_amount,
+                "subject": "订单支付",
+                "product_code": "FAST_INSTANT_TRADE_PAY",
+            }
+            pay_url = alipay.build_signed_url(biz, method="alipay.trade.page.pay")
+            # 支付网关成功后才更新并提交 pay_type (sync DB -> thread)
+            await asyncio.to_thread(_mark_order_pay_type, order_id, pay_type)
+            return success(
+                {
+                    "out_trade_no": order_dict["out_trade_no"],
+                    "pay_url": pay_url,
+                    "amount": order_dict["amount"],
+                }
+            )
+
+        else:
+            return error(f"不支持的支付方式: {pay_type}")
+    except Exception as e:
+        logger.error(f"pay order error: {e}")
+        return error(str(e))

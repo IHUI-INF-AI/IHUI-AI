@@ -638,21 +638,29 @@ async def upload_avatar(
 
     sys_user_id = _get_sys_user_id(user_uuid)
 
-    with get_session() as db:
-        try:
-            if sys_user_id:
-                user = db.query(SysUser).filter(SysUser.user_id == sys_user_id).first()
-            else:
-                user = db.query(SysUser).filter(SysUser.user_uuid == user_uuid).first()
-            if not user:
-                return error("用户不存在", "404")
+    import asyncio
 
-            user.avatar = avatar_url
-            db.commit()
-            return success({"imgUrl": avatar_url})
+    def _save_avatar():
+        try:
+            with get_session() as db:
+                if sys_user_id:
+                    user = db.query(SysUser).filter(SysUser.user_id == sys_user_id).first()
+                else:
+                    user = db.query(SysUser).filter(SysUser.user_uuid == user_uuid).first()
+                if not user:
+                    return None
+                user.avatar = avatar_url
+                return True
         except Exception as e:
             logger.error(f"Avatar save error: {e}")
-            return error("头像保存失败", "500")
+            return False
+
+    result = await asyncio.to_thread(_save_avatar)
+    if result is None:
+        return error("用户不存在", "404")
+    if result is False:
+        return error("头像保存失败", "500")
+    return success({"imgUrl": avatar_url})
 
 
 # ---------------------------------------------------------------------------

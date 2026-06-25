@@ -51,7 +51,7 @@ def _build_sign(params: dict[str, Any]) -> str:
     return base64.b64encode(signature).decode("utf-8")
 
 
-async def _ali_oauth_and_userinfo(code: str, is_web: bool = False) -> dict[str, Any]:
+def _ali_oauth_and_userinfo(code: str, is_web: bool = False) -> dict[str, Any]:
     # Call Alipay OAuth + user info via HTTP with RSA2 signing.
     app_id = settings.ALI_LOGIN_APP_ID
     logger.info("Alipay OAuth code exchange, is_web=" + str(is_web))
@@ -68,8 +68,8 @@ async def _ali_oauth_and_userinfo(code: str, is_web: bool = False) -> dict[str, 
             "code": code,
         }
         oauth_params["sign"] = _build_sign(oauth_params)
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(ALIPAY_GATEWAY, params=oauth_params)
+        with httpx.Client(timeout=15) as client:
+            resp = client.post(ALIPAY_GATEWAY, params=oauth_params)
             body = resp.json()
             token_resp = body.get("alipay_system_oauth_token_response", {})
             access_token = token_resp.get("access_token", "")
@@ -86,7 +86,7 @@ async def _ali_oauth_and_userinfo(code: str, is_web: bool = False) -> dict[str, 
                 "auth_token": access_token,
             }
             info_params["sign"] = _build_sign(info_params)
-            resp2 = await client.post(ALIPAY_GATEWAY, params=info_params)
+            resp2 = client.post(ALIPAY_GATEWAY, params=info_params)
             body2 = resp2.json()
             user_resp = body2.get("alipay_user_info_share_response", {})
             return {
@@ -101,10 +101,10 @@ async def _ali_oauth_and_userinfo(code: str, is_web: bool = False) -> dict[str, 
 
 
 @router.get("/pc/wxCode")
-async def ali_pc_wx_code(code: str = Query(..., description="Alipay auth code")):
+def ali_pc_wx_code(code: str = Query(..., description="Alipay auth code")):
     # PC Alipay login
     logger.info("Alipay pc/wxCode, code=" + code[:10] + "...")
-    result = await _ali_oauth_and_userinfo(code, is_web=False)
+    result = _ali_oauth_and_userinfo(code, is_web=False)
     if not result.get("success"):
         return {"code": "500", "message": result.get("error", "Alipay auth failed"), "data": None}
     open_id = result.get("open_id", "")
@@ -139,10 +139,10 @@ async def ali_pc_wx_code(code: str = Query(..., description="Alipay auth code"))
 
 
 @router.get("/web/wxCode")
-async def ali_web_wx_code(auth_code: str = Query(..., description="Alipay web auth code")):
+def ali_web_wx_code(auth_code: str = Query(..., description="Alipay web auth code")):
     # Web Alipay login
     logger.info("Alipay web/wxCode, auth_code=" + auth_code[:10] + "...")
-    result = await _ali_oauth_and_userinfo(auth_code, is_web=True)
+    result = _ali_oauth_and_userinfo(auth_code, is_web=True)
     if not result.get("success"):
         return {"code": "500", "message": result.get("error", "Alipay auth failed"), "data": None}
     open_id = result.get("open_id", "")

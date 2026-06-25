@@ -247,37 +247,42 @@ class CachedExpirationMonitor:
     async def _refresh_table_cache(self, table_name: str, config: TableConfig) -> int:
         start = time.time()
         try:
-            with get_session() as db:
-                now = datetime.now()
-                future = now + timedelta(hours=config.preload_hours)
-                extra_cols = ""
-                if config.uuid_field:
-                    extra_cols += f", {config.uuid_field}"
-                if config.order_field:
-                    extra_cols += f", {config.order_field}"
-                sql = text(
-                    f"SELECT id, {config.expiration_field}, {config.status_field}{extra_cols} "
-                    f"FROM {config.table_name} "
-                    f"WHERE {config.expiration_field} BETWEEN :now AND :future "
-                    f"AND {config.status_field} = :unexpired "
-                    f"ORDER BY {config.expiration_field} ASC"
-                )
-                rows = db.execute(sql, {"now": now, "future": future, "unexpired": config.unexpired_value}).fetchall()
-                with self.cache_lock:
-                    self.cache[table_name].clear()
-                    for r in rows:
-                        self.cache[table_name][r.id] = CachedRecord(
-                            id=r.id,
-                            table_name=table_name,
-                            expiration_date=getattr(r, config.expiration_field),
-                            current_status=getattr(r, config.status_field),
-                            uuid=getattr(r, config.uuid_field, None) if config.uuid_field else None,
-                            order_no=getattr(r, config.order_field, None) if config.order_field else None,
-                        )
-                count = len(rows)
-                _metric_records_cached(table_name, count)
-                _metric_refresh_observe(time.time() - start)
-                return count
+            now = datetime.now()
+            future = now + timedelta(hours=config.preload_hours)
+            extra_cols = ""
+            if config.uuid_field:
+                extra_cols += f", {config.uuid_field}"
+            if config.order_field:
+                extra_cols += f", {config.order_field}"
+            sql = text(
+                f"SELECT id, {config.expiration_field}, {config.status_field}{extra_cols} "
+                f"FROM {config.table_name} "
+                f"WHERE {config.expiration_field} BETWEEN :now AND :future "
+                f"AND {config.status_field} = :unexpired "
+                f"ORDER BY {config.expiration_field} ASC"
+            )
+            params = {"now": now, "future": future, "unexpired": config.unexpired_value}
+
+            def _load():
+                with get_session() as db:
+                    return db.execute(sql, params).fetchall()
+
+            rows = await asyncio.to_thread(_load)
+            with self.cache_lock:
+                self.cache[table_name].clear()
+                for r in rows:
+                    self.cache[table_name][r.id] = CachedRecord(
+                        id=r.id,
+                        table_name=table_name,
+                        expiration_date=getattr(r, config.expiration_field),
+                        current_status=getattr(r, config.status_field),
+                        uuid=getattr(r, config.uuid_field, None) if config.uuid_field else None,
+                        order_no=getattr(r, config.order_field, None) if config.order_field else None,
+                    )
+            count = len(rows)
+            _metric_records_cached(table_name, count)
+            _metric_refresh_observe(time.time() - start)
+            return count
         except Exception as e:
             logger.error(f"刷新 {table_name} 缓存失败: {e}")
             return 0
@@ -313,14 +318,19 @@ class CachedExpirationMonitor:
         if not cfg:
             return
         try:
-            with get_session(factory=self.db_session_factory) as db:
-                ids = tuple(r.id for r in records)
-                sql = text(
-                    f"UPDATE {cfg.table_name} "
-                    f"SET {cfg.status_field} = :expired "
-                    f"WHERE id IN :ids AND {cfg.status_field} = :unexpired"
-                )
-                db.execute(sql, {"expired": cfg.expired_value, "unexpired": cfg.unexpired_value, "ids": ids})
+            ids = tuple(r.id for r in records)
+            sql = text(
+                f"UPDATE {cfg.table_name} "
+                f"SET {cfg.status_field} = :expired "
+                f"WHERE id IN :ids AND {cfg.status_field} = :unexpired"
+            )
+            params = {"expired": cfg.expired_value, "unexpired": cfg.unexpired_value, "ids": ids}
+
+            def _update():
+                with get_session(factory=self.db_session_factory) as db:
+                    db.execute(sql, params)
+
+            await asyncio.to_thread(_update)
             for cb in self.callbacks.get(table_name, []):
                 try:
                     if asyncio.iscoroutinefunction(cb):

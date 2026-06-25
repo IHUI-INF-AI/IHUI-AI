@@ -20,6 +20,15 @@ os.environ.setdefault("ENV", "test")
 
 import pytest
 
+# playwright 未安装时跳过依赖它的测试文件，避免收集阶段 ModuleNotFoundError
+try:
+    import playwright  # noqa: F401
+except ImportError:
+    collect_ignore = [
+        "test_frontend_styles.py",
+        "test_playwright_e2e.py",
+    ]
+
 # 缓存剥离前的原始 schema (供 teardown 还原)
 _ORIGINAL_SCHEMAS: dict[str, object] = {}
 

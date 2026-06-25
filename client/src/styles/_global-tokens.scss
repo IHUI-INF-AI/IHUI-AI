@@ -296,7 +296,8 @@ $color-dark-text-primary: #e5eaf3;
 
   /* 全局投影 - 扁平化设计：封版统一改为 none，原值 0 2px 8px var(--color-black-6) 已废弃 */
   --global-box-shadow: none;
-  --el---el-box-shadow-light: var(--global-box-shadow);
+  --el-box-shadow: var(--global-box-shadow);
+  --el-box-shadow-light: var(--global-box-shadow);
   --el-box-shadow-dark: var(--global-box-shadow);
 }
 

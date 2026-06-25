@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from app.security import get_current_user_id_flexible, require_login
@@ -893,4 +894,5 @@ for _model in [
     try:
         _model.model_rebuild()
     except Exception:
+        logger.debug("model_rebuild failed for %s", _model.__name__, exc_info=True)
         pass

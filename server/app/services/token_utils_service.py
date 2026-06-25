@@ -6,6 +6,7 @@ calculate_and_deduct_tokens_for_hunyuan3d, 改造 calculate_and_deduct_tokens_by
 补全 Phase 14 加测 test_token_utils_service 的依赖面.
 """
 
+import asyncio
 import time
 from typing import Any
 
@@ -19,29 +20,33 @@ from app.services.token_service import deduct_user_token
 
 def is_active_promotion_period() -> dict[str, Any]:
     """Check if current time is within an active promotion period."""
-    with get_session() as db:
-        from app.models.activity_models import Activity
+    try:
+        with get_session() as db:
+            from app.models.activity_models import Activity
 
-        promo = (
-            db.query(Activity)
-            .filter(Activity.status == 1)
-            .filter(Activity.begin_time <= text("NOW()"), Activity.end_time >= text("NOW()"))
-            .order_by(Activity.begin_time.desc())
-            .first()
-        )
-        if promo:
-            return {
-                "is_active": True,
-                "activity": {
-                    "id": promo.id,
-                    "name": promo.activity_name,
-                    "begin_time": promo.begin_time,
-                    "end_time": promo.end_time,
-                    "computing": getattr(promo, "computing", None),
-                    "multiple": getattr(promo, "multiple", None),
-                },
-            }
-        return {"is_active": False}
+            promo = (
+                db.query(Activity)
+                .filter(Activity.status == 1)
+                .filter(Activity.begin_time <= text("NOW()"), Activity.end_time >= text("NOW()"))
+                .order_by(Activity.begin_time.desc())
+                .first()
+            )
+            if promo:
+                return {
+                    "is_active": True,
+                    "activity": {
+                        "id": promo.id,
+                        "name": promo.activity_name,
+                        "begin_time": promo.begin_time,
+                        "end_time": promo.end_time,
+                        "computing": getattr(promo, "computing", None),
+                        "multiple": getattr(promo, "multiple", None),
+                    },
+                }
+            return {"is_active": False}
+    except Exception as e:
+        logger.error(f"Check promotion period error: {e}")
+        return {"is_active": False, "error": str(e)}
 
 
 def encode_jwt_token() -> str:
@@ -158,7 +163,7 @@ async def calculate_tokens_per_yuan(user_uuid: str | None) -> dict[str, Any]:
         }
 
     # 促销期优先 (不论 VIP 等级)
-    promo = await is_active_promotion_period()
+    promo = await asyncio.to_thread(is_active_promotion_period)
     if promo.get("is_active"):
         return {
             "tokens_per_yuan": settings.TOKEN_PROMOTION_PER_YUAN,
@@ -168,33 +173,38 @@ async def calculate_tokens_per_yuan(user_uuid: str | None) -> dict[str, Any]:
         }
 
     try:
-        with get_session() as db:
+        def _lookup():
             from app.models.user_models import User
 
-            user = db.query(User).filter(User.uuid == user_uuid).first()
-            if not user:
-                return {
-                    "tokens_per_yuan": settings.TOKEN_NORMAL_USER_PER_YUAN,
-                    "user_vip_level": 0,
-                    "is_promotion_period": False,
-                    "reason": "user not found",
-                }
-            level = int(getattr(user, "is_vip", 0) or 0)
-            if level >= 2:
-                rate = settings.TOKEN_TRADER_USER_PER_YUAN
-                reason = "trader level 2"
-            elif level >= 1:
-                rate = settings.TOKEN_VIP_USER_PER_YUAN
-                reason = "vip level 1"
-            else:
-                rate = settings.TOKEN_NORMAL_USER_PER_YUAN
-                reason = "normal user level 0"
+            with get_session() as db:
+                user = db.query(User).filter(User.uuid == user_uuid).first()
+                if not user:
+                    return None
+                return int(getattr(user, "is_vip", 0) or 0)
+
+        level = await asyncio.to_thread(_lookup)
+        if level is None:
             return {
-                "tokens_per_yuan": rate,
-                "user_vip_level": level,
+                "tokens_per_yuan": settings.TOKEN_NORMAL_USER_PER_YUAN,
+                "user_vip_level": 0,
                 "is_promotion_period": False,
-                "reason": reason,
+                "reason": "user not found",
             }
+        if level >= 2:
+            rate = settings.TOKEN_TRADER_USER_PER_YUAN
+            reason = "trader level 2"
+        elif level >= 1:
+            rate = settings.TOKEN_VIP_USER_PER_YUAN
+            reason = "vip level 1"
+        else:
+            rate = settings.TOKEN_NORMAL_USER_PER_YUAN
+            reason = "normal user level 0"
+        return {
+            "tokens_per_yuan": rate,
+            "user_vip_level": level,
+            "is_promotion_period": False,
+            "reason": reason,
+        }
     except Exception as e:
         logger.error(f"Calculate tokens per yuan error: {e}")
         return {

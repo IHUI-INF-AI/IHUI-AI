@@ -174,7 +174,7 @@ def get_current_user_uuid(
     return payload.get("sub")
 
 
-async def require_login(
+def require_login(
     user_uuid=Depends(get_current_user_uuid),
 ):
     """Require a valid login. Returns user UUID or raises 401."""

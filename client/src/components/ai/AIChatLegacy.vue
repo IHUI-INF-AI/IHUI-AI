@@ -3239,14 +3239,9 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
-      box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投?
+      box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投影
       border: 0;
-      transition: box-shadow 0.3s ease;
       text-rendering: optimizelegibility;
-
-      &:hover {
-        box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投?
-      }
 
       &.is-minimized {
         height: 60px;
@@ -3352,14 +3347,9 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
-      box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投?
+      box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投影
       border: 0;
-      transition: box-shadow 0.3s ease;
       text-rendering: optimizelegibility;
-
-      &:hover {
-        box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投?
-      }
 
       &.is-minimized {
         height: 60px;

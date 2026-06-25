@@ -70,6 +70,29 @@ def is_async_function(node: ast.FunctionDef) -> bool:
     return isinstance(node, ast.AsyncFunctionDef)
 
 
+def _find_nested_sync_funcs(tree: ast.Module) -> List[Tuple[int, int]]:
+    """收集所有嵌套同步 def 的 (start, end) 行范围.
+
+    用于排除: async 函数体内嵌套的同步 def 中的 DB 调用不算 P0-SyncIO
+    (典型场景: async 函数中用 await asyncio.to_thread(sync_helper) 包装)
+    """
+    ranges: List[Tuple[int, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):  # 同步 def (非 async)
+            start = node.lineno
+            end = node.end_lineno or start
+            ranges.append((start, end))
+    return ranges
+
+
+def _is_in_nested_sync_func(tree: ast.Module, lineno: int, nested_sync_ranges: List[Tuple[int, int]]) -> bool:
+    """检查某行是否在嵌套同步 def 函数体内 (而非直接在 async 函数体内)."""
+    for start, end in nested_sync_ranges:
+        if start < lineno <= end:  # start < 而非 <=, 排除 def 行本身
+            return True
+    return False
+
+
 def is_coroutine_context(tree: ast.Module, lineno: int) -> bool:
     """检查某行是否在 async 函数体内"""
     for node in ast.walk(tree):
@@ -81,6 +104,9 @@ def is_coroutine_context(tree: ast.Module, lineno: int) -> bool:
 def check_sync_io_in_async(files: List[Path]) -> List[Dict]:
     """
     P0-1: 检测 async 函数中是否调用了同步的 DB/Redis 操作
+
+    2026-06-25 升级: 识别嵌套同步 def 内的 DB 调用 (asyncio.to_thread 包装模式),
+    避免误报. 仅当 DB 调用直接出现在 async 函数体 (非嵌套同步 def) 内时才报告.
     """
     issues = []
     # 常见的同步调用模式
@@ -117,25 +143,39 @@ def check_sync_io_in_async(files: List[Path]) -> List[Dict]:
         if not async_funcs:
             continue
 
+        # 提取所有嵌套同步 def 的行范围 (用于排除 asyncio.to_thread 包装)
+        nested_sync_ranges = _find_nested_sync_funcs(tree)
+
         for line_no, line in enumerate(source.splitlines(), 1):
             for pattern, desc in sync_patterns:
                 if re.search(pattern, line):
                     # 检查是否在 async 函数内
+                    in_async = False
                     for _, astart, aend in async_funcs:
                         if astart <= line_no <= aend:
-                            # 排除以下合法情况
-                            if "await " in line or "asyncio" in line:
-                                continue
-                            if "AsyncSession" in line or "AsyncClient" in line or "aioredis" in line:
-                                continue
-                            if "create_async_engine" in line or "async_session" in line:
-                                continue
-                            issues.append({
-                                "file": str(f.relative_to(SERVER_ROOT)),
-                                "line": line_no,
-                                "issue": f"P0-SyncIO-InAsync: async 函数中调用了 {desc}",
-                                "snippet": line.strip()[:120],
-                            })
+                            in_async = True
+                            break
+                    if not in_async:
+                        continue
+                    # 排除: 该行在嵌套同步 def 内 (asyncio.to_thread 包装模式)
+                    if _is_in_nested_sync_func(tree, line_no, nested_sync_ranges):
+                        continue
+                    # 排除以下合法情况
+                    if "await " in line or "asyncio" in line:
+                        continue
+                    if "AsyncSession" in line or "AsyncClient" in line or "aioredis" in line:
+                        continue
+                    if "create_async_engine" in line or "async_session" in line:
+                        continue
+                    # 排除: redis pipe.execute() (非 session.execute)
+                    if "session.execute" in desc and "pipe" in line:
+                        continue
+                    issues.append({
+                        "file": str(f.relative_to(SERVER_ROOT)),
+                        "line": line_no,
+                        "issue": f"P0-SyncIO-InAsync: async 函数中调用了 {desc}",
+                        "snippet": line.strip()[:120],
+                    })
     return issues
 
 

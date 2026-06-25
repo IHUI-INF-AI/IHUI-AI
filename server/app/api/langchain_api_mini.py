@@ -631,7 +631,7 @@ async def ws_chat(websocket: WebSocket):
 
 # ----------------- 统一模型信息查询 -----------------
 @router.get("/models-unify", summary="查询统一大模型信息列表")
-async def list_unify_models():
+def list_unify_models():
     with get_session() as db:
         rows = db.execute(text("""
             SELECT id, code, type, name, model_code, img,

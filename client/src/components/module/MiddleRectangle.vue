@@ -50,7 +50,7 @@ const handleClick = (item: Item) => emit('click', item)
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s;
 
     &:hover {
       transform: translateY(-2px);

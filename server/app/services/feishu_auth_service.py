@@ -1,5 +1,6 @@
 # Feishu (Lark) OAuth authentication service.
 # Ported from P2 FeishuLoginServiceImpl.java
+import asyncio
 from typing import Any
 
 import httpx
@@ -90,40 +91,45 @@ async def feishu_login_by_code(code: str) -> dict[str, Any]:
     open_id = info_result.get("open_id", "")
     union_id = info_result.get("union_id", "")
     # Look up user in DB by open_id or union_id
-    from app.database import get_session
-
-    with get_session() as db:
+    def _lookup():
+        from app.database import get_session
         from app.models.user_models import User, UserThirdPartyAccount
 
-        third = (
-            db.query(UserThirdPartyAccount)
-            .filter(
-                UserThirdPartyAccount.open_id == open_id,
-                UserThirdPartyAccount.platform == "WEB_FEISHU",
-                UserThirdPartyAccount.deleted_at.is_(None),
+        with get_session() as db:
+            third = (
+                db.query(UserThirdPartyAccount)
+                .filter(
+                    UserThirdPartyAccount.open_id == open_id,
+                    UserThirdPartyAccount.platform == "WEB_FEISHU",
+                    UserThirdPartyAccount.deleted_at.is_(None),
+                )
+                .first()
             )
-            .first()
-        )
-        if third:
-            user = db.query(User).filter(User.uuid == third.user_uuid).first()
-            if user:
-                return {
-                    "code": "200",
-                    "message": "Login success",
-                    "data": {
-                        "user_uuid": user.uuid,
-                        "platform": "WEB_FEISHU",
-                        "open_id": open_id,
-                        "union_id": union_id,
-                    },
-                }
-        # User not found - return 40101 to prompt phone binding
+            if third:
+                user = db.query(User).filter(User.uuid == third.user_uuid).first()
+                if user:
+                    return user.uuid
+        return None
+
+    user_uuid = await asyncio.to_thread(_lookup)
+    if user_uuid:
         return {
-            "code": "40101",
-            "message": "Phone binding required",
+            "code": "200",
+            "message": "Login success",
             "data": {
+                "user_uuid": user_uuid,
+                "platform": "WEB_FEISHU",
                 "open_id": open_id,
                 "union_id": union_id,
-                "platform": "WEB_FEISHU",
             },
         }
+    # User not found - return 40101 to prompt phone binding
+    return {
+        "code": "40101",
+        "message": "Phone binding required",
+        "data": {
+            "open_id": open_id,
+            "union_id": union_id,
+            "platform": "WEB_FEISHU",
+        },
+    }

@@ -11807,7 +11807,7 @@ cleanup.add(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       svg {
         width: 20px;
         height: 20px;

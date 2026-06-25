@@ -21,19 +21,22 @@ def create_room(
     db: Session, teacher_id: int, title: str,
     scheduled_start: datetime, scheduled_end: datetime, **fields
 ) -> EduLiveRoom:
+    """Create a live room.
+
+    2026-06-25 字段对齐修复: teacher_id→host_id, 删除 course_id,
+    scheduled_start→plan_start_time, scheduled_end→end_time,
+    status="scheduled"→status=0, 删除 max_attendees/attendee_count。
+    """
     if not title:
         raise EduValidationError("title required")
     if scheduled_end <= scheduled_start:
         raise EduValidationError("scheduled_end must be after scheduled_start")
     room = EduLiveRoom(
-        title=title, teacher_id=teacher_id,
-        course_id=fields.get("course_id"),
+        title=title, host_id=teacher_id,
         description=fields.get("description"),
         cover=fields.get("cover"),
-        scheduled_start=scheduled_start, scheduled_end=scheduled_end,
-        status="scheduled",
-        max_attendees=fields.get("max_attendees", 1000),
-        attendee_count=0,
+        plan_start_time=scheduled_start, end_time=scheduled_end,
+        status=0,
     )
     db.add(room)
     db.flush()
@@ -42,69 +45,82 @@ def create_room(
 
 
 def start_live(db: Session, room_id: int, teacher_id: int) -> EduLiveRoom:
+    """Start a live room.
+
+    2026-06-25 字段对齐修复: room.teacher_id→room.host_id,
+    room.status="live"→room.status=1, room.actual_start→room.start_time。
+    """
     room = get_or_404(db, EduLiveRoom, room_id, "room")
-    if room.teacher_id != teacher_id:
+    if room.host_id != teacher_id:
         raise EduPermissionError("only the teacher can start the live")
-    room.status = "live"
-    room.actual_start = utcnow()
+    room.status = 1
+    room.start_time = utcnow()
     db.flush()
     db.refresh(room)
     return room
 
 
 def end_live(db: Session, room_id: int, teacher_id: int, playback_url: Optional[str] = None) -> EduLiveRoom:
+    """End a live room.
+
+    2026-06-25 字段对齐修复: room.teacher_id→room.host_id,
+    room.status="ended"→room.status=2, room.actual_end→room.end_time,
+    room.playback_url→room.record_url。
+    """
     room = get_or_404(db, EduLiveRoom, room_id, "room")
-    if room.teacher_id != teacher_id:
+    if room.host_id != teacher_id:
         raise EduPermissionError("only the teacher can end the live")
-    room.status = "ended"
-    room.actual_end = utcnow()
+    room.status = 2
+    room.end_time = utcnow()
     if playback_url:
-        room.playback_url = playback_url
+        room.record_url = playback_url
     db.flush()
     db.refresh(room)
     return room
 
 
 def join_live(db: Session, room_id: int, user_id: int) -> EduLiveAttendance:
+    """Subscribe/join a live room.
+
+    2026-06-25 字段对齐修复: 删除 attendee_count/max_attendees 容量检查,
+    EduLiveAttendance.room_id→channel_id, 删除 leave_at 过滤,
+    构造函数 room_id→channel_id, 删除 join_at/duration_seconds, status 改为 int 对齐。
+    """
     room = get_or_404(db, EduLiveRoom, room_id, "room")
-    if room.status != "live":
+    if room.status != 1:
         raise EduValidationError("room is not live")
-    if room.attendee_count >= room.max_attendees:
-        raise EduValidationError("room is full")
     # Check existing
     existing = db.execute(
         select(EduLiveAttendance).where(
-            and_(EduLiveAttendance.room_id == room_id, EduLiveAttendance.user_id == user_id,
-                 EduLiveAttendance.leave_at.is_(None))
+            and_(EduLiveAttendance.channel_id == room_id, EduLiveAttendance.user_id == user_id)
         )
     ).scalar_one_or_none()
     if existing:
         return existing
     att = EduLiveAttendance(
-        room_id=room_id, user_id=user_id,
-        join_at=utcnow(), duration_seconds=0,
+        channel_id=room_id, user_id=user_id,
     )
     db.add(att)
-    room.attendee_count = (room.attendee_count or 0) + 1
     db.flush()
     db.refresh(att)
     return att
 
 
 def leave_live(db: Session, room_id: int, user_id: int) -> EduLiveAttendance:
+    """Leave a live room.
+
+    2026-06-25 字段对齐修复: LiveSubscribe 无 join_at/leave_at/duration_seconds 字段,
+    leave_live 改为 noop; EduLiveAttendance.room_id→channel_id。
+    """
     att = db.execute(
         select(EduLiveAttendance).where(
-            and_(EduLiveAttendance.room_id == room_id, EduLiveAttendance.user_id == user_id,
-                 EduLiveAttendance.leave_at.is_(None))
+            and_(EduLiveAttendance.channel_id == room_id, EduLiveAttendance.user_id == user_id)
         )
     ).scalar_one_or_none()
     if not att:
         from app.services.edu_base import EduNotFoundError
         raise EduNotFoundError("attendance", 0)
-    att.leave_at = utcnow()
-    att.duration_seconds = int((att.leave_at - att.join_at).total_seconds())
-    db.flush()
-    db.refresh(att)
+    # LiveSubscribe 无时间字段, 此处为 noop, 直接返回订阅记录
     return att
 
 
@@ -112,9 +128,13 @@ def list_rooms(
     db: Session, page: int = 1, size: int = 20,
     teacher_id: Optional[int] = None, status: Optional[str] = None,
 ) -> Tuple[List[EduLiveRoom], int]:
+    """List live rooms.
+
+    2026-06-25 字段对齐修复: EduLiveRoom.teacher_id→host_id。
+    """
     filters = []
     if teacher_id is not None:
-        filters.append(EduLiveRoom.teacher_id == teacher_id)
+        filters.append(EduLiveRoom.host_id == teacher_id)
     if status:
         filters.append(EduLiveRoom.status == status)
     return paginate(db, EduLiveRoom, page=page, size=size, filters=filters, order_by=desc(EduLiveRoom.plan_start_time))
@@ -127,5 +147,9 @@ def get_room(db: Session, room_id: int) -> EduLiveRoom:
 def list_room_attendees(
     db: Session, room_id: int, page: int = 1, size: int = 20,
 ) -> Tuple[List[EduLiveAttendance], int]:
+    """List room attendees.
+
+    2026-06-25 字段对齐修复: EduLiveAttendance.room_id→channel_id。
+    """
     return paginate(db, EduLiveAttendance, page=page, size=size,
-                    filters=[EduLiveAttendance.room_id == room_id])
+                    filters=[EduLiveAttendance.channel_id == room_id])

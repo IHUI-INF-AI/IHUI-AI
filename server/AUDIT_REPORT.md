@@ -1,377 +1,9 @@
 # 后端静态审计报告
 
-扫描文件数: 780
+扫描文件数: 782
 
-## P0-SyncIO (92 个)
+## P0-SyncIO (0 个)
 
-- **[app\api\health.py:221]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  rows = conn.execute(text(
-  ```
-- **[app\api\langchain_api_mini.py:636]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  rows = db.execute(text("""
-  ```
-- **[app\api\v1\admin_panel.py:1911]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  job = db.query(SysJob).filter(
-  ```
-- **[app\api\v1\admin_panel.py:1930]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\orders.py:402]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  order = db.query(Order).filter(
-  ```
-- **[app\api\v1\orders.py:431]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\orders.py:447]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\refund.py:329]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  refund = db.execute(
-  ```
-- **[app\api\v1\refund.py:375]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\agents\upload.py:91]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  record = db.query(AgentUpload).filter(AgentUpload.agent_id == agent_id).first()
-  ```
-- **[app\api\v1\ai\model_info.py:27]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  q = db.query(AiModelInfo).filter(AiModelInfo.status == status)
-  ```
-- **[app\api\v1\ai\model_info.py:67]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\ai\model_info.py:82]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  m = db.query(AiModelInfo).filter(AiModelInfo.id == model_id).first()
-  ```
-- **[app\api\v1\ai\model_info.py:89]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\ai\model_info.py:103]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  m = db.query(AiModelInfo).filter(AiModelInfo.id == model_id).first()
-  ```
-- **[app\api\v1\ai\model_info.py:109]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\ai\model_info.py:121]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(AiModelInfo.source)
-  ```
-- **[app\api\v1\ai\model_info.py:169]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\ai\model_info.py:194]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  m = db.query(AiModelInfo).filter(AiModelInfo.id == model_id).first()
-  ```
-- **[app\api\v1\ai\model_info.py:209]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\ai\model_info.py:228]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  m = db.query(AiModelInfo).filter(AiModelInfo.id == model_id).first()
-  ```
-- **[app\api\v1\ai\model_info.py:234]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\ali_login.py:118]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount)
-  ```
-- **[app\api\v1\auth\ali_login.py:127]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == third.user_uuid).first()
-  ```
-- **[app\api\v1\auth\ali_login.py:156]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount)
-  ```
-- **[app\api\v1\auth\ali_login.py:165]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == third.user_uuid).first()
-  ```
-- **[app\api\v1\auth\login.py:294]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == user_uuid).first()
-  ```
-- **[app\api\v1\auth\login.py:298]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\sms_proxy.py:153]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  row = db.execute(query, {"phone": request.phone}).fetchone()
-  ```
-- **[app\api\v1\auth\wechat.py:110]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount)
-  ```
-- **[app\api\v1\auth\wechat.py:119]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == tpa.user_uuid).first()
-  ```
-- **[app\api\v1\auth\wechat.py:124]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\wechat.py:126]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  auth = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user.uuid).first()
-  ```
-- **[app\api\v1\auth\wechat.py:163]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\wechat.py:219]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserAuthInfo)
-  ```
-- **[app\api\v1\auth\wechat.py:230]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount)
-  ```
-- **[app\api\v1\auth\wechat.py:242]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount)
-  ```
-- **[app\api\v1\auth\wechat.py:264]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  target_user = db.query(User).filter(User.uuid == existing_auth.user_uuid).first()
-  ```
-- **[app\api\v1\auth\wechat.py:267]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\wechat.py:278]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  auth = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user_uuid).first()
-  ```
-- **[app\api\v1\auth\wechat.py:285]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == user_uuid).first()
-  ```
-- **[app\api\v1\auth\wechat.py:288]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\wechat.py:326]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount)
-  ```
-- **[app\api\v1\auth\wechat.py:337]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount).filter(
-  ```
-- **[app\api\v1\auth\wechat.py:349]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\wechat.py:548]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  tp_query = db.query(UserThirdPartyAccount).filter(
-  ```
-- **[app\api\v1\auth\wechat.py:558]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == tp.user_uuid).first()
-  ```
-- **[app\api\v1\auth\wechat.py:565]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\wechat.py:572]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\auth\wechat.py:583]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\api\v1\callback\callback.py:65]** P0-SyncIO-InAsync: async 函数中调用了 session.flush
-  ```
-  db.flush()
-  ```
-- **[app\api\v1\coze\workflows.py:130]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  result = db.execute(text("SELECT id, source, type FROM zhs_ai_model_info WHERE is_del = 0"))
-  ```
-- **[app\api\v1\payments\alipay_fund.py:86]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  existing = db.execute(
-  ```
-- **[app\api\v1\payments\alipay_fund.py:92]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  db.execute(
-  ```
-- **[app\api\v1\payments\wechat.py:382]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  flow = db1.query(WithdrawalFlow).filter(WithdrawalFlow.partner_trade_no == partner_trade_no).first()
-  ```
-- **[app\api\v1\system\user.py:644]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(SysUser).filter(SysUser.user_id == sys_user_id).first()
-  ```
-- **[app\api\v1\system\user.py:646]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(SysUser).filter(SysUser.user_uuid == user_uuid).first()
-  ```
-- **[app\api\v1\system\user.py:651]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\security\auth.py:284]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  return db.execute(stmt).scalar()
-  ```
-- **[app\security\auth.py:326]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  return db.execute(stmt).scalar()
-  ```
-- **[app\services\avatar_sync_service.py:89]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  agent = db.query(Agent).filter(Agent.agent_id == agent_id).first()
-  ```
-- **[app\services\cached_expiration_monitor.py:265]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  rows = db.execute(sql, {"now": now, "future": future, "unexpired": config.unexpired_value}).fetchall()
-  ```
-- **[app\services\cached_expiration_monitor.py:323]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  db.execute(sql, {"expired": cfg.expired_value, "unexpired": cfg.unexpired_value, "ids": ids})
-  ```
-- **[app\services\dingtalk_auth_service.py:111]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  tp_query = db.query(UserThirdPartyAccount).filter(
-  ```
-- **[app\services\dingtalk_auth_service.py:122]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == tp.user_uuid).first()
-  ```
-- **[app\services\dingtalk_auth_service.py:129]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\services\dingtalk_auth_service.py:136]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\services\dingtalk_auth_service.py:146]** P0-SyncIO-InAsync: async 函数中调用了 session.commit
-  ```
-  db.commit()
-  ```
-- **[app\services\enterprise_wechat_service.py:170]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount)
-  ```
-- **[app\services\enterprise_wechat_service.py:179]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == third.user_uuid).first()
-  ```
-- **[app\services\feishu_auth_service.py:99]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(UserThirdPartyAccount)
-  ```
-- **[app\services\feishu_auth_service.py:108]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == third.user_uuid).first()
-  ```
-- **[app\services\token_utils_service.py:174]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == user_uuid).first()
-  ```
-- **[app\utils\refund_dlq.py:203]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  rows = s.execute(
-  ```
-- **[app\utils\refund_dlq.py:222]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  pipe.execute()
-  ```
-- **[app\utils\token_flow_utils.py:53]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  user = db.query(User).filter(User.uuid == user_uuid).first()
-  ```
-- **[app\ws\chat_room.py:286]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatRoomUser).filter(
-  ```
-- **[app\ws\chat_room.py:317]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatRoomUser.user_uuid)
-  ```
-- **[app\ws\chat_room.py:350]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatLetter)
-  ```
-- **[app\ws\chat_room.py:360]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatLetter)
-  ```
-- **[app\ws\chat_room.py:391]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatRoomUser, ChatRoom)
-  ```
-- **[app\ws\chat_room.py:402]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatLetter)
-  ```
-- **[app\ws\chat_room.py:412]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatLetter)
-  ```
-- **[app\ws\chat_room.py:423]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatLetter.user_uuid)
-  ```
-- **[app\ws\chat_room.py:474]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  q = db.query(ChatLetter).filter(
-  ```
-- **[app\ws\chat_room.py:523]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  msg = db.query(ChatLetter).filter(ChatLetter.id == message_id).first()
-  ```
-- **[app\ws\chat_room.py:616]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatLetter)
-  ```
-- **[app\ws\chat_room.py:648]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  room = db.query(ChatRoom).filter(ChatRoom.id == int(old_room_id)).first()
-  ```
-- **[app\ws\chat_room.py:675]** P0-SyncIO-InAsync: async 函数中调用了 session.query
-  ```
-  db.query(ChatRoomUser)
-  ```
-- **[app\ws\room_policy.py:69]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  row = s.execute(
-  ```
-- **[app\ws\room_policy.py:111]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  row = s.execute(
-  ```
-- **[app\ws\room_policy.py:131]** P0-SyncIO-InAsync: async 函数中调用了 session.execute
-  ```
-  row = s.execute(
-  ```
 
 ## P0-MissingAuth (0 个)
 
@@ -379,7 +11,7 @@
 ## P0-MixedPK (0 个)
 
 
-## P1-MissingSoftDelete (1214 个)
+## P1-MissingSoftDelete (1257 个)
 
 - **[app\api\admin_migration.py:424]** P1-MissingSoftDelete: 查询 Message 缺少软删除过滤
   ```
@@ -429,7 +61,7 @@
   ```
   db.query(SysSmsTemplate)
   ```
-- **[app\api\v1\admin_panel.py:1955]** P1-MissingSoftDelete: 查询 SysJob 缺少软删除过滤
+- **[app\api\v1\admin_panel.py:1956]** P1-MissingSoftDelete: 查询 SysJob 缺少软删除过滤
   ```
   deleted = db.query(SysJob).filter(SysJob.job_id.in_(ids)).update(
   ```
@@ -581,33 +213,201 @@
   ```
   q = db.query(Exam).join(ExamSignUp, ExamSignUp.exam_id == Exam.id).filter(ExamSignUp.member_id == member_id)
   ```
-- **[app\api\v1\orders.py:175]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
+- **[app\api\v1\legacy_supplement.py:75]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
+  ```
+  item = db.query(ZhsActivity).filter(ZhsActivity.id == activity_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:87]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
+  ```
+  item = db.query(ZhsActivity).filter(ZhsActivity.id == activity_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:97]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
+  ```
+  items = db.query(ZhsActivity).order_by(ZhsActivity.id.desc()).limit(1000).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:104]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
+  ```
+  total = db.query(ZhsActivity).count()
+  ```
+- **[app\api\v1\legacy_supplement.py:105]** P1-MissingSoftDelete: 查询 ZhsActivity 缺少软删除过滤
+  ```
+  active = db.query(ZhsActivity).filter(ZhsActivity.status == 1).count()
+  ```
+- **[app\api\v1\legacy_supplement.py:116]** P1-MissingSoftDelete: 查询 ZhsAgentSettlement 缺少软删除过滤
+  ```
+  item = db.query(ZhsAgentSettlement).filter(ZhsAgentSettlement.id == settlement_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:128]** P1-MissingSoftDelete: 查询 ZhsAgentSettlement 缺少软删除过滤
+  ```
+  q = db.query(ZhsAgentSettlement)
+  ```
+- **[app\api\v1\legacy_supplement.py:145]** P1-MissingSoftDelete: 查询 ZhsAgentUsedetail 缺少软删除过滤
+  ```
+  q = db.query(ZhsAgentUsedetail)
+  ```
+- **[app\api\v1\legacy_supplement.py:165]** P1-MissingSoftDelete: 查询 ZhsInformation 缺少软删除过滤
+  ```
+  item = db.query(ZhsInformation).filter(ZhsInformation.id == info_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:177]** P1-MissingSoftDelete: 查询 ZhsInformation 缺少软删除过滤
+  ```
+  item = db.query(ZhsInformation).filter(ZhsInformation.id == info_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:187]** P1-MissingSoftDelete: 查询 ZhsInformation 缺少软删除过滤
+  ```
+  item = db.query(ZhsInformation).filter(ZhsInformation.id == info_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:205]** P1-MissingSoftDelete: 查询 ZhsUserAgentImage 缺少软删除过滤
+  ```
+  item = db.query(ZhsUserAgentImage).filter(ZhsUserAgentImage.id == image_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:222]** P1-MissingSoftDelete: 查询 ZhsUserAgentImage 缺少软删除过滤
+  ```
+  items = db.query(ZhsUserAgentImage).filter(ZhsUserAgentImage.id.in_(req.ids)).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:242]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
+  ```
+  existing = db.query(UserThirdPartyAccount).filter(
+  ```
+- **[app\api\v1\legacy_supplement.py:262]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
+  ```
+  item = db.query(UserThirdPartyAccount).filter(
+  ```
+- **[app\api\v1\legacy_supplement.py:278]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
+  ```
+  q = db.query(UserThirdPartyAccount)
+  ```
+- **[app\api\v1\legacy_supplement.py:291]** P1-MissingSoftDelete: 查询 UserThirdPartyAccount 缺少软删除过滤
+  ```
+  items = db.query(UserThirdPartyAccount).filter(UserThirdPartyAccount.user_uuid == user_uuid).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:307]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
+  ```
+  item = db.query(AiFileStorage).filter(AiFileStorage.file_id == file_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:316]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
+  ```
+  item = db.query(AiFileStorage).filter(AiFileStorage.file_id == file_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:329]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
+  ```
+  items = db.query(AiFileStorage).filter(AiFileStorage.file_id.in_(req.ids)).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:338]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
+  ```
+  total = db.query(AiFileStorage).count()
+  ```
+- **[app\api\v1\legacy_supplement.py:339]** P1-MissingSoftDelete: 查询 AiFileStorage 缺少软删除过滤
+  ```
+  active = db.query(AiFileStorage).filter(AiFileStorage.status == 0).count()
+  ```
+- **[app\api\v1\legacy_supplement.py:350]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
+  ```
+  item = db.query(UserAuthInfo).filter(UserAuthInfo.id == identity_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:363]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
+  ```
+  q = db.query(UserAuthInfo)
+  ```
+- **[app\api\v1\legacy_supplement.py:377]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
+  ```
+  item = db.query(ZhsUserCommentLog).filter(ZhsUserCommentLog.id == log_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:386]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
+  ```
+  item = db.query(ZhsUserCommentLog).filter(ZhsUserCommentLog.id == log_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:396]** P1-MissingSoftDelete: 查询 ZhsUserCommentLog 缺少软删除过滤
+  ```
+  items = db.query(ZhsUserCommentLog).order_by(ZhsUserCommentLog.id.desc()).limit(1000).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:410]** P1-MissingSoftDelete: 查询 ZhsUserVideoComment 缺少软删除过滤
+  ```
+  q = db.query(ZhsUserVideoComment)
+  ```
+- **[app\api\v1\legacy_supplement.py:429]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
+  ```
+  q = db.query(Lecturer)
+  ```
+- **[app\api\v1\legacy_supplement.py:440]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
+  ```
+  item = db.query(Lecturer).filter(Lecturer.id == lecturer_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:449]** P1-MissingSoftDelete: 查询 Lecturer 缺少软删除过滤
+  ```
+  item = db.query(Lecturer).filter(Lecturer.id == lecturer_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:463]** P1-MissingSoftDelete: 查询 Department 缺少软删除过滤
+  ```
+  items = db.query(Department).order_by(Department.sort_order.asc()).all()
+  ```
+- **[app\api\v1\legacy_supplement.py:489]** P1-MissingSoftDelete: 查询 Company 缺少软删除过滤
+  ```
+  item = db.query(Company).filter(Company.id == company_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:498]** P1-MissingSoftDelete: 查询 Company 缺少软删除过滤
+  ```
+  item = db.query(Company).filter(Company.id == company_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:636]** P1-MissingSoftDelete: 查询 ZhsOperateTokenFlow 缺少软删除过滤
+  ```
+  item = db.query(ZhsOperateTokenFlow).filter(ZhsOperateTokenFlow.id == flow_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:649]** P1-MissingSoftDelete: 查询 ZhsOperateTokenFlow 缺少软删除过滤
+  ```
+  item = db.query(ZhsOperateTokenFlow).filter(ZhsOperateTokenFlow.id == flow_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:662]** P1-MissingSoftDelete: 查询 ZhsOperateTokenFlow 缺少软删除过滤
+  ```
+  q = db.query(ZhsOperateTokenFlow)
+  ```
+- **[app\api\v1\legacy_supplement.py:682]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
+  ```
+  q = db.query(ZhsCoursePayLog)
+  ```
+- **[app\api\v1\legacy_supplement.py:695]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
+  ```
+  item = db.query(ZhsCoursePayLog).filter(ZhsCoursePayLog.id == pay_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:709]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
+  ```
+  item = db.query(ZhsCoursePayLog).filter(ZhsCoursePayLog.id == req.pay_id).first()
+  ```
+- **[app\api\v1\legacy_supplement.py:723]** P1-MissingSoftDelete: 查询 ZhsCoursePayLog 缺少软删除过滤
+  ```
+  q = db.query(ZhsCoursePayLog)
+  ```
+- **[app\api\v1\orders.py:176]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
   order = db.query(Order).filter(
   ```
-- **[app\api\v1\orders.py:244]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
+- **[app\api\v1\orders.py:245]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
   q = db.query(Order)
   ```
-- **[app\api\v1\orders.py:276]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
+- **[app\api\v1\orders.py:277]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
   q = db.query(Order).filter(Order.user_id == user_id)
   ```
-- **[app\api\v1\orders.py:309]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
+- **[app\api\v1\orders.py:310]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
   order = db.query(Order).filter(
   ```
-- **[app\api\v1\orders.py:333]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
+- **[app\api\v1\orders.py:334]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
   order = db.query(Order).filter(Order.id == order_id).first()
   ```
-- **[app\api\v1\orders.py:366]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
+- **[app\api\v1\orders.py:367]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
   order = db.query(Order).filter(Order.id == order_id).first()
   ```
-- **[app\api\v1\orders.py:402]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
+- **[app\api\v1\orders.py:396]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
   ```
   order = db.query(Order).filter(
+  ```
+- **[app\api\v1\orders.py:422]** P1-MissingSoftDelete: 查询 Order 缺少软删除过滤
+  ```
+  order = db.query(Order).filter(Order.id == order_id).first()
   ```
 - **[app\api\v1\remote.py:102]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
@@ -889,6 +689,30 @@
   ```
   cat = db.query(AgentCategory).filter(AgentCategory.id == category_id).first()
   ```
+- **[app\api\v1\agents\category_link.py:43]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  q = db.query(AgentCategoryLink)
+  ```
+- **[app\api\v1\agents\category_link.py:57]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  existing = db.query(AgentCategoryLink).filter(
+  ```
+- **[app\api\v1\agents\category_link.py:73]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  item = db.query(AgentCategoryLink).filter(AgentCategoryLink.id == link_id).first()
+  ```
+- **[app\api\v1\agents\category_link.py:84]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  items = db.query(AgentCategoryLink).filter(AgentCategoryLink.agent_id == agent_id).order_by(AgentCategoryLink.sort_order
+  ```
+- **[app\api\v1\agents\category_link.py:92]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  items = db.query(AgentCategoryLink).filter(AgentCategoryLink.category_id == category_id).order_by(AgentCategoryLink.sort
+  ```
+- **[app\api\v1\agents\category_link.py:103]** P1-MissingSoftDelete: 查询 AgentCategoryLink 缺少软删除过滤
+  ```
+  item = db.query(AgentCategoryLink).filter(AgentCategoryLink.id == link_id).first()
+  ```
 - **[app\api\v1\agents\creation.py:129]** P1-MissingSoftDelete: 查询 UserAgentContext 缺少软删除过滤
   ```
   q = db.query(UserAgentContext).filter(
@@ -1093,15 +917,15 @@
   ```
   db.query(AgentSettlement)
   ```
-- **[app\api\v1\agents\upload.py:36]** P1-MissingSoftDelete: 查询 AgentUpload 缺少软删除过滤
+- **[app\api\v1\agents\upload.py:29]** P1-MissingSoftDelete: 查询 AgentUpload 缺少软删除过滤
+  ```
+  return db.query(AgentUpload).filter(AgentUpload.agent_id == agent_id).first()
+  ```
+- **[app\api\v1\agents\upload.py:43]** P1-MissingSoftDelete: 查询 AgentUpload 缺少软删除过滤
   ```
   record = db.query(AgentUpload).filter(AgentUpload.agent_id == agent_id).first()
   ```
-- **[app\api\v1\agents\upload.py:62]** P1-MissingSoftDelete: 查询 AgentUpload 缺少软删除过滤
-  ```
-  record = db.query(AgentUpload).filter(AgentUpload.agent_id == agent_id).first()
-  ```
-- **[app\api\v1\agents\upload.py:91]** P1-MissingSoftDelete: 查询 AgentUpload 缺少软删除过滤
+- **[app\api\v1\agents\upload.py:69]** P1-MissingSoftDelete: 查询 AgentUpload 缺少软删除过滤
   ```
   record = db.query(AgentUpload).filter(AgentUpload.agent_id == agent_id).first()
   ```
@@ -1173,23 +997,23 @@
   ```
   q = db.query(AgentUsedetail)
   ```
-- **[app\api\v1\ai\model_info.py:27]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
+- **[app\api\v1\ai\model_info.py:25]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
   ```
   q = db.query(AiModelInfo).filter(AiModelInfo.status == status)
   ```
-- **[app\api\v1\ai\model_info.py:82]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
+- **[app\api\v1\ai\model_info.py:80]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
   ```
   m = db.query(AiModelInfo).filter(AiModelInfo.id == model_id).first()
   ```
-- **[app\api\v1\ai\model_info.py:103]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
+- **[app\api\v1\ai\model_info.py:101]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
   ```
   m = db.query(AiModelInfo).filter(AiModelInfo.id == model_id).first()
   ```
-- **[app\api\v1\ai\model_info.py:194]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
+- **[app\api\v1\ai\model_info.py:192]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
   ```
   m = db.query(AiModelInfo).filter(AiModelInfo.id == model_id).first()
   ```
-- **[app\api\v1\ai\model_info.py:228]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
+- **[app\api\v1\ai\model_info.py:226]** P1-MissingSoftDelete: 查询 AiModelInfo 缺少软删除过滤
   ```
   m = db.query(AiModelInfo).filter(AiModelInfo.id == model_id).first()
   ```
@@ -1413,39 +1237,39 @@
   ```
   auth = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:294]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\api\v1\auth\login.py:298]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:322]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\api\v1\auth\login.py:331]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:354]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\api\v1\auth\login.py:363]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:357]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
+- **[app\api\v1\auth\login.py:366]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
   ```
   auth = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:387]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\api\v1\auth\login.py:396]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:415]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\api\v1\auth\login.py:424]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db2.query(User).filter(User.uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:418]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
+- **[app\api\v1\auth\login.py:427]** P1-MissingSoftDelete: 查询 UserAuthInfo 缺少软删除过滤
   ```
   auth = db2.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:419]** P1-MissingSoftDelete: 查询 UserMargin 缺少软删除过滤
+- **[app\api\v1\auth\login.py:428]** P1-MissingSoftDelete: 查询 UserMargin 缺少软删除过滤
   ```
   margin = db2.query(UserMargin).filter(UserMargin.user_uuid == user_uuid).first()
   ```
-- **[app\api\v1\auth\login.py:435]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
+- **[app\api\v1\auth\login.py:444]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
   ```
   sys_user = db1.query(SysUser).filter(SysUser.user_uuid == user_uuid).first()
   ```
@@ -1629,11 +1453,11 @@
   ```
   q = db.query(BehaviorFollow).filter(BehaviorFollow.user_id == uid)
   ```
-- **[app\api\v1\callback\callback.py:98]** P1-MissingSoftDelete: 查询 CallBackLog 缺少软删除过滤
+- **[app\api\v1\callback\callback.py:108]** P1-MissingSoftDelete: 查询 CallBackLog 缺少软删除过滤
   ```
   q = db.query(CallBackLog)
   ```
-- **[app\api\v1\callback\callback.py:133]** P1-MissingSoftDelete: 查询 CallBackLog 缺少软删除过滤
+- **[app\api\v1\callback\callback.py:143]** P1-MissingSoftDelete: 查询 CallBackLog 缺少软删除过滤
   ```
   l = db.query(CallBackLog).filter(CallBackLog.id == lid).first()
   ```
@@ -3117,11 +2941,11 @@
   ```
   db.query(Organization).filter(Organization.id == oid).update(
   ```
-- **[app\api\v1\payments\wechat.py:382]** P1-MissingSoftDelete: 查询 WithdrawalFlow 缺少软删除过滤
+- **[app\api\v1\payments\wechat.py:385]** P1-MissingSoftDelete: 查询 WithdrawalFlow 缺少软删除过滤
   ```
   flow = db1.query(WithdrawalFlow).filter(WithdrawalFlow.partner_trade_no == partner_trade_no).first()
   ```
-- **[app\api\v1\payments\wechat.py:494]** P1-MissingSoftDelete: 查询 ZhsProduct 缺少软删除过滤
+- **[app\api\v1\payments\wechat.py:499]** P1-MissingSoftDelete: 查询 ZhsProduct 缺少软删除过滤
   ```
   db1.query(ZhsProduct)
   ```
@@ -3457,26 +3281,6 @@
   ```
   db.query(CodegenTable).filter(CodegenTable.table_id.in_(ids)).delete(synchronize_session=False)
   ```
-- **[app\api\v1\system\dictionary.py:53]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
-  ```
-  q = db.query(SysDictType)
-  ```
-- **[app\api\v1\system\dictionary.py:69]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
-  ```
-  item = db.query(SysDictType).filter(SysDictType.dict_id == dict_id).first()
-  ```
-- **[app\api\v1\system\dictionary.py:89]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
-  ```
-  item = db.query(SysDictType).filter(SysDictType.dict_id == dict_id).first()
-  ```
-- **[app\api\v1\system\dictionary.py:103]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
-  ```
-  item = db.query(SysDictType).filter(SysDictType.dict_id == dict_id).first()
-  ```
-- **[app\api\v1\system\dictionary.py:121]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
-  ```
-  q = db.query(SysDictData).filter(SysDictData.dict_type == dict_type)
-  ```
 - **[app\api\v1\system\user.py:35]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
   ```
   u = db.query(SysUser).filter(SysUser.user_uuid == user_uuid).first()
@@ -3537,47 +3341,47 @@
   ```
   user = db.query(SysUser).filter(SysUser.user_uuid == user_uuid).first()
   ```
-- **[app\api\v1\system\user.py:644]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
+- **[app\api\v1\system\user.py:647]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
   ```
   user = db.query(SysUser).filter(SysUser.user_id == sys_user_id).first()
   ```
-- **[app\api\v1\system\user.py:646]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
+- **[app\api\v1\system\user.py:649]** P1-MissingSoftDelete: 查询 SysUser 缺少软删除过滤
   ```
   user = db.query(SysUser).filter(SysUser.user_uuid == user_uuid).first()
   ```
-- **[app\api\v1\system\user.py:678]** P1-MissingSoftDelete: 查询 SysMenu 缺少软删除过滤
+- **[app\api\v1\system\user.py:686]** P1-MissingSoftDelete: 查询 SysMenu 缺少软删除过滤
   ```
   menus = db.query(SysMenu).order_by(SysMenu.order_num).limit(500).all()
   ```
-- **[app\api\v1\system\user.py:698]** P1-MissingSoftDelete: 查询 SysMenu 缺少软删除过滤
+- **[app\api\v1\system\user.py:706]** P1-MissingSoftDelete: 查询 SysMenu 缺少软删除过滤
   ```
   menus = db.query(SysMenu).filter(SysMenu.status == "0").order_by(SysMenu.menu_id).all()
   ```
-- **[app\api\v1\system\user.py:727]** P1-MissingSoftDelete: 查询 SysMenu 缺少软删除过滤
+- **[app\api\v1\system\user.py:735]** P1-MissingSoftDelete: 查询 SysMenu 缺少软删除过滤
   ```
   menus = db.query(SysMenu).filter(SysMenu.status == "0").order_by(SysMenu.menu_id).all()
   ```
-- **[app\api\v1\system\user.py:766]** P1-MissingSoftDelete: 查询 SysPost 缺少软删除过滤
+- **[app\api\v1\system\user.py:774]** P1-MissingSoftDelete: 查询 SysPost 缺少软删除过滤
   ```
   items = db.query(SysPost).limit(500).all()
   ```
-- **[app\api\v1\system\user.py:786]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
+- **[app\api\v1\system\user.py:794]** P1-MissingSoftDelete: 查询 SysDictType 缺少软删除过滤
   ```
   items = db.query(SysDictType).limit(500).all()
   ```
-- **[app\api\v1\system\user.py:800]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
+- **[app\api\v1\system\user.py:808]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
   ```
   items = db.query(SysDictData).filter(SysDictData.dict_type == dict_type).all()
   ```
-- **[app\api\v1\system\user.py:820]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
+- **[app\api\v1\system\user.py:828]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
   ```
   items = db.query(SysDictData).filter(SysDictData.dict_type == dict_type).all()
   ```
-- **[app\api\v1\system\user.py:840]** P1-MissingSoftDelete: 查询 SysConfig 缺少软删除过滤
+- **[app\api\v1\system\user.py:848]** P1-MissingSoftDelete: 查询 SysConfig 缺少软删除过滤
   ```
   configs = db.query(SysConfig).limit(500).all()
   ```
-- **[app\api\v1\system\user.py:858]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
+- **[app\api\v1\system\user.py:866]** P1-MissingSoftDelete: 查询 SysDictData 缺少软删除过滤
   ```
   db.query(SysDictData)
   ```
@@ -4245,15 +4049,15 @@
   ```
   existing = db.query(RoleRecord).first()
   ```
-- **[app\services\dingtalk_auth_service.py:122]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\services\dingtalk_auth_service.py:124]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == tp.user_uuid).first()
   ```
-- **[app\services\edu_ask.py:235]** P1-MissingSoftDelete: 查询 EduAskAnswer 缺少软删除过滤
+- **[app\services\edu_ask.py:224]** P1-MissingSoftDelete: 查询 EduAskAnswer 缺少软删除过滤
   ```
   db.query(EduAskAnswer).filter(
   ```
-- **[app\services\enterprise_wechat_service.py:179]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\services\enterprise_wechat_service.py:180]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == third.user_uuid).first()
   ```
@@ -4357,7 +4161,7 @@
   ```
   db.query(Question)
   ```
-- **[app\services\feishu_auth_service.py:108]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\services\feishu_auth_service.py:109]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == third.user_uuid).first()
   ```
@@ -5197,19 +5001,19 @@
   ```
   q = db.query(OperateTokenFlow).filter(
   ```
-- **[app\services\token_utils_service.py:26]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
+- **[app\services\token_utils_service.py:27]** P1-MissingSoftDelete: 查询 Activity 缺少软删除过滤
   ```
   db.query(Activity)
   ```
-- **[app\services\token_utils_service.py:118]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\services\token_utils_service.py:119]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == user_uuid).first()
   ```
-- **[app\services\token_utils_service.py:136]** P1-MissingSoftDelete: 查询 UserMargin 缺少软删除过滤
+- **[app\services\token_utils_service.py:137]** P1-MissingSoftDelete: 查询 UserMargin 缺少软删除过滤
   ```
   margin = db.query(UserMargin).filter(UserMargin.user_uuid == user_uuid).first()
   ```
-- **[app\services\token_utils_service.py:174]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
+- **[app\services\token_utils_service.py:176]** P1-MissingSoftDelete: 查询 User 缺少软删除过滤
   ```
   user = db.query(User).filter(User.uuid == user_uuid).first()
   ```
@@ -5245,12 +5049,8 @@
   client_factory: callable 返回 httpx.AsyncClient (用于传 transport)
   ```
 
-## P2-SwallowedException (1 个)
+## P2-SwallowedException (0 个)
 
-- **[app\api\v1\learn_legacy.py:895]** P2-SwallowedException: except Exception: pass 异常吞噬，无日志记录
-  ```
-  except Exception:
-  ```
 
 ## P2-SensitiveLog (263 个)
 
@@ -5550,15 +5350,15 @@
   ```
   logger.error(f"Change password error: {e}")
   ```
-- **[app\api\v1\auth\login.py:332]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\v1\auth\login.py:341]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"Change password error: {e}")
   ```
-- **[app\api\v1\auth\login.py:367]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\v1\auth\login.py:376]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"Change phone error: {e}")
   ```
-- **[app\api\v1\auth\sms_proxy.py:97]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\v1\auth\sms_proxy.py:108]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("SMS verify proxy error: " + str(e))
   ```
@@ -5602,7 +5402,7 @@
   ```
   logger.error(f"WeChat PC token error: {token_data}")
   ```
-- **[app\api\v1\callback\callback.py:283]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\v1\callback\callback.py:293]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"[Outbound] 处理外呼回调异常: {e}")
   ```
@@ -5850,7 +5650,7 @@
   ```
   logger.error("Alipay notify verify failed")
   ```
-- **[app\api\v1\payments\alipay_fund.py:66]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\api\v1\payments\alipay_fund.py:72]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.info("Alipay notify received, trade_no=" + params.get("trade_no", ""))
   ```
@@ -5966,39 +5766,39 @@
   ```
   logger.info("CrewAI 未安装, 多智能体将使用简化模式")
   ```
-- **[app\services\dingtalk_auth_service.py:26]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\dingtalk_auth_service.py:27]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.warning("DingTalk appKey/appSecret not configured")
   ```
-- **[app\services\dingtalk_auth_service.py:35]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\dingtalk_auth_service.py:36]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"DingTalk gettoken error: {body}")
   ```
-- **[app\services\dingtalk_auth_service.py:39]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\dingtalk_auth_service.py:40]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"DingTalk gettoken exception: {e}")
   ```
-- **[app\services\enterprise_wechat_service.py:25]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\enterprise_wechat_service.py:26]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.warning("No SuiteTicket in XML")
   ```
-- **[app\services\enterprise_wechat_service.py:43]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\enterprise_wechat_service.py:44]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("Parse suite XML error: " + str(e))
   ```
-- **[app\services\enterprise_wechat_service.py:61]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\enterprise_wechat_service.py:62]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("Redis check suite ticket error: " + str(e))
   ```
-- **[app\services\enterprise_wechat_service.py:93]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\enterprise_wechat_service.py:94]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("Get suite token error: " + str(e))
   ```
-- **[app\services\enterprise_wechat_service.py:118]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\enterprise_wechat_service.py:119]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("code2session error: " + str(e))
   ```
-- **[app\services\feishu_auth_service.py:41]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\feishu_auth_service.py:42]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error("Feishu get access token error: " + str(e))
   ```
@@ -6026,23 +5826,23 @@
   ```
   logger.error(f"Redis delete error for {user_uuid}: {e}")
   ```
-- **[app\services\token_utils_service.py:123]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:124]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"Check user vip error: {e}")
   ```
-- **[app\services\token_utils_service.py:143]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:144]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"Check token error: {e}")
   ```
-- **[app\services\token_utils_service.py:199]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:205]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"Calculate tokens per yuan error: {e}")
   ```
-- **[app\services\token_utils_service.py:244]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:250]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"calculate_and_deduct_tokens_by_cost error: {e}")
   ```
-- **[app\services\token_utils_service.py:277]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
+- **[app\services\token_utils_service.py:283]** P2-SensitiveLog: 日志可能包含敏感信息（phone/code/otp/password/token）
   ```
   logger.error(f"calculate_and_deduct_tokens_for_hunyuan3d error: {e}")
   ```

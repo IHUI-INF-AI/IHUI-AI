@@ -4,6 +4,7 @@
 提供 /api/agent/upload、/api/agent/select、/api/agent/process 三个端点.
 """
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query
@@ -20,6 +21,12 @@ from app.services.agent_upload import (
 from app.utils.datetime_helper import utcnow
 
 router = APIRouter(prefix="/api/agent", tags=["Agent 上传处理"])
+
+
+def _load_agent_record(agent_id: str) -> AgentUpload | None:
+    """加载智能体配置记录 (同步, 由 asyncio.to_thread 调用)."""
+    with get_session() as db:
+        return db.query(AgentUpload).filter(AgentUpload.agent_id == agent_id).first()
 
 
 @router.post("/upload", summary="上传智能体配置")
@@ -83,14 +90,18 @@ async def process_agent(
     payload: dict[str, Any] = Body(...),
     _: str = Depends(require_login),
 ):
-    """调用智能体端点并组装响应."""
+    """调用智能体端点并组装响应.
+
+    P0 修复: DB 加载通过 asyncio.to_thread 放到 threadpool, 避免阻塞事件循环;
+    await client.invoke_agent() 保留在事件循环中.
+    """
     agent_id = payload.get("agent_id", "")
     if not agent_id:
         return {"code": 400, "message": "缺少 agent_id", "data": None}
-    with get_session() as db:
-        record = db.query(AgentUpload).filter(AgentUpload.agent_id == agent_id).first()
-        if not record:
-            return {"code": 404, "message": "智能体不存在", "data": None}
+    # 同步 DB 调用放到 threadpool
+    record = await asyncio.to_thread(_load_agent_record, agent_id)
+    if not record:
+        return {"code": 404, "message": "智能体不存在", "data": None}
     try:
         input_params = build_input_params(record, payload.get("problems", "[]"))
         client = get_agent_client()

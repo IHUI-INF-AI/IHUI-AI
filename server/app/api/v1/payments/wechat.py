@@ -376,12 +376,17 @@ async def wx_transfer_notify(
 
     try:
         if partner_trade_no and transfer_state == "SUCCESS":
+            import asyncio
+
             from app.models.payment_models import WithdrawalFlow
 
-            with get_session() as db1:
-                flow = db1.query(WithdrawalFlow).filter(WithdrawalFlow.partner_trade_no == partner_trade_no).first()
-                if flow:
-                    flow.status = 2  # completed
+            def _mark_completed():
+                with get_session() as db1:
+                    flow = db1.query(WithdrawalFlow).filter(WithdrawalFlow.partner_trade_no == partner_trade_no).first()
+                    if flow:
+                        flow.status = 2  # completed
+
+            await asyncio.to_thread(_mark_completed)
 
         mark_payment_processed(
             partner_trade_no,

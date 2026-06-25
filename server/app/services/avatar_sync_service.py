@@ -80,7 +80,7 @@ class AvatarSyncService:
         aid = records[0].agent_id if records else None
         return {"action": "update", "updated_count": count, "agent_id": aid}
 
-    async def sync_avatar_from_agent_table(self, agent_id, db=None):
+    def sync_avatar_from_agent_table(self, agent_id, db=None):
         """Sync avatar from agent table to examine table."""
         should_close = db is None
         if should_close:
@@ -91,7 +91,7 @@ class AvatarSyncService:
                 return {"success": False, "message": f"Agent not found: {agent_id}"}
             if not agent.agent_avatar:
                 return {"success": False, "message": f"Agent avatar empty: {agent_id}"}
-            result = await self.sync_avatar_to_examine_table(
+            result = self.sync_avatar_to_examine_table(
                 agent_id=agent_id, agent_avatar=agent.agent_avatar, agent_name=agent.agent_name, db=db
             )
             result["success"] = True

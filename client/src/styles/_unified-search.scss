@@ -42,12 +42,11 @@ html.dark {
   box-shadow: var(--unified-search-shadow);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transition: border-color $transition-base, box-shadow $transition-base;
+  transition: border-color $transition-base;
 
   &:focus-within {
     border-width: 2px;
     border-color: var(--unified-search-focus-color);
-    box-shadow: var(--unified-search-shadow);
   }
 
   html.dark & {
@@ -162,12 +161,11 @@ html.dark {
   background: var(--unified-search-bg);
   border: 1px solid var(--unified-search-border);
   box-shadow: var(--unified-search-shadow);
-  transition: border-color $transition-base, box-shadow $transition-base;
+  transition: border-color $transition-base;
 
   &:focus-within {
     border-width: 2px;
     border-color: var(--unified-search-focus-color);
-    box-shadow: var(--unified-search-shadow);
   }
 
   html.dark &:focus-within {

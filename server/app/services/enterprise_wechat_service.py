@@ -1,5 +1,6 @@
 # Enterprise WeChat (WeCom) login service.
 # Ported from P2 EnterpriseWxLoginServiceImpl.java
+import asyncio
 import xml.etree.ElementTree as ET
 from typing import Any
 
@@ -161,47 +162,52 @@ async def enterprise_wechat_login(code: str) -> dict[str, Any]:
         }
     userid = session_result.get("userid", "")
     # Look up user
-    from app.database import get_session
-
-    with get_session() as db:
+    def _lookup():
+        from app.database import get_session
         from app.models.user_models import User, UserThirdPartyAccount
 
-        third = (
-            db.query(UserThirdPartyAccount)
-            .filter(
-                UserThirdPartyAccount.open_id == userid,
-                UserThirdPartyAccount.platform == "WEB_ENTERPRISE",
-                UserThirdPartyAccount.deleted_at.is_(None),
+        with get_session() as db:
+            third = (
+                db.query(UserThirdPartyAccount)
+                .filter(
+                    UserThirdPartyAccount.open_id == userid,
+                    UserThirdPartyAccount.platform == "WEB_ENTERPRISE",
+                    UserThirdPartyAccount.deleted_at.is_(None),
+                )
+                .first()
             )
-            .first()
-        )
-        if third:
-            user = db.query(User).filter(User.uuid == third.user_uuid).first()
-            if user:
-                return {
-                    "code": "200",
-                    "message": "Login success",
-                    "data": {
-                        "user_uuid": user.uuid,
-                        "platform": "WEB_ENTERPRISE",
-                        "userid": userid,
-                    },
-                }
-        # Try to get user info and auto-register
-        info_result = await get_wecom_user_info(session_result.get("session_key", ""), userid)
-        if not info_result.get("success"):
-            return {
-                "code": "40101",
-                "message": "User not found",
-                "data": {"userid": userid, "platform": "WEB_ENTERPRISE"},
-            }
+            if third:
+                user = db.query(User).filter(User.uuid == third.user_uuid).first()
+                if user:
+                    return user.uuid
+        return None
+
+    user_uuid = await asyncio.to_thread(_lookup)
+    if user_uuid:
         return {
-            "code": "40101",
-            "message": "Phone binding required",
+            "code": "200",
+            "message": "Login success",
             "data": {
-                "userid": userid,
+                "user_uuid": user_uuid,
                 "platform": "WEB_ENTERPRISE",
-                "mobile": info_result.get("mobile"),
-                "name": info_result.get("name"),
+                "userid": userid,
             },
         }
+    # Try to get user info and auto-register
+    info_result = await get_wecom_user_info(session_result.get("session_key", ""), userid)
+    if not info_result.get("success"):
+        return {
+            "code": "40101",
+            "message": "User not found",
+            "data": {"userid": userid, "platform": "WEB_ENTERPRISE"},
+        }
+    return {
+        "code": "40101",
+        "message": "Phone binding required",
+        "data": {
+            "userid": userid,
+            "platform": "WEB_ENTERPRISE",
+            "mobile": info_result.get("mobile"),
+            "name": info_result.get("name"),
+        },
+    }

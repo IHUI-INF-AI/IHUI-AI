@@ -812,6 +812,7 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
   
   &:hover {
     transform: translateY(-4px);
+    box-shadow: var(--global-box-shadow);
     border-color: var(--el-text-color-primary);
   }
 }

@@ -31,7 +31,10 @@ def create_circle(
     category: Optional[str] = None,
     is_public: bool = True,
 ) -> EduCircle:
-    """Create a new circle. Owner automatically added as 'owner' member."""
+    """Create a new circle. Owner automatically added as 'owner' member.
+
+    2026-06-25 字段对齐修复: category→category_id, is_public→status, member_count→member_num, post_count→post_num
+    """
     if not name or len(name) > 128:
         raise EduValidationError("name must be 1-128 chars")
     circle = EduCircle(
@@ -39,10 +42,10 @@ def create_circle(
         name=name,
         description=description,
         cover=cover,
-        category=category,
-        is_public=is_public,
-        member_count=1,
-        post_count=0,
+        category_id=category,
+        status=1 if is_public else 0,
+        member_num=1,
+        post_num=0,
     )
     db.add(circle)
     db.flush()
@@ -97,21 +100,26 @@ def list_circles(
     keyword: Optional[str] = None,
     order_by: str = "latest",  # latest/hot
 ) -> Tuple[List[EduCircle], int]:
+    """List circles with optional filters.
+
+    2026-06-25 字段对齐修复: Circle.category→category_id, Circle.is_public→status==1,
+    Circle.username→name, Circle.member_count→member_num, Circle.post_count→post_num
+    """
     filters = []
     if category:
-        filters.append(EduCircle.category == category)
+        filters.append(EduCircle.category_id == category)
     if is_public is not None:
-        filters.append(EduCircle.is_public == is_public)
+        filters.append(EduCircle.status == (1 if is_public else 0))
     if keyword:
         kw = f"%{keyword}%"
         filters.append(
             or_(
-                EduCircle.username.ilike(kw),
+                EduCircle.name.ilike(kw),
                 EduCircle.description.ilike(kw),
             )
         )
     if order_by == "hot":
-        order = desc(EduCircle.member_count + EduCircle.post_count * 2)
+        order = desc(EduCircle.member_num + EduCircle.post_num * 2)
     else:
         order = desc(EduCircle.created_at)
     return paginate(db, EduCircle, page=page, size=size, filters=filters, order_by=order)
@@ -122,12 +130,15 @@ def list_circles(
 # ============================================================================
 
 def join_circle(db: Session, circle_id: int, user_id: int) -> EduCircleMember:
-    """Join a circle. Idempotent (returns existing membership if already joined)."""
+    """Join a circle. Idempotent (returns existing membership if already joined).
+
+    2026-06-25 字段对齐修复: EduCircleMember.uuid→user_id, c.member_count→c.member_num
+    """
     existing = db.execute(
         select(EduCircleMember).where(
             and_(
                 EduCircleMember.circle_id == circle_id,
-                EduCircleMember.uuid == user_id,
+                EduCircleMember.user_id == user_id,
             )
         )
     ).scalar_one_or_none()
@@ -135,17 +146,20 @@ def join_circle(db: Session, circle_id: int, user_id: int) -> EduCircleMember:
         return existing
     member = EduCircleMember(circle_id=circle_id, user_id=user_id, role="member")
     db.add(member)
-    # Increment member_count
+    # Increment member_num
     c = db.get(EduCircle, circle_id)
     if c:
-        c.member_count = (c.member_count or 0) + 1
+        c.member_num = (c.member_num or 0) + 1
     db.flush()
     db.refresh(member)
     return member
 
 
 def leave_circle(db: Session, circle_id: int, user_id: int) -> bool:
-    """Leave a circle. Owner cannot leave (must transfer ownership first)."""
+    """Leave a circle. Owner cannot leave (must transfer ownership first).
+
+    2026-06-25 字段对齐修复: EduCircleMember.uuid→user_id, c.member_count→c.member_num
+    """
     c = db.get(EduCircle, circle_id)
     if c and c.owner_id == user_id:
         raise EduPermissionError("owner cannot leave the circle (transfer ownership first)")
@@ -153,15 +167,15 @@ def leave_circle(db: Session, circle_id: int, user_id: int) -> bool:
         select(EduCircleMember).where(
             and_(
                 EduCircleMember.circle_id == circle_id,
-                EduCircleMember.uuid == user_id,
+                EduCircleMember.user_id == user_id,
             )
         )
     ).scalar_one_or_none()
     if not member:
         return False
     db.delete(member)
-    if c and c.member_count and c.member_count > 0:
-        c.member_count -= 1
+    if c and c.member_num and c.member_num > 0:
+        c.member_num -= 1
     db.flush()
     return True
 
@@ -176,11 +190,15 @@ def list_members(
 
 
 def is_member(db: Session, circle_id: int, user_id: int) -> bool:
+    """Check whether user is a member of the circle.
+
+    2026-06-25 字段对齐修复: EduCircleMember.uuid→user_id
+    """
     return db.execute(
         select(func.count(EduCircleMember.id)).where(
             and_(
                 EduCircleMember.circle_id == circle_id,
-                EduCircleMember.uuid == user_id,
+                EduCircleMember.user_id == user_id,
             )
         )
     ).scalar() > 0
@@ -197,12 +215,16 @@ def create_post(
     content: str,
     images: Optional[List[str]] = None,
 ) -> EduCirclePost:
-    """Post to a circle. User must be a member (unless circle is public, then anyone)."""
+    """Post to a circle. User must be a member (unless circle is public, then anyone).
+
+    2026-06-25 字段对齐修复: c.is_public→c.status==1, like_count→like_num,
+    comment_count→comment_num, c.post_count→c.post_num
+    """
     if not content:
         raise EduValidationError("content is required")
     # Check membership or public access
     c = get_or_404(db, EduCircle, circle_id, "circle")
-    if not c.is_public and not is_member(db, circle_id, user_id):
+    if c.status != 1 and not is_member(db, circle_id, user_id):
         raise EduPermissionError("must be a member to post in private circles")
     images_str = ",".join(images) if images else None
     post = EduCirclePost(
@@ -210,27 +232,30 @@ def create_post(
         user_id=user_id,
         content=content,
         images=images_str,
-        like_count=0,
-        comment_count=0,
+        like_num=0,
+        comment_num=0,
     )
     db.add(post)
     db.flush()
-    c.post_count = (c.post_count or 0) + 1
+    c.post_num = (c.post_num or 0) + 1
     db.flush()
     db.refresh(post)
     return post
 
 
 def delete_post(db: Session, post_id: int, user_id: int) -> bool:
-    """Delete a post. Author or circle owner can delete."""
+    """Delete a post. Author or circle owner can delete.
+
+    2026-06-25 字段对齐修复: c.post_count→c.post_num
+    """
     p = get_or_404(db, EduCirclePost, post_id, "post")
     c = db.get(EduCircle, p.circle_id)
     if p.user_id != user_id and (not c or c.owner_id != user_id):
         raise EduPermissionError("only the author or circle owner can delete")
     circle_id = p.circle_id
     db.delete(p)
-    if c and c.post_count and c.post_count > 0:
-        c.post_count -= 1
+    if c and c.post_num and c.post_num > 0:
+        c.post_num -= 1
     db.flush()
     return True
 
@@ -254,20 +279,26 @@ def list_posts(
 
 
 def like_post(db: Session, post_id: int) -> int:
-    """Increment like count."""
+    """Increment like count.
+
+    2026-06-25 字段对齐修复: p.like_count→p.like_num
+    """
     p = get_or_404(db, EduCirclePost, post_id, "post")
-    p.like_count = (p.like_count or 0) + 1
+    p.like_num = (p.like_num or 0) + 1
     db.flush()
-    return p.like_count
+    return p.like_num
 
 
 def get_user_circles(
     db: Session, user_id: int, page: int = 1, size: int = 20
 ) -> Tuple[List[EduCircle], int]:
-    """Get circles the user has joined."""
+    """Get circles the user has joined.
+
+    2026-06-25 字段对齐修复: EduCircleMember.uuid→user_id
+    """
     return paginate(
         db, EduCircle, page=page, size=size,
         filters=[EduCircle.id.in_(
-            select(EduCircleMember.circle_id).where(EduCircleMember.uuid == user_id)
+            select(EduCircleMember.circle_id).where(EduCircleMember.user_id == user_id)
         )],
     )

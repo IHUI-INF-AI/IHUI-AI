@@ -273,6 +273,8 @@ async def upload_avatar(
     user_uuid: str = Depends(require_login),
 ):
     """Upload avatar image to MinIO and update user record."""
+    import asyncio
+
     from app.database import SessionFactory2
     from app.models.user_models import User
     from app.utils.minio_util import upload_file
@@ -289,15 +291,22 @@ async def upload_avatar(
             file_name=file.filename or "avatar.jpg",
             content_type=file.content_type,
         )
-        db = SessionFactory2()
-        try:
-            user = db.query(User).filter(User.uuid == user_uuid).first()
-            if not user:
-                return error("User not found", "404")
-            user.avatar = avatar_url
-            db.commit()
-        finally:
-            db.close()
+
+        def _save_avatar() -> bool:
+            db = SessionFactory2()
+            try:
+                user = db.query(User).filter(User.uuid == user_uuid).first()
+                if not user:
+                    return False
+                user.avatar = avatar_url
+                db.commit()
+                return True
+            finally:
+                db.close()
+
+        ok = await asyncio.to_thread(_save_avatar)
+        if not ok:
+            return error("User not found", "404")
         return success({"avatar": avatar_url})
     except Exception as e:
         logger.error(f"Avatar upload error: {e}")

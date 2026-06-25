@@ -60,6 +60,12 @@ async def create_pay_json(request: Request, user_uuid: str = Depends(require_log
 @router.post("/alipay/notify", operation_id="alipay_fund_notify")
 async def alipay_notify(request: Request):
     # Alipay async callback (core endpoint)
+    import asyncio
+
+    from sqlalchemy import text
+
+    from app.database import get_session
+
     try:
         form = await request.form()
         params = dict(form)
@@ -76,24 +82,23 @@ async def alipay_notify(request: Request):
         out_trade_no = params.get("out_trade_no", "")
         trade_no = params.get("trade_no", "")
         total_amount = params.get("total_amount", "0")
-        # Check idempotency
-        from sqlalchemy import text
 
-        from app.database import get_session
-
-        with get_session() as db:
+        def _process_payment() -> str:
             # 注意: 字段名是 out_trade_no, 不是 order_no
-            existing = db.execute(
-                text("SELECT id FROM zhs_order WHERE out_trade_no = :no AND status = 1"),
-                {"no": out_trade_no},
-            ).fetchone()
-            if existing:
+            with get_session() as db:
+                existing = db.execute(
+                    text("SELECT id FROM zhs_order WHERE out_trade_no = :no AND status = 1"),
+                    {"no": out_trade_no},
+                ).fetchone()
+                if existing:
+                    return "success"
+                db.execute(
+                    text("UPDATE zhs_order SET status = 1, trade_no = :tn, amount = :ta WHERE out_trade_no = :no"),
+                    {"tn": trade_no, "ta": total_amount, "no": out_trade_no},
+                )
                 return "success"
-            db.execute(
-                text("UPDATE zhs_order SET status = 1, trade_no = :tn, amount = :ta WHERE out_trade_no = :no"),
-                {"tn": trade_no, "ta": total_amount, "no": out_trade_no},
-            )
-            return "success"
+
+        return await asyncio.to_thread(_process_payment)
     except Exception as e:
         logger.error("Alipay notify error: " + str(e))
         return "fail"
