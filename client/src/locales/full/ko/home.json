@@ -170,77 +170,77 @@
       "subtitle": "지금 구독하고 더블 포인트를 받으세요!"
     },
     "miniappModal": {
-      "qrAlt": "Qr Alt",
-      "scanTip": "Scan Tip",
-      "title": "Title"
+      "qrAlt": "미니프로그램 QR 코드",
+      "scanTip": "WeChat을 열고 스캔하여 미니프로그램에 들어가기",
+      "title": "WeChat 미니프로그램"
     },
     "page1": {
-      "content": "Content",
-      "ctaPrimary": "Cta Primary",
-      "ctaSecondary": "Cta Secondary"
+      "content": "스마트 AI커뮤니티，탐색AI무제한가능성",
+      "ctaPrimary": "지금 체험",
+      "ctaSecondary": "게세히 보기"
     },
     "page2": {
       "advantages": {
         "efficient": {
-          "description": "Description",
-          "title": "Title"
+          "description": "개발 프로세스를 단순화하고, 풍부한 API 인터페이스와 도구로 AI 애플리케이션을 빠르게 출시합니다",
+          "title": "고급효율"
         },
         "innovative": {
-          "description": "Description",
-          "title": "Title"
+          "description": "지속적인 기술 혁신, 에이전트 클러스터, 분산 아키텍처 등 최첨단 AI 기능",
+          "title": "혁신신규"
         },
         "professional": {
-          "description": "Description",
-          "title": "Title"
+          "description": "AI 분야를 깊이 연구하여 전문적인 기술 솔루션과 업계 선도 제품 서비스를 제공합니다",
+          "title": "전문"
         },
         "reliable": {
-          "description": "Description",
-          "title": "Title"
+          "description": "안정적가격신뢰할 수 있는의서비스보호장벽，99.9%생각사용 가능성，보호장벽비즈니스연결진행성",
+          "title": "신뢰할 수 있는"
         },
-        "subtitle": "Subtitle",
-        "title": "Title",
-        "titleEn": "Title En"
+        "subtitle": "왜 스마트 AI를 선택하나요",
+        "title": "핵심 장점",
+        "titleEn": "CoreAdvantages"
       },
-      "content": "Content",
+      "content": "글로벌 최고 수준의 AI 서비스를 탐색하고, 모델 통합부터 앱 스토어까지 다양한 요구를 충족합니다",
       "features": {
-        "appStore": "App Store",
-        "contentCreation": "Content Creation",
-        "edu": "Edu",
-        "modelIntegration": "Model Integration",
-        "navigation": "Navigation"
+        "appStore": "AI 앱 스토어",
+        "contentCreation": "콘텐츠 창작",
+        "edu": "AI교육",
+        "modelIntegration": "다중 모델 통합",
+        "navigation": "스마트탐색"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "강력한대사용량기능",
+      "titleEn": "PowerfulFeatures"
     },
     "page3": {
       "empty": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "AI 뉴스가 없습니다",
+        "platform": "플랫폼 뉴스가 없습니다"
       },
-      "subtitle": "Subtitle",
+      "subtitle": "AI 분야의 최신 동향과 첨단 기술 탐색",
       "tabs": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "AI 뉴스",
+        "platform": "플랫폼 뉴스"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "정보우리",
+      "titleEn": "AI NEWS"
     },
     "page4": {
-      "content": "Content",
-      "subtitle": "Subtitle",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "다양한 요구에 맞는 유연한 가격 플랜으로 AI 여정을 시작하세요",
+      "subtitle": "다양한 요구의 생각사용게에게 유연한 가격 솔루션 제공",
+      "title": "귀하에게 맞는 패키지 선택",
+      "titleEn": "ChooseYour계획"
     },
     "page5": {
-      "content": "Content",
-      "joinText": "Join Text",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "스마트 AI 커뮤니티의 일원이 되어 글로벌 AI 애호가들과 함께 미래를 탐색하세요",
+      "joinText": "더 많은 AI 애호가가 우리와 함께 인공스마트의 무한한 가능성을 탐색하길 환영합니다",
+      "title": "참여우리",
+      "titleEn": "JOIN US"
     },
     "typewriter": {
-      "brand": "Brand",
-      "connect": "Connect",
-      "explore": "Explore"
+      "brand": "즈후이 AI 커뮤니티",
+      "connect": "창의력을 연결하고 미지를 해방하다",
+      "explore": "AI의 무한한 가능성을 탐구하다"
     },
     "hardcoded": {
       "aiNews": "AI 뉴스",

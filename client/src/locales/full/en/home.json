@@ -167,77 +167,77 @@
     "speedMid": "Mid",
     "speedFast": "Fast",
     "miniappModal": {
-      "qrAlt": "Qr Alt",
-      "scanTip": "Scan Tip",
-      "title": "Title"
+      "qrAlt": "Mini Program QR Code",
+      "scanTip": "Open WeChat and scan to enter the mini program",
+      "title": "WeChat Mini Program"
     },
     "page1": {
-      "content": "Content",
-      "ctaPrimary": "Cta Primary",
-      "ctaSecondary": "Cta Secondary"
+      "content": "Smart AI Community, Explore Infinite AI Possibilities",
+      "ctaPrimary": "Try Now",
+      "ctaSecondary": "Learn More"
     },
     "page2": {
       "advantages": {
         "efficient": {
-          "description": "Description",
-          "title": "Title"
+          "description": "Simplified development process, rich API interfaces and tools, enabling AI applications to go live quickly",
+          "title": "Efficient"
         },
         "innovative": {
-          "description": "Description",
-          "title": "Title"
+          "description": "Continuous technological innovation, agent clusters, hierarchical planning and other cutting-edge AI capabilities",
+          "title": "Innovative"
         },
         "professional": {
-          "description": "Description",
-          "title": "Title"
+          "description": "Deeply engaged in AI field, providing professional technical solutions and industry-leading products and services",
+          "title": "Professional"
         },
         "reliable": {
-          "description": "Description",
-          "title": "Title"
+          "description": "Stable and reliable service guarantee, 99.9% availability, ensuring business continuity",
+          "title": "Reliable"
         },
-        "subtitle": "Subtitle",
-        "title": "Title",
-        "titleEn": "Title En"
+        "subtitle": "Why Choose Smart AI",
+        "title": "Core Advantages",
+        "titleEn": "CoreAdvantages"
       },
-      "content": "Content",
+      "content": "Explore our comprehensive AI services, from model integration to app store, meeting your various needs",
       "features": {
-        "appStore": "App Store",
+        "appStore": "AI App Store",
         "contentCreation": "Content Creation",
-        "edu": "Edu",
-        "modelIntegration": "Model Integration",
-        "navigation": "Navigation"
+        "edu": "AI Education",
+        "modelIntegration": "Multi-Model Integration",
+        "navigation": "Smart Navigation"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "Powerful Features",
+      "titleEn": "PowerfulFeatures"
     },
     "page3": {
       "empty": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "No AI news yet",
+        "platform": "No platform news yet"
       },
-      "subtitle": "Subtitle",
+      "subtitle": "Explore the latest trends and cutting-edge technologies in AI",
       "tabs": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "AI News",
+        "platform": "Platform News"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "About Us",
+      "titleEn": "AI NEWS"
     },
     "page4": {
-      "content": "Content",
-      "subtitle": "Subtitle",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "Flexible pricing plans for users with different needs, start your AI journey",
+      "subtitle": "Flexible pricing plans for users with different needs",
+      "title": "Choose Your Plan",
+      "titleEn": "ChooseYourPlan"
     },
     "page5": {
-      "content": "Content",
-      "joinText": "Join Text",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "Become a member of Smart AI Community and explore the intelligent future with AI enthusiasts worldwide",
+      "joinText": "Welcome more AI enthusiasts to join us and explore the infinite possibilities of artificial intelligence together",
+      "title": "Join Us",
+      "titleEn": "JOIN US"
     },
     "typewriter": {
-      "brand": "Brand",
-      "connect": "Connect",
-      "explore": "Explore"
+      "brand": "Smart AI Community",
+      "connect": "Connect Creativity, Unleash the Unknown",
+      "explore": "Explore the Infinite Possibilities of AI"
     }
   }
 }

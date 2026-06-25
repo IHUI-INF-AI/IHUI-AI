@@ -148,77 +148,77 @@
       "close": "閉じる"
     },
     "miniappModal": {
-      "qrAlt": "Qr Alt",
-      "scanTip": "Scan Tip",
-      "title": "Title"
+      "qrAlt": "ミニプログラムQRコード",
+      "scanTip": "WeChatを開いてスキャンすると、ミニプログラムに入れます",
+      "title": "WeChatミニプログラム"
     },
     "page1": {
-      "content": "Content",
-      "ctaPrimary": "Cta Primary",
-      "ctaSecondary": "Cta Secondary"
+      "content": "スマートAIコミュニティ、AIの無限の可能性を探索",
+      "ctaPrimary": "今すぐ体験",
+      "ctaSecondary": "詳細を見る"
     },
     "page2": {
       "advantages": {
         "efficient": {
-          "description": "Description",
-          "title": "Title"
+          "description": "開発プロセスを簡素化し、豊富なAPIインターフェースとツールで、AIアプリを迅速に公開",
+          "title": "効率的"
         },
         "innovative": {
-          "description": "Description",
-          "title": "Title"
+          "description": "継続的な技術イノベーション、エージェントクラスタ、階層計画など最先端のAI機能",
+          "title": "イノベーション"
         },
         "professional": {
-          "description": "Description",
-          "title": "Title"
+          "description": "AI分野を深く掘り下げ、専門的な技術ソリューションと業界最先端の製品サービスを提供します",
+          "title": "専門"
         },
         "reliable": {
-          "description": "Description",
-          "title": "Title"
+          "description": "安定した信頼できるサービス保障、99.9%の可用性で業務継続性を保証します",
+          "title": "信頼性"
         },
-        "subtitle": "Subtitle",
-        "title": "Title",
-        "titleEn": "Title En"
+        "subtitle": "なぜスマートAIを選ぶのか",
+        "title": "コアアドバンテージ",
+        "titleEn": "CoreAdvantages"
       },
-      "content": "Content",
+      "content": "私たちが提供する全方位のAIサービスを探索してください。モデル統合からアプリストアまで、あなたの様々なニーズを満たします",
       "features": {
-        "appStore": "App Store",
-        "contentCreation": "Content Creation",
-        "edu": "Edu",
-        "modelIntegration": "Model Integration",
-        "navigation": "Navigation"
+        "appStore": "AIアプリストア",
+        "contentCreation": "コンテンツ創作",
+        "edu": "AI教育",
+        "modelIntegration": "多モデル統合",
+        "navigation": "スマートナビゲーション"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "強力な機能",
+      "titleEn": "PowerfulFeatures"
     },
     "page3": {
       "empty": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "AIニュースはありません",
+        "platform": "プラットフォームニュースはありません"
       },
-      "subtitle": "Subtitle",
+      "subtitle": "AI分野の最新動向と最先端技術を探索",
       "tabs": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "AIニュース",
+        "platform": "プラットフォームニュース"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "会社概要",
+      "titleEn": "AI NEWS"
     },
     "page4": {
-      "content": "Content",
-      "subtitle": "Subtitle",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "様々なニーズに応える柔軟な価格プランで、AIの旅を始めましょう",
+      "subtitle": "様々なニーズに応える柔軟な価格プラン",
+      "title": "適切なプランを選択",
+      "titleEn": "ChooseYourPlan"
     },
     "page5": {
-      "content": "Content",
-      "joinText": "Join Text",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "スマートAIコミュニティの一員となり、グローバルAI愛好家と一緒にスマートな未来を探索しましょう",
+      "joinText": "もっと多くのAIファンが私たちに参加し、人工知能の無限の可能性を共に探索しましょう",
+      "title": "私たちに参加",
+      "titleEn": "JOIN US"
     },
     "typewriter": {
-      "brand": "Brand",
-      "connect": "Connect",
-      "explore": "Explore"
+      "brand": "IHUI AI コミュニティ",
+      "connect": "創造性を繋ぎ、未知を解き放つ",
+      "explore": "AIの無限の可能性を探索する"
     },
     "hardcoded": {
       "aiNews": "AIニュース",

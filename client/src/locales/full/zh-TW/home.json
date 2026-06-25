@@ -148,77 +148,77 @@
       "yushu": "宇樹科技"
     },
     "miniappModal": {
-      "qrAlt": "Qr Alt",
-      "scanTip": "Scan Tip",
-      "title": "Title"
+      "qrAlt": "小程序二維碼",
+      "scanTip": "打開微信掃一掃，進入小程序",
+      "title": "微信小程序"
     },
     "page1": {
-      "content": "Content",
-      "ctaPrimary": "Cta Primary",
-      "ctaSecondary": "Cta Secondary"
+      "content": "智匯AI社區，探索AI無限可能",
+      "ctaPrimary": "立即體驗",
+      "ctaSecondary": "了解更多"
     },
     "page2": {
       "advantages": {
         "efficient": {
-          "description": "Description",
-          "title": "Title"
+          "description": "簡化開發流程，豐富的API接口和工具，讓AI應用快速上線",
+          "title": "高效"
         },
         "innovative": {
-          "description": "Description",
-          "title": "Title"
+          "description": "持續技術創新，智能體集群、分層規劃等前沿AI能力",
+          "title": "創新"
         },
         "professional": {
-          "description": "Description",
-          "title": "Title"
+          "description": "深耕AI領域，提供專業的技術解決方案和行業領先的產品服務",
+          "title": "專業"
         },
         "reliable": {
-          "description": "Description",
-          "title": "Title"
+          "description": "穩定可靠的服務保障，99.9%可用性，保障業務連續性",
+          "title": "可靠"
         },
-        "subtitle": "Subtitle",
-        "title": "Title",
-        "titleEn": "Title En"
+        "subtitle": "為什麼選擇智匯AI",
+        "title": "核心優勢",
+        "titleEn": "CoreAdvantages"
       },
-      "content": "Content",
+      "content": "探索我們提供的全方位AI服務，從模型集成到應用商店，滿足您的各種需求",
       "features": {
-        "appStore": "App Store",
-        "contentCreation": "Content Creation",
-        "edu": "Edu",
-        "modelIntegration": "Model Integration",
-        "navigation": "Navigation"
+        "appStore": "AI應用商店",
+        "contentCreation": "內容創作",
+        "edu": "AI教育",
+        "modelIntegration": "多模型集成",
+        "navigation": "智能導航"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "強大功能",
+      "titleEn": "PowerfulFeatures"
     },
     "page3": {
       "empty": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "暫無AI資訊",
+        "platform": "暫無平臺新聞"
       },
-      "subtitle": "Subtitle",
+      "subtitle": "探索AI領域最新動態與前沿技術",
       "tabs": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "AI資訊",
+        "platform": "平臺新聞"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "關於我們",
+      "titleEn": "AI NEWS"
     },
     "page4": {
-      "content": "Content",
-      "subtitle": "Subtitle",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "為不同需求的用戶提供靈活的價格方案，開啟您的AI之旅",
+      "subtitle": "為不同需求的用戶提供靈活的價格方案",
+      "title": "選擇適合您的套餐",
+      "titleEn": "選擇您的方案"
     },
     "page5": {
-      "content": "Content",
-      "joinText": "Join Text",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "成為智匯AI社區的一員，與全球AI愛好者一起探索智能未來",
+      "joinText": "歡迎更多AI發燒友加入我們，共同探索人工智能的無限可能",
+      "title": "加入我們",
+      "titleEn": "JOIN US"
     },
     "typewriter": {
-      "brand": "Brand",
-      "connect": "Connect",
-      "explore": "Explore"
+      "brand": "智匯 AI 社區",
+      "connect": "連接創意釋放未知",
+      "explore": "探索 AI 無限可能"
     },
     "hardcoded": {
       "aiNews": "AI資訊",

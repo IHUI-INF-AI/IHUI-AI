@@ -141,77 +141,77 @@
       "apiAccess": "API对接"
     },
     "miniappModal": {
-      "qrAlt": "Qr Alt",
-      "scanTip": "Scan Tip",
-      "title": "Title"
+      "qrAlt": "小程序二维码",
+      "scanTip": "打开微信扫一扫，进入小程序",
+      "title": "微信小程序"
     },
     "page1": {
-      "content": "Content",
-      "ctaPrimary": "Cta Primary",
-      "ctaSecondary": "Cta Secondary"
+      "content": "智汇AI社区，探索AI无限可能",
+      "ctaPrimary": "立即体验",
+      "ctaSecondary": "了解更多"
     },
     "page2": {
       "advantages": {
         "efficient": {
-          "description": "Description",
-          "title": "Title"
+          "description": "简化开发流程，丰富的API接口和工具，让AI应用快速上线",
+          "title": "高效"
         },
         "innovative": {
-          "description": "Description",
-          "title": "Title"
+          "description": "持续技术创新，智能体集群、分层规划等前沿AI能力",
+          "title": "创新"
         },
         "professional": {
-          "description": "Description",
-          "title": "Title"
+          "description": "深耕AI领域，提供专业的技术解决方案和行业领先的产品服务",
+          "title": "专业"
         },
         "reliable": {
-          "description": "Description",
-          "title": "Title"
+          "description": "稳定可靠的服务保障，99.9%可用性，保障业务连续性",
+          "title": "可靠"
         },
-        "subtitle": "Subtitle",
-        "title": "Title",
-        "titleEn": "Title En"
+        "subtitle": "为什么选择智汇AI",
+        "title": "核心优势",
+        "titleEn": "CoreAdvantages"
       },
-      "content": "Content",
+      "content": "探索我们提供的全方位AI服务，从模型集成到应用商店，满足您的各种需求",
       "features": {
-        "appStore": "App Store",
-        "contentCreation": "Content Creation",
-        "edu": "Edu",
-        "modelIntegration": "Model Integration",
-        "navigation": "Navigation"
+        "appStore": "AI应用商店",
+        "contentCreation": "内容创作",
+        "edu": "AI教育",
+        "modelIntegration": "多模型集成",
+        "navigation": "智能导航"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "强大功能",
+      "titleEn": "PowerfulFeatures"
     },
     "page3": {
       "empty": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "暂无AI资讯",
+        "platform": "暂无平台新闻"
       },
-      "subtitle": "Subtitle",
+      "subtitle": "探索AI领域最新动态与前沿技术",
       "tabs": {
-        "external": "External",
-        "platform": "Platform"
+        "external": "AI资讯",
+        "platform": "平台新闻"
       },
-      "title": "Title",
-      "titleEn": "Title En"
+      "title": "AI资讯",
+      "titleEn": "AI NEWS"
     },
     "page4": {
-      "content": "Content",
-      "subtitle": "Subtitle",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "为不同需求的用户提供灵活的价格方案，开启您的AI之旅",
+      "subtitle": "为不同需求的用户提供灵活的价格方案",
+      "title": "选择适合您的套餐",
+      "titleEn": "ChooseYour计划"
     },
     "page5": {
-      "content": "Content",
-      "joinText": "Join Text",
-      "title": "Title",
-      "titleEn": "Title En"
+      "content": "成为智汇AI社区的一员，与全球AI爱好者一起探索智能未来",
+      "joinText": "欢迎更多AI发烧友加入我们，共同探索人工智能的无限可能",
+      "title": "加入我们",
+      "titleEn": "JOIN US"
     },
     "typewriter": {
-      "brand": "Brand",
-      "connect": "Connect",
-      "explore": "Explore"
+      "brand": "智汇 AI 社区",
+      "connect": "连接创意释放未知",
+      "explore": "探索 AI 无限可能"
     },
     "hardcoded": {
       "aiNews": "AI资讯",
