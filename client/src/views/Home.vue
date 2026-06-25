@@ -467,7 +467,6 @@ import { Iphone } from '@element-plus/icons-vue'
 import { useHomeNavigation } from '@/composables/home/useHomeNavigation'
 import { useFullPageScroll } from '../composables/home/useFullPageScroll'
 import { useHomeAnalytics } from '@/composables/useAnalytics'
-import { usePagePerf } from '@/composables/usePagePerf'
 
 // 小程序二维码弹窗状态
 const showMiniappQR = ref(false)
@@ -669,9 +668,6 @@ useIntersectionObserver(
   },
   { threshold: 0.1 }
 )
-
-usePagePerf('Home')
-
 onMounted(async () => {
   trackHomePageView()
 

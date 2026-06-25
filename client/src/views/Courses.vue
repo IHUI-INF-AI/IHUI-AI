@@ -402,7 +402,6 @@ import SearchIcon from '@/components/common/SearchIcon.vue'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 // P13: v2 业务封装层 (走 v2Sdk 自动生成的 v2 端点)
 import { v2Courses } from '@/api'
-import { usePagePerf } from '@/composables/usePagePerf'
 import { useSEO } from '@/composables/useSEO'
 
 useSEO({
@@ -833,8 +832,6 @@ const safeDescription = computed(() => {
 })
 
 // 初始化
-usePagePerf('Courses')
-
 onMounted(async () => {
   // 初始化动效系统
   initScrollAnimations()

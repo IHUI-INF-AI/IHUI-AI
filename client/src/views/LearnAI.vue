@@ -12,7 +12,6 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useEduPlatformNav } from '@/composables/useEduPlatformNav'
 import { getProxiedImageUrl, switchImageProxy } from '@/utils/imageProxy'
-import { usePagePerf } from '@/composables/usePagePerf'
 import { useSEO } from '@/composables/useSEO'
 
 const { t: _t } = useI18n()
@@ -772,8 +771,6 @@ const filteredCourses = computed(() => {
 const filterCourses = () => {}
 
 // 生命周期
-usePagePerf('LearnAI')
-
 onMounted(() => {
   isVisible.value = true
   startTypewriter()

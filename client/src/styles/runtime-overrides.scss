@@ -2,41 +2,27 @@
 // 运行时样式覆盖
 // 重构：使用 CSS Layers 和 :where() 降低特异性
 // 使用 CSS 变量控制，用变量与单类
+// 2026-06-25: 字体定义已统一由 public/fonts-optimized/fonts.css 唯一来源管理，
+// 本文件不再定义 SCSS 字体栈与 --font-family-* 变量，避免覆盖 fonts.css 的零回退定义。
 // ============================================
 
-// 字体变量
-$harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-
 // ============================================
-// CSS 变量定义 - 放入 base 层
+// CSS 变量定义 - 字体变量由 fonts.css 注入，此处不再重复定义
 // ============================================
-@layer base {
-  :root {
-    // 字体变量
-    --font-family-chinese: #{$harmony-font-stack};
-    --font-edix: 'EDIX', sans-serif;
-    
-    // Scroll Snap 控制变量
-    --scroll-snap-type-disabled: none;
-    --scroll-snap-align-disabled: none;
-  }
-}
 
 // ============================================
 // 字体规则 - 放入 vendor 层
 // 使用 :where() 降低特异性，便于组件覆盖
 // ============================================
 @layer vendor {
-  // 全局字体规则 - 使用 :where() 降低特异性
-  :where(html),
-  :where(body),
-  :where(#app) {
-    font-family: #{$harmony-font-stack};
+  // 全局字体规则 - 直接引用 fonts.css 中定义的唯一字体变量（无 fallback）
+  :where(html, body, #app) {
+    font-family: var(--font-family-chinese);
   }
 
-  // 通用元素字体覆盖（排除特殊类）
+  // 通用元素字体覆盖（排除特殊类）：直接继承自根容器
   :where(*:not(.font-edix):not(.el-icon):not([class*="icon"]):not(svg):not(path)) {
-    font-family: #{$harmony-font-stack};
+    font-family: inherit;
   }
 
   // EDIX 字体规则 - 使用 :where() 降低特异性
@@ -60,12 +46,12 @@ $harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Se
   :where(.news-title-english.font-edix),
   :where(.pricing-title-english.font-edix),
   :where(.fifth-page-title-english.font-edix) {
-    font-family: var(--font-edix);
+    font-family: var(--font-family-edix);
   }
 
   // 非标题标签不应该使用 EDIX 字体
   :where(*:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6).font-edix) {
-    font-family: #{$harmony-font-stack};
+    font-family: inherit;
   }
 
   // 图标元素保持继承

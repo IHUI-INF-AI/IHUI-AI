@@ -157,12 +157,10 @@ $spacing-4xl: 96px !default;
 // - 本文件定义静态 SCSS 变量，供 SCSS 文件内部使用
 // ============================================
 
-// 5.1 字体族 - SCSS 变量（供 SCSS 内部使用）
-$font-family-base: -apple-system, blinkmacsystemfont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', helvetica, arial, sans-serif !default;
-$font-family-chinese: $font-family-base !default;
-$font-family-english: -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif !default;
-$font-family-heading: $font-family-base !default;
-$font-family-mono: 'HarmonyOS Sans SC', monospace !default;
+// 5.1 字体族 - 2026-06-25 终极化：SCSS 字体变量已废弃，请直接引用
+// public/fonts-optimized/fonts.css 中定义的 --font-family-* 变量。
+// 历史上 $font-family-base / $font-family-chinese / $font-family-english / $font-family-heading
+// 这 4 个 SCSS 变量因与 fonts.css 重复且无人使用，已在此删除。
 
 // 5.2 字体大小 - 静态基础值
 $font-size-xs: 12px !default;

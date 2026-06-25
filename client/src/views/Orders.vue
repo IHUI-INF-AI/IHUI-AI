@@ -364,7 +364,6 @@ import { useMouseGlow } from '@/composables/useMouseGlow'
 import { useApiError } from '@/composables/useApiError'
 import { useDebounceSearch } from '@/composables/useDebounceSearch'
 import { logger } from '@/utils/logger'
-import { usePagePerf } from '@/composables/usePagePerf'
 import { useCleanup } from '@/composables/useCleanup'
 
 // ============ 高级动效系统 ============
@@ -482,8 +481,6 @@ const retryLoad = () => {
   loadError.value = null
   loadOrders(true)
 }
-
-usePagePerf('Orders')
 
 onMounted(() => {
   // 初始化高级动效系统

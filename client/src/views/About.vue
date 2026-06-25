@@ -15,7 +15,6 @@ import { useCleanup } from '@/composables/useCleanup'
 import { useRouter } from 'vue-router'
 import useLang from '@/composables/useLang'
 import { Home, Cpu, Users, Zap, Globe, Target, Mail, MapPin, Phone, ArrowRight, Sparkles } from '@/lib/lucide-fallback'
-import { usePagePerf } from '@/composables/usePagePerf'
 import { useSEO } from '@/composables/useSEO'
 
 useSEO({
@@ -136,8 +135,6 @@ const initStatsAnimation = () => {
     if (statsEl) statsObserver?.observe(statsEl)
   })
 }
-
-usePagePerf('About')
 
 onMounted(() => {
   initScrollAnimations()

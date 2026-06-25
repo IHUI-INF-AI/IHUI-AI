@@ -66,7 +66,6 @@ const { t } = useI18n()
 import { websocketService, type WebSocketStatus } from '@/utils/websocket'
 import { useUserStore } from '@/stores/user'
 import { logger } from '@/utils/logger'
-import { usePagePerf } from '@/composables/usePagePerf'
 import { ElMessage } from 'element-plus'
 
 const userStore = useUserStore()
@@ -324,8 +323,6 @@ function scrollToBottom() {
 }
 
 let unsubStatus: (() => void) | null = null
-
-usePagePerf('Chat')
 
 onMounted(() => {
   unsubStatus = websocketService.onStatusChange((status) => {

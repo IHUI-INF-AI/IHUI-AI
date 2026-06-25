@@ -191,12 +191,15 @@ def extract_entries_from_text(text):
     # 12. goToPath('/xxx', 'key') - HeaderNavigation 模式
     for m in re.finditer(r"\bgoToPath\(\s*['\"`]([^'\"`]+)['\"`]", text):
         entries.append(("goToPath", m.group(1), line_of(text, m.start())))
-    # 13. goToXxx('/xxx') - 自定义跳转函数
+    # 13. goToXxx('/xxx') - 自定义跳转函数（需带字符串字面量参数）
     for m in re.finditer(r"\bgoTo[A-Z][A-Za-z]*\(\s*['\"`]([^'\"`]+)['\"`]", text):
         entries.append(("goToCustom", m.group(1), line_of(text, m.start())))
     # 14. handleGoXxx('/xxx') - handle 前缀
     for m in re.finditer(r"\bhandleGo[A-Z][A-Za-z]*\(\s*['\"`]([^'\"`]+)['\"`]", text):
         entries.append(("handleGo", m.group(1), line_of(text, m.start())))
+    # 14b. safeNavigate('/xxx', ...) / navigateTo('/xxx', ...) - 通用封装
+    for m in re.finditer(r"\b(safeNavigate|navigateTo|navigate)\(\s*['\"`]([^'\"`]+)['\"`]", text):
+        entries.append(("navigate", m.group(2), line_of(text, m.start())))
     # 15. to: '/x' (vue-router 路由配置中的 redirect / alias)
     for m in re.finditer(r"\b(?:to|redirect|alias)\s*:\s*['\"`](/[^'\"`]+)['\"`]", text):
         entries.append(("to/redirect", m.group(1), line_of(text, m.start())))
@@ -305,9 +308,10 @@ def main():
         fp = os.path.join(VIEWS_DIR, p)
         page_entries[p] = extract_entries_from_file(fp)
 
-    # 4. 提取 nav 组件
+    # 4. 提取 nav 组件 + composables（导航函数）
     print("\n[4/5] 提取导航组件入口...")
     nav_files = []
+    # 4a. 组件下包含 header/footer/menu/nav/sidebar/tabbar/mobile 关键词
     for root, dirs, files in os.walk(COMPONENTS_DIR):
         dirs[:] = [d for d in dirs if d != "node_modules"]
         for f in files:
@@ -316,12 +320,43 @@ def main():
             rel = os.path.relpath(os.path.join(root, f), COMPONENTS_DIR).replace("\\", "/")
             keywords = ["header", "footer", "menu", "nav", "sidebar", "tabbar", "mobile"]
             if any(k in rel.lower() for k in keywords):
+                nav_files.append("components/" + rel)
+    # 4b. composables 下包含 navigation / route / router / nav 关键词（.ts）
+    composables_dir = os.path.join(CLIENT_DIR, "composables")
+    nav_keyword_re = re.compile(r"(navigation|navigate|router|route|nav\b)", re.IGNORECASE)
+    if os.path.isdir(composables_dir):
+        for root, dirs, files in os.walk(composables_dir):
+            dirs[:] = [d for d in dirs if d != "node_modules"]
+            for f in files:
+                if not f.endswith(".ts"):
+                    continue
+                if not nav_keyword_re.search(f):
+                    continue
+                rel = os.path.relpath(os.path.join(root, f), CLIENT_DIR).replace("\\", "/")
+                nav_files.append(rel)
+    # 4c. utils 下跟路由跳转相关的（如 path helpers）
+    utils_dir = os.path.join(CLIENT_DIR, "utils")
+    if os.path.isdir(utils_dir):
+        for root, dirs, files in os.walk(utils_dir):
+            dirs[:] = [d for d in dirs if d != "node_modules"]
+            for f in files:
+                if not f.endswith(".ts"):
+                    continue
+                if not nav_keyword_re.search(f):
+                    continue
+                rel = os.path.relpath(os.path.join(root, f), CLIENT_DIR).replace("\\", "/")
                 nav_files.append(rel)
     nav_entries = {}
     for nf in nav_files:
-        fp = os.path.join(COMPONENTS_DIR, nf)
+        # 拼接实际文件路径
+        if nf.startswith("components/"):
+            fp = os.path.join(COMPONENTS_DIR, nf[len("components/"):])
+        else:
+            fp = os.path.join(CLIENT_DIR, nf)
+        if not os.path.exists(fp):
+            continue
         nav_entries[nf] = extract_entries_from_file(fp)
-    print(f"  - 共 {len(nav_files)} 个 nav 组件")
+    print(f"  - 共 {len(nav_files)} 个 nav 文件（components + composables + utils）")
 
     # 5. 归一化 + 索引
     print("\n[5/5] 归一化与对比...")

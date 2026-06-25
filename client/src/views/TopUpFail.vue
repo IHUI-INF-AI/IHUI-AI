@@ -172,7 +172,7 @@ $tf-glass-border: var(--border-unified-color);
 $local-text-primary: var(--el-text-color-primary);
 $local-text-secondary: var(--el-text-color-secondary);
 $local-text-muted: var(--el-text-color-placeholder);
-$font-family-mono: 'HarmonyOS Sans SC', monospace;
+$font-family-mono: monospace;
 
 // ============================================
 // 页面容器
