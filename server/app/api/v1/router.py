@@ -714,7 +714,7 @@ api_router.include_router(sys_user_router, prefix="/system", tags=["System"])
 api_router.include_router(sys_admin_router, prefix="/system/admin", tags=["System Admin"])
 api_router.include_router(sys_audit_router, prefix="/system/audit", tags=["System: Audit"])
 api_router.include_router(sys_codegen_router, prefix="/system", tags=["System: Codegen"])
-# 2026-06-26: sys_dictionary_router 已移至 server/archive/_new_endpoints_pending_review_2026-06-26/, 暂不注册
+api_router.include_router(sys_dictionary_router, tags=["System: Dictionary"])
 
 # Monitor
 api_router.include_router(monitor_alerts_router, prefix="/monitor/alerts", tags=["Monitor: Alerts"])

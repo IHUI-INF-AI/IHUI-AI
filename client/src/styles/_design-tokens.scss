@@ -806,13 +806,11 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
   background: var(--el-bg-color);
   border: 1px solid var(--border-unified-color);
   border-radius: var(--global-border-radius);
-  transition: transform $transition-premium, 
-              box-shadow $transition-premium, 
+  transition: transform $transition-premium,
               border-color $transition-premium;
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: var(--global-box-shadow);
     border-color: var(--el-text-color-primary);
   }
 }

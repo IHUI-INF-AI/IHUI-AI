@@ -200,7 +200,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class {{ class_name }}Base(BaseModel):
@@ -227,7 +227,7 @@ class {{ class_name }}Out({{ class_name }}Base):
     """Properties to return to client."""
     {{ pk_field }}: {{ pk_type }}
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 '''
 
 _ROUTE_TEMPLATE = r'''"""CRUD routes for {{ function_name }} (auto-generated)."""

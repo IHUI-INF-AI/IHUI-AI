@@ -128,10 +128,6 @@
       border: 1px solid var(--el-border-color);
       border-radius: 8px;
       background: var(--el-bg-color);
-      
-      &:hover {
-        box-shadow: var(--global-box-shadow);
-      }
     }
     
     .el-table__cell {
