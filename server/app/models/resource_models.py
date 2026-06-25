@@ -1,6 +1,6 @@
 """Resource, dictionary, exchange rate and official information models."""
 
-from sqlalchemy import BigInteger, Column, DateTime, Float, Index, Integer, String, Text, func
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Index, Integer, String, Text, func
 
 from app.database import Base
 from app.models.base import TimestampMixin, id_column
@@ -10,12 +10,28 @@ class Resource(TimestampMixin, Base):
     """Resource record (zhs_ai_project.resource)."""
 
     __tablename__ = "resource"
-    __table_args__ = (Index("ix_resource_status", "status"),)
+    __table_args__ = (
+        Index("ix_resource_status", "status"),
+        Index("ix_resource_member_id", "member_id"),
+        Index("ix_resource_category_id", "category_id"),
+    )
 
     id = id_column(comment="ID")
+    member_id = Column(BigInteger, nullable=True, comment="Owner member ID")
     resource_name = Column(String(200), nullable=True, comment="Resource name")
+    title = Column(String(200), nullable=True, comment="Resource title (Java field)")
     resource_type = Column(String(50), nullable=True, comment="Resource type")
     resource_url = Column(String(500), nullable=True, comment="Resource URL")
+    url = Column(String(500), nullable=True, comment="Resource URL (Java field, alias of resource_url)")
+    content = Column(Text, nullable=True, comment="Resource description (Java field)")
+    category_id = Column(BigInteger, nullable=True, comment="Category ID (Java field)")
+    keyword = Column(String(500), nullable=True, comment="Search keyword (Java field)")
+    price = Column(Float, default=0.0, comment="Resource price (Java field)")
+    point = Column(Integer, default=0, comment="Reward points (Java field)")
+    download_count = Column(Integer, default=0, comment="Download count (Java field)")
+    view_count = Column(Integer, default=0, comment="View count (Java field)")
+    published = Column(Boolean, default=False, comment="Published flag (Java field)")
+    is_show = Column(Boolean, default=True, comment="Show in list (Java field)")
     status = Column(Integer, default=1, comment="0=disabled, 1=active")
     create_time = Column(DateTime, server_default=func.now(), comment="Creation time")
 

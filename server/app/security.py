@@ -117,10 +117,15 @@ def create_refresh_token(subject: str, family_id: str | None = None) -> tuple[st
     return token, jti, fid
 
 
-def decode_access_token(token: str) -> dict | None:
+def decode_access_token(token: str, allow_refresh: bool = False) -> dict | None:
     """Decode and validate a JWT token. Returns payload or None.
 
     Bug-26: 同时检查 JWT 黑名单, 已吊销的 token 返回 None.
+
+    allow_refresh 参数为前向兼容保留: refresh 轮转/吊销调用点显式传 True
+    表明该上下文允许解码 refresh token. 当前实现为通用解码器 (不按 type 拒绝,
+    见 test_t2_jwt_refresh_sliding 的设计选择), 参数暂不改变行为;
+    待 app/security/auth.py 的 type 校验迁移接入后生效.
     """
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
@@ -169,7 +174,7 @@ def get_current_user_uuid(
     return payload.get("sub")
 
 
-def require_login(
+async def require_login(
     user_uuid=Depends(get_current_user_uuid),
 ):
     """Require a valid login. Returns user UUID or raises 401."""

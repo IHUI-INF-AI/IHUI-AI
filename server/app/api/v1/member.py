@@ -170,6 +170,28 @@ def create_post(req: CreatePostReq, _user: str = Depends(require_login)):
     return {"code": 0, "data": _to_dict(p), "msg": "ok"}
 
 
+@router.get("/post/list", summary="岗位列表")
+def list_posts(_user: str = Depends(require_login)):
+    items = member_service.list_posts()
+    return {"code": 0, "data": [_to_dict(p) for p in items], "msg": "ok"}
+
+
+@router.put("/post/{post_id}", summary="更新岗位")
+def update_post(post_id: str, payload: dict = {}, _user: str = Depends(require_login)):
+    p = member_service.update_post(post_id=post_id, name=payload.get("name"), status=payload.get("status"))
+    if not p:
+        raise HTTPException(status_code=404, detail="岗位不存在")
+    return {"code": 0, "data": _to_dict(p), "msg": "ok"}
+
+
+@router.delete("/post/{post_id}", summary="删除岗位")
+def delete_post(post_id: str, _user: str = Depends(require_login)):
+    ok = member_service.delete_post(post_id=post_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="岗位不存在")
+    return {"code": 0, "msg": "ok"}
+
+
 @router.post("/post/{post_id}/members/{member_id}", summary="分配岗位")
 def assign_post(post_id: str, member_id: str, _user: str = Depends(require_login)):
     r = member_service.assign_post(member_id=member_id, post_id=post_id)
@@ -180,6 +202,28 @@ def assign_post(post_id: str, member_id: str, _user: str = Depends(require_login
 def create_group(req: CreateGroupReq, _user: str = Depends(require_login)):
     g = member_service.create_group(name=req.name)
     return {"code": 0, "data": _to_dict(g), "msg": "ok"}
+
+
+@router.get("/group/list", summary="分组列表")
+def list_groups(_user: str = Depends(require_login)):
+    items = member_service.list_groups()
+    return {"code": 0, "data": [_to_dict(g) for g in items], "msg": "ok"}
+
+
+@router.put("/group/{group_id}", summary="更新分组")
+def update_group(group_id: str, payload: dict = {}, _user: str = Depends(require_login)):
+    g = member_service.update_group(group_id=group_id, name=payload.get("name"), status=payload.get("status"))
+    if not g:
+        raise HTTPException(status_code=404, detail="分组不存在")
+    return {"code": 0, "data": _to_dict(g), "msg": "ok"}
+
+
+@router.delete("/group/{group_id}", summary="删除分组")
+def delete_group(group_id: str, _user: str = Depends(require_login)):
+    ok = member_service.delete_group(group_id=group_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="分组不存在")
+    return {"code": 0, "msg": "ok"}
 
 
 @router.post("/group/{group_id}/members/{member_id}", summary="添加会员到分组")
@@ -198,10 +242,72 @@ def create_level(req: CreateLevelReq, _user: str = Depends(require_login)):
     return {"code": 0, "data": _to_dict(lv), "msg": "ok"}
 
 
+@router.get("/level/list", summary="等级列表")
+def list_levels(_user: str = Depends(require_login)):
+    items = member_service.list_levels()
+    return {"code": 0, "data": [_to_dict(lv) for lv in items], "msg": "ok"}
+
+
+@router.put("/level/{level_id}", summary="更新等级")
+def update_level(level_id: str, payload: dict = {}, _user: str = Depends(require_login)):
+    lv = member_service.update_level(level_id=level_id, name=payload.get("name"), conditions=payload.get("conditions"))
+    if not lv:
+        raise HTTPException(status_code=404, detail="等级不存在")
+    return {"code": 0, "data": _to_dict(lv), "msg": "ok"}
+
+
+@router.delete("/level/{level_id}", summary="删除等级")
+def delete_level(level_id: str, _user: str = Depends(require_login)):
+    ok = member_service.delete_level(level_id=level_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="等级不存在")
+    return {"code": 0, "msg": "ok"}
+
+
 @router.post("/level/{level_id}/grant/{member_id}", summary="授予会员等级")
 def grant_level(level_id: str, member_id: str, _user: str = Depends(require_login)):
     r = member_service.grant_level(member_id=member_id, level_id=level_id)
     return {"code": 0, "data": _to_dict(r), "msg": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# EduMemberCompanyType
+# ---------------------------------------------------------------------------
+
+@router.post("/company/type", summary="创建公司类型")
+def create_company_type(req: CreateCompanyReq, _user: str = Depends(require_login)):
+    t = member_service.create_company_type(name=req.name, **req.extra)
+    return {"code": 0, "data": _to_dict(t), "msg": "ok"}
+
+
+@router.get("/company/type/list", summary="公司类型列表")
+def list_company_types(_user: str = Depends(require_login)):
+    items = member_service.list_company_types()
+    return {"code": 0, "data": [_to_dict(t) for t in items], "msg": "ok"}
+
+
+@router.get("/company/type/{type_id}", summary="公司类型详情")
+def get_company_type(type_id: str, _user: str = Depends(require_login)):
+    t = member_service.get_company_type(type_id=type_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="公司类型不存在")
+    return {"code": 0, "data": _to_dict(t), "msg": "ok"}
+
+
+@router.put("/company/type/{type_id}", summary="更新公司类型")
+def update_company_type(type_id: str, payload: dict = {}, _user: str = Depends(require_login)):
+    t = member_service.update_company_type(type_id=type_id, name=payload.get("name"), status=payload.get("status"))
+    if not t:
+        raise HTTPException(status_code=404, detail="公司类型不存在")
+    return {"code": 0, "data": _to_dict(t), "msg": "ok"}
+
+
+@router.delete("/company/type/{type_id}", summary="删除公司类型")
+def delete_company_type(type_id: str, _user: str = Depends(require_login)):
+    ok = member_service.delete_company_type(type_id=type_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="公司类型不存在")
+    return {"code": 0, "msg": "ok"}
 
 
 # ---------------------------------------------------------------------------

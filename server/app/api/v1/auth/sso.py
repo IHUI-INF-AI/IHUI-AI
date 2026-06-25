@@ -12,6 +12,7 @@ SSO (单点登录) 路由.
   - POST /sso/member/create 创建会员 (创建 User + UserAuthInfo)
 """
 
+import hmac
 import ipaddress
 import uuid as _uuid
 
@@ -174,7 +175,7 @@ def uuid_login(request: Request, uuid: str = Body(..., embed=True)):
         return error("UUID 登录内部密钥未配置, 已禁用", "403000")
 
     provided_key = request.headers.get("X-Internal-Auth", "")
-    if not provided_key or provided_key != internal_auth_key:
+    if not provided_key or not hmac.compare_digest(provided_key, internal_auth_key):
         logger.warning("SSO uuid login rejected: invalid X-Internal-Auth, ip={}, uuid={}", client_ip, uuid)
         return error("UUID 登录内部密钥校验失败", "403000")
 
@@ -294,6 +295,7 @@ def member_create(
     phone: str = Body(...),
     password: str = Body(...),
     nickname: str = Body(None),
+    user_uuid: str = Depends(require_role("admin")),
 ):
     """创建会员账号.
 

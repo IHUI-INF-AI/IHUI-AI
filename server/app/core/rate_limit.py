@@ -74,11 +74,34 @@ def _match_limit(path: str, method: str) -> tuple[int, int]:
 _request_log: dict[str, dict[str, deque[float]]] = defaultdict(lambda: defaultdict(deque))
 
 
+def _is_trusted_proxy(ip: str) -> bool:
+    """判断 IP 是否为可信代理 (本机/内网). 用于决定是否信任 X-Forwarded-For."""
+    try:
+        import ipaddress
+
+        addr = ipaddress.ip_address(ip)
+        if addr.is_loopback or addr.is_private:
+            return True
+    except ValueError:
+        pass
+    return False
+
+
 def _client_ip(request: Request) -> str:
+    """获取客户端真实 IP.
+
+    安全修复: 仅当直连对端是可信代理 (本机/内网) 时才解析 X-Forwarded-For,
+    避免外网客户端伪造 XFF 绕过限流.
+    """
+    direct = request.client.host if request.client else "unknown"
     xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    if xff and _is_trusted_proxy(direct):
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        for ip in reversed(parts):
+            if not _is_trusted_proxy(ip):
+                return ip
+        return parts[0] if parts else direct
+    return direct
 
 
 def _is_whitelisted(path: str) -> bool:

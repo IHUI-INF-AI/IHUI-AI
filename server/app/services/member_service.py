@@ -151,6 +151,32 @@ def create_post(name: str) -> EduMemberPost:
         return p
 
 
+def list_posts() -> list[EduMemberPost]:
+    with get_session() as db:
+        return db.query(EduMemberPost).order_by(EduMemberPost.created_at.desc()).all()
+
+
+def update_post(post_id: str, name: str | None = None, status: int | None = None) -> EduMemberPost | None:
+    with get_session() as db:
+        p = db.query(EduMemberPost).filter(EduMemberPost.id == post_id).first()
+        if not p:
+            return None
+        if name is not None:
+            p.name = name
+        if status is not None:
+            p.status = status
+        return p
+
+
+def delete_post(post_id: str) -> bool:
+    with get_session() as db:
+        p = db.query(EduMemberPost).filter(EduMemberPost.id == post_id).first()
+        if not p:
+            return False
+        db.delete(p)
+        return True
+
+
 def assign_post(member_id: str, post_id: str) -> EduMemberPostMemberRelation:
     with get_session() as db:
         r = EduMemberPostMemberRelation(member_id=member_id, member_post_id=post_id)
@@ -163,6 +189,32 @@ def create_group(name: str) -> EduMemberGroup:
         g = EduMemberGroup(name=name, status=1)
         db.add(g)
         return g
+
+
+def list_groups() -> list[EduMemberGroup]:
+    with get_session() as db:
+        return db.query(EduMemberGroup).order_by(EduMemberGroup.created_at.desc()).all()
+
+
+def update_group(group_id: str, name: str | None = None, status: int | None = None) -> EduMemberGroup | None:
+    with get_session() as db:
+        g = db.query(EduMemberGroup).filter(EduMemberGroup.id == group_id).first()
+        if not g:
+            return None
+        if name is not None:
+            g.name = name
+        if status is not None:
+            g.status = status
+        return g
+
+
+def delete_group(group_id: str) -> bool:
+    with get_session() as db:
+        g = db.query(EduMemberGroup).filter(EduMemberGroup.id == group_id).first()
+        if not g:
+            return False
+        db.delete(g)
+        return True
 
 
 def add_to_group(member_id: str, group_id: str) -> EduMemberGroupMemberRelation:
@@ -183,11 +235,79 @@ def create_level(name: str, conditions: int = 0) -> EduMemberLevel:
         return lv
 
 
+def list_levels() -> list[EduMemberLevel]:
+    with get_session() as db:
+        return db.query(EduMemberLevel).order_by(EduMemberLevel.created_at.desc()).all()
+
+
+def update_level(level_id: str, name: str | None = None, conditions: int | None = None) -> EduMemberLevel | None:
+    with get_session() as db:
+        lv = db.query(EduMemberLevel).filter(EduMemberLevel.id == level_id).first()
+        if not lv:
+            return None
+        if name is not None:
+            lv.name = name
+        if conditions is not None:
+            lv.conditions = conditions
+        return lv
+
+
+def delete_level(level_id: str) -> bool:
+    with get_session() as db:
+        lv = db.query(EduMemberLevel).filter(EduMemberLevel.id == level_id).first()
+        if not lv:
+            return False
+        db.delete(lv)
+        return True
+
+
 def grant_level(member_id: str, level_id: str) -> EduMemberLevelRelation:
     with get_session() as db:
         r = EduMemberLevelRelation(member_id=member_id, level_id=level_id)
         db.add(r)
         return r
+
+
+# ---------------------------------------------------------------------------
+# EduMemberCompanyType
+# ---------------------------------------------------------------------------
+
+def create_company_type(name: str, **kwargs: Any) -> EduMemberCompanyType:
+    with get_session() as db:
+        t = EduMemberCompanyType(name=name, status=1, **{k: v for k, v in kwargs.items() if k in {c.name for c in EduMemberCompanyType.__table__.columns}})
+        db.add(t)
+        return t
+
+
+def list_company_types() -> list[EduMemberCompanyType]:
+    with get_session() as db:
+        return db.query(EduMemberCompanyType).order_by(EduMemberCompanyType.created_at.desc()).all()
+
+
+def update_company_type(type_id: str, name: str | None = None, status: int | None = None) -> EduMemberCompanyType | None:
+    with get_session() as db:
+        t = db.query(EduMemberCompanyType).filter(EduMemberCompanyType.id == type_id).first()
+        if not t:
+            return None
+        if name is not None:
+            t.name = name
+        if status is not None:
+            t.status = status
+        return t
+
+
+def delete_company_type(type_id: str) -> bool:
+    with get_session() as db:
+        t = db.query(EduMemberCompanyType).filter(EduMemberCompanyType.id == type_id).first()
+        if not t:
+            return False
+        db.delete(t)
+        return True
+
+
+def get_company_type(type_id: str) -> EduMemberCompanyType | None:
+    with get_session() as db:
+        return db.query(EduMemberCompanyType).filter(EduMemberCompanyType.id == type_id).first()
 
 
 # ---------------------------------------------------------------------------

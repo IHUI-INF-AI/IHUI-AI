@@ -35,17 +35,21 @@ def get_public_key():
     """
     global _rsa_public_key_b64
 
+    # 警告: 当前 JWT 使用 HS256 对称签名, 此 RSA 公钥并未用于 token 验证.
+    # 仅供未来迁移到 RS256 时参考. 调用方不应依赖此公钥校验当前 token.
+    rsa_warning = "JWT currently uses HS256, this RSA public key is not used for verification"
+
     try:
         # 优先从配置读取
         from app.config import settings
 
         configured_key = getattr(settings, "JWT_RSA_PUBLIC_KEY", None)
         if configured_key:
-            return success({"publicKey": configured_key})
+            return success({"publicKey": configured_key, "warning": rsa_warning})
 
         # 使用缓存的密钥对
         if _rsa_public_key_b64:
-            return success({"publicKey": _rsa_public_key_b64})
+            return success({"publicKey": _rsa_public_key_b64, "warning": rsa_warning})
 
         # 生成新的 RSA 密钥对 (2048 位)
         from cryptography.hazmat.primitives import serialization
@@ -59,7 +63,7 @@ def get_public_key():
         _rsa_public_key_b64 = base64.b64encode(public_key_pem).decode("utf-8")
 
         logger.info("JWT RSA keypair generated and cached")
-        return success({"publicKey": _rsa_public_key_b64})
+        return success({"publicKey": _rsa_public_key_b64, "warning": rsa_warning})
     except Exception as e:
         logger.error("Get JWT public key error: {}", e)
         return error("获取公钥失败", "500000")

@@ -142,7 +142,7 @@ async def refresh_token(request: Request, refresh_token: str = Query(None)):
     from app.config import settings
     from app.utils.refresh_rotation import rotate_refresh
 
-    payload = decode_access_token(refresh_token)
+    payload = decode_access_token(refresh_token, allow_refresh=True)
     if not payload:
         return error("Invalid refresh token", "401")
 
@@ -179,7 +179,7 @@ def get_user_info(
 
 
 @router.post("/logout", summary="Logout")
-def logout(request: Request):
+def logout(request: Request, user_uuid: str = Depends(require_login)):
     """登出 - 把当前 token 加入黑名单, 立即失效."""
     from app.core.jwt_blacklist import revoke_token
     auth_header = request.headers.get("authorization", "")

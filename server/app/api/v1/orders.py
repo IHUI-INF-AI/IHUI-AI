@@ -78,6 +78,30 @@ def _order_to_dict(o: Order) -> dict:
 # =============================================================================
 
 
+def _resolve_product_price(db, product_id: str, order_type: int):
+    """按 product_id 查询真实定价(分). 未查到返回 None.
+
+    - order_type=2 (identity) 查 ProductIdentity
+    - 其他类型查 ZhsProduct
+    """
+    from app.models.app_content_models import ProductIdentity, ZhsProduct
+
+    if order_type == 2:
+        row = db.execute(
+            select(ProductIdentity).where(ProductIdentity.id == product_id).limit(1)
+        ).scalar_one_or_none()
+        if row is not None and row.price is not None:
+            return int(row.price)
+        return None
+
+    row = db.execute(
+        select(ZhsProduct).where(ZhsProduct.id == product_id).limit(1)
+    ).scalar_one_or_none()
+    if row is not None and row.price is not None:
+        return int(row.price)
+    return None
+
+
 @router.post("/create", summary="创建订单")
 def create_order(
     product_id: str = Query(..., description="产品ID"),
@@ -90,16 +114,29 @@ def create_order(
 
     生成商户订单号并创建一条待支付订单记录 (status=0, payment_status=0).
     返回订单ID、商户订单号和金额, 前端可据此发起支付.
+
+    安全修复: 金额以后端查询的真实定价为准, 忽略前端传入的 amount.
     """
     with get_session() as db:
         try:
             from app.utils.order_generator import order_generator
 
+            # 安全修复: 后端按 product_id 查真实定价, 忽略前端传入的 amount
+            real_amount = _resolve_product_price(db, product_id, order_type)
+            if real_amount is None:
+                # 未查到定价: 保留前端金额但告警, 需运营补齐产品定价
+                logger.warning(
+                    f"create_order product price not found, "
+                    f"product_id={product_id} order_type={order_type}, "
+                    f"fallback to frontend amount={amount}"
+                )
+                real_amount = amount
+
             out_trade_no = order_generator.generate()
             order = Order(
                 user_id=user_id,
                 out_trade_no=out_trade_no,
-                amount=amount,
+                amount=real_amount,
                 status=0,
                 payment_status=0,
                 product_id=product_id,

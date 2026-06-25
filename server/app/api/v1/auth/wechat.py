@@ -357,6 +357,7 @@ async def wechat_rebind(
 def wechat_rebind_by_phone(
     phone: str = Query(..., description="User phone number"),
     open_id: str = Query(..., description="New WeChat open_id to bind"),
+    current_user_uuid: str = Depends(require_login),
 ):
     """Rebind WeChat open_id by phone number.
 
@@ -364,6 +365,7 @@ def wechat_rebind_by_phone(
       UPDATE zhs_user SET open_id = #{openId} WHERE phone = #{phone}
 
     This is the original ZHS phone-based rebind endpoint.
+    安全: 需登录, 且仅允许手机号持有者换绑自己的微信 (current_user.phone == phone).
     """
     from app.database import SessionFactory2, get_session
     from app.models.user_models import UserAuthInfo, UserThirdPartyAccount
@@ -374,6 +376,9 @@ def wechat_rebind_by_phone(
             auth = db.query(UserAuthInfo).filter(UserAuthInfo.phone == phone).first()
             if not auth:
                 return error("该手机号未注册", "404")
+            # 校验当前登录用户持有该手机号 (防越权换绑他人账号)
+            if auth.user_uuid != current_user_uuid:
+                return error("无权操作: 手机号与当前登录用户不匹配", "403")
             user_uuid = auth.user_uuid
             # Remove old wechat bindings for this user
             db.query(UserThirdPartyAccount).filter(
@@ -577,7 +582,7 @@ async def wechat_pc_callback(code: str = Query(..., description="微信授权码
                     db.add(binding)
                     db.commit()
 
-                jwt_token = create_access_token({"sub": user.uuid})
+                jwt_token = create_access_token(subject=user.uuid)
 
             return success({"token": jwt_token, "user": {"uuid": user.uuid, "nickname": user.nickname, "avatar": user.avatar}})
     except Exception as e:

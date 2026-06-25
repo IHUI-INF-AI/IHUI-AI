@@ -5,13 +5,14 @@ import sys
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from app.config import settings
+from app.core.admin_auth import admin_required
 from app.monitoring import PrometheusMiddleware, render_metrics
 from app.utils.cached_static import CachedStaticFiles
 
@@ -612,14 +613,14 @@ def create_app() -> FastAPI:
 
     # Circuit breaker status
     @app.get("/resilience", include_in_schema=False)
-    def resilience_status():
+    def resilience_status(_=Depends(admin_required)):
         from app.resilience import all_snapshots
 
         return all_snapshots()
 
     # Manual circuit breaker reset (fault tolerance)
     @app.post("/resilience/reset/{circuit_name}", include_in_schema=False)
-    def reset_circuit(circuit_name: str):
+    def reset_circuit(circuit_name: str, _=Depends(admin_required)):
         from app.resilience import _CIRCUITS
 
         cb = _CIRCUITS.get(circuit_name)

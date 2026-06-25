@@ -4,6 +4,7 @@ Uses Supabase Management API (HTTPS 443) to execute SQL queries.
 
 import json
 import os
+import re
 import urllib.request
 
 from app.utils.ai_helpers import bearer_headers
@@ -19,13 +20,16 @@ def execute_sql(query: str, params: list | None = None) -> list[dict]:
         raise RuntimeError("SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be set")
 
     if params:
-        for i, param in enumerate(params):
-            if isinstance(param, str):
-                query = query.replace(f"${i+1}", f"'{param}'")
-            elif param is None:
-                query = query.replace(f"${i+1}", "NULL")
-            else:
-                query = query.replace(f"${i+1}", str(param))
+        # 用正则按 $N 倒序替换, 避免 $1 误伤 $11; 并对字符串做单引号转义防 SQL 注入
+        def _escape(p):
+            if p is None:
+                return "NULL"
+            if isinstance(p, (int, float)):
+                return str(p)
+            return "'" + str(p).replace("'", "''") + "'"
+
+        for i in range(len(params), 0, -1):
+            query = re.sub(rf"\${i}\b", _escape(params[i - 1]), query)
 
     req = urllib.request.Request(
         f"https://api.supabase.com/v1/projects/{SUPABASE_PROJECT}/database/query",

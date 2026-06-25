@@ -97,8 +97,8 @@ def verify_notify(params: dict) -> bool:
     sorted_str = "&".join(f"{k}={quote_plus(str(v))}" for k, v in sorted(params.items()))
     public_key = _load_alipay_public_key()
     if not public_key:
-        logger.warning("Alipay public key missing, skip verify (DEV only)")
-        return True
+        logger.error("Alipay public key missing, reject notify")
+        return False
     return _rsa_verify(sorted_str, sign, public_key)
 
 
@@ -219,7 +219,8 @@ async def refund_order(
     url = f"{settings.ALIPAY_GATEWAY}?{sorted_str}&sign={quote_plus(sign)}"
     async with httpx.AsyncClient(timeout=15) as client:
         try:
-            resp = await client.get(url)
+            # 修复: alipay.trade.refund 必须用 POST (GET 会被网关拒绝)
+            resp = await client.post(url)
             return {"out_request_no": out_request_no, **resp.json()}
         except Exception as e:
             logger.error(f"Alipay refund error: {e}")

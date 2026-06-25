@@ -5,16 +5,46 @@
 """
 
 import io
+import ipaddress
 import logging
 import os
+import socket
 import uuid
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _is_safe_url(url: str) -> bool:
+    """SSRF 防护: 校验 URL scheme 与目标 IP 不在私有/保留/环回/链路本地段.
+
+    拒绝:
+    - 非 http/https scheme
+    - 解析到私有/环回/链路本地/保留/多播 IP
+    - 云元数据地址 169.254.169.254
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        addrs = socket.getaddrinfo(hostname, None)
+        for _family, _type, _proto, _canon, sockaddr in addrs:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                return False
+            if str(ip) == "169.254.169.254":
+                return False
+        return True
+    except Exception:
+        return False
 
 _client = None
 _use_local = False
@@ -171,18 +201,28 @@ async def upload_from_url(
     """
     if not url:
         return ""
+    # SSRF 防护: 校验 URL scheme 与目标 IP
+    if not _is_safe_url(url):
+        logger.warning(f"upload_from_url 拒绝不安全 URL: {url}")
+        return url
     if file_name is None:
         url_path = url.split("?")[0].split("/")[-1] or "file"
         file_name = url_path
+    max_size = 100 * 1024 * 1024  # 100MB
     try:
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            data = resp.content
-            if not content_type or content_type == "application/octet-stream":
-                ct = resp.headers.get("content-type", "").split(";")[0].strip()
-                if ct:
-                    content_type = ct
+            # 流式下载, 预检 Content-Length 防止 OOM
+            async with client.stream("GET", url) as resp:
+                resp.raise_for_status()
+                content_length = resp.headers.get("content-length")
+                if content_length and int(content_length) > max_size:
+                    logger.warning(f"upload_from_url 文件过大 ({content_length} bytes), 跳过: {url}")
+                    return url
+                data = await resp.aread()
+                if not content_type or content_type == "application/octet-stream":
+                    ct = resp.headers.get("content-type", "").split(";")[0].strip()
+                    if ct:
+                        content_type = ct
         return await upload_bytes(data, file_name, content_type, bucket)
     except Exception as e:
         logger.warning(f"upload_from_url 失败 ({url}): {e}")

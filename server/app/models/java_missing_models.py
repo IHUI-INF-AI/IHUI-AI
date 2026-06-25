@@ -163,3 +163,96 @@ class WxPayNotification(Base):
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class PowerPurchaseRule(Base):
+    """算力购买规则表 (迁移自 ai-smart-society-java: power_purchase_rule)."""
+
+    __tablename__ = "power_purchase_rule"
+
+    id = Column(String(64), primary_key=True)
+    title = Column(String(255), nullable=True, comment="商品信息")
+    status = Column(Integer, default=0, comment="0正常|1活动|3折扣")
+    is_del = Column(Integer, default=0, comment="逻辑删除 0保留|1删除")
+    begin_at = Column(DateTime, comment="活动开始时间")
+    end_at = Column(DateTime, comment="活动结束时间")
+    pic_explain = Column(String(512), comment="说明图片地址")
+    field1 = Column(String(255), comment="备用字段")
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "status": self.status,
+            "is_del": self.is_del,
+            "begin_at": self.begin_at.isoformat() if self.begin_at else None,
+            "end_at": self.end_at.isoformat() if self.end_at else None,
+            "pic_explain": self.pic_explain,
+            "field1": self.field1,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ZhsDeveloperFundLogs(Base):
+    """开发者订单日志表 (迁移自 ai-smart-society-java: zhs_developer_fund_logs)."""
+
+    __tablename__ = "zhs_developer_fund_logs"
+
+    id = id_column()
+    order_id = Column(String(64), index=True, comment="关联订单")
+    operate = Column(Integer, default=0, comment="操作类型 0其他|1购买|2提现|3退款")
+    amount = Column(Integer, default=0, comment="约定金额")
+    real_amount = Column(Integer, default=0, comment="实际金额")
+    discount = Column(Integer, default=100, comment="平台折扣比例")
+    product_id = Column(String(64), comment="商品id")
+    type = Column(Integer, default=0, comment="商品类型 0其他|1开发者身份")
+    operate_id = Column(String(64), comment="操作人")
+    operated_at = Column(DateTime, comment="操作时间")
+    beneficiary = Column(String(64), comment="受益人（只有分销才会使用）")
+    benefit_amount = Column(String(32), comment="受益金额")
+    created_at = Column(DateTime, default=utcnow)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "order_id": self.order_id,
+            "operate": self.operate,
+            "amount": self.amount,
+            "real_amount": self.real_amount,
+            "discount": self.discount,
+            "product_id": self.product_id,
+            "type": self.type,
+            "operate_id": self.operate_id,
+            "operated_at": self.operated_at.isoformat() if self.operated_at else None,
+            "beneficiary": self.beneficiary,
+            "benefit_amount": self.benefit_amount,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ZhsUserSysLink(Base):
+    """普通用户与系统用户对应表 (迁移自 ai-smart-society-java: zhs_user_sys_link)."""
+
+    __tablename__ = "zhs_user_sys_link"
+
+    id = id_column()
+    user_uuid = Column(String(64), index=True, comment="登录用户id")
+    sys_user_id = Column(String(64), index=True, comment="系统登录用户id")
+    field1 = Column(String(255), comment="预留字段")
+    status = Column(Integer, default=0, comment="状态（预留字段）")
+    is_del = Column(Integer, default=0, comment="是否删除")
+    created_at = Column(DateTime, default=utcnow)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "user_uuid": self.user_uuid,
+            "sys_user_id": self.sys_user_id,
+            "field1": self.field1,
+            "status": self.status,
+            "is_del": self.is_del,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

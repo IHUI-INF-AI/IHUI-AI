@@ -52,18 +52,18 @@ def create_member(db: Session, user_id: int, **fields) -> EduMember:
     return member
 
 
-def get_member_by_user_id(db: Session, user_id: int = None, user_uuid: str = None) -> EduMember:
-    """Get member by user_id (accept both user_id and user_uuid args)."""
+def get_member_by_user_id(db: Session, user_id: int = None, user_uuid: str = None) -> Optional[EduMember]:
+    """Get member by user_id (accept both user_id and user_uuid args).
+
+    安全修复: 未找到时返回 None, 不再回退到任意会员 (避免数据串号).
+    """
     if user_uuid is None:
         user_uuid = str(user_id) if user_id is not None else None
+    if user_uuid is None:
+        return None
     m = db.execute(
         select(EduMember).where(EduMember.description == f"uid:{user_uuid}")
     ).scalar_one_or_none()
-    if not m:
-        # Fallback: search any member (returns first one for testing)
-        m = db.execute(select(EduMember).limit(1)).scalar_one_or_none()
-    if not m:
-        raise EduNotFoundError("member", 0)
     return m
 
 
@@ -86,15 +86,16 @@ def update_member(db: Session, user_id: int, **fields) -> EduMember:
 
 
 def add_points(db: Session, user_id: int, amount: int, source: str = "earn") -> EduMember:
-    """Add points annotation. Phase F: EduMember has no points field; store as JSON in description."""
-    m = get_member_by_user_id(db, user_id)
-    return m
+    """Add points annotation. Phase F: EduMember 无 points 字段, 接口未实现.
+
+    安全修复: 显式抛错, 避免调用方静默成功导致积分账目错乱.
+    """
+    raise NotImplementedError("add_points not implemented, contact admin")
 
 
 def deduct_points(db: Session, user_id: int, amount: int) -> EduMember:
-    """Deduct points. Phase F: stub (no real points field)."""
-    m = get_member_by_user_id(db, user_id)
-    return m
+    """Deduct points. Phase F: 接口未实现, 显式抛错避免静默失败."""
+    raise NotImplementedError("deduct_points not implemented, contact admin")
 
 
 def list_members(

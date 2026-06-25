@@ -9,6 +9,7 @@
 另提供无锡物业短信 (send_sms_wuxi) 作为备用通道, 供业务方按需调用.
 """
 
+import hmac
 import random
 import secrets
 import threading
@@ -255,13 +256,45 @@ async def send_sms_code(phone: str) -> dict:
 
 
 def verify_sms_code(phone: str, code: str) -> bool:
-    """Verify SMS code. Returns True if valid, False otherwise."""
+    """Verify SMS code. Returns True if valid, False otherwise.
+
+    防爆破: 单手机号 5 分钟内验证失败 5 次后锁定 (删除验证码并拒绝),
+    验证成功时清除失败计数.
+    """
     stored = _get_stored_code(phone)
     if not stored:
         return False
-    if stored == code:
+
+    # 检查失败次数 (Redis 不可用时降级为不限制, 保持原有可用性)
+    fail_key = f"sms:fail:{phone}"
+    r = _get_redis_or_none()
+    fail_count = 0
+    if r is not None:
+        try:
+            fail_count = int(r.get(fail_key) or 0)
+        except Exception as e:
+            logger.debug("读取短信失败计数失败 (降级放行): %s", e)
+            fail_count = 0
+    if fail_count >= 5:
         _delete_stored_code(phone)
+        return False
+
+    if hmac.compare_digest(stored, code):
+        _delete_stored_code(phone)
+        if r is not None:
+            try:
+                r.delete(fail_key)
+            except Exception as e:
+                logger.debug("清除短信失败计数失败: %s", e)
         return True
+
+    # 失败计数 +1, TTL 5 分钟
+    if r is not None:
+        try:
+            r.incr(fail_key)
+            r.expire(fail_key, 300)
+        except Exception as e:
+            logger.debug("写入短信失败计数失败: %s", e)
     return False
 
 

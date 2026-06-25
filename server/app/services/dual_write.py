@@ -11,6 +11,7 @@ from __future__ import annotations
 import enum
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -21,6 +22,16 @@ DUAL_WRITE_ENABLED = os.getenv("DUAL_WRITE_ENABLED", "true").lower() == "true"
 DUAL_WRITE_PRIMARY = os.getenv("DUAL_WRITE_PRIMARY", "G").upper()  # H = H 盘主, G = G 盘主
 DUAL_WRITE_READ_FROM = os.getenv("DUAL_WRITE_READ_FROM", "G").upper()  # 读盘 H/G/BOTH
 DUAL_WRITE_RECONCILE = os.getenv("DUAL_WRITE_RECONCILE", "true").lower() == "true"
+
+# SQL 注入防护: 标识符白名单正则 (仅允许字母/数字/下划线, 首字符不能为数字)
+_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _validate_identifier(name: str, kind: str = "table") -> str:
+    """校验 SQL 标识符 (表名/列名), 防止通过拼接造成 SQL 注入."""
+    if not name or not _IDENTIFIER_RE.match(name):
+        raise ValueError(f"invalid {kind} name: {name!r}")
+    return name
 
 
 class SourceDisk(str, enum.Enum):
@@ -243,6 +254,10 @@ def reconcile_table(
         ReconcileReport
     """
     from sqlalchemy import text
+
+    # SQL 注入防护: 校验表名和列名 (仅允许字母/数字/下划线)
+    _validate_identifier(table, "table")
+    _validate_identifier(pk_column, "column")
 
     report = ReconcileReport(table=table)
 

@@ -54,7 +54,7 @@ def revoke_token(token: str, ttl_seconds: int | None = None) -> bool:
         try:
             from app.security import decode_access_token
 
-            payload = decode_access_token(token) or {}
+            payload = decode_access_token(token, allow_refresh=True) or {}
             exp = int(payload.get("exp", 0))
             now = int(time.time())
             ttl_seconds = max(60, exp - now) if exp > now else 60

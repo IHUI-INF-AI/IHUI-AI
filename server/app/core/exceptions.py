@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import html
 import traceback
 from typing import Any
 
@@ -201,7 +202,7 @@ def _maybe_html_error(request: Request, status_code: int, code: str, msg: str):
 
     return HTMLResponse(
         status_code=status_code,
-        content=f'<!DOCTYPE html><html><body><h1>{status_code}</h1><p>{msg}</p></body></html>',
+        content=f'<!DOCTYPE html><html><body><h1>{status_code}</h1><p>{html.escape(msg)}</p></body></html>',
     )
 
 
