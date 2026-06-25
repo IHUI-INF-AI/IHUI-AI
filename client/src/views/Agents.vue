@@ -650,8 +650,6 @@ watch(
   }
 )
 
-usePagePerf('Agents')
-
 // 初始化
 onMounted(async () => {
   try {

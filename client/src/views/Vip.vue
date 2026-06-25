@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="vip-page page-container">
     <!-- 滚动进度指示器 -->
     <div class="scroll-progress-bar" :style="{ transform: `scaleX(${scrollProgress})` }"></div>
@@ -496,7 +496,6 @@ import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
 import { useVipAnalytics } from '@/composables/useAnalytics'
 import { getvipPrice } from '@/api/vip'
-import { usePagePerf } from '@/composables/usePagePerf'
 import { ElMessage } from 'element-plus'
 import { useSEO } from '@/composables/useSEO'
 import { useCleanup } from '@/composables/useCleanup'
@@ -748,8 +747,6 @@ const handlePaymentClick = async () => {
 }
 
 // 生命周期
-usePagePerf('Vip')
-
 onMounted(async () => {
   trackVipPageView()
   try { await fetchUserVipInfo(); await fetchVipPrice() } catch (e) { console.error(e) }
