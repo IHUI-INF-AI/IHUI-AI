@@ -190,11 +190,8 @@ const runBatch = async (batch: BatchInfo, dryRun: boolean, restart: boolean) => 
   }
 }
 
-const verifyBatchAction = async (batchId: string) => {
-  const res = await verifyBatch(batchId)
-  verifyResult.value = res
-}
-
+// 2026-06-25 修复 ESLint: verifyBatchAction 在 setup 中定义后未在模板/事件中调用,
+// 实际 verifyResult 展示逻辑由 verifyBatch(...) 直接驱动, 此 helper 属冗余, 直接移除.
 const showCheckpoints = async (batchId: string) => {
   currentBatchId.value = batchId
   checkpoints.value = await listCheckpoints(batchId)

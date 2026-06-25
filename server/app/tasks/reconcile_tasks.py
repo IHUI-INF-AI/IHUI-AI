@@ -183,7 +183,7 @@ def archive_old_notifications_task(self) -> dict:
         }
     """
     import os
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     threshold_days = int(os.getenv("NOTIFY_ARCHIVE_DAYS", "7"))
     if threshold_days < 1:
