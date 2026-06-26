@@ -10,5 +10,19 @@
   "cronExpr": "Cron Expression",
   "confirm": "Confirm",
   "reset": "Reset",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "cmpindex": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "cronExpr": "cronExpr",
+    "day": "日",
+    "hour": "时",
+    "minute": "分",
+    "month": "月",
+    "reset": "重置",
+    "second": "秒",
+    "timeExpr": "timeExpr",
+    "week": "week",
+    "year": "年"
+  }
 }

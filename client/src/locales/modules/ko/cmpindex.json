@@ -10,5 +10,19 @@
   "cronExpr": "Cron 표현식",
   "confirm": "확인",
   "reset": "재설정",
-  "cancel": "취소"
+  "cancel": "취소",
+  "cmpindex": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "cronExpr": "cronExpr",
+    "day": "日",
+    "hour": "时",
+    "minute": "分",
+    "month": "月",
+    "reset": "重置",
+    "second": "秒",
+    "timeExpr": "timeExpr",
+    "week": "week",
+    "year": "年"
+  }
 }
