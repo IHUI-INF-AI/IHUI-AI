@@ -344,6 +344,16 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register edu P0 batch2 supplement router: {e}")
 
+    # 2026-06-26 P1/P2 补迁移 (417 端点, 桩+日志模式) - 涵盖 ZHS Java legacy 中
+    # P1/P2 edu 端点 + RuoYi legacy/CRUD batch 中 edu 相关端点 + edu_legacy_supplement_v2.
+    # 先于 api_router 注册, 静态路径优先于参数化路径匹配
+    try:
+        from app.api.v1.edu.edu_supplement_p1p2 import router as edu_supplement_p1p2_router
+        app.include_router(edu_supplement_p1p2_router, prefix="/api/v1/edu")
+        logger.info(f"Edu P1P2 supplement router registered ({len(edu_supplement_p1p2_router.routes)} routes, prefix=/api/v1/edu)")
+    except Exception as e:
+        logger.error(f"Failed to register edu P1P2 supplement router: {e}")
+
     app.include_router(api_router, prefix="/api/v1")
     logger.info("API v1 router registered")
     # 2026-06-21 联调: 注册前端兼容路由 (i18n-v2/wallet/dashboard/refunds/security)

@@ -132,6 +132,7 @@ from app.models.exam_models import (
 )
 from app.models.identity_models import OAuthPrivateKey, TboxBean, ZhsIdentity, ZhsOrganization
 from app.models.id_mapping import IdMapping
+from app.models.migration_checkpoint import MigrationCheckpoint
 from app.models.java_missing_models import (
     AiBotSites,
     PaymentCallback,
