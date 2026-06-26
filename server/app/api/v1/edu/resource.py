@@ -50,5 +50,5 @@ def increment_download_endpoint(resource_id: int, payload: dict = {}, db: Sessio
 @router.get("/resources", summary="List resources")
 def list_resources_endpoint(page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_resource import list_resources
-    result = list_resources(db)
+    result = list_resources(db, page=page, size=size)
     return success(data=result)

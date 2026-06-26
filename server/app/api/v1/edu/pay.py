@@ -34,12 +34,18 @@ router = APIRouter()
 @router.post("/pay-orders", summary="Create payment")
 def create_pay_order_endpoint(user_id: int = Depends(get_current_user_id), payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_pay import create_pay_order
+    pay_amount = payload.get("pay_amount")
+    if not isinstance(pay_amount, (int, float)) or pay_amount <= 0:
+        raise HTTPException(status_code=400, detail="pay_amount must be positive")
+    installment_count = payload.get("installment_count")
+    if installment_count is not None and (not isinstance(installment_count, int) or installment_count <= 0):
+        raise HTTPException(status_code=400, detail="installment_count must be a positive integer")
     result = create_pay_order(
         db,
         order_id=payload.get("order_id"),
         pay_channel=payload.get("pay_channel"),
-        pay_amount=payload.get("pay_amount"),
-        installment_count=payload.get("installment_count"),
+        pay_amount=pay_amount,
+        installment_count=installment_count,
     )
     return success(data=result)
 

@@ -93,7 +93,10 @@ def update_circle(
     db: Session = Depends(_get_db),
 ):
     from app.services.edu_circle import update_circle
-    c = update_circle(db, circle_id, user_id=user_id, **payload)
+    name = payload.get("name")
+    description = payload.get("description")
+    cover = payload.get("cover")
+    c = update_circle(db, circle_id, user_id=user_id, name=name, description=description, cover=cover)
     return success(data={"id": c.id, "name": c.name})
 
 

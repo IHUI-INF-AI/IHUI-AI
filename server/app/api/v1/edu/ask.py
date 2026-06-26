@@ -137,7 +137,10 @@ def update_question(
     db: Session = Depends(_get_db),
 ):
     from app.services.edu_ask import update_question
-    q = update_question(db, question_id, user_id=user_id, **payload)
+    title = payload.get("title")
+    content = payload.get("content")
+    tags = payload.get("tags")
+    q = update_question(db, question_id, user_id=user_id, title=title, content=content, tags=tags)
     return success(data={"id": q.id, "title": q.title, "updated_at": q.updated_at})
 
 

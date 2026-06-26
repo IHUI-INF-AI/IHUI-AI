@@ -38,7 +38,7 @@ def mark_read_endpoint(message_id: int, user_id: int = Depends(get_current_user_
 @router.get("/messages/inbox", summary="Inbox")
 def list_inbox_endpoint(user_id: int = Depends(get_current_user_id), page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_message import list_inbox
-    result = list_inbox(db, user_uuid=str(user_id))
+    result = list_inbox(db, user_id=str(user_id), page=page, size=size)
     return success(data=result)
 
 @router.get("/messages/unread-count", summary="Unread count")

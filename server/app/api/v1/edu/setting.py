@@ -62,5 +62,5 @@ def delete_dict_endpoint(dict_id: int, user_id: int = Depends(get_current_user_i
 @router.get("/dict", summary="List all")
 def list_all_endpoint(page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_setting import list_all
-    result = list_all(db)
+    result = list_all(db, page=page, size=size)
     return success(data=result)

@@ -87,8 +87,33 @@ const HeaderLogo = defineAsyncComponent(() => import('./header/HeaderLogo.vue'))
 const HeaderNavigation = defineAsyncComponent(() => import('./header/HeaderNavigation.vue'))
 const HeaderActions = defineAsyncComponent(() => import('./header/HeaderActions.vue'))
 
-const route = useRoute()
-const router = useRouter()
+// 2026-06-26 修复: Header 在 App.vue 中通过 <Teleport to="body"> 渲染,
+// 脱离了 RouterView 的 provide/inject 上下文, 顶层 useRoute/useRouter
+// 会返回 undefined. 之前 HMR 抖动期也会偶发 'injection "Symbol(route location)"
+// not found' 警告. 此处用 try-catch + 安全回退对象, 后续 watch/computed 访问
+// route.query / route.path 时统一走 safeRoute.safeQuery, 避免抛错被
+// ErrorBoundary 兜底为白屏. router 也同步兜底, 路由操作降级为 location.href.
+const EMPTY_ROUTE = {
+  path: '/',
+  name: undefined as string | undefined,
+  query: {} as Record<string, unknown>,
+  params: {} as Record<string, unknown>,
+  fullPath: '/',
+  meta: {} as Record<string, unknown>,
+}
+let _route: ReturnType<typeof useRoute> = EMPTY_ROUTE as never
+let _router: ReturnType<typeof useRouter> | null = null
+try {
+  _route = useRoute()
+  _router = useRouter()
+} catch (err) {
+  // 路由上下文未就绪 (Teleport 脱离 / HMR 抖动), 回退到只读占位
+  if (import.meta.env.DEV) {
+    logger.warn('[Header] router context unavailable, using fallback:', err)
+  }
+}
+const route = _route
+const router = _router
 const { t } = useI18n()
 
 // 定义emits
@@ -262,11 +287,17 @@ const selectProject = (projectKey: string) => {
     selectedProject.value = 'admin' // 重置为默认值
     // 清除路由中的 source 参数
     const currentQuery: Record<string, string> = {}
-    Object.entries(route.query).forEach(([k, v]) => {
+    const querySource = (route.query ?? {}) as Record<string, unknown>
+    Object.entries(querySource).forEach(([k, v]) => {
       if (typeof v === 'string') currentQuery[k] = v
     })
     delete currentQuery.source
-    router.replace({ path: '/login', query: currentQuery })
+    if (router) {
+      router.replace({ path: '/login', query: currentQuery })
+    } else if (typeof window !== 'undefined') {
+      // 路由上下文未就绪, 降级到整页跳转避免阻塞
+      window.location.href = '/login'
+    }
     return
   }
 
@@ -277,15 +308,23 @@ const selectProject = (projectKey: string) => {
   if (project) {
     // 使用字符串形式构造路由，避免类型错误
     const redirectUrl = encodeURIComponent(`${project.url}/index`)
-    router.replace(`/login?source=${projectKey}&redirect=${redirectUrl}`)
+    if (router) {
+      router.replace(`/login?source=${projectKey}&redirect=${redirectUrl}`)
+    } else if (typeof window !== 'undefined') {
+      window.location.href = `/login?source=${projectKey}&redirect=${redirectUrl}`
+    }
   }
 }
 
-// 初始化选中的项目
+// 2026-06-26 修复: watch getter 中访问 route.query 需走安全兜底, 避免
+// Teleport 上下文未注入 router 时 (HMR / 卸载) 抛 'Cannot read properties
+// of undefined (reading 'query')'. route 在 setup 顶部已经过 try-catch 兜底
+// 一定不为 undefined, 但 query 在 vue-router 类型中是 LocationQuery (= Record
+// of arrays/strings/null), 兼容类型避免 vue-tsc 报错同时运行时安全.
 watch(
-  () => route.query.source,
+  () => (route.query && (route.query as Record<string, unknown>).source) as unknown,
   source => {
-    selectedProject.value = (source as string) || 'admin'
+    selectedProject.value = (typeof source === 'string' ? source : null) || 'admin'
   },
   { immediate: true }
 )
@@ -295,7 +334,8 @@ const switchProject = (targetSource: 'admin' | 'user') => {
     const current = currentSource.value
     if (!current) return
 
-    const newQuery = { ...route.query }
+    const safeQuery = (route.query ?? {}) as Record<string, unknown>
+    const newQuery = { ...safeQuery }
 
     if (targetSource === 'admin') {
       // 从用户端切换到管理端
@@ -309,7 +349,12 @@ const switchProject = (targetSource: 'admin' | 'user') => {
     const queryString = Object.entries(newQuery)
       .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
       .join('&')
-    router.push(`${route.path}?${queryString}`)
+    const targetUrl = `${route.path || '/'}?${queryString}`
+    if (router) {
+      router.push(targetUrl)
+    } else if (typeof window !== 'undefined') {
+      window.location.href = targetUrl
+    }
   } catch (error) {
     logger.error('Failed to switch project:', error)
   }

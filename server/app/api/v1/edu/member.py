@@ -57,19 +57,25 @@ def get_member_by_id_endpoint(member_id: int, current_user_id: int = Depends(get
 @router.post("/{user_id}/points/add", summary="Add points", dependencies=[Depends(require_role("admin"))])
 def add_points_endpoint(user_id: int, payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_member import add_points
-    result = add_points(db, user_id=user_id, amount=payload.get("amount"), source=payload.get("source", "earn"))
+    amount = payload.get("amount")
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        raise HTTPException(status_code=400, detail="amount must be positive")
+    result = add_points(db, user_id=user_id, amount=amount, source=payload.get("source", "earn"))
     return success(data=result)
 
 @router.post("/{user_id}/points/deduct", summary="Deduct points", dependencies=[Depends(require_role("admin"))])
 def deduct_points_endpoint(user_id: int, payload: dict = {}, db: Session = Depends(_get_db)):
     from app.services.edu_member import deduct_points
-    result = deduct_points(db, user_id=user_id, amount=payload.get("amount"))
+    amount = payload.get("amount")
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        raise HTTPException(status_code=400, detail="amount must be positive")
+    result = deduct_points(db, user_id=user_id, amount=amount)
     return success(data=result)
 
 @router.get("", summary="List members", dependencies=[Depends(require_role("admin"))])
 def list_members_endpoint(page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_member import list_members
-    result = list_members(db)
+    result = list_members(db, page=page, size=size)
     return success(data=result)
 
 @router.post("/parents", summary="Bind parent")

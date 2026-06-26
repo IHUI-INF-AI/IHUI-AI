@@ -62,11 +62,11 @@ def get_room_endpoint(room_id: int, page: int = Query(1, ge=1), size: int = Quer
 @router.get("/rooms", summary="List rooms")
 def list_rooms_endpoint(page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_live import list_rooms
-    result = list_rooms(db)
+    result = list_rooms(db, page=page, size=size)
     return success(data=result)
 
 @router.get("/rooms/{room_id}/attendees", summary="List attendees")
 def list_room_attendees_endpoint(room_id: int, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_live import list_room_attendees
-    result = list_room_attendees(db, room_id=room_id)
+    result = list_room_attendees(db, room_id=room_id, page=page, size=size)
     return success(data=result)

@@ -50,7 +50,7 @@ def get_course_endpoint(course_id: int, page: int = Query(1, ge=1), size: int = 
 @router.get("/courses", summary="List courses")
 def list_courses_endpoint(page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_learn import list_courses
-    result = list_courses(db)
+    result = list_courses(db, page=page, size=size)
     return success(data=result)
 
 @router.post("/courses/{course_id}/enroll", summary="Enroll course")
