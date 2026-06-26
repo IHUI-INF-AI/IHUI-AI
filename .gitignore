@@ -353,3 +353,23 @@ server/scripts/_probe_*.py
 /*-diff.txt
 /*-diff2.txt
 /*-diff.patch
+
+# ===== 根目录 i18n 回归扫描临时输出 (2026-06-26 补充) =====
+# _scan_zh_cn_regression.py / _fix_value_equals_key.py / _analyze_regression_distribution.py
+# 等临时分析工具的输出 (一次性, 用完删)
+/_fix_log.txt
+/_zh_cn_full.txt
+/_zh_cn_full2.txt
+/_zh_cn_regression.txt
+/_zh_cn_*.txt
+
+# ===== 客户端 i18n dry-run 状态 (2026-06-26 补充) =====
+# verify-translation-quality / auto-translate 运行时生成的 dry-run 状态
+# 跟 verify-translation-*.json 类似的输出, 防止误入库
+client/scripts/reports/dry-run-status.txt
+client/scripts/reports/dry-run-*.txt
+
+# ===== 根目录 scripts/reports/ 派生报告 (2026-06-26 补充) =====
+# _scan_zh_cn_regression.py / _analyze_regression_distribution.py 等工具的输出
+# 派生数据, 每次运行重新生成, 不入库
+/scripts/reports/
