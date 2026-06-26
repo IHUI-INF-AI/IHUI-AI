@@ -285,3 +285,11 @@ _diff_*.txt
 client-dev.log
 check-pages-temp.ps1
 server/scripts/__commit_*.txt
+
+# ===== i18n 自动翻译临时产物 (2026-06-26 补充) =====
+# auto-translate-i18n 运行时生成: 每次翻译前的快照
+client/scripts/reports/auto-translate-backup-*/
+# rollback-auto-translate 运行时生成: 回滚前的快照
+client/scripts/reports/pre-rollback-*/
+# verify-translation-quality 运行时生成: 验证报告
+client/scripts/reports/verify-translation-*.json
