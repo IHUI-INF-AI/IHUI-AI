@@ -2,8 +2,8 @@
   "memberCircle": {
     "emptyCircle": "empty 圈子",
     "emptyPost": "empty 帖子",
-    "joinedCircles": "joinedCircles",
-    "publishedPosts": "publishedPosts",
+    "joinedCircles": "joined Circles",
+    "publishedPosts": "published Posts",
     "title": "标题"
   }
 }

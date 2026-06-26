@@ -1,10 +1,10 @@
 {
   "themeBackup": {
     "auto": "自动",
-    "autoBackup": "autoBackup",
-    "backupCreated": "backupCreated",
+    "autoBackup": "auto Backup",
+    "backupCreated": "backup Created",
     "backupDeleted": "backup 已删除",
-    "backupRestored": "backupRestored",
+    "backupRestored": "backup Restored",
     "confirmDelete": "确认删除",
     "createBackup": "创建 backup",
     "delete": "删除",
@@ -21,8 +21,8 @@
       "hourly": "每小时",
       "weekly": "每周"
     },
-    "manualBackup": "manualBackup",
-    "maxBackups": "maxBackups",
+    "manualBackup": "manual Backup",
+    "maxBackups": "max Backups",
     "noBackups": "无 backups",
     "restore": "恢复",
     "restoreFailed": "restore 失败",

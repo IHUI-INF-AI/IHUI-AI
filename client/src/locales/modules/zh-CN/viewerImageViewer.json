@@ -1,7 +1,7 @@
 {
   "viewerImageViewer": {
     "download": "下载",
-    "fitScreen": "fitScreen",
+    "fitScreen": "适应屏幕",
     "fullscreen": "全屏",
     "imageLoadFailed": "图片 加载 失败",
     "loading": "加载中",

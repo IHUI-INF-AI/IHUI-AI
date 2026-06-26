@@ -101,12 +101,12 @@
       "quickLinksSubtitle": "quick links 字幕",
       "statsSubtitle": "stats 字幕",
       "statsTitle": "stats 标题",
-      "step1Desc": "step1Desc",
-      "step1Title": "step1Title",
-      "step2Desc": "step2Desc",
-      "step2Title": "step2Title",
-      "step3Desc": "step3Desc",
-      "step3Title": "step3Title"
+      "step1Desc": "step1 Desc",
+      "step1Title": "step1 Title",
+      "step2Desc": "step2 Desc",
+      "step2Title": "step2 Title",
+      "step3Desc": "step3 Desc",
+      "step3Title": "step3 Title"
     },
     "documents": {
       "title": "文档中心",

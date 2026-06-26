@@ -63,8 +63,8 @@
       "complex": {
         "badge": "徽章",
         "chars": {
-          "autonomousExecution": "autonomousExecution",
-          "autonomousPlanning": "autonomousPlanning",
+          "autonomousExecution": "autonomous Execution",
+          "autonomousPlanning": "autonomous Planning",
           "lifecycle": "lifecycle",
           "multiAgent": "multi 智能体"
         },
@@ -106,9 +106,9 @@
       "execution": {
         "chars": {
           "clearIntent": "清空 intent",
-          "crossSystem": "crossSystem",
+          "crossSystem": "cross System",
           "multiAPI": "multi API",
-          "multiStep": "multiStep"
+          "multiStep": "multi Step"
         },
         "examples": {
           "approval": {

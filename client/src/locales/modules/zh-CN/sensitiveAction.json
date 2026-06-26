@@ -16,7 +16,7 @@
     "continueAction": "继续 action",
     "defaultDescription": "默认描述",
     "enterCode": "请输入验证码",
-    "needVerification": "needVerification",
+    "needVerification": "need Verification",
     "requestFailed": "请求失败",
     "resend": "resend",
     "resendWithCooldown": "resend 与 cooldown",

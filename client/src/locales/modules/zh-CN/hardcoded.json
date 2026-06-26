@@ -39,7 +39,7 @@
     },
     "aizhs": {
       "demo": {
-        "Vue3TypeSc": "Vue3TypeSc"
+        "Vue3TypeSc": "Vue3 + TypeScript"
       }
     },
     "app": {
@@ -56,9 +56,9 @@
     "cross": {
       "project": {
         "banner": {
-          "切换?) }}</span>\r\n      <el-button v-if=\"currentSource === ": "切换?) }}</span>\r\n      <el-button v-if=\"currentSource === ",
+          "切换?) }}</span>\r\n      <el-button v-if=\"currentSource === ": "切换?) }}</span> <el-button v-if=\"current Source ===",
           "总管理端": "总管理端",
-          "用户?) }}</el-button>\r\n      <el-button v-if=\"currentSource === ": "用户?) }}</el-button>\r\n      <el-button v-if=\"currentSource === "
+          "用户?) }}</el-button>\r\n      <el-button v-if=\"currentSource === ": "用户?) }}</el-button> <el-button v-if=\"current Source ==="
         }
       }
     },

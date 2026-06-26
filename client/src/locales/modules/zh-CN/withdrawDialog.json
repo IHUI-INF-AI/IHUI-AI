@@ -1,6 +1,6 @@
 {
   "withdrawDialog": {
-    "agreePrefix": "agreePrefix",
+    "agreePrefix": "同意前缀",
     "amount": "金额",
     "availableBalance": "available 余额",
     "bankCard": "银行卡",

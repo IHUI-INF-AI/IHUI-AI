@@ -6,7 +6,7 @@
       "subtitle": "副标题",
       "tag": "标签",
       "title": "标题",
-      "visualSublabel": "visualSublabel"
+      "visualSublabel": "可视化副标题"
     },
     "coreValues": {
       "efficient": {
@@ -30,7 +30,7 @@
       "tag": "标签",
       "title": "标题"
     },
-    "heroMission": "heroMission",
+    "heroMission": "英雄使命",
     "heroSubtitle": "副标题",
     "heroTitle": "主标题",
     "milestones": {
@@ -92,6 +92,6 @@
     }
   },
   "AboutUs": {
-    "sixKPlus": "sixKPlus"
+    "sixKPlus": "6K+"
   }
 }

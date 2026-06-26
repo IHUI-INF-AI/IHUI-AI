@@ -2,10 +2,10 @@
   "dependency": {
     "activeSessions": "已激活 sessions",
     "addStep": "添加 step",
-    "avgCompletionRate": "avgCompletionRate",
+    "avgCompletionRate": "avg Completion Rate",
     "clearCompleted": "清空 已完成",
     "cleared": "已清空",
-    "configuredTours": "configuredTours",
+    "configuredTours": "configured Tours",
     "confirmDeleteAction": "确认 删除 action",
     "delete": "删除",
     "deleteSuccess": "删除成功",
@@ -14,8 +14,8 @@
     "enterTourId": "请输入旅游 ID",
     "executionStatus": "execution 状态",
     "failedSteps": "失败步骤",
-    "intervalPrefix": "intervalPrefix",
-    "maxRetriesPrefix": "maxRetriesPrefix",
+    "intervalPrefix": "interval Prefix",
+    "maxRetriesPrefix": "max Retries Prefix",
     "milliseconds": "毫秒",
     "modeConditional": "模式 conditional",
     "modeParallel": "模式 parallel",
@@ -25,7 +25,7 @@
     "required": "必填",
     "saveSuccess": "保存成功",
     "seconds": "秒",
-    "stepDependencies": "stepDependencies",
-    "timesSuffix": "timesSuffix"
+    "stepDependencies": "step Dependencies",
+    "timesSuffix": "times Suffix"
   }
 }

@@ -1,7 +1,7 @@
 {
   "imageUpload": {
     "countLimit": "数量 limit",
-    "filenameComma": "filenameComma",
+    "filenameComma": "文件名逗号",
     "formatError": "format 错误",
     "preview": "预览",
     "sizeLimit": "大小 limit",

@@ -1,7 +1,7 @@
 {
   "techService": {
     "appointmentFailed": "appointment 失败",
-    "appointmentSubmitted": "appointmentSubmitted",
+    "appointmentSubmitted": "appointment Submitted",
     "appointmentTitle": "appointment 标题",
     "form": {
       "datePlaceholder": "请选择日期",
@@ -49,6 +49,6 @@
     "submitAppointment": "提交 appointment",
     "subtitle": "副标题",
     "title": "标题",
-    "underDevelopment": "underDevelopment"
+    "underDevelopment": "under Development"
   }
 }

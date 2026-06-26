@@ -6332,7 +6332,16 @@
     "statusReviewFailed": "審査失敗",
     "statusOffline": "公開終了",
     "statusUnknown": "不明",
-    "seoKeywords": "AIエージェント,スマートアシスタント,AIツール"
+    "seoKeywords": "AIエージェント,スマートアシスタント,AIツール",
+    "hotSearch": "人気の検索",
+    "searchHistory": "検索履歴",
+    "clearHistory": "履歴をクリア",
+    "recommendTitle": "おすすめ",
+    "voiceSearch": "音声検索",
+    "voiceInputNotSupported": "このブラウザは音声入力に対応していません",
+    "voiceInputListening": "聞いています...",
+    "voiceInputError": "音声認識に失敗しました。もう一度お試しください",
+    "retryLoad": "再読み込み"
   },
   "aiManagement": {
     "title": "AI管理",

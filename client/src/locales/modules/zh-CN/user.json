@@ -188,7 +188,7 @@
     "sidebar": {
       "ariaLabel": "aria 标签",
       "menuAriaLabel": "菜单 aria 标签",
-      "unreadMessages": "unreadMessages"
+      "unreadMessages": "未读消息"
     },
     "statistics": {
       "description": "描述",
@@ -238,6 +238,6 @@
   },
   "User": {
     "nickname": "昵称",
-    "nickname2": "nickname2"
+    "nickname2": "昵称 2"
   }
 }

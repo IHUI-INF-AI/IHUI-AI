@@ -14,7 +14,7 @@
   "cmpindex": {
     "cancel": "取消",
     "confirm": "确认",
-    "cronExpr": "cronExpr",
+    "cronExpr": "Cron 表达式",
     "day": "日",
     "hour": "时",
     "minute": "分",

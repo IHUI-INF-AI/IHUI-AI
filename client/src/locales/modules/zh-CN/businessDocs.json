@@ -100,8 +100,8 @@
         "viteAppTitle": "应用标题",
         "viteCspReportUri": "CSP上报地址",
         "viteEnableMonitor": "启用监控",
-        "viteSentryDsn": "viteSentryDsn",
-        "viteUseVize": "viteUseVize"
+        "viteSentryDsn": "vite Sentry Dsn",
+        "viteUseVize": "vite Use Vize"
       },
       "yes": "是"
     },

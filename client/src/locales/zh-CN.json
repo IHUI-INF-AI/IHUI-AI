@@ -3797,7 +3797,16 @@
     "statusReviewFailed": "审核失败",
     "statusOffline": "已下架",
     "statusUnknown": "未知",
-    "seoKeywords": "AI智能体,智能助手,AI工具"
+    "seoKeywords": "AI智能体,智能助手,AI工具",
+    "hotSearch": "热门搜索",
+    "searchHistory": "搜索历史",
+    "clearHistory": "清空历史",
+    "recommendTitle": "猜你想找",
+    "voiceSearch": "语音搜索",
+    "voiceInputNotSupported": "当前浏览器不支持语音输入",
+    "voiceInputListening": "正在聆听...",
+    "voiceInputError": "语音识别失败，请重试",
+    "retryLoad": "重新加载"
   },
   "aiManagement": {
     "title": "AI管理",

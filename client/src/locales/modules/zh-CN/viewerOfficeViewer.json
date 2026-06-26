@@ -2,9 +2,9 @@
   "viewerOfficeViewer": {
     "docLoadFailed": "doc 加载 失败",
     "download": "下载",
-    "largeDocHint": "largeDocHint",
+    "largeDocHint": "大文档提示",
     "loadingDoc": "加载文档",
-    "officeDoc": "officeDoc",
+    "officeDoc": "Office 文档",
     "openInOfficeOnline": "打开 在 office 在线",
     "reset": "重置",
     "tryDownload": "try 下载",

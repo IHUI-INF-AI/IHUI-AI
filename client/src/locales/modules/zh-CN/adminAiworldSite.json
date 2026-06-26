@@ -1,14 +1,14 @@
 {
   "adminAiworldSite": {
-    "mobileDevice": "mobileDevice",
+    "mobileDevice": "mobile Device",
     "noDesc": "无描述",
     "noDetailContent": "无 详情 内容",
     "noSiteName": "无 site 名称",
-    "pcDevice": "pcDevice",
+    "pcDevice": "pc Device",
     "preview": "预览",
     "previewTitle": "预览",
     "searchPlaceholder": "请输入搜索内容",
-    "sectionPlaceholder": "sectionPlaceholder",
+    "sectionPlaceholder": "section Placeholder",
     "viewDetailPage": "查看 详情 页面",
     "visitOfficial": "visit 官方"
   }

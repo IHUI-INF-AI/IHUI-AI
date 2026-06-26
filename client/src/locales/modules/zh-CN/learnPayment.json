@@ -10,7 +10,7 @@
     "orderId": "订单 ID",
     "payMethod": "支付方式",
     "paySuccess": "支付成功",
-    "scanTip": "scanTip",
+    "scanTip": "scan Tip",
     "simulatePay": "simulate 支付",
     "wechat": "微信"
   }

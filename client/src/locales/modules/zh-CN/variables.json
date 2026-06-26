@@ -36,9 +36,9 @@
       "type": "类型",
       "value": "值"
     },
-    "testBot1": "testBot1",
-    "testBot2": "testBot2",
-    "testBot3": "testBot3",
+    "testBot1": "测试机器人 1",
+    "testBot2": "测试机器人 2",
+    "testBot3": "测试机器人 3",
     "title": "标题",
     "validation": {
       "nameRequired": "请输入名称",

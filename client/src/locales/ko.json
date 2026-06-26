@@ -6982,7 +6982,16 @@
     "statusReviewFailed": "심사 실패",
     "statusOffline": "게시 중단",
     "statusUnknown": "알 수 없음",
-    "seoKeywords": "AI에이전트,스마트 어시스턴트,AI도구"
+    "seoKeywords": "AI에이전트,스마트 어시스턴트,AI도구",
+    "hotSearch": "인기 검색",
+    "searchHistory": "검색 기록",
+    "clearHistory": "기록 지우기",
+    "recommendTitle": "추천",
+    "voiceSearch": "음성 검색",
+    "voiceInputNotSupported": "이 브라우저는 음성 입력을 지원하지 않습니다",
+    "voiceInputListening": "듣는 중...",
+    "voiceInputError": "음성 인식에 실패했습니다. 다시 시도해 주세요",
+    "retryLoad": "다시 불러오기"
   },
   "aiManagement": {
     "핵심 장점": "AI관리",

@@ -5,8 +5,8 @@
     "hotCourses": "热门 课程",
     "latestNews": "latest 新闻",
     "liveBadge": "直播 badge",
-    "livingNow": "livingNow",
-    "masterTeacher": "masterTeacher",
+    "livingNow": "正在直播",
+    "masterTeacher": "名师",
     "more": "更多",
     "peopleLearning": "正在学习",
     "platformTitle": "platform 标题",
@@ -18,14 +18,14 @@
     "qeLive": "qe 直播",
     "qeNews": "qe 新闻",
     "qeResource": "qe 资源",
-    "quickEntry": "quickEntry",
+    "quickEntry": "quick Entry",
     "searchPlaceholder": "请输入搜索内容",
     "signUp": "注册",
     "statCourses": "stat 课程",
     "statExam": "stat 考试",
     "statLive": "stat 直播",
-    "statStudents": "statStudents",
+    "statStudents": "stat Students",
     "subtitle": "副标题",
-    "upcomingExams": "upcomingExams"
+    "upcomingExams": "upcoming Exams"
   }
 }

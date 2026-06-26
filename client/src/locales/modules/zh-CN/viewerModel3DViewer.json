@@ -2,7 +2,7 @@
   "viewerModel3DViewer": {
     "format": "格式",
     "model3dFile": "model3d 文件",
-    "supportedFormat": "supportedFormat",
-    "useBlenderHint": "useBlenderHint"
+    "supportedFormat": "支持的格式",
+    "useBlenderHint": "使用 Blender 提示"
   }
 }

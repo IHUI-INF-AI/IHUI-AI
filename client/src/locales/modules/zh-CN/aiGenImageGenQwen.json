@@ -1,6 +1,6 @@
 {
   "aiGenImageGenQwen": {
-    "qwenRemarkMissing": "qwenRemarkMissing",
+    "qwenRemarkMissing": "qwen Remark Missing",
     "websocketNotSupport": "websocket 非 技术支持"
   }
 }

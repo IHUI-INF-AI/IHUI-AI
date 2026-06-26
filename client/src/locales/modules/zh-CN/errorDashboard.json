@@ -5,10 +5,10 @@
     "errorRate": "错误率",
     "h24": "24 小时",
     "other": "其他",
-    "recentErrors": "recentErrors",
+    "recentErrors": "recent Errors",
     "resolved": "已解决",
     "stackInfo": "stack 信息",
-    "todayErrors": "todayErrors",
+    "todayErrors": "today Errors",
     "totalErrors": "总计 errors",
     "trend": "趋势",
     "typeDistribution": "类型分布"

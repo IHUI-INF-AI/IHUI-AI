@@ -24,10 +24,10 @@
     "providerRequired": "provider 必填",
     "required": "必填",
     "stringLength": "字符串 长度",
-    "temperatureRange": "temperatureRange",
+    "temperatureRange": "temperature Range",
     "url": "链接",
     "username": "用户名",
     "usernameLength": "username 长度",
-    "usernamePattern": "usernamePattern"
+    "usernamePattern": "username Pattern"
   }
 }

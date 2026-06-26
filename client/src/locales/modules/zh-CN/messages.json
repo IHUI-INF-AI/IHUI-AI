@@ -10,14 +10,14 @@
     "operationFailed": "操作失败",
     "pauseResumeQueue": "暂停 继续 queue",
     "queuePaused": "队列已暂停",
-    "queueResumed": "queueResumed",
+    "queueResumed": "queue Resumed",
     "taskSuccess": "任务 成功",
     "tasksCompletedWithFailures": "任务 已完成 与 failures",
     "toggleQueueMonitor": "切换 queue monitor",
     "toolNotFound": "工具未找到",
     "uploadSuccess": "上传成功",
-    "workflowPaused": "workflowPaused",
-    "workflowResumed": "workflowResumed",
+    "workflowPaused": "workflow Paused",
+    "workflowResumed": "workflow Resumed",
     "workflowSuccess": "workflow 成功"
   }
 }

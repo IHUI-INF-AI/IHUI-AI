@@ -1,6 +1,6 @@
 {
   "confirmPurchase": {
-    "agreeTerms": "agreeTerms",
+    "agreeTerms": "agree Terms",
     "createOrderFailed": "创建订单失败",
     "payCancelled": "支付 已取消",
     "paySuccess": "支付成功",

@@ -2907,7 +2907,16 @@
     "statusReviewFailed": "Review Failed",
     "statusOffline": "Offline",
     "statusUnknown": "Unknown",
-    "seoKeywords": "AI agents,smart assistant,AI tools"
+    "seoKeywords": "AI agents,smart assistant,AI tools",
+    "hotSearch": "Hot Searches",
+    "searchHistory": "Search History",
+    "clearHistory": "Clear history",
+    "recommendTitle": "You may want",
+    "voiceSearch": "Voice Search",
+    "voiceInputNotSupported": "Voice input is not supported in this browser",
+    "voiceInputListening": "Listening...",
+    "voiceInputError": "Voice recognition failed, please try again",
+    "retryLoad": "Reload"
   },
   "fileUpload": {
     "uploading": "Uploading...",

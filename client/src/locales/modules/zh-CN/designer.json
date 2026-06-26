@@ -6,7 +6,7 @@
     },
     "empty": "空",
     "errors": {
-      "enterRequirement": "enterRequirement",
+      "enterRequirement": "enter Requirement",
       "generateFailed": "生成失败",
       "selectModel": "选择模型"
     },

@@ -1,6 +1,6 @@
 {
   "unifiedQr": {
-    "auth": "auth",
+    "auth": "认证",
     "loginRequired": "请先登录",
     "needLoginFirst": "need 登录 首",
     "qrFailed": "qr 失败"
