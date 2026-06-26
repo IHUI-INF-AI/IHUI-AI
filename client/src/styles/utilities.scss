@@ -890,7 +890,7 @@
   letter-spacing: 0.02em;
 
   &.success {
-    background: var(--color-green-16a34a-10);
+    background: rgba(var(--el-color-success-rgb), 0.1);
     color: var(--el-color-success);
   }
 
@@ -905,7 +905,7 @@
   }
 
   &.info {
-    background: var(--color-blue-3b82f6-10);
+    background: rgba(var(--el-color-primary-rgb), 0.1);
     color: var(--el-text-color-primary);
   }
 }

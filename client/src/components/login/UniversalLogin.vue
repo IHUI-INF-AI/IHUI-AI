@@ -12013,7 +12013,7 @@ cleanup.add(() => {
 
 /* 明亮模式下的链接 - hover时变深灰在*/
 .agreement-confirm-links .agreement-link-item:hover {
-  color: var(--color-gray-303133);
+  color: var(--el-text-color-primary);
   text-decoration: underline;
   background-color: var(--color-neutral-100);
 }
@@ -12126,7 +12126,7 @@ cleanup.add(() => {
 .agreement-confirm-footer .agreement-cancel-button:hover :deep(.el-button__wrapper) {
   background-color: var(--el-fill-color-lighter);
   border-color: var(--color-black-20);
-  color: var(--color-gray-303133);
+  color: var(--el-text-color-primary);
   cursor: pointer;
   pointer-events: auto;
 }
@@ -12989,7 +12989,7 @@ button.agreement-agree-button:hover .el-button__wrapper,
 :where(body) .el-overlay-dialog .agreement-confirm-dialog-wrapper .el-dialog__title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-gray-303133);
+  color: var(--el-text-color-primary);
   line-height: 1.4;
   text-align: center;
   width: 100%;

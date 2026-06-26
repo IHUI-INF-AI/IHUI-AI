@@ -480,7 +480,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-gray-303133);
+    color: var(--el-text-color-primary);
     flex-shrink: 0;
     
     .el-icon {
@@ -495,7 +495,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
     .item-title { 
       font-size: 14px; 
       font-weight: 600; 
-      color: var(--color-gray-303133);
+      color: var(--el-text-color-primary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;

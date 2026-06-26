@@ -61,21 +61,21 @@
   background: var(--el-bg-color);
 
   &.el-tag--success {
-    color: var(--color-green-15803d);
-    border-color: var(--color-green-15803d-16);
-    background: var(--color-green-15803d-08);
+    color: var(--el-color-success-dark-2);
+    border-color: rgba(var(--el-color-success-rgb), 0.16);
+    background: rgba(var(--el-color-success-rgb), 0.08);
   }
 
   &.el-tag--warning {
-    color: var(--color-amber-b45309);
-    border-color: var(--color-amber-b45309-16);
-    background: var(--color-amber-b45309-08);
+    color: var(--el-color-warning-dark-2);
+    border-color: rgba(var(--el-color-warning-rgb), 0.16);
+    background: rgba(var(--el-color-warning-rgb), 0.08);
   }
 
   &.el-tag--danger {
-    color: var(--color-red-b91c1c);
-    border-color: var(--color-red-b91c1c-16);
-    background: var(--color-red-b91c1c-08);
+    color: var(--el-color-danger-dark-2);
+    border-color: rgba(var(--el-color-danger-rgb), 0.16);
+    background: rgba(var(--el-color-danger-rgb), 0.08);
   }
 }
 
