@@ -84,7 +84,7 @@ const asyncModules = [
   'myCommission', 'withdrawal', 'supportTickets',
   'chatHistory', 'chatInput1', 'chatMode',
   'settings', 'user', 'userCenter',
-  'learn', 'courses', 'exam', 'live',
+  'learn', 'courses', 'exam', 'live', 'edu',
   'circle', 'ask', 'newsCenter',
   'pointCenter', 'messageCenter', 'notificationCenter',
   'toolsPage', 'mcp', 'imageGen', 'videoGen',

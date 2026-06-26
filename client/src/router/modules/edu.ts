@@ -37,6 +37,7 @@ const eduRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       icon: 'Reading',
     },
+    beforeEnter: preloadI18n(['edu', 'learn', 'exam', 'member', 'distribution']),
     children: [
       // ----- Learn (course learning) -----
       {
@@ -230,6 +231,7 @@ const eduRoutes: RouteRecordRaw[] = [
       icon: 'Setting',
       hideInMenu: false,
     },
+    beforeEnter: preloadI18n(['edu']),
   },
 ];
 

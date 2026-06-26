@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useSlots } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 interface Props {
@@ -47,12 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
   descriptionKey: '',
 })
 
-// 解决 template ref warning
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _slots = useSlots()
-void _slots
-
-const { t, te } = useI18n({ useScope: 'global' })
+const { t, te } = useI18n()
 
 // 优先使用 i18n key, 再用 description 字符串, 最后空字符串
 const resolvedDescription = computed(() => {
