@@ -2,18 +2,20 @@
   <div class="agents-empty-state agents-square-list scroll-reveal scroll-animated animate-fadeInUp">
     <!-- 工具栏：使用 sticky 固定在内容区顶部，不随列表滚动，避免 Teleport 在异步更新时导致 DOM 错误 -->
     <div class="agents-square-list__toolbar">
-      <div class="agents-square-list__search-wrap">
-        <el-input v-model="searchKeyword" :placeholder="t('agents.searchPlaceholder')" clearable
-          class="agents-square-list__search" @keyup.enter="onSearch" @clear="onSearch">
-          <template #prefix>
-            <SearchIcon />
-          </template>
-          <template #append>
-            <button type="button" class="search-bar-append-btn" @click="onSearch">
-              {{ t('common.search') }}
-            </button>
-          </template>
-        </el-input>
+      <div class="agents-square-list__toolbar-row">
+        <div class="agents-square-list__search-wrap">
+          <el-input v-model="searchKeyword" :placeholder="t('agents.searchPlaceholder')" clearable
+            class="agents-square-list__search" @keyup.enter="onSearch" @clear="onSearch">
+            <template #prefix>
+              <SearchIcon />
+            </template>
+            <template #append>
+              <button type="button" class="search-bar-append-btn" @click="onSearch">
+                {{ t('common.search') }}
+              </button>
+            </template>
+          </el-input>
+        </div>
       </div>
       <div v-if="displayMainCategories.length > 0" class="agents-square-list__tabs">
         <button v-for="(cat, idx) in displayMainCategories" :key="cat.id === 'all' ? 'main-all' : (cat.id ?? idx)"
@@ -597,18 +599,29 @@ async function toggleLike(item: AgentInfo) {
   top: 0;
   z-index: calc(var(--z-base) + 1);
   margin-bottom: 20px;
-  padding-bottom: 4px;
-  /* 与页面同色，避免滚动时下方卡片透出；无描边 */
-  background: var(--el-bg-color-page);
-  border: none;
+  padding: 16px 18px 18px;
+  /* 与页面同色，避免滚动时下方卡片透出；用边框圈出工具栏 */
+  background: var(--el-bg-color);
+  border: var(--unified-border);
+  border-radius: var(--global-border-radius);
+}
+
+.agents-square-list__toolbar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
 }
 
 .agents-square-list__search-wrap {
-  margin-bottom: 12px;
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .agents-square-list__search {
-  max-width: 400px;
+  width: 100%;
 
   :deep(.el-input__prefix),
   :deep(.el-input__prefix-inner) {
@@ -618,12 +631,40 @@ async function toggleLike(item: AgentInfo) {
   }
 
   :deep(.el-input__wrapper) {
+    /* 与 append 拼接：仅右侧置 0 */
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
-    background-color: var(--el-fill-color-light);
+    background-color: var(--el-bg-color-page);
     border: var(--unified-border);
     box-shadow: none;
     min-height: 44px;
+    padding-left: 14px;
+    padding-right: 14px;
+    transition: border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :deep(.el-input__wrapper):hover {
+    border-color: var(--border-unified-color-hover);
+  }
+
+  :deep(.el-input__wrapper.is-focus) {
+    border-color: var(--el-text-color-primary);
+  }
+
+  :deep(.el-input__inner) {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--el-text-color-primary);
+  }
+
+  :deep(.el-input__inner::placeholder) {
+    color: var(--el-text-color-placeholder);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  :deep(.el-input__clear) {
+    margin-right: 4px;
   }
 
   /* append 容器与按钮由 _search-bar-append.scss 统一提供 */
@@ -634,31 +675,43 @@ async function toggleLike(item: AgentInfo) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  width: 100%;
 }
 
 .agents-square-list__tabs {
-  margin-top: 10px;
-  margin-bottom: 10px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.agents-square-list__sub-tabs {
+  margin-top: 0;
+  margin-bottom: 4px;
 }
 
 .btn-tab {
-  padding: 6px 12px;
-  min-height: 32px;
+  padding: 7px 14px;
+  min-height: 34px;
   border-radius: var(--global-border-radius);
-  background: var(--el-bg-color);
+  background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.4;
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  border: 1px solid transparent;
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     background: var(--el-fill-color-light);
+    border-color: var(--border-unified-color);
   }
 }
 
 .btn-tab--active {
   background: var(--el-color-primary);
-  color: var(--el-bg-color-page);
+  color: var(--color-on-primary);
+  border-color: var(--el-color-primary);
 }
 
 .btn-tab--sub {
@@ -666,13 +719,9 @@ async function toggleLike(item: AgentInfo) {
   font-size: 12px;
 }
 
-/* 深色模式下 tab 按钮背景为白/灰时文字改为黑色，保证可读 */
+/* 深色模式：非激活 tab 文字需要更深色保证在浅色背景下可读 */
 :where(html.dark) :where(.agents-square-list) .btn-tab:not(.btn-tab--active),
 :where(html.dark) :where(.agents-square-list) .btn-tab:not(.btn-tab--active):hover {
-  color: var(--color-dark-bg-4);
-}
-/* 深色模式下选中态 tab 文字改为黑色，保证可读 */
-:where(html.dark) :where(.agents-square-list) .btn-tab--active {
   color: var(--color-dark-bg-4);
 }
 
