@@ -46,15 +46,15 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('agentExamine.examineList') }}</span>
-          <div style="display: flex; gap: 10px">
+          <div class="card-header-actions">
             <el-input
               v-model="searchKeyword"
               :placeholder="t('agentExamine.searchPlaceholder')"
-              style="width: 240px"
+              class="search-input"
               clearable
               @input="debouncedLoadExamines"
             />
-            <el-select v-model="filterStatus" @change="loadExamines" style="width: 120px" clearable>
+            <el-select v-model="filterStatus" @change="loadExamines" class="filter-select" clearable>
               <el-option :label="t('agentExamine.allStatus')" value="" />
               <el-option :label="t('agentExamine.examining')" :value="1" />
               <el-option :label="t('agentExamine.approved')" :value="2" />
@@ -84,7 +84,7 @@
         <el-table-column type="selection" width="55" />
         <el-table-column prop="agent_name" :label="t('agentCategory.agentName')" min-width="150">
           <template #default="{ row }">
-            <div style="display: flex; align-items: center; gap: 8px">
+            <div class="user-cell">
               <el-avatar
                 v-if="row.agent_avatar"
                 :src="row.agent_avatar"
@@ -181,7 +181,7 @@
             {{ currentExamine.desc || '-' }}
           </el-descriptions-item>
         </el-descriptions>
-        <div v-if="currentExamine.category_info" style="margin-top: 20px">
+        <div v-if="currentExamine.category_info" class="category-info-section">
           <h4>{{ t('agentExamine.categoryInfo') }}</h4>
           <el-descriptions :column="2" border>
             <el-descriptions-item :label="t('agentCategory.type')">
@@ -567,6 +567,29 @@ onMounted(() => {
     h4 {
       margin-bottom: 10px;
     }
+  }
+
+  .card-header-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .search-input {
+    width: 240px;
+  }
+
+  .filter-select {
+    width: 120px;
+  }
+
+  .user-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .category-info-section {
+    margin-top: 20px;
   }
 }
 </style>

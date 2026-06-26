@@ -25,7 +25,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminGrayRelease.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -41,7 +41,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminDependencyManager.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -57,7 +57,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminEventBusMonitor.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -73,7 +73,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminMonitoringDashboard.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -89,7 +89,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminBackendHealth.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -105,7 +105,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminMobileDashboard.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -121,7 +121,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminErrorDashboard.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -137,7 +137,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminPerformanceDashboard.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -153,7 +153,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminMobileAdapter.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -169,7 +169,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminRecommendationConfig.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -188,7 +188,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminDatabaseOptimization.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -204,7 +204,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminUserManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -220,7 +220,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminRefundAudit.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -239,7 +239,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminProductManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -258,7 +258,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminActivityManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -277,7 +277,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminCourseManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -294,7 +294,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminAgentManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -311,7 +311,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminPaymentManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -330,7 +330,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminWithdrawalManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -349,7 +349,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminFundManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -368,7 +368,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminFeedbackManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -385,7 +385,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminFaqManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -404,7 +404,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminWebhookManagement.keywords',
       requiresAuth: true,
       requiresAdmin: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -419,7 +419,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       description: 'seo.dataDashboard.desc',
       keywords: 'seo.dataDashboard.keywords',
       requiresAuth: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -435,7 +435,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       description: 'seo.adminSettlementManagement.desc',
       keywords: 'seo.adminSettlementManagement.keywords',
       requiresAuth: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -453,7 +453,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       description: 'seo.adminAgentPricingConfig.desc',
       keywords: 'seo.adminAgentPricingConfig.keywords',
       requiresAuth: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   {
@@ -471,7 +471,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       description: 'seo.adminAgentAudit.desc',
       keywords: 'seo.adminAgentAudit.keywords',
       requiresAuth: true,
-    }
+    },
     beforeEnter: preloadI18n(['admin']),
   },
   // P12 admin 后台迁移
