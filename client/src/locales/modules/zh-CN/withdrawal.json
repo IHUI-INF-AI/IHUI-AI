@@ -1,56 +1,56 @@
 {
   "withdrawal": {
-    "availableAmount": "available 金额",
+    "availableAmount": "可提现金额",
     "form": {
-      "alipayAccount": "alipay 账号",
-      "alipayPlaceholder": "alipayPlaceholder",
+      "alipayAccount": "支付宝账号",
+      "alipayPlaceholder": "请输入支付宝账号",
       "amount": "金额",
       "amountPlaceholder": "请输入金额",
-      "amountTip": "金额 tip",
-      "bankAccount": "bank 账号",
+      "amountTip": "金额提示",
+      "bankAccount": "银行卡号",
       "bankName": "开户行",
       "bankNamePlaceholder": "请输入开户行",
-      "bankPlaceholder": "bankPlaceholder",
-      "method": "方法",
+      "bankPlaceholder": "请输入银行卡号",
+      "method": "提现方式",
       "realName": "真实姓名",
       "realNamePlaceholder": "请输入真实姓名",
       "remark": "备注",
       "remarkPlaceholder": "请输入备注",
-      "wechatAccount": "wechat 账号",
-      "wechatPlaceholder": "wechatPlaceholder",
-      "withdrawAll": "提现 全部"
+      "wechatAccount": "微信号",
+      "wechatPlaceholder": "请输入微信号",
+      "withdrawAll": "全部提现"
     },
-    "inputValidAmount": "输入 valid 金额",
-    "insufficientBalance": "insufficient 余额",
+    "inputValidAmount": "请输入有效金额",
+    "insufficientBalance": "余额不足",
     "messages": {
-      "fetchInfoFailed": "获取 信息 失败",
+      "fetchInfoFailed": "获取信息失败",
       "pleaseLogin": "请先登录"
     },
     "methods": {
       "alipay": "支付宝",
-      "bank": "银行",
+      "bank": "银行卡",
       "wechat": "微信"
     },
     "rules": {
       "minAmount": "最小金额",
       "processingTime": "处理时间"
     },
-    "selectMethod": "选择 方法",
+    "selectMethod": "选择提现方式",
     "submit": {
-      "button": "按钮",
+      "button": "提交",
       "submitting": "提交中"
     },
-    "submitPending": "提交 待处理",
+    "submitPending": "提交处理中",
     "submitSuccess": "提交成功",
     "title": "标题",
     "validation": {
-      "accountRequired": "账号 必填",
-      "amountExceed": "金额 exceed",
+      "accountRequired": "请输入账号",
+      "amountExceed": "金额超限",
       "amountMin": "最小金额",
       "amountRequired": "请输入金额",
-      "bankAccountInvalid": "bank 账号 格式不正确",
-      "bankNameRequired": "bank 名称 必填",
-      "realNameRequired": "real 名称 必填"
+      "bankAccountInvalid": "银行卡号格式不正确",
+      "bankNameRequired": "请输入开户行",
+      "realNameRequired": "请输入真实姓名"
     }
   }
 }
