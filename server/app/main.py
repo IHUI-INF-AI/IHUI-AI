@@ -489,6 +489,44 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register agent upload router: {e}")
 
+    # 2026-06-26 补齐: edu 微服务 3 个未迁移 Controller (Java→Python 迁移完整性核查)
+    # - point-service ChannelController (/channel 6 端点, 表 t_channel)
+    # - schedule-service WatchController (GET /watch, Redis 中转调度)
+    # - search-service RecordController (GET /record/list, 表 t_record 热词)
+    try:
+        from app.api.v1.edu_legacy_supplement_v2 import router as edu_legacy_v2_router
+        app.include_router(edu_legacy_v2_router)
+        logger.info(f"Edu legacy v2 router registered ({len(edu_legacy_v2_router.routes)} routes)")
+    except Exception as e:
+        logger.error(f"Failed to register edu legacy v2 router: {e}")
+
+    # 2026-06-26 补齐: ZHS_Server_java AliAIController (4 端点, /ali 前缀)
+    # - GET /ali/audio/sys (系统音色, 免登)
+    # - GET /ali/get/digital/{type} (我的定制形象)
+    # - POST /ali/generate/timbre (生成音色 + TTS 合成)
+    # - POST /ali/video/to/digital (视频拆分)
+    try:
+        from app.api.ali_ai_legacy import router as ali_ai_router
+        app.include_router(ali_ai_router)
+        logger.info(f"AliAI legacy router registered ({len(ali_ai_router.routes)} routes, /ali/*)")
+    except Exception as e:
+        logger.error(f"Failed to register ali ai legacy router: {e}")
+
+    # 2026-06-26 补齐: ai-smart-society-java RuoYi 7 个未迁移 Controller (35 端点)
+    # - /taskDeveloper (agent_task_developer)
+    # - /zhsAgent (zhs_agent)
+    # - /agentCategory (zhs_agent_category)
+    # - /identity_proportion (zhs_identity_proportion)
+    # - /token_flow (zhs_operate_token_flow, Python 已有 token_service 业务级替代, 此为 1:1 兼容)
+    # - /userAgentAudio (zhs_user_agent_audio)
+    # - /Withdrawaldetail (zhs_withdrawal_detail, 含 0.98 手续费 + 微信转账审核)
+    try:
+        from app.api.v1.ruoyi_legacy_supplement import router as ruoyi_legacy_router
+        app.include_router(ruoyi_legacy_router)
+        logger.info(f"RuoYi legacy router registered ({len(ruoyi_legacy_router.routes)} routes)")
+    except Exception as e:
+        logger.error(f"Failed to register ruoyi legacy router: {e}")
+
     # v2 auth 路由 (转发到 v1 真实逻辑, 必须在 mock catch-all 之前注册)
     try:
         from app.api.v2_authentication import router as v2_auth_router
