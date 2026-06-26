@@ -316,6 +316,7 @@ class Category(TimestampMixin, Base):
     create_user_id = Column(BigInteger, nullable=True)
     company_id = Column(BigInteger, nullable=True)
     department_id = Column(BigInteger, nullable=True)
+    type = Column(String(20), default="live", comment="分类归属业务板块: live/learn/exam/circle 等")
 
 
 class CategoryRelation(TimestampMixin, Base):
@@ -526,3 +527,54 @@ class ExamPaperRecord(TimestampMixin, Base):
     lesson_id = Column(BigInteger, nullable=True, comment="课程ID")
     serial_num = Column(String(100), nullable=True, comment="考试流水号")
     exam_title = Column(String(200), nullable=True, comment="考试名称")
+
+
+# ---------------------------------------------------------------------------
+# 14. 评论回复模块 (reply_comment) — 迁移自历史项目 t_reply_comment
+# ---------------------------------------------------------------------------
+
+
+class ReplyComment(TimestampMixin, Base):
+    """评论回复表 (t_reply_comment) — 二级回复关系.
+
+    迁移自 edu client init_database.sql. 用于评论的二级回复关系,
+    reply_comment_id 为父回复ID (回复评论表时值跟评论id相等).
+    """
+
+    __tablename__ = "t_reply_comment"
+    __table_args__ = (
+        Index("idx_reply_comment_comment", "comment_id"),
+        Index("idx_reply_comment_member", "member_id"),
+    )
+
+    id = id_column(comment="主键id")
+    comment_id = Column(BigInteger, nullable=False, comment="评论id")
+    reply_comment_id = Column(BigInteger, nullable=False, comment="回复评论id (父ID)")
+    content = Column(String(4000), nullable=False, comment="回复内容")
+    member_id = Column(BigInteger, nullable=False, comment="当前评论的用户ID")
+    to_member_id = Column(BigInteger, nullable=False, comment="回复的评论的用户id")
+
+
+# ---------------------------------------------------------------------------
+# 15. 内容浏览统计模块 (watch) — 迁移自历史项目 t_watch
+# ---------------------------------------------------------------------------
+
+
+class Watch(TimestampMixin, Base):
+    """内容浏览统计表 (t_watch).
+
+    迁移自 edu client init_database.sql. 通过 topic_id + topic_type 多态关联
+    课程评论、知识评论等多种内容的浏览行为, 用于内容维度的浏览统计.
+    """
+
+    __tablename__ = "t_watch"
+    __table_args__ = (
+        Index("idx_watch_topic", "topic_id", "topic_type"),
+        Index("idx_watch_member", "member_id"),
+    )
+
+    id = id_column(comment="主键id")
+    topic_id = Column(BigInteger, nullable=False, comment="主题ID (课程评论/知识评论ID等)")
+    topic_type = Column(String(50), nullable=False, comment="主题类型 (课程评论/知识评论等)")
+    member_id = Column(BigInteger, nullable=False, comment="用户id")
+    ip_addr = Column(String(200), nullable=False, comment="ip地址")

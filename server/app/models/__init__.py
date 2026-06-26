@@ -88,12 +88,14 @@ from app.models.learn_models import (
     Rate,
     Record,
     RecordLog,
+    ReplyComment,
     SignUp,
     Topic,
     TopicCategory,
     TopicCategoryRelation,
     TopicLesson,
     TopicTopicCategoryRelation,
+    Watch,
 )
 from app.models.education_ext_models import (
     ZhsCourseAudit,
@@ -203,6 +205,8 @@ from app.models.resource_models import (
     OfficialInformation,
     PopularCourse,
     Resource,
+    ResourceProduct,
+    ResourceTag,
     ZhsExchangeRate,
     ZhsResources,
 )

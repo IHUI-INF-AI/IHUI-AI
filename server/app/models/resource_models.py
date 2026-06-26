@@ -89,3 +89,32 @@ class ZhsResources(TimestampMixin, Base):
     resource_url = Column(String(500), nullable=True, comment="Resource URL")
     status = Column(Integer, default=1, comment="0=disabled, 1=active")
     create_time = Column(DateTime, server_default=func.now(), comment="Creation time")
+
+
+class ResourceProduct(TimestampMixin, Base):
+    """资源产品表 (t_resource_product) — 历史占位表.
+
+    迁移自 edu client init_database.sql. 历史项目中结构简陋且无数据,
+    此处保留以保持与历史项目百分百对齐.
+    """
+
+    __tablename__ = "t_resource_product"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键id")
+    name = Column(String(255), nullable=True, comment="名称")
+    status = Column(String(255), nullable=True, comment="状态")
+    image = Column(String(255), nullable=True, comment="图片")
+
+
+class ResourceTag(TimestampMixin, Base):
+    """资源标签表 (t_resource_tag) — 历史占位表.
+
+    迁移自 edu client init_database.sql. 历史项目中结构简陋且无数据,
+    此处保留以保持与历史项目百分百对齐.
+    """
+
+    __tablename__ = "t_resource_tag"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键id")
+    name = Column(String(255), nullable=True, comment="名称")
+    status = Column(String(255), nullable=True, comment="状态")

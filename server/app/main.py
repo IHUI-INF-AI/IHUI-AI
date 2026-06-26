@@ -809,6 +809,17 @@ def create_app() -> FastAPI:
                     logger.info(f"AUTO_CREATE_SCHEMA: admin seeded (rc={rc})")
             except Exception as e:
                 logger.warning(f"AUTO_CREATE_SCHEMA seed_admin failed: {e}")
+
+            # 2026-06-26: 为 7 个历史迁移模块补配 admin_menu 菜单项 (幂等)
+            try:
+                from app.database import engine1 as _engine1
+                from scripts.ci.seed_admin_menus_v2 import seed_admin_menus_v2
+
+                rc = seed_admin_menus_v2(engine=_engine1)
+                if rc >= 0:
+                    logger.info(f"AUTO_CREATE_SCHEMA: admin menus v2 seeded (+{rc} menus)")
+            except Exception as e:
+                logger.warning(f"AUTO_CREATE_SCHEMA seed_admin_menus_v2 failed: {e}")
         except Exception as e:
             logger.warning(f"AUTO_CREATE_SCHEMA failed: {e}")
 

@@ -60,3 +60,9 @@ class AgentWithdrawalDetail(TimestampMixin, Base):
     open_id = Column(String(255), nullable=True)
     order_ids = Column(Text, nullable=True)
     wechat_msg = Column(Text, nullable=True)
+    # 2026-06-26 补字段: 历史项目迁移完整性, 原以 JSON 存入 wechat_msg, 现拆为独立列提升查询效率
+    review_remark = Column(String(500), nullable=True, comment="审核备注 (review 阶段)")
+    process_remark = Column(String(500), nullable=True, comment="处理备注 (process 阶段)")
+    transaction_id = Column(String(64), nullable=True, comment="微信付款交易号 (process 阶段回填)")
+    failure_reason = Column(String(500), nullable=True, comment="失败原因 (process 失败时回填)")
+    deleted_at = Column(DateTime, nullable=True, comment="软删除时间 (NULL=未删除)")

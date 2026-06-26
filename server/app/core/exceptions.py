@@ -174,7 +174,9 @@ async def not_found_handler(request: Request, exc: StarletteHTTPException) -> JS
         )
 
     # 浏览器访问 → 返回 404.html 静态页
-    return await _maybe_html_error(request, 404, ErrorCode.NOT_FOUND.value, f"路径不存在: {request.method} {path}")
+    # _maybe_html_error 是同步函数 (返回 FileResponse/HTMLResponse/JSONResponse),
+    # 不能用 await 调用, 否则 TypeError: object FileResponse can't be used in 'await' expression
+    return _maybe_html_error(request, 404, ErrorCode.NOT_FOUND.value, f"路径不存在: {request.method} {path}")
 
 
 # ---------- 通用 HTML 错误页助手 ----------

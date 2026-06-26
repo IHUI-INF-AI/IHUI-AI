@@ -513,6 +513,25 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       { path: 'search/hot', name: 'adminSearchHot', component: safeImport(() => import('@/views/admin/search/Hot.vue'), 'adminSearchHot'), meta: { title: 'routes.adminSearchHot' } },
       { path: 'aiworld/site', name: 'adminAiworldSite', component: safeImport(() => import('@/views/admin/aiworld/Site.vue'), 'adminAiworldSite'), meta: { title: 'routes.adminAiworldSite' } },
       { path: 'sms/template', name: 'adminSmsTemplate', component: safeImport(() => import('@/views/admin/sms/Template.vue'), 'adminSmsTemplate'), meta: { title: 'routes.adminSmsTemplate' } },
+      // 字典管理
+      { path: 'dict', name: 'adminDict', component: safeImport(() => import('@/views/admin/dict/index.vue'), 'adminDict'), meta: { title: 'routes.adminDict' } },
+      { path: 'dict/data', name: 'adminDictData', component: safeImport(() => import('@/views/admin/dict/data.vue'), 'adminDictData'), meta: { title: 'routes.adminDictData' } },
+      // 开发者管理
+      { path: 'developer', name: 'adminDeveloper', component: safeImport(() => import('@/views/admin/developer/index.vue'), 'adminDeveloper'), meta: { title: 'routes.adminDeveloper' } },
+      { path: 'developer/link', name: 'adminDeveloperLink', component: safeImport(() => import('@/views/admin/developer/link.vue'), 'adminDeveloperLink'), meta: { title: 'routes.adminDeveloperLink' } },
+      // 需求广场
+      { path: 'demandSquare', name: 'adminDemandSquare', component: safeImport(() => import('@/views/admin/demandSquare/index.vue'), 'adminDemandSquare'), meta: { title: 'routes.adminDemandSquare' } },
+      { path: 'demandSquare/review', name: 'adminDemandSquareReview', component: safeImport(() => import('@/views/admin/demandSquare/review.vue'), 'adminDemandSquareReview'), meta: { title: 'routes.adminDemandSquareReview' } },
+      // 日志管理
+      { path: 'log/operlog', name: 'adminLogOperlog', component: safeImport(() => import('@/views/admin/log/operlog.vue'), 'adminLogOperlog'), meta: { title: 'routes.adminLogOperlog' } },
+      { path: 'log/logininfor', name: 'adminLogLogininfor', component: safeImport(() => import('@/views/admin/log/logininfor.vue'), 'adminLogLogininfor'), meta: { title: 'routes.adminLogLogininfor' } },
+      // 定时任务
+      { path: 'job', name: 'adminJob', component: safeImport(() => import('@/views/admin/job/index.vue'), 'adminJob'), meta: { title: 'routes.adminJob' } },
+      { path: 'job/log', name: 'adminJobLog', component: safeImport(() => import('@/views/admin/job/log.vue'), 'adminJobLog'), meta: { title: 'routes.adminJobLog' } },
+      // 在线用户
+      { path: 'online', name: 'adminOnline', component: safeImport(() => import('@/views/admin/online/index.vue'), 'adminOnline'), meta: { title: 'routes.adminOnline' } },
+      // 专区管理
+      { path: 'zone', name: 'adminZone', component: safeImport(() => import('@/views/admin/zone/index.vue'), 'adminZone'), meta: { title: 'routes.adminZone' } },
     ],
   },
 ]
