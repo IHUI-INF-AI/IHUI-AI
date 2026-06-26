@@ -280,24 +280,31 @@ class TestRecoveryTimer:
         from app.ws.auto_recovery_metrics import (
             RECOVERY_DURATION,
             RecoveryTimer,
+            get_histogram_count,
         )
 
         with RecoveryTimer("succeeded"):
             time.sleep(0.01)
         # 不抛异常, histogram 计数增加
         assert RECOVERY_DURATION.labels(result="succeeded")._sum.get() > 0
+        # 验证 get_histogram_count 助手正确返回 1
+        assert get_histogram_count(RECOVERY_DURATION, result="succeeded") >= 1
 
     def test_failure_path(self):
         from app.ws.auto_recovery_metrics import (
             RECOVERY_DURATION,
             RecoveryTimer,
+            get_histogram_count,
         )
 
-        before = RECOVERY_DURATION.labels(result="failed")._count.get()
+        # 2026-06-26 修复: 之前用 _count.get() 报错 AttributeError,
+        # prometheus_client.Histogram 没有 _count 属性 (那是 Counter 专属),
+        # 改用本模块导出的 get_histogram_count 助手, 内部走 _samples() API.
+        before = get_histogram_count(RECOVERY_DURATION, result="failed")
         with pytest.raises(RuntimeError):
             with RecoveryTimer("succeeded"):
                 raise RuntimeError("simulated failure")
-        after = RECOVERY_DURATION.labels(result="failed")._count.get()
+        after = get_histogram_count(RECOVERY_DURATION, result="failed")
         # 异常路径自动归类为 failed
         assert after == before + 1
 
@@ -307,6 +314,20 @@ class TestRecoveryTimer:
         timer = RecoveryTimer("succeeded")
         with timer as t:
             assert t is timer
+
+    def test_get_histogram_count_helper(self):
+        """get_histogram_count 应正确返回 Histogram 在指定 label 下的观测次数."""
+        from app.ws.auto_recovery_metrics import (
+            RECOVERY_DURATION,
+            get_histogram_count,
+        )
+
+        # 一个尚未观察的 label 应返回 0.0
+        assert get_histogram_count(RECOVERY_DURATION, result="never_observed_xyz") == 0.0
+        # 对已观察过的 label 返回非负浮点数
+        v = get_histogram_count(RECOVERY_DURATION, result="succeeded")
+        assert isinstance(v, float)
+        assert v >= 0.0
 
 
 # ---------------------------------------------------------------------------

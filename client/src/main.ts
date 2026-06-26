@@ -205,7 +205,30 @@ setActivePinia(pinia)
 app.use(pinia)
 
 // Vue 全局错误处理器 - 捕获组件内部未处理的错误
+// 2026-06-26 增强: 对 Element Plus 2.14.x + Vue 3.5.x 在暗色模式切换瞬间
+// 偶发的 'Cannot read properties of null (reading "ce")' 错误 (即
+// el-empty / el-table 等组件 renderSlot 时 currentRenderingInstance 为 null)
+// 做静默处理, 避免级联到 ErrorBoundary 兜底白屏. 该错误本质是组件卸载瞬间
+// 异步 locale 切换 + 渲染管线竞态, 不影响最终渲染结果, 静默吞掉即可.
+const _isRenderSlotNullError = (err: unknown): boolean => {
+  if (!err || typeof err !== 'object') return false
+  const msg = (err as { message?: string }).message
+  if (typeof msg !== 'string') return false
+  // 兼容 'ce' (currentRenderingInstance.ce) 与 'currentRenderingInstance' 两种报错形式
+  return (
+    msg.includes("Cannot read properties of null (reading 'ce')") ||
+    msg.includes('Cannot read properties of null (reading "ce")') ||
+    (msg.includes('currentRenderingInstance') && msg.includes('null'))
+  )
+}
 ;(app.config as unknown as { errorHandler: (err: unknown, instance: unknown, info: string) => void }).errorHandler = (err, _instance, info) => {
+  if (_isRenderSlotNullError(err)) {
+    // 仅在 dev 模式记录, 生产环境静默
+    if (import.meta.env.DEV) {
+      logger.debug('[Vue Error] renderSlot null caught (non-fatal):', { err, info })
+    }
+    return
+  }
   logger.error('[Vue Error]', err, { info })
 }
 

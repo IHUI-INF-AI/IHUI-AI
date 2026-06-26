@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-06-26T05:10:03.568Z",
+  "generatedAt": "2026-06-26T07:29:30.989Z",
   "mode": "APPLY",
   "summary": {
     "totalUsedKeys": 11454,
-    "zhCnLeafKeys": 13161,
+    "zhCnLeafKeys": 13182,
     "protectedByNamespace": 283,
-    "totalOrphansAfterProtect": 1425,
-    "allLocaleOrphans": 1423,
+    "totalOrphansAfterProtect": 1446,
+    "allLocaleOrphans": 1444,
     "partialLocaleOrphans": 2,
-    "totalRemovable": 1425,
-    "modulesAffected": 17,
+    "totalRemovable": 1446,
+    "modulesAffected": 19,
     "protectedPrefixes": [
       "agenticDashboard.status",
       "aiChat.componentGenerator.tabs",
@@ -1483,6 +1483,39 @@
       "partial": [],
       "total": 34
     },
+    "commandPalette": {
+      "allLocale": [
+        "commandPalette.commands.home",
+        "commandPalette.commands.store",
+        "commandPalette.commands.plaza",
+        "commandPalette.commands.learnAI",
+        "commandPalette.commands.ask",
+        "commandPalette.commands.circle",
+        "commandPalette.commands.docs",
+        "commandPalette.commands.about",
+        "commandPalette.commands.darkMode",
+        "commandPalette.commands.aiAssistant",
+        "commandPalette.commands.backToTop",
+        "commandPalette.paths.home",
+        "commandPalette.paths.store",
+        "commandPalette.paths.plaza",
+        "commandPalette.paths.learnAI",
+        "commandPalette.paths.ask",
+        "commandPalette.paths.circle",
+        "commandPalette.paths.docs",
+        "commandPalette.paths.about"
+      ],
+      "partial": [],
+      "total": 19
+    },
+    "footer": {
+      "allLocale": [
+        "footer.companyContact",
+        "footer.companyEmail"
+      ],
+      "partial": [],
+      "total": 2
+    },
     "second": {
       "allLocale": [
         "second"
@@ -1643,6 +1676,30 @@
       "partialSample": [],
       "total": 34
     },
+    "commandPalette": {
+      "allLocaleSample": [
+        "commandPalette.commands.home",
+        "commandPalette.commands.store",
+        "commandPalette.commands.plaza",
+        "commandPalette.commands.learnAI",
+        "commandPalette.commands.ask",
+        "commandPalette.commands.circle",
+        "commandPalette.commands.docs",
+        "commandPalette.commands.about",
+        "commandPalette.commands.darkMode",
+        "commandPalette.commands.aiAssistant"
+      ],
+      "partialSample": [],
+      "total": 19
+    },
+    "footer": {
+      "allLocaleSample": [
+        "footer.companyContact",
+        "footer.companyEmail"
+      ],
+      "partialSample": [],
+      "total": 2
+    },
     "second": {
       "allLocaleSample": [
         "second"
@@ -1667,20 +1724,6 @@
     "day": {
       "allLocaleSample": [
         "day"
-      ],
-      "partialSample": [],
-      "total": 1
-    },
-    "month": {
-      "allLocaleSample": [
-        "month"
-      ],
-      "partialSample": [],
-      "total": 1
-    },
-    "week": {
-      "allLocaleSample": [
-        "week"
       ],
       "partialSample": [],
       "total": 1

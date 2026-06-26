@@ -120,8 +120,63 @@ import { getI18nGlobal } from '@/locales'
 // 使用动态导入优化组件体积
 const MobileMenu = defineAsyncComponent(() => import('./MobileMenu.vue'))
 
-const router = useRouter()
-const route = useRoute()
+// 2026-06-26 修复: 与 Header.vue / MobileMenu.vue 同形 - 顶层 useRouter/useRoute
+// 改为 try/catch + 懒加载, 防止 Vite HMR / Teleport 渲染时机异常时
+// 'injection "Symbol(router)" not found' / 'injection "Symbol(route location)" not found'
+// 警告级联到 ErrorBoundary 兜底白屏.
+let router: ReturnType<typeof useRouter> | null = null
+try {
+  router = useRouter()
+} catch (e) {
+  if (import.meta.env.DEV) {
+    safeLogger.debug('[HeaderNavigation] useRouter unavailable on init:', e)
+  }
+}
+
+let route: ReturnType<typeof useRoute> | null = null
+try {
+  route = useRoute()
+} catch (e) {
+  if (import.meta.env.DEV) {
+    safeLogger.debug('[HeaderNavigation] useRoute unavailable on init:', e)
+  }
+}
+
+const getRouter = (): ReturnType<typeof useRouter> | null => {
+  if (router) return router
+  try {
+    router = useRouter()
+    return router
+  } catch {
+    return null
+  }
+}
+
+const getRoute = (): ReturnType<typeof useRoute> | null => {
+  if (route) return route
+  try {
+    route = useRoute()
+    return route
+  } catch {
+    return null
+  }
+}
+
+// 2026-06-26 修复: 包装 route 访问, route 为 null 时回退到空路径
+// 解决 useRouter/useRoute 上下文注入失败时模板渲染报错的问题
+const safeRoute = computed(() => {
+  const r = getRoute()
+  if (r) return r
+  return {
+    path: '/',
+    name: undefined as string | undefined,
+    query: {} as Record<string, unknown>,
+    params: {} as Record<string, unknown>,
+    fullPath: '/',
+    meta: {} as Record<string, unknown>,
+  } as unknown as ReturnType<typeof useRoute>
+})
+
 // 使用全局作用域，因为组件在 Teleport 中会失去父级作用域
 interface UseI18nOptions {
   useScope?: 'global' | 'local'
@@ -294,7 +349,13 @@ function closeMenus() {
 }
 
 function goToPath(path: string, key: string) {
-  router.push(path)
+  const r = getRouter()
+  if (r) {
+    r.push(path)
+  } else if (typeof window !== 'undefined') {
+    // 路由上下文不可用, 降级为整页跳转
+    window.location.href = path
+  }
   emit('select', key)
   closeMenus()
 }
@@ -1306,7 +1367,7 @@ watch(
 )
 
 watch(
-  () => route?.path ?? '',
+  () => safeRoute.value.path,
   () => {
     closeMenus()
     // 延迟计算，确保 DOM 已更新

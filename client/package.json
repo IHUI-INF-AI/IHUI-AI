@@ -57,6 +57,8 @@
     "i18n:fill-partial": "tsx scripts/fill-partial-i18n.ts",
     "i18n:clean-orphan": "tsx scripts/clean-orphan-i18n.ts",
     "i18n:clean-orphan:apply": "tsx scripts/clean-orphan-i18n.ts --apply",
+    "i18n:auto-translate": "npx tsx scripts/auto-translate-i18n.ts",
+    "i18n:auto-translate:dry": "npx tsx scripts/auto-translate-i18n.ts --dry-run",
     "check:colors": "tsx scripts/check-hardcoded-colors.ts",
     "check:no-important": "tsx scripts/check-no-important.ts",
     "check:high-specificity": "npx playwright test e2e/analyze-high-specificity.spec.ts --project=chromium --reporter=list",

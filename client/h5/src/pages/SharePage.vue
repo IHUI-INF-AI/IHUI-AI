@@ -541,7 +541,7 @@ function copyLink() {
     } else {
       currentUrl = `https://aizhs.top/share/${code.value}`
     }
-  } catch (e) {
+  } catch (_e) {
     currentUrl = `https://aizhs.top/share/${code.value}`
   }
 
