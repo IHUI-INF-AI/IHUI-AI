@@ -65,6 +65,40 @@ const patchAppImageSources = () => {
 
 logger.info('[Main] Starting app initialization...')
 
+// 2026-06-26 一次性迁移清理: 删除 i18n 翻译记忆库 (TM) + 同步日志 残留的 localStorage 数据
+// 背景: 之前为"翻译工作流"开发了 TM (翻译记忆库) + 同步日志 功能, 现用户决定不接入第三方翻译 API
+//       所有"花钱翻译"相关功能已从代码中移除, 但用户浏览器里可能残留旧的 localStorage 数据
+//       一次性清理: 只在客户端执行一次, 删除后立即 setItem 一个 sentinel, 防止误删新数据
+try {
+  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    const TM_LEGACY_KEY = 'i18n_tm'
+    const SYNC_LOG_LEGACY_KEY = 'i18n_sync_log'
+    const MIGRATION_SENTINEL = 'i18n_legacy_translation_cleanup_v1'
+    const existing = localStorage.getItem(MIGRATION_SENTINEL)
+    if (existing !== 'done') {
+      let removedCount = 0
+      if (localStorage.getItem(TM_LEGACY_KEY) !== null) {
+        localStorage.removeItem(TM_LEGACY_KEY)
+        removedCount++
+      }
+      if (localStorage.getItem(SYNC_LOG_LEGACY_KEY) !== null) {
+        localStorage.removeItem(SYNC_LOG_LEGACY_KEY)
+        removedCount++
+      }
+      try {
+        localStorage.setItem(MIGRATION_SENTINEL, 'done')
+      } catch (_e) {
+        // 写入 sentinel 失败不影响清理结果
+      }
+      if (removedCount > 0) {
+        logger.info(`[Main] Cleaned up ${removedCount} legacy i18n translation localStorage key(s)`)
+      }
+    }
+  }
+} catch (e) {
+  logger.warn('[Main] Legacy i18n translation localStorage cleanup failed:', e)
+}
+
 // Theme initialization
 try {
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -336,7 +370,9 @@ function applyLanguageClass(lang: string) {
 try {
   const languageStore = useLanguageStore(pinia)
   languageStore.initLanguage()
-  applyLanguageClass(languageStore.currentLanguage)
+  // 2026-06-26 修复: pinia setup-style store 的 ref 字段在 script 中访问不会自动 unwrap
+  // 必须用 .value 取出原始字符串, 否则 applyLanguageClass 收到 Ref 对象 -> toLowerCase 报错
+  applyLanguageClass((languageStore.currentLanguage as unknown as { value: string }).value)
   languageStore.$subscribe((_mutation: any, state: { currentLanguage?: string }) => {
     applyLanguageClass(state.currentLanguage || 'zh-CN')
   })

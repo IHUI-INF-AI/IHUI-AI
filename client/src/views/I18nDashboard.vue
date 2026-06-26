@@ -20,11 +20,11 @@
       </div>
     </section>
 
-    <!-- 9 语言元数据表 -->
+    <!-- 5 语言元数据表 (2026-06-26: 改 9 种为 5 种) -->
     <section class="i18n-section scroll-reveal" data-animation="fadeInUp" aria-labelledby="i18n-meta-title">
       <h2 id="i18n-meta-title" class="i18n-section-title">{{ t('i18nDashboard.metaTitle') }}</h2>
       <div class="i18n-table-wrap">
-        <table class="i18n-table" :aria-label="t('i18nDashboard.metaTableAria')">
+        <table class="i18n-table" :aria-label="t('i18nDashboard.metaTableAria', { langs: I18N_LANGUAGES.length })">
           <thead>
             <tr>
               <th scope="col">{{ t('i18nDashboard.colCode') }}</th>
@@ -142,10 +142,13 @@
 </template>
 
 <script setup lang="ts">
-// I18nDashboard - V1 纯前端静态版本
-// 替代原 useI18nV2 + 后端 /api/v1/i18n-v2/* 整套体系
+// I18nDashboard - V3 静态精简版 (2026-06-26)
+// - 9 语言元数据精简为 5 语言 (zh-CN, zh-TW, en, ja, ko), 与实际支持语言一致
+// - 移除翻译记忆库 (TM) section: 用户不接入第三方翻译 API, 不做花钱翻译
+// - 移除同步日志 section: 翻译工作流相关, 同步取消
+// - 移除机器翻译 (MT) section, 因不接入第三方翻译 API
 // 数据源全部前端静态, 任何时候（无网络/无后端）都好使
-// 9 语言元数据: constants/i18nLanguages.ts
+// 5 语言元数据: constants/i18nLanguages.ts
 // 相对时间: utils/i18nRelative.ts
 // 复数规则: Intl.PluralRules
 // 数字/货币/日期: Intl.NumberFormat / Intl.DateTimeFormat
@@ -156,7 +159,7 @@ import { useI18n } from 'vue-i18n'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher.vue'
 import { I18N_LANGUAGES, getLanguageMeta } from '@/constants/i18nLanguages'
 import { formatRelative } from '@/utils/i18nRelative'
-import i18n, { loadFullLocaleMessages, getCurrentLocale } from '@/locales'
+import i18n from '@/locales'
 
 const { t, locale } = useI18n()
 
@@ -227,101 +230,67 @@ const refreshFormatPreviews = () => {
   try {
     formatDatePreview.value = new Intl.DateTimeFormat(code, {
       dateStyle: 'long',
-      timeStyle: 'short',
-    }).format(new Date())
+    }).format(new Date('2024-03-15T10:00:00Z'))
   } catch {
-    formatDatePreview.value = new Date().toISOString()
+    formatDatePreview.value = ''
   }
-  // 相对时间: 5 分钟前
-  formatRelativePreview.value = formatRelative(new Date(Date.now() - 1000 * 60 * 5), code)
+  try {
+    formatRelativePreview.value = formatRelative('2024-03-15T10:00:00Z', code)
+  } catch {
+    formatRelativePreview.value = ''
+  }
 }
 
-watch(currentLang, () => {
-  refreshFormatPreviews()
-  refreshPlural()
-}, { immediate: true })
-
-// =================== 差异对比 (跨 V1 静态翻译) ===================
+// =================== 差异对比 ===================
+interface LangCompletion { code: string; total: number; translated: number; percent: number }
 interface DiffResult {
   a_missing: string[]
   b_missing: string[]
-  identical: { key: string; a: string; b: string }[]
-  total: number
+  identical: string[]
 }
 
-const diffA = ref('zh-CN')
-const diffB = ref('en')
+const diffA = ref<string>('zh-CN')
+const diffB = ref<string>('en')
 const diffResult = ref<DiffResult | null>(null)
 const baseHint = ref<string>('')
 
-/**
- * 缓存 base 选择结果到 localStorage
- * - key: i18n-dashboard-base-v1
- * - value: { code: string, ts: number } JSON
- * - 7 天内有效, 超期或 code 不在 I18N_LANGUAGES 中视为失效
- */
-const BASE_CACHE_KEY = 'i18n-dashboard-base-v1'
-const BASE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 天
+const BASE_LANG_CACHE_KEY = 'i18n_dashboard_base_lang'
+
+const writeCachedBase = (code: string): void => {
+  if (typeof localStorage === 'undefined') return
+  try { localStorage.setItem(BASE_LANG_CACHE_KEY, code) } catch { /* ignore */ }
+}
 
 const readCachedBase = (): string | null => {
-  try {
-    const raw = localStorage.getItem(BASE_CACHE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { code?: string; ts?: number }
-    if (!parsed || typeof parsed.code !== 'string' || typeof parsed.ts !== 'number') return null
-    if (Date.now() - parsed.ts > BASE_CACHE_TTL_MS) return null
-    if (!I18N_LANGUAGES.some(m => m.code === parsed.code)) return null
-    return parsed.code
-  } catch {
-    return null
-  }
+  if (typeof localStorage === 'undefined') return null
+  try { return localStorage.getItem(BASE_LANG_CACHE_KEY) } catch { return null }
 }
 
-const writeCachedBase = (code: string) => {
-  try {
-    localStorage.setItem(BASE_CACHE_KEY, JSON.stringify({ code, ts: Date.now() }))
-  } catch {
-    // localStorage 可能被禁用 (无痕模式 / 配额满), 静默失败
-  }
-}
-
-const clearCachedBase = () => {
-  try {
-    localStorage.removeItem(BASE_CACHE_KEY)
-  } catch {
-    // ignore
-  }
+const clearCachedBase = (): void => {
+  if (typeof localStorage === 'undefined') return
+  try { localStorage.removeItem(BASE_LANG_CACHE_KEY) } catch { /* ignore */ }
 }
 
 /**
- * 统计每种语言在 i18nDashboard 子树下的完成度
- * 完成度 = 已翻译 key 数 / 全部 key 数
- * 返回数组按完成度降序
+ * 计算每种语言的"完成度" (i18nDashboard 命名空间下, 非空翻译数 / 总数)
  */
-interface LangCompletion {
-  code: string
-  total: number
-  translated: number
-  percent: number
-}
 const computeCompletion = (): LangCompletion[] => {
-  const keys = collectI18nDashboardKeys()
   const msgs = (i18n.global as unknown as {
     messages: { value: Record<string, Record<string, unknown>> }
   }).messages?.value || {}
   const result: LangCompletion[] = []
   for (const m of I18N_LANGUAGES) {
-    const root = msgs[m.code] as { i18nDashboard?: Record<string, unknown> } | undefined
-    const sub = root?.i18nDashboard
+    const tree = msgs[m.code] as { i18nDashboard?: Record<string, unknown> } | undefined
+    const sub = tree?.i18nDashboard
+    if (!sub) { result.push({ code: m.code, total: 0, translated: 0, percent: 0 }); continue }
+    let keys = 0
     let translated = 0
-    if (sub && typeof sub === 'object') {
-      for (const k of keys) {
-        const v = sub[k]
-        if (typeof v === 'string' && v.length > 0) translated++
-      }
+    for (const v of Object.values(sub)) {
+      keys++
+      if (typeof v === 'string' && v.length > 0) translated++
     }
-    const percent = keys.length === 0 ? 0 : Math.round((translated / keys.length) * 100)
-    result.push({ code: m.code, total: keys.length, translated, percent })
+    const percent = keys === 0 ? 0 : Math.round((translated / keys) * 100)
+    result.push({ code: m.code, total: keys, translated, percent })
   }
   // 降序: 完成度高的在前, 持平按语言代码字典序
   result.sort((a, b) => b.percent - a.percent || a.code.localeCompare(b.code))
@@ -398,37 +367,40 @@ const onDiff = () => {
   }).messages?.value || {}
   const a_missing: string[] = []
   const b_missing: string[] = []
-  const identical: { key: string; a: string; b: string }[] = []
+  const identical: string[] = []
   for (const k of keys) {
-    const a = getNested(msgs[diffA.value], k)
-    const b = getNested(msgs[diffB.value], k)
-    if (a == null) a_missing.push(k)
-    if (b == null) b_missing.push(k)
-    if (a != null && b != null && a === b) identical.push({ key: k, a, b })
+    const aRoot = msgs[diffA.value] as Record<string, unknown> | undefined
+    const bRoot = msgs[diffB.value] as Record<string, unknown> | undefined
+    const a = getNested(aRoot, k)
+    const b = getNested(bRoot, k)
+    if (!a) a_missing.push(k)
+    if (!b) b_missing.push(k)
+    if (a && b && a === b) identical.push(k)
   }
-  diffResult.value = {
-    a_missing,
-    b_missing,
-    identical,
-    total: keys.length,
-  }
+  diffResult.value = { a_missing, b_missing, identical }
 }
 
-onMounted(async () => {
-  // 加载当前语言的完整语言包（含 i18nDashboard 翻译键）
-  await loadFullLocaleMessages(getCurrentLocale())
-  // 初始化一次, 避免初始值在 SSR 期间为空
-  refreshFormatPreviews()
+// =================== 翻译记忆库 (TM) — 已移除 ===================
+// 2026-06-26: 用户不要花钱翻译, TM 工作流已取消
+// (占位以保留章节标记, 实际功能全部清空)
+
+onMounted(() => {
   refreshPlural()
-  // 优先使用 localStorage 缓存的 base; 失效才重新计算
+  refreshFormatPreviews()
+  // 尝试恢复缓存的 base lang
   const cached = readCachedBase()
-  if (cached) {
+  if (cached && I18N_LANGUAGES.some(m => m.code === cached)) {
     diffA.value = cached
     refreshBaseHint(cached)
-    onDiff()
   } else {
     onAutoPickBase()
   }
+})
+
+// 语言切换时刷新受影响的预览
+watch(currentLang, () => {
+  refreshPlural()
+  refreshFormatPreviews()
 })
 </script>
 
@@ -523,7 +495,7 @@ onMounted(async () => {
   gap: 12px;
 }
 
-// ---- 9 语言表 ----
+// ---- 5 语言表 ----
 .i18n-table-wrap {
   overflow-x: auto;
 }
@@ -570,65 +542,68 @@ onMounted(async () => {
 
 .i18n-tag {
   display: inline-block;
-  padding: 2px 8px;
-  border: var(--unified-border);
+  padding: 1px 8px;
   border-radius: var(--global-border-radius);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-5);
 }
 
 .i18n-tag.rtl {
-  /* WCAG AA: 4.5:1 contrast. 使用项目主文字色 (#303133) 作为背景, 白字, 对比度 ≈ 12:1 远超 AA */
-  background: var(--el-text-color-primary);
-  color: var(--el-color-white);
-  border-color: var(--el-text-color-primary);
+  color: var(--el-color-warning);
+  background: var(--el-color-warning-light-9);
+  border-color: var(--el-color-warning-light-5);
 }
 
 .i18n-num {
-  font-variant-numeric: tabular-nums;
-  color: var(--el-text-color-primary);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
 }
 
-// ---- 复数示例 ----
+// ---- 复数卡片 ----
 .i18n-plural-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
 }
 
 .i18n-plural-card {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  background: var(--el-bg-color);
+  background: var(--el-fill-color-lighter);
 }
 
 .i18n-plural-count {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
   color: var(--el-text-color-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .i18n-plural-cat {
-  font-size: 12px;
-  color: var(--el-text-color-regular);
-  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--el-color-primary);
+  letter-spacing: 0.5px;
 }
 
 .i18n-plural-text {
-  font-size: 14px;
-  color: var(--el-text-color-primary);
+  font-size: 12px;
+  color: var(--el-text-color-regular);
 }
 
-// ---- 格式化工具 ----
+// ---- 格式化卡片 ----
 .i18n-format-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
 }
 
@@ -636,19 +611,21 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 14px;
+  padding: 12px 14px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  background: var(--el-bg-color);
+  background: var(--el-fill-color-lighter);
 }
 
 .i18n-format-label {
-  font-size: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
   color: var(--el-text-color-regular);
+  letter-spacing: 0.5px;
 }
 
 .i18n-format-val {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--el-text-color-primary);
   font-variant-numeric: tabular-nums;
@@ -664,88 +641,86 @@ onMounted(async () => {
 
 .i18n-label {
   font-size: 13px;
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-regular);
 }
 
-.i18n-select {
-  height: 36px;
-  padding: 0 12px;
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
+.i18n-select,
+.i18n-input {
+  padding: 6px 10px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  font-size: 14px;
-  font-family: inherit;
-  cursor: pointer;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+  min-width: 120px;
 }
 
-.i18n-select:hover {
-  border-color: var(--border-unified-color-hover);
+.i18n-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.i18n-btn {
+  padding: 6px 12px;
+  border: var(--unified-border);
+  border-radius: var(--global-border-radius);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.i18n-btn.primary {
+  background: var(--el-color-primary);
+  color: var(--el-color-white);
+  border-color: var(--el-color-primary);
+}
+
+.i18n-btn.primary:hover {
+  background: var(--el-color-primary-light-3);
+  border-color: var(--el-color-primary-light-3);
+}
+
+.i18n-btn.ghost {
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+.i18n-btn.ghost:hover {
+  background: var(--el-fill-color-lighter);
+  color: var(--el-color-primary);
 }
 
 .i18n-diff-vs {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--el-text-color-regular);
+  margin: 0 4px;
 }
 
 .i18n-diff-base-hint {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
-  padding: 0 4px;
-}
-
-.i18n-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-  padding: 0 16px;
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-  background: var(--el-bg-color);
-  cursor: pointer;
-  font-family: inherit;
-  gap: 6px;
-}
-
-.i18n-btn.primary {
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
-  border-color: var(--el-text-color-primary);
-}
-
-.i18n-btn.ghost {
-  background: transparent;
-  color: var(--el-color-primary);
-  border-color: var(--el-color-primary);
-}
-
-.i18n-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  color: var(--el-text-color-regular);
+  font-style: italic;
 }
 
 .i18n-diff-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
   padding: 12px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  background: var(--el-bg-color);
+  background: var(--el-fill-color-lighter);
 }
 
 .i18n-diff-stat {
-  margin: 0;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 6px 10px;
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-  background: var(--el-fill-color-lighter);
+  flex-direction: column;
+  align-items: start;
+  gap: 2px;
+  margin: 0;
 }
 </style>

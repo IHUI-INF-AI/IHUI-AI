@@ -38,6 +38,8 @@ export const STORAGE_KEYS = {
   MARQUEE_WHEEL_SENSITIVITY: 'marquee_wheel_sensitivity',
   MARQUEE_PAUSED: 'marquee_paused',
   MARQUEE_SPEED: 'marquee_speed',
+  // (2026-06-26 删除: i18n 翻译记忆库 (TM) localStorage 键 — 取消翻译工作流, 不再需要)
+  // (2026-06-26 删除: i18n 同步日志 — 取消翻译工作流, 不再需要)
 } as const
 
 /**
