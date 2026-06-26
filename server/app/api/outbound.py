@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from .langchain_api_mini import build_messages_for_model, get_effective_config, invoke_llm
-from .token_utils import check_user_token_sufficient
+from app.services.token_utils_service import check_user_token_sufficient
 from app.utils.log_masking import _mask_sensitive
 
 router = APIRouter(prefix="/ihui-ai-api/outbound", tags=["Outbound"])
@@ -45,7 +45,7 @@ async def outbound_callback(request: OutboundCallbackRequest):
     """接收外呼系统回调，调用大模型生成回复，并判断用户意向"""
     try:
         if request.user_uuid:
-            token_check = await check_user_token_sufficient(request.user_uuid, min_token=1000)
+            token_check = check_user_token_sufficient(request.user_uuid, min_tokens=1000)
             if not token_check.get("sufficient"):
                 raise HTTPException(status_code=402, detail=token_check.get("reason", "Token 余额不足"))
 

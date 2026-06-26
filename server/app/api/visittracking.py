@@ -15,10 +15,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.utils.datetime_helper import utcnow
-from ..database import get_db
-from ..security import get_current_user_optional
+from ..database import get_session
+from ..security import get_current_user_id_flexible as get_current_user_optional
 
 router = APIRouter(prefix="/visit-tracking", tags=["VisitTracking"])
+
+
+def _get_db():
+    """Session helper: yield db (next() 兼容, close 由 get_session 的 with 处理)."""
+    with get_session() as db:
+        yield db
 
 
 # ---------- Request/Response 模型 ----------
@@ -57,7 +63,7 @@ class VisitStatsOut(BaseModel):
 @router.post("/public-api/visit-log", summary="保存访问埋点日志")
 def save_visit_log(payload: VisitLogCreate):
     """前端访问埋点写入，无需登录。"""
-    db = next(get_db())
+    db = next(_get_db())
     try:
         sql = text("""
             INSERT INTO zhs_visit_log
@@ -100,7 +106,7 @@ def page_visit_log(
 ):
     if not current_user:
         raise HTTPException(status_code=401, detail="未登录")
-    db = next(get_db())
+    db = next(_get_db())
     try:
         where = ["1=1"]
         params: Dict[str, Any] = {"offset": (page - 1) * page_size, "limit": page_size}
@@ -144,7 +150,7 @@ def visit_log_stats(
 ):
     if not current_user:
         raise HTTPException(status_code=401, detail="未登录")
-    db = next(get_db())
+    db = next(_get_db())
     try:
         total_sql = text("SELECT COUNT(*) FROM zhs_visit_log")
         users_sql = text("SELECT COUNT(DISTINCT user_uuid) FROM zhs_visit_log WHERE user_uuid != ''")

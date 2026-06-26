@@ -453,6 +453,33 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register langchain_api router: {e}")
 
+    # visittracking (访问埋点 API) - 迁移自 edu behavior-service, 路由自带 /visit-tracking 前缀
+    # 2026-06-26 修复: 文件已存在但从未注册, 端点无法访问
+    try:
+        from app.api.visittracking import router as visittracking_router
+        app.include_router(visittracking_router)
+        logger.info("VisitTracking router registered (/visit-tracking/*)")
+    except Exception as e:
+        logger.error(f"Failed to register visittracking router: {e}")
+
+    # outbound (外呼回调 API) - 迁移自 coze_zhs_py, 路由自带 /ihui-ai-api/outbound 前缀
+    # 2026-06-26 修复: 文件已存在但从未注册, 端点无法访问
+    try:
+        from app.api.outbound import router as outbound_router
+        app.include_router(outbound_router)
+        logger.info("Outbound router registered (/ihui-ai-api/outbound/*)")
+    except Exception as e:
+        logger.error(f"Failed to register outbound router: {e}")
+
+    # favicon (站点图标) - 迁移自 coze_zhs_py, 提供 /favicon.ico 路由
+    # 2026-06-26 修复: 文件已存在但从未注册, /favicon.ico 无响应
+    try:
+        from app.api.favicon import router as favicon_router
+        app.include_router(favicon_router)
+        logger.info("Favicon router registered (/favicon.ico)")
+    except Exception as e:
+        logger.error(f"Failed to register favicon router: {e}")
+
     # agents/upload (AgentUploadController) - 路由自带 /api/agent 前缀, 不能挂到 /api/v1 下
     # 否则路径会变成 /api/v1/api/agent/upload 导致 404
     try:

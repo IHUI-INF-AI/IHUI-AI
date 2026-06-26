@@ -1,4 +1,6 @@
-"""ZHS_Server_java 中无对应 Python 实现的 Domain 模型补齐.
+"""Java 原项目迁移到 Python 时缺失的 Domain 模型补齐.
+
+迁移自 3 个 Java 项目, 共 9 个缺失模型:
 
 迁移自 ZHS_Server_java/small/domain/:
 - AiBotSites
@@ -6,6 +8,14 @@
 - TransferInfo
 - UserAgentFreeTimes
 - WxPayNotification
+
+迁移自 ai-smart-society-java:
+- PowerPurchaseRule
+- ZhsDeveloperFundLogs
+- ZhsUserSysLink
+
+迁移自 edu Java 微服务 usercenter-service:
+- Company
 """
 
 from typing import Any
