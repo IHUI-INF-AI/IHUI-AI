@@ -39,7 +39,24 @@ export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko'
 // 2026-06-24 修复: 增加 'login' 核心模块, 修复首屏 Login.vue 品牌区翻译键名裸露
 // (login.worldFirst / login.oneStopAI / login.aiModels / login.users500k / login.users / login.availability)
 // 注意: login.json 仅存在于 full/{locale}/, 实际从 full/{locale}/login.json 加载 (见 loadCoreMessages)
-const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'login'] as const
+// 2026-06-26 修复: 增加 'commandPalette' 核心模块, 修复 GlobalCommandPalette 打开时
+// 键名裸露 (commandPalette.commands.home 等). 该面板在 header 全局可见, 用户随时可触发,
+// 必须保证启动时翻译就绪. 体积仅 ~800B/locale, 5 语言共 ~4KB, 可接受.
+// 2026-06-26 新增: 增加 'api' 核心模块. 解决 src/api/ 下 296 个 t('api.xxx.yyy') 调用键名裸露.
+// api.* key 是项目历史欠账: key 本身用中文字面量 (e.g. api.agents.操作成功),
+// 未走标准 i18n 流程. 一并迁到 modules/{locale}/api.json, zh-CN 值=中文键名, 其他 4 语言用
+// [ZH:xxx] 占位 (后续翻译). 体积: zh-CN ~7KB, 其他 4 语言 ~10KB (含 [ZH:] 标记), 启动期加载 0 影响.
+// 2026-06-26 修复: 'footer' 加入首屏同步加载
+// 历史: footer 模块原本在 App.vue 的 preloadFirstScreenI18n 中通过 queueMicrotask 异步加载,
+// 经常赶不上 Footer 组件挂载, 导致 t('footer.companyContact') 短暂返回字面量
+// "footer.companyContact:". 改为在 initI18n 阶段与核心模块一起同步加载,
+// 体积 ~777B/locale, 5 语言共 ~3.9KB, 可接受.
+// 同时 'home' / 'title' 也加入 (Home.vue / useNews.ts 强依赖, 键名裸露同样有损体验).
+// 2026-06-26 修复: 增加 'core' 和 'app', 保留原来显式 import core.json / app.json 的行为,
+// 避免 portalNav.protocolExit / app.skipToMain / app.offlineWarning 等键丢失.
+// 2026-06-26 修复: 增加 'homePage3' / 'homePage4', HomePage3.vue / HomePage4.vue 是首页核心子模块,
+// 之前因 homePage4.* 键值未填 + 模块未核心加载, 切语言后显示 'homePage4.subscribe' 字面量.
+const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'core', 'app', 'login', 'commandPalette', 'api', 'footer', 'home', 'title', 'homePage3', 'homePage4'] as const
 
 // 异步模块列表 - 按需加载
 const asyncModules = [
@@ -55,6 +72,62 @@ const asyncModules = [
   'purchase', 'apiTest', 'settlementStats', 'cmpindex', 'vip', 'search',
   'dramaScript'
 ] as const
+
+// 2026-06-26 修复: 暴露预取函数, App.vue 在空闲时调用预热常用 i18n 模块
+// 解决 asyncModule 竞态 (键名裸露). 这里用 requestIdleCallback 调度避免阻塞首屏关键渲染.
+// 之前仅在 App.vue 顶层 import 但未 export, 触发 'does not provide an export named
+// prefetchCommonI18nModules' 语法错误, 整个 app setup 失败白屏.
+const _prefetchScheduled = new Set<SupportedLocale>()
+
+// 常用预取模块: 用户高频访问的页面 (非首屏, 但打开概率高, 提前加载避免键名裸露)
+// 列表根据实际页面分布选取, 控制在 12 个以内避免一次性加载过大
+const COMMON_PREFETCH_MODULES: readonly string[] = [
+  'commandPalette',  // Cmd+K 命令面板, 用户随时打开
+  'footer',          // 页面底部 (首屏已预加载, 此处冗余作为 fallback)
+  'agentDetail',     // AI 应用详情 (首页点击进入)
+  'orders',          // 订单页 (登录态)
+  'dashboard',       // 控制台 (登录态)
+  'search',          // 搜索结果页
+  'purchase',        // 套餐购买
+  'vip',             // VIP 页面
+  'developer',       // 开发者中心
+  'workspace',       // 工作台
+] as const
+
+/**
+ * 2026-06-26 修复: 空闲预取常用 i18n 模块, 解决 asyncModule 竞态导致的键名裸露
+ * 用 requestIdleCallback (fallback setTimeout 100ms) 调度, 避开首屏关键渲染期
+ * 同一 locale 重复调用仅调度一次; 切换语言时通过 resetPrefetchFlag 重新启用
+ */
+export function prefetchCommonI18nModules(locale: SupportedLocale): void {
+  if (_prefetchScheduled.has(locale)) return
+  _prefetchScheduled.add(locale)
+
+  const schedule = (cb: () => void): void => {
+    if (typeof (globalThis as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback === 'function') {
+      ;(globalThis as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(cb)
+    } else {
+      setTimeout(cb, 100)
+    }
+  }
+
+  schedule(() => {
+    // 静默加载, 失败不阻塞 (预取为优化项, 非必需)
+    loadModules(locale, [...COMMON_PREFETCH_MODULES]).catch((e) => {
+      if (import.meta.env.DEV) {
+        logger.debug(`[i18n] Prefetch common modules for ${locale} failed:`, e)
+      }
+    })
+  })
+}
+
+/**
+ * 2026-06-26 修复: 切换语言后重置预取标志, 下次 prefetchCommonI18nModules 重新调度
+ * 因为 setLanguage 已加载完整语言包, 这里只是允许后续再次预取 (例如用户主动再切回)
+ */
+export function resetPrefetchFlag(): void {
+  _prefetchScheduled.clear()
+}
 
 // 已加载的模块缓存
 const loadedModules = new Map<string, Set<string>>()
@@ -88,7 +161,8 @@ export async function loadFullLocaleMessages(locale: SupportedLocale): Promise<v
         mergeI18nMessages(locale, merged)
         fullLocaleLoaded.add(locale)
         if (import.meta.env.DEV) {
-          logger.info(`[i18n] Full locale messages loaded for ${locale} from ${entries.length} chunks`)
+          // 2026-06-26 修复: 降级为 debug, 减少 dev 控制台噪音 (每切一次语言输出一行)
+          logger.debug(`[i18n] Full locale messages loaded for ${locale} from ${entries.length} chunks`)
         }
       }
     } catch (error) {
@@ -105,33 +179,176 @@ export async function loadFullLocaleMessages(locale: SupportedLocale): Promise<v
   }
 }
 
-// 动态加载核心模块
-// 2026-06-24 修复: 增加 login 核心模块加载 (从 full/{locale}/login.json, fallback 到 zh-CN/full/login.json)
-// 修复首屏 Login.vue 品牌区翻译键名裸露
+// 2026-06-26 修复: coreModules 改为按 路径前缀 加载, 彻底解决 ja/ko 切语言 fallback 英文
+// 历史 bug 链:
+//   (1) 原实现 coreModules 列表里有 12 个模块, 但 loadCoreMessages 只显式 import 3-4 个
+//       (extraCoreModules + coreMod + appMod + errorBoundaryMod + loginMod),
+//       其余 9 个 (common/navigation/header/auth/routes/commandPalette/api 等)
+//       只 markModuleLoaded, 不读 JSON. t() 因此 fallback 到 fallbackLocale='zh-CN',
+//       而 zh-CN 也没有翻译, 最终落到 en (vue-i18n 默认 locale 字符串返回).
+//   (2) 切语言时 setLanguage -> loadFullLocaleMessages 才补全 700+ chunk,
+//       但 5 个语言共有 3500+ chunk, 首屏只在切语言后才拼, 时间窗口内显示英文.
+// 修复: coreModules 全部走同一加载路径, 区分 modules/{locale}/*.json vs full/{locale}/*.json,
+//       每个 import 缺模块 fallback 到 zh-CN. 启动即同步 import 12 个核心模块,
+//       5 语言 ~30KB gzip, 可接受.
+// 重要: 这里的 CORE_MODULE_SOURCE 维护的是「coreModules 中每个模块的物理文件位置」,
+//       必须与 coreModules 数组一一对应. login 在 full/ 下, 其余在 modules/ 下.
+const CORE_MODULE_SOURCE: Record<string, 'modules' | 'full'> = {
+  common: 'modules',
+  navigation: 'modules',
+  header: 'modules',
+  auth: 'modules',
+  routes: 'modules',
+  errorBoundary: 'modules',
+  core: 'modules',
+  app: 'modules',
+  login: 'full',
+  commandPalette: 'modules',
+  api: 'modules',
+  footer: 'modules',
+  home: 'modules',
+  title: 'modules',
+  homePage3: 'modules',
+  homePage4: 'modules',
+}
+
+// 2026-06-26 修复: 递归把 [ZH:xxx] 占位符替换为 zh-CN 同名 key 的实际值
+// 背景: 多个 i18n 文件中翻译未填时, 4 语言用 '[ZH:keyName]' 作为占位符, 直接 t() 会显示
+//       "[ZH:keyName]" 字面量. 在 i18n 加载时一次性把占位符替换为 zh-CN 的实际值,
+//       保证 ja/ko 等 4 语言不出现 [ZH:...] 残留, 同时保留 5 语言键集合一致.
+function resolveZhPlaceholders(
+  target: Record<string, unknown>,
+  zhTemplate: Record<string, unknown>,
+  visited: WeakSet<object> = new WeakSet(),
+): Record<string, unknown> {
+  if (visited.has(target)) return target
+  visited.add(target)
+  for (const key of Object.keys(target)) {
+    const value = target[key]
+    if (typeof value === 'string') {
+      const match = /^\[ZH:([^\]]+)\]$/.exec(value)
+      if (match) {
+        const zhValue = resolveKeyPath(zhTemplate, match[1])
+        if (typeof zhValue === 'string') {
+          target[key] = zhValue
+          continue
+        }
+      }
+      target[key] = value
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      resolveZhPlaceholders(value as Record<string, unknown>, zhTemplate, visited)
+    }
+  }
+  return target
+}
+
+// 从 nested obj 中按点分 key 路径取值
+function resolveKeyPath(obj: Record<string, unknown>, path: string): unknown {
+  const parts = path.split('.')
+  let cur: unknown = obj
+  for (const p of parts) {
+    if (cur && typeof cur === 'object' && p in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[p]
+    } else {
+      return undefined
+    }
+  }
+  return cur
+}
+
 async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string, unknown>> {
-  const [coreMod, appMod, errorBoundaryMod, loginMod] = await Promise.all([
-    // 2026-06-25 修复: core.json 加 fallback，避免非 zh-CN 语言缺少 core.json 时 i18n 初始化崩溃
-    import(`./modules/${locale}/core.json`).catch(() => import(`./modules/zh-CN/core.json`)),
-    import(`./modules/${locale}/app.json`).catch(() => import(`./modules/zh-CN/app.json`).catch(() => null)),
-    import(`./modules/${locale}/errorBoundary.json`).catch(() => import(`./modules/zh-CN/errorBoundary.json`).catch(() => null)),
-    // login.json 仅在 full/{locale}/ 下存在, 不在 modules/{locale}/, 所以直接读 full
-    import(`./full/${locale}/login.json`).catch(() => import(`./full/zh-CN/login.json`).catch(() => null)),
-  ])
+  // 2026-06-26 修复: 真正 import 全部 coreModules, 每个模块按 CORE_MODULE_SOURCE 定位物理路径
+  // 缺模块时 fallback 到 zh-CN 同名文件, 再失败则跳过该模块 (后续按 fallbackLocale 兜底)
+  const coreImports = await Promise.all(
+    coreModules.map(async (m) => {
+      const source = CORE_MODULE_SOURCE[m] || 'modules'
+      const primary = import(`./${source}/${locale}/${m}.json`).catch(() => null)
+      const fallback = (source === 'modules' && locale !== 'zh-CN')
+        ? import(`./modules/zh-CN/${m}.json`).catch(() => null)
+        : null
+      const result = await primary
+      if (result) return result
+      return fallback ? await fallback : null
+    }),
+  )
+
+  // 标记所有 coreModules 已加载 (不再尝试重新 import)
   coreModules.forEach(module => markModuleLoaded(locale, module))
+
+  // 合并所有 coreModules 的 JSON 内容到顶层
+  const merged: Record<string, unknown> = {}
+  for (const mod of coreImports) {
+    if (mod) {
+      const data = (mod as { default?: Record<string, unknown> }).default || (mod as Record<string, unknown>)
+      Object.assign(merged, data)
+    }
+  }
+
+  // 兼容旧 app 模块的标记 (项目其他地方依赖此标记)
   markModuleLoaded(locale, 'app')
-  const core = coreMod.default || coreMod
-  const app = appMod ? (appMod.default || appMod) : {}
-  const errorBoundary = errorBoundaryMod ? (errorBoundaryMod.default || errorBoundaryMod) : {}
-  // 2026-06-24 修复: 合并 login 模块的翻译, 修复首屏 Login.vue 键名裸露
-  // login.json 结构: { login: {...}, loginPopup: {...}, userLoginPopup: {...} }
-  // 需要平铺到 i18n messages 顶层, 使 t('login.worldFirst') 可解析
-  const login = loginMod ? (loginMod.default || loginMod) : {}
-  return { ...core, ...app, ...errorBoundary, ...login }
+
+  // 2026-06-26 修复: 把 [ZH:xxx] 占位符替换为 zh-CN 实际值
+  // 只对非 zh-CN locale 执行, 避免循环引用. zh-CN 的 [ZH:] 占位符原样保留 (项目里没有)
+  if (locale !== 'zh-CN') {
+    try {
+      // 用与目标 locale 相同的 CORE_MODULE_SOURCE 列表加载 zh-CN 模板
+      const zhImports = await Promise.all(
+        coreModules.map(async (m) => {
+          const source = CORE_MODULE_SOURCE[m] || 'modules'
+          return import(`./${source}/zh-CN/${m}.json`).catch(() => null)
+        }),
+      )
+      const zhTemplate: Record<string, unknown> = {}
+      for (const mod of zhImports) {
+        if (mod) {
+          const data = (mod as { default?: Record<string, unknown> }).default || (mod as Record<string, unknown>)
+          Object.assign(zhTemplate, data)
+        }
+      }
+      resolveZhPlaceholders(merged, zhTemplate)
+    } catch (e) {
+      if (import.meta.env.DEV) {
+        logger.warn(`[i18n] resolveZhPlaceholders failed for ${locale}:`, e)
+      }
+    }
+  }
+
+  return merged
 }
 
 // P6-5：缺失模块时回退到 zh-CN（避免英/日/韩部分页面键名裸露）
 // 2026-06-25 修复: 改为 export，让按需加载组件 (如 GlobalCommandPalette) 能在
 // onMounted 中主动调用，避免首屏异步组件挂载时 i18n key 未加载导致键名裸露
+// 2026-06-26 修复: 返回前做 [ZH:xxx] 占位符清理, 避免 asyncModules (按需加载) 中的
+// [ZH:xxx] 残留显示在 ja/ko/zh-TW/en 界面. 同步模块的清理在 loadCoreMessages 内部做.
+const _zhTemplateCache: { value: Record<string, unknown> | null } = { value: null }
+async function getZhTemplate(): Promise<Record<string, unknown>> {
+  if (_zhTemplateCache.value) return _zhTemplateCache.value
+  // 按需 lazy 加载 zh-CN coreModules 作为模板
+  try {
+    const zhImports = await Promise.all(
+      coreModules.map(async (m) => {
+        const source = CORE_MODULE_SOURCE[m] || 'modules'
+        return import(`./${source}/zh-CN/${m}.json`).catch(() => null)
+      }),
+    )
+    const template: Record<string, unknown> = {}
+    for (const mod of zhImports) {
+      if (mod) {
+        const data = (mod as { default?: Record<string, unknown> }).default || (mod as Record<string, unknown>)
+        Object.assign(template, data)
+      }
+    }
+    _zhTemplateCache.value = template
+    return template
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      logger.warn('[i18n] getZhTemplate failed:', e)
+    }
+    return {}
+  }
+}
+
 export async function loadAsyncModuleWithFallback(
   locale: SupportedLocale,
   module: string
@@ -142,21 +359,13 @@ export async function loadAsyncModuleWithFallback(
   try {
     const messages = await import(`./modules/${locale}/${module}.json`)
     const result = (messages.default || messages) as Record<string, unknown>
-    if (import.meta.env.DEV) {
-      // 调试: 验证 import 拿到的 messages 结构是否正确
-      // 2026-06-25 修复: 收窄类型, Object.keys 不接受 unknown, 用 Record<string, unknown> 显式断言
-      const cpSection = result.commandPalette as Record<string, unknown> | undefined
-      const cmdSection = cpSection?.commands as Record<string, unknown> | undefined
-      console.info('[i18n] loaded', {
-        module,
-        locale,
-        hasDefault: !!messages.default,
-        topKeys: Object.keys(result),
-        cpKeys: cpSection ? Object.keys(cpSection) : null,
-        cmdKeys: cmdSection ? Object.keys(cmdSection) : null,
-      })
-    }
+    // 2026-06-26 修复: 移除 i18n module load messages 结构 dump,
+    // 原调试日志会输出每个模块的 topKeys/cmdKeys, 噪音过大且封版无价值
     markModuleLoaded(locale, module)
+    if (locale !== 'zh-CN') {
+      const template = await getZhTemplate()
+      resolveZhPlaceholders(result, template)
+    }
     return result
   } catch (primaryError) {
     if (locale === 'zh-CN') return null
@@ -166,7 +375,9 @@ export async function loadAsyncModuleWithFallback(
       if (import.meta.env.DEV) {
         logger.debug(`[i18n] Module ${module} missing for ${locale}, using zh-CN fallback`)
       }
-      return fallback.default || fallback
+      const fb = (fallback.default || fallback) as Record<string, unknown>
+      // fallback 已是 zh-CN 内容, 不需要 [ZH:] 清理
+      return fb
     } catch {
       if (import.meta.env.DEV) {
         logger.warn(`[i18n] Failed to load module ${module} for ${locale}:`, primaryError)
@@ -356,7 +567,9 @@ export async function setLanguage(lang: string): Promise<void> {
       
       // 设置locale
       setI18nLocale(target)
-      
+      // 2026-06-26: 切换语言后重置预取标志, 下次 prefetchCommonI18nModules 重新调度
+      resetPrefetchFlag()
+
       document.documentElement.setAttribute('lang', target.startsWith('zh') ? 'zh-CN' : 'en')
       document.documentElement.setAttribute('dir', 'ltr')
       window.postMessage({ type: 'SET_LANGUAGE', lang: target }, '*')

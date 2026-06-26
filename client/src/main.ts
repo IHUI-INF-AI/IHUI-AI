@@ -359,7 +359,10 @@ try {
 function applyLanguageClass(lang: string) {
   try {
     const rootEl = document.documentElement
-    const isZh = lang && lang.toLowerCase().startsWith('zh')
+    // 防御性: 即使上层已做类型守卫, 这里仍再做一次 string 校验,
+    // 避免 pinia 持久化/订阅回调中传入非 string (Ref/对象) 触发 toLowerCase 报错.
+    const safeLang = typeof lang === 'string' && lang.length > 0 ? lang : 'zh-CN'
+    const isZh = safeLang.toLowerCase().startsWith('zh')
     rootEl.classList.toggle('lang-zh', !!isZh)
     rootEl.classList.toggle('lang-en', !isZh)
   } catch (e) {
@@ -370,11 +373,20 @@ function applyLanguageClass(lang: string) {
 try {
   const languageStore = useLanguageStore(pinia)
   languageStore.initLanguage()
-  // 2026-06-26 修复: pinia setup-style store 的 ref 字段在 script 中访问不会自动 unwrap
-  // 必须用 .value 取出原始字符串, 否则 applyLanguageClass 收到 Ref 对象 -> toLowerCase 报错
-  applyLanguageClass((languageStore.currentLanguage as unknown as { value: string }).value)
+  // 2026-06-26 修复: pinia setup-style store 在 store 外部访问 ref 字段会**自动 unwrap**,
+  // 不需要再取 .value (取 .value 反而会拿到 undefined -> toLowerCase 报错).
+  // $subscribe 的 state 同样拿到 unwrap 后的 string, 直接传即可.
+  const resolveLang = (raw: unknown): string => {
+    if (typeof raw === 'string') return raw
+    if (raw && typeof raw === 'object' && 'value' in (raw as Record<string, unknown>)) {
+      const v = (raw as { value: unknown }).value
+      if (typeof v === 'string') return v
+    }
+    return 'zh-CN'
+  }
+  applyLanguageClass(resolveLang(languageStore.currentLanguage))
   languageStore.$subscribe((_mutation: any, state: { currentLanguage?: string }) => {
-    applyLanguageClass(state.currentLanguage || 'zh-CN')
+    applyLanguageClass(resolveLang(state.currentLanguage) || 'zh-CN')
   })
 } catch (error) {
   logger.error('[Main] Failed to initialize language store:', error)

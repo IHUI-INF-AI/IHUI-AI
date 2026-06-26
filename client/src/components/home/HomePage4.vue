@@ -261,7 +261,7 @@ defineExpose({
   }
 
   h2.pricing-title-english.font-edix {
-    font-family: 'EDIX';
+    font-family: var(--font-family-edix);
   }
 
   html:not(.dark) .pricing-title-english,

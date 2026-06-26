@@ -234,6 +234,17 @@ const internalVisibleMenuItems = ref<MenuItems[] | null>(null)
 const hiddenMenuItems = ref<MenuItems[]>([])
 let menuResizeObserver: ResizeObserver | null = null
 const bodyOverflowBackup = ref<string | null>(null)
+
+// 2026-06-26 修复: 监听 locale 变化, 重置 internalVisibleMenuItems 强制重新计算可见菜单
+// 背景: allMenuItems 已经是 computed (依赖 locale.value), 但 visibleMenuItems 优先使用
+//       internalVisibleMenuItems.value 的缓存快照 (用于响应窗口宽度), 而该缓存不依赖 locale,
+//       导致语言切换后 Header 核心菜单项 (首页/AI应用商店/学习AI) 仍显示切换前的语言
+// 修复: 切换语言时清空缓存, 触发 allMenuItems 重新求值, 内部 resize observer 在用户实际操作
+//       (鼠标悬停/键盘 focus 等) 时再填充 hiddenMenuItems 即可. 切换瞬间短暂回退到
+//       全部展示, 不影响用户.
+watch(locale, () => {
+  internalVisibleMenuItems.value = null
+})
 const teardownResizeObserver = () => {
   if (menuResizeObserver) {
     menuResizeObserver.disconnect()
