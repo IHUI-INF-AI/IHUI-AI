@@ -36,13 +36,14 @@
       "close": "關閉"
     },
     "page1": {
+      "brandWelcome": "WELCOME 智匯 INF . AI",
       "content": "智匯AI社區，探索AI無限可能",
       "ctaPrimary": "立即體驗",
       "ctaSecondary": "了解更多"
     },
     "page2": {
       "title": "強大功能",
-      "titleEn": "PowerfulFeatures",
+      "titleEn": "強大功能 · PowerfulFeatures",
       "content": "探索我們提供的全方位AI服務，從模型集成到應用商店，滿足您的各種需求",
       "features": {
         "modelIntegration": "多模型集成",
@@ -53,7 +54,7 @@
       },
       "advantages": {
         "title": "核心優勢",
-        "titleEn": "CoreAdvantages",
+        "titleEn": "核心優勢 · CoreAdvantages",
         "subtitle": "為什麼選擇智匯AI",
         "professional": {
           "title": "專業",

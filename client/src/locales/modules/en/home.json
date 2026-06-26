@@ -70,6 +70,7 @@
       }
     },
     "page1": {
+      "brandWelcome": "WELCOME IHUI INF . AI",
       "content": "Smart AI Community, Explore Infinite AI Possibilities",
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More"

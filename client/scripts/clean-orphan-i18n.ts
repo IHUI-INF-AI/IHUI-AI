@@ -67,11 +67,38 @@ function walk(dir: string, cb: (file: string) => void): void {
 
 function extractTCalls(content: string): string[] {
   const out: string[] = []
-  const re = /\b(?:t|tSafe|\$t)\(\s*(['"])((?:\\.|(?!\1)[\s\S])*?)\1/g
+  // 2026-06-26 修复: 之前只匹配 t/tSafe/$t 三个直接调用, 漏掉包装调用
+  //   - getSplit('footer.companyContact', 0)       // Footer.vue / ContactUs.vue 用法
+  //   - getTranslation('navigation.aiStore')       // HeaderNavigation.vue 用法
+  //   - replaceAtSymbol(t('footer.companyEmail2')) // Footer.vue 复合调用
+  // 这些包装函数会传字符串字面量作为 i18n key, 但正则未覆盖, 导致 clean-orphan-i18n
+  // 误把 footer.companyContact / footer.companyEmail / common.home / navigation.aiStore
+  // 当作孤儿键. 删除后页面上会显示字面量, 引发键名裸露. 修法: 把包装函数名也加入
+  // 匹配列表 (取第一参数为 key). 注意: 仅取第一个字符串参数, 第二个参数是
+  // index/replacement 等运行时值, 不影响.
+  //
+  // 第二类: 对象属性赋值引用 i18n key. 模式 xxxKey: 'i18n.key', 通过
+  //   cmd.labelKey -> t(cmd.labelKey) 间接调用. 已知位置:
+  //   - commandPalette.commands.* / commandPalette.paths.* (GlobalCommandPalette.vue)
+  //   - refundStatus.status* (RefundStatus.vue)
+  //   - eduDoc.title.* / legal.* (EduDocumentation.vue)
+  //   - 其它可能的 labelKey/pathLabelKey/menuKey/i18nKey/translationKey/titleKey
+  // 仅匹配 key 名以 "Key" 结尾的属性, 避免误识别普通 id/url 等.
+  // 值必须包含 '.' (i18n key 至少 2 段) 以减少误判.
+  const callRe = /\b(?:t|tSafe|\$t|getSplit|getTranslation|tSplit|tReplace|wrapT)\(\s*(['"])((?:\\.|(?!\1)[\s\S])*?)\1/g
+  const propRe = /\b(?:labelKey|pathLabelKey|menuKey|i18nKey|translationKey|titleKey|tooltipKey|ariaKey)\s*:\s*['"]([a-zA-Z][\w-]*(?:\.[\w-]+)+)['"]/g
   let m: RegExpExecArray | null
-  while ((m = re.exec(content)) !== null) {
+  while ((m = callRe.exec(content)) !== null) {
     const key = m[2]
     if (key === '' || key.includes('${')) continue
+    const lineStart = content.lastIndexOf('\n', m.index) + 1
+    const lineBefore = content.slice(lineStart, m.index)
+    if (lineBefore.includes('//')) continue
+    out.push(key)
+  }
+  while ((m = propRe.exec(content)) !== null) {
+    const key = m[1]
+    if (!key || key.includes('${')) continue
     const lineStart = content.lastIndexOf('\n', m.index) + 1
     const lineBefore = content.slice(lineStart, m.index)
     if (lineBefore.includes('//')) continue
@@ -327,6 +354,7 @@ function main(): void {
         if (deleteLeafKey(data, key)) modDeleted++
       }
       if (modDeleted > 0) {
+        console.log(`    [DBG] ${loc}/${mod}.json modDeleted=${modDeleted}, writing...`)
         pruneEmptyObjects(data)
         writeJSON(path.join(LOCALES_DIR, loc, `${mod}.json`), data)
         locDeleted += modDeleted

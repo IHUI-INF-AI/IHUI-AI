@@ -1,6 +1,7 @@
 {
   "home": {
     "page1": {
+      "brandWelcome": "WELCOME 智汇 INF . AI",
       "content": "智汇AI社区，探索AI无限可能",
       "ctaPrimary": "立即体验",
       "ctaSecondary": "了解更多"
@@ -18,7 +19,7 @@
       },
       "advantages": {
         "title": "核心优势",
-        "titleEn": "CoreAdvantages",
+        "titleEn": "核心优势 · CoreAdvantages",
         "subtitle": "为什么选择智汇AI",
         "professional": {
           "title": "专业",

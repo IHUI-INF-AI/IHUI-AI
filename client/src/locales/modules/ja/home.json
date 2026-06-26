@@ -28,6 +28,7 @@
       "apiAccess": "API連携"
     },
     "page1": {
+      "brandWelcome": "WELCOME 智匯 INF . AI",
       "content": "スマートAIコミュニティ、AIの無限の可能性を探索",
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "詳細を見る"
@@ -44,8 +45,8 @@
         "navigation": "スマートナビゲーション"
       },
       "advantages": {
-        "title": "コアアドバンテージ",
-        "titleEn": "CoreAdvantages",
+        "title": "コアメリット",
+        "titleEn": "コアメリット · CoreAdvantages",
         "subtitle": "なぜスマートAIを選ぶのか",
         "professional": {
           "title": "専門",
