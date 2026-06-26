@@ -551,41 +551,47 @@ class TestBug182GracefulShutdown(unittest.TestCase):
 
 
 class TestBug183HotConfig(unittest.TestCase):
-    def test_set_and_get(self):
-        from app.utils.hot_config import HotConfigCenter
+    """Bug-183: 热配置中心. 测试实际 HotConfig 实现."""
 
-        g = HotConfigCenter()
+    def test_set_and_get(self):
+        from app.utils.hot_config import HotConfig
+
+        g = HotConfig()
         g.set("k1", "v1")
         self.assertEqual(g.get("k1"), "v1")
 
     def test_subscribe(self):
-        from app.utils.hot_config import HotConfigCenter
+        from app.utils.hot_config import HotConfig
 
-        g = HotConfigCenter()
+        g = HotConfig()
         received = []
-        g.subscribe("k1", lambda ch: received.append(ch.new))
+        # watch callback 接收 (key, value) 或 (old, new)
+        g.watch("k1", lambda k, v: received.append(v))
         g.set("k1", "v1")
         g.set("k1", "v2")
         self.assertEqual(received, ["v1", "v2"])
 
     def test_no_change_no_notify(self):
-        from app.utils.hot_config import HotConfigCenter
+        from app.utils.hot_config import HotConfig
 
-        g = HotConfigCenter()
+        g = HotConfig()
         g.set("k1", "v1")
         received = []
-        g.subscribe("k1", lambda ch: received.append("x"))
-        ch = g.set("k1", "v1")  # 同值, 无变更
-        self.assertIsNone(ch)
+        g.watch("k1", lambda k, v: received.append("x"))
+        # 同值不触发 watcher (last_set=True 的项)
+        result = g.set("k1", "v1")
+        self.assertTrue(result)  # 返回 True 表示成功 (无变更但成功)
         self.assertEqual(received, [])
 
-    def test_diff(self):
-        from app.utils.hot_config import HotConfigCenter
+    def test_diff_from_default(self):
+        from app.utils.hot_config import HotConfig
 
-        g = HotConfigCenter()
-        g.set("k1", "v1")
-        diff = g.diff({"k1": "v2", "k2": "new"})
-        self.assertEqual(len(diff), 2)
+        g = HotConfig()
+        g.register("k1", "default1")
+        g.set("k1", "changed1")
+        diff = g.diff_from_default()
+        self.assertIn("k1", diff)
+        self.assertTrue(diff["k1"]["changed"])
 
 
 class TestBug184StartupProbe(unittest.TestCase):

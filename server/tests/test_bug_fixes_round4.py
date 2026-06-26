@@ -381,8 +381,10 @@ class TestBug49CSRF:
             method = "GET"
             headers = {}
             cookies = {}
+            state = type("S", (), {"user_uuid": None})()
 
-        asyncio.run(csrf_protect(FakeRequest()))  # 不抛
+        # csrf_protect 是同步函数, GET 属于 SAFE_METHODS 直接 return 不抛
+        csrf_protect(FakeRequest())
 
 
 # ---------------------------------------------------------------------------
