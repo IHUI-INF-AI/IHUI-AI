@@ -1,8 +1,8 @@
 {
     "client_type": "jwt",
-    "client_id": "1270645422734",
+    "client_id": "1130664761434",
     "coze_www_base": "https://www.coze.cn",
     "coze_api_base": "https://api.coze.cn",
-    "private_key": "",
-    "public_key_id": "W8whaGpCucqxkpows_QWd426-QdAUX5A1QjjVnyhDkI"
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDUQotyZ798ZZTx\nldQsTU0px5Y0tjBP9W/cZe/KanTOK6BVKECashM4MWd8LV3f2g/tgZ7yBScszu55\njbEKw3d75TQ8xb6vvaa/YPFzjc1eCpJG4/2C6Ma3cReJhWEfbUMpzdzIFMhkntE3\nwEPl99L8QeIq1N+VLZYYxjK/Enb9Xsmk8alwWrKTQEEMEickxYbYxdXUIPpOIh0n\nHSL5x6th8vyQ0+BM0fmjcs/dJTdowX6bEhShwsSJzzTcc3ls80LUKD+XJTAYCOzC\nCVkTl2nLRRngWBTyyWCPbU6VHopaWg62j+he6Di/pgT49VQWGWeeMPo18mO5OyFw\ntHZZ/eUfAgMBAAECggEABIL5lc/wuQMrvErT/LET78xnO+2Xb0unOgcMpr/Ghc9V\nlBnL7b3VPL+IFJKeSTDIX+L+buR/JausU/cYCUOIWaDQkG4flHqyfaTg3PTppZMR\n8uHLtKmf96w2tNyZ6OIYqF3Q0IvoioL5rXavusaevG/mD8UAj5otc49a6sbIsq/0\nJnjJ21oLjprX75b3EqE9R3zzCzdCWpCQK5eTFtF7uED0zRj0kSVoiSUqSL5G+SuV\ndsuq5e9QBhlsayjeEz9ok/MgCl0Cine9R/4KigN1rG9ezH4ALZOuSt+zodEY3uOO\no6P0HDmxwrMaZRZ9hqdA+bKnyf3g/FUbN5VIr2OzOQKBgQD8Tp5HQDI3zysczb/P\n50curp31mxMalvboT2AF/S07CNh5c4sBseBHXzK2Vs41qR7N1CMvU928sPdwvut+\nEIUZHUuZCGe4TGSEKIJycjYk8cFEpYlHo2ddJroDbL2mxjBKpD2oIKVkClpq+SHs\nDGlEwL2EZ6/REm+pyLqvt8juzQKBgQDXXd8tPB8frWeOwQEsfq05VyONIDBRsGJj\nTz1yjd1rER92yqFT1fDWAE7oGxhkK5fqOrAZwOZTHphzsrRpmwJRhyJ8wCqmBO3I\nB12jLK6yNzuQ4+sqAsYx/HUVlWhMJl7HtfTwRIub2VcpfkjpBa94JWAS/8HAAWEk\n1IqKyFyLmwKBgQCdW8MnmQg4+oJfAovA9PPWT53A0qkFimYP2YF/+rk8+nVYuhFW\nS0Qf/2W3h0gw+3t0z/vpxpqi1pRcwxZIl7ELStQda7qUnUCLlGBXVJgkTotFbyDB\nh04uMLsO68EUxMLVqr2xoDrGvBZMZXkcqVj2QmdwruJeuOrfr4uPkEZHeQKBgBF0\nymIgPWWT6JDpk+7HVcMQDRGjSkdUxKTIB3MBjLDg8mvugKUK8jpmS/8EMzXrUqTp\nnNx5hjG2iSTXl0f4CHgTO/hgmxRZ0ewkrLJNLNvFHk7gKm99ShNDIzpcodeKRKRr\nWy8eXzKCq03xrnc0vsQ+Q0tG761gbz9M+u3Ez7uBAoGBAKU1ZwawDqtPh/h1LPXC\n7desKQ66yPqKyqaUY1+dNQ1fU/nUtbCYyGMOgAK3nDsIbqLC/T5y5VLcATYlMesu\n45t5tdmBqdo1eZf4/fWJuXIKmC7Y1HRzPYEmxZaSjjIYum3T1sPmaxBByFsn1wDt\n3sVoOWq3NE16SsSEdFQPKe8k\n-----END PRIVATE KEY-----\n",
+    "public_key_id": "idDd5jxHsinzD3bh1yfTwEaPjs0MXiHZxssb3d0AwyA"
 }

@@ -32,6 +32,11 @@ except ImportError:
 # 缓存剥离前的原始 schema (供 teardown 还原)
 _ORIGINAL_SCHEMAS: dict[str, object] = {}
 
+# ---------------------------------------------------------------------------
+# WS 测试鉴权旁路: 测试环境默认跳过 token 校验, 由各测试自行管理 user_uuid
+# ---------------------------------------------------------------------------
+os.environ.setdefault("WS_AUTH_BYPASS", "1")
+
 
 def pytest_runtest_setup(item):
     """测试 setup 时, 如果是 SQLite schema 剥离测试则剥离 metadata.

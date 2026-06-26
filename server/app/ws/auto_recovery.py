@@ -34,6 +34,27 @@ try:
 except ImportError:
     psutil = None
 
+# 2026-06-26 新增: Prometheus 指标埋点
+# 延迟 import 避免循环依赖 (auto_recovery_metrics 不依赖本模块)
+try:
+    from app.ws.auto_recovery_metrics import (
+        RecoveryTimer,
+        inc_monitor_exception,
+        inc_recovery_failed,
+        inc_recovery_succeeded,
+        inc_recovery_triggered,
+        update_gauges,
+    )
+    _METRICS_AVAILABLE = True
+except ImportError:  # pragma: no cover - 单独运行场景
+    _METRICS_AVAILABLE = False
+    update_gauges = None  # type: ignore[assignment]
+    inc_recovery_triggered = None  # type: ignore[assignment]
+    inc_recovery_succeeded = None  # type: ignore[assignment]
+    inc_recovery_failed = None  # type: ignore[assignment]
+    inc_monitor_exception = None  # type: ignore[assignment]
+    RecoveryTimer = None  # type: ignore[assignment]
+
 
 # ===========================================================================
 # 配置 (可通过环境变量覆盖)
@@ -148,6 +169,12 @@ class WebSocketAutoRecoveryManager:
                     self.consecutive_errors += 1
                     self.error_count += 1
                     self.exception_stats[type(e).__name__] = self.exception_stats.get(type(e).__name__, 0) + 1
+                    # 2026-06-26 新增: Prometheus 指标埋点
+                    if inc_monitor_exception is not None:
+                        try:
+                            inc_monitor_exception(task_name, e)
+                        except Exception:
+                            pass
                     logger.error(f"监控任务 {task_name} 异常: {e}")
                     if self.consecutive_errors >= self.consecutive_error_threshold:
                         await self._trigger_recovery(f"监控任务异常: {task_name}")
@@ -190,6 +217,14 @@ class WebSocketAutoRecoveryManager:
                         logger.debug(f"message_queue qsize check failed: {e}")
                 self.consecutive_errors = 0
                 self.last_health_check = time.time()
+                # 2026-06-26 新增: 同步指标到 Prometheus Gauge
+                if update_gauges is not None:
+                    try:
+                        update_gauges(self)
+                    except Exception:
+                        # 防御: 任何 metrics 异常都不应影响主监控循环
+                        # 项目记忆: 吞 except Exception 必须加 logger.debug
+                        logger.debug("[auto_recovery] update_gauges 失败", exc_info=False)
             except Exception as e:
                 logger.error(f"健康监控异常: {e}")
                 await asyncio.sleep(10)
@@ -279,6 +314,12 @@ class WebSocketAutoRecoveryManager:
     async def _trigger_recovery(self, reason: str) -> None:
         if self.recovery_count >= self.max_recovery_attempts:
             logger.critical(f"达到最大恢复次数 {self.max_recovery_attempts},需要手动干预")
+            # 2026-06-26 新增: 超过最大次数也记一次 failed 事件, 便于告警
+            if inc_recovery_failed is not None:
+                try:
+                    inc_recovery_failed(f"max_attempts_reached:{reason}")
+                except Exception:
+                    pass
             return
         self.recovery_count += 1
         self.recovery_history.append({
@@ -289,11 +330,32 @@ class WebSocketAutoRecoveryManager:
         # 历史保留最近 50 条
         if len(self.recovery_history) > 50:
             self.recovery_history = self.recovery_history[-50:]
+        # 2026-06-26 新增: 埋点 triggered
+        if inc_recovery_triggered is not None:
+            try:
+                inc_recovery_triggered(reason)
+            except Exception:
+                pass
         try:
-            await self._perform_recovery()
+            # 2026-06-26 新增: 埋点 recovery 耗时 (succeeded | failed)
+            if RecoveryTimer is not None:
+                with RecoveryTimer("succeeded"):
+                    await self._perform_recovery()
+            else:
+                await self._perform_recovery()
             self.consecutive_errors = 0
+            if inc_recovery_succeeded is not None:
+                try:
+                    inc_recovery_succeeded(reason)
+                except Exception:
+                    pass
             logger.info(f"恢复成功 attempt={self.recovery_count} reason={reason}")
         except Exception as e:
+            if inc_recovery_failed is not None:
+                try:
+                    inc_recovery_failed(reason)
+                except Exception:
+                    pass
             logger.error(f"恢复失败: {e}\n{traceback.format_exc()}")
 
     async def _perform_recovery(self) -> None:
@@ -394,6 +456,12 @@ class WebSocketAutoRecoveryManager:
         if self.monitor_tasks:
             await asyncio.gather(*self.monitor_tasks, return_exceptions=True)
         self.monitor_tasks.clear()
+        # 2026-06-26 新增: 同步停止状态到指标
+        if update_gauges is not None:
+            try:
+                update_gauges(self)
+            except Exception:
+                logger.debug("[auto_recovery] stop_monitoring update_gauges 失败", exc_info=False)
 
     def get_status_report(self) -> dict[str, Any]:
         memory_mb = 0.0
@@ -491,4 +559,10 @@ async def shutdown_auto_recovery() -> None:
             with contextlib.suppress(Exception):
                 await _auto_recovery_manager.ws_manager.stop_background_tasks()
         _auto_recovery_manager = None
+        # 2026-06-26 新增: 标记 is_running=0
+        if update_gauges is not None:
+            try:
+                update_gauges(None)
+            except Exception:
+                logger.debug("[auto_recovery] shutdown update_gauges 失败", exc_info=False)
         logger.info("WebSocket 自动恢复系统已关闭")

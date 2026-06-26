@@ -39,7 +39,7 @@
 
     <!-- 消耗记录列表 -->
     <div class="records-section radius-auto">
-      <el-table :data="recordsList" v-loading="loading" style="width: 100%">
+      <el-table :data="recordsList" v-loading="loading" class="full-width">
         <el-table-column prop="agentName" :label="t('tokenValue.table.name')" min-width="150" />
         <el-table-column prop="create_at" :label="t('tokenValue.table.time')" width="180">
           <template #default="{ row }">
@@ -48,7 +48,7 @@
         </el-table-column>
         <el-table-column prop="token" :label="t('tokenValue.table.consumption')" width="120">
           <template #default="{ row }">
-            <span style="color: var(--el-color-danger); font-weight: 700">-{{ row.token }}</span>
+            <span class="danger-text">-{{ row.token }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -222,6 +222,15 @@ onMounted(() => {
 
   @media (width <= $desktop-breakpoint-xs) {
     padding: 16px;
+  }
+
+  .full-width {
+    width: 100%;
+  }
+
+  .danger-text {
+    color: var(--el-color-danger);
+    font-weight: 700;
   }
 }
 </style>

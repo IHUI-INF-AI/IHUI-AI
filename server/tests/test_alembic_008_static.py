@@ -22,7 +22,7 @@ VERSIONS = SERVER / "alembic" / "versions"
 INIT_SQL = VERSIONS / "001_init.sql"
 
 # 当前 head (2026-06-26 实际状态, 经 _verify_alembic_chain.py 验证)
-EXPECTED_HEAD = "047_notify_persist"
+EXPECTED_HEAD = "054_add_agent_need_task_columns"
 MIN_CHAIN_LENGTH = 30
 
 
@@ -57,7 +57,7 @@ def test_all_migrations_have_revision_metadata():
 
 
 def test_migration_chain_complete():
-    """迁移链必须完整无断裂, head 必须是 047_notify_persist."""
+    """迁移链必须完整无断裂, head 必须是 054_add_agent_need_task_columns."""
     rev_to_down: dict[str, str] = {}
     rev_to_file: dict[str, str] = {}
     for f in sorted(VERSIONS.glob("*.py")):

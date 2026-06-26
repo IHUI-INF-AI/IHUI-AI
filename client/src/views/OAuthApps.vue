@@ -116,12 +116,12 @@
             <el-text copyable>{{ selectedApp.client_secret }}</el-text>
           </el-descriptions-item>
           <el-descriptions-item :label="t('oauthApps.redirectURIs')">
-            <el-tag v-for="uri in selectedApp.redirect_uris" :key="uri" style="margin-right: 8px">
+            <el-tag v-for="uri in selectedApp.redirect_uris" :key="uri" class="tag-spacing">
               {{ uri }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item :label="t('oauthApps.scopes')">
-            <el-tag v-for="scope in selectedApp.scopes" :key="scope" style="margin-right: 8px">
+            <el-tag v-for="scope in selectedApp.scopes" :key="scope" class="tag-spacing">
               {{ scope }}
             </el-tag>
           </el-descriptions-item>
@@ -237,6 +237,10 @@ const handleCommand = async ({ action, app }: { action: string; app: OAuthApp })
         ElMessage.error(t('oauthApps.deleteFailed'))
       }
     }
+  }
+
+  .tag-spacing {
+    margin-right: 8px;
   }
 }
 

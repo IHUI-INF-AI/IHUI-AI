@@ -130,6 +130,14 @@ class AgentDeveloper(TimestampMixin, Base):
     order_no = Column(String(64), nullable=True, comment="Developer order number")
     status = Column(Integer, default=1, comment="0=disabled, 1=active")
     price = Column(Float, nullable=True, comment="Developer price")
+    uuid = Column(String(64), nullable=True, comment="开发者唯一标识 UUID")
+    user_name = Column(String(100), nullable=True, comment="用户名")
+    creator_id = Column(BigInteger, nullable=True, comment="创建者用户 ID")
+    creator_name = Column(String(100), nullable=True, comment="创建者用户名")
+    bug_time = Column(DateTime, nullable=True, comment="购买时间 (历史字段名 bug_time, 语义为 buy_time)")
+    type = Column(String(20), nullable=True, comment="开发者类型 (如 month/year 等)")
+    count = Column(Integer, nullable=True, comment="数量 (如购买月数)")
+    expiration_date = Column(DateTime, nullable=True, comment="到期时间")
 
 
 class DeveloperLink(TimestampMixin, Base):

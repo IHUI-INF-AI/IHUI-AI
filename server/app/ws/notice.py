@@ -95,28 +95,118 @@ async def notice_socket(websocket: WebSocket, user_uuid: str = "", topics: str =
                 msg = json.loads(text)
             except Exception:
                 continue
+            # T5: 提取客户端 trace_id (用于端到端追踪)
+            _trace_id = connection_manager.extract_trace_from_payload(msg)
             action = msg.get("action")
             if action == "subscribe":
                 t = msg.get("topic", "")
                 if t:
                     topic_set.add(t)
-                    await websocket.send_text(json.dumps({"type": "subscribed", "topic": t}))
+                    resp = {"type": "subscribed", "topic": t}
+                    if _trace_id:
+                        resp["_trace_id"] = _trace_id
+                    await websocket.send_text(json.dumps(resp))
             elif action == "unsubscribe":
                 t = msg.get("topic", "")
                 if t:
                     topic_set.discard(t)
-                    await websocket.send_text(json.dumps({"type": "unsubscribed", "topic": t}))
+                    resp = {"type": "unsubscribed", "topic": t}
+                    if _trace_id:
+                        resp["_trace_id"] = _trace_id
+                    await websocket.send_text(json.dumps(resp))
             elif action == "ping":
                 connection_manager.heartbeat(conn_id)
-                await websocket.send_text(json.dumps({"type": "pong", "ts": int(time.time())}))
+                resp = {"type": "pong", "ts": int(time.time())}
+                if _trace_id:
+                    resp["_trace_id"] = _trace_id
+                await websocket.send_text(json.dumps(resp))
             elif action == "list":
-                await websocket.send_text(json.dumps({"type": "topics", "topics": list(topic_set)}))
+                resp = {"type": "topics", "topics": list(topic_set)}
+                if _trace_id:
+                    resp["_trace_id"] = _trace_id
+                await websocket.send_text(json.dumps(resp))
+            # T3: 客户端 ACK (确认收到 _ack_id 消息)
+            elif action == "ack":
+                ack_id = msg.get("message_id") or msg.get("ack_id")
+                if ack_id:
+                    ok = await connection_manager.handle_ack(conn_id, ack_id)
+                    # 不回显成功, 减少流量; 失败时回 error 便于客户端诊断
+                    if not ok:
+                        with contextlib.suppress(Exception):
+                            err_payload = {
+                                "type": "ack_error",
+                                "message_id": ack_id,
+                                "reason": "unknown_or_expired",
+                            }
+                            if _trace_id:
+                                err_payload["_trace_id"] = _trace_id
+                            await websocket.send_text(json.dumps(err_payload))
+            # T3: 客户端 NACK (拒收, 服务端可选择停止重传)
+            elif action == "nack":
+                nack_id = msg.get("message_id") or msg.get("ack_id")
+                if nack_id:
+                    # 复用 handle_ack 移除待 ACK 记录
+                    await connection_manager.handle_ack(conn_id, nack_id)
     except WebSocketDisconnect:
         pass
     except Exception as e:
         logger.debug(f"notice socket error: {e}")
     finally:
         await connection_manager.disconnect(conn_id)
+
+
+# ---------------------------------------------------------------------------
+# T6: 断线重连同步端点 (供客户端补偿拉取)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/ws/notice/sync", summary="断线重连后同步增量消息")
+async def sync_notice(since: float = 0.0, userId: str | None = None, topic: str | None = None, limit: int = 200):
+    """断线重连后, 客户端调用此接口拉取 since 时间戳之后的消息.
+
+    Args:
+        since: 起始时间戳 (Unix 秒), 0 表示全部
+        userId: 仅返回该 user 的消息 (含广播)
+        topic: 仅返回匹配 topic 的消息
+        limit: 最大返回条数 (默认 200, 上限 500)
+
+    Returns:
+        {since, now, count, items: [...]}
+    """
+    import time as _t
+
+    _t0 = _t.perf_counter()
+    # 限制 limit 上限, 避免单次拉取过大
+    limit = max(1, min(int(limit or 200), 500))
+    msgs = await connection_manager.sync_since(
+        since_ts=float(since or 0.0),
+        user_uuid=userId,
+        topic=topic,
+        limit=limit,
+    )
+    elapsed = _t.perf_counter() - _t0
+    connection_manager.record_sla_e2e("notice_sync", elapsed)
+    # 返回精简版本 (去掉 conn_id, 节省带宽)
+    items: list[dict] = []
+    for m in msgs:
+        items.append(
+            {
+                "id": m.get("id"),
+                "ts": m.get("ts"),
+                "type": m.get("type"),
+                "topic": m.get("topic"),
+                "payload": m.get("payload", {}),
+                "trace_id": m.get("payload", {}).get("_trace_id", ""),
+            }
+        )
+    return success(
+        {
+            "since": float(since or 0.0),
+            "now": _t.time(),
+            "count": len(items),
+            "items": items,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------

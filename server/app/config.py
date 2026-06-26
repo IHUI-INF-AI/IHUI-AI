@@ -415,6 +415,72 @@ class Settings(BaseSettings):
     # 站内信最大保留数 (FIFO 淘汰, 默认 1000)
     NOTIFY_MAX: int = 1000
 
+    # ===================================================================
+    # SEED PASSWORDS (初始化种子密码 - 2026-06-26 历史项目迁移补全)
+    # ===================================================================
+    # 初始化管理员密码 (首次启动 seed_admin 脚本使用)
+    SEED_ADMIN_PWD: str = ""
+    # 初始化运营账号密码 (首次启动 seed_admin 脚本使用)
+    SEED_RY_PWD: str = ""
+
+    # ===================================================================
+    # WECHAT JSAPI (微信公众号/小程序 API - 2026-06-26 历史项目迁移补全)
+    # ===================================================================
+    # 公众号/小程序 access_token 获取地址
+    WX_JSAPI_TOKEN_URL: str = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s"
+    # 小程序手机号获取地址
+    WX_JSAPI_PHONE_URL: str = "https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=%s"
+    # 小程序首页路径
+    WX_JSAPI_HOME_URL: str = "pages/table/tools/index"
+
+    # ===================================================================
+    # SRS PROCESS MANAGEMENT (SRS 进程管理 - 2026-06-26 历史项目迁移补全)
+    # ===================================================================
+    SRS_BIN_PATH: str = "srs/trunk/objs/srs"
+    SRS_CONF_PATH: str = "srs/conf/srs_rtc.conf"
+    SRS_RTC_UDP_RANGE: str = "8000-8100"
+    START_SRS_WITH_APP: bool = True
+    STOP_SRS_ON_SHUTDOWN: bool = True
+    FFMPEG_BIN: str = "ffmpeg"
+
+    # ===================================================================
+    # KLING MODEL DOMAIN (可灵模型域名 - 2026-06-26 历史项目迁移补全)
+    # ===================================================================
+    KLING_MODEL_DOMAIN: str = "https://api-beijing.klingai.com"
+
+    # ===================================================================
+    # STREAM EVENT & TIMEOUT (流式响应事件名与超时 - 2026-06-26 历史项目迁移补全)
+    # ===================================================================
+    DOUBAO_STREAM_EVENT_THINKING: str = "conversation.message.delta"
+    DOUBAO_STREAM_EVENT_COMPLETED: str = "conversation.chat.completed"
+    COMMON_STREAM_EVENT_ERROR: str = "system.error"
+    WEBSOCKET_TIMEOUT: int = 900
+    DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
+    DASHSCOPE_TIMEOUT: int = 30
+    DASHSCOPE_MAX_RETRIES: int = 3
+    REQUEST_TIMEOUT: float = 600.0
+    CONNECT_TIMEOUT: float = 5.0
+    MAX_CONNECTIONS: int = 1000
+    MAX_KEEPALIVE_CONNECTIONS: int = 100
+    OAUTH_SESSION_EXPIRE_SECONDS: int = 1800
+    SMS_CODE_EXPIRE_SECONDS: int = 300
+    SMS_SEND_INTERVAL_SECONDS: int = 60
+
+    # ===================================================================
+    # DEFAULT RESOURCE URLS (默认资源 URL - 2026-06-26 历史项目迁移补全)
+    # ===================================================================
+    AI_DEFAULT_IMG_URL: str = ""
+    AI_DEFAULT_TEAM_URL: str = ""
+    AI_DEFAULT_MARGIN_URL: str = ""
+    AI_DEFAULT_PRODUCT_URL: str = ""
+    AI_DEFAULT_STATISTICS_URL: str = ""
+    AI_DEFAULT_ROLE_URL: str = ""
+    AI_WX_MINI_DEFAULT_PRODUCT_ACTIVITY: str = ""
+    AI_WX_MINI_DEFAULT_PRODUCT_TOKEN: str = ""
+    AI_WX_MINI_DEFAULT_PRODUCT_TRADER: str = ""
+    AI_WX_MINI_DEFAULT_PRODUCT_VIP: str = ""
+    AI_CREATOR_NAME: str = "AI_ZHS"
+
     model_config = SettingsConfigDict(
         env_file=".env.production" if os.getenv("ENV", "").lower() in ("production", "prod") else ".env",
         env_file_encoding="utf-8",

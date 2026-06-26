@@ -42,7 +42,7 @@
       <template #header>
         <span>{{ t('distributionTeamDetail.subordinatesList') }}</span>
       </template>
-      <el-table :data="subordinatesList" v-loading="loadingSubordinates" style="width: 100%">
+      <el-table :data="subordinatesList" v-loading="loadingSubordinates" class="full-width">
         <el-table-column prop="username" :label="t('distributionTeamDetail.username')" width="150">
           <template #default="{ row }">
             <div class="user-cell">
@@ -82,7 +82,7 @@
       <template #header>
         <span>{{ t('distributionTeamDetail.ordersList') }}</span>
       </template>
-      <el-table :data="ordersList" v-loading="loadingOrders" style="width: 100%">
+      <el-table :data="ordersList" v-loading="loadingOrders" class="full-width">
         <el-table-column
           prop="order_no"
           :label="t('distributionTeamDetail.orderNo')"
@@ -90,7 +90,7 @@
         />
         <el-table-column prop="amount" :label="t('distributionTeamDetail.amount')" width="120">
           <template #default="{ row }">
-            <span style="color: var(--el-color-primary); font-weight: 700">
+            <span class="amount-text">
               ¥{{ (row.amount / 100).toFixed(2) }}
             </span>
           </template>
@@ -335,5 +335,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.amount-text {
+  color: var(--el-color-primary);
+  font-weight: 700;
 }
 </style>

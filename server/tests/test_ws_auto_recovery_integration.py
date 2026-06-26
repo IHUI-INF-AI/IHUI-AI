@@ -76,9 +76,10 @@ class TestConnectionManagerAttributes:
         """不存在的 conn_id 移除不应抛异常."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
-            self.cm.remove_connection("nonexistent")
-        )
+        async def _run():
+            await self.cm.remove_connection("nonexistent")
+
+        asyncio.run(_run())
 
 
 class TestEnqueueMessage:
@@ -225,8 +226,11 @@ class TestOutboxConsumer:
         # 入队 3 条
         for i in range(3):
             await self.cm.enqueue_message("user", {"i": i}, f"u{i}")
-        # 等待消费者处理
-        await asyncio.sleep(0.5)
+        # 轮询等待消费者处理完 (SLA 监控增加了处理耗时, 固定 sleep 不再可靠)
+        for _ in range(50):  # 最多等 5 秒
+            if self.cm.message_queue.qsize() == 0:
+                break
+            await asyncio.sleep(0.1)
         # 队列应清空 (target=user 但无连接, send_to 失败不影响队列)
         assert self.cm.message_queue.qsize() == 0
         await self.cm.stop_background_tasks()

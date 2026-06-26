@@ -127,6 +127,7 @@ from app.api.v1.resource.home import router as resource_home_router
 # --- Users ---
 from app.api.v1.system.admin import router as sys_admin_router
 from app.api.v1.system.audit import router as sys_audit_router
+from app.api.v1.system.auto_recovery import router as sys_auto_recovery_router
 from app.api.v1.system.codegen import router as sys_codegen_router
 
 # --- System ---
@@ -718,6 +719,10 @@ api_router.include_router(sys_admin_router, prefix="/system/admin", tags=["Syste
 api_router.include_router(sys_audit_router, prefix="/system/audit", tags=["System: Audit"])
 api_router.include_router(sys_codegen_router, prefix="/system", tags=["System: Codegen"])
 api_router.include_router(sys_dictionary_router, tags=["System: Dictionary"])
+# 2026-06-26 新增: WebSocket 自动恢复监控路由
+api_router.include_router(
+    sys_auto_recovery_router, prefix="/system", tags=["System: Auto Recovery"]
+)
 
 # Monitor
 api_router.include_router(monitor_alerts_router, prefix="/monitor/alerts", tags=["Monitor: Alerts"])
@@ -1114,3 +1119,43 @@ api_router.include_router(misc_legacy_router)
 from app.api.v1.invoice_title_legacy import router as invoice_title_legacy_router  # noqa: E402
 
 api_router.include_router(invoice_title_legacy_router)
+
+# --- 历史项目迁移补齐: 7 个新路由模块 (2026-06-26, 迁移自 coze_zhs_py) ---
+# P0: 聊天室 WebSocket (迁移自 coze_zhs_py/api/chat_room_socket.py, 9 端点)
+from app.api.v1.chat_room import router as chat_room_router  # noqa: E402
+
+api_router.include_router(chat_room_router, tags=["Chat Room WS (coze_zhs_py)"])
+
+# P0: 公共 Socket 管理器 + Redis 跨实例同步 (迁移自 coze_zhs_py/api/public_socket.py, 2 端点)
+from app.api.ws.public_socket_v2 import router as public_socket_v2_router  # noqa: E402
+
+api_router.include_router(public_socket_v2_router, tags=["Public Socket v2 (coze_zhs_py)"])
+
+# P0: Coze 原生 WebSocket chat (迁移自 coze_zhs_py/api/websocket.py, 7 端点)
+from app.api.v1.coze_ws import router as coze_ws_router  # noqa: E402
+
+api_router.include_router(coze_ws_router, tags=["Coze WS (coze_zhs_py)"])
+
+# P0: 提现审核/处理端点 (迁移自 coze_zhs_py/api/agent_withdrawal_detail.py, 7 端点)
+from app.api.v1.agents.withdrawal_admin import router as agent_withdrawal_admin_router  # noqa: E402
+
+api_router.include_router(
+    agent_withdrawal_admin_router,
+    prefix="/agents",
+    tags=["Agent Withdrawal Admin (coze_zhs_py)"],
+)
+
+# P1: WebSocket 实时语音识别 (迁移自 coze_zhs_py/api/websocket_audio.py, 2 端点)
+from app.api.v1.ai.audio.ws_router import router as audio_ws_router  # noqa: E402
+
+api_router.include_router(audio_ws_router, tags=["Audio WS (coze_zhs_py)"])
+
+# P1: Coze stream_run 聊天 (迁移自 coze_zhs_py/api/coze_chat.py, 1 端点)
+from app.api.v1.coze.stream_chat import router as coze_stream_chat_router  # noqa: E402
+
+api_router.include_router(coze_stream_chat_router, tags=["Coze Stream Chat (coze_zhs_py)"])
+
+# P1: Kling O1 omni-video (迁移自 coze_zhs_py/api/kling_video_synthesis.py, 1 端点)
+from app.api.v1.chat.kling_o1 import router as kling_o1_router  # noqa: E402
+
+api_router.include_router(kling_o1_router, tags=["Kling O1 (coze_zhs_py)"])

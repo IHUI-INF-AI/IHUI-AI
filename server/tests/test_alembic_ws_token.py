@@ -97,16 +97,18 @@ def test_ws_proxy_accepts_with_token(run_ws):
 # ─── Alembic 迁移链检查 (代码检查) ───
 
 def test_alembic_008_registered():
-    """008_add_missing_tables 迁移已注册.
+    """迁移文件已注册.
 
     验证策略:
-    1. 主: 检查 alembic/versions/008_add_missing_tables.py 文件存在
+    1. 主: 检查 alembic/versions/ 下 head 迁移文件 (047_notify_persist) 存在
+       (2026-06-26 迁移链已重编号 016-047, 008_add_missing_tables 已被替代)
     2. 辅: 尝试 alembic current (依赖 DB 可用, 失败时跳过)
     """
     versions_dir = os.path.join(SERVER, "alembic", "versions")
-    target_file = "008_add_missing_tables.py"
+    # 2026-06-26: 迁移已重编号, head 为 047_notify_persist
+    target_file = "047_notify_persist.py"
     target_path = os.path.join(versions_dir, target_file)
-    assert os.path.exists(target_path), f"迁移文件不存在: {target_path}"
+    assert os.path.exists(target_path), f"head 迁移文件不存在: {target_path}"
 
     # 尝试在 PostgreSQL/真实环境下执行 alembic current
     try:
@@ -122,7 +124,8 @@ def test_alembic_008_registered():
         output = result.stdout + result.stderr
         if "Context impl SQLiteImpl" in output:
             pytest.skip("SQLite fallback 模式, 跳过 alembic current 检查")
-        assert "008_add_missing_tables" in output, f"008 未在 current 中注册: {output.strip()}"
+        # 验证 head 是 047
+        assert "047_notify_persist" in output, f"047 未在 current 中注册: {output.strip()}"
     except subprocess.TimeoutExpired:
         pytest.skip("alembic current 超时")
     except FileNotFoundError:
