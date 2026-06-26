@@ -126,7 +126,11 @@ defineExpose({
 </script>
 
 <style scoped>
-/* 2026-06-25 修复: 移除 box-shadow, 改用 border 分隔元素, 符合项目扁平化设计规范 */
+/* 2026-06-25 修复: 移除 box-shadow, 改用 border 分隔元素, 符合项目扁平化设计规范
+ * 2026-06-26 修复: 用具体颜色替代 var(--el-color-primary) 等变量.
+ * 根因: scoped CSS 中 :root 会被加上 [data-v-xxx] 属性, 导致组件内 --el-color-primary
+ * 被重定义为 --el-text-color-primary (同 NotFound.vue 修复), 主按钮变白.
+ * 改用具体色值, 不依赖 CSS 变量, 颜色固定与 Element Plus 默认主题一致. */
 .error-boundary {
   width: 100%;
   min-height: calc(100vh - 60px);
@@ -138,14 +142,14 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--el-bg-color);
+  background: #f5f7fa;
   padding: 40px;
 }
 
 .error-content {
   text-align: center;
   max-width: 100%;
-  background: var(--el-bg-color);
+  background: #ffffff;
   padding: 40px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
@@ -155,7 +159,7 @@ defineExpose({
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
-  color: var(--el-color-danger);
+  color: #f56c6c;
 }
 
 .error-icon :deep(svg) {
@@ -166,12 +170,12 @@ defineExpose({
   margin: 0 0 12px;
   font-size: 24px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: #303133;
 }
 
 .error-message {
   margin: 0 0 24px;
-  color: var(--el-text-color-regular);
+  color: #606266;
   font-size: 14px;
 }
 
@@ -181,7 +185,7 @@ defineExpose({
 }
 
 .error-details details {
-  background: var(--el-fill-color-light);
+  background: #f5f7fa;
   padding: 12px;
   border-radius: var(--global-border-radius);
   cursor: pointer;
@@ -190,18 +194,18 @@ defineExpose({
 
 .error-details summary {
   font-size: 14px;
-  color: var(--el-text-color-regular);
+  color: #606266;
   user-select: none;
 }
 
 .error-details pre {
   margin-top: 12px;
   padding: 12px;
-  background: var(--el-bg-color);
+  background: #ffffff;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 12px;
-  color: var(--el-text-color-regular);
+  color: #606266;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
@@ -209,24 +213,45 @@ defineExpose({
 
 .actions {
   display: flex;
+  flex-wrap: nowrap;
   gap: 12px;
   justify-content: center;
+  align-items: center;
 }
 
 button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 10px 20px;
-  border: var(--unified-border);
+  flex: 0 0 auto;
+  min-width: 120px;
+  height: 40px;
+  padding: 0 20px;
+  border: 1px solid transparent;
   border-radius: var(--global-border-radius);
   cursor: pointer;
   font-size: 14px;
-  transition: opacity 0.2s;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  box-sizing: border-box;
+  outline: none;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s;
+}
+
+button:focus-visible {
+  outline: 2px solid #409eff;
+  outline-offset: 2px;
 }
 
 button:hover {
-  opacity: 0.8;
+  opacity: 1;
 }
 
 .btn-icon {
@@ -234,13 +259,35 @@ button:hover {
 }
 
 .btn-primary {
-  background: var(--el-color-primary);
-  color: var(--color-on-primary);
-  border-color: var(--el-color-primary);
+  background: #409eff;
+  color: #fff;
+  border-color: #409eff;
+}
+
+.btn-primary:hover {
+  background: #66b1ff;
+  border-color: #66b1ff;
+}
+
+.btn-primary:active {
+  background: #337ecc;
+  border-color: #337ecc;
 }
 
 .btn-secondary {
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-primary);
+  background: #ffffff;
+  color: #606266;
+  border-color: #dcdfe6;
+}
+
+.btn-secondary:hover {
+  color: #409eff;
+  border-color: #c0dfff;
+  background: #ecf5ff;
+}
+
+.btn-secondary:active {
+  color: #337ecc;
+  border-color: #337ecc;
 }
 </style>

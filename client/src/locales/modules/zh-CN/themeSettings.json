@@ -1,49 +1,49 @@
 {
   "themeSettings": {
     "advanced": {
-      "accessibility": "accessibility",
-      "announceChanges": "announceChanges",
+      "accessibility": "无障碍",
+      "announceChanges": "播报更改",
       "debug": "调试",
       "export": "导出",
-      "exportReport": "导出 报表",
+      "exportReport": "导出报表",
       "exportSuccess": "导出成功",
-      "focusDefault": "focus 默认",
-      "focusHighContrast": "focusHighContrast",
-      "focusIndicator": "focusIndicator",
-      "focusLarge": "focusLarge",
-      "hideDebug": "隐藏 debug",
+      "focusDefault": "默认焦点",
+      "focusHighContrast": "高对比度焦点",
+      "focusIndicator": "焦点指示器",
+      "focusLarge": "大焦点区域",
+      "hideDebug": "隐藏调试",
       "import": "导入",
-      "importExport": "导入 导出",
+      "importExport": "导入导出",
       "importSuccess": "导入成功",
-      "keyboardNav": "keyboard 导航",
-      "showDebug": "显示 debug",
-      "voiceControl": "语音 control"
+      "keyboardNav": "键盘导航",
+      "showDebug": "显示调试",
+      "voiceControl": "语音控制"
     },
     "basic": {
-      "currentTheme": "当前 主题",
+      "currentTheme": "当前主题",
       "preview": "预览",
       "quickActions": "快捷操作",
       "reset": "重置",
       "resetSuccess": "重置成功",
-      "toggleDark": "切换 dark"
+      "toggleDark": "切换深色模式"
     },
     "schedule": {
       "add": "添加",
       "days": "天",
       "label": "标签",
       "mode": "模式",
-      "nextSwitch": "下一步 切换",
+      "nextSwitch": "下次切换",
       "time": "时间",
       "title": "标题"
     },
     "search": "搜索",
     "sync": {
       "download": "下载",
-      "lastSynced": "末 synced",
-      "notSynced": "非 synced",
+      "lastSynced": "上次同步",
+      "notSynced": "未同步",
       "syncSuccess": "同步成功",
       "syncing": "同步中",
-      "title": "标题",
+      "title": "同步",
       "upload": "上传"
     },
     "tabs": {
@@ -51,8 +51,8 @@
       "basic": "基础",
       "presets": "预设",
       "schedule": "计划",
-      "sync": "sync"
+      "sync": "同步"
     },
-    "title": "标题"
+    "title": "主题设置"
   }
 }

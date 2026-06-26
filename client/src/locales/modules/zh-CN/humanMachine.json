@@ -2,179 +2,179 @@
   "humanMachine": {
     "architecture": {
       "infoWorld": {
-        "description": "描述",
-        "title": "标题"
+        "description": "信息世界描述",
+        "title": "信息世界"
       },
       "physicalWorld": {
-        "description": "描述",
-        "title": "标题"
+        "description": "物理世界描述",
+        "title": "物理世界"
       },
       "superEnterprise": {
-        "description": "描述",
-        "title": "标题"
+        "description": "超级企业描述",
+        "title": "超级企业"
       }
     },
     "cta": {
       "contact": "联系我们",
-      "description": "描述",
+      "description": "立即开始您的人机协同之旅，释放团队潜能",
       "learnMore": "了解更多",
-      "title": "标题"
+      "title": "开启人机协同新时代"
     },
     "footer": {
       "agentScenario": "智能体场景",
       "contact": "联系我们",
       "enterprise": "企业"
     },
-    "heroSubtitle": "副标题",
-    "heroTitle": "主标题",
+    "heroSubtitle": "让人与机器的协作更加高效、智能、自然",
+    "heroTitle": "人机协同平台",
     "implementation": {
-      "intro": "简介",
+      "intro": "通过科学的方法论，分阶段推进人机协同的落地实施",
       "steps": {
         "assessment": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "评估现有业务流程，识别可自动化的环节",
+          "title": "现状评估"
         },
         "optimize": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "基于试点数据持续优化模型和流程",
+          "title": "持续优化"
         },
         "pilot": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "选择核心场景进行小范围试点验证",
+          "title": "试点验证"
         },
         "planning": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "制定详细的实施方案和路线图",
+          "title": "方案规划"
         },
         "scale": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "在全组织范围内推广最佳实践",
+          "title": "规模化推广"
         }
       },
-      "title": "标题"
+      "title": "实施路径"
     },
     "infoWorld": {
       "advanced": {
-        "description": "描述",
+        "description": "运用前沿AI技术，实现感知、决策、创造的智能化升级",
         "items": {
           "agent": {
-            "desc": "描述",
-            "name": "名称"
+            "desc": "自主完成复杂任务的智能代理",
+            "name": "智能体"
           },
           "generative": {
-            "desc": "描述",
-            "name": "名称"
+            "desc": "AI驱动的文本、图像、代码生成能力",
+            "name": "生成式AI"
           },
           "perception": {
-            "desc": "描述",
-            "name": "名称"
+            "desc": "视觉、语音、语义等多模态理解",
+            "name": "感知智能"
           },
           "physical": {
-            "desc": "描述",
-            "name": "名称"
+            "desc": "从数字空间延伸到物理世界的操作能力",
+            "name": "具身智能"
           }
         },
-        "title": "标题"
+        "title": "高级能力"
       },
       "basic": {
-        "description": "描述",
+        "description": "构建数字化的信息基础设施，实现业务流程的标准化",
         "items": {
           "automation": {
-            "desc": "描述",
-            "name": "名称"
+            "desc": "规则驱动的自动化流程执行",
+            "name": "流程自动化"
           },
           "informatization": {
-            "desc": "描述",
-            "name": "名称"
+            "desc": "核心业务的数字化改造",
+            "name": "信息化"
           },
           "iot": {
-            "desc": "描述",
-            "name": "名称"
+            "desc": "物理设备的互联互通与数据采集",
+            "name": "物联网"
           }
         },
-        "title": "标题"
+        "title": "基础能力"
       },
-      "evolution": "evolution",
-      "intro": "简介",
-      "title": "标题"
+      "evolution": "能力演进",
+      "intro": "信息世界的智能化转型，从数字化到智能化的逐步升级",
+      "title": "信息世界"
     },
     "physicalWorld": {
       "humanValue": {
-        "description": "描述",
-        "title": "标题",
+        "description": "在人机协同中，人类独有的核心价值不可替代",
+        "title": "人的价值",
         "values": {
-          "critical": "严重",
-          "culture": "culture",
-          "humility": "humility",
-          "mission": "mission"
+          "critical": "批判性思维",
+          "culture": "文化传承",
+          "humility": "谦逊态度",
+          "mission": "使命感"
         }
       },
-      "intro": "简介",
+      "intro": "物理世界中人机协同的实践与思考",
       "process": {
-        "description": "描述",
+        "description": "人机协同的双向工作流程",
         "forward": {
-          "goal": "目标",
-          "label": "标签",
-          "process": "处理",
-          "role": "角色"
+          "goal": "提升效率、降低成本、减少错误",
+          "label": "正向流程",
+          "process": "人类决策 → 机器执行 → 人类审核",
+          "role": "人类主导、机器辅助"
         },
         "reverse": {
-          "label": "标签",
-          "process": "处理",
-          "role": "角色"
+          "label": "反向流程",
+          "process": "机器建议 → 人类判断 → 最终执行",
+          "role": "机器推荐、人类决策"
         },
-        "title": "标题"
+        "title": "协作流程"
       },
       "structure": {
-        "description": "描述",
+        "description": "人机协同的组织架构设计",
         "features": {
-          "digital": "digital",
-          "hybrid": "hybrid",
-          "mapping": "mapping"
+          "digital": "数字化协作",
+          "hybrid": "混合模式",
+          "mapping": "能力映射"
         },
-        "title": "标题"
+        "title": "组织结构"
       },
-      "title": "标题"
+      "title": "物理世界"
     },
     "superEnterprise": {
-      "intro": "简介",
+      "intro": "构建面向未来的超级企业，实现全面智能化升级",
       "metrics": {
-        "cost": "费用",
-        "costDesc": "cost 描述",
-        "efficiency": "效率",
-        "efficiencyDesc": "efficiency 描述",
-        "experience": "经验",
-        "experienceDesc": "experience 描述",
-        "title": "标题"
+        "cost": "运营成本",
+        "costDesc": "通过自动化和智能化显著降低运营成本",
+        "efficiency": "运营效率",
+        "efficiencyDesc": "人机协同提升整体运营效率和响应速度",
+        "experience": "用户体验",
+        "experienceDesc": "智能化服务提供更优质的用户体验",
+        "title": "核心指标"
       },
       "superEmployee": {
-        "description": "描述",
+        "description": "AI赋能的超能员工，能力倍增",
         "features": {
-          "creativity": "creativity",
-          "decision": "决策",
-          "productivity": "productivity"
+          "creativity": "创造力",
+          "decision": "决策力",
+          "productivity": "生产力"
         },
-        "title": "标题"
+        "title": "超级员工"
       },
       "superProduct": {
-        "description": "描述",
+        "description": "智能化驱动的超级产品，持续进化",
         "features": {
-          "intelligent": "intelligent",
-          "iterative": "iterative",
-          "personalized": "personalized"
+          "intelligent": "智能化",
+          "iterative": "可迭代",
+          "personalized": "个性化"
         },
-        "title": "标题"
+        "title": "超级产品"
       },
       "superTeam": {
-        "description": "描述",
+        "description": "人机融合的超级团队，协同作战",
         "features": {
-          "agility": "agility",
+          "agility": "敏捷性",
           "collaboration": "协作",
           "intelligence": "智能"
         },
-        "title": "标题"
+        "title": "超级团队"
       },
-      "title": "标题"
+      "title": "超级企业"
     }
   }
 }

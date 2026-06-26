@@ -3,56 +3,56 @@
     "developer": {
       "copy": "复制",
       "regenerate": "重新生成",
-      "remainingQuota": "remainingQuota",
+      "remainingQuota": "剩余配额",
       "successRate": "成功率",
-      "title": "标题",
-      "totalCalls": "总调用",
+      "title": "开发者",
+      "totalCalls": "总调用次数",
       "viewDocs": "查看文档"
     },
     "examine": {
-      "empty": "空",
-      "rejectReason": "拒绝原因",
-      "resubmit": "resubmit",
-      "title": "标题",
+      "empty": "暂无数据",
+      "rejectReason": "驳回原因",
+      "resubmit": "重新提交",
+      "title": "审核",
       "view": "查看"
     },
     "favorites": {
-      "empty": "空",
+      "empty": "暂无收藏",
       "remove": "移除",
-      "title": "标题",
+      "title": "我的收藏",
       "view": "查看"
     },
     "infoCard": {
       "edit": "编辑"
     },
     "loginPopup": {
-      "code": "代码",
+      "code": "验证码",
       "login": "登录",
       "phone": "手机号",
       "sendCode": "发送验证码",
       "wechatLogin": "微信登录"
     },
     "messages": {
-      "empty": "空",
-      "title": "标题"
+      "empty": "暂无消息",
+      "title": "消息"
     },
     "orders": {
-      "empty": "空",
+      "empty": "暂无订单",
       "orderNo": "订单号",
       "payNow": "立即支付",
-      "title": "标题",
+      "title": "我的订单",
       "viewDetails": "查看详情"
     },
     "privacy": {
-      "allowSearch": "allow 搜索",
-      "allowSearchDesc": "allow 搜索 描述",
-      "publicProfile": "公开 资料",
-      "publicProfileDesc": "公开 资料 描述",
-      "receiveMessages": "接收 messages",
-      "receiveMessagesDesc": "接收 messages 描述",
-      "showOnlineStatus": "显示 在线 状态",
-      "showOnlineStatusDesc": "显示 在线 状态 描述",
-      "title": "标题"
+      "allowSearch": "允许搜索",
+      "allowSearchDesc": "允许其他用户通过搜索找到你",
+      "publicProfile": "公开个人资料",
+      "publicProfileDesc": "允许其他用户查看你的个人资料",
+      "receiveMessages": "接收消息",
+      "receiveMessagesDesc": "允许接收其他用户的消息",
+      "showOnlineStatus": "显示在线状态",
+      "showOnlineStatusDesc": "允许其他用户看到你的在线状态",
+      "title": "隐私设置"
     },
     "profile": {
       "admin": "管理员",
@@ -62,55 +62,55 @@
       "registerTime": "注册时间"
     },
     "purchaseRecords": {
-      "applyInvoice": "应用 发票",
-      "empty": "空",
+      "applyInvoice": "申请发票",
+      "empty": "暂无购买记录",
       "orderNo": "订单号",
       "status": {
         "completed": "已完成",
         "pending": "待处理",
         "refunded": "已退款"
       },
-      "title": "标题",
+      "title": "购买记录",
       "viewDetails": "查看详情"
     },
     "purchases": {
       "download": "下载",
-      "empty": "空",
-      "title": "标题",
+      "empty": "暂无购买内容",
+      "title": "我的购买",
       "view": "查看"
     },
     "security": {
-      "emailBinding": "邮箱 binding",
-      "loginPassword": "登录 密码",
-      "loginPasswordDesc": "登录 密码 描述",
+      "emailBinding": "邮箱绑定",
+      "loginPassword": "登录密码",
+      "loginPasswordDesc": "用于账号登录的密码",
       "modify": "修改",
-      "phoneBinding": "手机 binding",
-      "title": "标题"
+      "phoneBinding": "手机绑定",
+      "title": "安全设置"
     },
     "settings": {
       "language": "语言",
-      "languageDesc": "语言 描述",
+      "languageDesc": "设置界面显示语言",
       "notifications": "通知",
-      "notificationsDesc": "notifications 描述",
-      "soundEffects": "soundEffects",
-      "soundEffectsDesc": "sound effects 描述",
+      "notificationsDesc": "管理通知提醒方式",
+      "soundEffects": "音效",
+      "soundEffectsDesc": "开启或关闭操作音效",
       "theme": "主题",
-      "themeDesc": "主题 描述",
-      "title": "标题"
+      "themeDesc": "设置界面主题风格",
+      "title": "设置"
     },
     "statistics": {
-      "chartDeveloping": "图表 developing",
-      "favorites": "收藏",
-      "orders": "订单",
-      "title": "标题",
-      "totalSpent": "总计 spent",
-      "totalViews": "总浏览",
-      "usageTrend": "usageTrend"
+      "chartDeveloping": "图表开发中",
+      "favorites": "收藏数",
+      "orders": "订单数",
+      "title": "数据统计",
+      "totalSpent": "累计消费",
+      "totalViews": "总浏览量",
+      "usageTrend": "使用趋势"
     },
     "upload": {
       "delete": "删除",
-      "empty": "空",
-      "title": "标题",
+      "empty": "暂无上传内容",
+      "title": "我的上传",
       "view": "查看"
     }
   }

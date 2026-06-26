@@ -433,6 +433,17 @@ export default [
     },
   },
   {
+    files: ['src/api/admin/**/*.ts', 'src/store/admin/**/*.ts', 'src/utils/admin/**/*.ts', 'src/views/admin-ruoyi/**', 'src/layout-admin/**', 'src/plugins/admin/**', 'src/components/admin-ruoyi/**'],
+    languageOptions: {
+      // 这些目录在 tsconfig.json 的 exclude 中, parserOptions.project 会失败
+      parserOptions: { project: null },
+    },
+    rules: {
+      // 关闭需要类型信息的规则
+      '@typescript-eslint/no-floating-promises': 'off',
+    },
+  },
+  {
     ignores: [
       'dist/**',
       'node_modules/**',

@@ -5,7 +5,7 @@
         <ElInput v-model="formData.title" placeholder="请输入试卷名称" />
       </ElFormItem>
       <ElFormItem label="分类" prop="category_id">
-        <ElSelect v-model="formData.category_id" placeholder="请选择分类" filterable style="width: 100%">
+        <ElSelect v-model="formData.category_id" placeholder="请选择分类" filterable class="full-width">
           <ElOption v-for="item in categories" :key="item.id" :label="item.name" :value="item.id" />
         </ElSelect>
       </ElFormItem>
@@ -25,14 +25,14 @@
         <ElInputNumber v-model="formData.duration" :min="0" />
       </ElFormItem>
       <ElFormItem label="试卷类型" prop="type">
-        <ElSelect v-model="formData.type" placeholder="请选择试卷类型" style="width: 100%">
+        <ElSelect v-model="formData.type" placeholder="请选择试卷类型" class="full-width">
           <ElOption label="固定试卷" :value="1" />
           <ElOption label="随机试卷" :value="2" />
           <ElOption label="模拟试卷" :value="3" />
         </ElSelect>
       </ElFormItem>
       <ElFormItem label="难度" prop="difficulty">
-        <ElSelect v-model="formData.difficulty" placeholder="请选择难度" style="width: 100%">
+        <ElSelect v-model="formData.difficulty" placeholder="请选择难度" class="full-width">
           <ElOption label="简单" :value="1" />
           <ElOption label="中等" :value="2" />
           <ElOption label="困难" :value="3" />
@@ -147,3 +147,9 @@ function onClosed() {
   emit('update:visible', false)
 }
 </script>
+
+<style scoped>
+.full-width {
+  width: 100%;
+}
+</style>

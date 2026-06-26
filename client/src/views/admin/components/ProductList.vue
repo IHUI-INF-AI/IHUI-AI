@@ -31,7 +31,7 @@
     </template>
 
     <template #col-image="{ row }">
-      <el-image :src="row.image" style="width: 60px; height: 60px" fit="cover" />
+      <el-image :src="row.image" class="product-image" fit="cover" />
     </template>
 
     <template #col-type="{ row }">
@@ -187,6 +187,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.product-image {
+  width: 60px;
+  height: 60px;
+}
+
 .price {
   font-weight: 600;
   color: var(--el-color-danger);

@@ -102,7 +102,7 @@
         :key="index"
         :src="img"
         :preview-src-list="currentFeedback.images"
-        style="width: 100px; height: 100px; margin-right: 10px"
+        class="feedback-avatar"
         fit="cover"
       />
     </div>
@@ -281,6 +281,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.feedback-avatar {
+  width: 100px;
+  height: 100px;
+  margin-right: 10px;
+}
+
 .feedback-images {
   margin-top: 20px;
 }

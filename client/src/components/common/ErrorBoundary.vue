@@ -166,8 +166,8 @@ const toggleDetails = () => {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background-color: var(--el-color-danger-light-9, #fef0f0);
-  color: var(--el-color-danger);
+  background-color: #fef0f0;
+  color: #f56c6c;
 }
 
 .error-icon {
@@ -177,14 +177,14 @@ const toggleDetails = () => {
 .error-title {
   font-size: 18px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: #303133;
   margin: 0 0 8px;
   line-height: 1.4;
 }
 
 .error-message {
   font-size: 14px;
-  color: var(--el-text-color-regular);
+  color: #606266;
   margin: 0 0 24px;
   line-height: 1.6;
   max-width: 360px;
@@ -205,7 +205,8 @@ const toggleDetails = () => {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 88px;
+  flex: 0 0 auto;
+  min-width: 104px;
   height: 36px;
   padding: 0 16px;
   font-size: 14px;
@@ -222,52 +223,52 @@ const toggleDetails = () => {
 }
 
 .btn:focus-visible {
-  outline: 2px solid var(--el-color-primary);
+  outline: 2px solid #409eff;
   outline-offset: 2px;
 }
 
 .btn-primary {
-  background-color: var(--el-color-primary);
+  background-color: #409eff;
   color: #fff;
-  border-color: var(--el-color-primary);
+  border-color: #409eff;
 }
 
 .btn-primary:hover {
-  background-color: var(--el-color-primary-light-3, #66b1ff);
-  border-color: var(--el-color-primary-light-3, #66b1ff);
+  background-color: #66b1ff;
+  border-color: #66b1ff;
 }
 
 .btn-primary:active {
-  background-color: var(--el-color-primary-dark-2, #337ecc);
-  border-color: var(--el-color-primary-dark-2, #337ecc);
+  background-color: #337ecc;
+  border-color: #337ecc;
 }
 
 .btn-secondary {
-  background-color: var(--el-fill-color-blank, #fff);
-  color: var(--el-text-color-regular);
-  border-color: var(--el-border-color, #dcdfe6);
+  background-color: #fff;
+  color: #606266;
+  border-color: #dcdfe6;
 }
 
 .btn-secondary:hover {
-  color: var(--el-color-primary);
-  border-color: var(--el-color-primary-light-5, #c0d8ff);
-  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  color: #409eff;
+  border-color: #c0dfff;
+  background-color: #ecf5ff;
 }
 
 .btn-secondary:active {
-  color: var(--el-color-primary-dark-2, #337ecc);
-  border-color: var(--el-color-primary-dark-2, #337ecc);
+  color: #337ecc;
+  border-color: #337ecc;
 }
 
 .btn-ghost {
   background-color: transparent;
-  color: var(--el-text-color-regular);
+  color: #606266;
   border-color: transparent;
 }
 
 .btn-ghost:hover {
-  background-color: var(--el-fill-color-light, #f5f7fa);
-  color: var(--el-text-color-primary);
+  background-color: #f5f7fa;
+  color: #303133;
 }
 
 .btn-icon {
@@ -294,7 +295,7 @@ const toggleDetails = () => {
   gap: 4px;
   padding: 4px 0;
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: #909399;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -303,11 +304,11 @@ const toggleDetails = () => {
 }
 
 .details-toggle:hover {
-  color: var(--el-color-primary);
+  color: #409eff;
 }
 
 .details-toggle:focus-visible {
-  outline: 2px solid var(--el-color-primary);
+  outline: 2px solid #409eff;
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -322,8 +323,8 @@ const toggleDetails = () => {
 
 .error-stack {
   font-size: 12px;
-  color: var(--el-text-color-regular);
-  background-color: var(--el-fill-color-light, #f5f7fa);
+  color: #606266;
+  background-color: #f5f7fa;
   padding: 12px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
@@ -344,16 +345,32 @@ const toggleDetails = () => {
   background-color: rgba(245, 108, 108, 0.15);
 }
 
+:where(html.dark) .error-title {
+  color: #e5eaf3;
+}
+
+:where(html.dark) .error-message {
+  color: #cfd3dc;
+}
+
 :where(html.dark) .btn-secondary {
-  background-color: var(--el-fill-color-blank, transparent);
+  background-color: transparent;
+  color: #cfd3dc;
+  border-color: #4c4d4f;
+}
+
+:where(html.dark) .btn-ghost {
+  color: #cfd3dc;
 }
 
 :where(html.dark) .btn-ghost:hover {
-  background-color: var(--el-fill-color-light, #2a2a2a);
+  background-color: #2a2a2a;
+  color: #e5eaf3;
 }
 
 :where(html.dark) .error-stack {
-  background-color: var(--el-fill-color-light, #2a2a2a);
+  background-color: #2a2a2a;
+  color: #cfd3dc;
 }
 
 @media (width <= 480px) {

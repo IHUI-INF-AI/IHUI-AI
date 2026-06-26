@@ -2,7 +2,7 @@
   <ElDialog v-model="visibleModel" :title="dialogTitle" width="560px" :close-on-click-modal="false" @closed="onClosed">
     <ElForm ref="formRef" :model="formData" :rules="rules" label-width="110px" v-loading="submitting">
       <ElFormItem label="所属章节" prop="chapter_id">
-        <ElSelect v-model="formData.chapter_id" placeholder="请选择章节" filterable style="width: 100%">
+        <ElSelect v-model="formData.chapter_id" placeholder="请选择章节" filterable class="full-width">
           <ElOption v-for="item in chapters" :key="item.id" :label="item.title" :value="item.id" />
         </ElSelect>
       </ElFormItem>
@@ -130,3 +130,9 @@ function onClosed() {
   emit('update:visible', false)
 }
 </script>
+
+<style scoped>
+.full-width {
+  width: 100%;
+}
+</style>

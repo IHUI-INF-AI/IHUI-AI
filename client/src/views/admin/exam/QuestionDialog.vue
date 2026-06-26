@@ -8,7 +8,7 @@
         <ElInputNumber v-model="formData.paper_id" :min="1" />
       </ElFormItem>
       <ElFormItem label="题型" prop="type">
-        <ElSelect v-model="formData.type" placeholder="请选择题型" style="width: 100%">
+        <ElSelect v-model="formData.type" placeholder="请选择题型" class="full-width">
           <ElOption :label="typeLabels[1]" :value="1" />
           <ElOption :label="typeLabels[2]" :value="2" />
           <ElOption :label="typeLabels[3]" :value="3" />
@@ -29,7 +29,7 @@
         <ElInputNumber v-model="formData.score" :min="0" :max="9999" :step="0.5" />
       </ElFormItem>
       <ElFormItem label="难度" prop="difficulty">
-        <ElSelect v-model="formData.difficulty" placeholder="请选择难度" style="width: 100%">
+        <ElSelect v-model="formData.difficulty" placeholder="请选择难度" class="full-width">
           <ElOption :label="difficultyLabels[1]" :value="1" />
           <ElOption :label="difficultyLabels[2]" :value="2" />
           <ElOption :label="difficultyLabels[3]" :value="3" />
@@ -138,3 +138,9 @@ function onClosed() {
   emit('update:visible', false)
 }
 </script>
+
+<style scoped>
+.full-width {
+  width: 100%;
+}
+</style>
