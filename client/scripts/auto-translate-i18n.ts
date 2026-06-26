@@ -25,6 +25,8 @@
  * 用法:
  *   npx tsx scripts/auto-translate-i18n.ts            # 正式翻译
  *   npx tsx scripts/auto-translate-i18n.ts --dry-run  # 预览
+ *   npx tsx scripts/auto-translate-i18n.ts --dry-run --report=out.txt  # 预览并写报告文件
+ *   npx tsx scripts/auto-translate-i18n.ts --mock --limit=10 --modules=common  # mock 试运行
  */
 
 import fs from 'node:fs'
@@ -51,11 +53,38 @@ const BATCH_DELAY_MS = 1_000
 // ============ 配置 ============
 const args = process.argv.slice(2)
 const dryRunFlag = args.includes('--dry-run') || process.env.I18N_AI_DRY_RUN === 'true'
+// 2026-06-26 新增: --report=path 模式: 把 dry-run 详细报告写入文件, 便于在没有 TTY 的环境 (CI/子进程) 抓取结果
+// 解决: PowerShell 重定向 + tsx 输出 buffer 在某些场景丢失问题
+const reportArg = args.find((a) => a.startsWith('--report='))
+const reportPath = reportArg ? reportArg.slice('--report='.length) : ''
+// 2026-06-26 新增: 小批量试运行参数
+// --limit=N          限制单次翻译项数 (含 placeholder/chinese-residue/key-equals), 用于试运行
+// --modules=mod1,mod2  只翻译指定 module (逗号分隔), module 名为文件名去 .json
+// --locales=zh-TW,en   只翻译指定语言 (默认全部 4 语言)
+// --mock              用本地 mock AI 响应 (不调用真实 API), 走完完整备份/写回/验证流程
+const limitArg = args.find((a) => a.startsWith('--limit='))
+const limitN = limitArg ? Math.max(1, parseInt(limitArg.slice('--limit='.length), 10) || 0) : 0
+const modulesArg = args.find((a) => a.startsWith('--modules='))
+const modulesFilter = modulesArg
+  ? new Set(modulesArg.slice('--modules='.length).split(',').map((s) => s.trim()).filter(Boolean))
+  : null
+const localesArg = args.find((a) => a.startsWith('--locales='))
+const localesFilter = localesArg
+  ? new Set(localesArg.slice('--locales='.length).split(',').map((s) => s.trim()).filter(Boolean) as TargetLocale[])
+  : null
+const mockFlag = args.includes('--mock') || process.env.I18N_AI_MOCK === 'true'
 
 const API_KEY = process.env.I18N_AI_API_KEY || ''
 const BASE_URL = process.env.I18N_AI_BASE_URL || 'https://api.deepseek.com/v1'
 const MODEL = process.env.I18N_AI_MODEL || 'deepseek-chat'
 const BATCH_SIZE = Math.max(5, Math.min(50, Number(process.env.I18N_AI_BATCH_SIZE) || 30))
+
+// 自定义日志: 同时输出到 console 和可选的 report 文件
+const reportLines: string[] = []
+function log(msg: string = ''): void {
+  console.log(msg)
+  if (reportPath) reportLines.push(msg)
+}
 
 // ============ 工具函数 ============
 function readJSON<T = unknown>(p: string): T | null {
@@ -175,7 +204,40 @@ function stripCodeFence(text: string): string {
   return t
 }
 
+// 2026-06-26 新增: mock AI 实现 - 构造可识别的伪翻译结果
+// 翻译规则:
+//   en:  [zh-TW-ja-ko-MOCK] <原文>
+//   ja:  <原文> [MOCK-JA]
+//   ko:  [MOCK-KO] <原文>
+//   zh-TW: 簡體<原文>繁體
+// 这样可以一眼看出是 mock 翻译, 不会污染真实数据
+function mockAI(sourceMap: Record<string, string>, targetLanguage: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, src] of Object.entries(sourceMap)) {
+    let translated = ''
+    if (targetLanguage === 'English') {
+      translated = `[MOCK-EN] ${src}`
+    } else if (targetLanguage === 'Japanese') {
+      translated = `${src} [MOCK-JA]`
+    } else if (targetLanguage === 'Korean') {
+      translated = `[MOCK-KO] ${src}`
+    } else if (targetLanguage === 'Traditional Chinese') {
+      // 简体转繁体 (mock 简化: 加繁體标记)
+      translated = `繁體${src}`
+    } else {
+      translated = `[MOCK-${targetLanguage}] ${src}`
+    }
+    out[k] = translated
+  }
+  return out
+}
+
 async function callAI(sourceMap: Record<string, string>, targetLanguage: string): Promise<Record<string, string>> {
+  // 2026-06-26 新增: mock 模式 - 不调用真实 API, 直接构造"伪翻译"结果
+  // 用途: 在没有 API key 或想验证完整流程时, 走通 备份->翻译->写回->验证 全链路
+  if (mockFlag) {
+    return mockAI(sourceMap, targetLanguage)
+  }
   const prompt = buildPrompt(sourceMap, targetLanguage)
   const url = BASE_URL.replace(/\/$/, '') + '/chat/completions'
   const body = {
@@ -222,20 +284,25 @@ async function callAI(sourceMap: Record<string, string>, targetLanguage: string)
 
 // ============ 主流程 ============
 async function main(): Promise<void> {
-  console.log('🌐 AI 自动翻译 i18n 脚本')
-  console.log(`   模式: ${dryRunFlag ? '🔓 dry-run (预览, 不写入)' : '✍️ 正式翻译'}`)
-  console.log(`   模型: ${MODEL}  批次: ${BATCH_SIZE}  Base: ${BASE_URL}`)
-  console.log('')
+  log('🌐 AI 自动翻译 i18n 脚本')
+  const modeDesc = dryRunFlag
+    ? '🔓 dry-run (预览, 不写入)'
+    : mockFlag
+      ? '🧪 mock (本地伪翻译, 走通备份/写回/验证全流程)'
+      : '✍️ 正式翻译'
+  log(`   模式: ${modeDesc}`)
+  log(`   模型: ${MODEL}  批次: ${BATCH_SIZE}  Base: ${BASE_URL}`)
+  log('')
 
-  // dry-run 不需要 API key
-  if (!dryRunFlag && !API_KEY) {
+  // dry-run / mock 不需要 API key
+  if (!dryRunFlag && !mockFlag && !API_KEY) {
     console.error('❌ 未配置 I18N_AI_API_KEY, 无法正式翻译.')
-    console.error('   请在 .env.local 中设置, 或使用 --dry-run 预览.')
+    console.error('   请在 .env.local 中设置, 或使用 --dry-run 预览, 或使用 --mock 走通流程.')
     process.exit(1)
   }
 
   // 1. 加载 zh-CN 源 (合并所有 module 为一个 map, 用于查找原文)
-  console.log('📚 加载 zh-CN 原文...')
+  log('📚 加载 zh-CN 原文...')
   const zhCnDir = path.join(LOCALES_DIR, SOURCE_LOCALE)
   const zhSourceByModule: Record<string, Record<string, unknown>> = {}
   if (fs.existsSync(zhCnDir)) {
@@ -246,32 +313,48 @@ async function main(): Promise<void> {
       if (obj) zhSourceByModule[mod] = obj
     }
   }
-  console.log(`   zh-CN 共 ${Object.keys(zhSourceByModule).length} 个 module`)
+  log(`   zh-CN 共 ${Object.keys(zhSourceByModule).length} 个 module`)
 
   // 2. 扫描 4 个目标语言, 收集待翻译项
-  console.log('🔎 扫描目标语言待翻译项...')
+  log('🔎 扫描目标语言待翻译项...')
   const items: TranslateItem[] = []
   let filesScanned = 0
 
-  for (const locale of TARGET_LOCALES) {
+  // 应用 --locales / --modules 过滤
+  const targetLocales = (localesFilter
+    ? TARGET_LOCALES.filter((l) => localesFilter.has(l))
+    : TARGET_LOCALES) as readonly TargetLocale[]
+  if (targetLocales.length === 0) {
+    log(`\n❌ --locales 过滤后无有效语言 (输入: ${Array.from(localesFilter || []).join(',')})`)
+    process.exit(1)
+  }
+  if (localesFilter) log(`   --locales 过滤: ${targetLocales.join(', ')}`)
+  if (modulesFilter) log(`   --modules 过滤: ${Array.from(modulesFilter).join(', ')}`)
+  if (limitN) log(`   --limit 限制: 前 ${limitN} 项`)
+
+  for (const locale of targetLocales) {
     const dir = path.join(LOCALES_DIR, locale)
     if (!fs.existsSync(dir)) {
-      console.log(`   ⚠️ ${locale} 目录不存在, 跳过`)
+      log(`   ⚠️ ${locale} 目录不存在, 跳过`)
       continue
     }
     let localeFiles = 0
     let localeItems = 0
     for (const f of fs.readdirSync(dir)) {
       if (!f.endsWith('.json')) continue
+      const module = f.replace(/\.json$/, '')
+      // 应用 --modules 过滤
+      if (modulesFilter && !modulesFilter.has(module)) continue
       filesScanned++
       localeFiles++
-      const module = f.replace(/\.json$/, '')
       const filePath = path.join(dir, f)
       const targetObj = readJSON<Record<string, unknown>>(filePath)
       if (!targetObj || typeof targetObj !== 'object') continue
       const zhObj = zhSourceByModule[module]
 
       walkLeaves(targetObj, '', (keyPath, value) => {
+        // 应用 --limit 限制 (只对前 N 项有效)
+        if (limitN && items.length >= limitN) return
         // 类型 1: [ZH:xxx] 占位符
         const ph = extractPlaceholder(value)
         if (ph !== null) {
@@ -300,33 +383,40 @@ async function main(): Promise<void> {
         }
       })
     }
-    console.log(`   ${locale.padEnd(8)} ${String(localeFiles).padStart(3)} 文件, ${localeItems} 待翻译项`)
+    log(`   ${locale.padEnd(8)} ${String(localeFiles).padStart(3)} 文件, ${localeItems} 待翻译项`)
   }
 
-  console.log(`\n📊 扫描完成: ${filesScanned} 文件, 共 ${items.length} 个待翻译项`)
+  log(`\n📊 扫描完成: ${filesScanned} 文件, 共 ${items.length} 个待翻译项`)
 
   // 按类型统计
   const byType: Record<string, number> = {}
   for (const it of items) byType[it.type] = (byType[it.type] || 0) + 1
-  console.log(`   占位符 [ZH:]: ${byType['placeholder'] || 0}`)
-  console.log(`   值=键名:     ${byType['key-equals'] || 0}`)
-  console.log(`   残留中文:    ${byType['chinese-residue'] || 0}`)
+  log(`   占位符 [ZH:]: ${byType['placeholder'] || 0}`)
+  log(`   值=键名:     ${byType['key-equals'] || 0}`)
+  log(`   残留中文:    ${byType['chinese-residue'] || 0}`)
 
   if (items.length === 0) {
-    console.log('\n✅ 无待翻译项, 退出.')
+    log('\n✅ 无待翻译项, 退出.')
+    if (reportPath) {
+      fs.writeFileSync(reportPath, reportLines.join('\n') + '\n', 'utf-8')
+    }
     return
   }
 
   // dry-run: 到此为止, 不调用 API
   if (dryRunFlag) {
-    console.log('\n🔓 dry-run 模式: 不调用 API, 不写入文件.')
+    log('\n🔓 dry-run 模式: 不调用 API, 不写入文件.')
     // 输出前 10 个样例
-    console.log('\n样例 (前 10 项):')
+    log('\n样例 (前 10 项):')
     items.slice(0, 10).forEach((it, i) => {
-      console.log(`   ${i + 1}. [${it.locale}] ${it.module}.${it.keyPath}  (${it.type})`)
-      console.log(`      源: ${it.sourceText.slice(0, 80)}`)
+      log(`   ${i + 1}. [${it.locale}] ${it.module}.${it.keyPath}  (${it.type})`)
+      log(`      源: ${it.sourceText.slice(0, 80)}`)
     })
-    console.log(`\n📌 正式翻译请配置 I18N_AI_API_KEY 后运行: npm run i18n:auto-translate`)
+    log(`\n📌 正式翻译请配置 I18N_AI_API_KEY 后运行: npm run i18n:auto-translate`)
+    if (reportPath) {
+      fs.writeFileSync(reportPath, reportLines.join('\n') + '\n', 'utf-8')
+      log(`\n📄 报告已写入: ${reportPath}`)
+    }
     return
   }
 
@@ -334,7 +424,7 @@ async function main(): Promise<void> {
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   backupDir = path.join(REPORTS_DIR, `auto-translate-backup-${ts}`)
   fs.mkdirSync(backupDir, { recursive: true })
-  console.log(`\n💾 备份目录: ${path.relative(ROOT, backupDir)}`)
+  log(`\n💾 备份目录: ${path.relative(ROOT, backupDir)}`)
 
   // 4. 按 locale 分组, 每组按 BATCH_SIZE 切批翻译
   const result: TranslateResult = {
@@ -352,11 +442,11 @@ async function main(): Promise<void> {
     if (!fileTranslations.has(it.filePath)) fileTranslations.set(it.filePath, new Map())
   }
 
-  for (const locale of TARGET_LOCALES) {
+  for (const locale of targetLocales) {
     const localeItems = items.filter((it) => it.locale === locale)
     if (localeItems.length === 0) continue
     const targetLanguage = LANGUAGE_NAMES[locale]
-    console.log(`\n🌐 翻译 ${locale} -> ${targetLanguage}  (${localeItems.length} 项)`)
+    log(`\n🌐 翻译 ${locale} -> ${targetLanguage}  (${localeItems.length} 项)`)
 
     const batches: TranslateItem[][] = []
     for (let i = 0; i < localeItems.length; i += BATCH_SIZE) {
@@ -398,7 +488,7 @@ async function main(): Promise<void> {
           result.translated++
           batchOk++
         }
-        console.log(`   ${tag} ✅ 成功 ${batchOk} 跳过 ${batchSkip}`)
+        log(`   ${tag} ✅ 成功 ${batchOk} 跳过 ${batchSkip}`)
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(`   ${tag} ❌ 批次失败: ${msg}`)
@@ -414,7 +504,7 @@ async function main(): Promise<void> {
   }
 
   // 5. 写回文件 (逐文件: 备份 -> 应用翻译 -> 验证 -> 写入; 失败回滚)
-  console.log('\n📝 写回文件...')
+  log('\n📝 写回文件...')
   for (const [filePath, fmap] of fileTranslations) {
     if (fmap.size === 0) continue
     const original = readJSON<Record<string, unknown>>(filePath)
@@ -447,31 +537,36 @@ async function main(): Promise<void> {
     // 写入
     fs.writeFileSync(filePath, serialized, 'utf-8')
     result.filesWritten++
-    console.log(`   ✅ ${path.relative(ROOT, filePath)}  (+${fmap.size} keys)`)
+    log(`   ✅ ${path.relative(ROOT, filePath)}  (+${fmap.size} keys)`)
   }
 
   // 6. 报告
-  console.log('\n' + '='.repeat(50))
-  console.log('📋 翻译报告')
-  console.log('='.repeat(50))
-  console.log(`   扫描文件:     ${filesScanned}`)
-  console.log(`   待翻译项:     ${items.length}`)
-  console.log(`   成功翻译:     ${result.translated}`)
-  console.log(`   跳过 (可疑):  ${result.skipped}`)
-  console.log(`   失败 (批次):  ${result.failed}`)
-  console.log(`   写回文件:     ${result.filesWritten}`)
-  console.log(`   备份目录:     ${backupDir ? path.relative(ROOT, backupDir) : '(无)'}`)
+  log('\n' + '='.repeat(50))
+  log('📋 翻译报告')
+  log('='.repeat(50))
+  log(`   扫描文件:     ${filesScanned}`)
+  log(`   待翻译项:     ${items.length}`)
+  log(`   成功翻译:     ${result.translated}`)
+  log(`   跳过 (可疑):  ${result.skipped}`)
+  log(`   失败 (批次):  ${result.failed}`)
+  log(`   写回文件:     ${result.filesWritten}`)
+  log(`   备份目录:     ${backupDir ? path.relative(ROOT, backupDir) : '(无)'}`)
 
   if (result.failedKeys.length > 0) {
     const logPath = path.join(REPORTS_DIR, `auto-translate-failed-${ts}.json`)
     fs.writeFileSync(logPath, JSON.stringify(result.failedKeys, null, 2) + '\n', 'utf-8')
-    console.log(`   失败明细:     ${path.relative(ROOT, logPath)} (${result.failedKeys.length} 条)`)
+    log(`   失败明细:     ${path.relative(ROOT, logPath)} (${result.failedKeys.length} 条)`)
   }
 
-  console.log('\n✅ 完成. 下一步:')
-  console.log('   1. npm run check:i18n:chinese  (检查是否还有残留中文)')
-  console.log('   2. npm run check:i18n:keys -- --all  (验证 key 覆盖度)')
-  console.log('   3. 如需回滚, 从备份目录恢复')
+  log('\n✅ 完成. 下一步:')
+  log('   1. npm run check:i18n:chinese  (检查是否还有残留中文)')
+  log('   2. npm run check:i18n:keys -- --all  (验证 key 覆盖度)')
+  log('   3. 如需回滚, 从备份目录恢复')
+
+  if (reportPath) {
+    fs.writeFileSync(reportPath, reportLines.join('\n') + '\n', 'utf-8')
+    log(`\n📄 报告已写入: ${reportPath}`)
+  }
 }
 
 main().catch((e) => {
