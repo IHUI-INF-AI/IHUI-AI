@@ -7,11 +7,11 @@
     "female": "女",
     "gender": "性别",
     "male": "男",
-    "nickName": "nick 名称",
-    "profession": "profession",
+    "nickName": "昵称",
+    "profession": "职业",
     "realName": "真实姓名",
     "school": "学校",
-    "secret": "secret",
+    "secret": "保密",
     "title": "标题"
   }
 }

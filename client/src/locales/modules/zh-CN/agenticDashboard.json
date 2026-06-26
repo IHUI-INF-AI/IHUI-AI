@@ -1,12 +1,12 @@
 {
   "agenticDashboard": {
-    "activeSwarms": "已激活 swarms",
+    "activeSwarms": "活跃集群",
     "coordination": "协作",
-    "iteration": "iteration",
-    "noActiveSwarms": "无 已激活 swarms",
-    "seoDescription": "SEO 描述",
-    "seoKeywords": "SEO 关键词",
-    "seoTitle": "SEO 标题",
+    "iteration": "迭代",
+    "noActiveSwarms": "无活跃集群",
+    "seoDescription": "SEO描述",
+    "seoKeywords": "SEO关键词",
+    "seoTitle": "SEO标题",
     "subtitle": "副标题",
     "title": "标题"
   }

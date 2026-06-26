@@ -50,6 +50,6 @@
     "typeRequired": "请选择类型",
     "pleaseLogin": "请先登录",
     "group": "分组",
-    "missingRequiredFields": "Missing必填Fields"
+    "missingRequiredFields": "缺少必填字段"
   }
 }

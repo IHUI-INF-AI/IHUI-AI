@@ -1,14 +1,14 @@
 {
   "pdfToolsPanel": {
-    "addSignature": "添加 signature",
-    "applyWatermark": "应用 watermark",
+    "addSignature": "添加签名",
+    "applyWatermark": "应用水印",
     "clearAll": "全部清空",
-    "landscape": "landscape",
+    "landscape": "横向",
     "page": "页面",
-    "portrait": "portrait",
+    "portrait": "纵向",
     "print": "打印",
-    "quickPrint": "quick 打印",
-    "resetSettings": "重置 设置",
-    "verifyAll": "验证 全部"
+    "quickPrint": "快速打印",
+    "resetSettings": "重置设置",
+    "verifyAll": "全部验证"
   }
 }
