@@ -277,3 +277,11 @@ zhs_canary_state.json
 zhs_backfill.db
 zhs_backfill.db-wal
 zhs_backfill.db-shm
+
+# ===== 根目录一次性临时文件 (2026-06-26 补充) =====
+# 防止调查脚本/测试输出/commit 消息临时文件回归
+.tmp_test_*.txt
+_diff_*.txt
+client-dev.log
+check-pages-temp.ps1
+server/scripts/__commit_*.txt
