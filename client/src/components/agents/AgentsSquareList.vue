@@ -892,6 +892,7 @@ async function toggleLike(item: AgentInfo) {
 }
 
 .agents-square-list__search-wrap {
+  position: relative;
   flex: 1 1 100%;
   min-width: 0;
   max-width: 100%;
@@ -1343,8 +1344,364 @@ async function toggleLike(item: AgentInfo) {
   color: var(--el-text-color-secondary);
 }
 
+.agents-square-list__empty-text {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--el-text-color-secondary);
+}
+
+.agents-square-list__recommend-title {
+  margin: 24px 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  text-align: left;
+}
+
+.agents-square-list__recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  text-align: left;
+}
+
+.agents-square-list__recommend-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: var(--unified-border);
+  border-radius: var(--global-border-radius);
+  background: var(--el-bg-color-page);
+  cursor: pointer;
+  box-sizing: border-box;
+  outline: none;
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover,
+  &:focus-visible {
+    background: var(--el-fill-color-light);
+    border-color: var(--border-unified-color-hover);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.agents-square-list__recommend-avatar {
+  flex-shrink: 0;
+}
+
+.agents-square-list__recommend-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agents-square-list__recommend-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agents-square-list__recommend-desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .agents-square-list__more {
   text-align: center;
   padding: 24px 0;
+}
+
+// ============ 语音输入按钮 ============
+.agents-square-list__voice {
+  position: absolute;
+  right: 116px; /* 与 append 按钮的 100px 宽度 + 16px 间距对齐 */
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-unified-color);
+  border-radius: 999px;
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+  cursor: pointer;
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: var(--el-fill-color-light);
+    border-color: var(--border-unified-color-hover);
+  }
+
+  &.listening {
+    background: var(--el-color-primary);
+    color: var(--color-on-primary);
+    border-color: var(--el-color-primary);
+    animation: agents-voice-pulse 1.4s ease-in-out infinite;
+  }
+
+  &.error {
+    border-color: var(--el-color-danger);
+    color: var(--el-color-danger);
+  }
+}
+
+@keyframes agents-voice-pulse {
+  0%, 100% {
+    transform: translateY(-50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-50%) scale(1.08);
+    opacity: 0.85;
+  }
+}
+
+// ============ 搜索建议下拉 ============
+.agents-square-list__suggest {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: calc(var(--z-dropdown) + 1);
+  padding: 8px 4px 4px;
+  background: var(--el-bg-color-page);
+  border: var(--unified-border);
+  border-radius: var(--global-border-radius);
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  animation: agents-suggest-fade-in 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes agents-suggest-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.agents-square-list__suggest-group {
+  padding: 8px 12px;
+
+  & + .agents-square-list__suggest-group {
+    border-top: var(--unified-border-bottom);
+  }
+}
+
+.agents-square-list__suggest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.agents-square-list__suggest-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  letter-spacing: 0.02em;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.agents-square-list__suggest-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: var(--global-border-radius);
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background: var(--el-fill-color-light);
+    color: var(--el-color-danger);
+  }
+}
+
+.agents-square-list__suggest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.agents-square-list__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border-unified-color);
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover,
+  &:focus-visible {
+    background: var(--el-fill-color-light);
+    border-color: var(--border-unified-color-hover);
+  }
+}
+
+.agents-square-list__chip-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.agents-square-list__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  border-radius: 999px;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover,
+  &:focus-visible {
+    background: var(--el-color-danger);
+    color: var(--color-on-primary);
+  }
+}
+
+// ============ 错误态 ============
+.agents-square-list__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.agents-square-list__error-icon {
+  color: var(--el-color-warning);
+}
+
+.agents-square-list__error-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+}
+
+.agents-square-list__retry-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 18px;
+  border: 1px solid var(--el-color-primary);
+  border-radius: var(--global-border-radius);
+  background: var(--el-color-primary);
+  color: var(--color-on-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background: var(--el-text-color-primary);
+    border-color: var(--el-text-color-primary);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.agents-square-list__retry-spin {
+  width: 16px;
+  height: 16px;
+  animation: agents-retry-spin 0.9s linear infinite;
+}
+
+@keyframes agents-retry-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.agents-square-list__ripple {
+  position: absolute;
+  border-radius: 999px;
+  background: var(--color-white-30);
+  transform: scale(0);
+  animation: agents-ripple 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+@keyframes agents-ripple {
+  to {
+    transform: scale(2.4);
+    opacity: 0;
+  }
 }
 </style>
