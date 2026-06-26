@@ -1,20 +1,20 @@
 {
   "documentCenter": {
-    "apiDocs": "API docs",
+    "apiDocs": "API文档",
     "comingSoon": "敬请期待",
-    "developerDocs": "developerDocs",
+    "developerDocs": "开发者文档",
     "files": "文件",
-    "guides": "guides",
+    "guides": "指南",
     "incentiveProgram": {
       "label": "标签",
-      "monetizationGuide": "monetizationGuide",
-      "monetizationGuideDesc": "monetization guide 描述",
-      "overview": "概览",
-      "overviewDesc": "overview 描述",
-      "platformIntro": "platformIntro",
-      "platformIntroDesc": "platform intro 描述",
-      "publishGuide": "publishGuide",
-      "publishGuideDesc": "publish guide 描述"
+      "monetizationGuide": "变现指南",
+        "monetizationGuideDesc": "变现指南描述",
+        "overview": "概览",
+        "overviewDesc": "概览描述",
+        "platformIntro": "平台介绍",
+        "platformIntroDesc": "平台介绍描述",
+        "publishGuide": "发布指南",
+        "publishGuideDesc": "发布指南描述"
     },
     "linkCopied": "链接已复制",
     "noShared": "无 共享",
@@ -28,6 +28,6 @@
     "upload": "上传",
     "uploadError": "上传 错误",
     "uploadSuccess": "上传成功",
-    "userDocs": "用户 docs"
+    "userDocs": "用户文档"
   }
 }

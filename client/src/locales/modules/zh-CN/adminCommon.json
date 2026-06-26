@@ -298,8 +298,8 @@
       "exportEmpty": "暂无数据可导出"
     },
     "batchEdit": "批量编辑",
-    "batchSave": "batch 保存",
-    "canRetryHint": "can 重试 hint",
+    "batchSave": "批量保存",
+    "canRetryHint": "可重试提示",
     "failed": "失败",
     "items": "项目",
     "retryFailed": "重试失败",

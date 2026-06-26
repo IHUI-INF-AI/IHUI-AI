@@ -20,23 +20,23 @@
     },
     "form": {
       "address": "地址",
-      "addressPlaceholder": "addressPlaceholder",
-      "business": "business",
-      "businessPlaceholder": "businessPlaceholder",
-      "companyName": "公司 名称",
-      "companyNamePlaceholder": "公司 名称 placeholder",
-      "contactName": "联系我们 名称",
-      "contactNamePlaceholder": "联系我们 名称 placeholder",
+      "addressPlaceholder": "请输入地址",
+      "business": "业务",
+      "businessPlaceholder": "请输入业务描述",
+      "companyName": "公司名称",
+      "companyNamePlaceholder": "请输入公司名称",
+      "contactName": "联系人姓名",
+      "contactNamePlaceholder": "请输入联系人姓名",
       "email": "邮箱",
       "emailPlaceholder": "请输入邮箱",
-      "intention": "intention",
-      "intentionPlaceholder": "intentionPlaceholder",
+      "intention": "合作意向",
+      "intentionPlaceholder": "请输入合作意向",
       "phone": "手机号",
       "phonePlaceholder": "请输入手机号",
       "processing": "处理中",
       "reset": "重置",
       "submit": "提交",
-      "submitProposal": "提交 proposal"
+      "submitProposal": "提交方案"
     },
     "processSteps": {
       "businessNegotiation": {
