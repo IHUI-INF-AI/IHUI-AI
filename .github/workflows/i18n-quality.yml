@@ -1,0 +1,236 @@
+name: i18n-quality
+
+# 2026-06-26 新增: i18n 翻译质量专项 CI
+#
+# 触发场景:
+#   - pull_request: PR 阶段检测新增缺失 / 翻译回退
+#   - push(main):  主干每次提交验证 5 语言覆盖完整性
+#   - schedule:    每周一 UTC 01:00 (北京时间 09:00) 跑全量基线, 防止新增孤儿键
+#   - workflow_dispatch: 手动触发可指定 --all / --baseline
+#
+# 检查项 (3 步串联, 任一失败即阻断):
+#   1. check:i18n:keys  - 源码 t('xxx') 引用 vs 5 语言文件, 检测新增缺失
+#   2. verify-translation-quality - 4 目标语言 vs zh-CN 覆盖率/残留中文/[ZH:xxx]/值=键名
+#   3. check:no-important + check:port-drift (已包含在 ci.yml, 本 workflow 简化版)
+#
+# 报告:
+#   - i18n 完整性报告 (verify-translation-quality 输出) 上传为 artifact
+#   - PR 评论自动贴覆盖率退化指标
+#
+# 注意:
+#   - 仅依赖 client/ npm ci, 不启动后端, 跑得快 (约 30 秒)
+#   - 取代了之前用临时手动跑 check:i18n:keys 的实践
+
+on:
+  pull_request:
+    branches: [main, develop, release/*]
+    paths:
+      - 'client/src/**'
+      - 'client/src/locales/**'
+      - 'client/scripts/check-i18n-keys.ts'
+      - 'client/scripts/verify-translation-quality.ts'
+      - 'client/package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'client/src/locales/**'
+  schedule:
+    # 每周一 09:00 北京时间 (UTC 01:00) 跑全量基线
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '运行模式 (all=全量缺失, check=对比基线, baseline=更新基线)'
+        required: false
+        default: 'check'
+        type: choice
+        options:
+          - all
+          - check
+          - baseline
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  i18n-keys-integrity:
+    # 步骤 1: 源码 t('xxx') 引用 vs 5 语言文件 - 检测新增缺失键
+    # 模式说明:
+    #   check (默认)  - 对比 baseline, 仅报新增缺失, 增量阻断
+    #   all           - 报全部缺失, 不阻断 (用于 ad-hoc 审查)
+    #   baseline      - 重新生成基线 (确认现有缺失为已知)
+    name: i18n 键引用完整性
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: 安装 client 依赖
+        run: cd client && npm ci
+      - name: 生成基线 (workflow_dispatch 选 baseline 时)
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'baseline'
+        run: cd client && npm run check:i18n:keys -- --baseline
+      - name: 跑 i18n 键引用检查
+        run: |
+          cd client
+          MODE="${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'check' }}"
+          if [ "$MODE" = "baseline" ]; then
+            echo "已在上一步生成基线, 跳过常规检查"
+            exit 0
+          fi
+          npm run check:i18n:keys -- "--$MODE"
+      - name: 上传检查报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-keys-integrity-report
+          path: |
+            client/scripts/baselines/
+          if-no-files-found: ignore
+
+  i18n-translation-quality:
+    # 步骤 2: 4 目标语言 vs zh-CN 覆盖率 + 残留中文 + [ZH:xxx] 占位符 + 值=键名
+    # 全量模式 (不受基线限制), 报告写入 scripts/reports/verify-translation-{ts}.json
+    name: i18n 翻译质量验证
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: 安装 client 依赖
+        run: cd client && npm ci
+      - name: 跑翻译质量验证 (抽样 10)
+        run: |
+          cd client
+          npx tsx scripts/verify-translation-quality.ts --sample=10
+      - name: 查找最新验证报告
+        id: find-report
+        run: |
+          cd client
+          REPORT=$(ls -t scripts/reports/verify-translation-*.json 2>/dev/null | head -1 || true)
+          if [ -n "$REPORT" ]; then
+            echo "report_path=$REPORT" >> $GITHUB_OUTPUT
+            echo "最新报告: $REPORT"
+          else
+            echo "未找到报告文件"
+            echo "report_path=" >> $GITHUB_OUTPUT
+          fi
+      - name: 上传翻译质量报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-translation-quality-report
+          path: client/scripts/reports/verify-translation-*.json
+          if-no-files-found: ignore
+      - name: 解析覆盖率并判定
+        if: github.event_name == 'pull_request' && steps.find-report.outputs.report_path != ''
+        env:
+          REPORT_PATH: ${{ steps.find-report.outputs.report_path }}
+        run: |
+          cd client
+          python3 - <<PY
+          import json, os, sys
+          path = "$REPORT_PATH"
+          if not os.path.exists(path):
+              print("::warning::报告不存在, 跳过 PR 评论")
+              sys.exit(0)
+          data = json.load(open(path, encoding="utf-8"))
+          stats = data.get("stats", {})
+          lines = ["## 🌐 i18n 翻译质量报告", ""]
+          lines.append("| 语言 | 总节点 | 缺失key | 残留中文 | [ZH:xxx] | 值=键名 | 有效翻译 | 覆盖率 |")
+          lines.append("|------|-------:|--------:|---------:|---------:|--------:|---------:|------:|")
+          for loc in ["zh-TW", "en", "ja", "ko"]:
+              s = stats.get(loc, {})
+              cov = s.get("coverage", 0) * 100
+              lines.append(
+                  f"| {loc} | {s.get('totalStrings', 0)} | {s.get('missingKeys', 0)} | "
+                  f"{s.get('chineseResidue', 0)} | {s.get('placeholderResidue', 0)} | "
+                  f"{s.get('keyEquals', 0)} | {s.get('validTranslations', 0)} | {cov:.1f}% |"
+              )
+          zh_total = data.get("zhTotal", 0)
+          lines.append("")
+          lines.append(f"**zh-CN 源节点数**: {zh_total}")
+          total_issue = sum(
+              s.get("chineseResidue", 0) + s.get("placeholderResidue", 0) + s.get("keyEquals", 0)
+              for s in stats.values()
+          )
+          lines.append(f"**4 语言残留待翻译项**: {total_issue}")
+          with open("/tmp/i18n_pr_comment.md", "w", encoding="utf-8") as f:
+              f.write("\n".join(lines))
+          print("PR 评论已生成: /tmp/i18n_pr_comment.md")
+          PY
+      - name: 评论到 PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f /tmp/i18n_pr_comment.md ]; then
+            gh pr comment ${{ github.event.pull_request.number }} \
+              --body-file /tmp/i18n_pr_comment.md
+            echo "i18n_quality_comment_posted=true"
+          else
+            echo "::warning::无 i18n 评论文件, 跳过"
+          fi
+
+  i18n-orphan-cleanup:
+    # 步骤 3: 孤儿键检测 (zh-CN 定义但未被任何源码 t() 引用)
+    # 不阻断, 仅警告 + 上传报告
+    name: i18n 孤儿键检测
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: 安装 client 依赖
+        run: cd client && npm ci
+      - name: 跑 i18n 键引用检查 (全量, 含孤儿键统计)
+        run: cd client && npm run check:i18n:keys -- --all
+      - name: 上传孤儿键报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-orphan-keys-report
+          path: client/scripts/baselines/
+          if-no-files-found: ignore
+
+  notify-failure:
+    name: i18n 失败通知
+    runs-on: ubuntu-latest
+    needs:
+      - i18n-keys-integrity
+      - i18n-translation-quality
+    if: failure()
+    steps:
+      - uses: actions/checkout@v4
+      - name: 输出失败原因
+        run: |
+          echo "::error::i18n 质量检查未通过, 阻断 PR 合入"
+          echo "请查看以下报告:"
+          echo "  - i18n-keys-integrity-report (新增缺失键)"
+          echo "  - i18n-translation-quality-report (翻译覆盖率/残留)"
+          echo ""
+          echo "本地复现:"
+          echo "  cd client"
+          echo "  npm run check:i18n:keys -- --all         # 全部缺失"
+          echo "  npm run check:i18n:keys -- --baseline   # 确认现有缺失后更新基线"
+          echo "  npx tsx scripts/verify-translation-quality.ts --sample=20"
+          echo "  npm run i18n:auto-translate -- --mock --modules=<module>  # 试翻译"
+          echo "  node scripts/rollback-auto-translate.mjs --latest         # 翻译错误回滚"
