@@ -2,10 +2,11 @@
   <div class="agents-empty-state agents-square-list scroll-reveal scroll-animated animate-fadeInUp">
     <!-- 工具栏：使用 sticky 固定在内容区顶部，不随列表滚动，避免 Teleport 在异步更新时导致 DOM 错误 -->
     <div class="agents-square-list__toolbar">
-      <div class="agents-square-list__toolbar-row">
+      <div class="agents-square-list__toolbar-row" ref="searchWrapRef">
         <div class="agents-square-list__search-wrap">
           <el-input v-model="searchKeyword" :placeholder="t('agents.searchPlaceholder')" clearable
-            class="agents-square-list__search" @keyup.enter="onSearch" @clear="onSearch">
+            class="agents-square-list__search" @keyup.enter="onSearch" @clear="onSearch"
+            @focus="searchFocused = true">
             <template #prefix>
               <SearchIcon />
             </template>
@@ -15,6 +16,53 @@
               </button>
             </template>
           </el-input>
+          <button v-if="voiceSupported" type="button"
+            :class="['agents-square-list__voice', { listening: voiceListening, error: voiceError }]"
+            :title="voiceListening ? t('agents.voiceInputListening') : t('agents.voiceSearch')"
+            :aria-label="t('agents.voiceSearch')"
+            @click="startVoice">
+            <Microphone />
+          </button>
+          <!-- 搜索历史 / 热门词下拉 -->
+          <div v-if="showSearchSuggest" class="agents-square-list__suggest" role="listbox">
+            <div v-if="searchHistory.length" class="agents-square-list__suggest-group">
+              <div class="agents-square-list__suggest-head">
+                <span class="agents-square-list__suggest-title">
+                  <History :size="14" />
+                  {{ t('agents.searchHistory') }}
+                </span>
+                <button type="button" class="agents-square-list__suggest-clear"
+                  @click="clearSearchHistory">
+                  <Trash2 :size="14" />
+                  {{ t('agents.clearHistory') }}
+                </button>
+              </div>
+              <div class="agents-square-list__suggest-chips">
+                <button v-for="kw in searchHistory" :key="kw" type="button" class="agents-square-list__chip"
+                  @click="applyHotSearch(kw)">
+                  {{ kw }}
+                  <span class="agents-square-list__chip-remove" role="button" tabindex="0"
+                    :aria-label="`remove ${kw}`" @click.stop="removeSearchHistory(kw)"
+                    @keydown.enter.prevent="removeSearchHistory(kw)">
+                    <X :size="12" />
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div v-if="hotSearches.length" class="agents-square-list__suggest-group">
+              <div class="agents-square-list__suggest-head">
+                <span class="agents-square-list__suggest-title">{{ t('agents.hotSearch') }}</span>
+              </div>
+              <div class="agents-square-list__suggest-chips">
+                <button v-for="(kw, idx) in hotSearches" :key="kw" type="button"
+                  class="agents-square-list__chip"
+                  @click="applyHotSearch(kw)">
+                  <span class="agents-square-list__chip-rank">{{ idx + 1 }}</span>
+                  {{ kw }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div v-if="displayMainCategories.length > 0" class="agents-square-list__tabs">
@@ -40,9 +88,16 @@
       <span>{{ t('agents.loading') }}</span>
     </div>
 
-    <div v-else-if="hasError" class="agents-square-list__loading">
-      <span>{{ t('common.errors.loadFailed') }}</span>
-      <button type="button" class="agents-square-list__section-more" @click="loadList(true)">{{ t('common.retry') }}</button>
+    <div v-else-if="hasError" class="agents-square-list__error">
+      <el-icon :size="48" class="agents-square-list__error-icon">
+        <AlertTriangle />
+      </el-icon>
+      <p class="agents-square-list__error-text">{{ t('common.errors.loadFailed') }}</p>
+      <button type="button" class="agents-square-list__retry-btn ripple-btn"
+        @click="(e: MouseEvent) => { createRipple(e, e.currentTarget as HTMLElement); loadList(true) }">
+        <Loading v-if="loading" class="agents-square-list__retry-spin" />
+        <span v-else>{{ t('common.retry') }}</span>
+      </button>
     </div>
 
     <template v-else>
@@ -150,7 +205,30 @@
       </div>
 
       <div v-else class="agents-square-list__empty-inner">
-        <p>{{ searchKeyword ? t('agents.noSearchResult') : t('agents.emptyDescription') }}</p>
+        <template v-if="isSearchResultEmpty && recommendAgents.length">
+          <p class="agents-square-list__empty-text">{{ t('agents.noSearchResult') }}</p>
+          <h4 class="agents-square-list__recommend-title">{{ t('agents.recommendTitle') }}</h4>
+          <div class="agents-square-list__recommend-grid">
+            <div v-for="item in recommendAgents" :key="String(item.botId ?? item.agentId ?? item.id)"
+              class="agents-square-list__recommend-card"
+              role="button" tabindex="0"
+              @click="handleAgentClick(item)"
+              @keydown.enter.prevent="handleAgentClick(item)">
+              <el-avatar :src="item.agentAvatar ?? item.avatar" :size="36" class="agents-square-list__recommend-avatar">
+                <el-icon><Server /></el-icon>
+              </el-avatar>
+              <div class="agents-square-list__recommend-info">
+                <span class="agents-square-list__recommend-name">
+                  {{ item.agentName ?? item.botName ?? item.name ?? '' }}
+                </span>
+                <span class="agents-square-list__recommend-desc">
+                  {{ item.agentDescription ?? item.description ?? '' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </template>
+        <p v-else>{{ searchKeyword ? t('agents.noSearchResult') : t('agents.emptyDescription') }}</p>
       </div>
 
       <div v-if="hasAnyList && hasMore && !loading" class="agents-square-list__more">
@@ -161,13 +239,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { Server, Loading, Star, ChevronRight, Users, User } from '@/lib/lucide-fallback'
+import {
+  Server,
+  Loading,
+  Star,
+  ChevronRight,
+  Users,
+  User,
+  Microphone,
+  X,
+  History,
+  Trash2,
+  AlertTriangle,
+} from '@/lib/lucide-fallback'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { logger } from '@/utils/logger'
 import {
   getAgentList,
   categories as fetchCategories,
@@ -210,6 +301,43 @@ const activeMainId = ref('')
 const activeSubId = ref('')
 const mainCategories = ref<CategoryItem[]>([])
 const subCategories = ref<CategoryItem[]>([])
+// ============ 搜索框交互状态 ============
+/** 搜索框是否聚焦（控制历史/热门下拉） */
+const searchFocused = ref(false)
+/** 搜索框 DOM 引用（用于下拉定位） */
+const searchWrapRef = ref<HTMLElement | null>(null)
+/** 搜索历史：localStorage 中持久化最多 5 条 */
+const SEARCH_HISTORY_KEY = 'agents:searchHistory'
+const MAX_SEARCH_HISTORY = 5
+const searchHistory = ref<string[]>([])
+
+/** 热门搜索词（静态种子；后续可由后端下发） */
+const hotSearches = computed<string[]>(() => [
+  'AI 写作', '图像生成', '代码助手', '翻译', 'PPT 制作', '数据分析', '智能客服', '语音合成',
+])
+/** 加载热门推荐智能体（用现有 squareList 中按收藏数取 top N） */
+const recommendAgents = computed<AgentInfo[]>(() => {
+  const all: AgentInfo[] = []
+  for (const arr of Object.values(squareList.value)) {
+    if (Array.isArray(arr)) all.push(...arr)
+  }
+  return [...all]
+    .sort((a, b) => (Number(b.collectCount ?? 0) - Number(a.collectCount ?? 0)))
+    .slice(0, 6)
+})
+/** 搜索结果是否为空（关键字存在但 categorizedList 没有任何内容） */
+const isSearchResultEmpty = computed(() => {
+  const kw = (searchKeyword.value || '').trim()
+  if (!kw) return false
+  if (loading.value || hasError.value) return false
+  return !hasAnyList.value
+})
+
+/** 搜索框聚焦且有内容/历史时显示下拉 */
+const showSearchSuggest = computed(() =>
+  searchFocused.value && !isSearchResultEmpty.value && (searchHistory.value.length > 0 || hotSearches.value.length > 0)
+)
+
 /** 主分类展示列表：前面加「全部」 */
 const displayMainCategories = computed<CategoryItem[]>(() => {
   const allItem: CategoryItem = { id: 'all', name: t('common.all') }
@@ -294,6 +422,15 @@ const categorizedList = computed(() => {
 onMounted(() => {
   loadCategories()
   loadList(true)
+  loadSearchHistory()
+  initVoice()
+  document.addEventListener('click', handleDocClick, true)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocClick, true)
+  if (recognition && voiceListening.value) {
+    try { recognition.abort() } catch { /* noop */ }
+  }
 })
 
 watch(totalCount, (n) => {
@@ -429,10 +566,150 @@ function loadMore() {
 }
 
 function onSearch() {
+  const kw = (searchKeyword.value || '').trim()
+  if (kw) saveSearchHistory(kw)
   page.value = 1
   hasMore.value = true
   squareList.value = {}
   loadList(true)
+  searchFocused.value = false
+}
+
+// ============ 搜索历史持久化 ============
+function loadSearchHistory() {
+  try {
+    const raw = StorageManager.getItem<string[]>(SEARCH_HISTORY_KEY)
+    if (Array.isArray(raw)) {
+      searchHistory.value = raw
+        .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+        .slice(0, MAX_SEARCH_HISTORY)
+    }
+  } catch (err) {
+    logger.debug('loadSearchHistory failed', err)
+  }
+}
+function saveSearchHistory(keyword: string) {
+  const kw = keyword.trim()
+  if (!kw) return
+  const list = searchHistory.value.filter((s) => s !== kw)
+  list.unshift(kw)
+  searchHistory.value = list.slice(0, MAX_SEARCH_HISTORY)
+  try {
+    StorageManager.setItem(SEARCH_HISTORY_KEY, searchHistory.value)
+  } catch (err) {
+    logger.debug('saveSearchHistory failed', err)
+  }
+}
+function removeSearchHistory(keyword: string) {
+  searchHistory.value = searchHistory.value.filter((s) => s !== keyword)
+  try {
+    StorageManager.setItem(SEARCH_HISTORY_KEY, searchHistory.value)
+  } catch (err) {
+    logger.debug('removeSearchHistory failed', err)
+  }
+}
+function clearSearchHistory() {
+  searchHistory.value = []
+  try {
+    StorageManager.setItem(SEARCH_HISTORY_KEY, [])
+  } catch (err) {
+    logger.debug('clearSearchHistory failed', err)
+  }
+}
+function applyHotSearch(keyword: string) {
+  searchKeyword.value = keyword
+  onSearch()
+}
+
+// ============ 语音输入 ============
+type SpeechRecognitionLike = {
+  start: () => void
+  stop: () => void
+  abort: () => void
+  onresult: ((ev: { results: { 0: { transcript: string } }[] }) => void) | null
+  onerror: ((ev: { error?: string }) => void) | null
+  onend: (() => void) | null
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+}
+function getSpeechRecognition(): SpeechRecognitionLike | null {
+  if (typeof window === 'undefined') return null
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionLike
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike
+  }
+  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition
+  if (!Ctor) return null
+  return new Ctor()
+}
+const voiceSupported = ref(false)
+const voiceListening = ref(false)
+const voiceError = ref(false)
+let recognition: SpeechRecognitionLike | null = null
+function initVoice() {
+  recognition = getSpeechRecognition()
+  voiceSupported.value = !!recognition
+}
+function startVoice() {
+  if (!recognition) {
+    ElMessage.warning(t('agents.voiceInputNotSupported'))
+    return
+  }
+  if (voiceListening.value) {
+    recognition.stop()
+    return
+  }
+  try {
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.lang = (typeof navigator !== 'undefined' && navigator.language) || 'zh-CN'
+    voiceError.value = false
+    recognition.onresult = (ev) => {
+      const text = ev?.results?.[0]?.[0]?.transcript ?? ''
+      if (text) {
+        searchKeyword.value = text.trim()
+        onSearch()
+      }
+    }
+    recognition.onerror = () => {
+      voiceError.value = true
+      ElMessage.error(t('agents.voiceInputError'))
+    }
+    recognition.onend = () => {
+      voiceListening.value = false
+    }
+    recognition.start()
+    voiceListening.value = true
+  } catch (err) {
+    voiceListening.value = false
+    logger.debug('startVoice failed', err)
+    ElMessage.error(t('agents.voiceInputError'))
+  }
+}
+
+// ============ 下拉框外部点击关闭 ============
+function handleDocClick(ev: MouseEvent) {
+  if (!searchWrapRef.value) return
+  const target = ev.target as Node | null
+  if (target && !searchWrapRef.value.contains(target)) {
+    searchFocused.value = false
+  }
+}
+
+// ============ 重试按钮涟漪效果 ============
+function createRipple(e: MouseEvent, el: HTMLElement) {
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const ripple = document.createElement('span')
+  const size = Math.max(rect.width, rect.height)
+  ripple.className = 'agents-square-list__ripple'
+  ripple.style.width = `${size}px`
+  ripple.style.height = `${size}px`
+  ripple.style.left = `${e.clientX - rect.left - size / 2}px`
+  ripple.style.top = `${e.clientY - rect.top - size / 2}px`
+  el.appendChild(ripple)
+  setTimeout(() => ripple.remove(), 600)
 }
 
 function selectMainCategory(cat: CategoryItem) {
@@ -673,9 +950,30 @@ async function toggleLike(item: AgentInfo) {
 .agents-square-list__tabs,
 .agents-square-list__sub-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* 滚动时留出一点内边距，避免首个/末个 chip 被裁切 */
+  padding: 2px 2px 6px;
+  margin: 0 -2px;
+  /* 隐藏滚动条但保持滚动能力 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* 拖动时禁止选中文本，移动端可正常滚动 */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .agents-square-list__tabs {
@@ -689,15 +987,18 @@ async function toggleLike(item: AgentInfo) {
 }
 
 .btn-tab {
+  flex: 0 0 auto;
   padding: 7px 14px;
   min-height: 34px;
-  border-radius: var(--global-border-radius);
+  border-radius: 999px;
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
   font-size: 14px;
   line-height: 1.4;
+  white-space: nowrap;
   cursor: pointer;
   border: 1px solid transparent;
+  scroll-snap-align: start;
   transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
     color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
     border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);

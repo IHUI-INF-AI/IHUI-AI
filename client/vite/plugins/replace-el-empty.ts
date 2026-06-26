@@ -106,7 +106,7 @@ export default function replaceElEmptyPlugin(options: Options = {}): Plugin {
         // 用 normalizePath 保证 Windows 路径正斜杠
         resolvedNativePath = `${normalizePath(target)}?vue`
       } else if (debug) {
-        // eslint-disable-next-line no-console
+         
         console.warn(`[replace-el-empty] native component not found at ${target}, plugin disabled`)
       }
     },
@@ -116,7 +116,7 @@ export default function replaceElEmptyPlugin(options: Options = {}): Plugin {
       if (!isElEmptyModuleId(id)) return null
       if (!resolvedNativePath) return null
       if (debug) {
-        // eslint-disable-next-line no-console
+         
         console.log(`[replace-el-empty] ${importer ?? '<unknown>'} imports ${id} -> ${resolvedNativePath}`)
       }
       return resolvedNativePath
@@ -137,7 +137,7 @@ export default function replaceElEmptyPlugin(options: Options = {}): Plugin {
       const result = rewriteTemplate(inner)
       if (!result.changed) return null
       if (debug) {
-        // eslint-disable-next-line no-console
+         
         console.log(`[replace-el-empty] ${id}: replaced ${result.count} <el-empty>`)
       }
       const newTemplate = `<template>${result.code}</template>`

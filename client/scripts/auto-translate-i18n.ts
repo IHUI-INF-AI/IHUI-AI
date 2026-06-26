@@ -36,6 +36,32 @@ const ROOT = process.cwd()
 const LOCALES_DIR = path.join(ROOT, 'src', 'locales', 'modules')
 const REPORTS_DIR = path.join(ROOT, 'scripts', 'reports')
 
+// 2026-06-27 新增: 自动加载 .env.local (无 dotenv 依赖, 内置轻量解析)
+// 优先级: 命令行 env > .env.local > 默认值
+// 说明: tsx 不内置加载 .env, 此处为 1 次性增强, 兼容 # 注释和引号包裹
+;(function loadEnvLocal(): void {
+  const envPath = path.join(ROOT, '.env.local')
+  if (!fs.existsSync(envPath)) return
+  try {
+    const content = fs.readFileSync(envPath, 'utf-8')
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim()
+      if (!line || line.startsWith('#')) continue
+      const m = line.match(/^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i)
+      if (!m) continue
+      const key = m[1]
+      if (process.env[key] !== undefined) continue // 命令行/外部 env 优先
+      let val = m[2].trim()
+      // 去掉行尾注释 (仅当值未被引号包裹时)
+      if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1)
+      else if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1)
+      process.env[key] = val
+    }
+  } catch (e) {
+    // 加载失败不中断主流程, 使用默认空值
+  }
+})()
+
 const SOURCE_LOCALE = 'zh-CN' as const
 const TARGET_LOCALES = ['zh-TW', 'en', 'ja', 'ko'] as const
 type TargetLocale = (typeof TARGET_LOCALES)[number]
