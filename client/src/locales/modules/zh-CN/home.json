@@ -8,7 +8,7 @@
     },
     "page2": {
       "title": "强大功能",
-      "titleEn": "PowerfulFeatures",
+      "titleEn": "强大功能 · PowerfulFeatures",
       "content": "探索我们提供的全方位AI服务，从模型集成到应用商店，满足您的各种需求",
       "features": {
         "modelIntegration": "多模型集成",
@@ -54,13 +54,13 @@
     },
     "page4": {
       "title": "选择适合您的套餐",
-      "titleEn": "选择您的方案",
+      "titleEn": "选择您的方案 · ChooseYourPlan",
       "content": "为不同需求的用户提供灵活的价格方案，开启您的AI之旅",
       "subtitle": "为不同需求的用户提供灵活的价格方案"
     },
     "page5": {
       "title": "加入我们",
-      "titleEn": "JOIN US",
+      "titleEn": "加入我们 · JOIN US",
       "content": "成为智汇AI社区的一员，与全球AI爱好者一起探索智能未来",
       "joinText": "欢迎更多AI发烧友加入我们，共同探索人工智能的无限可能"
     },
