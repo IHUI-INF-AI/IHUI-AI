@@ -18,6 +18,9 @@ import { monitoringEndpoints } from './vite-plugins/monitoringEndpoints'
 import { pwaManifestMiddleware } from './vite-plugins/pwaManifestMiddleware'
 import { mockDataPlugin } from './vite-plugins/mockDataPlugin'
 import { elementPlusOnDemand } from './vite-plugins/elementPlusOnDemand'
+// 2026-06-26 新增: 把 el-empty 编译时替换为本项目 NativeEmpty 组件
+// 规避 Element Plus 2.14.x + Vue 3.5.x 在暗色模式切换瞬间的 renderSlot null 报错
+import replaceElEmpty from './vite/plugins/replace-el-empty'
 import { DEV_CSP_STRING, PROD_CSP_STRING, CSP_REPORT_URL, REPORT_TO_HEADER } from './config/csp'
 import { BACKEND_URL, FRONTEND_PORT, FRONTEND_URL } from './config/ports'
 
@@ -736,6 +739,9 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
     // ?? base ????
     base: '/',
     plugins: [
+      // 2026-06-26 修复: el-empty renderSlot null 报错, 编译时把 <el-empty> 全部替换为 NativeEmpty
+      // 必须放在 vue() 之前 (enforce: 'pre'), 这样 vue 编译器看到的已经是 <NativeEmpty>
+      replaceElEmpty(),
       vueOrVizePlugin,
       tailwindcss(),
       // 2026-06-24 清理: P10 国际化深化测试 mock 已下线（前端不再请求 /api/v1/i18n-v2/*）
