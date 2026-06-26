@@ -1,0 +1,239 @@
+# ZHS WebSocket 自动恢复告警规则 (2026-06-26 新增)
+#
+# 部署方式:
+# 1) Prometheus Operator (k8s): 将本文件作为 PrometheusRule CRD 的 spec.groups 注入
+#    需删除顶部注释并把 groups 放进 CRD
+# 2) 原生 Prometheus: 在 prometheus.yml 的 rule_files 中加入本文件路径
+#    rule_files:
+#      - /etc/prometheus/rules/ws_auto_recovery.yml
+#
+# 校验:  promtool check rules deploy/prometheus/alerts/ws_auto_recovery.yml
+# 配套指标: server/app/ws/auto_recovery_metrics.py
+# 配套 dashboard: deploy/grafana/dashboards/zhs_ws_auto_recovery_dashboard.json
+groups:
+  - name: zhs_ws_auto_recovery
+    interval: 30s
+    rules:
+      # ---------------------------------------------------------------------
+      # 告警 1: 自动恢复系统已停止运行
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSAutoRecoverySystemDown
+        expr: max(zhs_ws_auto_recovery_is_running) == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: ws-ops
+          component: auto-recovery
+        annotations:
+          summary: "WebSocket 自动恢复系统停止运行"
+          description: |
+            自动恢复系统已停止运行超过 2 分钟, 当前 is_running=0.
+            这意味着 WebSocket 服务异常时不会自动恢复, 可能导致:
+            - 队列过载时不会清空
+            - 监控任务崩溃后不会重启
+            - 服务静默超时不会触发诊断
+            立即检查: docker logs / kubectl logs -l app=zhs-backend | grep auto_recovery
+          runbook: "https://wiki.zhs.local/runbooks/ws-auto-recovery-down"
+
+      # ---------------------------------------------------------------------
+      # 告警 2: 服务状态降级 (service_status != healthy)
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSAutoRecoveryServiceDegraded
+        expr: max(zhs_ws_auto_recovery_service_status) == 0
+        for: 3m
+        labels:
+          severity: warning
+          team: ws-ops
+          component: auto-recovery
+        annotations:
+          summary: "WebSocket 服务状态降级"
+          description: |
+            service_status 不为 healthy 超过 3 分钟, 系统可能处于 degraded 状态.
+            最近的恢复历史: {{ $labels.reason }}
+          runbook: "https://wiki.zhs.local/runbooks/ws-service-degraded"
+
+      # ---------------------------------------------------------------------
+      # 告警 3: 队列满
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSMessageQueueFull
+        expr: |
+          (
+            max(zhs_ws_auto_recovery_queue_size) /
+            clamp_min(max(zhs_ws_auto_recovery_queue_capacity), 1)
+          ) > 0.9
+        for: 1m
+        labels:
+          severity: warning
+          team: ws-ops
+          component: queue
+        annotations:
+          summary: "WebSocket 消息队列接近满载 (>90%)"
+          description: |
+            出箱消息队列水位 {{ $value | humanizePercentage }} 已超 90%, 持续 1 分钟.
+            可能的下游问题:
+            - Coze API 响应慢, 消费者来不及处理
+            - 客户端断连, 但服务端仍在重试
+            建议: 检查 active_api_calls 和 inactive_seconds 指标
+          runbook: "https://wiki.zhs.local/runbooks/ws-queue-full"
+
+      # ---------------------------------------------------------------------
+      # 告警 4: 连续错误数超阈值
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSConsecutiveErrorsHigh
+        expr: max(zhs_ws_auto_recovery_consecutive_errors) >= 3
+        for: 90s
+        labels:
+          severity: warning
+          team: ws-ops
+          component: monitor
+        annotations:
+          summary: "WebSocket 监控任务连续错误数 >= 3"
+          description: |
+            监控协程连续出错 {{ $value }} 次 (阈值 3), 持续 90s.
+            将触发自动恢复流程, 若恢复失败则需人工介入.
+            请检查 exception_stats 中异常类型分布.
+          runbook: "https://wiki.zhs.local/runbooks/ws-consecutive-errors"
+
+      # ---------------------------------------------------------------------
+      # 告警 5: 恢复操作失败
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSRecoveryFailed
+        expr: |
+          sum(increase(zhs_ws_auto_recovery_events_total{event_type="failed"}[5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          team: ws-ops
+          component: recovery
+        annotations:
+          summary: "WebSocket 自动恢复操作失败"
+          description: |
+            最近 5 分钟内发生 {{ $value }} 次恢复失败.
+            原因: {{ $labels.reason }}
+            若失败次数持续增长, 检查 max_recovery_attempts 是否触顶.
+          runbook: "https://wiki.zhs.local/runbooks/ws-recovery-failed"
+
+      # ---------------------------------------------------------------------
+      # 告警 6: 恢复次数触顶 (max_attempts_reached)
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSRecoveryAttemptsExhausted
+        expr: |
+          sum(increase(zhs_ws_auto_recovery_events_total{event_type="failed", reason=~"max_attempts_reached.*"}[5m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: ws-ops
+          component: recovery
+        annotations:
+          summary: "WebSocket 自动恢复次数已用尽, 需要人工干预"
+          description: |
+            自动恢复连续失败达到 max_recovery_attempts 上限.
+            系统已放弃自动恢复, 后续异常不会再次触发.
+            立即人工检查后端日志, 修复根本原因, 然后重启服务.
+          runbook: "https://wiki.zhs.local/runbooks/ws-recovery-exhausted"
+
+      # ---------------------------------------------------------------------
+      # 告警 7: 监控任务失败率高
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSMonitorTasksFailing
+        expr: |
+          (
+            max(zhs_ws_auto_recovery_monitor_tasks_failed) /
+            clamp_min(max(zhs_ws_auto_recovery_monitor_tasks_total), 1)
+          ) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          team: ws-ops
+          component: monitor
+        annotations:
+          summary: "WebSocket 监控任务失败率超 30%"
+          description: |
+            监控任务失败率 {{ $value | humanizePercentage }} (5 分钟内).
+            至少 1 个监控协程 (health/service/connection/memory/task) 持续失败.
+            检查 monitor_exceptions_total{exception_type=...} 找出具体异常.
+          runbook: "https://wiki.zhs.local/runbooks/ws-monitor-failing"
+
+      # ---------------------------------------------------------------------
+      # 告警 8: 业务静默超时 (有连接无活动)
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSBusinessInactiveTooLong
+        expr: |
+          (
+            max(zhs_ws_auto_recovery_inactive_seconds) > 900
+            and
+            max(zhs_ws_auto_recovery_active_connections) > 0
+          )
+        for: 5m
+        labels:
+          severity: warning
+          team: ws-ops
+          component: business
+        annotations:
+          summary: "WebSocket 业务静默超 15 分钟 (有连接无活动)"
+          description: |
+            当前有 {{ $value }} 秒 (15 分钟) 没有任何业务活动, 但仍有活跃连接.
+            可能原因:
+            - 用户在线但没有任何消息收发
+            - 上游 API 异常卡住消息处理
+            建议: 配合 active_api_calls 排查
+
+      # ---------------------------------------------------------------------
+      # 告警 9: 内存使用超阈值 (默认 2GB, 可通过 --storage.tsdb.retention 调)
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSMemoryUsageHigh
+        expr: max(zhs_ws_auto_recovery_memory_usage_mb) > 2048
+        for: 5m
+        labels:
+          severity: warning
+          team: ws-ops
+          component: memory
+        annotations:
+          summary: "WebSocket 后端进程内存超 2GB"
+          description: |
+            进程 RSS 内存 {{ $value | humanize }} MB, 超过 2GB 阈值.
+            可能原因: 队列积压 / 连接泄漏 / 内存泄漏.
+            短期: 自动恢复系统会触发 _emergency_memory_cleanup.
+            长期: 应排查根本原因.
+          runbook: "https://wiki.zhs.local/runbooks/ws-memory-high"
+
+      # ---------------------------------------------------------------------
+      # 告警 10: 监控协程异常激增 (P99 异常率)
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSMonitorExceptionBurst
+        expr: |
+          sum(rate(zhs_ws_auto_recovery_exceptions_total[2m])) > 5
+        for: 2m
+        labels:
+          severity: warning
+          team: ws-ops
+          component: monitor
+        annotations:
+          summary: "WebSocket 监控协程异常激增"
+          description: |
+            最近 2 分钟内监控协程异常速率 {{ $value | humanize }} 次/秒.
+            异常类型分布: {{ $labels.exception_type }}
+            检查 exception_stats 字典中的异常计数.
+
+      # ---------------------------------------------------------------------
+      # 告警 11: 恢复耗时 P99 过高
+      # ---------------------------------------------------------------------
+      - alert: ZHSWSRecoveryLatencyP99High
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le, result) (
+              rate(zhs_ws_auto_recovery_recovery_duration_seconds_bucket[10m])
+            )
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: ws-ops
+          component: recovery
+        annotations:
+          summary: "WebSocket 恢复操作 P99 耗时 > 10s"
+          description: |
+            P99 恢复耗时 {{ $value | humanizeDuration }} 超过 10s 阈值.
+            result={{ $labels.result }}.
+            健康系统应在 1s 内完成单次恢复.
