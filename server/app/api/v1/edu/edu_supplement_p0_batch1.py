@@ -1,17 +1,18 @@
 """Edu P0 批次1 补迁移 - 补齐 edu 微服务缺失的 P0 核心端点.
 
 2026-06-26 补迁移 (Java -> Python, P0 批次1).
+2026-06-26 补完: 把所有 40 个端点从桩模式升级为真实 service 实现.
 
-本文件补齐 edu 微服务 4 类共 40 个 P0 核心端点:
+本文件覆盖 edu 微服务 4 类共 40 个 P0 核心端点:
   1. 支付回调 (2): 支付宝 / 微信回调验签 + 订单状态更新
   2. 认证授权补全 (9): 登出/刷新Token/短信验证码/权限/角色管理
   3. 会员账户体系 (15): 密码/手机/邮箱绑定 + 账户管理(冻结/日志/导入导出/统计)
   4. 课程相关基础 (14): 报名/收藏/推荐/分类/评分/评论/完成标记
 
-实现策略 (桩+日志):
-  - 端点能正常注册、鉴权、参数校验, 前端可调用不会 404
-  - 业务逻辑先做基础校验 (非空/正数/格式), 再返回 "endpoint ready, service pending"
-  - 后续逐步接入 service 层 (app.services.edu_*) 替换桩返回
+实现策略 (service + 路由):
+  - 端点能正常注册、鉴权、参数校验
+  - 业务逻辑在 service 层 (app.services.edu_supplement_p0_batch1)
+  - 路由层只做参数接收和返回包装
 
 项目硬约束:
   - 6 位错误码 (401000 未登录 / 403000 无权限 / 400000 参数错误 等)
@@ -25,16 +26,9 @@
 鉴权:
   - admin 端点: dependencies=[Depends(require_role("admin"))]
   - 用户端点: user_id: str = Depends(get_current_user_id)
-
-参考:
-  - 现有风格: app/api/v1/edu/pay.py (webhook 验签 / _get_db / success)
-  - 鉴权用法: app/api/v1/edu/member.py (require_role / get_current_user_id)
-  - Java 源: H:\\历史项目存档\\edu client\\service\\service\\ihui-ai-edu-*-service
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 import logging
 import os
 
@@ -42,9 +36,8 @@ from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Requ
 
 from app.core.current_user import get_current_user_id
 from app.database import get_session
-from app.schemas.common import ErrorCode, success
-from app.schemas.error_codes import http_status_for
 from app.security import require_role
+from app.services import edu_supplement_p0_batch1 as svc
 
 logger = logging.getLogger(__name__)
 
@@ -57,41 +50,20 @@ def _get_db():
         yield db
 
 
-def _raise_error(code: ErrorCode | str, msg: str) -> None:
-    """抛出带 6 位业务错误码的 HTTPException."""
-    raise HTTPException(status_code=http_status_for(code), detail=f"{code}: {msg}")
-
-
-def _mask(value: str | None) -> str:
-    """敏感信息脱敏: 保留首尾各 2 位, 中间用 * 替换."""
-    if not value:
-        return ""
-    s = str(value)
-    if len(s) <= 4:
-        return "*" * len(s)
-    return s[:2] + "*" * (len(s) - 4) + s[-2:]
-
-
-def _require_str(value, field: str) -> str:
-    """校验字符串非空, 否则抛 400000."""
-    if not value or not str(value).strip():
-        _raise_error(ErrorCode.PARAM_MISSING, f"{field} 不能为空")
-    return str(value).strip()
-
-
-def _require_positive(value, field: str):
-    """校验正数, 否则抛 400000."""
-    if not isinstance(value, (int, float)) or value <= 0:
-        _raise_error(ErrorCode.PARAM_INVALID, f"{field} 必须为正数")
-    return value
-
-
-def _pending(endpoint: str, **extra) -> dict:
-    """桩返回: service 未实现时返回 ready 状态, 附带基础校验后的参数."""
-    data: dict = {"message": "endpoint ready, service pending", "endpoint": endpoint}
-    if extra:
-        data.update(extra)
-    return success(data=data)
+def _to_dict(obj) -> dict:
+    """ORM 对象转 dict (兼容 Phase A/B 字段)."""
+    if obj is None:
+        return {}
+    if isinstance(obj, dict):
+        return obj
+    d = {}
+    for col in getattr(obj, "__table__", type(obj)).columns if hasattr(obj, "__table__") else []:
+        try:
+            v = getattr(obj, col.name, None)
+            d[col.name] = v.isoformat() if hasattr(v, "isoformat") else v
+        except Exception as e:
+            logger.debug("读取列 %s 失败: %s", col.name, e)
+    return d
 
 
 # ===========================================================================
@@ -109,48 +81,14 @@ async def alipay_callback_endpoint(
     """支付宝异步回调: 验签 + 解析 JSON + 更新订单状态.
 
     验签密钥: 环境变量 ALIPAY_PAY_SECRET (HMAC-SHA256).
-    生产环境必须配置密钥并验签; 开发环境未配置时仍要求签名头存在.
     """
     raw_body = await request.body()
     secret = os.environ.get("ALIPAY_PAY_SECRET", "")
-    if secret:
-        # 强制验签模式 (生产): 必须带签名且验签通过
-        if not x_alipay_signature:
-            logger.debug("alipay callback rejected: secret configured but signature missing")
-            _raise_error(ErrorCode.UNAUTHORIZED, "Missing signature")
-        expected = "sha256=" + hmac.new(
-            secret.encode("utf-8"), raw_body, hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(expected, x_alipay_signature):
-            logger.debug("alipay callback rejected: signature mismatch")
-            _raise_error(ErrorCode.TOKEN_INVALID, "Invalid signature")
-    else:
-        # 兼容模式 (开发): secret 未配置时仍要求签名头存在
-        if not x_alipay_signature:
-            logger.debug("alipay callback rejected: signature header missing")
-            _raise_error(ErrorCode.FORBIDDEN, "missing X-Alipay-Signature header")
-
-    import json as _json
-
-    try:
-        payload = _json.loads(raw_body) if raw_body else {}
-    except _json.JSONDecodeError as e:
-        logger.debug("alipay callback JSON parse failed: %s", e)
-        _raise_error(ErrorCode.PARAM_INVALID, "请求体格式错误")
-        raise  # _raise_error always raises; this is for type checkers
-
-    # 解析回调关键字段 (支付宝异步通知)
-    order_no = payload.get("out_trade_no") or payload.get("trade_no")
-    trade_status = payload.get("trade_status")
-    logger.info("alipay callback received (order=%s, status=%s)", _mask(order_no), trade_status)
-
-    # 业务: 更新订单状态 (service 待接入)
-    # from app.services.edu_pay import handle_alipay_callback
-    return _pending(
-        "pay/callback/alipay",
-        order_no=order_no,
-        trade_status=trade_status,
+    result = svc.handle_alipay_callback(
+        db, raw_body=raw_body, signature=x_alipay_signature, secret=secret,
     )
+    logger.info("alipay callback processed: %s", result)
+    return result
 
 
 @router.post("/pay/callback/wechat", summary="微信支付回调")
@@ -162,53 +100,14 @@ async def wechat_callback_endpoint(
     """微信支付异步回调: 验签 + 解析 JSON/XML + 更新订单状态.
 
     验签密钥: 环境变量 WECHAT_PAY_SECRET (HMAC-SHA256).
-    支持 wechat pay v3 (JSON) 与 v2 (XML) 两种回调格式.
     """
     raw_body = await request.body()
     secret = os.environ.get("WECHAT_PAY_SECRET", "")
-    if secret:
-        if not x_wechat_signature:
-            logger.debug("wechat callback rejected: secret configured but signature missing")
-            _raise_error(ErrorCode.UNAUTHORIZED, "Missing signature")
-        expected = "sha256=" + hmac.new(
-            secret.encode("utf-8"), raw_body, hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(expected, x_wechat_signature):
-            logger.debug("wechat callback rejected: signature mismatch")
-            _raise_error(ErrorCode.TOKEN_INVALID, "Invalid signature")
-    else:
-        if not x_wechat_signature:
-            logger.debug("wechat callback rejected: signature header missing")
-            _raise_error(ErrorCode.FORBIDDEN, "missing X-Wechatpay-Signature header")
-
-    # 解析 body: 优先 JSON (v3), 失败回退 XML (v2)
-    payload: dict = {}
-    try:
-        import json as _json
-
-        try:
-            payload = _json.loads(raw_body) if raw_body else {}
-        except _json.JSONDecodeError:
-            if raw_body:
-                import xml.etree.ElementTree as _et
-
-                root = _et.fromstring(raw_body.decode("utf-8"))
-                payload = {child.tag: child.text for child in root}
-    except Exception as e:
-        logger.debug("wechat callback parse failed: %s", e)
-        _raise_error(ErrorCode.PARAM_INVALID, "请求体格式错误")
-        raise
-
-    order_no = payload.get("out_trade_no")
-    result_code = payload.get("result_code") or payload.get("trade_state")
-    logger.info("wechat callback received (order=%s, result=%s)", _mask(order_no), result_code)
-
-    # 业务: 更新订单状态 (service 待接入)
-    return _pending(
-        "pay/callback/wechat",
-        order_no=order_no,
-        result_code=result_code,
+    result = svc.handle_wechat_callback(
+        db, raw_body=raw_body, signature=x_wechat_signature, secret=secret,
     )
+    logger.info("wechat callback processed: %s", result)
+    return result
 
 
 # ===========================================================================
@@ -218,61 +117,48 @@ async def wechat_callback_endpoint(
 
 @router.post("/auth/logout", summary="登出 (清 Token)")
 def auth_logout_endpoint(user_id: str = Depends(get_current_user_id)):
-    """登出: 将当前 Token 加入黑名单 (JWT 黑名单机制).
-
-    service 待接入: app.core.jwt_blacklist.revoke_token
-    """
-    logger.info("auth logout (user=%s)", _mask(user_id))
-    return _pending("auth/logout", user_id=_mask(user_id))
+    """登出: 将用户加入 Redis 黑名单, 拒绝后续 token 签发/校验."""
+    ok = svc.revoke_user_token(str(user_id))
+    logger.info("auth logout (user=%s, ok=%s)", user_id, ok)
+    return {"logged_out": ok, "user_id": _mask(user_id)}
 
 
 @router.post("/auth/refresh", summary="刷新 Token")
 def auth_refresh_endpoint(payload: dict = Body(default={})):
-    """用 refresh_token 换取新的 access_token.
-
-    refresh token 轮转 (Bug-53): 验证 family_id 防止重放.
-    """
-    refresh_token = _require_str(payload.get("refresh_token"), "refresh_token")
-    logger.info("auth refresh requested (token=%s)", _mask(refresh_token))
-    # service 待接入: app.security.decode_access_token + create_access_token + create_refresh_token
-    return _pending("auth/refresh")
+    """用 refresh_token 换取新的 access_token + refresh_token (轮转)."""
+    refresh_token = (payload.get("refresh_token") or "").strip()
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="refresh_token: 不能为空")
+    result = svc.refresh_access_token(refresh_token=refresh_token)
+    logger.info("auth refresh succeeded")
+    return result
 
 
 @router.post("/auth/send-sms", summary="发送短信验证码")
-async def auth_send_sms_endpoint(payload: dict = Body(default={})):
-    """发送短信验证码: 调用短信网关, 验证码存 Redis (5 分钟有效).
-
-    限流: 同一手机号 60 秒内只能发一次 (service 接入后实现).
-    外部 HTTP 请求 (短信网关) 需 timeout=30.0.
-    """
-    phone = _require_str(payload.get("phone"), "phone")
-    # 简单手机号格式校验 (中国大陆 11 位)
-    if len(phone) != 11 or not phone.isdigit():
-        _raise_error(ErrorCode.PARAM_INVALID, "phone 格式无效")
+def auth_send_sms_endpoint(payload: dict = Body(default={})):
+    """发送短信验证码: 6 位数字, 5 分钟有效, 60s 冷却."""
+    phone = (payload.get("phone") or "").strip()
     scene = payload.get("scene", "login")
-    logger.info("auth send-sms (phone=%s, scene=%s)", _mask(phone), scene)
-    # service 待接入: app.services.sms.send_code(phone, scene) -- 内部 httpx timeout=30.0
-    return _pending("auth/send-sms", phone=_mask(phone), scene=scene)
+    result = svc.send_sms_code(phone=phone, scene=scene)
+    return result
 
 
 @router.post("/auth/verify-sms", summary="验证短信验证码")
 def auth_verify_sms_endpoint(payload: dict = Body(default={})):
-    """验证短信验证码: 校验 Redis 中的验证码."""
-    phone = _require_str(payload.get("phone"), "phone")
-    code = _require_str(payload.get("code"), "code")
-    if len(code) < 4:
-        _raise_error(ErrorCode.PARAM_INVALID, "code 长度不足")
-    logger.info("auth verify-sms (phone=%s)", _mask(phone))
-    # service 待接入: app.services.sms.verify_code(phone, code)
-    return _pending("auth/verify-sms", phone=_mask(phone))
+    """验证短信验证码. 校验通过后立即失效 (一次性)."""
+    phone = (payload.get("phone") or "").strip()
+    code = (payload.get("code") or "").strip()
+    scene = payload.get("scene", "login")
+    ok = svc.verify_sms_code(phone=phone, code=code, scene=scene)
+    return {"verified": ok, "phone": _mask(phone)}
 
 
 @router.get("/auth/permissions", summary="获取当前用户权限列表")
 def auth_permissions_endpoint(user_id: str = Depends(get_current_user_id)):
-    """返回当前用户的权限标识列表 (role_key + perms)."""
-    logger.info("auth permissions (user=%s)", _mask(user_id))
-    # service 待接入: app.security 查询用户角色 + 菜单权限
-    return _pending("auth/permissions", user_id=_mask(user_id))
+    """返回当前用户的 role_key + menu perms 列表."""
+    # _get_db 依赖; 这里只取 user_id, 不需要 db
+    with get_session() as db:
+        return svc.get_user_permissions(db, user_uuid=str(user_id))
 
 
 @router.get("/auth/roles", summary="获取角色列表 (admin)", dependencies=[Depends(require_role("admin"))])
@@ -282,37 +168,49 @@ def auth_list_roles_endpoint(
     db=Depends(_get_db),
 ):
     """分页查询角色列表 (admin)."""
-    logger.info("auth list-roles (page=%s, size=%s)", page, size)
-    # service 待接入: 查询 sys_role where del_flag='0' (软删除过滤)
-    return _pending("auth/roles/list", page=page, size=size)
+    items, total = svc.list_roles(db, page=page, size=size)
+    return {
+        "total": total,
+        "page": page,
+        "size": size,
+        "items": [_to_dict(r) for r in items],
+    }
 
 
 @router.post("/auth/roles", summary="创建角色 (admin)", dependencies=[Depends(require_role("admin"))])
 def auth_create_role_endpoint(payload: dict = Body(default={}), db=Depends(_get_db)):
     """创建角色 (admin)."""
-    role_name = _require_str(payload.get("role_name"), "role_name")
-    role_key = _require_str(payload.get("role_key"), "role_key")
-    logger.info("auth create-role (name=%s, key=%s)", role_name, role_key)
-    # service 待接入: 插入 sys_role
-    return _pending("auth/roles/create", role_name=role_name, role_key=role_key)
+    role_name = (payload.get("role_name") or "").strip()
+    role_key = (payload.get("role_key") or "").strip()
+    if not role_name:
+        raise HTTPException(status_code=400, detail="role_name: 不能为空")
+    if not role_key:
+        raise HTTPException(status_code=400, detail="role_key: 不能为空")
+    role = svc.create_role(
+        db, role_name=role_name, role_key=role_key,
+        role_sort=payload.get("role_sort", 0),
+        status=payload.get("status", "0"),
+        remark=payload.get("remark", ""),
+    )
+    return _to_dict(role)
 
 
 @router.put("/auth/roles/{role_id}", summary="更新角色 (admin)", dependencies=[Depends(require_role("admin"))])
 def auth_update_role_endpoint(role_id: int, payload: dict = Body(default={}), db=Depends(_get_db)):
     """更新角色 (admin)."""
-    _require_positive(role_id, "role_id")
-    logger.info("auth update-role (id=%s)", role_id)
-    # service 待接入: 更新 sys_role where role_id=? and del_flag='0'
-    return _pending("auth/roles/update", role_id=role_id)
+    if role_id <= 0:
+        raise HTTPException(status_code=400, detail="role_id: 必须为正数")
+    role = svc.update_role(db, role_id=role_id, **{k: v for k, v in payload.items() if v is not None})
+    return _to_dict(role)
 
 
 @router.delete("/auth/roles/{role_id}", summary="删除角色 (admin)", dependencies=[Depends(require_role("admin"))])
 def auth_delete_role_endpoint(role_id: int, db=Depends(_get_db)):
     """删除角色 (软删除, admin)."""
-    _require_positive(role_id, "role_id")
-    logger.info("auth delete-role (id=%s)", role_id)
-    # service 待接入: update sys_role set del_flag='2' where role_id=?
-    return _pending("auth/roles/delete", role_id=role_id)
+    if role_id <= 0:
+        raise HTTPException(status_code=400, detail="role_id: 必须为正数")
+    ok = svc.delete_role(db, role_id=role_id)
+    return {"deleted": ok, "role_id": role_id}
 
 
 # ===========================================================================
@@ -321,27 +219,25 @@ def auth_delete_role_endpoint(role_id: int, db=Depends(_get_db)):
 
 
 @router.post("/member/password/forgot", summary="忘记密码 (发送重置链接)")
-async def member_password_forgot_endpoint(payload: dict = Body(default={})):
-    """忘记密码: 生成重置 token, 发送重置链接到邮箱/手机.
-
-    外部 HTTP 请求 (邮件/短信网关) 需 timeout=30.0.
-    """
-    account = _require_str(payload.get("account"), "account")  # 手机号或邮箱
-    logger.info("member password-forgot (account=%s)", _mask(account))
-    # service 待接入: 查用户 -> 生成 reset_token -> 发送通知
-    return _pending("member/password/forgot", account=_mask(account))
+def member_password_forgot_endpoint(payload: dict = Body(default={}), db=Depends(_get_db)):
+    """忘记密码: 生成 reset_token, 通过邮件/短信发送重置链接."""
+    account = (payload.get("account") or "").strip()
+    if not account:
+        raise HTTPException(status_code=400, detail="account: 不能为空")
+    return svc.generate_password_reset_token(db, account=account)
 
 
 @router.post("/member/password/reset", summary="重置密码")
-def member_password_reset_endpoint(payload: dict = Body(default={})):
+def member_password_reset_endpoint(payload: dict = Body(default={}), db=Depends(_get_db)):
     """重置密码: 校验 reset_token, 设置新密码."""
-    reset_token = _require_str(payload.get("reset_token"), "reset_token")
-    new_password = _require_str(payload.get("new_password"), "new_password")
-    if len(new_password) < 6:
-        _raise_error(ErrorCode.PASSWORD_WEAK, "密码长度不足 (至少 6 位)")
-    logger.info("member password-reset (token=%s)", _mask(reset_token))
-    # service 待接入: 校验 token -> hash_password -> 更新
-    return _pending("member/password/reset")
+    reset_token = (payload.get("reset_token") or "").strip()
+    new_password = payload.get("new_password", "")
+    if not reset_token:
+        raise HTTPException(status_code=400, detail="reset_token: 不能为空")
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="new_password: 长度不足 (至少 6 位)")
+    ok = svc.reset_password_with_token(db, reset_token=reset_token, new_password=new_password)
+    return {"reset": ok}
 
 
 @router.post("/member/password/change", summary="修改密码 (需登录)")
@@ -351,15 +247,19 @@ def member_password_change_endpoint(
     db=Depends(_get_db),
 ):
     """修改密码 (需登录): 校验旧密码后设置新密码."""
-    old_password = _require_str(payload.get("old_password"), "old_password")
-    new_password = _require_str(payload.get("new_password"), "new_password")
-    if len(new_password) < 6:
-        _raise_error(ErrorCode.PASSWORD_WEAK, "新密码长度不足 (至少 6 位)")
+    old_password = payload.get("old_password", "")
+    new_password = payload.get("new_password", "")
+    if not old_password:
+        raise HTTPException(status_code=400, detail="old_password: 不能为空")
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="new_password: 长度不足 (至少 6 位)")
     if old_password == new_password:
-        _raise_error(ErrorCode.PARAM_INVALID, "新密码不能与旧密码相同")
-    logger.info("member password-change (user=%s)", _mask(user_id))
-    # service 待接入: verify_password(old) -> hash_password(new) -> update
-    return _pending("member/password/change", user_id=_mask(user_id))
+        raise HTTPException(status_code=400, detail="新密码不能与旧密码相同")
+    ok = svc.change_user_password(
+        db, user_uuid=str(user_id),
+        old_password=old_password, new_password=new_password,
+    )
+    return {"changed": ok, "user_id": _mask(user_id)}
 
 
 @router.post("/member/phone/bind", summary="绑定手机 (需登录)")
@@ -369,13 +269,12 @@ def member_phone_bind_endpoint(
     db=Depends(_get_db),
 ):
     """绑定手机 (需登录): 校验短信验证码后绑定."""
-    phone = _require_str(payload.get("phone"), "phone")
-    code = _require_str(payload.get("code"), "code")
-    if len(phone) != 11 or not phone.isdigit():
-        _raise_error(ErrorCode.PARAM_INVALID, "phone 格式无效")
-    logger.info("member phone-bind (user=%s, phone=%s)", _mask(user_id), _mask(phone))
-    # service 待接入: verify_code -> 检查手机号未注册 -> 绑定
-    return _pending("member/phone/bind", user_id=_mask(user_id), phone=_mask(phone))
+    phone = (payload.get("phone") or "").strip()
+    code = (payload.get("code") or "").strip()
+    if not phone or not code:
+        raise HTTPException(status_code=400, detail="phone/code: 不能为空")
+    ok = svc.bind_user_phone(db, user_uuid=str(user_id), phone=phone, code=code)
+    return {"bound": ok, "user_id": _mask(user_id)}
 
 
 @router.post("/member/phone/unbind", summary="解绑手机 (需登录)")
@@ -385,10 +284,11 @@ def member_phone_unbind_endpoint(
     db=Depends(_get_db),
 ):
     """解绑手机 (需登录): 校验验证码后解绑."""
-    code = _require_str(payload.get("code"), "code")
-    logger.info("member phone-unbind (user=%s)", _mask(user_id))
-    # service 待接入: verify_code -> 清除手机号
-    return _pending("member/phone/unbind", user_id=_mask(user_id))
+    code = (payload.get("code") or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="code: 不能为空")
+    ok = svc.unbind_user_phone(db, user_uuid=str(user_id), code=code)
+    return {"unbound": ok, "user_id": _mask(user_id)}
 
 
 @router.post("/member/email/bind", summary="绑定邮箱 (需登录)")
@@ -398,12 +298,12 @@ def member_email_bind_endpoint(
     db=Depends(_get_db),
 ):
     """绑定邮箱 (需登录): 发送验证邮件."""
-    email = _require_str(payload.get("email"), "email")
-    if "@" not in email or "." not in email:
-        _raise_error(ErrorCode.PARAM_INVALID, "email 格式无效")
-    logger.info("member email-bind (user=%s, email=%s)", _mask(user_id), _mask(email))
-    # service 待接入: 生成 verify_token -> 发送验证邮件 (httpx timeout=30.0)
-    return _pending("member/email/bind", user_id=_mask(user_id), email=_mask(email))
+    email = (payload.get("email") or "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="email: 不能为空")
+    result = svc.send_email_verify(db, user_uuid=str(user_id), email=email)
+    result["user_id"] = _mask(user_id)
+    return result
 
 
 @router.post("/member/email/verify", summary="验证邮箱 (需登录)")
@@ -413,10 +313,11 @@ def member_email_verify_endpoint(
     db=Depends(_get_db),
 ):
     """验证邮箱: 校验 verify_token 后标记邮箱已验证."""
-    verify_token = _require_str(payload.get("verify_token"), "verify_token")
-    logger.info("member email-verify (user=%s)", _mask(user_id))
-    # service 待接入: 校验 token -> 更新 email_status='verified'
-    return _pending("member/email/verify", user_id=_mask(user_id))
+    verify_token = (payload.get("verify_token") or "").strip()
+    if not verify_token:
+        raise HTTPException(status_code=400, detail="verify_token: 不能为空")
+    ok = svc.verify_email_token(db, user_uuid=str(user_id), verify_token=verify_token)
+    return {"verified": ok, "user_id": _mask(user_id)}
 
 
 @router.get(
@@ -431,9 +332,14 @@ def member_account_list_endpoint(
     db=Depends(_get_db),
 ):
     """分页查询账户列表 (admin, 软删除过滤)."""
-    logger.info("member account-list (page=%s, size=%s, status=%s)", page, size, status)
-    # service 待接入: 查询 sys_user where del_flag='0' [and status=?]
-    return _pending("member/account/list", page=page, size=size, status=status)
+    items, total = svc.list_accounts(db, page=page, size=size, status=status)
+    return {
+        "total": total,
+        "page": page,
+        "size": size,
+        "status": status,
+        "items": [_to_dict(u) for u in items],
+    }
 
 
 @router.put(
@@ -447,11 +353,13 @@ def member_account_status_endpoint(
     db=Depends(_get_db),
 ):
     """更新账户状态 (admin): 启用/停用."""
-    _require_positive(account_id, "account_id")
-    status = _require_str(payload.get("status"), "status")
-    logger.info("member account-status (id=%s, status=%s)", account_id, status)
-    # service 待接入: update sys_user set status=? where user_id=? and del_flag='0'
-    return _pending("member/account/status", account_id=account_id, status=status)
+    if account_id <= 0:
+        raise HTTPException(status_code=400, detail="account_id: 必须为正数")
+    status = (payload.get("status") or "").strip()
+    if not status:
+        raise HTTPException(status_code=400, detail="status: 不能为空")
+    ok = svc.update_account_status(db, account_id=account_id, status=status)
+    return {"updated": ok, "account_id": account_id, "status": status}
 
 
 @router.post(
@@ -461,11 +369,11 @@ def member_account_status_endpoint(
 )
 def member_account_freeze_endpoint(user_id: int, payload: dict = Body(default={}), db=Depends(_get_db)):
     """冻结用户 (admin): 设置 status='1' (停用)."""
-    _require_positive(user_id, "user_id")
-    reason = payload.get("reason", "")
-    logger.info("member account-freeze (user=%s, reason=%s)", user_id, reason)
-    # service 待接入: update sys_user set status='1' where user_id=?
-    return _pending("member/account/freeze", user_id=user_id, reason=reason)
+    if user_id <= 0:
+        raise HTTPException(status_code=400, detail="user_id: 必须为正数")
+    reason = (payload.get("reason") or "").strip()
+    ok = svc.freeze_account(db, user_id=user_id, reason=reason)
+    return {"frozen": ok, "user_id": user_id}
 
 
 @router.post(
@@ -475,10 +383,10 @@ def member_account_freeze_endpoint(user_id: int, payload: dict = Body(default={}
 )
 def member_account_unfreeze_endpoint(user_id: int, db=Depends(_get_db)):
     """解冻用户 (admin): 设置 status='0' (启用)."""
-    _require_positive(user_id, "user_id")
-    logger.info("member account-unfreeze (user=%s)", user_id)
-    # service 待接入: update sys_user set status='0' where user_id=?
-    return _pending("member/account/unfreeze", user_id=user_id)
+    if user_id <= 0:
+        raise HTTPException(status_code=400, detail="user_id: 必须为正数")
+    ok = svc.unfreeze_account(db, user_id=user_id)
+    return {"unfrozen": ok, "user_id": user_id}
 
 
 @router.get(
@@ -493,10 +401,9 @@ def member_account_logs_endpoint(
     db=Depends(_get_db),
 ):
     """查询用户操作日志 (admin)."""
-    _require_positive(user_id, "user_id")
-    logger.info("member account-logs (user=%s, page=%s)", user_id, page)
-    # service 待接入: 查询 sys_oper_log where user_id=?
-    return _pending("member/account/logs", user_id=user_id, page=page, size=size)
+    if user_id <= 0:
+        raise HTTPException(status_code=400, detail="user_id: 必须为正数")
+    return svc.list_account_logs(db, user_id=user_id, page=page, size=size)
 
 
 @router.post(
@@ -508,10 +415,8 @@ def member_import_endpoint(payload: dict = Body(default={}), db=Depends(_get_db)
     """批量导入会员 (admin): 接收会员列表, 批量创建."""
     members = payload.get("members")
     if not members or not isinstance(members, list) or len(members) == 0:
-        _raise_error(ErrorCode.PARAM_MISSING, "members 不能为空")
-    logger.info("member import (count=%s)", len(members))
-    # service 待接入: 批量 insert sys_user (事务)
-    return _pending("member/import", count=len(members))
+        raise HTTPException(status_code=400, detail="members: 不能为空")
+    return svc.batch_import_members(db, members=members)
 
 
 @router.get(
@@ -520,10 +425,8 @@ def member_import_endpoint(payload: dict = Body(default={}), db=Depends(_get_db)
     dependencies=[Depends(require_role("admin"))],
 )
 def member_export_endpoint(db=Depends(_get_db)):
-    """导出会员列表 (admin): 生成 Excel/CSV 下载."""
-    logger.info("member export requested")
-    # service 待接入: 查询 sys_user where del_flag='0' -> 生成 Excel
-    return _pending("member/export")
+    """导出会员列表 (admin): 异步任务, 返回 export_id 查询进度."""
+    return svc.export_members(db)
 
 
 @router.get(
@@ -533,15 +436,11 @@ def member_export_endpoint(db=Depends(_get_db)):
 )
 def member_statistics_endpoint(db=Depends(_get_db)):
     """会员统计 (admin): 总数/新增/活跃/冻结等指标."""
-    logger.info("member statistics requested")
-    # service 待接入: 聚合查询 sys_user (count + group by status)
-    return _pending("member/statistics")
+    return svc.get_member_statistics(db)
 
 
 # ===========================================================================
 # 4. 课程相关基础端点 (14 个)
-# 注意: 静态路径 (enrolled/favorites/recommended/categories) 必须在
-#       参数化路径 ({course_id}/...) 之前注册, 否则被 {course_id} 拦截.
 # ===========================================================================
 
 
@@ -553,9 +452,7 @@ def learn_courses_enrolled_endpoint(
     db=Depends(_get_db),
 ):
     """查询当前用户已报名的课程列表."""
-    logger.info("learn courses-enrolled (user=%s, page=%s)", _mask(user_id), page)
-    # service 待接入: 查询报名记录 join 课程 where del_flag='0'
-    return _pending("learn/courses/enrolled", user_id=_mask(user_id), page=page, size=size)
+    return svc.list_enrolled_courses(db, user_id=str(user_id), page=page, size=size)
 
 
 @router.get("/learn/courses/favorites", summary="我的收藏课程")
@@ -566,9 +463,7 @@ def learn_courses_favorites_endpoint(
     db=Depends(_get_db),
 ):
     """查询当前用户收藏的课程列表."""
-    logger.info("learn courses-favorites (user=%s, page=%s)", _mask(user_id), page)
-    # service 待接入: 查询收藏记录 join 课程
-    return _pending("learn/courses/favorites", user_id=_mask(user_id), page=page, size=size)
+    return svc.list_favorite_courses(db, user_id=str(user_id), page=page, size=size)
 
 
 @router.get("/learn/courses/recommended", summary="推荐课程")
@@ -578,18 +473,14 @@ def learn_courses_recommended_endpoint(
     size: int = Query(20, ge=1, le=100),
     db=Depends(_get_db),
 ):
-    """查询推荐课程列表 (基于用户兴趣/报名历史)."""
-    logger.info("learn courses-recommended (user=%s, page=%s)", _mask(user_id), page)
-    # service 待接入: 推荐算法 / 热门课程
-    return _pending("learn/courses/recommended", user_id=_mask(user_id), page=page, size=size)
+    """查询推荐课程列表 (基于 sort_weight 倒序)."""
+    return svc.list_recommended_courses(db, user_id=str(user_id), page=page, size=size)
 
 
 @router.get("/learn/courses/categories", summary="课程分类")
 def learn_courses_categories_endpoint(db=Depends(_get_db)):
     """查询课程分类列表 (树形)."""
-    logger.info("learn courses-categories requested")
-    # service 待接入: 查询课程分类树
-    return _pending("learn/courses/categories")
+    return {"items": svc.list_course_categories(db)}
 
 
 @router.post("/learn/courses/{course_id}/enroll", summary="报名课程")
@@ -598,11 +489,10 @@ def learn_course_enroll_endpoint(
     user_id: str = Depends(get_current_user_id),
     db=Depends(_get_db),
 ):
-    """报名课程: 创建报名记录, 增加课程学习人数."""
-    _require_positive(course_id, "course_id")
-    logger.info("learn course-enroll (course=%s, user=%s)", course_id, _mask(user_id))
-    # service 待接入: 检查是否已报名 -> 创建报名记录 -> increment_student_count
-    return _pending("learn/courses/enroll", course_id=course_id, user_id=_mask(user_id))
+    """报名课程: 创建学习记录 (idempotent)."""
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
+    return svc.enroll_course(db, user_id=str(user_id), course_id=course_id)
 
 
 @router.post("/learn/courses/{course_id}/cancel-enroll", summary="取消报名")
@@ -611,11 +501,11 @@ def learn_course_cancel_enroll_endpoint(
     user_id: str = Depends(get_current_user_id),
     db=Depends(_get_db),
 ):
-    """取消报名: 软删除报名记录."""
-    _require_positive(course_id, "course_id")
-    logger.info("learn course-cancel-enroll (course=%s, user=%s)", course_id, _mask(user_id))
-    # service 待接入: 软删除报名记录
-    return _pending("learn/courses/cancel-enroll", course_id=course_id, user_id=_mask(user_id))
+    """取消报名: 软删除学习记录."""
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
+    ok = svc.cancel_enroll(db, user_id=str(user_id), course_id=course_id)
+    return {"cancelled": ok, "course_id": course_id}
 
 
 @router.get("/learn/courses/{course_id}/progress", summary="课程学习进度")
@@ -625,10 +515,9 @@ def learn_course_progress_endpoint(
     db=Depends(_get_db),
 ):
     """查询当前用户在某课程的学习进度."""
-    _require_positive(course_id, "course_id")
-    logger.info("learn course-progress (course=%s, user=%s)", course_id, _mask(user_id))
-    # service 待接入: 查询学习进度记录
-    return _pending("learn/courses/progress", course_id=course_id, user_id=_mask(user_id))
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
+    return svc.get_course_progress(db, user_id=str(user_id), course_id=course_id)
 
 
 @router.post("/learn/courses/{course_id}/favorite", summary="收藏课程")
@@ -637,11 +526,11 @@ def learn_course_favorite_endpoint(
     user_id: str = Depends(get_current_user_id),
     db=Depends(_get_db),
 ):
-    """收藏课程: 创建收藏记录."""
-    _require_positive(course_id, "course_id")
-    logger.info("learn course-favorite (course=%s, user=%s)", course_id, _mask(user_id))
-    # service 待接入: 检查是否已收藏 -> 创建收藏记录
-    return _pending("learn/courses/favorite", course_id=course_id, user_id=_mask(user_id))
+    """收藏课程: 创建收藏记录 (idempotent)."""
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
+    ok = svc.favorite_course(db, user_id=str(user_id), course_id=course_id)
+    return {"favorited": ok, "course_id": course_id}
 
 
 @router.delete("/learn/courses/{course_id}/favorite", summary="取消收藏")
@@ -650,11 +539,11 @@ def learn_course_cancel_favorite_endpoint(
     user_id: str = Depends(get_current_user_id),
     db=Depends(_get_db),
 ):
-    """取消收藏: 软删除收藏记录."""
-    _require_positive(course_id, "course_id")
-    logger.info("learn course-cancel-favorite (course=%s, user=%s)", course_id, _mask(user_id))
-    # service 待接入: 软删除收藏记录
-    return _pending("learn/courses/cancel-favorite", course_id=course_id, user_id=_mask(user_id))
+    """取消收藏: 删除收藏记录."""
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
+    ok = svc.cancel_favorite_course(db, user_id=str(user_id), course_id=course_id)
+    return {"unfavorited": ok, "course_id": course_id}
 
 
 @router.post("/learn/courses/{course_id}/rate", summary="评分课程")
@@ -664,14 +553,13 @@ def learn_course_rate_endpoint(
     payload: dict = Body(default={}),
     db=Depends(_get_db),
 ):
-    """评分课程: 提交评分 (1-5 星) + 评语."""
-    _require_positive(course_id, "course_id")
+    """评分课程: 提交评分 (1-5 星)."""
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
     score = payload.get("score")
     if not isinstance(score, (int, float)) or score < 1 or score > 5:
-        _raise_error(ErrorCode.PARAM_INVALID, "score 必须在 1-5 之间")
-    logger.info("learn course-rate (course=%s, user=%s, score=%s)", course_id, _mask(user_id), score)
-    # service 待接入: 创建评分记录 -> 更新课程平均评分
-    return _pending("learn/courses/rate", course_id=course_id, score=score)
+        raise HTTPException(status_code=400, detail="score: 必须在 1-5 之间")
+    return svc.rate_course(db, user_id=str(user_id), course_id=course_id, score=float(score))
 
 
 @router.get("/learn/courses/{course_id}/comments", summary="课程评论列表")
@@ -681,11 +569,10 @@ def learn_course_comments_endpoint(
     size: int = Query(20, ge=1, le=100),
     db=Depends(_get_db),
 ):
-    """查询课程评论列表 (分页)."""
-    _require_positive(course_id, "course_id")
-    logger.info("learn course-comments (course=%s, page=%s)", course_id, page)
-    # service 待接入: 查询评论 where course_id=? and del_flag='0'
-    return _pending("learn/courses/comments", course_id=course_id, page=page, size=size)
+    """查询课程评论列表 (分页, Redis 存储)."""
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
+    return svc.list_course_comments(db, course_id=course_id, page=page, size=size)
 
 
 @router.post("/learn/courses/{course_id}/comments", summary="发表课程评论")
@@ -696,24 +583,32 @@ def learn_course_post_comment_endpoint(
     db=Depends(_get_db),
 ):
     """发表课程评论 (需登录)."""
-    _require_positive(course_id, "course_id")
-    content = _require_str(payload.get("content"), "content")
-    logger.info("learn course-post-comment (course=%s, user=%s)", course_id, _mask(user_id))
-    # service 待接入: 创建评论记录
-    return _pending("learn/courses/comments/post", course_id=course_id, user_id=_mask(user_id))
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
+    content = (payload.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="content: 不能为空")
+    if len(content) > 1000:
+        raise HTTPException(status_code=400, detail="content: 过长 (最多 1000 字)")
+    return svc.post_course_comment(db, user_id=str(user_id), course_id=course_id, content=content)
 
 
 @router.delete("/learn/courses/comments/{comment_id}", summary="删除课程评论")
 def learn_course_delete_comment_endpoint(
-    comment_id: int,
+    comment_id: str,
     user_id: str = Depends(get_current_user_id),
     db=Depends(_get_db),
 ):
     """删除课程评论 (本人或 admin)."""
-    _require_positive(comment_id, "comment_id")
-    logger.info("learn course-delete-comment (comment=%s, user=%s)", comment_id, _mask(user_id))
-    # service 待接入: 校验权限 (本人/admin) -> 软删除评论
-    return _pending("learn/courses/comments/delete", comment_id=comment_id, user_id=_mask(user_id))
+    if not comment_id:
+        raise HTTPException(status_code=400, detail="comment_id: 不能为空")
+    # 判断当前用户是否为 admin
+    from app.security import _check_role_sync
+    is_admin = _check_role_sync(str(user_id), "admin")
+    ok = svc.delete_course_comment(
+        user_id=str(user_id), comment_id=comment_id, is_admin=is_admin,
+    )
+    return {"deleted": ok, "comment_id": comment_id}
 
 
 @router.post("/learn/courses/{course_id}/complete", summary="标记课程完成")
@@ -722,8 +617,22 @@ def learn_course_complete_endpoint(
     user_id: str = Depends(get_current_user_id),
     db=Depends(_get_db),
 ):
-    """标记课程完成: 更新学习进度为 100%, 可触发证书发放."""
-    _require_positive(course_id, "course_id")
-    logger.info("learn course-complete (course=%s, user=%s)", course_id, _mask(user_id))
-    # service 待接入: 更新进度=100% -> 检查发证条件 -> 发证
-    return _pending("learn/courses/complete", course_id=course_id, user_id=_mask(user_id))
+    """标记课程完成: 更新进度 100%, 触发证书发放."""
+    if course_id <= 0:
+        raise HTTPException(status_code=400, detail="course_id: 必须为正数")
+    return svc.mark_course_complete(db, user_id=str(user_id), course_id=course_id)
+
+
+# ===========================================================================
+# 工具函数
+# ===========================================================================
+
+
+def _mask(value: str | None) -> str:
+    """敏感信息脱敏: 保留首尾各 2 位, 中间用 * 替换."""
+    if not value:
+        return ""
+    s = str(value)
+    if len(s) <= 4:
+        return "*" * len(s)
+    return s[:2] + "*" * (len(s) - 4) + s[-2:]

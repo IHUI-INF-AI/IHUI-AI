@@ -1,6 +1,6 @@
 {
   "enterpriseService": {
-    "adoptionRate": "adoptionRate",
+    "adoptionRate": "应用率",
     "architecture": {
       "aiEffect": {
         "metrics": {
@@ -8,7 +8,7 @@
           "efficiency": "效率",
           "experience": "经验"
         },
-        "superEmployee": "superEmployee",
+        "superEmployee": "超级员工",
         "superProduct": "super 产品",
         "superTeam": "super 团队",
         "title": "标题"
@@ -18,16 +18,16 @@
         "advanced": {
           "items": {
             "agent": "智能体",
-            "generative": "generative",
-            "perception": "perception",
-            "physical": "physical"
+            "generative": "生成式",
+            "perception": "感知",
+            "physical": "物理"
           },
           "label": "标签"
         },
         "basic": {
           "items": {
             "automation": "自动化",
-            "informatization": "informatization",
+            "informatization": "信息化",
             "iot": "iot"
           },
           "label": "标签"
@@ -104,8 +104,8 @@
       "benefits": {
         "aiAssistant": "AI 助手",
         "allCourses": "全部 课程",
-        "exploration": "exploration",
-        "mutualAid": "mutualAid",
+        "exploration": "探索",
+        "mutualAid": "互助",
         "onlineCommunity": "在线 community",
         "refund": "退款",
         "title": "标题"
@@ -113,18 +113,18 @@
       "cta": "行动召唤",
       "currentPrice": "当前 价格",
       "description": "描述",
-      "earlyBird": "earlyBird",
+      "earlyBird": "早鸟",
       "hint": "提示",
       "originalPrice": "original 价格",
       "perYear": "per 年",
-      "seatsNote": "seatsNote",
+      "seatsNote": "席位说明",
       "title": "标题"
     },
     "jumpToSection": "jump 到 section",
     "layers": {
-      "layer01": "layer01",
-      "layer02": "layer02",
-      "layer03": "layer03"
+      "layer01": "基础层",
+      "layer02": "能力层",
+      "layer03": "应用层"
     },
     "learnMore": "了解更多",
     "modules": {
@@ -145,9 +145,9 @@
       }
     },
     "phases": {
-      "phase01": "phase01",
-      "phase02": "phase02",
-      "phase03": "phase03"
+      "phase01": "第一阶段",
+      "phase02": "第二阶段",
+      "phase03": "第三阶段"
     },
     "positioning": {
       "description": "描述",
@@ -157,10 +157,10 @@
     "sectionNavigation": "section 导航",
     "sections": {
       "agentCompass": "智能体 compass",
-      "architecture": "architecture",
+      "architecture": "架构",
       "courseSystem": "课程 system",
       "joinUs": "加入我们",
-      "positioning": "positioning",
+      "positioning": "定位",
       "serviceModules": "服务 modules",
       "toolsOverview": "工具 overview"
     },
@@ -173,10 +173,10 @@
     "tools": {
       "description": "描述",
       "function": {
-        "office": "office",
-        "production": "production",
+        "office": "办公",
+        "production": "生产",
         "rd": "rd",
-        "sales": "sales",
+        "sales": "销售",
         "title": "标题"
       },
       "general": {
@@ -187,10 +187,10 @@
         "voice": "语音"
       },
       "industry": {
-        "education": "education",
-        "government": "government",
-        "healthcare": "healthcare",
-        "manufacturing": "manufacturing",
+        "education": "教育",
+        "government": "政务",
+        "healthcare": "医疗",
+        "manufacturing": "制造",
         "title": "标题"
       },
       "partners": {
@@ -199,9 +199,9 @@
       "title": "标题"
     },
     "typingPhrases": {
-      "humanMachineCollaboration": "humanMachineCollaboration",
-      "intelligentTransformation": "intelligentTransformation",
-      "rationalEfficiency": "rationalEfficiency"
+      "humanMachineCollaboration": "人机协作",
+      "intelligentTransformation": "智能化转型",
+      "rationalEfficiency": "理性效率"
     }
   },
   "EnterpriseService": {

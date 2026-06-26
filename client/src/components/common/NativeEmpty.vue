@@ -47,17 +47,19 @@ const props = withDefaults(defineProps<Props>(), {
   descriptionKey: '',
 })
 
-const { t, te } = useI18n()
+const { t } = useI18n()
 
 // 优先使用 i18n key, 再用 description 字符串, 最后空字符串
 const resolvedDescription = computed(() => {
-  if (props.descriptionKey && te(props.descriptionKey)) {
-    return t(props.descriptionKey)
+  if (!props.descriptionKey) {
+    return props.description
   }
-  if (props.descriptionKey) {
-    return props.descriptionKey
+  // 标准做法: 尝试翻译, 若 key 不存在 i18n 会回显 key 本身
+  const translated = t(props.descriptionKey)
+  if (translated !== props.descriptionKey) {
+    return translated
   }
-  return props.description
+  return props.descriptionKey
 })
 </script>
 

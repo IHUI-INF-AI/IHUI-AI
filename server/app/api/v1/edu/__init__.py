@@ -45,6 +45,8 @@ _SUB_ROUTER_IMPORTS = [
     ("app.api.v1.edu.visit_tracking","router", "/visit-tracking","Edu-Visit-Tracking"),
     # phase B - gateway (just route table)
     ("app.api.v1.edu.gateway",       "router", "",               "Edu-Gateway"),
+    # 2026-06-26 P0 批次1 补迁移 (40 端点: 支付回调/认证授权/会员账户/课程基础)
+    ("app.api.v1.edu.edu_supplement_p0_batch1", "router", "", "Edu-Supplement-P0-Batch1"),
 ]
 
 
