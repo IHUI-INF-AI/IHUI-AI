@@ -10,8 +10,8 @@
       "upload": "上传"
     },
     "messages": {
-      "analyzeSuccess": "analyzeSuccess",
-      "uploadAndPromptRequired": "uploadAndPromptRequired",
+      "analyzeSuccess": "analyze 成功",
+      "uploadAndPromptRequired": "上传 与 提示词 必填",
       "uploadFailed": "上传失败"
     },
     "result": {

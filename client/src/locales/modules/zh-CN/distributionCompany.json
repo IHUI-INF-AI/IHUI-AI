@@ -6,16 +6,16 @@
     "downloadQRCode": "下载二维码",
     "downloading": "下载中",
     "inviteLinkCopied": "邀请链接已复制",
-    "inviteLinkPlaceholder": "inviteLinkPlaceholder",
-    "inviteQRCode": "inviteQRCode",
+    "inviteLinkPlaceholder": "邀请 链接 placeholder",
+    "inviteQRCode": "邀请 qr 代码",
     "loading": "加载中",
-    "qrCodeDownloadSuccess": "qrCodeDownloadSuccess",
-    "qrCodeNotLoaded": "qrCodeNotLoaded",
-    "shareInvite": "shareInvite",
-    "shareInviteDesc": "shareInviteDesc",
-    "shareInviteTitle": "shareInviteTitle",
+    "qrCodeDownloadSuccess": "qr 代码 下载 成功",
+    "qrCodeNotLoaded": "qr 代码 非 loaded",
+    "shareInvite": "分享 邀请",
+    "shareInviteDesc": "分享 邀请 描述",
+    "shareInviteTitle": "分享 邀请 标题",
     "subtitle": "副标题",
     "title": "标题",
-    "userIncomplete": "userIncomplete"
+    "userIncomplete": "用户 incomplete"
   }
 }

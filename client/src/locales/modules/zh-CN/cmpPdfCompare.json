@@ -1,8 +1,8 @@
 {
   "cmpPdfCompare": {
-    "selectPdfA": "selectPdfA",
-    "selectPdfB": "selectPdfB",
-    "syncScroll": "syncScroll",
-    "syncZoom": "syncZoom"
+    "selectPdfA": "选择 pdf a",
+    "selectPdfB": "选择 pdf b",
+    "syncScroll": "sync 滚动",
+    "syncZoom": "sync 缩放"
   }
 }

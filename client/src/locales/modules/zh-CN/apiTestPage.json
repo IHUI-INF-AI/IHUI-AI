@@ -7,24 +7,24 @@
       "type": "类型"
     },
     "duration": "时长",
-    "logFail": "logFail",
-    "logPass": "logPass",
+    "logFail": "日志 不通过",
+    "logPass": "日志 通过",
     "testName": {
-      "agentImport": "agentImport",
-      "aiChatTypeImport": "aiChatTypeImport",
-      "aiGenAdapterImport": "aiGenAdapterImport",
-      "aiGenImport": "aiGenImport",
-      "aiModelImport": "aiModelImport",
-      "fastapiImport": "fastapiImport",
-      "ihuiStreamImport": "ihuiStreamImport",
-      "llmChatImport": "llmChatImport",
-      "mcpImport": "mcpImport",
-      "serviceUnifiedExport": "serviceUnifiedExport",
-      "unifiedChatImport": "unifiedChatImport",
-      "unifiedGenImport": "unifiedGenImport"
+      "agentImport": "智能体 导入",
+      "aiChatTypeImport": "AI 对话 类型 导入",
+      "aiGenAdapterImport": "AI gen adapter 导入",
+      "aiGenImport": "AI gen 导入",
+      "aiModelImport": "AI 模型 导入",
+      "fastapiImport": "fastapi 导入",
+      "ihuiStreamImport": "ihui 流 导入",
+      "llmChatImport": "llm 对话 导入",
+      "mcpImport": "mcp 导入",
+      "serviceUnifiedExport": "服务 unified 导出",
+      "unifiedChatImport": "unified 对话 导入",
+      "unifiedGenImport": "unified gen 导入"
     }
   },
   "ApiTestPage": {
-    "startAITest": "startAITest"
+    "startAITest": "开始 AI test"
   }
 }

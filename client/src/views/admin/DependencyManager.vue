@@ -102,7 +102,7 @@
           <ElInput v-model="configForm.tourId" :disabled="!!editingConfig" :placeholder="t('dependency.enterTourId')" />
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.executionMode')">
-          <ElSelect v-model="configForm.executionMode" style="width: 100%">
+          <ElSelect v-model="configForm.executionMode" class="full-width">
             <ElOption :label="t('adminCommon.label.sequential')" value="sequential" />
             <ElOption :label="t('adminCommon.label.parallel')" value="parallel" />
             <ElOption :label="t('adminCommon.label.conditional')" value="conditional" />
@@ -110,14 +110,14 @@
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.timeout')">
           <ElInputNumber v-model="configForm.timeout" :min="10" :max="3600" />
-          <span style="margin-left: 10px">{{ t('dependency.seconds') }}</span>
+          <span class="unit-label">{{ t('dependency.seconds') }}</span>
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.maxRetry')">
           <ElInputNumber v-model="configForm.maxRetries" :min="0" :max="10" />
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.retryInterval')">
           <ElInputNumber v-model="configForm.retryDelay" :min="100" :max="10000" :step="100" />
-          <span style="margin-left: 10px">{{ t('dependency.milliseconds') }}</span>
+          <span class="unit-label">{{ t('dependency.milliseconds') }}</span>
         </ElFormItem>
 
         <ElDivider content-position="left">{{ t('dependency.stepDependencies') }}</ElDivider>
@@ -128,7 +128,7 @@
                 <ElInput v-model="dep.stepId" :placeholder="t('adminCommon.label.stepId')" />
               </ElCol>
               <ElCol :span="10">
-                <ElSelect v-model="dep.dependsOn" multiple :placeholder="t('adminCommon.placeholder.dependsOn')" style="width: 100%">
+                <ElSelect v-model="dep.dependsOn" multiple :placeholder="t('adminCommon.placeholder.dependsOn')" class="full-width">
                   <ElOption
                     v-for="step in getAvailableSteps(dep.stepId)"
                     :key="step"
@@ -409,5 +409,13 @@ onMounted(() => {
 
 .dependency-item {
   margin-bottom: 10px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.unit-label {
+  margin-left: 10px;
 }
 </style>

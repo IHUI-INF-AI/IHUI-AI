@@ -5,7 +5,7 @@
     "relatedOrder": "相关订单",
     "status": "状态",
     "title": "标题",
-    "txId": "txId",
+    "txId": "tx 编号",
     "user": "用户"
   }
 }

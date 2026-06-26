@@ -72,7 +72,7 @@
           <el-button type="primary" size="small" @click="refreshErrors">{{ t('common.refresh') }}</el-button>
         </div>
       </template>
-      <el-table :data="recentErrors" stripe style="width: 100%">
+      <el-table :data="recentErrors" stripe class="full-width">
         <el-table-column prop="name" :label="t('adminCommon.label.errorType')" width="150" />
         <el-table-column prop="message" :label="t('adminCommon.label.errorMessage')" show-overflow-tooltip />
         <el-table-column prop="url" :label="t('adminCommon.label.page')" width="200" show-overflow-tooltip />
@@ -341,5 +341,9 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.full-width {
+  width: 100%;
 }
 </style>

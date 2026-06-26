@@ -23,10 +23,10 @@
       "addressPlaceholder": "addressPlaceholder",
       "business": "business",
       "businessPlaceholder": "businessPlaceholder",
-      "companyName": "companyName",
-      "companyNamePlaceholder": "companyNamePlaceholder",
-      "contactName": "contactName",
-      "contactNamePlaceholder": "contactNamePlaceholder",
+      "companyName": "公司 名称",
+      "companyNamePlaceholder": "公司 名称 placeholder",
+      "contactName": "联系我们 名称",
+      "contactNamePlaceholder": "联系我们 名称 placeholder",
       "email": "邮箱",
       "emailPlaceholder": "请输入邮箱",
       "intention": "intention",
@@ -36,7 +36,7 @@
       "processing": "处理中",
       "reset": "重置",
       "submit": "提交",
-      "submitProposal": "submitProposal"
+      "submitProposal": "提交 proposal"
     },
     "processSteps": {
       "businessNegotiation": {

@@ -27,10 +27,10 @@
     "model": "模型",
     "placeholder": "请输入",
     "prompts": {
-      "line1": "line1",
+      "line1": "行 1",
       "line2": "Line",
-      "line3": "line3",
-      "line4": "line4"
+      "line3": "行 3",
+      "line4": "行 4"
     },
     "selectModel": "选择模型",
     "tabs": {

@@ -2,18 +2,18 @@
   "dialogBottom": {
     "agree": "同意",
     "developerNotice": "developerNotice",
-    "findExpert": "findExpert",
+    "findExpert": "查找 expert",
     "iAmDeveloper": "iAmDeveloper",
-    "ipContent": "ipContent",
-    "ipTitle": "ipTitle",
-    "privacyContent": "privacyContent",
-    "privacyTitle": "privacyTitle",
-    "responsibilityContent": "responsibilityContent",
-    "responsibilityTitle": "responsibilityTitle",
+    "ipContent": "ip 内容",
+    "ipTitle": "ip 标题",
+    "privacyContent": "隐私 内容",
+    "privacyTitle": "隐私 标题",
+    "responsibilityContent": "responsibility 内容",
+    "responsibilityTitle": "responsibility 标题",
     "slogan": "slogan",
-    "standardContent": "standardContent",
-    "standardTitle": "standardTitle",
-    "tradeContent": "tradeContent",
-    "tradeTitle": "tradeTitle"
+    "standardContent": "standard 内容",
+    "standardTitle": "standard 标题",
+    "tradeContent": "trade 内容",
+    "tradeTitle": "trade 标题"
   }
 }

@@ -12,15 +12,15 @@
     "guide3": "guide3",
     "guide4": "guide4",
     "guideTitle": "使用引导",
-    "imagesUploaded": "imagesUploaded",
-    "inputTips": "inputTips",
+    "imagesUploaded": "图片 uploaded",
+    "inputTips": "输入 tips",
     "placeholder": "请输入",
     "send": "发送",
     "title": "标题",
     "tokensConsumed": "已用 Tokens",
     "uploadImage": "上传图片",
     "viewGuide": "查看指南",
-    "voiceInputFailed": "voiceInputFailed",
+    "voiceInputFailed": "语音 输入 失败",
     "welcome": "欢迎"
   }
 }

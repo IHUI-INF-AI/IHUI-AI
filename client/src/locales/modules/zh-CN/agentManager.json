@@ -8,20 +8,20 @@
     "model": "模型",
     "name": "名称",
     "selectModelPlaceholder": "请选择模型",
-    "selectTypePlaceholder": "selectTypePlaceholder",
+    "selectTypePlaceholder": "选择 类型 placeholder",
     "status": "状态",
     "statusActive": "已激活",
     "statusDeprecated": "已废弃",
     "statusInactive": "未激活",
     "statusUnknown": "未知",
-    "systemPrompt": "systemPrompt",
-    "systemPromptPlaceholder": "systemPromptPlaceholder",
+    "systemPrompt": "system 提示词",
+    "systemPromptPlaceholder": "system 提示词 placeholder",
     "test": "测试",
-    "testAgent": "testAgent",
+    "testAgent": "test 智能体",
     "title": "标题",
     "type": "类型",
-    "typeActing": "typeActing",
-    "typeReasoning": "typeReasoning",
-    "typeSpecialist": "typeSpecialist"
+    "typeActing": "类型 acting",
+    "typeReasoning": "类型 reasoning",
+    "typeSpecialist": "类型 specialist"
   }
 }

@@ -48,7 +48,7 @@
         :description="t('models.noModelData')"
         :image-size="120"
       />
-      <el-table v-else :data="models" v-loading="loading" border style="width: 100%">
+      <el-table v-else :data="models" v-loading="loading" border class="full-width">
         <el-table-column prop="name" :label="t('models.modelName')" min-width="160">
           <template #default="{ row }">
             <div class="model-name-cell">
@@ -730,6 +730,10 @@ onMounted(() => {
         width: 100%;
       }
     }
+  }
+
+  .full-width {
+    width: 100%;
   }
 }
 

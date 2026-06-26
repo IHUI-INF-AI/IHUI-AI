@@ -71,6 +71,6 @@
     "purchaseFailed": "purchase失败",
     "linkCopied": "链接Copied",
     "copyFailed": "copy失败",
-    "invalidPaymentForm": "invalidPaymentForm"
+    "invalidPaymentForm": "格式不正确 支付 表单"
   }
 }

@@ -1,13 +1,13 @@
 {
   "withdrawal": {
-    "availableAmount": "availableAmount",
+    "availableAmount": "available 金额",
     "form": {
-      "alipayAccount": "alipayAccount",
+      "alipayAccount": "alipay 账号",
       "alipayPlaceholder": "alipayPlaceholder",
       "amount": "金额",
       "amountPlaceholder": "请输入金额",
-      "amountTip": "amountTip",
-      "bankAccount": "bankAccount",
+      "amountTip": "金额 tip",
+      "bankAccount": "bank 账号",
       "bankName": "开户行",
       "bankNamePlaceholder": "请输入开户行",
       "bankPlaceholder": "bankPlaceholder",
@@ -16,14 +16,14 @@
       "realNamePlaceholder": "请输入真实姓名",
       "remark": "备注",
       "remarkPlaceholder": "请输入备注",
-      "wechatAccount": "wechatAccount",
+      "wechatAccount": "wechat 账号",
       "wechatPlaceholder": "wechatPlaceholder",
-      "withdrawAll": "withdrawAll"
+      "withdrawAll": "提现 全部"
     },
-    "inputValidAmount": "inputValidAmount",
-    "insufficientBalance": "insufficientBalance",
+    "inputValidAmount": "输入 valid 金额",
+    "insufficientBalance": "insufficient 余额",
     "messages": {
-      "fetchInfoFailed": "fetchInfoFailed",
+      "fetchInfoFailed": "获取 信息 失败",
       "pleaseLogin": "请先登录"
     },
     "methods": {
@@ -35,22 +35,22 @@
       "minAmount": "最小金额",
       "processingTime": "处理时间"
     },
-    "selectMethod": "selectMethod",
+    "selectMethod": "选择 方法",
     "submit": {
       "button": "按钮",
       "submitting": "提交中"
     },
-    "submitPending": "submitPending",
+    "submitPending": "提交 待处理",
     "submitSuccess": "提交成功",
     "title": "标题",
     "validation": {
-      "accountRequired": "accountRequired",
-      "amountExceed": "amountExceed",
+      "accountRequired": "账号 必填",
+      "amountExceed": "金额 exceed",
       "amountMin": "最小金额",
       "amountRequired": "请输入金额",
-      "bankAccountInvalid": "bankAccountInvalid",
-      "bankNameRequired": "bankNameRequired",
-      "realNameRequired": "realNameRequired"
+      "bankAccountInvalid": "bank 账号 格式不正确",
+      "bankNameRequired": "bank 名称 必填",
+      "realNameRequired": "real 名称 必填"
     }
   }
 }

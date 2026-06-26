@@ -55,8 +55,8 @@
     "heroTitle": "主标题",
     "overview": {
       "description": "描述",
-      "keyPoint": "keyPoint",
-      "keyPointText": "keyPointText",
+      "keyPoint": "键 积分",
+      "keyPointText": "键 积分 文本",
       "title": "标题"
     },
     "quadrants": {
@@ -66,7 +66,7 @@
           "autonomousExecution": "autonomousExecution",
           "autonomousPlanning": "autonomousPlanning",
           "lifecycle": "lifecycle",
-          "multiAgent": "multiAgent"
+          "multiAgent": "multi 智能体"
         },
         "examples": {
           "marketing": {
@@ -84,7 +84,7 @@
       },
       "decision": {
         "chars": {
-          "openEnded": "openEnded",
+          "openEnded": "打开 ended",
           "output": "输出",
           "prediction": "prediction",
           "reasoning": "推理"
@@ -105,9 +105,9 @@
       },
       "execution": {
         "chars": {
-          "clearIntent": "clearIntent",
+          "clearIntent": "清空 intent",
           "crossSystem": "crossSystem",
-          "multiAPI": "multiAPI",
+          "multiAPI": "multi API",
           "multiStep": "multiStep"
         },
         "examples": {

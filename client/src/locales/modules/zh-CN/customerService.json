@@ -5,16 +5,16 @@
       "connecting": "连接中",
       "disconnected": "已断开",
       "faqs": "faqs",
-      "fileSizeExceeded": "fileSizeExceeded",
+      "fileSizeExceeded": "文件 大小 exceeded",
       "placeholder": "请输入",
       "reconnecting": "reconnecting",
       "sendFailed": "发送失败",
-      "startChat": "startChat",
+      "startChat": "开始 对话",
       "title": "标题",
       "typing": "typing"
     },
     "faq": {
-      "noFAQs": "noFAQs",
+      "noFAQs": "无 fa qs",
       "title": "标题"
     },
     "subtitle": "副标题",

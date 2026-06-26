@@ -4,10 +4,10 @@
     "apiPath": "API 路径",
     "copied": "已复制",
     "copyFailed": "复制失败",
-    "copyMethodName": "copyMethodName",
+    "copyMethodName": "复制 方法 名称",
     "description": "描述",
     "loadFailed": "加载失败",
-    "methodName": "methodName",
+    "methodName": "方法 名称",
     "noMatch": "无匹配",
     "searchPlaceholder": "请输入搜索内容"
   }

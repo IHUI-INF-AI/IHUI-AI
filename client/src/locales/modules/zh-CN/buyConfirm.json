@@ -1,9 +1,9 @@
 {
   "buyConfirm": {
-    "actualPay": "actualPay",
+    "actualPay": "actual 支付",
     "alipay": "支付宝",
-    "balancePay": "balancePay",
-    "courseAmount": "courseAmount",
+    "balancePay": "余额 支付",
+    "courseAmount": "课程 金额",
     "payMethod": "支付方式",
     "peopleLearning": "正在学习",
     "teacher": "教师",

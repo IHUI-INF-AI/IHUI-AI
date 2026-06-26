@@ -22,7 +22,7 @@
             <el-select
               v-model="selectedBotId"
               :placeholder="t('variables.selectBotPlaceholder')"
-              style="width: 300px"
+              class="bot-select"
               @change="loadVariables"
             >
               <el-option v-for="bot in bots" :key="bot.id" :label="bot.name" :value="bot.id" />
@@ -39,7 +39,7 @@
               }}</el-button>
             </el-empty>
           </div>
-          <el-table v-else :data="variables" style="width: 100%">
+          <el-table v-else :data="variables" class="full-width">
             <el-table-column prop="name" :label="t('variables.table.name')" width="200" />
             <el-table-column prop="type" :label="t('variables.table.type')" width="120" />
             <el-table-column
@@ -261,5 +261,13 @@ onMounted(() => {
 
 .empty-state {
   padding: 40px 0;
+}
+
+.bot-select {
+  width: 300px;
+}
+
+.full-width {
+  width: 100%;
 }
 </style>

@@ -3,25 +3,25 @@
     "actions": {
       "clearChat": "清空对话",
       "clearChatConfirm": "确认清空对话?",
-      "clearChatSuccess": "clearChatSuccess",
+      "clearChatSuccess": "清空 对话 成功",
       "close": "关闭",
-      "closeSearch": "closeSearch",
+      "closeSearch": "关闭 搜索",
       "copy": "复制",
       "delete": "删除",
       "edit": "编辑",
       "exportChat": "导出对话",
       "like": "点赞",
       "regenerate": "重新生成",
-      "searchMessages": "searchMessages",
-      "viewStats": "viewStats"
+      "searchMessages": "搜索 messages",
+      "viewStats": "查看 stats"
     },
-    "agentThinkingProcess": "agentThinkingProcess",
+    "agentThinkingProcess": "智能体 thinking process",
     "newConversation": "新对话",
     "status": {
       "edited": "已编辑"
     },
     "websocket": {
-      "connectionFailed": "connectionFailed"
+      "connectionFailed": "connection 失败"
     }
   }
 }

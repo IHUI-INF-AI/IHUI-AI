@@ -1,6 +1,6 @@
 {
   "error404": {
-    "backHome": "backHome",
+    "backHome": "返回 home",
     "notFound": "未找到"
   }
 }

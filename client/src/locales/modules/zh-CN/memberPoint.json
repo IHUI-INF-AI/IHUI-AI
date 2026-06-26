@@ -4,9 +4,9 @@
     "continuousSign": "continuousSign",
     "days": "天",
     "level": "等级",
-    "myPoints": "myPoints",
-    "pointDetails": "pointDetails",
-    "totalPoints": "totalPoints",
+    "myPoints": "my 积分",
+    "pointDetails": "积分 details",
+    "totalPoints": "总计 积分",
     "used": "已用"
   }
 }

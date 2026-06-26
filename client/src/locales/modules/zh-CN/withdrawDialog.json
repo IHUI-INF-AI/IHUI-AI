@@ -2,14 +2,14 @@
   "withdrawDialog": {
     "agreePrefix": "agreePrefix",
     "amount": "金额",
-    "availableBalance": "availableBalance",
+    "availableBalance": "available 余额",
     "bankCard": "银行卡",
-    "bindNow": "bindNow",
+    "bindNow": "绑定 now",
     "change": "change",
-    "noBankCard": "noBankCard",
+    "noBankCard": "无 bank 卡片",
     "submit": "提交",
     "submitting": "提交中",
-    "termsTitle": "termsTitle",
+    "termsTitle": "terms 标题",
     "title": "标题"
   }
 }

@@ -1,21 +1,21 @@
 {
   "recharge": {
     "alipay": "支付宝",
-    "fetchConfigFailed": "fetchConfigFailed",
+    "fetchConfigFailed": "获取 配置 失败",
     "moreMethods": "moreMethods",
     "normalUser": "普通用户",
-    "officialRecharge": "officialRecharge",
+    "officialRecharge": "官方 充值",
     "operator": "操作员",
     "rate": "比率",
     "recharge": "充值",
-    "rechargeFailed": "rechargeFailed",
-    "rechargeSuccess": "rechargeSuccess",
+    "rechargeFailed": "充值 失败",
+    "rechargeSuccess": "充值 成功",
     "selectAmount": "选择金额",
-    "selectAmountAndPayment": "selectAmountAndPayment",
-    "selectPayment": "selectPayment",
+    "selectAmountAndPayment": "选择 金额 与 支付",
+    "selectPayment": "选择 支付",
     "title": "标题",
     "tokens": "令牌",
-    "vipUser": "vipUser",
+    "vipUser": "VIP 用户",
     "wechatPay": "微信支付"
   }
 }

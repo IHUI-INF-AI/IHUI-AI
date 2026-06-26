@@ -212,7 +212,7 @@ const showRuleDialog = ref(false)
 const themeConfig = ref({
   primaryColor: 'var(--color-primary)',
   backgroundColor: 'var(--el-bg-color)',
-  textColor: 'var(--color-gray-303133)',
+  textColor: 'var(--el-text-color-primary)',
   borderRadius: 4,
   shadowEnabled: true,
   compactMode: false

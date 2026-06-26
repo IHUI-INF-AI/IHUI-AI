@@ -1,13 +1,13 @@
 {
   "viewerOfficeViewer": {
-    "docLoadFailed": "docLoadFailed",
+    "docLoadFailed": "doc 加载 失败",
     "download": "下载",
     "largeDocHint": "largeDocHint",
     "loadingDoc": "加载文档",
     "officeDoc": "officeDoc",
-    "openInOfficeOnline": "openInOfficeOnline",
+    "openInOfficeOnline": "打开 在 office 在线",
     "reset": "重置",
-    "tryDownload": "tryDownload",
+    "tryDownload": "try 下载",
     "zoomOut": "缩小"
   }
 }

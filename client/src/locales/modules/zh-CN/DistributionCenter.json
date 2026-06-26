@@ -1,8 +1,8 @@
 {
   "DistributionCenter": {
-    "copyImage": "copyImage",
-    "distributionTitle": "distributionTitle",
-    "imageCopied": "imageCopied",
-    "longPressToSave": "longPressToSave"
+    "copyImage": "复制 图片",
+    "distributionTitle": "distribution 标题",
+    "imageCopied": "图片 copied",
+    "longPressToSave": "long press 到 保存"
   }
 }

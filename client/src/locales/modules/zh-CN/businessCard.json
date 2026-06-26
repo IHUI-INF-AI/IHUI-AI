@@ -1,21 +1,21 @@
 {
   "businessCard": {
     "changeImage": "更换图片",
-    "copyCardLink": "copyCardLink",
+    "copyCardLink": "复制 卡片 链接",
     "copyFailed": "复制失败",
     "copySuccess": "复制成功",
-    "customEntry": "customEntry",
-    "dropImage": "dropImage",
-    "scanQrCode": "scanQrCode",
-    "shareCard": "shareCard",
+    "customEntry": "自定义 entry",
+    "dropImage": "放下 图片",
+    "scanQrCode": "scan qr 代码",
+    "shareCard": "分享 卡片",
     "shareFailed": "分享失败",
     "shareSuccess": "分享成功",
-    "shareToWechat": "shareToWechat",
+    "shareToWechat": "分享 到 wechat",
     "subtitle": "副标题",
     "title": "标题",
     "upload": "上传",
     "uploadFailed": "上传失败",
-    "uploadHint": "uploadHint",
+    "uploadHint": "上传 hint",
     "uploadSuccess": "上传成功",
     "uploading": "上传中"
   }

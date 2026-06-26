@@ -2,7 +2,7 @@
   "apiDocs": {
     "nav": {
       "authentication": "authentication",
-      "chatCompletions": "chatCompletions",
+      "chatCompletions": "对话 completions",
       "endpoints": "endpoints",
       "errorHandling": "错误处理",
       "imageGeneration": "图片生成",

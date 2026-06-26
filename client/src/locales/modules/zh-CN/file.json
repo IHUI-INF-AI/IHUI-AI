@@ -1,8 +1,8 @@
 {
   "file": {
     "batchDelete": "批量删除",
-    "batchDownload": "batchDownload",
-    "batchShare": "batchShare",
+    "batchDownload": "batch 下载",
+    "batchShare": "batch 分享",
     "clearSelection": "清空选择",
     "delete": "删除",
     "diff": {
@@ -13,7 +13,7 @@
       "deletions": "deletions",
       "from": "来自",
       "line": "Line",
-      "selectVersions": "selectVersions",
+      "selectVersions": "选择 versions",
       "similarity": "similarity",
       "to": "到"
     },
@@ -33,7 +33,7 @@
       "expires": "expires",
       "forever": "forever",
       "password": "密码",
-      "passwordHint": "passwordHint",
+      "passwordHint": "密码 hint",
       "title": "标题"
     },
     "sort": {
@@ -45,10 +45,10 @@
     "stats": {
       "selected": "已选择",
       "total": "总计",
-      "totalSize": "totalSize"
+      "totalSize": "总计 大小"
     },
     "upload": {
-      "dragDrop": "dragDrop",
+      "dragDrop": "拖动 放下",
       "title": "标题"
     },
     "versions": {

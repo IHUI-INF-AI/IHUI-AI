@@ -139,12 +139,12 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('monitoring.condition')">
-          <el-select v-model="newRule.operator" style="width: 100px">
+          <el-select v-model="newRule.operator" class="operator-select">
             <el-option :label="t('monitoring.operators.gt')" value="gt" />
             <el-option :label="t('monitoring.operators.lt')" value="lt" />
             <el-option :label="t('monitoring.operators.eq')" value="eq" />
           </el-select>
-          <el-input-number v-model="newRule.threshold" style="width: 150px" />
+          <el-input-number v-model="newRule.threshold" class="threshold-input" />
         </el-form-item>
         <el-form-item :label="t('monitoring.severityLevel')">
           <el-select v-model="newRule.severity">
@@ -436,5 +436,13 @@ cleanup.add(() => chart?.dispose())
 
 .ml-10 {
   margin-left: 10px;
+}
+
+.operator-select {
+  width: 100px;
+}
+
+.threshold-input {
+  width: 150px;
 }
 </style>

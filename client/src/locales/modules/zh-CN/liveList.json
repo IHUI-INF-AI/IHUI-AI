@@ -2,8 +2,8 @@
   "liveList": {
     "all": "全部",
     "badgeLiving": "badgeLiving",
-    "badgePreview": "badgePreview",
-    "badgeReplay": "badgeReplay",
+    "badgePreview": "badge 预览",
+    "badgeReplay": "badge 回放",
     "empty": "空",
     "host": "主机",
     "living": "living",

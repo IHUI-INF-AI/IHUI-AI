@@ -1,23 +1,23 @@
 {
   "fileManager": {
-    "batchDeleteFailed": "batchDeleteFailed",
-    "batchShareDev": "batchShareDev",
+    "batchDeleteFailed": "batch 删除 失败",
+    "batchShareDev": "batch 分享 dev",
     "confirmBatchDelete": "确认批量删除",
     "confirmDelete": "确认删除",
     "confirmDeleteTitle": "确认删除",
     "confirmRollback": "确认回滚",
-    "createShareFailed": "createShareFailed",
+    "createShareFailed": "创建 分享 失败",
     "deleteFailed": "删除失败",
     "deleteSuccess": "删除成功",
     "downloadComplete": "下载完成",
-    "dropUpload": "dropUpload",
+    "dropUpload": "放下 上传",
     "linkCopied": "链接已复制",
-    "loadListFailed": "loadListFailed",
+    "loadListFailed": "加载 列表 失败",
     "rollbackFailed": "回滚失败",
     "rollbackSuccess": "回滚成功",
-    "rollbackTitle": "rollbackTitle",
-    "uploadNewVersionFailed": "uploadNewVersionFailed",
-    "uploadNewVersionSuccess": "uploadNewVersionSuccess",
+    "rollbackTitle": "rollback 标题",
+    "uploadNewVersionFailed": "上传 新 版本 失败",
+    "uploadNewVersionSuccess": "上传 新 版本 成功",
     "uploadSuccess": "上传成功"
   }
 }

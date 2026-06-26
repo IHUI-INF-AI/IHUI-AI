@@ -3,7 +3,7 @@
     "agreementDeveloping": "agreementDeveloping",
     "paySuccess": "支付成功",
     "paySuccess2": "支付成功",
-    "productNotExist": "productNotExist",
-    "vipPurchase": "vipPurchase"
+    "productNotExist": "产品 非 exist",
+    "vipPurchase": "VIP purchase"
   }
 }

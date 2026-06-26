@@ -3,8 +3,8 @@
     "favorite": "收藏",
     "like": "点赞",
     "news": "新闻",
-    "newsNotFound": "newsNotFound",
-    "officialNews": "officialNews",
+    "newsNotFound": "新闻 非 found",
+    "officialNews": "官方 新闻",
     "read": "已读"
   }
 }

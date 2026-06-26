@@ -1,6 +1,6 @@
 {
   "adminSecurity": {
-    "accountSecurity": "accountSecurity",
-    "viewLog": "viewLog"
+    "accountSecurity": "账号 安全",
+    "viewLog": "查看 日志"
   }
 }

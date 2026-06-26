@@ -6,10 +6,10 @@
     "statusUnknown": "未知",
     "subtitle": "副标题",
     "tabAll": "全部",
-    "tabCancelled": "tabCancelled",
-    "tabPaid": "tabPaid",
-    "tabPending": "tabPending",
+    "tabCancelled": "tab 已取消",
+    "tabPaid": "tab 付费",
+    "tabPending": "tab 待处理",
     "title": "标题",
-    "unknownProduct": "unknownProduct"
+    "unknownProduct": "未知 产品"
   }
 }

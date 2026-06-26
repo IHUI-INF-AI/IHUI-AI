@@ -1,7 +1,7 @@
 {
   "distRealAuthModal": {
-    "incompleteUserInfo": "incompleteUserInfo",
-    "realAuthFailed": "realAuthFailed",
-    "realAuthSuccess": "realAuthSuccess"
+    "incompleteUserInfo": "incomplete 用户 信息",
+    "realAuthFailed": "real auth 失败",
+    "realAuthSuccess": "real auth 成功"
   }
 }

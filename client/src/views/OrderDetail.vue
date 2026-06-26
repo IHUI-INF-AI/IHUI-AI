@@ -2,7 +2,7 @@
   <div class="order-detail-page page-container radius-auto">
     <div class="order-detail-container radius-auto">
       <div class="order-header radius-auto">
-        <el-button link @click="router.back()" style="margin-bottom: 20px">
+        <el-button link @click="router.back()" class="back-btn">
           <el-icon><ArrowLeft /></el-icon>
           {{ t('orderDetail.back') }}
         </el-button>
@@ -366,6 +366,10 @@ onMounted(() => {
     gap: 15px;
     padding-top: 20px;
     border-top: none;
+  }
+
+  .back-btn {
+    margin-bottom: 20px;
   }
 }
 </style>

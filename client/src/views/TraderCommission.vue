@@ -57,7 +57,7 @@
 
     <!-- 佣金明细列表 -->
     <div v-if="!loading" class="commission-list radius-auto">
-      <el-table :data="filteredCommissionList" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredCommissionList" v-loading="loading" class="full-width">
         <el-table-column
           prop="buyer_nickname"
           :label="t('traderCommission.table.buyer')"
@@ -266,6 +266,10 @@ onMounted(() => {
   padding: 24px;
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
+}
+
+.full-width {
+  width: 100%;
 }
 
 .page-title {

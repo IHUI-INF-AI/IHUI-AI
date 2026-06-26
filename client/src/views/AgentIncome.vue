@@ -30,7 +30,7 @@
 
     <!-- 结算记录列表（复用UserStatistics.vue的结算记录） -->
     <div class="settlement-section radius-auto">
-      <el-table :data="filteredSettlementList" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredSettlementList" v-loading="loading" class="full-width">
         <el-table-column prop="agent_name" :label="t('agentIncome.agentName')" min-width="150" />
         <el-table-column prop="order_no" :label="t('agentIncome.orderNo')" min-width="120" />
         <el-table-column prop="accountType" :label="t('agentIncome.chargeType')" width="120" />
@@ -215,6 +215,10 @@ onMounted(() => {
 
   @media (width <= $desktop-breakpoint-xs) {
     padding: 16px;
+  }
+
+  .full-width {
+    width: 100%;
   }
 }
 </style>

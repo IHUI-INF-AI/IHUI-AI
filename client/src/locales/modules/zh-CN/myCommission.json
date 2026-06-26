@@ -6,7 +6,7 @@
     "copy": "复制",
     "copyFailed": "复制失败",
     "copySuccess": "复制成功",
-    "noCommission": "noCommission",
+    "noCommission": "无 佣金",
     "orderTime": "下单时间",
     "pending": "待处理",
     "relatedOrder": "相关订单",
@@ -14,9 +14,9 @@
     "todayCommission": "今日佣金",
     "totalCommission": "佣金总额",
     "withdraw": "提现",
-    "withdrawDetail": "withdrawDetail",
-    "withdrawDetailInfo": "withdrawDetailInfo",
-    "withdrawSuccess": "withdrawSuccess",
+    "withdrawDetail": "提现 详情",
+    "withdrawDetailInfo": "提现 详情 信息",
+    "withdrawSuccess": "提现 成功",
     "withdrawn": "已提现",
     "yuan": "元"
   }

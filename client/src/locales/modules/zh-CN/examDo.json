@@ -5,19 +5,19 @@
     "examResult": "考试结果",
     "failed": "失败",
     "inputAnswer": "输入答案",
-    "inputEssay": "inputEssay",
+    "inputEssay": "输入 essay",
     "minutes": "分钟",
-    "passScore": "passScore",
+    "passScore": "通过 分数",
     "passed": "已通过",
-    "questionCount": "questionCount",
+    "questionCount": "问题 数量",
     "remaining": "剩余",
     "score": "分数",
     "startExam": "开始考试",
     "submit": "提交",
-    "typeEssay": "typeEssay",
-    "typeFill": "typeFill",
-    "typeJudge": "typeJudge",
-    "typeMultiple": "typeMultiple",
-    "typeSingle": "typeSingle"
+    "typeEssay": "类型 essay",
+    "typeFill": "类型 fill",
+    "typeJudge": "类型 judge",
+    "typeMultiple": "类型 multiple",
+    "typeSingle": "类型 single"
   }
 }

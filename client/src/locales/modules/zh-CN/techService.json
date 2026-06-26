@@ -1,8 +1,8 @@
 {
   "techService": {
-    "appointmentFailed": "appointmentFailed",
+    "appointmentFailed": "appointment 失败",
     "appointmentSubmitted": "appointmentSubmitted",
-    "appointmentTitle": "appointmentTitle",
+    "appointmentTitle": "appointment 标题",
     "form": {
       "datePlaceholder": "请选择日期",
       "description": "描述",
@@ -17,8 +17,8 @@
       "phonePlaceholder": "请输入手机号",
       "preferredDate": "期望日期",
       "preferredTime": "期望时间",
-      "timePlaceholder": "timePlaceholder",
-      "validationRequired": "validationRequired"
+      "timePlaceholder": "时间 placeholder",
+      "validationRequired": "validation 必填"
     },
     "services": {
       "consultation": {
@@ -46,7 +46,7 @@
         "title": "标题"
       }
     },
-    "submitAppointment": "submitAppointment",
+    "submitAppointment": "提交 appointment",
     "subtitle": "副标题",
     "title": "标题",
     "underDevelopment": "underDevelopment"

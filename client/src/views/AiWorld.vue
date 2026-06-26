@@ -100,13 +100,12 @@
           <section class="ai-world-page__section">
             <div class="ai-world-page__grid">
               <RouterLink v-for="item in detailItems" :key="item.id"
-                :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card"
-                :style="{ backgroundColor: 'var(--el-fill-color-light)' }">
+                :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card ai-world-card--fill">
                 <div class="ai-world-card__icon-wrap">
                   <img :src="item.coverUrl" :alt="item.title" class="ai-world-card__icon" loading="lazy"
                     @error="handleImageError" />
                 </div>
-                <div class="ai-world-card__content" :style="{ backgroundColor: 'transparent' }">
+                <div class="ai-world-card__content ai-world-card__content--transparent">
                   <h3 class="ai-world-card__title">{{ item.title }}</h3>
                   <p v-if="item.description" class="ai-world-card__desc">{{ item.description }}</p>
                 </div>
@@ -141,13 +140,12 @@
               :data-section-index="selectedChild(navSection).flatIndex">
               <div class="ai-world-page__grid">
                 <RouterLink v-for="item in selectedChild(navSection).items" :key="item.id"
-                  :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card"
-                  :style="{ backgroundColor: 'var(--el-fill-color-light)' }">
+                  :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card ai-world-card--fill">
                   <div class="ai-world-card__icon-wrap">
                     <img :src="item.coverUrl" :alt="item.title" class="ai-world-card__icon" loading="lazy"
                       @error="handleImageError" />
                   </div>
-                  <div class="ai-world-card__content" :style="{ backgroundColor: 'transparent' }">
+                  <div class="ai-world-card__content ai-world-card__content--transparent">
                     <h3 class="ai-world-card__title">{{ item.title }}</h3>
                     <p v-if="item.description" class="ai-world-card__desc">{{ item.description }}</p>
                   </div>
@@ -1336,6 +1334,14 @@ $aw-gray-border: var(--el-text-color-placeholder);
   background-color: transparent;
   border: none;
   box-shadow: none;
+}
+
+.ai-world-card--fill {
+  background-color: var(--el-fill-color-light);
+}
+
+.ai-world-card__content--transparent {
+  background-color: transparent;
 }
 
 .ai-world-card__desc {

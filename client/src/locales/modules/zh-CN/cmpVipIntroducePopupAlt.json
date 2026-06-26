@@ -1,16 +1,16 @@
 {
   "cmpVipIntroducePopupAlt": {
     "benefitsCount": "权益数",
-    "feature1": "feature1",
-    "feature10": "feature10",
-    "feature2": "feature2",
-    "feature3": "feature3",
-    "feature4": "feature4",
-    "feature5": "feature5",
-    "feature6": "feature6",
-    "feature7": "feature7",
-    "feature8": "feature8",
-    "feature9": "feature9",
+    "feature1": "功能 1",
+    "feature10": "功能 10",
+    "feature2": "功能 2",
+    "feature3": "功能 3",
+    "feature4": "功能 4",
+    "feature5": "功能 5",
+    "feature6": "功能 6",
+    "feature7": "功能 7",
+    "feature8": "功能 8",
+    "feature9": "功能 9",
     "payFailed": "支付失败",
     "paySuccess": "支付成功"
   }

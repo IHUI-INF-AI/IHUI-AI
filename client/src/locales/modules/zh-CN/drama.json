@@ -1,9 +1,9 @@
 {
   "drama": {
-    "addCharDesc": "addCharDesc",
+    "addCharDesc": "添加 char 描述",
     "coherent": "coherent",
-    "confirmCharContinue": "confirmCharContinue",
-    "sceneTransition": "sceneTransition",
+    "confirmCharContinue": "确认 char 继续",
+    "sceneTransition": "场景 transition",
     "transition": "过渡"
   }
 }

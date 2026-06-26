@@ -1,8 +1,8 @@
 {
   "utils": {
     "voiceRecorder": {
-      "microphonePermissionDenied": "microphonePermissionDenied",
-      "recordingFailed": "recordingFailed"
+      "microphonePermissionDenied": "microphone 权限 denied",
+      "recordingFailed": "录制中 失败"
     }
   }
 }

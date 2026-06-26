@@ -6,11 +6,11 @@
     "joined": "joined",
     "members": "会员",
     "noDesc": "无描述",
-    "noPosts": "noPosts",
+    "noPosts": "无 posts",
     "owner": "所有者",
-    "postPlaceholder": "postPlaceholder",
+    "postPlaceholder": "帖子 placeholder",
     "posts": "帖子",
-    "postsTitle": "postsTitle",
+    "postsTitle": "posts 标题",
     "publish": "发布",
     "top": "置顶"
   }

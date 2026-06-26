@@ -1,16 +1,16 @@
 {
   "agentChat": {
-    "agentReply": "agentReply",
-    "audioRecording": "audioRecording",
+    "agentReply": "智能体 回复",
+    "audioRecording": "音频 录制中",
     "errors": {
       "loadModelsFailed": "加载模型失败",
       "sendMessageFailed": "发送消息失败",
-      "startVoiceRecognitionFailed": "startVoiceRecognitionFailed",
-      "switchModeFailed": "switchModeFailed"
+      "startVoiceRecognitionFailed": "开始 语音 recognition 失败",
+      "switchModeFailed": "切换 模式 失败"
     },
-    "hideReasoning": "hideReasoning",
-    "inputMessagePlaceholder": "inputMessagePlaceholder",
-    "messageSent": "messageSent",
+    "hideReasoning": "隐藏 reasoning",
+    "inputMessagePlaceholder": "输入 消息 placeholder",
+    "messageSent": "消息 sent",
     "pleaseEnterContent": "请输入内容",
     "reasoningChain": {
       "step1": "第 1 步",
@@ -21,7 +21,7 @@
       "assistant": "assistant",
       "user": "用户"
     },
-    "showReasoning": "showReasoning",
+    "showReasoning": "显示 reasoning",
     "stages": {
       "acting": "代理",
       "reasoning": "推理",
@@ -30,7 +30,7 @@
     "success": {
       "copyToClipboard": "复制到剪贴板",
       "messageDeleted": "消息已删除",
-      "messageUpdated": "messageUpdated"
+      "messageUpdated": "消息 updated"
     },
     "timeLabels": {
       "justNow": "刚刚",
@@ -41,7 +41,7 @@
     },
     "warnings": {
       "confirmDelete": "确认删除",
-      "maxFileUpload": "maxFileUpload"
+      "maxFileUpload": "max 文件 上传"
     }
   }
 }

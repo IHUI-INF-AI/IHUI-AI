@@ -1,6 +1,6 @@
 {
   "cmpresult": {
-    "cronResultBottom": "cronResultBottom",
-    "cronResultTop": "cronResultTop"
+    "cronResultBottom": "cron 结果 底部",
+    "cronResultTop": "cron 结果 置顶"
   }
 }

@@ -1,18 +1,18 @@
 {
   "study": {
-    "chunkUploadFailed": "chunkUploadFailed",
-    "deleteSuccessReview": "deleteSuccessReview",
-    "editSuccessReview": "editSuccessReview",
+    "chunkUploadFailed": "chunk 上传 失败",
+    "deleteSuccessReview": "删除 成功 review",
+    "editSuccessReview": "编辑 成功 review",
     "mainTrackPrefix": "mainTrackPrefix",
-    "publishSuccessContinue": "publishSuccessContinue",
+    "publishSuccessContinue": "publish 成功 继续",
     "relatedApp": "relatedApp",
-    "selectPhase": "selectPhase",
+    "selectPhase": "选择 phase",
     "selectTags": "选择标签",
     "selectTrack": "选择音轨",
-    "topComment": "topComment",
+    "topComment": "置顶 评论",
     "uploadFailed": "上传失败",
     "uploadSuccess": "上传成功",
-    "uploadVideoCourse": "uploadVideoCourse",
-    "videoUploadSuccess": "videoUploadSuccess"
+    "uploadVideoCourse": "上传 视频 课程",
+    "videoUploadSuccess": "视频 上传 成功"
   }
 }

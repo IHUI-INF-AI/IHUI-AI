@@ -1,8 +1,8 @@
 {
   "chatMode": {
-    "agentMode": "agentMode",
-    "enterAgentMode": "enterAgentMode",
-    "exitAgentMode": "exitAgentMode",
-    "normalMode": "normalMode"
+    "agentMode": "智能体 模式",
+    "enterAgentMode": "enter 智能体 模式",
+    "exitAgentMode": "exit 智能体 模式",
+    "normalMode": "正常 模式"
   }
 }

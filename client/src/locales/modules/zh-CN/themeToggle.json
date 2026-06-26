@@ -1,16 +1,16 @@
 {
   "themeToggle": {
     "autoMode": "跟随系统",
-    "clickToChange": "clickToChange",
-    "currentMode": "currentMode",
+    "clickToChange": "点击 到 change",
+    "currentMode": "当前 模式",
     "darkMode": "暗黑模式",
     "highContrastDark": "highContrastDark",
     "highContrastLight": "highContrastLight",
     "lightMode": "明亮模式",
-    "menuLabel": "menuLabel",
-    "switchingToDark": "switchingToDark",
-    "switchingToHighContrastDark": "switchingToHighContrastDark",
-    "switchingToHighContrastLight": "switchingToHighContrastLight",
-    "switchingToLight": "switchingToLight"
+    "menuLabel": "菜单 标签",
+    "switchingToDark": "switching 到 dark",
+    "switchingToHighContrastDark": "switching 到 high contrast dark",
+    "switchingToHighContrastLight": "switching 到 high contrast light",
+    "switchingToLight": "switching 到 light"
   }
 }

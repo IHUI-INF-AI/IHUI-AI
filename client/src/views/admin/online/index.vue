@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
+import { onMounted, h } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'

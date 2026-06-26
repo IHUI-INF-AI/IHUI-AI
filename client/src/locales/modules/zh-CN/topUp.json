@@ -4,13 +4,13 @@
       "coins": "金币"
     },
     "cancel": "取消",
-    "customAmount": "customAmount",
+    "customAmount": "自定义 金额",
     "customPlaceholder": "自定义占位",
     "errors": {
-      "amountDecimals": "amountDecimals",
+      "amountDecimals": "金额 decimals",
       "amountRange": "金额范围",
       "createOrderFailed": "创建订单失败",
-      "createOrderRetry": "createOrderRetry",
+      "createOrderRetry": "创建 订单 重试",
       "invalidAmount": "金额无效",
       "logger": {
         "createOrderFailed": "创建订单失败"
@@ -33,7 +33,7 @@
       }
     },
     "selectAmount": "选择金额",
-    "selectPaymentMethod": "selectPaymentMethod",
+    "selectPaymentMethod": "选择 支付 方法",
     "submit": "提交",
     "subtitle": "副标题",
     "title": "标题"

@@ -1,12 +1,12 @@
 {
   "tools": {
     "loading": "加载中",
-    "localData": "localData",
+    "localData": "本地 数据",
     "noMatch": "无匹配",
-    "realtimeData": "realtimeData",
-    "sortByHot": "sortByHot",
+    "realtimeData": "realtime 数据",
+    "sortByHot": "排序 通过 热门",
     "sortByName": "按名称排序",
-    "sortDefault": "sortDefault",
+    "sortDefault": "排序 默认",
     "title": "标题",
     "usage": "使用方法"
   }

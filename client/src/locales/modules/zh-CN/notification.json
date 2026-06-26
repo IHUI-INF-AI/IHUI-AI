@@ -3,14 +3,14 @@
     "allRead": "全部已读",
     "center": "居中",
     "empty": "空",
-    "loadAbnormal": "loadAbnormal",
-    "markAllReadFailed": "markAllReadFailed",
-    "markAllReadSuccess": "markAllReadSuccess",
-    "markReadFailed": "markReadFailed",
+    "loadAbnormal": "加载 异常",
+    "markAllReadFailed": "标记 全部 read 失败",
+    "markAllReadSuccess": "标记 全部 read 成功",
+    "markReadFailed": "标记 read 失败",
     "messages": "消息",
     "operationFailed": "操作失败",
     "title": "标题",
     "viewAll": "查看全部",
-    "viewUserCenter": "viewUserCenter"
+    "viewUserCenter": "查看 用户 center"
   }
 }

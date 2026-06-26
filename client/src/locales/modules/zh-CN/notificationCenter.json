@@ -23,8 +23,8 @@
     "typeOrder": "订单类型",
     "typeOther": "其他",
     "typeRefund": "退款类型",
-    "typeSite": "typeSite",
+    "typeSite": "类型 site",
     "typeSystem": "系统类型",
-    "typeWallet": "typeWallet"
+    "typeWallet": "类型 钱包"
   }
 }

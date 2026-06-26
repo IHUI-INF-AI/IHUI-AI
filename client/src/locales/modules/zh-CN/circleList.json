@@ -2,10 +2,10 @@
   "circleList": {
     "allCategories": "全部分类",
     "members": "会员",
-    "noCircles": "noCircles",
+    "noCircles": "无 circles",
     "noDesc": "无描述",
     "official": "官方",
-    "onlyOfficial": "onlyOfficial",
+    "onlyOfficial": "only 官方",
     "posts": "帖子",
     "searchPlaceholder": "请输入搜索内容",
     "subtitle": "副标题",

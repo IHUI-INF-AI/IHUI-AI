@@ -140,11 +140,11 @@
       "intro": "简介",
       "metrics": {
         "cost": "费用",
-        "costDesc": "costDesc",
+        "costDesc": "cost 描述",
         "efficiency": "效率",
-        "efficiencyDesc": "efficiencyDesc",
+        "efficiencyDesc": "efficiency 描述",
         "experience": "经验",
-        "experienceDesc": "experienceDesc",
+        "experienceDesc": "experience 描述",
         "title": "标题"
       },
       "superEmployee": {

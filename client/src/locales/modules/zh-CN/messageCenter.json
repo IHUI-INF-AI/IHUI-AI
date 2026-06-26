@@ -11,15 +11,15 @@
     "operateFailed": "操作失败",
     "subtitle": "副标题",
     "tabAll": "全部",
-    "tabFavorite": "tabFavorite",
-    "tabLike": "tabLike",
-    "tabPrivate": "tabPrivate",
+    "tabFavorite": "tab 收藏",
+    "tabLike": "tab 点赞",
+    "tabPrivate": "tab 私有",
     "tabSystem": "tabSystem",
     "title": "标题",
-    "topFlag": "topFlag",
+    "topFlag": "置顶 flag",
     "typeNotice": "通知类型",
     "typeOther": "其他",
-    "typePrivate": "typePrivate",
+    "typePrivate": "类型 私有",
     "typeSystem": "系统类型"
   }
 }

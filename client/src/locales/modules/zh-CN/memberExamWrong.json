@@ -5,9 +5,9 @@
     "empty": "空",
     "enterExam": "进入考试",
     "master": "主",
-    "masteredFailed": "masteredFailed",
-    "masteredSuccess": "masteredSuccess",
-    "myAnswer": "myAnswer",
+    "masteredFailed": "mastered 失败",
+    "masteredSuccess": "mastered 成功",
+    "myAnswer": "my 答案",
     "notAnswered": "未回答",
     "title": "标题"
   }

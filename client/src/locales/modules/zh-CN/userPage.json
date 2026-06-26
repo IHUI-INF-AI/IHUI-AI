@@ -1,10 +1,10 @@
 {
   "userPage": {
     "feedback": "反馈",
-    "noImageContent": "noImageContent",
-    "noStudyContent": "noStudyContent",
-    "noTextContent": "noTextContent",
-    "noVideoContent": "noVideoContent",
+    "noImageContent": "无 图片 内容",
+    "noStudyContent": "无 study 内容",
+    "noTextContent": "无 文本 内容",
+    "noVideoContent": "无 视频 内容",
     "views": "浏览"
   }
 }

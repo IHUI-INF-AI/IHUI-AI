@@ -1,9 +1,9 @@
 {
   "security": {
-    "newDeviceLogin": "newDeviceLogin",
-    "newDeviceLoginMessage": "newDeviceLoginMessage",
-    "secureAccount": "secureAccount",
+    "newDeviceLogin": "新 device 登录",
+    "newDeviceLoginMessage": "新 device 登录 消息",
+    "secureAccount": "secure 账号",
     "suspiciousLogin": "异常登录",
-    "suspiciousLoginMessage": "suspiciousLoginMessage"
+    "suspiciousLoginMessage": "suspicious 登录 消息"
   }
 }

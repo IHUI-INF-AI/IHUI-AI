@@ -7,9 +7,9 @@
     "other": "其他",
     "recentErrors": "recentErrors",
     "resolved": "已解决",
-    "stackInfo": "stackInfo",
+    "stackInfo": "stack 信息",
     "todayErrors": "todayErrors",
-    "totalErrors": "totalErrors",
+    "totalErrors": "总计 errors",
     "trend": "趋势",
     "typeDistribution": "类型分布"
   }

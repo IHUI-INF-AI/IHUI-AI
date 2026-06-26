@@ -6,7 +6,7 @@
     "cancelledAt": "取消时间",
     "confirmCancel": "确认取消",
     "createdAt": "创建时间",
-    "noTasks": "noTasks",
+    "noTasks": "无 任务",
     "retry": "重试",
     "status": {
       "cancelled": "已取消",
@@ -19,6 +19,6 @@
     "subtitle": "副标题",
     "title": "标题",
     "updatedAt": "更新时间",
-    "viewResults": "viewResults"
+    "viewResults": "查看 results"
   }
 }

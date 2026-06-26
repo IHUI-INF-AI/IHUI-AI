@@ -11,7 +11,7 @@
       "versionCreate": "新建版本",
       "versionRollback": "版本回滚"
     },
-    "actionType": "actionType",
+    "actionType": "action 类型",
     "actionTypeOption": {
       "fileDelete": "删除文件",
       "fileDownload": "下载文件",
@@ -26,14 +26,14 @@
     "endDate": "结束日期",
     "failed": "失败",
     "ip": "IP",
-    "resourceId": "resourceId",
-    "resourceType": "resourceType",
+    "resourceId": "资源 编号",
+    "resourceType": "资源 类型",
     "startDate": "开始日期",
     "status": "状态",
     "success": "成功",
     "time": "时间",
     "title": "标题",
-    "totalLogs": "totalLogs",
+    "totalLogs": "总计 日志",
     "userId": "用户 ID"
   }
 }

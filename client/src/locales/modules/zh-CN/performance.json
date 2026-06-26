@@ -7,8 +7,8 @@
     "h1": "h1",
     "h24": "24 小时",
     "lcp": "lcp",
-    "loadDist": "loadDist",
-    "scoreDist": "scoreDist",
+    "loadDist": "加载 dist",
+    "scoreDist": "分数 dist",
     "trend": "趋势",
     "ttfb": "ttfb"
   }

@@ -20,17 +20,17 @@
       "apis": "API 端点",
       "quickAccess": {
         "agents": "智能体",
-        "agentsDesc": "agentsDesc",
+        "agentsDesc": "智能体 描述",
         "apiKey": "API Key",
-        "apiKeyDesc": "apiKeyDesc",
+        "apiKeyDesc": "API 键 描述",
         "apis": "API",
-        "apisDesc": "apisDesc",
+        "apisDesc": "apis 描述",
         "docs": "文档",
-        "docsDesc": "docsDesc",
+        "docsDesc": "docs 描述",
         "models": "模型",
         "modelsDesc": "模型描述",
         "sdks": "SDK 列表",
-        "sdksDesc": "sdksDesc",
+        "sdksDesc": "sdks 描述",
         "title": "快捷访问"
       }
     },
@@ -95,12 +95,12 @@
         "endpoints": "所有 API 端点列表"
       },
       "badge": "徽章",
-      "categoriesSubtitle": "categoriesSubtitle",
-      "categoriesTitle": "categoriesTitle",
+      "categoriesSubtitle": "分类 字幕",
+      "categoriesTitle": "分类 标题",
       "getStarted": "开始使用",
-      "quickLinksSubtitle": "quickLinksSubtitle",
-      "statsSubtitle": "statsSubtitle",
-      "statsTitle": "statsTitle",
+      "quickLinksSubtitle": "quick links 字幕",
+      "statsSubtitle": "stats 字幕",
+      "statsTitle": "stats 标题",
       "step1Desc": "step1Desc",
       "step1Title": "step1Title",
       "step2Desc": "step2Desc",
@@ -388,6 +388,6 @@
     }
   },
   "OpenPlatform": {
-    "openPlatformTitle": "openPlatformTitle"
+    "openPlatformTitle": "打开 platform 标题"
   }
 }

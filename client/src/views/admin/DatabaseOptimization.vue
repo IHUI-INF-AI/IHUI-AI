@@ -44,7 +44,7 @@
       <el-divider />
 
       <h3>{{ t('adminComponents.databaseOptimization.tableStatus') }}</h3>
-      <el-table :data="tableStatus" style="width: 100%" v-loading="loading">
+      <el-table :data="tableStatus" class="full-width" v-loading="loading">
         <el-table-column prop="name" label="表名" />
         <el-table-column prop="rows" label="记录数" />
         <el-table-column prop="size" label="大小 (MB)" />
@@ -204,6 +204,10 @@ onMounted(() => {
     margin: 20px 0 16px;
     font-size: 16px;
     font-weight: 500;
+  }
+
+  .full-width {
+    width: 100%;
   }
 }
 </style>

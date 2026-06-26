@@ -49,7 +49,7 @@
         <p>{{ selectedService.desc }}</p>
       </div>
 
-      <el-form :model="appointmentForm" label-width="120px" style="margin-top: 20px;">
+      <el-form :model="appointmentForm" label-width="120px" class="appointment-form">
         <el-form-item :label="t('techService.form.name')" required>
           <el-input v-model="appointmentForm.name" :placeholder="t('techService.form.namePlaceholder')" />
         </el-form-item>
@@ -64,7 +64,7 @@
             v-model="appointmentForm.preferredDate"
             type="date"
             :placeholder="t('techService.form.datePlaceholder')"
-            style="width: 100%"
+            class="full-width"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
           />
@@ -73,7 +73,7 @@
           <el-time-picker
             v-model="appointmentForm.preferredTime"
             :placeholder="t('techService.form.timePlaceholder')"
-            style="width: 100%"
+            class="full-width"
             format="HH:mm"
             value-format="HH:mm"
           />
@@ -373,5 +373,13 @@ const handleAppointmentSubmit = async () => {
   font-size: 14px;
   color: var(--el-text-color-secondary);
   margin: 0;
+}
+
+.appointment-form {
+  margin-top: 20px;
+}
+
+.full-width {
+  width: 100%;
 }
 </style>

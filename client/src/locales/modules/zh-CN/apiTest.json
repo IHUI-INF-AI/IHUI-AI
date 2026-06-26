@@ -17,11 +17,11 @@
     "testItem": "测试项",
     "status": "状态",
     "errorInfo": "错误信息",
-    "chatTest": "chatTest",
+    "chatTest": "对话 test",
     "compTest": "compTest",
     "genTest": "genTest",
-    "serviceTest": "serviceTest",
-    "testComplete": "testComplete",
-    "typeTest": "typeTest"
+    "serviceTest": "服务 test",
+    "testComplete": "test 完成",
+    "typeTest": "类型 test"
   }
 }

@@ -1,18 +1,18 @@
 {
   "userCenter": {
-    "clickToLogin": "clickToLogin",
+    "clickToLogin": "点击 到 登录",
     "copyWebsite": {
       "failed": "失败",
       "success": "成功"
     },
-    "defaultUsername": "defaultUsername",
+    "defaultUsername": "默认 username",
     "memberLevel": "会员等级",
-    "membershipBenefits": "membershipBenefits",
+    "membershipBenefits": "会员 benefits",
     "notLoggedIn": "未登录",
-    "openMembershipPrivilege": "openMembershipPrivilege",
+    "openMembershipPrivilege": "打开 会员 privilege",
     "recharge": "充值",
-    "regularMember": "regularMember",
-    "tokenBalance": "tokenBalance",
-    "vipMember": "vipMember"
+    "regularMember": "regular 会员",
+    "tokenBalance": "token 余额",
+    "vipMember": "VIP 会员"
   }
 }

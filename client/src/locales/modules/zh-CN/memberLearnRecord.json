@@ -2,8 +2,8 @@
   "memberLearnRecord": {
     "continuousDays": "continuousDays",
     "empty": "空",
-    "learnDays": "learnDays",
-    "learnMinutes": "learnMinutes",
+    "learnDays": "学习 days",
+    "learnMinutes": "学习 minutes",
     "title": "标题",
     "today": "今天"
   }

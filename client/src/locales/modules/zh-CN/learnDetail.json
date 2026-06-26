@@ -2,12 +2,12 @@
   "learnDetail": {
     "buyNow": "立即购买",
     "chapters": "章节",
-    "continueLearn": "continueLearn",
+    "continueLearn": "继续 学习",
     "favorite": "收藏",
     "favorited": "favorited",
     "learnCount": "学习数",
-    "learnNow": "learnNow",
-    "noChapters": "noChapters",
+    "learnNow": "学习 now",
+    "noChapters": "无 chapters",
     "notExist": "不存在",
     "reviews": "评论",
     "teacher": "教师"

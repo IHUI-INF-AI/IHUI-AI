@@ -1,9 +1,9 @@
 {
   "adminSettingCarousel": {
     "noImage": "暂无图片",
-    "noTitle": "noTitle",
+    "noTitle": "无 标题",
     "preview": "预览",
     "previewTitle": "预览",
-    "viewJumpPage": "viewJumpPage"
+    "viewJumpPage": "查看 jump 页面"
   }
 }

@@ -31,7 +31,7 @@
           <span class="number">{{ traderPrice }}</span>
         </div>
       </div>
-      <el-button type="primary" size="large" @click="handlePurchase" style="width: 100%">
+      <el-button type="primary" size="large" @click="handlePurchase" class="full-width">
         {{ t('vipTrader.purchase.button') }}
       </el-button>
     </div>
@@ -268,6 +268,10 @@ onMounted(() => {
 .symbol {
   font-size: 20px;
   color: var(--el-color-primary);
+}
+
+.full-width {
+  width: 100%;
 }
 
 .number {

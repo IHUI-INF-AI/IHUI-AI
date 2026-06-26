@@ -1,8 +1,8 @@
 {
   "learnTopic": {
     "breadcrumbCourse": "课程",
-    "breadcrumbTopic": "breadcrumbTopic",
+    "breadcrumbTopic": "breadcrumb 话题",
     "learnCount": "学习数",
-    "noTopics": "noTopics"
+    "noTopics": "无 topics"
   }
 }

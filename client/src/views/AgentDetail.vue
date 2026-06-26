@@ -2,7 +2,7 @@
   <div class="agent-detail-container page-container radius-auto">
     <el-dialog v-model="buyDialogVisible" :title="t('agentDetail.buyAgent')" width="480px">
       <div>
-        <div style="margin-bottom: 12px; color: var(--el-text-color-primary)">
+        <div class="payment-method-title">
           {{ t('agentDetail.selectPaymentMethod') }}
         </div>
         <el-radio-group v-model="paymentMethod">

@@ -5,10 +5,10 @@
     "copySuccess": "复制成功",
     "download": "下载",
     "noImage": "暂无图片",
-    "noImageToDownload": "noImageToDownload",
-    "noLinkToCopy": "noLinkToCopy",
-    "shareImage": "shareImage",
-    "shareMethod": "shareMethod",
+    "noImageToDownload": "无 图片 到 下载",
+    "noLinkToCopy": "无 链接 到 复制",
+    "shareImage": "分享 图片",
+    "shareMethod": "分享 方法",
     "title": "标题"
   }
 }

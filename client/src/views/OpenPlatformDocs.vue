@@ -191,7 +191,7 @@
         <div v-else class="empty-container">
           <el-empty :description="t('openPlatformDocs.selectDoc')">
             <template #image>
-              <el-icon :size="64" style="color: var(--el-text-color-placeholder)">
+              <el-icon :size="64" class="placeholder-icon">
                 <Document />
               </el-icon>
             </template>
@@ -1247,6 +1247,10 @@ const startResize = (e: MouseEvent) => {
   
   .docs-content {
     padding: 0;
+  }
+
+  .placeholder-icon {
+    color: var(--el-text-color-placeholder);
   }
 }
 </style>

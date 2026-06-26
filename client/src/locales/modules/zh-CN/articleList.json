@@ -3,15 +3,15 @@
     "anonymous": "匿名",
     "comment": "评论",
     "essence": "精华",
-    "essenceLabel": "essenceLabel",
+    "essenceLabel": "essence 标签",
     "featuredArticles": "精选文章",
     "hottest": "最热",
     "latest": "最新",
     "like": "点赞",
     "noArticle": "暂无文章",
-    "pageDesc": "pageDesc",
+    "pageDesc": "页面 描述",
     "read": "已读",
-    "searchArticle": "searchArticle",
+    "searchArticle": "搜索 文章",
     "top": "置顶"
   }
 }

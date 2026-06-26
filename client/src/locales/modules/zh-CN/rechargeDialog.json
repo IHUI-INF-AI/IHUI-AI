@@ -2,19 +2,19 @@
   "rechargeDialog": {
     "actions": "操作",
     "alipay": "支付宝",
-    "amountAriaLabel": "amountAriaLabel",
-    "amountLabel": "amountLabel",
+    "amountAriaLabel": "金额 aria 标签",
+    "amountLabel": "金额 标签",
     "amountRange": "金额范围",
     "bankCard": "银行卡",
     "openedA11y": "openedA11y",
     "payNow": "立即支付",
     "paymentMethod": "支付方式",
-    "presetsLabel": "presetsLabel",
+    "presetsLabel": "presets 标签",
     "processing": "处理中",
     "selectAmount": "选择金额",
-    "selectTip": "selectTip",
-    "txDescription": "txDescription",
-    "walletRecharge": "walletRecharge",
+    "selectTip": "选择 tip",
+    "txDescription": "tx 描述",
+    "walletRecharge": "钱包 充值",
     "wechat": "微信"
   }
 }

@@ -3,17 +3,17 @@
     "auto": "自动",
     "autoBackup": "autoBackup",
     "backupCreated": "backupCreated",
-    "backupDeleted": "backupDeleted",
+    "backupDeleted": "backup 已删除",
     "backupRestored": "backupRestored",
     "confirmDelete": "确认删除",
-    "createBackup": "createBackup",
+    "createBackup": "创建 backup",
     "delete": "删除",
-    "deleteWarning": "deleteWarning",
+    "deleteWarning": "删除 警告",
     "export": "导出",
     "exportSuccess": "导出成功",
     "import": "导入",
     "importFailed": "导入失败",
-    "importPlaceholder": "importPlaceholder",
+    "importPlaceholder": "导入 placeholder",
     "importSuccess": "导入成功",
     "interval": "间隔",
     "intervals": {
@@ -23,11 +23,11 @@
     },
     "manualBackup": "manualBackup",
     "maxBackups": "maxBackups",
-    "noBackups": "noBackups",
+    "noBackups": "无 backups",
     "restore": "恢复",
-    "restoreFailed": "restoreFailed",
-    "storageSize": "storageSize",
+    "restoreFailed": "restore 失败",
+    "storageSize": "storage 大小",
     "title": "标题",
-    "totalBackups": "totalBackups"
+    "totalBackups": "总计 backups"
   }
 }

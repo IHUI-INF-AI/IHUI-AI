@@ -11,7 +11,7 @@
             :show-file-list="false"
             :before-upload="handleBeforeUpload"
           >
-            <el-button size="small" style="margin-left: 16px">{{ t('memberPersonal.changeAvatar') }}</el-button>
+            <el-button size="small" class="change-avatar-btn">{{ t('memberPersonal.changeAvatar') }}</el-button>
           </el-upload>
         </el-form-item>
         <el-form-item :label="t('memberPersonal.nickName')">
@@ -120,5 +120,9 @@ onMounted(load)
 
 :where(.upload-avatar) {
   display: inline-block;
+}
+
+.change-avatar-btn {
+  margin-left: 16px;
 }
 </style>

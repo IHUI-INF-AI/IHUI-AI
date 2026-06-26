@@ -10,15 +10,15 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('agentCategory.configList') }}</span>
-          <div style="display: flex; gap: 10px">
+          <div class="card-header-actions">
             <el-input
               v-model="searchKeyword"
               :placeholder="t('agentCategory.searchPlaceholder')"
-              style="width: 240px"
+              class="search-input"
               clearable
               @input="debouncedLoadCategories"
             />
-            <el-select v-model="filterType" @change="loadCategories" style="width: 120px" clearable>
+            <el-select v-model="filterType" @change="loadCategories" class="filter-select" clearable>
               <el-option :label="t('agentCategory.allTypes')" value="" />
               <el-option :label="t('agentCategory.free')" value="1" />
               <el-option :label="t('agentCategory.limitFree')" value="2" />
@@ -52,7 +52,7 @@
             <span v-if="row.account"
               >¥{{ (row.account / 100).toFixed(2) }}/{{ t('agentCategory.pricePerMonth') }}</span
             >
-            <span v-else style="color: var(--el-text-color-placeholder)">-</span>
+            <span v-else class="text-placeholder">-</span>
           </template>
         </el-table-column>
         <el-table-column prop="create_name" :label="t('agentCategory.creator')" width="120" />
@@ -81,7 +81,7 @@
         layout="prev, pager, next, sizes, jumper, total"
         @size-change="loadCategories"
         @current-change="loadCategories"
-        style="margin-top: 20px"
+        class="pagination-top"
       />
     </el-card>
 
@@ -110,7 +110,7 @@
           />
         </el-form-item>
         <el-form-item :label="t('agentCategory.mainCategory')" prop="agent_main_category" required>
-          <el-select v-model="categoryForm.agent_main_category" style="width: 100%">
+          <el-select v-model="categoryForm.agent_main_category" class="full-width">
             <el-option :label="t('agentCategory.text')" value="1" />
             <el-option :label="t('agentCategory.image')" value="2" />
             <el-option :label="t('agentCategory.video')" value="3" />
@@ -133,7 +133,7 @@
             v-model="categoryForm.account"
             :min="0"
             :precision="0"
-            style="width: 100%"
+            class="full-width"
           />
         </el-form-item>
         <el-form-item
@@ -141,7 +141,7 @@
           :label="t('agentCategory.limitFreeDuration')"
           prop="limit_free"
         >
-          <el-select v-model="categoryForm.limit_free" style="width: 100%">
+          <el-select v-model="categoryForm.limit_free" class="full-width">
             <el-option :label="t('agentCategory.oneMonth')" value="1" />
             <el-option :label="t('agentCategory.threeMonths')" value="2" />
             <el-option :label="t('agentCategory.sixMonths')" value="3" />
@@ -507,6 +507,31 @@ onMounted(() => {
       justify-content: space-between;
       align-items: center;
     }
+  }
+
+  .card-header-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .search-input {
+    width: 240px;
+  }
+
+  .filter-select {
+    width: 120px;
+  }
+
+  .text-placeholder {
+    color: var(--el-text-color-placeholder);
+  }
+
+  .pagination-top {
+    margin-top: 20px;
+  }
+
+  .full-width {
+    width: 100%;
   }
 }
 </style>

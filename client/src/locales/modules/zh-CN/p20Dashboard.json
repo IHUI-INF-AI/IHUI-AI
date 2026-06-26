@@ -1,12 +1,12 @@
 {
   "p20Dashboard": {
-    "agentActivity": "agentActivity",
+    "agentActivity": "智能体 activity",
     "callCount": "调用次数",
-    "cardAgents": "cardAgents",
-    "cardOrders": "cardOrders",
-    "cardRevenue": "cardRevenue",
-    "cardUsers": "cardUsers",
-    "courseCategory": "courseCategory",
+    "cardAgents": "卡片 智能体",
+    "cardOrders": "卡片 订单",
+    "cardRevenue": "卡片 revenue",
+    "cardUsers": "卡片 用户",
+    "courseCategory": "课程 分类",
     "loadFailed": "加载失败",
     "orderStatus": "订单状态",
     "revenue": "revenue",

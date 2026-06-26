@@ -1,17 +1,17 @@
 {
   "statistics": {
     "behavior": {
-      "activeHours": "activeHours",
+      "activeHours": "已激活 hours",
       "activity": "activity",
-      "botId": "botId",
+      "botId": "bot 编号",
       "favoriteAgents": "收藏的智能体",
       "hour": "时",
-      "lastLoginTime": "lastLoginTime",
+      "lastLoginTime": "末 登录 时间",
       "loginDays": "登录天数",
       "messageCount": "消息数",
       "notLoggedIn": "未登录",
       "overview": "概览",
-      "totalLoginCount": "totalLoginCount",
+      "totalLoginCount": "总计 登录 数量",
       "totalTokens": "总 Tokens",
       "usageCount": "使用次数"
     },
@@ -29,17 +29,17 @@
     },
     "loadFailed": "加载失败",
     "orders": {
-      "amountInYuan": "amountInYuan",
-      "completedOrders": "completedOrders",
+      "amountInYuan": "金额 在 yuan",
+      "completedOrders": "已完成 订单",
       "orderAmount": "订单金额",
       "orderCount": "订单数",
       "overview": "概览",
-      "paidOrders": "paidOrders",
+      "paidOrders": "付费 订单",
       "totalAmount": "总金额",
       "totalOrders": "订单总数",
       "trends": "趋势"
     },
-    "selectTimeRange": "selectTimeRange",
+    "selectTimeRange": "选择 时间 range",
     "startDate": "开始日期",
     "tabs": {
       "agents": "智能体",
@@ -54,7 +54,7 @@
       "week": "周"
     },
     "usage": {
-      "chatSessions": "chatSessions",
+      "chatSessions": "对话 sessions",
       "messageCount": "消息数",
       "messages": "消息",
       "overview": "概览",
@@ -62,11 +62,11 @@
       "tokenUsage": "Token 用量",
       "tokens": "令牌",
       "trends": "趋势",
-      "uploadedFiles": "uploadedFiles"
+      "uploadedFiles": "uploaded 文件"
     }
   },
   "Statistics": {
     "zeroHour": "零点",
-    "zeroHour2": "zeroHour2"
+    "zeroHour2": "zero 时 2"
   }
 }

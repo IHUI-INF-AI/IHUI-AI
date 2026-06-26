@@ -1,5 +1,5 @@
 {
   "mcpMCPPromptManager": {
-    "invalidServerOrPrompt": "invalidServerOrPrompt"
+    "invalidServerOrPrompt": "格式不正确 服务器 或 提示词"
   }
 }

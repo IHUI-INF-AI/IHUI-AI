@@ -1,10 +1,10 @@
 {
   "errors": {
-    "aiCallFailed": "aiCallFailed",
-    "cannotLoadSwaggerDocs": "cannotLoadSwaggerDocs",
+    "aiCallFailed": "AI call 失败",
+    "cannotLoadSwaggerDocs": "cannot 加载 swagger docs",
     "loadDataFailed": "加载数据失败",
-    "navigateFail": "navigateFail",
-    "routeNotFound": "routeNotFound",
-    "userInfoEmpty": "userInfoEmpty"
+    "navigateFail": "navigate 不通过",
+    "routeNotFound": "路由 非 found",
+    "userInfoEmpty": "用户 信息 empty"
   }
 }

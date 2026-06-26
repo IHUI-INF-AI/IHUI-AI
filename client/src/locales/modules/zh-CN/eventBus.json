@@ -1,17 +1,17 @@
 {
   "eventBus": {
-    "activeSubs": "activeSubs",
+    "activeSubs": "已激活 subs",
     "clearAll": "全部清空",
-    "errorInfo": "errorInfo",
+    "errorInfo": "错误 信息",
     "errors": "errors",
-    "eventData": "eventData",
+    "eventData": "事件 数据",
     "history": "历史",
     "metadata": "metadata",
     "processed": "processed",
-    "sendEvent": "sendEvent",
+    "sendEvent": "发送 事件",
     "subManage": "subManage",
-    "testSend": "testSend",
+    "testSend": "test 发送",
     "totalEvents": "事件总数",
-    "typeDist": "typeDist"
+    "typeDist": "类型 dist"
   }
 }

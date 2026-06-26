@@ -1,7 +1,7 @@
 {
   "cmpPromptTemplates": {
-    "fillAllFields": "fillAllFields",
-    "templateAdded": "templateAdded",
-    "templateDeleted": "templateDeleted"
+    "fillAllFields": "fill 全部 fields",
+    "templateAdded": "模板 added",
+    "templateDeleted": "模板 已删除"
   }
 }

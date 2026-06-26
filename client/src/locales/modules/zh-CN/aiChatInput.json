@@ -1,10 +1,10 @@
 {
   "aiChatInput": {
-    "enterToSend": "enterToSend",
+    "enterToSend": "enter 到 发送",
     "inputPlaceholder": "请输入",
-    "messageStatsTotal": "messageStatsTotal",
+    "messageStatsTotal": "消息 stats 总计",
     "openChat": "打开对话",
-    "pleaseEnterContentOrUploadFile": "pleaseEnterContentOrUploadFile",
+    "pleaseEnterContentOrUploadFile": "please enter 内容 或 上传 文件",
     "selectModel": "选择模型",
     "send": "发送",
     "uploadFile": "上传文件",

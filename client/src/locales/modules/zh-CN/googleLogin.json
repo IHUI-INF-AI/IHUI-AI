@@ -1,7 +1,7 @@
 {
   "googleLogin": {
     "failed": "失败",
-    "handleFailed": "handleFailed",
+    "handleFailed": "handle 失败",
     "retry": "重试",
     "verifyFailed": "验证失败"
   }

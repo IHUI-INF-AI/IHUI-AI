@@ -184,6 +184,13 @@ const loadApps = async () => {
   }
 }
 
+const resetForm = () => {
+  appForm.app_name = ''
+  appForm.app_description = ''
+  appForm.redirect_uris_text = ''
+  appForm.scopes = ['read', 'write']
+}
+
 const handleCreate = async () => {
   if (!appFormRef.value) return
   await appFormRef.value.validate(async (valid: boolean) => {
@@ -238,17 +245,6 @@ const handleCommand = async ({ action, app }: { action: string; app: OAuthApp })
       }
     }
   }
-
-  .tag-spacing {
-    margin-right: 8px;
-  }
-}
-
-const resetForm = () => {
-  appForm.app_name = ''
-  appForm.app_description = ''
-  appForm.redirect_uris_text = ''
-  appForm.scopes = ['read', 'write']
 }
 
 onMounted(() => {
@@ -352,5 +348,9 @@ onMounted(() => {
       color: var(--el-text-color-secondary);
     }
   }
+}
+
+.tag-spacing {
+  margin-right: 8px;
 }
 </style>

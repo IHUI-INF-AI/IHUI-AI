@@ -1,18 +1,18 @@
 {
   "fileUpload": {
-    "clearFiles": "clearFiles",
-    "imageSizeExceeded": "imageSizeExceeded",
+    "clearFiles": "清空 文件",
+    "imageSizeExceeded": "图片 大小 exceeded",
     "maxFilesReached": "已达文件上限",
     "networkError": "网络错误",
     "selectImage": "选择图片",
     "selectVideo": "选择视频",
-    "sizeExceeded": "sizeExceeded",
-    "supportAllSize": "supportAllSize",
-    "supportFormat": "supportFormat",
+    "sizeExceeded": "大小 exceeded",
+    "supportAllSize": "技术支持 全部 大小",
+    "supportFormat": "技术支持 format",
     "unsupportedType": "不支持的类型",
     "uploadFailed": "上传失败",
     "uploadSuccess": "上传成功",
     "uploading": "上传中",
-    "videoSizeExceeded": "videoSizeExceeded"
+    "videoSizeExceeded": "视频 大小 exceeded"
   }
 }

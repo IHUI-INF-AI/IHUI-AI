@@ -1,6 +1,6 @@
 {
   "mcpComposable": {
-    "batchDone": "batchDone",
+    "batchDone": "batch 已完成",
     "calling": "calling",
     "error": "错误",
     "failed": "失败",

@@ -89,7 +89,7 @@
         <div class="card-header">
           <span>t('eventBus.history')</span>
           <div>
-            <ElSelect v-model="filterType" :placeholder="t('adminCommon.placeholder.filterType')" clearable style="width: 150px; margin-right: 10px">
+            <ElSelect v-model="filterType" :placeholder="t('adminCommon.placeholder.filterType')" clearable class="filter-select">
               <ElOption :label="t('adminCommon.label.all')" value="" />
               <ElOption v-for="type in eventTypes" :key="type" :label="type" :value="type" />
             </ElSelect>
@@ -157,15 +157,15 @@
       </template>
       <ElForm :model="testForm" inline>
         <ElFormItem :label="t('adminCommon.label.eventType')">
-          <ElSelect v-model="testForm.type" style="width: 180px">
+          <ElSelect v-model="testForm.type" class="test-type-select">
             <ElOption v-for="type in eventTypes" :key="type" :label="type" :value="type" />
           </ElSelect>
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.tourId')">
-          <ElInput v-model="testForm.tourId" :placeholder="t('adminCommon.placeholder.optional')" style="width: 150px" />
+          <ElInput v-model="testForm.tourId" :placeholder="t('adminCommon.placeholder.optional')" class="test-input" />
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.stepId')">
-          <ElInput v-model="testForm.stepId" :placeholder="t('adminCommon.placeholder.optional')" style="width: 150px" />
+          <ElInput v-model="testForm.stepId" :placeholder="t('adminCommon.placeholder.optional')" class="test-input" />
         </ElFormItem>
         <ElFormItem>
           <ElButton type="primary" @click="sendTestEvent">{{ t('eventBus.sendEvent') }}</ElButton>
@@ -459,5 +459,18 @@ onMounted(async () => {
 
 .error-item {
   margin-bottom: 10px;
+}
+
+.filter-select {
+  width: 150px;
+  margin-right: 10px;
+}
+
+.test-type-select {
+  width: 180px;
+}
+
+.test-input {
+  width: 150px;
 }
 </style>

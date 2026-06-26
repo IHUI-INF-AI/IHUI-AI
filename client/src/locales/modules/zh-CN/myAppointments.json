@@ -4,12 +4,12 @@
     "cancelFailed": "取消失败",
     "cancelSuccess": "取消成功",
     "confirmCancel": "确认取消",
-    "confirmCancelTitle": "confirmCancelTitle",
+    "confirmCancelTitle": "确认 取消 标题",
     "detail": {
-      "adminNotes": "adminNotes",
+      "adminNotes": "管理员 notes",
       "cancelledAt": "取消时间",
       "completedAt": "完成时间",
-      "confirmedAt": "confirmedAt",
+      "confirmedAt": "confirmed 在",
       "createdAt": "创建时间",
       "description": "描述",
       "email": "邮箱",
@@ -22,12 +22,12 @@
     },
     "detailTitle": "详情",
     "filter": {
-      "allServices": "allServices",
+      "allServices": "全部 services",
       "allStatus": "全部状态",
       "serviceType": "服务类型",
       "status": "状态"
     },
-    "noAppointments": "noAppointments",
+    "noAppointments": "无 appointments",
     "status": {
       "cancelled": "已取消",
       "completed": "已完成",

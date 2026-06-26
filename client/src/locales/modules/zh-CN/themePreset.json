@@ -16,7 +16,7 @@
     "name": "名称",
     "nameRequired": "请输入名称",
     "reset": "重置",
-    "resetConfirm": "resetConfirm",
+    "resetConfirm": "重置 确认",
     "resetSuccess": "重置成功",
     "title": "标题",
     "updated": "updated"

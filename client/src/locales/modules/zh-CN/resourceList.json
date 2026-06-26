@@ -5,16 +5,16 @@
     "free": "免费",
     "points": "积分",
     "searchPlaceholder": "请输入搜索内容",
-    "sortDownload": "sortDownload",
-    "sortHot": "sortHot",
-    "sortNew": "sortNew",
+    "sortDownload": "排序 下载",
+    "sortHot": "排序 热门",
+    "sortNew": "排序 新",
     "title": "标题",
     "top": "置顶",
-    "typeArchive": "typeArchive",
-    "typeAudio": "typeAudio",
-    "typeDoc": "typeDoc",
-    "typeImage": "typeImage",
-    "typePlaceholder": "typePlaceholder",
-    "typeVideo": "typeVideo"
+    "typeArchive": "类型 archive",
+    "typeAudio": "类型 音频",
+    "typeDoc": "类型 doc",
+    "typeImage": "类型 图片",
+    "typePlaceholder": "类型 placeholder",
+    "typeVideo": "类型 视频"
   }
 }

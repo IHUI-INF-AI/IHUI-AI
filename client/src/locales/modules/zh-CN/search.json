@@ -18,19 +18,19 @@
     "keywordPlaceholder": "请输入关键词",
     "operator": {
       "contains": "contains",
-      "endsWith": "endsWith",
+      "endsWith": "ends 与",
       "equals": "equals",
-      "startsWith": "startsWith"
+      "startsWith": "starts 与"
     },
-    "presetName": "presetName",
+    "presetName": "preset 名称",
     "presets": "预设",
     "reset": "重置",
-    "savePreset": "savePreset",
+    "savePreset": "保存 preset",
     "search": "搜索",
-    "selectField": "selectField",
-    "selectOperator": "selectOperator",
-    "selectPreset": "selectPreset",
-    "valuePlaceholder": "valuePlaceholder"
+    "selectField": "选择 字段",
+    "selectOperator": "选择 操作员",
+    "selectPreset": "选择 preset",
+    "valuePlaceholder": "值 placeholder"
   },
   "searchPage": {
     "hotSearch": "热门搜索",

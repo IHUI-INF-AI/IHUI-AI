@@ -9,8 +9,8 @@
           "experience": "经验"
         },
         "superEmployee": "superEmployee",
-        "superProduct": "superProduct",
-        "superTeam": "superTeam",
+        "superProduct": "super 产品",
+        "superTeam": "super 团队",
         "title": "标题"
       },
       "description": "描述",
@@ -53,7 +53,7 @@
     },
     "badge": "徽章",
     "badgeNew": "新",
-    "communityLabel": "communityLabel",
+    "communityLabel": "community 标签",
     "compass": {
       "axes": {
         "autonomy": {
@@ -69,9 +69,9 @@
       "description": "描述",
       "title": "标题"
     },
-    "coreService": "coreService",
+    "coreService": "core 服务",
     "courseDuration": {
-      "oneLesson": "oneLesson",
+      "oneLesson": "one 课时",
       "series": "系列"
     },
     "courses": {
@@ -103,24 +103,24 @@
     "join": {
       "benefits": {
         "aiAssistant": "AI 助手",
-        "allCourses": "allCourses",
+        "allCourses": "全部 课程",
         "exploration": "exploration",
         "mutualAid": "mutualAid",
-        "onlineCommunity": "onlineCommunity",
+        "onlineCommunity": "在线 community",
         "refund": "退款",
         "title": "标题"
       },
       "cta": "行动召唤",
-      "currentPrice": "currentPrice",
+      "currentPrice": "当前 价格",
       "description": "描述",
       "earlyBird": "earlyBird",
       "hint": "提示",
-      "originalPrice": "originalPrice",
-      "perYear": "perYear",
+      "originalPrice": "original 价格",
+      "perYear": "per 年",
       "seatsNote": "seatsNote",
       "title": "标题"
     },
-    "jumpToSection": "jumpToSection",
+    "jumpToSection": "jump 到 section",
     "layers": {
       "layer01": "layer01",
       "layer02": "layer02",
@@ -136,9 +136,9 @@
         "description": "描述",
         "title": "标题"
       },
-      "module01": "module01",
-      "module02": "module02",
-      "module03": "module03",
+      "module01": "模块 01",
+      "module02": "模块 02",
+      "module03": "模块 03",
       "onlineCommunity": {
         "description": "描述",
         "title": "标题"
@@ -153,22 +153,22 @@
       "description": "描述",
       "title": "标题"
     },
-    "scrollProgress": "scrollProgress",
-    "sectionNavigation": "sectionNavigation",
+    "scrollProgress": "滚动 progress",
+    "sectionNavigation": "section 导航",
     "sections": {
-      "agentCompass": "agentCompass",
+      "agentCompass": "智能体 compass",
       "architecture": "architecture",
-      "courseSystem": "courseSystem",
+      "courseSystem": "课程 system",
       "joinUs": "加入我们",
       "positioning": "positioning",
-      "serviceModules": "serviceModules",
-      "toolsOverview": "toolsOverview"
+      "serviceModules": "服务 modules",
+      "toolsOverview": "工具 overview"
     },
-    "skipToMain": "skipToMain",
+    "skipToMain": "skip 到 main",
     "stats": {
-      "earlyBirdLabel": "earlyBirdLabel",
-      "priceLabel": "priceLabel",
-      "seatsLabel": "seatsLabel"
+      "earlyBirdLabel": "early bird 标签",
+      "priceLabel": "价格 标签",
+      "seatsLabel": "seats 标签"
     },
     "tools": {
       "description": "描述",
@@ -205,6 +205,6 @@
     }
   },
   "EnterpriseService": {
-    "enterpriseDesc": "enterpriseDesc"
+    "enterpriseDesc": "企业 描述"
   }
 }

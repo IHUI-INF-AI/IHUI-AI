@@ -44,14 +44,14 @@
       "viewDetails": "查看详情"
     },
     "privacy": {
-      "allowSearch": "allowSearch",
-      "allowSearchDesc": "allowSearchDesc",
-      "publicProfile": "publicProfile",
-      "publicProfileDesc": "publicProfileDesc",
-      "receiveMessages": "receiveMessages",
-      "receiveMessagesDesc": "receiveMessagesDesc",
-      "showOnlineStatus": "showOnlineStatus",
-      "showOnlineStatusDesc": "showOnlineStatusDesc",
+      "allowSearch": "allow 搜索",
+      "allowSearchDesc": "allow 搜索 描述",
+      "publicProfile": "公开 资料",
+      "publicProfileDesc": "公开 资料 描述",
+      "receiveMessages": "接收 messages",
+      "receiveMessagesDesc": "接收 messages 描述",
+      "showOnlineStatus": "显示 在线 状态",
+      "showOnlineStatusDesc": "显示 在线 状态 描述",
       "title": "标题"
     },
     "profile": {
@@ -62,7 +62,7 @@
       "registerTime": "注册时间"
     },
     "purchaseRecords": {
-      "applyInvoice": "applyInvoice",
+      "applyInvoice": "应用 发票",
       "empty": "空",
       "orderNo": "订单号",
       "status": {
@@ -80,30 +80,30 @@
       "view": "查看"
     },
     "security": {
-      "emailBinding": "emailBinding",
-      "loginPassword": "loginPassword",
-      "loginPasswordDesc": "loginPasswordDesc",
+      "emailBinding": "邮箱 binding",
+      "loginPassword": "登录 密码",
+      "loginPasswordDesc": "登录 密码 描述",
       "modify": "修改",
-      "phoneBinding": "phoneBinding",
+      "phoneBinding": "手机 binding",
       "title": "标题"
     },
     "settings": {
       "language": "语言",
-      "languageDesc": "languageDesc",
+      "languageDesc": "语言 描述",
       "notifications": "通知",
-      "notificationsDesc": "notificationsDesc",
+      "notificationsDesc": "notifications 描述",
       "soundEffects": "soundEffects",
-      "soundEffectsDesc": "soundEffectsDesc",
+      "soundEffectsDesc": "sound effects 描述",
       "theme": "主题",
-      "themeDesc": "themeDesc",
+      "themeDesc": "主题 描述",
       "title": "标题"
     },
     "statistics": {
-      "chartDeveloping": "chartDeveloping",
+      "chartDeveloping": "图表 developing",
       "favorites": "收藏",
       "orders": "订单",
       "title": "标题",
-      "totalSpent": "totalSpent",
+      "totalSpent": "总计 spent",
       "totalViews": "总浏览",
       "usageTrend": "usageTrend"
     },

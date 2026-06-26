@@ -1,17 +1,17 @@
 {
   "devPayCard": {
     "discount": "折扣",
-    "discount50": "discount50",
-    "discount70": "discount70",
-    "discount80": "discount80",
+    "discount50": "折扣 50",
+    "discount70": "折扣 70",
+    "discount80": "折扣 80",
     "month": "月",
-    "noDiscount": "noDiscount",
+    "noDiscount": "无 折扣",
     "orderTime": "下单时间",
     "pending": "待处理",
     "permanent": "永久",
     "price": "价格",
     "purchased": "已购买",
-    "relatedOrderNo": "relatedOrderNo",
+    "relatedOrderNo": "related 订单 无",
     "settled": "已结算",
     "year": "年"
   }

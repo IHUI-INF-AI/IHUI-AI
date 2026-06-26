@@ -1,6 +1,6 @@
 {
   "n8nAgents": {
-    "createN8NAgent": "createN8NAgent",
+    "createN8NAgent": "创建 n8n 智能体",
     "noAgents": "暂无智能体",
     "subtitle": "副标题",
     "title": "标题"

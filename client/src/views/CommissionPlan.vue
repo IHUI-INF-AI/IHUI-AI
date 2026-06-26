@@ -109,7 +109,7 @@
     </div>
 
     <div class="action-section radius-auto">
-      <el-button type="primary" size="large" @click="goToVip" style="width: 100%">
+      <el-button type="primary" size="large" @click="goToVip" class="full-width">
         {{ t('commissionPlan.joinVip') }}
       </el-button>
     </div>
@@ -303,6 +303,10 @@ onMounted(() => {
     color: var(--el-text-color-secondary);
     margin: 0;
     line-height: 1.6;
+  }
+
+  .full-width {
+    width: 100%;
   }
 }
 </style>

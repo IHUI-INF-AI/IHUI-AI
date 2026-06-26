@@ -1,8 +1,8 @@
 {
   "headerNav": {
-    "moreFeaturesClearFlag": "moreFeaturesClearFlag",
+    "moreFeaturesClearFlag": "more features 清空 flag",
     "moreFeaturesMouseDown": "moreFeaturesMouseDown",
-    "moreFeaturesToggle": "moreFeaturesToggle",
-    "moreMenuSwitch": "moreMenuSwitch"
+    "moreFeaturesToggle": "more features 切换",
+    "moreMenuSwitch": "more 菜单 切换"
   }
 }

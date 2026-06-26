@@ -96,10 +96,10 @@
       "title": "标题",
       "vars": {
         "buildPlatform": "buildPlatform",
-        "viteApiBaseUrl": "viteApiBaseUrl",
-        "viteAppTitle": "viteAppTitle",
-        "viteCspReportUri": "viteCspReportUri",
-        "viteEnableMonitor": "viteEnableMonitor",
+        "viteApiBaseUrl": "vite API base 链接",
+        "viteAppTitle": "vite app 标题",
+        "viteCspReportUri": "vite csp 报表 uri",
+        "viteEnableMonitor": "vite 启用 monitor",
         "viteSentryDsn": "viteSentryDsn",
         "viteUseVize": "viteUseVize"
       },
@@ -158,7 +158,7 @@
         "ai": {
           "desc": "描述",
           "endpoints": {
-            "agentsCreate": "agentsCreate",
+            "agentsCreate": "智能体 创建",
             "chat": "对话",
             "generate": "生成",
             "models": "模型"
@@ -180,10 +180,10 @@
           "desc": "描述",
           "endpoints": {
             "aliPay": "支付宝",
-            "aliPayNotify": "aliPayNotify",
-            "aliPaySuccess": "aliPaySuccess",
-            "orderCreate": "orderCreate",
-            "wxPay": "wxPay"
+            "aliPayNotify": "ali 支付 notify",
+            "aliPaySuccess": "ali 支付 成功",
+            "orderCreate": "订单 创建",
+            "wxPay": "wx 支付"
           },
           "title": "标题"
         },
@@ -191,9 +191,9 @@
           "desc": "描述",
           "endpoints": {
             "orders": "订单",
-            "profileGet": "profileGet",
+            "profileGet": "资料 获取",
             "profileUpdate": "资料更新",
-            "vipLevels": "vipLevels"
+            "vipLevels": "VIP levels"
           },
           "title": "标题"
         }
@@ -204,10 +204,10 @@
     },
     "overview": {
       "description": "描述",
-      "descriptionValue": "descriptionValue",
+      "descriptionValue": "描述 值",
       "license": "许可证",
       "node": "节点",
-      "projectName": "projectName",
+      "projectName": "项目 名称",
       "title": "标题",
       "version": "版本"
     },

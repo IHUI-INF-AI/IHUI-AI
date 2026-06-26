@@ -1,6 +1,6 @@
 {
   "adminDependencyManager": {
-    "confirmDeleteConfig": "confirmDeleteConfig",
+    "confirmDeleteConfig": "确认 删除 配置",
     "enterTourId": "请输入旅游 ID",
     "newConfig": "新建配置"
   }

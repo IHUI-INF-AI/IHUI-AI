@@ -12,20 +12,20 @@
       "warning": "警告"
     },
     "data": {
-      "columnCategory": "columnCategory",
-      "columnName": "columnName",
-      "columnStatus": "columnStatus",
+      "columnCategory": "列 分类",
+      "columnName": "列 名称",
+      "columnStatus": "列 状态",
       "title": "标题"
     },
     "feedback": {
-      "errorAlert": "errorAlert",
-      "successAlert": "successAlert",
-      "tagDanger": "tagDanger",
-      "tagInfo": "tagInfo",
-      "tagSuccess": "tagSuccess",
-      "tagWarning": "tagWarning",
+      "errorAlert": "错误 警告",
+      "successAlert": "成功 警告",
+      "tagDanger": "标签 危险",
+      "tagInfo": "标签 信息",
+      "tagSuccess": "标签 成功",
+      "tagWarning": "标签 警告",
       "title": "标题",
-      "warningAlert": "warningAlert"
+      "warningAlert": "警告 警告"
     },
     "forms": {
       "ai": "AI",
@@ -36,9 +36,9 @@
       "input": "输入",
       "inputPlaceholder": "请输入",
       "male": "男",
-      "optionA": "optionA",
-      "optionB": "optionB",
-      "optionC": "optionC",
+      "optionA": "选项 a",
+      "optionB": "选项 b",
+      "optionC": "选项 c",
       "radio": "单选",
       "react": "React",
       "select": "选择",
@@ -49,13 +49,13 @@
       "vue": "Vue"
     },
     "navigation": {
-      "breadcrumbCurrent": "breadcrumbCurrent",
+      "breadcrumbCurrent": "breadcrumb 当前",
       "breadcrumbDocs": "breadcrumbDocs",
       "breadcrumbHome": "breadcrumbHome",
-      "menuAbout": "menuAbout",
-      "menuAgents": "menuAgents",
-      "menuDocs": "menuDocs",
-      "menuHome": "menuHome",
+      "menuAbout": "菜单 关于",
+      "menuAgents": "菜单 智能体",
+      "menuDocs": "菜单 docs",
+      "menuHome": "菜单 home",
       "next": "下一步",
       "prev": "上一步",
       "step1": "第 1 步",

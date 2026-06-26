@@ -1,11 +1,11 @@
 {
   "vipPopup": {
-    "activateNow": "activateNow",
-    "agreeRecharge": "agreeRecharge",
+    "activateNow": "激活 now",
+    "agreeRecharge": "agree 充值",
     "continuous": "continuous",
     "monthly": "每月",
-    "noProduct": "noProduct",
+    "noProduct": "无 产品",
     "paySuccess": "支付成功",
-    "productInfoError": "productInfoError"
+    "productInfoError": "产品 信息 错误"
   }
 }

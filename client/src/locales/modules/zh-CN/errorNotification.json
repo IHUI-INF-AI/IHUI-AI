@@ -1,10 +1,10 @@
 {
   "errorNotification": {
-    "closeAria": "closeAria",
+    "closeAria": "关闭 aria",
     "details": "详情",
     "errorCode": "错误码",
-    "hideDetails": "hideDetails",
+    "hideDetails": "隐藏 details",
     "recovery": "recovery",
-    "showDetails": "showDetails"
+    "showDetails": "显示 details"
   }
 }

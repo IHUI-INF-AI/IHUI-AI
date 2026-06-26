@@ -3,8 +3,8 @@
     "admin": "管理员",
     "delete": "删除",
     "edit": "编辑",
-    "fileNotExist": "fileNotExist",
+    "fileNotExist": "文件 非 exist",
     "menu": "菜单",
-    "metaDescription": "metaDescription"
+    "metaDescription": "meta 描述"
   }
 }

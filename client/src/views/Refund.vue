@@ -44,8 +44,7 @@
             :precision="2"
             :step="0.01"
             :placeholder="t('refund.refundAmountPlaceholder')"
-            class="amount-input"
-            style="width: 100%"
+            class="amount-input full-width"
           >
             <template #prefix>¥</template>
           </el-input-number>
@@ -60,11 +59,10 @@
           <el-select
             v-model="refundForm.reason"
             :placeholder="t('refund.reasonPlaceholder')"
-            class="reason-select"
+            class="reason-select full-width"
             filterable
             allow-create
             default-first-option
-            style="width: 100%"
           >
             <el-option
               v-for="reason in refundReasons"
@@ -94,11 +92,11 @@
             size="large"
             :loading="submitting"
             @click="handleSubmit"
-            style="width: 200px"
+            class="submit-btn"
           >
             {{ submitting ? (t('refund.submitting')) : (t('refund.submit')) }}
           </el-button>
-          <el-button size="large" @click="handleCancel" style="margin-left: 12px">
+          <el-button size="large" @click="handleCancel" class="cancel-btn">
             {{ t('common.cancel') }}
           </el-button>
         </el-form-item>
@@ -345,6 +343,18 @@ onMounted(() => {
         font-size: 16px;
       }
     }
+  }
+
+  .full-width {
+    width: 100%;
+  }
+
+  .submit-btn {
+    width: 200px;
+  }
+
+  .cancel-btn {
+    margin-left: 12px;
   }
 }
 

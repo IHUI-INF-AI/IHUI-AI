@@ -147,13 +147,13 @@
       "benefit7Two": "benefit7Two",
       "benefit8Title": "benefit8Title",
       "benefit9Title": "benefit9Title",
-      "benefitName": "benefitName",
+      "benefitName": "benefit 名称",
       "normalUser": "普通用户",
       "trader": "trader",
-      "traderPrice": "traderPrice",
+      "traderPrice": "trader 价格",
       "upgrade": "升级",
       "vip": "VIP",
-      "vipPrice": "vipPrice"
+      "vipPrice": "VIP 价格"
     }
   },
   "vipLevelPopup": {
@@ -171,7 +171,7 @@
     "level0Desc": "等级 0 描述"
   },
   "Vip": {
-    "oneClickVip": "oneClickVip",
-    "permanentVip": "permanentVip"
+    "oneClickVip": "one 点击 VIP",
+    "permanentVip": "permanent VIP"
   }
 }

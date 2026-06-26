@@ -3,3 +3,8 @@
 // 说明：当前组件样式以 AgentDetail.vue 内 scoped style 为准
 // 本文件为占位文件，避免 @use 引用编译错误
 // =============================================================================
+
+.payment-method-title {
+  margin-bottom: 12px;
+  color: var(--el-text-color-primary);
+}

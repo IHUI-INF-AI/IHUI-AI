@@ -1308,7 +1308,7 @@
     "print": "Print",
     "loadMore": "负载更多",
     "hide": "隐藏",
-    "clickToClose": "clickToClose"
+    "clickToClose": "点击 到 关闭"
   },
   "navigation": {
     "aiStore": "AI应用商店",
@@ -1496,8 +1496,8 @@
     "googleLogin": "Google登录",
     "appleLogin": "Apple登录",
     "feishuLogin": "飞书登录",
-  "dingtalkLogin": "钉钉登录",
-  "wecomLogin": "企业微信登录",
+    "dingtalkLogin": "钉钉登录",
+    "wecomLogin": "企业微信登录",
     "missingAccount": "账号",
     "missingPassword": "密码",
     "missingServiceAgreement": "服务协议",
@@ -1918,11 +1918,7 @@
     "fileManager": "文件管理",
     "permissionManager": "权限管理",
     "auditLog": "审计日志",
-    "thirdPartyLogin": "第三方登录",
-    "aboutUs": "关于我们",
-    "becomeSupplier": "成为供应商",
-    "documentCenter": "文档中心",
-    "newsCenter": "新闻中心"
+    "thirdPartyLogin": "第三方登录"
   },
   "promptOptimizer": {
     "models": {
@@ -1934,51 +1930,171 @@
       "default": "通用"
     },
     "qualityKeywords": {
-      "qwen-image": ["高清", "4K", "精美", "细腻", "精致", "超高清"],
-      "doubao-image": ["高质量", "精细", "清晰", "细节丰富"],
-      "jimeng-image": ["超清", "8K", "专业摄影", "大师作品"],
-      "kling-video": ["高清", "流畅", "稳定", "专业"],
-      "qwen-video": ["高清", "清晰", "自然", "连贯"],
-      "default": ["高质量", "精美", "专业"]
+      "qwen-image": [
+        "高清",
+        "4K",
+        "精美",
+        "细腻",
+        "精致",
+        "超高清"
+      ],
+      "doubao-image": [
+        "高质量",
+        "精细",
+        "清晰",
+        "细节丰富"
+      ],
+      "jimeng-image": [
+        "超清",
+        "8K",
+        "专业摄影",
+        "大师作品"
+      ],
+      "kling-video": [
+        "高清",
+        "流畅",
+        "稳定",
+        "专业"
+      ],
+      "qwen-video": [
+        "高清",
+        "清晰",
+        "自然",
+        "连贯"
+      ],
+      "default": [
+        "高质量",
+        "精美",
+        "专业"
+      ]
     },
     "styleKeywords": {
       "qwen-image": {
-        "realistic": ["写实", "照片级", "真实感", "逼真"],
-        "anime": ["动漫风格", "二次元", "日系", "插画风"],
-        "artistic": ["艺术风格", "油画", "水彩", "国画"],
-        "3d": ["3D渲染", "三维", "C4D风格", "立体"]
+        "realistic": [
+          "写实",
+          "照片级",
+          "真实感",
+          "逼真"
+        ],
+        "anime": [
+          "动漫风格",
+          "二次元",
+          "日系",
+          "插画风"
+        ],
+        "artistic": [
+          "艺术风格",
+          "油画",
+          "水彩",
+          "国画"
+        ],
+        "3d": [
+          "3D渲染",
+          "三维",
+          "C4D风格",
+          "立体"
+        ]
       },
       "doubao-image": {
-        "realistic": ["真实", "写实", "照片"],
-        "anime": ["动漫", "插画", "二次元"],
-        "artistic": ["艺术", "绘画", "创意"]
+        "realistic": [
+          "真实",
+          "写实",
+          "照片"
+        ],
+        "anime": [
+          "动漫",
+          "插画",
+          "二次元"
+        ],
+        "artistic": [
+          "艺术",
+          "绘画",
+          "创意"
+        ]
       },
       "jimeng-image": {
-        "realistic": ["超写实", "照片级真实", "摄影作品"],
-        "anime": ["精美插画", "动漫CG", "概念艺术"],
-        "cinematic": ["电影感", "史诗级", "大片质感"]
+        "realistic": [
+          "超写实",
+          "照片级真实",
+          "摄影作品"
+        ],
+        "anime": [
+          "精美插画",
+          "动漫CG",
+          "概念艺术"
+        ],
+        "cinematic": [
+          "电影感",
+          "史诗级",
+          "大片质感"
+        ]
       },
       "kling-video": {
-        "cinematic": ["电影感", "电影级", "大片质感"],
-        "smooth": ["流畅", "丝滑", "平滑"],
-        "dynamic": ["动感", "活力", "运动感"]
+        "cinematic": [
+          "电影感",
+          "电影级",
+          "大片质感"
+        ],
+        "smooth": [
+          "流畅",
+          "丝滑",
+          "平滑"
+        ],
+        "dynamic": [
+          "动感",
+          "活力",
+          "运动感"
+        ]
       },
       "qwen-video": {
-        "realistic": ["真实", "自然", "纪实"],
-        "creative": ["创意", "艺术", "想象"]
+        "realistic": [
+          "真实",
+          "自然",
+          "纪实"
+        ],
+        "creative": [
+          "创意",
+          "艺术",
+          "想象"
+        ]
       },
       "default": {
-        "realistic": ["写实", "真实"],
-        "artistic": ["艺术", "创意"]
+        "realistic": [
+          "写实",
+          "真实"
+        ],
+        "artistic": [
+          "艺术",
+          "创意"
+        ]
       }
     },
     "tips": {
-      "qwen-image": ["使用中文描述效果更好", "建议包含主体、场景、风格三要素", "可以使用逗号分隔多个描述"],
-      "doubao-image": ["简洁清晰的描述效果最佳", "避免过于复杂的指令"],
-      "jimeng-image": ["支持更复杂的场景描述", "可以添加光线、构图等专业术语"],
-      "kling-video": ["视频提示词应简洁明了", "重点描述动作和变化", "避免静态描述"],
-      "qwen-video": ["描述运动过程和变化", "包含时间线索（开始、发展、结束）"],
-      "default": ["清晰描述主体和场景"]
+      "qwen-image": [
+        "使用中文描述效果更好",
+        "建议包含主体、场景、风格三要素",
+        "可以使用逗号分隔多个描述"
+      ],
+      "doubao-image": [
+        "简洁清晰的描述效果最佳",
+        "避免过于复杂的指令"
+      ],
+      "jimeng-image": [
+        "支持更复杂的场景描述",
+        "可以添加光线、构图等专业术语"
+      ],
+      "kling-video": [
+        "视频提示词应简洁明了",
+        "重点描述动作和变化",
+        "避免静态描述"
+      ],
+      "qwen-video": [
+        "描述运动过程和变化",
+        "包含时间线索（开始、发展、结束）"
+      ],
+      "default": [
+        "清晰描述主体和场景"
+      ]
     },
     "analysis": {
       "promptTooShort": "提示词过短，缺少必要的描述",
@@ -2012,11 +2128,54 @@
       "styleSuffix": "风格"
     },
     "negativePrompt": {
-      "common": ["模糊", "低质量", "变形", "畸形", "水印", "文字", "blurry", "low quality", "deformed", "distorted", "watermark", "text"],
-      "image": ["噪点", "过曝", "欠曝", "切边", "多余肢体", "noise", "overexposed", "underexposed", "cropped", "extra limbs"],
-      "video": ["卡顿", "闪烁", "跳帧", "不连贯", "stuttering", "flickering", "frame skip", "inconsistent"],
-      "realistic": ["卡通", "cartoon", "动漫", "anime"],
-      "anime": ["写实", "realistic", "照片", "photo"]
+      "common": [
+        "模糊",
+        "低质量",
+        "变形",
+        "畸形",
+        "水印",
+        "文字",
+        "blurry",
+        "low quality",
+        "deformed",
+        "distorted",
+        "watermark",
+        "text"
+      ],
+      "image": [
+        "噪点",
+        "过曝",
+        "欠曝",
+        "切边",
+        "多余肢体",
+        "noise",
+        "overexposed",
+        "underexposed",
+        "cropped",
+        "extra limbs"
+      ],
+      "video": [
+        "卡顿",
+        "闪烁",
+        "跳帧",
+        "不连贯",
+        "stuttering",
+        "flickering",
+        "frame skip",
+        "inconsistent"
+      ],
+      "realistic": [
+        "卡通",
+        "cartoon",
+        "动漫",
+        "anime"
+      ],
+      "anime": [
+        "写实",
+        "realistic",
+        "照片",
+        "photo"
+      ]
     }
   },
   "lang": "zh-CN"

@@ -27,7 +27,7 @@
               <el-input v-model="phoneForm.phone" />
             </el-form-item>
             <el-form-item :label="t('memberSetting.verifyCode')">
-              <el-input v-model="phoneForm.code" style="max-width: 200px" />
+              <el-input v-model="phoneForm.code" class="code-input" />
               <el-button @click="sendPhoneCode">{{ t('memberSetting.getCode') }}</el-button>
             </el-form-item>
             <el-form-item>
@@ -42,7 +42,7 @@
               <el-input v-model="emailForm.email" />
             </el-form-item>
             <el-form-item :label="t('memberSetting.verifyCode')">
-              <el-input v-model="emailForm.code" style="max-width: 200px" />
+              <el-input v-model="emailForm.code" class="code-input" />
               <el-button @click="sendEmailCode">{{ t('memberSetting.getCode') }}</el-button>
             </el-form-item>
             <el-form-item>
@@ -165,5 +165,9 @@ onMounted(load)
 :where(.form-block) {
   max-width: 640px;
   padding: 16px 0;
+}
+
+.code-input {
+  max-width: 200px;
 }
 </style>

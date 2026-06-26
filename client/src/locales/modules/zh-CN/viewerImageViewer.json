@@ -3,11 +3,11 @@
     "download": "下载",
     "fitScreen": "fitScreen",
     "fullscreen": "全屏",
-    "imageLoadFailed": "imageLoadFailed",
+    "imageLoadFailed": "图片 加载 失败",
     "loading": "加载中",
     "reset": "重置",
-    "rotateLeft": "rotateLeft",
-    "rotateRight": "rotateRight",
+    "rotateLeft": "旋转 left",
+    "rotateRight": "旋转 right",
     "zoomOut": "缩小"
   }
 }

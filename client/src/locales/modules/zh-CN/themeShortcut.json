@@ -2,9 +2,9 @@
   "themeShortcut": {
     "disabled": "已禁用",
     "enabled": "已启用",
-    "resetDefaults": "resetDefaults",
+    "resetDefaults": "重置 defaults",
     "shortcutUpdated": "shortcutUpdated",
-    "shortcutsReset": "shortcutsReset",
+    "shortcutsReset": "shortcuts 重置",
     "tip1": "提示 1",
     "tip2": "提示",
     "tip3": "提示 3",

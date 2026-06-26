@@ -15,7 +15,7 @@
             v-model="filterForm.status"
             :placeholder="t('withdrawRecords.filter.all')"
             clearable
-            style="width: 150px"
+            class="filter-select"
           >
             <el-option :label="t('withdrawRecords.filter.all')" value="" />
             <el-option :label="t('withdrawRecords.filter.pending')" :value="0" />
@@ -34,7 +34,7 @@
     </div>
 
     <div class="records-section radius-auto">
-      <el-table :data="paginatedRecords" v-loading="loading" style="width: 100%">
+      <el-table :data="paginatedRecords" v-loading="loading" class="full-width">
         <el-table-column
           prop="withdrawal_no"
           :label="t('withdrawRecords.table.withdrawalNo')"
@@ -291,5 +291,13 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.filter-select {
+  width: 150px;
+}
+
+.full-width {
+  width: 100%;
 }
 </style>

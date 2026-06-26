@@ -5,7 +5,7 @@
       "copySuccess": "复制成功"
     },
     "noRecords": "暂无记录",
-    "pendingCommission": "pendingCommission",
+    "pendingCommission": "待处理 佣金",
     "status": {
       "cancelled": "已取消",
       "pending": "待处理",
@@ -16,8 +16,8 @@
     "table": {
       "actions": "操作",
       "buyer": "买家",
-      "commissionAmount": "commissionAmount",
-      "copyOrderId": "copyOrderId",
+      "commissionAmount": "佣金 金额",
+      "copyOrderId": "复制 订单 编号",
       "orderTime": "下单时间",
       "relatedOrder": "相关订单",
       "status": "状态"
@@ -32,8 +32,8 @@
     "todayCommission": "今日佣金",
     "totalCommission": "佣金总额",
     "withdraw": "提现",
-    "withdrawDetails": "withdrawDetails",
-    "withdrawableCommission": "withdrawableCommission",
-    "withdrawnCommission": "withdrawnCommission"
+    "withdrawDetails": "提现 details",
+    "withdrawableCommission": "withdrawable 佣金",
+    "withdrawnCommission": "withdrawn 佣金"
   }
 }

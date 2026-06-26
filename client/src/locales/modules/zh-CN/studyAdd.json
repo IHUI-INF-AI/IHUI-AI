@@ -2,12 +2,12 @@
   "studyAdd": {
     "cover": "封面",
     "desc": "描述",
-    "enterDesc": "enterDesc",
+    "enterDesc": "enter 描述",
     "enterTitle": "请输入标题",
-    "publishFirst": "publishFirst",
+    "publishFirst": "publish 首",
     "title": "标题",
     "uploadCover": "上传封面",
     "uploadVideo": "上传视频",
-    "videoSynth": "videoSynth"
+    "videoSynth": "视频 synth"
   }
 }

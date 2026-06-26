@@ -6,8 +6,8 @@
       "edit": "编辑",
       "save": "保存"
     },
-    "createFirstVariable": "createFirstVariable",
-    "createVariable": "createVariable",
+    "createFirstVariable": "创建 首 variable",
+    "createVariable": "创建 variable",
     "dialog": {
       "createTitle": "新建",
       "description": "描述",
@@ -20,14 +20,14 @@
       "deleteConfirmTitle": "确认删除",
       "deleteFailed": "删除失败",
       "deleteSuccess": "删除成功",
-      "loadBotsFailed": "loadBotsFailed",
+      "loadBotsFailed": "加载 bots 失败",
       "saveFailed": "保存失败",
       "saveSuccess": "保存成功"
     },
-    "noVariables": "noVariables",
-    "pleaseSelectBot": "pleaseSelectBot",
-    "selectBot": "selectBot",
-    "selectBotPlaceholder": "selectBotPlaceholder",
+    "noVariables": "无 variables",
+    "pleaseSelectBot": "please 选择 bot",
+    "selectBot": "选择 bot",
+    "selectBotPlaceholder": "选择 bot placeholder",
     "subtitle": "副标题",
     "table": {
       "actions": "操作",
@@ -42,7 +42,7 @@
     "title": "标题",
     "validation": {
       "nameRequired": "请输入名称",
-      "valueRequired": "valueRequired"
+      "valueRequired": "值 必填"
     }
   }
 }

@@ -1,11 +1,11 @@
 {
   "liveDetail": {
-    "beginTime": "beginTime",
-    "enterLive": "enterLive",
-    "enterLiveRoom": "enterLiveRoom",
+    "beginTime": "begin 时间",
+    "enterLive": "enter 直播",
+    "enterLiveRoom": "enter 直播 room",
     "host": "主机",
     "liveNow": "正在直播",
-    "peopleOnline": "peopleOnline",
+    "peopleOnline": "people 在线",
     "playback": "playback",
     "startTime": "开始时间"
   }

@@ -2,7 +2,7 @@
   "unifiedQr": {
     "auth": "auth",
     "loginRequired": "请先登录",
-    "needLoginFirst": "needLoginFirst",
-    "qrFailed": "qrFailed"
+    "needLoginFirst": "need 登录 首",
+    "qrFailed": "qr 失败"
   }
 }

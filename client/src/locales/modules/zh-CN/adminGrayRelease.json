@@ -1,7 +1,7 @@
 {
   "adminGrayRelease": {
     "confirmRollback": "确认回滚",
-    "createRelease": "createRelease",
+    "createRelease": "创建 release",
     "enterRollbackReason": "enterRollbackReason"
   }
 }

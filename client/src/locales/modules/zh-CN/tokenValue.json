@@ -1,11 +1,11 @@
 {
   "tokenValue": {
-    "balanceTitle": "balanceTitle",
+    "balanceTitle": "余额 标题",
     "noRecords": "暂无记录",
     "stats": {
-      "currentBalance": "currentBalance",
-      "totalEarned": "totalEarned",
-      "totalUsed": "totalUsed"
+      "currentBalance": "当前 余额",
+      "totalEarned": "总计 earned",
+      "totalUsed": "总计 used"
     },
     "subtitle": "副标题",
     "table": {
