@@ -14,7 +14,7 @@ class Activity(TimestampMixin, Base):
     __tablename__ = "zhs_activity"
     __table_args__ = (Index("ix_zhs_activity_status", "status"), {"extend_existing": True})  # noqa: RUF012
 
-    id = Column(String(255), primary_key=True, nullable=False, comment="UUID")
+    id = Column(String(64), primary_key=True, nullable=False, comment="UUID")
     activity_name = Column(String(255), nullable=True, comment="Activity name")
     activity_rule = Column(Text, nullable=True, comment="Rules description")
     activity_recharge = Column(Text, nullable=True, comment="Recharge instructions")

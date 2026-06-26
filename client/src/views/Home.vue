@@ -5,7 +5,7 @@
     <main id="first-page" class="page-section" aria-labelledby="home-hero-title">
       <!-- i18n: home.comments.interactiveText -->
       <div class="page-content first-page-content-overlay">
-        <h1 id="home-hero-title" class="brand-welcome-text font-edix">WELCOME IHUI INF . AI</h1>
+        <h1 id="home-hero-title" class="brand-welcome-text font-edix">{{ t('home.page1.brandWelcome') }}</h1>
         <p class="hero-description">
           <span class="typing-text">{{ currentTypingText }}</span><span class="cursor-blink">_</span>
         </p>

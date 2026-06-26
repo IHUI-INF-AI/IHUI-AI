@@ -21,7 +21,7 @@ class AgentSettlement(TimestampMixin, Base):
             "schema": "public",
         },
     )
-    id = Column(String(36), primary_key=True)
+    id = Column(String(64), primary_key=True)
     uuid = Column(String(36), nullable=True, comment="Developer UUID (agent owner)")
     order_no = Column(String(64), nullable=True, comment="Order number from zhs_agent_buy")
     create_time = Column(DateTime, nullable=True, comment="Record creation time")
@@ -46,8 +46,8 @@ class AgentWithdrawalDetail(TimestampMixin, Base):
         Index("idx_w_bill", "out_bill_no"),
         Index("ix_zhs_agent_withdrawal_detail_status", "status"),
     )
-    id = Column(String(36), primary_key=True)
-    user_id = Column(String(36), nullable=True)
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), nullable=True)
     amount = Column(BigInteger, nullable=True)
     type = Column(Integer, nullable=True)
     initiate_at = Column(BigInteger, nullable=True)

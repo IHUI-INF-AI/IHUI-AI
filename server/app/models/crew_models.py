@@ -10,44 +10,9 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import Column, DateTime, Float, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.types import TypeDecorator
 
 from app.database import Base
 from app.models.base import TimestampMixin, id_column
-
-
-class GUID(TypeDecorator):
-    """平台无关的 GUID 类型.
-
-    PostgreSQL 使用原生 UUID, SQLite 使用 String(36).
-    """
-
-    impl = String(36)
-    cache_ok = True
-
-    def load_dialect_impl(self, dialect):
-        if dialect.name == "postgresql":
-            return dialect.type_descriptor(UUID(as_uuid=True))
-        return dialect.type_descriptor(String(36))
-
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        if dialect.name == "postgresql":
-            if isinstance(value, str):
-                return value
-            return str(value)
-        if isinstance(value, str):
-            return value
-        return str(value)
-
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        if isinstance(value, str):
-            return value
-        return str(value)
 
 
 def _uuid_str() -> str:
@@ -63,7 +28,7 @@ class CrewSession(TimestampMixin, Base):
         Index("ix_crew_session_status", "status"),
     )
 
-    id = Column(GUID(), primary_key=True, default=_uuid_str, comment="会话ID")
+    id = Column(String(64), primary_key=True, default=_uuid_str, comment="会话ID")
     user_id = Column(String(64), nullable=False, comment="用户ID")
     title = Column(String(255), nullable=True, comment="会话标题")
     status = Column(
@@ -90,9 +55,9 @@ class CrewTask(TimestampMixin, Base):
         Index("ix_crew_task_status", "status"),
     )
 
-    id = Column(GUID(), primary_key=True, default=_uuid_str, comment="任务ID")
+    id = Column(String(64), primary_key=True, default=_uuid_str, comment="任务ID")
     session_id = Column(
-        GUID(),
+        String(64),
         nullable=False,
         comment="所属会话ID",
     )
@@ -125,8 +90,8 @@ class CrewMessage(TimestampMixin, Base):
     )
 
     id = id_column(comment="消息ID")
-    session_id = Column(String(36), nullable=False, comment="所属会话ID")
-    task_id = Column(String(36), nullable=True, comment="关联任务ID")
+    session_id = Column(String(64), nullable=False, comment="所属会话ID")
+    task_id = Column(String(64), nullable=True, comment="关联任务ID")
     from_role = Column(String(50), nullable=False, comment="发送方角色")
     to_role = Column(String(50), nullable=True, comment="接收方角色")
     content = Column(Text, nullable=False, comment="消息内容")
