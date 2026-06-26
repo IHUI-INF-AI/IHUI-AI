@@ -8,6 +8,29 @@
     "systemReady": "系统就绪",
     "cpuOptimized": "性能优化",
     "noResults": "未找到匹配的命令",
-    "systemInternal": "系统内部"
+    "systemInternal": "系统内部",
+    "commands": {
+      "home": "返回首页",
+      "store": "AI 应用商店",
+      "plaza": "需求广场",
+      "learnAI": "学习 AI",
+      "ask": "AI 问答",
+      "circle": "AI 社区",
+      "docs": "文档中心",
+      "about": "关于我们",
+      "darkMode": "切换深色模式",
+      "aiAssistant": "打开 AI 助手",
+      "backToTop": "回到顶部"
+    },
+    "paths": {
+      "home": "返回首页",
+      "store": "AI 应用商店",
+      "plaza": "需求广场",
+      "learnAI": "学习 AI",
+      "ask": "AI 问答",
+      "circle": "AI 社区",
+      "docs": "文档中心",
+      "about": "关于我们"
+    }
   }
 }

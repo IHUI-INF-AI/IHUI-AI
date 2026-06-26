@@ -8,6 +8,29 @@
     "systemReady": "System Ready",
     "cpuOptimized": "Optimized",
     "noResults": "No matching commands found",
-    "systemInternal": "System Internal"
+    "systemInternal": "System Internal",
+    "commands": {
+      "home": "Go to Home",
+      "store": "AI App Store",
+      "plaza": "Demands Plaza",
+      "learnAI": "Learn AI",
+      "ask": "AI Q&A",
+      "circle": "AI Community",
+      "docs": "Document Center",
+      "about": "About Us",
+      "darkMode": "Toggle Dark Mode",
+      "aiAssistant": "Open AI Assistant",
+      "backToTop": "Back to Top"
+    },
+    "paths": {
+      "home": "Go to Home",
+      "store": "AI App Store",
+      "plaza": "Demands Plaza",
+      "learnAI": "Learn AI",
+      "ask": "AI Q&A",
+      "circle": "AI Community",
+      "docs": "Document Center",
+      "about": "About Us"
+    }
   }
 }

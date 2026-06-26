@@ -7,7 +7,30 @@
     "execute": "執行",
     "systemReady": "系統就緒",
     "cpuOptimized": "性能優化",
-    "noResults": "未找到匹配的命令",
-    "systemInternal": "系統內部"
+    "noResults": "未找到匹配的命​​令",
+    "systemInternal": "系統內部",
+    "commands": {
+      "home": "返回首頁",
+      "store": "AI 應用商店",
+      "plaza": "需求廣場",
+      "learnAI": "學習 AI",
+      "ask": "AI 問答",
+      "circle": "AI 社區",
+      "docs": "文檔中心",
+      "about": "關於我們",
+      "darkMode": "切換深色模式",
+      "aiAssistant": "打開 AI 助手",
+      "backToTop": "回到頂部"
+    },
+    "paths": {
+      "home": "返回首頁",
+      "store": "AI 應用商店",
+      "plaza": "需求廣場",
+      "learnAI": "學習 AI",
+      "ask": "AI 問答",
+      "circle": "AI 社區",
+      "docs": "文檔中心",
+      "about": "關於我們"
+    }
   }
 }

@@ -1,13 +1,36 @@
 {
   "commandPalette": {
     "placeholder": "명령어 입력하여 검색...",
-    "escToAbort": "청크 ESC 닫기",
-    "enter": "돌아옴키",
+    "escToAbort": "ESC로 닫기",
+    "enter": "Enter",
     "navigate": "탐색",
     "execute": "실행",
     "systemReady": "시스템 준비 완료",
-    "cpuOptimized": "성쉽최적화",
+    "cpuOptimized": "성능 최적화",
     "noResults": "일치하는 명령어를 찾을 수 없음",
-    "systemInternal": "시스템 내부"
+    "systemInternal": "시스템 내부",
+    "commands": {
+      "home": "홈으로 이동",
+      "store": "AI 앱 스토어",
+      "plaza": "요청 광장",
+      "learnAI": "AI 학습",
+      "ask": "AI 问答",
+      "circle": "AI 커뮤니티",
+      "docs": "문서 센터",
+      "about": "회사 소개",
+      "darkMode": "다크 모드 전환",
+      "aiAssistant": "AI 어시스턴트 열기",
+      "backToTop": "맨 위로"
+    },
+    "paths": {
+      "home": "홈으로 이동",
+      "store": "AI 앱 스토어",
+      "plaza": "요청 광장",
+      "learnAI": "AI 학습",
+      "ask": "AI 问答",
+      "circle": "AI 커뮤니티",
+      "docs": "문서 센터",
+      "about": "회사 소개"
+    }
   }
 }

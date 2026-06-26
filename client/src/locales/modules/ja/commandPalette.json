@@ -8,6 +8,29 @@
     "systemReady": "システム準備完了",
     "cpuOptimized": "パフォーマンス最適化",
     "noResults": "一致するコマンドが見つかりません",
-    "systemInternal": "システム内部"
+    "systemInternal": "システム内部",
+    "commands": {
+      "home": "ホームへ戻る",
+      "store": "AI アプリストア",
+      "plaza": "ニーズ広場",
+      "learnAI": "AI を学ぶ",
+      "ask": "AI 问答",
+      "circle": "AI コミュニティ",
+      "docs": "ドキュメントセンター",
+      "about": "私たちについて",
+      "darkMode": "ダークモード切替",
+      "aiAssistant": "AI アシスタントを開く",
+      "backToTop": "トップへ戻る"
+    },
+    "paths": {
+      "home": "ホームへ戻る",
+      "store": "AI アプリストア",
+      "plaza": "ニーズ広場",
+      "learnAI": "AI を学ぶ",
+      "ask": "AI 问答",
+      "circle": "AI コミュニティ",
+      "docs": "ドキュメントセンター",
+      "about": "私たちについて"
+    }
   }
 }
