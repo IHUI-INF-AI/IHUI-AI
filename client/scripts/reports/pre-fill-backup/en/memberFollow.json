@@ -1,0 +1,10 @@
+{
+  "memberFollow": {
+    "empty": "[ZH:empty]",
+    "followed": "[ZH:followed]",
+    "followers": "[ZH:followers]",
+    "following": "[ZH:following]",
+    "mutualFollow": "[ZH:mutualFollow]",
+    "title": "[ZH:title]"
+  }
+}

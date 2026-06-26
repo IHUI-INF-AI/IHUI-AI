@@ -130,7 +130,7 @@ const isActive = (path: string): boolean => {
     padding: 8px 0;
     color: var(--el-text-color-regular);
     text-decoration: none;
-    transition: all 0.3s ease;
+    transition: opacity 0.3s ease;
     position: relative;
     cursor: pointer;
     user-select: none;

@@ -1,0 +1,8 @@
+{
+  "viewerModel3DViewer": {
+    "format": "format",
+    "model3dFile": "model3dFile",
+    "supportedFormat": "supportedFormat",
+    "useBlenderHint": "useBlenderHint"
+  }
+}

@@ -488,7 +488,7 @@ section {
   -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   border-radius: v.$border-radius;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 
@@ -566,16 +566,16 @@ section {
   font-size: v.$font-size-sm;
   font-weight: v.$font-weight-bold;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: transform 0.25s ease;
 
   &:hover {
-    transform: translateY(-1px);
+    
   }
 }
 
-html.dark .btn-primary {
+:where(html.dark) .btn-primary {
   background: var(--el-color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .btn-ghost {
@@ -590,7 +590,7 @@ html.dark .btn-primary {
   font-size: v.$font-size-sm;
   font-weight: v.$font-weight-bold;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 
   &:hover {
     background: $bg-card;
@@ -982,13 +982,13 @@ html.dark .btn-primary {
 }
 
 // 暗色模式
-:global(html.dark) {
+:where(html.dark) {
   .about-root {
     background: var(--el-bg-color);
   }
 
   .glass-card {
-    background: var(--color-dark-141414-85);
+    background: var(--color-dark-bg-2);
     border-color: var(--color-white-8);
 
     &:hover {
@@ -1012,7 +1012,7 @@ html.dark .btn-primary {
   }
 
   .team-card .avatar-placeholder {
-    background: var(--color-gray-222);
+    background: var(--el-text-color-primary);
   }
 }
 </style>

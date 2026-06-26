@@ -129,7 +129,7 @@ const info = computed(() => props.information || {})
 }
 
 .content-text {
-  color: var(--color-gray-333);
+  color: var(--el-text-color-primary);
   font-size: 13px;
   line-height: 1.8;
   margin-bottom: 12px;

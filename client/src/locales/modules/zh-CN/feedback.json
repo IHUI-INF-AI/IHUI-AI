@@ -1,0 +1,25 @@
+{
+  "feedback": {
+    "content": {
+      "tip": "提示"
+    },
+    "rules": {
+      "contentMin": "内容至少 5 个字",
+      "contentRequired": "请输入内容"
+    },
+    "submitSuccess": "提交成功",
+    "title": "意见反馈",
+    "type": {
+      "bug": "Bug 报告",
+      "experience": "体验问题",
+      "feature": "功能建议",
+      "other": "其他"
+    }
+  },
+  "Feedback": {
+    "feedbackRecords": "反馈记录",
+    "loading": "加载中",
+    "submitFailed": "提交失败",
+    "submitFeedback": "提交反馈"
+  }
+}

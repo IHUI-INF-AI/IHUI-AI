@@ -1,0 +1,15 @@
+{
+  "liveList": {
+    "all": "[ZH:all]",
+    "badgeLiving": "[ZH:badgeLiving]",
+    "badgePreview": "[ZH:badgePreview]",
+    "badgeReplay": "[ZH:badgeReplay]",
+    "empty": "[ZH:empty]",
+    "host": "[ZH:host]",
+    "living": "[ZH:living]",
+    "preview": "[ZH:preview]",
+    "replay": "[ZH:replay]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]"
+  }
+}

@@ -283,7 +283,7 @@ async function compareVersions() {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
-  font-family: monospace;
+  font-family: var(--font-family-mono);
   font-size: 13px;
   line-height: 1.6;
 }

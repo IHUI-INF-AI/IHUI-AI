@@ -1,0 +1,20 @@
+{
+  "resourceList": {
+    "desc": "描述",
+    "empty": "empty",
+    "free": "免费",
+    "points": "积分",
+    "searchPlaceholder": "请输入搜索内容",
+    "sortDownload": "sortDownload",
+    "sortHot": "sortHot",
+    "sortNew": "sortNew",
+    "title": "标题",
+    "top": "置顶",
+    "typeArchive": "typeArchive",
+    "typeAudio": "typeAudio",
+    "typeDoc": "typeDoc",
+    "typeImage": "typeImage",
+    "typePlaceholder": "typePlaceholder",
+    "typeVideo": "typeVideo"
+  }
+}

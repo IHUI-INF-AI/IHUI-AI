@@ -8,20 +8,6 @@
     "systemReady": "系统就绪",
     "cpuOptimized": "性能优化",
     "noResults": "未找到匹配的命令",
-    "systemInternal": "系统内部",
-    "commands": {
-      "home": "返回首页",
-      "store": "AI应用商店",
-      "plaza": "需求广场",
-      "learnAI": "学习AI",
-      "community": "AI创作社区",
-      "download": "下载中心",
-      "docs": "技术文档",
-      "about": "关于我们",
-      "contact": "联系我们",
-      "darkMode": "切换暗色模式",
-      "aiAssistant": "打开AI助手",
-      "backToTop": "返回顶部"
-    }
+    "systemInternal": "系统内部"
   }
 }

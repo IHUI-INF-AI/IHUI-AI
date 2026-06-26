@@ -1,0 +1,11 @@
+{
+  "ranking": {
+    "title": "ランキング",
+    "subtitle": "人気のAIエージェントとクリエイターを見る",
+    "dayRank": "デイリー",
+    "weekRank": "ウィークリー",
+    "monthRank": "マンスリー",
+    "totalRank": "トータル",
+    "noData": "データがありません"
+  }
+}

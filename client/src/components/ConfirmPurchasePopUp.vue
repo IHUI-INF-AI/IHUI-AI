@@ -328,7 +328,7 @@ async function handlePayment() {
 
 .benefit-item {
   font-size: 13px;
-  color: var(--color-gray-333);
+  color: var(--el-text-color-primary);
   line-height: 1.6;
   margin-bottom: 5px;
 }
@@ -356,7 +356,7 @@ async function handlePayment() {
   border-radius: var(--global-border-radius);
   margin-bottom: 8px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .option-item.active {

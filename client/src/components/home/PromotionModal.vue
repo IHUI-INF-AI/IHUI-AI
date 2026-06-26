@@ -358,10 +358,11 @@ cleanup.add(() => {
   justify-content: center;
   background: var(--color-black-50);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   padding: 20px;
 
   // 深色模式
-  html.dark & {
+  :where(html.dark) & {
     background: var(--color-black-70);
   }
 }
@@ -377,7 +378,7 @@ cleanup.add(() => {
   text-align: center;
 
   // 深色模式
-  html.dark & {
+  :where(html.dark) & {
     background: var(--el-bg-color);
     border-color: var(--color-white-10);
   }
@@ -422,7 +423,7 @@ cleanup.add(() => {
     transform: rotate(-90deg);
   }
 
-  html.dark & {
+  :where(html.dark) & {
     background: transparent;
     color: var(--el-text-color-secondary);
 
@@ -459,7 +460,7 @@ cleanup.add(() => {
   letter-spacing: -0.5px;
 
   // 深色模式
-  html.dark & {
+  :where(html.dark) & {
     color: var(--el-text-color-regular);
   }
 }
@@ -471,7 +472,7 @@ cleanup.add(() => {
   line-height: 1.5;
 
   // 深色模式
-  html.dark & {
+  :where(html.dark) & {
     color: var(--el-text-color-secondary);
   }
 }
@@ -501,7 +502,7 @@ cleanup.add(() => {
   }
 
   // 深色模式
-  html.dark & {
+  :where(html.dark) & {
     color: var(--el-text-color-secondary);
 
     strong {
@@ -526,7 +527,7 @@ cleanup.add(() => {
   }
 
   // 深色模式
-  html.dark & {
+  :where(html.dark) & {
     color: var(--el-text-color-secondary);
 
     strong {
@@ -556,7 +557,7 @@ cleanup.add(() => {
   &:hover {
     background: var(--el-color-primary-light-3);
     color: var(--el-bg-color-page);
-    transform: translateY(-2px);
+    
   }
 
   &:active {
@@ -565,7 +566,7 @@ cleanup.add(() => {
   }
 
   // 深色模式：白底黑字
-  html.dark & {
+  :where(html.dark) & {
     background: var(--el-color-primary);
     color: var(--el-bg-color-page);
 
@@ -595,7 +596,7 @@ cleanup.add(() => {
   }
 
   // 深色模式
-  html.dark & {
+  :where(html.dark) & {
     color: var(--el-text-color-secondary);
 
     &:hover {

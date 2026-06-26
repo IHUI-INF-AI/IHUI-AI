@@ -1,0 +1,40 @@
+{
+  "chatHistory": {
+    "createFailed": "创建失败",
+    "createSession": "createSession",
+    "createSuccess": "创建成功",
+    "delete": "删除",
+    "deleteFailed": "删除失败",
+    "deleteSuccess": "删除成功",
+    "export": {
+      "ai": "AI",
+      "createdAt": "创建时间",
+      "message": "消息",
+      "model": "模型",
+      "title": "标题",
+      "tokensHeader": "tokensHeader",
+      "unknown": "未知",
+      "user": "用户"
+    },
+    "exportFailed": "导出失败",
+    "exportSuccess": "导出成功",
+    "loadModelsFailed": "加载模型失败",
+    "messages": "消息",
+    "noMessages": "noMessages",
+    "noMessagesToExport": "无消息可导出",
+    "noSessions": "暂无会话",
+    "rename": "重命名",
+    "renameFailed": "renameFailed",
+    "renameSession": "renameSession",
+    "renameSuccess": "renameSuccess",
+    "searchPlaceholder": "请输入搜索内容",
+    "selectModel": "选择模型",
+    "selectModelPlaceholder": "请选择模型",
+    "selectSession": "selectSession",
+    "sessionTitle": "sessionTitle",
+    "sessionTitlePlaceholder": "sessionTitlePlaceholder",
+    "sessionTitleRequired": "sessionTitleRequired",
+    "title": "标题",
+    "tokensUsed": "已用 Tokens"
+  }
+}

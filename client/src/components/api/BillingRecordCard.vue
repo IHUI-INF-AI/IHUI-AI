@@ -81,11 +81,11 @@ const statusText = computed(() => {
 <style scoped lang="scss">
 .billing-record-card {
   margin-bottom: 16px;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
   border-radius: var(--global-border-radius);
 
   &:hover {
-    transform: translateY(-2px);
+    
     }
 
   .record-header {

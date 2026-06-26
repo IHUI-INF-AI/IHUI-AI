@@ -268,7 +268,7 @@ const getStatusText = (status: string): string => {
 
       &:hover {
         background-color: $bg-hover;
-        transform: translateY(-2px);
+        
       }
 
       .agent-header {

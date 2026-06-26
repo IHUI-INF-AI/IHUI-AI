@@ -1,0 +1,153 @@
+{
+  "agentScenario": {
+    "axes": {
+      "autonomy": {
+        "high": "高",
+        "low": "低",
+        "title": "标题"
+      },
+      "complexity": {
+        "high": "高",
+        "low": "低",
+        "title": "标题"
+      }
+    },
+    "characteristics": {
+      "title": "标题"
+    },
+    "cta": {
+      "contact": "联系我们",
+      "description": "描述",
+      "learnMore": "了解更多",
+      "title": "标题"
+    },
+    "examples": {
+      "title": "标题"
+    },
+    "footer": {
+      "contact": "联系我们",
+      "enterprise": "企业",
+      "humanMachine": "人机协作"
+    },
+    "guide": {
+      "intro": "简介",
+      "steps": {
+        "evaluate": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "identify": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "pilot": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "scale": {
+          "desc": "描述",
+          "title": "标题"
+        }
+      },
+      "title": "标题"
+    },
+    "heroSubtitle": "副标题",
+    "heroTitle": "主标题",
+    "overview": {
+      "description": "描述",
+      "keyPoint": "keyPoint",
+      "keyPointText": "keyPointText",
+      "title": "标题"
+    },
+    "quadrants": {
+      "complex": {
+        "badge": "徽章",
+        "chars": {
+          "autonomousExecution": "autonomousExecution",
+          "autonomousPlanning": "autonomousPlanning",
+          "lifecycle": "lifecycle",
+          "multiAgent": "multiAgent"
+        },
+        "examples": {
+          "marketing": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "multiAgent": {
+            "desc": "描述",
+            "name": "名称"
+          }
+        },
+        "fullDescription": "完整描述",
+        "title": "标题",
+        "value": "值"
+      },
+      "decision": {
+        "chars": {
+          "openEnded": "openEnded",
+          "output": "输出",
+          "prediction": "prediction",
+          "reasoning": "推理"
+        },
+        "examples": {
+          "advisor": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "analysis": {
+            "desc": "描述",
+            "name": "名称"
+          }
+        },
+        "fullDescription": "完整描述",
+        "title": "标题",
+        "value": "值"
+      },
+      "execution": {
+        "chars": {
+          "clearIntent": "clearIntent",
+          "crossSystem": "crossSystem",
+          "multiAPI": "multiAPI",
+          "multiStep": "multiStep"
+        },
+        "examples": {
+          "approval": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "meeting": {
+            "desc": "描述",
+            "name": "名称"
+          }
+        },
+        "fullDescription": "完整描述",
+        "title": "标题",
+        "value": "值"
+      },
+      "simple": {
+        "chars": {
+          "calls": "调用次数",
+          "dependency": "dependency",
+          "steps": "步骤",
+          "volume": "音量"
+        },
+        "examples": {
+          "qa": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "workflow": {
+            "desc": "描述",
+            "name": "名称"
+          }
+        },
+        "fullDescription": "完整描述",
+        "title": "标题",
+        "value": "值"
+      }
+    },
+    "value": {
+      "title": "标题"
+    }
+  }
+}

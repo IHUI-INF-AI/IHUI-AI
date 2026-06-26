@@ -1,5 +1,17 @@
 {
   "markdown": {
-    "renderFailed": "Markdown 渲染失败"
+    "renderFailed": "Markdown 渲染失败",
+    "copied": "已复制",
+    "copy": "复制",
+    "defaultTitle": "默认标题",
+    "download": "下载",
+    "downloadToView": "下载查看",
+    "edit": "编辑",
+    "loadError": "加载错误",
+    "loadFailed": "加载失败",
+    "loading": "加载中",
+    "preview": "预览",
+    "switchView": "switchView",
+    "toc": "toc"
   }
 }

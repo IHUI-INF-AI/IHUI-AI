@@ -47,7 +47,7 @@ const handleClearFilters = () => {
   // 主按钮变量
   --aes-btn-bg: var(--el-text-color-primary);
   --aes-btn-bg-hover: var(--color-dark-bg-3);
-  --aes-btn-bg-active: var(--color-gray-333);
+  --aes-btn-bg-active: var(--el-text-color-primary);
   --aes-btn-color: var(--el-bg-color);
   --aes-btn-border: none;
 
@@ -137,17 +137,17 @@ const handleClearFilters = () => {
   }
 
   50% {
-    transform: translateY(-10px);
+    
   }
 }
 
 // 暗色模式 - 使用变量覆盖：纯白背景 + 黑字
 :global(html.dark) .agents-empty-state,
-html.dark .agents-empty-state,
+:where(html.dark) .agents-empty-state,
 .login-content.login-page.dark-mode .agents-empty-state {
   --aes-btn-bg: var(--el-bg-color);
   --aes-btn-bg-hover: var(--color-neutral-e6);
-  --aes-btn-bg-active: var(--color-gray-ccc);
+  --aes-btn-bg-active: var(--el-disabled-bg-color);
   --aes-btn-color: var(--el-text-color-primary);
 }
 </style>

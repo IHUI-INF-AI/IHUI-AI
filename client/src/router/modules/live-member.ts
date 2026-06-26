@@ -1,5 +1,15 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
+import { loadModule, getCurrentLocale } from '@/locales'
+
+// 2026-06-26: 路由级 i18n 模块预加载辅助函数
+function preloadI18n(modules: string[]) {
+  return async () => {
+    if (modules.length === 0) return
+    const locale = getCurrentLocale()
+    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
+  }
+}
 
 /**
  * 直播路由(从 G:\code\edu 整合) — 3 个页面
@@ -15,6 +25,7 @@ export const liveRoutes: Array<RouteRecordRaw> = [
       keywords: '直播,在直播间',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18n(['live']),
   },
   {
     path: '/live/:id',
@@ -26,6 +37,7 @@ export const liveRoutes: Array<RouteRecordRaw> = [
       keywords: '直播详情',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18n(['live']),
   },
   {
     path: '/live/:id/play',
@@ -37,6 +49,7 @@ export const liveRoutes: Array<RouteRecordRaw> = [
       keywords: '直播播放',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18n(['live']),
   },
 ]
 

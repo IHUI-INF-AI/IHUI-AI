@@ -5,7 +5,7 @@
  */
 
 /* 强制覆盖 Element Plus 暗色主题变量：使用深色背景变量，避免与 --el-text-color-primary 循环导致整页浅色 */
-html.dark {
+:where(html.dark) {
   --el-bg-color: var(--color-dark-bg-3);
   --el-bg-color-page: var(--color-dark-bg-3);
   --el-bg-color-overlay: var(--color-dark-bg-3);
@@ -17,33 +17,33 @@ html.dark,
 html.dark html,
 html.dark body,
 html.dark #app,
-html.dark .app-container,
-html.dark .main-content,
+:where(html.dark) .app-container,
+:where(html.dark) .main-content,
 html.dark header,
-html.dark .glass-header,
-html.dark .page-container,
-html.dark .agents-container,
-html.dark .home-container,
+:where(html.dark) .glass-header,
+:where(html.dark) .page-container,
+:where(html.dark) .agents-container,
+:where(html.dark) .home-container,
 html.dark [id*="app"],
 html.dark [id*="page"],
 html.dark main,
-html.dark .page-section,
-html.dark .page-content,
-html.dark .fifth-page-content,
-html.dark .fourth-page-content,
+:where(html.dark) .page-section,
+:where(html.dark) .page-content,
+:where(html.dark) .fifth-page-content,
+:where(html.dark) .fourth-page-content,
 html.dark #first-page,
 html.dark #second-page,
 html.dark #third-page,
 html.dark #fourth-page,
 html.dark #fifth-page,
 html.dark footer,
-html.dark .footer-container,
-html.dark .footer-main,
-html.dark .footer-section,
-html.dark .content-card,
-html.dark .footer-container::before,
-html.dark .footer-main::before,
-html.dark .footer-section::before,
+:where(html.dark) .footer-container,
+:where(html.dark) .footer-main,
+:where(html.dark) .footer-section,
+:where(html.dark) .content-card,
+:where(html.dark) .footer-container::before,
+:where(html.dark) .footer-main::before,
+:where(html.dark) .footer-section::before,
 html.dark footer::before {
   background-color: var(--el-bg-color);
   background: var(--el-bg-color);
@@ -55,8 +55,8 @@ html.dark footer::before {
   html.dark,
   html.dark body,
   html.dark #app,
-  html.dark .app-container,
-  html.dark .main-content {
+  :where(html.dark) .app-container,
+  :where(html.dark) .main-content {
     background-color: var(--el-bg-color);
     background: var(--el-bg-color);
   }

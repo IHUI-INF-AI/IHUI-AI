@@ -12,7 +12,8 @@
       "signup": "搜索报名",
       "order": "搜索订单",
       "lesson": "搜索课程"
-    }
+    },
+    "hotRecommend": "hotRecommend"
   },
   "moduleHot": {
     "noRecommendation": "暂无推荐",

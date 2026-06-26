@@ -1,0 +1,45 @@
+{
+  "themeTransition": {
+    "customConfig": "[ZH:customConfig]",
+    "direction": "[ZH:direction]",
+    "directions": {
+      "down": "[ZH:down]",
+      "left": "[ZH:left]",
+      "right": "[ZH:right]",
+      "up": "[ZH:up]"
+    },
+    "duration": "[ZH:duration]",
+    "easing": "[ZH:easing]",
+    "easings": {
+      "bounce": "[ZH:bounce]",
+      "smooth": "[ZH:smooth]",
+      "swift": "[ZH:swift]"
+    },
+    "enableOverlay": "[ZH:enableOverlay]",
+    "overlayColor": "[ZH:overlayColor]",
+    "playDemo": "[ZH:playDemo]",
+    "playing": "[ZH:playing]",
+    "presetApplied": "[ZH:presetApplied]",
+    "presets": "[ZH:presets]",
+    "preview": "[ZH:preview]",
+    "previewComplete": "[ZH:previewComplete]",
+    "previewTitle": "[ZH:previewTitle]",
+    "speed": "[ZH:speed]",
+    "speeds": {
+      "fast": "[ZH:fast]",
+      "instant": "[ZH:instant]",
+      "normal": "[ZH:normal]",
+      "slow": "[ZH:slow]"
+    },
+    "title": "[ZH:title]",
+    "type": "[ZH:type]",
+    "types": {
+      "fade": "[ZH:fade]",
+      "flip": "[ZH:flip]",
+      "none": "[ZH:none]",
+      "ripple": "[ZH:ripple]",
+      "slide": "[ZH:slide]",
+      "zoom": "[ZH:zoom]"
+    }
+  }
+}

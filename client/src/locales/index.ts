@@ -56,9 +56,15 @@ export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko'
 // 避免 portalNav.protocolExit / app.skipToMain / app.offlineWarning 等键丢失.
 // 2026-06-26 修复: 增加 'homePage3' / 'homePage4', HomePage3.vue / HomePage4.vue 是首页核心子模块,
 // 之前因 homePage4.* 键值未填 + 模块未核心加载, 切语言后显示 'homePage4.subscribe' 字面量.
-const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'core', 'app', 'login', 'commandPalette', 'api', 'footer', 'home', 'title', 'homePage3', 'homePage4'] as const
+// 2026-06-26 修复: 增加 'cmpErrorBoundary' 核心模块. Error.vue / common/ErrorBoundary.vue 顶层使用
+// t('cmpErrorBoundary.pageError'), 模块 JSON 存在但未注册导致键名裸露 ('cmpErrorBoundary.pageError:')
+// 触发 ErrorBoundary 兜底页文案错误. 体积 ~80B/locale, 5 语言共 ~400B, 可接受.
+const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'core', 'app', 'login', 'commandPalette', 'api', 'footer', 'home', 'title', 'homePage3', 'homePage4', 'cmpErrorBoundary'] as const
 
 // 异步模块列表 - 按需加载
+// 2026-06-26 修复: 补充前台活跃页面缺失的 i18n 模块注册
+// 之前 forgotPassword/ranking/chat/agents 等模块有 JSON 文件但未注册，
+// 导致路由进入时 t('xxx') 直接返回 key 字面量（键名裸露）
 const asyncModules = [
   'home', 'open', 'openPlatform', 'openPlatformDocs', 'dashboard',
   'agentCategory', 'agentExamine', 'settlement', 'agentIncome', 'agentDetail',
@@ -66,11 +72,25 @@ const asyncModules = [
   'aiWorld', 'aiCommunity', 'community', 'voiceInput', 'wxUserCenter',
   'wxMiniprogram', 'wxLogin', 'webOnlyFeature', 'desktopExperience',
   'qrScanner', 'mobileOptimized', 'systemTray', 'desktopSettings',
-  'qrCode', 'unifiedQRLogin', 'register', 'app', 'errorBoundary',
+  'qrCode', 'unifiedQRLogin', 'register', 'app', 'errorBoundary', 'cmpErrorBoundary',
   'connectionStatus', 'pwa', 'tour', 'progress', 'markdown',
   'commandPalette', 'aiGeneration', 'footer', 'developer', 'workspace',
   'purchase', 'apiTest', 'settlementStats', 'cmpindex', 'vip', 'search',
-  'dramaScript'
+  'dramaScript',
+  // 前台活跃页面缺失模块（2026-06-26 补充）
+  'forgotPassword', 'ranking', 'chat', 'agents', 'plaza', 'xuqiu',
+  'about', 'share', 'feedback', 'agenticAI', 'aiManagement',
+  'knowledgeBase', 'memberPoint', 'wallet', 'distribution',
+  'myCommission', 'withdrawal', 'supportTickets',
+  'chatHistory', 'chatInput1', 'chatMode',
+  'settings', 'user', 'userCenter',
+  'learn', 'courses', 'exam', 'live',
+  'circle', 'ask', 'newsCenter',
+  'pointCenter', 'messageCenter', 'notificationCenter',
+  'toolsPage', 'mcp', 'imageGen', 'videoGen',
+  'buyConfirm', 'payment', 'recharge',
+  'floatingChat', 'loginPopup', 'thirdPartyLogin',
+  'themeSettings', 'designSystem',
 ] as const
 
 // 2026-06-26 修复: 暴露预取函数, App.vue 在空闲时调用预热常用 i18n 模块
@@ -210,6 +230,7 @@ const CORE_MODULE_SOURCE: Record<string, 'modules' | 'full'> = {
   title: 'modules',
   homePage3: 'modules',
   homePage4: 'modules',
+  cmpErrorBoundary: 'modules',
 }
 
 // 2026-06-26 修复: 递归把 [ZH:xxx] 占位符替换为 zh-CN 同名 key 的实际值

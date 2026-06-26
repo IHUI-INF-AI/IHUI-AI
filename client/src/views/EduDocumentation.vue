@@ -1432,7 +1432,7 @@ watch(
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>{{ t('hardcoded.edu_documentation.返回') }}</RouterLink>
-          <RouterLink to="/support/document-center" class="back-link cyber-btn" @click="createRipple" style="margin-left: 12px;">
+          <RouterLink to="/support/document-center" class="back-link cyber-btn back-link--offset" @click="createRipple">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
             </svg>{{ t('hardcoded.edu_documentation.documentCenter') }}</RouterLink>
@@ -1982,8 +1982,8 @@ watch(
 // 核心色彩 - 黑灰主题
 // 现代浅色文档风格 - 蓝灰主题
 $brand-primary: var(--color-brand-blue-2);
-$brand-primary-light: var(--color-blue-e8f0ff);
-$brand-primary-hover: var(--color-blue-245bdb);
+$brand-primary-light: rgba(var(--el-color-primary-rgb), 0.08);
+$brand-primary-hover: var(--el-color-primary);
 $cyber-accent: var(--color-brand-blue-2);
 $cyber-accent-dim: color-mix(in srgb, var(--el-color-primary) 60%, transparent);
 $cyber-accent-glow: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
@@ -2057,7 +2057,7 @@ $sidebar-width: 200px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2083,7 +2083,7 @@ $sidebar-width: 200px;
     &:hover {
       background: var(--el-color-primary-light-3);
       color: var(--el-bg-color-page);
-      transform: translateY(-1px);
+      
       }
   }
 
@@ -2215,6 +2215,10 @@ $sidebar-width: 200px;
     align-items: center;
     gap: 6px;
     text-decoration: none;
+
+    &--offset {
+      margin-left: 12px;
+    }
   }
 
   .header-title {
@@ -2353,7 +2357,7 @@ $sidebar-width: 200px;
       font-size: 13px;
       cursor: pointer;
       border-radius: var(--global-border-radius);
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, color 0.2s ease;
       flex: 1;
     }
 
@@ -2403,7 +2407,7 @@ $sidebar-width: 200px;
       border-radius: var(--global-border-radius);
       color: $text-muted;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, color 0.2s ease;
 
       &:hover {
         background: var(--color-gray-f2f3f5);
@@ -2421,7 +2425,7 @@ $sidebar-width: 200px;
 
     &.active .toc-link {
       color: $brand-primary;
-      background: var(--color-blue-e8f0ff);
+      background: rgba(var(--el-color-primary-rgb), 0.08);
       font-weight: 500;
     }
 
@@ -2480,7 +2484,7 @@ $sidebar-width: 200px;
       height: 3px;
       background: var(--color-white-10);
       border-radius: var(--global-border-radius);
-      transition: all 0.25s;
+      transition: background-color 0.25s, opacity 0.25s;
       opacity: 0;
     }
 
@@ -2804,7 +2808,7 @@ $sidebar-width: 200px;
   :deep(a) {
     color: $brand-primary;
     text-decoration: none;
-    transition: all 0.2s;
+    transition: color 0.2s;
 
     &:hover {
       color: $brand-primary-hover;
@@ -3084,7 +3088,7 @@ $sidebar-width: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   &:hover {
     border-color: $brand-primary;
     color: $brand-primary;
@@ -3110,7 +3114,7 @@ $sidebar-width: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   &:hover {
     border-color: var(--color-danger-variant);
     color: var(--color-danger-variant);
@@ -3425,7 +3429,7 @@ $sidebar-width: 200px;
     color: var(--el-text-color-primary);
     font-size: 14px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.2s;
 
     &:hover {
       border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -3445,7 +3449,7 @@ $sidebar-width: 200px;
     border-radius: var(--global-border-radius);
     color: var(--el-text-color-primary);
     font-size: 14px;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
 
     &:hover {
       border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -3479,7 +3483,7 @@ $sidebar-width: 200px;
       border: var(--el-border-width-primary) solid var(--el-border-color);
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background-color 0.2s, border-color 0.2s;
 
       input[type="radio"] {
         display: none;
@@ -3538,6 +3542,7 @@ $sidebar-width: 200px;
   justify-content: center;
   background: var(--color-dark-111111-90);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-radius: var(--global-border-radius);
 }
 
@@ -4223,6 +4228,7 @@ body.route-edu-docs .el-overlay:has(.upload-dialog) {
   inset: 0;
   background: var(--color-black-60);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4248,10 +4254,10 @@ html:not(.dark) .upload-dialog-content {
   --upload-file-btn-color: var(--color-gray-111);
 }
 
-html.dark .upload-dialog-content {
+:where(html.dark) .upload-dialog-content {
   --upload-option-active-bg: var(--el-text-color-primary);
   --upload-file-btn-bg: var(--el-text-color-primary);
-  --upload-file-btn-color: var(--color-gray-ededed);
+  --upload-file-btn-color: var(--el-text-color-secondary);
 }
 
 @media (width <= 768px) {

@@ -1,0 +1,15 @@
+{
+  "distributionOrders": {
+    "statusCancelled": "[ZH:statusCancelled]",
+    "statusPaid": "[ZH:statusPaid]",
+    "statusPending": "[ZH:statusPending]",
+    "statusUnknown": "[ZH:statusUnknown]",
+    "subtitle": "[ZH:subtitle]",
+    "tabAll": "[ZH:tabAll]",
+    "tabCancelled": "[ZH:tabCancelled]",
+    "tabPaid": "[ZH:tabPaid]",
+    "tabPending": "[ZH:tabPending]",
+    "title": "[ZH:title]",
+    "unknownProduct": "[ZH:unknownProduct]"
+  }
+}

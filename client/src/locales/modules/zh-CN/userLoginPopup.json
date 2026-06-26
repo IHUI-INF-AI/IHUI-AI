@@ -1,0 +1,13 @@
+{
+  "userLoginPopup": {
+    "codePlaceholder": "请输入代码",
+    "codeSendFailed": "验证码发送失败",
+    "codeSent": "验证码已发送",
+    "enterPhone": "enterPhone",
+    "invalidPhone": "手机号格式不正确",
+    "loginSuccess": "登录成功",
+    "phonePlaceholder": "请输入手机号",
+    "wechatLoginNotConfigured": "wechatLoginNotConfigured",
+    "welcomeBack": "welcomeBack"
+  }
+}

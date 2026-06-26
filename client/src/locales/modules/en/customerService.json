@@ -1,0 +1,26 @@
+{
+  "customerService": {
+    "chat": {
+      "connected": "已连接",
+      "connecting": "connecting",
+      "disconnected": "已断开",
+      "faqs": "faqs",
+      "fileSizeExceeded": "fileSizeExceeded",
+      "placeholder": "请输入",
+      "reconnecting": "reconnecting",
+      "sendFailed": "sendFailed",
+      "startChat": "startChat",
+      "title": "标题",
+      "typing": "typing"
+    },
+    "faq": {
+      "noFAQs": "noFAQs",
+      "title": "标题"
+    },
+    "subtitle": "副标题",
+    "ticket": {
+      "title": "标题"
+    },
+    "title": "标题"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "devCashDetail": {
+    "arrivalTime": "[ZH:arrivalTime]",
+    "processTime": "[ZH:processTime]",
+    "withdrawTime": "[ZH:withdrawTime]"
+  }
+}

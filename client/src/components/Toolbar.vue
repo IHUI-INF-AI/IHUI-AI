@@ -532,7 +532,7 @@ defineExpose({
   justify-content: center;
 
   &:hover:not(.is-navigating) {
-    transform: translateY(-5px);
+    
   }
 
   &.is-navigating {
@@ -612,7 +612,7 @@ defineExpose({
     opacity 0.3s ease;
 
   &:hover:not(.is-navigating) {
-    transform: translateY(-5px);
+    
   }
 
   &.is-navigating {
@@ -652,11 +652,11 @@ defineExpose({
   border-radius: var(--global-border-radius);
   padding: 20px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
   border: var(--unified-border);
 
   &:hover:not(.is-navigating) {
-    transform: translateY(-5px);
+    
     box-shadow: none;
   }
 
@@ -705,10 +705,10 @@ defineExpose({
   border-radius: var(--global-border-radius);
   padding: 30px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
 
   &:hover:not(.is-navigating) {
-    transform: translateY(-5px);
+    
     box-shadow: none;
   }
 

@@ -38,7 +38,7 @@
               </div>
               <div class="item-body">
                 <div class="item-title">{{ cmd.label }}</div>
-                <div class="item-path">{{ cmd.path || t('commandPalette.systemInternal') }}</div>
+                <div class="item-path">{{ cmd.pathLabel }}</div>
               </div>
               <div class="item-shortcut">
                 <kbd v-if="selectedIndex === index">{{ t('commandPalette.enter') }}</kbd>
@@ -77,7 +77,8 @@ import {
   ShoppingBag,
   Layout,
   BookOpen,
-  Users,
+  MessageCircle,
+  Circle,
   FileText,
   Info,
   Moon,
@@ -147,8 +148,6 @@ const openPalette = async () => {
 // 2026-06-26 修复: 合并所有 onMounted hook + 显式触发 i18n 预热, 避免 2 个 onMounted 互相覆盖 (HMR/重渲染竞态).
 // 顺序: 同步注册键盘监听 + 全局函数 (关键交互, 不能被 await 阻塞) -> 异步预热 i18n (不阻塞挂载).
 onMounted(() => {
-  console.info('[GCP] onMounted 触发', { currentLocale: currentLocale.value })
-
   // 1. 同步: 注册 Cmd+K 全局快捷键 (关键交互, 不能被 await 阻塞)
   cleanup.addEventListener(window, 'keydown', handleKeyDown as EventListener)
   // 2. 同步: 注册全局打开函数 (供 SearchTrigger 等外部调用, fire-and-forget, 内部 await i18n)
@@ -193,6 +192,9 @@ const scrollRef = ref<HTMLElement | null>(null)
 interface Command {
   id: string
   labelKey: string
+  // 用于显示的本地化路径描述 key (如 commandPalette.paths.home).
+  // 留空时, 导航类命令回退显示 cmd.path 原始路径, 操作类命令回退到 t('commandPalette.systemInternal').
+  pathLabelKey?: string
   path?: string
   icon: any
   type: 'nav' | 'action'
@@ -200,18 +202,21 @@ interface Command {
 }
 
 // 命令定义（使用国际化 key）
+// 2026-06-26 修复: 用真实社区路由 /ask 和 /circle 替换 /ai-community (旧 v2 社区, 后端缺失).
+// 路径 /ask 对应后端 /api/v1/ask/*, /circle 对应后端 /api/v1/circle/*.
 const commandDefinitions: Command[] = [
   // 核心导航
-  { id: 'nav-home', labelKey: 'commandPalette.commands.home', path: '/', icon: Home, type: 'nav' as const },
-  { id: 'nav-store', labelKey: 'commandPalette.commands.store', path: '/agents', icon: ShoppingBag, type: 'nav' as const },
-  { id: 'nav-plaza', labelKey: 'commandPalette.commands.plaza', path: '/plaza', icon: Layout, type: 'nav' as const },
-  { id: 'nav-learn', labelKey: 'commandPalette.commands.learnAI', path: '/learn-ai', icon: BookOpen, type: 'nav' as const },
-  { id: 'nav-community', labelKey: 'commandPalette.commands.community', path: '/ai-community', icon: Users, type: 'nav' as const },
-  
+  { id: 'nav-home', labelKey: 'commandPalette.commands.home', pathLabelKey: 'commandPalette.paths.home', path: '/', icon: Home, type: 'nav' as const },
+  { id: 'nav-store', labelKey: 'commandPalette.commands.store', pathLabelKey: 'commandPalette.paths.store', path: '/agents', icon: ShoppingBag, type: 'nav' as const },
+  { id: 'nav-plaza', labelKey: 'commandPalette.commands.plaza', pathLabelKey: 'commandPalette.paths.plaza', path: '/plaza', icon: Layout, type: 'nav' as const },
+  { id: 'nav-learn', labelKey: 'commandPalette.commands.learnAI', pathLabelKey: 'commandPalette.paths.learnAI', path: '/learn-ai', icon: BookOpen, type: 'nav' as const },
+  { id: 'nav-ask', labelKey: 'commandPalette.commands.ask', pathLabelKey: 'commandPalette.paths.ask', path: '/ask', icon: MessageCircle, type: 'nav' as const },
+  { id: 'nav-circle', labelKey: 'commandPalette.commands.circle', pathLabelKey: 'commandPalette.paths.circle', path: '/circle', icon: Circle, type: 'nav' as const },
+
   // 更多功能
-  { id: 'nav-docs', labelKey: 'commandPalette.commands.docs', path: '/support/document-center', icon: FileText, type: 'nav' as const },
-  { id: 'nav-about', labelKey: 'commandPalette.commands.about', path: '/about/about-us', icon: Info, type: 'nav' as const },
-  
+  { id: 'nav-docs', labelKey: 'commandPalette.commands.docs', pathLabelKey: 'commandPalette.paths.docs', path: '/support/document-center', icon: FileText, type: 'nav' as const },
+  { id: 'nav-about', labelKey: 'commandPalette.commands.about', pathLabelKey: 'commandPalette.paths.about', path: '/about/about-us', icon: Info, type: 'nav' as const },
+
   // 系统操作
   { id: 'act-darkmode', labelKey: 'commandPalette.commands.darkMode', icon: Moon, type: 'action' as const, handler: () => darkModeStore.toggleDarkMode() },
   { id: 'act-chat', labelKey: 'commandPalette.commands.aiAssistant', icon: MessageSquare, type: 'action' as const, handler: () => { const fn = (window as unknown as Record<string, (() => void) | undefined>).openFloatingChat; if (fn) fn(); } },
@@ -221,20 +226,20 @@ const commandDefinitions: Command[] = [
 // 带翻译的命令列表
 interface TranslatedCommand extends Command {
   label: string
+  pathLabel: string
 }
 
 const commands = computed<TranslatedCommand[]>(() => {
-  // 2026-06-25 修复: 读取 i18nReady 触发响应式依赖, loadModule 完成后 +1 强制重算
+  // 2026-06-26 修复: 读取 i18nReady 触发响应式依赖, loadModule 完成后 +1 强制重算
   const _ = i18nReady.value
-  // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404
-  // 隐藏社区 v2 (后端社区在 /api/v1/circle/* 和 /api/v1/ask/*, 非 /api/v2/community/*)
-  const HIDDEN_COMMAND_IDS = ['nav-community']
-  return commandDefinitions
-    .filter(cmd => !HIDDEN_COMMAND_IDS.includes(cmd.id))
-    .map(cmd => ({
-      ...cmd,
-      label: t(cmd.labelKey)
-    }))
+  return commandDefinitions.map(cmd => ({
+    ...cmd,
+    label: t(cmd.labelKey),
+    // 优先级: pathLabelKey 翻译 > 原始 path (仅 nav) > 系统内部
+    pathLabel: cmd.pathLabelKey
+      ? t(cmd.pathLabelKey)
+      : (cmd.path || t('commandPalette.systemInternal')),
+  }))
 })
 
 const filteredCommands = computed(() => {
@@ -360,7 +365,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
   flex-direction: column;
   overflow: hidden;
   
-  html.dark & {
+  :where(html.dark) & {
     background: var(--el-bg-color);
     border-color: var(--border-unified-color-hover);
   }
@@ -416,7 +421,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
     flex-shrink: 0;
   }
   
-  html.dark & {
+  :where(html.dark) & {
     border-bottom-color: var(--border-unified-color);
   }
 }
@@ -609,7 +614,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
     }
   }
   
-  html.dark & {
+  :where(html.dark) & {
     background: var(--color-white-2);
     border-top-color: var(--border-unified-color);
   }

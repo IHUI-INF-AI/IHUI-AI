@@ -1,0 +1,17 @@
+{
+  "refundDetail": {
+    "applyTime": "applyTime",
+    "approveTime": "approveTime",
+    "backToList": "backToList",
+    "completeTime": "completeTime",
+    "originalOrderNo": "originalOrderNo",
+    "refundAmount": "refundAmount",
+    "refundDescription": "refundDescription",
+    "refundInfo": "refundInfo",
+    "refundNo": "refundNo",
+    "refundReason": "退款原因",
+    "rejectReason": "rejectReason",
+    "supplementEvidence": "supplementEvidence",
+    "title": "标题"
+  }
+}

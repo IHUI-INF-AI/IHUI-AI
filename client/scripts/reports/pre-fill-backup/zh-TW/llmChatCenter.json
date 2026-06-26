@@ -1,0 +1,27 @@
+{
+  "llmChatCenter": {
+    "actions": {
+      "clearChat": "[ZH:clearChat]",
+      "clearChatConfirm": "[ZH:clearChatConfirm]",
+      "clearChatSuccess": "[ZH:clearChatSuccess]",
+      "close": "[ZH:close]",
+      "closeSearch": "[ZH:closeSearch]",
+      "copy": "[ZH:copy]",
+      "delete": "[ZH:delete]",
+      "edit": "[ZH:edit]",
+      "exportChat": "[ZH:exportChat]",
+      "like": "[ZH:like]",
+      "regenerate": "[ZH:regenerate]",
+      "searchMessages": "[ZH:searchMessages]",
+      "viewStats": "[ZH:viewStats]"
+    },
+    "agentThinkingProcess": "[ZH:agentThinkingProcess]",
+    "newConversation": "[ZH:newConversation]",
+    "status": {
+      "edited": "[ZH:edited]"
+    },
+    "websocket": {
+      "connectionFailed": "[ZH:connectionFailed]"
+    }
+  }
+}

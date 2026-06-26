@@ -1,0 +1,17 @@
+{
+  "memberPersonal": {
+    "avatar": "头像",
+    "bio": "bio",
+    "birthday": "birthday",
+    "changeAvatar": "changeAvatar",
+    "female": "female",
+    "gender": "gender",
+    "male": "male",
+    "nickName": "nickName",
+    "profession": "profession",
+    "realName": "realName",
+    "school": "school",
+    "secret": "secret",
+    "title": "标题"
+  }
+}

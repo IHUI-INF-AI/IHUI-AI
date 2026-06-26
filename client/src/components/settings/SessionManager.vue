@@ -207,7 +207,7 @@ onMounted(() => {
   background: var(--el-fill-color-light);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: all 0.3s;
+  transition: border-color 0.3s, background-color 0.3s, opacity 0.3s;
 
   &:hover {
     border-color: var(--el-color-primary-light-5);

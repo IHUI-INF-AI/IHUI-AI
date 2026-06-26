@@ -1,0 +1,15 @@
+{
+  "distributionOrders": {
+    "statusCancelled": "已取消",
+    "statusPaid": "已支付",
+    "statusPending": "待处理",
+    "statusUnknown": "未知",
+    "subtitle": "副标题",
+    "tabAll": "全部",
+    "tabCancelled": "tabCancelled",
+    "tabPaid": "tabPaid",
+    "tabPending": "tabPending",
+    "title": "标题",
+    "unknownProduct": "unknownProduct"
+  }
+}

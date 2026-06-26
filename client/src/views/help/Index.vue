@@ -205,11 +205,11 @@ const activeNames = ref(['1'])
   background: var(--el-fill-color-lighter);
   border-radius: var(--global-border-radius);
   text-decoration: none;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, background-color 0.3s ease;
   border: 1px solid var(--border-unified-color);
 }
 .entry-item:hover {
-  transform: translateY(-5px);
+  
   background: var(--el-fill-color-light);
 }
 .entry-icon {

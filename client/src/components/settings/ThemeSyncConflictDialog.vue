@@ -177,7 +177,7 @@ function handleConfirm(): void {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, border-width 0.2s ease, background-color 0.2s ease;
 
   &:hover {
     border-color: var(--el-color-primary-light-5);

@@ -5,7 +5,7 @@
 
 @layer base {
   // 暗色模式 CSS 变量覆盖
-  html.dark {
+  :where(html.dark) {
     --el-text-color-primary: var(--color-gray-e5eaf3);
     --el-bg-color: var(--color-dark-bg-3);
     --el-bg-color-page: var(--color-dark-bg-3);

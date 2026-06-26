@@ -1,0 +1,32 @@
+{
+  "devStateCard": {
+    "allUsers": "allUsers",
+    "category": "分类",
+    "confirmOffline": "confirmOffline",
+    "discount": "折扣",
+    "discount1y50": "discount1y50",
+    "discount6m80": "discount6m80",
+    "discount9m70": "discount9m70",
+    "free": "免费",
+    "image": "图片",
+    "limitFreeNote": "limitFreeNote",
+    "limitFreeTime": "limitFreeTime",
+    "limitedFree": "限时免费",
+    "member": "会员",
+    "month": "月",
+    "none": "无",
+    "paid": "付费",
+    "permanent": "永久",
+    "price": "价格",
+    "publishTime": "发布时间",
+    "reviewing": "reviewing",
+    "sellType": "sellType",
+    "settings": "设置",
+    "targetGroup": "targetGroup",
+    "text": "文本",
+    "unpublish": "取消发布",
+    "video": "视频",
+    "year": "年",
+    "yuan": "元"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "mobileDashboard": {
+    "agent": "智能体",
+    "businessDashboard": "businessDashboard",
+    "daily": "daily",
+    "email": "邮箱",
+    "forecast": "forecast",
+    "forecastLoadFailed": "forecastLoadFailed",
+    "frequency": "frequency",
+    "invalidEmail": "邮箱格式不正确",
+    "loadFailed": "loadFailed",
+    "method": "method",
+    "modules": "modules",
+    "monthly": "monthly",
+    "orderTrend": "orderTrend",
+    "orders": "订单",
+    "recharge": "充值",
+    "slope": "slope",
+    "subscribe": "订阅",
+    "subscribeDaily": "subscribeDaily",
+    "subscribeDesc": "subscribeDesc",
+    "subscribeFailed": "subscribeFailed",
+    "subscribeReport": "subscribeReport",
+    "subscribeSuccess": "subscribeSuccess",
+    "subscribed": "subscribed",
+    "unsubscribeFailed": "unsubscribeFailed",
+    "unsubscribed": "unsubscribed",
+    "weekly": "weekly"
+  }
+}

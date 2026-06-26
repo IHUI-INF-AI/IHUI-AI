@@ -335,7 +335,7 @@ watch(zoom, () => {
   cursor: pointer;
   font-size: 14px;
   color: var(--el-text-color-secondary);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .toolbar-btn:hover {
@@ -437,7 +437,7 @@ watch(zoom, () => {
   cursor: pointer;
   font-size: 16px;
   color: var(--el-text-color-secondary);
-  transition: all 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
 }
 
 .page-btn:hover:not(:disabled) {

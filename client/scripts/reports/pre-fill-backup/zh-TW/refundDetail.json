@@ -1,0 +1,17 @@
+{
+  "refundDetail": {
+    "applyTime": "[ZH:applyTime]",
+    "approveTime": "[ZH:approveTime]",
+    "backToList": "[ZH:backToList]",
+    "completeTime": "[ZH:completeTime]",
+    "originalOrderNo": "[ZH:originalOrderNo]",
+    "refundAmount": "[ZH:refundAmount]",
+    "refundDescription": "[ZH:refundDescription]",
+    "refundInfo": "[ZH:refundInfo]",
+    "refundNo": "[ZH:refundNo]",
+    "refundReason": "[ZH:refundReason]",
+    "rejectReason": "[ZH:rejectReason]",
+    "supplementEvidence": "[ZH:supplementEvidence]",
+    "title": "[ZH:title]"
+  }
+}

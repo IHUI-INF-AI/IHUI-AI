@@ -1,0 +1,21 @@
+{
+  "recharge": {
+    "alipay": "[ZH:alipay]",
+    "fetchConfigFailed": "[ZH:fetchConfigFailed]",
+    "moreMethods": "[ZH:moreMethods]",
+    "normalUser": "[ZH:normalUser]",
+    "officialRecharge": "[ZH:officialRecharge]",
+    "operator": "[ZH:operator]",
+    "rate": "[ZH:rate]",
+    "recharge": "[ZH:recharge]",
+    "rechargeFailed": "[ZH:rechargeFailed]",
+    "rechargeSuccess": "[ZH:rechargeSuccess]",
+    "selectAmount": "[ZH:selectAmount]",
+    "selectAmountAndPayment": "[ZH:selectAmountAndPayment]",
+    "selectPayment": "[ZH:selectPayment]",
+    "title": "[ZH:title]",
+    "tokens": "[ZH:tokens]",
+    "vipUser": "[ZH:vipUser]",
+    "wechatPay": "[ZH:wechatPay]"
+  }
+}

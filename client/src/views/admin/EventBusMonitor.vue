@@ -444,7 +444,7 @@ onMounted(async () => {
 }
 
 .code-block {
-  background: var(--color-gray-f5f7fa);
+  background: var(--el-fill-color-lighter);
   padding: var(--grid-gap);
   border-radius: var(--global-border-radius);
   font-size: 12px;

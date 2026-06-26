@@ -364,7 +364,7 @@ defineExpose({
   font-weight: 600;
   color: var(--el-text-color-primary);
   background-color: var(--el-bg-color);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, border-width 0.2s ease, background-color 0.2s ease, color 0.2s ease;
   outline: none;
   box-sizing: border-box;
 }
@@ -415,17 +415,17 @@ defineExpose({
 }
 
 /* 暗色模式适配 */
-html.dark .verification-code-digit {
+:where(html.dark) .verification-code-digit {
   background-color: var(--el-bg-color-page);
   border-color: var(--el-border-color);
   color: var(--el-text-color-primary);
 }
 
-html.dark .verification-code-digit:hover {
+:where(html.dark) .verification-code-digit:hover {
   border: var(--el-border-width-primary) solid var(--el-color-primary);
 }
 
-html.dark .verification-code-digit.has-value {
+:where(html.dark) .verification-code-digit.has-value {
   border-color: var(--el-color-success);
   background-color: var(--el-color-success-dark-2);
 }

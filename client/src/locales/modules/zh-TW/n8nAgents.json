@@ -1,0 +1,8 @@
+{
+  "n8nAgents": {
+    "createN8NAgent": "createN8NAgent",
+    "noAgents": "noAgents",
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

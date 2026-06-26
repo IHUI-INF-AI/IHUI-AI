@@ -224,6 +224,7 @@
   border-radius: var(--global-border-radius);
   padding: 14px 18px;
   backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
   background: var(--color-white-98);
   border: 1px solid var(--border-unified-color);
 }
@@ -354,7 +355,7 @@
 // 暗色模式覆盖
 // ============================================
 
-html.dark {
+:where(html.dark) {
   :where(.el-input__wrapper),
   :where(.el-input__wrapper.is-focus),
   :where(.el-select .el-select__wrapper),
@@ -390,7 +391,7 @@ html.dark {
 
   :where(.el-popper.is-dark) {
     background: var(--el-text-color-primary);
-    color: var(--color-gray-ededed);
+    color: var(--el-text-color-secondary);
   }
 
   :where(.el-popper.is-dark .el-popper__arrow::before) {

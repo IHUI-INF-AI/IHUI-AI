@@ -5106,7 +5106,7 @@ cleanup.add(() => {
   // === 统一输入框样式变在- 亮色模式 ===
   --unified-input-border-color: var(--border-unified-color);
   --unified-input-bg-color: var(--el-fill-color-light);
-  --unified-input-transition: all 0.2s ease;
+  --unified-input-transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   --unified-input-hover-border: var(--el-border-width-primary) solid var(--el-color-primary);
   --unified-input-hover-bg-color: var(--el-bg-color);
   --unified-input-hover-shadow: none;
@@ -5981,7 +5981,7 @@ cleanup.add(() => {
   --el-input-border-radius: var(--global-border-radius);
   --unified-input-border-color: var(--border-unified-color);
   --unified-input-bg-color: var(--el-fill-color-light);
-  --unified-input-transition: all 0.2s ease;
+  --unified-input-transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   /* hover 状在*/
   --unified-input-hover-border: var(--el-border-width-primary) solid var(--el-color-primary);
   --unified-input-hover-bg-color: var(--el-bg-color);
@@ -5997,7 +5997,7 @@ cleanup.add(() => {
   --el-input-border-radius: var(--global-border-radius);
   --unified-input-border-color: var(--border-unified-color);
   --unified-input-bg-color: var(--color-white-5);
-  --unified-input-transition: all 0.2s ease;
+  --unified-input-transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   /* hover 状在*/
   --unified-input-hover-border-color: var(--el-color-primary-light-3);
   --unified-input-hover-bg-color: var(--el-fill-color-dark);
@@ -6094,7 +6094,7 @@ cleanup.add(() => {
   background-color: var(--el-fill-color-light);
   border: 2px solid var(--border-unified-color);
   border-radius: var(--global-border-radius);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, border-width 0.2s ease, background-color 0.2s ease;
   height: 46px;
   box-shadow: none;
   outline: none;
@@ -6567,7 +6567,7 @@ cleanup.add(() => {
   border-radius: var(--global-border-radius);
   background-color: var(--el-fill-color-light);
   background: var(--el-fill-color-light);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, border-width 0.2s ease, background-color 0.2s ease;
   box-shadow: none;
   /* 布局样式 */
   padding: 0 clamp(8px, 1vw, 10px);
@@ -8932,7 +8932,7 @@ cleanup.add(() => {
     pointer-events: none;
 
     /* 动画过渡 */
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   /* 暗色模式：Tooltip 样式 */
@@ -9785,7 +9785,7 @@ cleanup.add(() => {
   background: var(--el-fill-color);
   transform: translateZ(0) translateY(0) scale(0.98);
   border-color: var(--el-border-color-lighter);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .code-button:disabled {
@@ -10846,7 +10846,7 @@ cleanup.add(() => {
   font-weight: 600;
   color: var(--el-text-color-primary);
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
   position: relative;
   z-index: var(--z-base);
   display: flex;
@@ -11135,7 +11135,7 @@ cleanup.add(() => {
   line-height: inherit;
   box-sizing: border-box;
   /* 略微上移输入文字，使其在输入框内看起来更居中 */
-  transform: translateY(-4px);
+  
 }
 
 .phone-input-with-country :deep(.el-input__wrapper) {
@@ -11884,7 +11884,7 @@ cleanup.add(() => {
 
 .custom-checkbox:hover .checkmark {
   border-color: var(--el-text-color-regular);
-  background-color: var(--color-gray-light);
+  background-color: var(--el-fill-color-light);
   transform: scale(1.05);
 }
 
@@ -11976,7 +11976,7 @@ cleanup.add(() => {
 /* 提示文字样式 - 黑白灰配在*/
 .agreement-confirm-text {
   font-size: 14px;
-  color: var(--color-gray-606266);
+  color: var(--el-text-color-regular);
   line-height: 1.6;
   margin: 0 0 16px 0;
   padding: 0 4px;
@@ -11986,7 +11986,7 @@ cleanup.add(() => {
 
 /* 暗色模式下的文字 */
 :where(html.dark) .agreement-confirm-text {
-  color: var(--color-gray-cfd3dc);
+  color: var(--el-border-color-lighter);
 }
 
 /* 链接容器 */
@@ -12002,10 +12002,10 @@ cleanup.add(() => {
 
 /* 链接样式 - 黑白灰配色，不使用蓝在*/
 .agreement-confirm-links .agreement-link-item {
-  color: var(--color-gray-606266);
+  color: var(--el-text-color-regular);
   text-decoration: none;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease;
   padding: 2px 4px;
   border-radius: var(--global-border-radius);
   background-color: transparent;
@@ -12020,7 +12020,7 @@ cleanup.add(() => {
 
 .agreement-confirm-links .agreement-link-item:active {
   color: var(--el-text-color-primary);
-  background-color: var(--color-gray-light);
+  background-color: var(--el-fill-color-light);
 }
 
 /* 暗色模式下的链接 */
@@ -12030,7 +12030,7 @@ cleanup.add(() => {
 
 :where(html.dark) .agreement-confirm-links .agreement-link-item:hover {
   color: var(--color-gray-e5eaf3);
-  background-color: var(--color-gray-2d2d2d);
+  background-color: var(--color-dark-bg-1);
 }
 
 :where(html.dark) .agreement-confirm-links .agreement-link-item:active {
@@ -12086,8 +12086,8 @@ cleanup.add(() => {
 .agreement-confirm-footer .agreement-cancel-button :deep(.el-button__wrapper) {
   background-color: var(--el-bg-color);
   border: var(--unified-border);
-  color: var(--color-gray-606266);
-  transition: all 0.2s ease;
+  color: var(--el-text-color-regular);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   cursor: pointer;
   pointer-events: auto;
   width: 100%;
@@ -12118,13 +12118,13 @@ cleanup.add(() => {
   opacity: 1;
   cursor: pointer;
   pointer-events: auto;
-  background-color: var(--color-gray-fafafa);
+  background-color: var(--el-fill-color-lighter);
   border-color: var(--color-black-20);
 }
 
 .agreement-confirm-footer .agreement-cancel-button:hover :deep(.el-button__inner),
 .agreement-confirm-footer .agreement-cancel-button:hover :deep(.el-button__wrapper) {
-  background-color: var(--color-gray-fafafa);
+  background-color: var(--el-fill-color-lighter);
   border-color: var(--color-black-20);
   color: var(--color-gray-303133);
   cursor: pointer;
@@ -12161,7 +12161,7 @@ cleanup.add(() => {
 :where(html.dark) :where(.agreement-confirm-dialog-wrapper) .agreement-confirm-footer .agreement-cancel-button :deep(.el-button__inner) {
   background-color: var(--color-dark-bg-6);
   border: var(--unified-border);
-  color: var(--color-gray-cfd3dc);
+  color: var(--el-border-color-lighter);
   cursor: pointer;
   pointer-events: auto;
   box-shadow: none;
@@ -12172,13 +12172,13 @@ cleanup.add(() => {
   opacity: 1;
   cursor: pointer;
   pointer-events: auto;
-  background-color: var(--color-gray-333);
+  background-color: var(--el-text-color-primary);
   border-color: var(--color-white-30);
 }
 
 :where(html.dark) .agreement-confirm-footer .agreement-cancel-button:hover :deep(.el-button__inner),
 :where(html.dark) :where(.agreement-confirm-dialog-wrapper) .agreement-confirm-footer .agreement-cancel-button:hover :deep(.el-button__inner) {
-  background-color: var(--color-gray-333);
+  background-color: var(--el-text-color-primary);
   border-color: var(--color-white-30);
   color: var(--color-gray-e5eaf3);
   cursor: pointer;
@@ -12226,7 +12226,7 @@ cleanup.add(() => {
   background-color: var(--el-color-primary);
   border: var(--unified-border);
   color: var(--el-bg-color);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   cursor: pointer;
   pointer-events: auto;
   width: 100%;
@@ -12368,14 +12368,14 @@ cleanup.add(() => {
   opacity: 1;
   cursor: pointer;
   pointer-events: auto;
-  background-color: var(--color-gray-light);
-  border-color: var(--color-gray-light);
+  background-color: var(--el-fill-color-light);
+  border-color: var(--el-fill-color-light);
 }
 
 :where(html.dark) .agreement-confirm-footer .agreement-agree-button:hover :deep(.el-button__inner),
 :where(html.dark) :where(.agreement-confirm-dialog-wrapper) .agreement-confirm-footer .agreement-agree-button:hover :deep(.el-button__inner) {
-  background-color: var(--color-gray-light);
-  border-color: var(--color-gray-light);
+  background-color: var(--el-fill-color-light);
+  border-color: var(--el-fill-color-light);
   color: var(--el-text-color-primary);
   cursor: pointer;
   pointer-events: auto;
@@ -12524,7 +12524,7 @@ cleanup.add(() => {
     height: auto;
     min-height: 36px;
     line-height: 1.4;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, font-weight 0.2s ease;
     display: flex;
     align-items: center;
     cursor: pointer;
@@ -12998,7 +12998,7 @@ button.agreement-agree-button:hover .el-button__wrapper,
 
 .agreement-confirm-dialog-wrapper .el-dialog__body {
   padding: 12px 20px;
-  color: var(--color-gray-606266);
+  color: var(--el-text-color-regular);
 }
 
 .agreement-confirm-dialog-wrapper .el-dialog__footer {
@@ -13164,7 +13164,7 @@ button.agreement-agree-button:hover .el-button__wrapper,
 }
 
 :where(html.dark) .wechat-login-tip {
-  color: var(--color-gray-cfd3dc);
+  color: var(--el-border-color-lighter);
 }
 
 /* ========================================

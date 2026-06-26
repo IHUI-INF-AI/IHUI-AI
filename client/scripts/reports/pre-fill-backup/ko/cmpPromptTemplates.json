@@ -1,0 +1,7 @@
+{
+  "cmpPromptTemplates": {
+    "fillAllFields": "[ZH:fillAllFields]",
+    "templateAdded": "[ZH:templateAdded]",
+    "templateDeleted": "[ZH:templateDeleted]"
+  }
+}

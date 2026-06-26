@@ -1,0 +1,15 @@
+{
+  "adminAiworldSite": {
+    "mobileDevice": "mobileDevice",
+    "noDesc": "无描述",
+    "noDetailContent": "noDetailContent",
+    "noSiteName": "noSiteName",
+    "pcDevice": "pcDevice",
+    "preview": "预览",
+    "previewTitle": "预览",
+    "searchPlaceholder": "请输入搜索内容",
+    "sectionPlaceholder": "sectionPlaceholder",
+    "viewDetailPage": "viewDetailPage",
+    "visitOfficial": "visitOfficial"
+  }
+}

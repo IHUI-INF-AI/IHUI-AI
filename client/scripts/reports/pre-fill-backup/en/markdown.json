@@ -1,0 +1,17 @@
+{
+  "markdown": {
+    "renderFailed": "Markdown rendering Failed",
+    "copied": "[ZH:copied]",
+    "copy": "[ZH:copy]",
+    "defaultTitle": "[ZH:defaultTitle]",
+    "download": "[ZH:download]",
+    "downloadToView": "[ZH:downloadToView]",
+    "edit": "[ZH:edit]",
+    "loadError": "[ZH:loadError]",
+    "loadFailed": "[ZH:loadFailed]",
+    "loading": "[ZH:loading]",
+    "preview": "[ZH:preview]",
+    "switchView": "[ZH:switchView]",
+    "toc": "[ZH:toc]"
+  }
+}

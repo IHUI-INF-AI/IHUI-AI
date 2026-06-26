@@ -1,0 +1,15 @@
+{
+  "performance": {
+    "alerts": "[ZH:alerts]",
+    "cls": "[ZH:cls]",
+    "d7": "[ZH:d7]",
+    "fid": "[ZH:fid]",
+    "h1": "[ZH:h1]",
+    "h24": "[ZH:h24]",
+    "lcp": "[ZH:lcp]",
+    "loadDist": "[ZH:loadDist]",
+    "scoreDist": "[ZH:scoreDist]",
+    "trend": "[ZH:trend]",
+    "ttfb": "[ZH:ttfb]"
+  }
+}

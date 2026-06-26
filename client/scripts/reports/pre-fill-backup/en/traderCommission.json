@@ -1,0 +1,39 @@
+{
+  "traderCommission": {
+    "errors": {
+      "copyFailed": "[ZH:copyFailed]",
+      "copySuccess": "[ZH:copySuccess]"
+    },
+    "noRecords": "[ZH:noRecords]",
+    "pendingCommission": "[ZH:pendingCommission]",
+    "status": {
+      "cancelled": "[ZH:cancelled]",
+      "pending": "[ZH:pending]",
+      "settled": "[ZH:settled]",
+      "unknown": "[ZH:unknown]"
+    },
+    "subtitle": "[ZH:subtitle]",
+    "table": {
+      "actions": "[ZH:actions]",
+      "buyer": "[ZH:buyer]",
+      "commissionAmount": "[ZH:commissionAmount]",
+      "copyOrderId": "[ZH:copyOrderId]",
+      "orderTime": "[ZH:orderTime]",
+      "relatedOrder": "[ZH:relatedOrder]",
+      "status": "[ZH:status]"
+    },
+    "tabs": {
+      "all": "[ZH:all]",
+      "cancelled": "[ZH:cancelled]",
+      "pending": "[ZH:pending]",
+      "settled": "[ZH:settled]"
+    },
+    "title": "[ZH:title]",
+    "todayCommission": "[ZH:todayCommission]",
+    "totalCommission": "[ZH:totalCommission]",
+    "withdraw": "[ZH:withdraw]",
+    "withdrawDetails": "[ZH:withdrawDetails]",
+    "withdrawableCommission": "[ZH:withdrawableCommission]",
+    "withdrawnCommission": "[ZH:withdrawnCommission]"
+  }
+}

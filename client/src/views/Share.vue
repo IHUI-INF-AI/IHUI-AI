@@ -18,9 +18,7 @@
 
     <div class="share-page__content">
       <!-- 预览卡片 -->
-      <div class="share-preview glass-card scroll-reveal" style="
-
---reveal-delay: 0.1s">
+      <div class="share-preview glass-card scroll-reveal">
         <div class="share-preview__card">
           <div class="share-preview__image">
             <img :src="shareData.image || defaultImage" alt="Share Preview" loading="lazy" />
@@ -48,9 +46,7 @@
       </div>
 
       <!-- 分享平台选择 -->
-      <div class="share-options glass-card scroll-reveal" style="
-
---reveal-delay: 0.2s">
+      <div class="share-options glass-card scroll-reveal">
         <h3 class="share-options__title">
           <span class="share-options__title-text">{{ t('share.shareTo') }}</span>
           <span class="share-options__title-line"></span>
@@ -74,9 +70,7 @@
       </div>
 
       <!-- 操作按钮组 -->
-      <div class="share-actions scroll-reveal" style="
-
---reveal-delay: 0.3s">
+      <div class="share-actions scroll-reveal">
         <button class="share-actions__btn share-actions__btn--primary ripple-btn" @click="copyLink">
           <el-icon><Link /></el-icon>
           <span>{{ t('share.copyLink') }}</span>
@@ -93,9 +87,7 @@
       </div>
 
       <!-- 分享统计 -->
-      <div class="share-stats glass-card scroll-reveal" style="
-
---reveal-delay: 0.4s" v-loading="loadingStats">
+      <div class="share-stats glass-card scroll-reveal" v-loading="loadingStats">
         <div class="share-stats__header">
           <span class="share-stats__header-text">{{ t('share.stats') }}</span>
           <div class="share-stats__header-indicator"></div>
@@ -125,9 +117,7 @@
       </div>
 
       <!-- 分享设置 -->
-      <div class="share-settings glass-card scroll-reveal" style="
-
---reveal-delay: 0.5s">
+      <div class="share-settings glass-card scroll-reveal">
         <h3 class="share-settings__title">
           <span class="share-settings__title-text">{{ t('share.shareSettings') }}</span>
           <span class="share-settings__title-line"></span>
@@ -175,7 +165,7 @@
     <el-dialog v-model="qrCodeVisible" :title="t('share.qrCode')" width="400px" center class="share-qr-dialog">
       <div class="share-qr__container">
         <div class="share-qr__code">
-          <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="QR Code" style="width: 100%; height: 100%;" />
+          <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="QR Code" class="share-qr__image" />
         </div>
         <p class="share-qr__tip">{{ t('share.scanQRCode') }}</p>
       </div>
@@ -667,7 +657,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   overflow: hidden;
-  transition: all 0.4s $ease-out-expo;
+  transition: border-color 0.4s $ease-out-expo;
 
   &::before {
     content: '';
@@ -690,7 +680,14 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0;
   transform: translateY(30px);
   animation: scrollReveal 0.8s $ease-out-expo forwards;
-  animation-delay: var(--reveal-delay);
+  animation-delay: var(--reveal-delay, 0s);
+
+  // 按内容区块顺序递增延迟
+  .share-page__content > &:nth-child(1) { --reveal-delay: 0.1s; }
+  .share-page__content > &:nth-child(2) { --reveal-delay: 0.2s; }
+  .share-page__content > &:nth-child(3) { --reveal-delay: 0.3s; }
+  .share-page__content > &:nth-child(4) { --reveal-delay: 0.4s; }
+  .share-page__content > &:nth-child(5) { --reveal-delay: 0.5s; }
 }
 
 @keyframes scrollReveal {
@@ -755,7 +752,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: var(--global-border-radius);
   color: $text-primary;
   font-size: 18px;
-  transition: all 0.3s $ease-in-out;
+  transition: background-color 0.3s $ease-in-out, border-color 0.3s $ease-in-out, transform 0.3s $ease-in-out;
 
   &:hover {
     background: var(--color-white-10);
@@ -914,12 +911,12 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   background: var(--color-white-2);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: all 0.4s $ease-out-expo;
+  transition: background-color 0.4s $ease-out-expo, border-color 0.4s $ease-out-expo, transform 0.4s $ease-out-expo;
 
   &:hover {
     background: var(--color-white-5);
     border-color: var(--platform-color, $border-glow);
-    transform: translateY(-4px);
+    
 
     .share-options__platform-glow {
       opacity: 1;
@@ -989,7 +986,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   color: $text-primary;
   font-size: 15px;
   font-weight: 500;
-  transition: all 0.3s $ease-in-out;
+  transition: background-color 0.3s $ease-in-out, border-color 0.3s $ease-in-out, color 0.3s $ease-in-out, transform 0.3s $ease-in-out;
 
   .el-icon {
     font-size: 18px;
@@ -999,7 +996,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   &:hover {
     background: var(--color-white-8);
     border-color: $border-glow;
-    transform: translateY(-2px);
+    
   }
 
   &--primary {
@@ -1157,7 +1154,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: var(--global-border-radius);
     box-shadow: none;
     color: $text-primary;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 
     &:hover,
     &:focus {
@@ -1205,6 +1202,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   :deep(.el-dialog) {
     background: $surface-card;
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
   }
@@ -1247,7 +1245,12 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   justify-content: center;
   margin-bottom: 16px;
   border: 2px solid $border-glow;
-  }
+}
+
+.share-qr__image {
+  width: 100%;
+  height: 100%;
+}
 
 .share-qr__tip {
   margin: 0;

@@ -834,6 +834,7 @@ $accent-highlight: var(--el-text-color-secondary);
   z-index: var(--z-header);
   background: var(--color-rgba-15--23--42--0-95-);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-top: var(--unified-border);
 
   // Web端safe-area适配（同步UniApp env(safe-area-inset-bottom)）
@@ -883,7 +884,7 @@ $accent-highlight: var(--el-text-color-secondary);
     color: var(--color-gray-1f2937);
     border: none;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: transform 0.3s;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -891,7 +892,7 @@ $accent-highlight: var(--el-text-color-secondary);
     overflow: hidden;
 
     &:hover {
-      transform: translateY(-1px);
+      
     }
 
     &:active {
@@ -952,6 +953,7 @@ $accent-highlight: var(--el-text-color-secondary);
 .glass {
   background: rgb(var(--el-fill-color-light-rgb), 0.4);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -962,7 +964,7 @@ $accent-highlight: var(--el-text-color-secondary);
   transition: none;
 
   &.scroll-animated {
-    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -1281,7 +1283,7 @@ $accent-highlight: var(--el-text-color-secondary);
         margin-bottom: 28px;
         color: $brand-primary;
         background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent);
-        transition: all 0.4s;
+        transition: background-color 0.4s, color 0.4s, transform 0.4s;
       }
 
       &:hover .benefit-icon {
@@ -1379,7 +1381,7 @@ $accent-highlight: var(--el-text-color-secondary);
       border-radius: var(--global-border-radius);
       position: relative;
       cursor: pointer;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
       &.recommended {
         transform: scale(1.05);
@@ -1503,7 +1505,7 @@ $accent-highlight: var(--el-text-color-secondary);
           border: var(--unified-border);
           background: transparent;
           color: inherit;
-          transition: all 0.3s;
+          transition: background-color 0.3s, color 0.3s, border-color 0.3s;
 
           &.primary {
             background: $brand-primary;
@@ -1517,7 +1519,7 @@ $accent-highlight: var(--el-text-color-secondary);
             border-color: $brand-primary;
           }
 
-          html.dark & {
+          :where(html.dark) & {
             background: var(--el-bg-color);
             color: var(--el-text-color-primary);
             border-color: var(--el-border-color);
@@ -1679,7 +1681,7 @@ $accent-highlight: var(--el-text-color-secondary);
         display: flex;
         align-items: center;
         gap: 10px;
-        transition: all 0.3s;
+        transition: background-color 0.3s, color 0.3s, border-color 0.3s;
 
         &.primary {
           background: $brand-primary;
@@ -1713,7 +1715,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
 // 暗色模式下按钮样式
 // 暗色模式：深色背景 + 浅色文字
-html.dark .cta-btn.primary {
+:where(html.dark) .cta-btn.primary {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
 }
@@ -1826,7 +1828,7 @@ html.dark .cta-btn.primary {
         gap: 12px;
         padding: 16px;
         border-radius: var(--global-border-radius);
-        transition: all 0.3s;
+        transition: background-color 0.3s;
 
         &:hover {
           background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);

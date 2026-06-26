@@ -1,0 +1,110 @@
+{
+  "login": {
+    "agreement": {
+      "and": "[ZH:and]",
+      "prefix": "[ZH:prefix]",
+      "privacyPolicy": "[ZH:privacyPolicy]",
+      "userAgreement": "[ZH:userAgreement]"
+    },
+    "aiModels": "[ZH:aiModels]",
+    "apple": {
+      "loggingIn": "[ZH:loggingIn]",
+      "retry": "[ZH:retry]",
+      "securityTip": "[ZH:securityTip]"
+    },
+    "availability": "[ZH:availability]",
+    "buttons": {
+      "login": "[ZH:login]",
+      "register": "[ZH:register]",
+      "submitLogin": "[ZH:submitLogin]",
+      "submitRegister": "[ZH:submitRegister]"
+    },
+    "crossProject": {
+      "admin": "[ZH:admin]",
+      "loggingIn": "[ZH:loggingIn]",
+      "switchTo": "[ZH:switchTo]",
+      "user": "[ZH:user]"
+    },
+    "error": {
+      "insecureConnection": "[ZH:insecureConnection]"
+    },
+    "forgotPassword": "[ZH:forgotPassword]",
+    "goLogin": "[ZH:goLogin]",
+    "goRegister": "[ZH:goRegister]",
+    "google": {
+      "loggingIn": "[ZH:loggingIn]",
+      "retry": "[ZH:retry]",
+      "securityTip": "[ZH:securityTip]"
+    },
+    "hasAccount": "[ZH:hasAccount]",
+    "hidePassword": "[ZH:hidePassword]",
+    "ihuiLogo": "[ZH:ihuiLogo]",
+    "mode": {
+      "hasAccount": "[ZH:hasAccount]",
+      "noAccount": "[ZH:noAccount]",
+      "userLogin": "[ZH:userLogin]",
+      "userRegister": "[ZH:userRegister]"
+    },
+    "noAccount": "[ZH:noAccount]",
+    "oneStopAI": "[ZH:oneStopAI]",
+    "password": {
+      "hide": "[ZH:hide]",
+      "show": "[ZH:show]"
+    },
+    "placeholders": {
+      "confirmLoginPassword": "[ZH:confirmLoginPassword]",
+      "confirmPassword": "[ZH:confirmPassword]",
+      "email": "[ZH:email]",
+      "password": "[ZH:password]",
+      "phone": "[ZH:phone]",
+      "phoneRegister": "[ZH:phoneRegister]",
+      "setLoginPassword": "[ZH:setLoginPassword]",
+      "setPassword": "[ZH:setPassword]",
+      "smsCode": "[ZH:smsCode]",
+      "username": "[ZH:username]",
+      "usernameOrEmail": "[ZH:usernameOrEmail]"
+    },
+    "project": {
+      "admin": "[ZH:admin]",
+      "eduAdmin": "[ZH:eduAdmin]",
+      "eduWeb": "[ZH:eduWeb]",
+      "main": "[ZH:main]",
+      "open": "[ZH:open]",
+      "user": "[ZH:user]"
+    },
+    "selectProject": "[ZH:selectProject]",
+    "showPassword": "[ZH:showPassword]",
+    "subtitle": "[ZH:subtitle]",
+    "switchPlatform": "[ZH:switchPlatform]",
+    "tabs": {
+      "account": "[ZH:account]",
+      "accountRegister": "[ZH:accountRegister]",
+      "phone": "[ZH:phone]",
+      "phoneRegister": "[ZH:phoneRegister]"
+    },
+    "thirdParty": {
+      "accountLogin": "[ZH:accountLogin]",
+      "alipay": "[ZH:alipay]",
+      "alipayLogin": "[ZH:alipayLogin]",
+      "comingSoon": "[ZH:comingSoon]",
+      "emailLogin": "[ZH:emailLogin]",
+      "feishu": "[ZH:feishu]",
+      "feishuLogin": "[ZH:feishuLogin]",
+      "notice": "[ZH:notice]",
+      "or": "[ZH:or]",
+      "otherMethods": "[ZH:otherMethods]",
+      "phoneLogin": "[ZH:phoneLogin]",
+      "privacyPolicy": "[ZH:privacyPolicy]",
+      "quickLogin": "[ZH:quickLogin]",
+      "securityNotice1": "[ZH:securityNotice1]",
+      "securityNotice2": "[ZH:securityNotice2]",
+      "securityNotice3": "[ZH:securityNotice3]",
+      "selectPreferred": "[ZH:selectPreferred]",
+      "termsOfService": "[ZH:termsOfService]"
+    },
+    "users": "[ZH:users]",
+    "users500k": "[ZH:users500k]",
+    "welcomeTitle": "[ZH:welcomeTitle]",
+    "worldFirst": "[ZH:worldFirst]"
+  }
+}

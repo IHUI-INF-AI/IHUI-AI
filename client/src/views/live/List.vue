@@ -184,7 +184,7 @@ onMounted(load)
   transition: transform 0.2s ease;
 
   &:hover {
-    transform: translateY(-2px);
+    
   }
 }
 

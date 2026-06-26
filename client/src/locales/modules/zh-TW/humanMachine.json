@@ -1,0 +1,180 @@
+{
+  "humanMachine": {
+    "architecture": {
+      "infoWorld": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "physicalWorld": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "superEnterprise": {
+        "description": "描述",
+        "title": "标题"
+      }
+    },
+    "cta": {
+      "contact": "联系我们",
+      "description": "描述",
+      "learnMore": "learnMore",
+      "title": "标题"
+    },
+    "footer": {
+      "agentScenario": "智能体场景",
+      "contact": "联系我们",
+      "enterprise": "企业"
+    },
+    "heroSubtitle": "heroSubtitle",
+    "heroTitle": "heroTitle",
+    "implementation": {
+      "intro": "intro",
+      "steps": {
+        "assessment": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "optimize": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "pilot": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "planning": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "scale": {
+          "desc": "描述",
+          "title": "标题"
+        }
+      },
+      "title": "标题"
+    },
+    "infoWorld": {
+      "advanced": {
+        "description": "描述",
+        "items": {
+          "agent": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "generative": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "perception": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "physical": {
+            "desc": "描述",
+            "name": "名称"
+          }
+        },
+        "title": "标题"
+      },
+      "basic": {
+        "description": "描述",
+        "items": {
+          "automation": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "informatization": {
+            "desc": "描述",
+            "name": "名称"
+          },
+          "iot": {
+            "desc": "描述",
+            "name": "名称"
+          }
+        },
+        "title": "标题"
+      },
+      "evolution": "evolution",
+      "intro": "intro",
+      "title": "标题"
+    },
+    "physicalWorld": {
+      "humanValue": {
+        "description": "描述",
+        "title": "标题",
+        "values": {
+          "critical": "critical",
+          "culture": "culture",
+          "humility": "humility",
+          "mission": "mission"
+        }
+      },
+      "intro": "intro",
+      "process": {
+        "description": "描述",
+        "forward": {
+          "goal": "goal",
+          "label": "label",
+          "process": "process",
+          "role": "角色"
+        },
+        "reverse": {
+          "label": "label",
+          "process": "process",
+          "role": "角色"
+        },
+        "title": "标题"
+      },
+      "structure": {
+        "description": "描述",
+        "features": {
+          "digital": "digital",
+          "hybrid": "hybrid",
+          "mapping": "mapping"
+        },
+        "title": "标题"
+      },
+      "title": "标题"
+    },
+    "superEnterprise": {
+      "intro": "intro",
+      "metrics": {
+        "cost": "cost",
+        "costDesc": "costDesc",
+        "efficiency": "efficiency",
+        "efficiencyDesc": "efficiencyDesc",
+        "experience": "experience",
+        "experienceDesc": "experienceDesc",
+        "title": "标题"
+      },
+      "superEmployee": {
+        "description": "描述",
+        "features": {
+          "creativity": "creativity",
+          "decision": "decision",
+          "productivity": "productivity"
+        },
+        "title": "标题"
+      },
+      "superProduct": {
+        "description": "描述",
+        "features": {
+          "intelligent": "intelligent",
+          "iterative": "iterative",
+          "personalized": "personalized"
+        },
+        "title": "标题"
+      },
+      "superTeam": {
+        "description": "描述",
+        "features": {
+          "agility": "agility",
+          "collaboration": "协作",
+          "intelligence": "intelligence"
+        },
+        "title": "标题"
+      },
+      "title": "标题"
+    }
+  }
+}

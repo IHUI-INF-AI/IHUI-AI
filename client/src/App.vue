@@ -146,7 +146,7 @@ import { useOptimization } from './utils/optimization'
 import { initCspReport } from './utils/cspReport'
 import { sessionManager } from './utils/sessionManager'
 import { AlertTriangle } from '@/lib/lucide-fallback'
-import { getElementPlusLocale, loadElementPlusLocale, loadModules, type SupportedLocale } from '@/locales'
+import { getElementPlusLocale, loadElementPlusLocale, loadModules, prefetchCommonI18nModules, getCurrentLocale, type SupportedLocale } from '@/locales'
 
 import { useLanguageStore } from '@/stores/language'
 import { useDarkModeStore } from '@/stores/darkMode'
@@ -189,7 +189,11 @@ const ThemeLoadingIndicator = defineAsyncComponent(
 const AIChat = defineAsyncComponent(() => import('@/components/ai/AIChat.vue'))
 const AIChatLegacy = defineAsyncComponent(() => import('@/components/ai/AIChatLegacy.vue'))
 
-logger.info('[App] App.vue 开始初始化...')
+// 2026-06-26 修复: logger.info 启动提示在生产也会输出, 降级为 logger.debug
+// 避免用户打开控制台看到 [App] App.vue 开始初始化... 噪音
+if (import.meta.env.DEV) {
+  logger.debug('[App] App.vue setup start')
+}
 
 // ═══ 路由 / 国际化 ═══
 // 2026-06-25 修复: useRoute 顶层调用无兜底, HMR 抖动期 app.use(router) 还没执行
@@ -359,6 +363,11 @@ onMounted(async () => {
   // CSP 违规上报
   initCspReport()
 
+  // 2026-06-26 新增: 空闲预取常用 i18n 模块, 解决 asyncModule 竞态 (键名裸露).
+  // 调用 prefetchCommonI18nModules 不会阻塞当前同步流程, 内部用 requestIdleCallback
+  // 调度, 避开首屏关键渲染期. 切换语言时 setLanguage 内部已重置 _prefetchScheduled.
+  prefetchCommonI18nModules(getCurrentLocale())
+
   // 强制清除残留加载态(多次兜底)
   const clearLoading = () => {
     try {
@@ -414,10 +423,11 @@ onMounted(async () => {
   adaptToNetwork()
 
   // 8) 长任务监控(仅开发环境)
+  // 2026-06-26 修复: logger.debug 内部已有 isDevelopment 守卫, 移除冗余 import.meta.env.DEV
   monitorTasks(
     (duration: number) => {
-      if (import.meta.env.DEV && duration > 200) {
-        logger.warn('检测到长时间任务', { duration })
+      if (duration > 200) {
+        logger.debug('检测到长时间任务', { duration })
       }
     },
     { threshold: 200, delay: 5000 },

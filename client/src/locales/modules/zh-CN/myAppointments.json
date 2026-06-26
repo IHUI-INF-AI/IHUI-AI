@@ -1,0 +1,41 @@
+{
+  "myAppointments": {
+    "cancel": "取消",
+    "cancelFailed": "取消失败",
+    "cancelSuccess": "取消成功",
+    "confirmCancel": "确认取消",
+    "confirmCancelTitle": "confirmCancelTitle",
+    "detail": {
+      "adminNotes": "adminNotes",
+      "cancelledAt": "取消时间",
+      "completedAt": "完成时间",
+      "confirmedAt": "confirmedAt",
+      "createdAt": "创建时间",
+      "description": "描述",
+      "email": "邮箱",
+      "name": "名称",
+      "phone": "手机号",
+      "preferredDate": "期望日期",
+      "preferredTime": "期望时间",
+      "serviceType": "服务类型",
+      "status": "状态"
+    },
+    "detailTitle": "详情",
+    "filter": {
+      "allServices": "allServices",
+      "allStatus": "全部状态",
+      "serviceType": "服务类型",
+      "status": "状态"
+    },
+    "noAppointments": "noAppointments",
+    "status": {
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "confirmed": "confirmed",
+      "pending": "待处理"
+    },
+    "subtitle": "副标题",
+    "title": "标题",
+    "viewDetail": "查看详情"
+  }
+}

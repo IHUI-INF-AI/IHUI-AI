@@ -1,7 +1,5 @@
 {
   "community": {
-    "title": "社区",
-    "subtitle": "分享想法，交流经验，发现精彩内容",
     "postContent": "分享你的想法...",
     "publishPost": "发布动态",
     "allPosts": "全部动态",
@@ -89,6 +87,8 @@
       "codeGroup": "代码生成",
       "otherGroup": "其他",
       "other": "其他"
-    }
+    },
+    "like": "点赞",
+    "views": "浏览"
   }
 }

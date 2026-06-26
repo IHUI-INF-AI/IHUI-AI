@@ -321,9 +321,9 @@ const truncatePrompt = (prompt: string, maxLength = 30): string => {
   background: var(--el-bg-color);
   border-radius: var(--qmp-panel-radius);
   box-shadow: var(--qmp-panel-shadow);
-  transition: all 0.3s ease;
+  transition: width 0.3s ease;
   overflow: hidden;
-  
+
   &.is-expanded {
     width: var(--qmp-panel-width);
   }

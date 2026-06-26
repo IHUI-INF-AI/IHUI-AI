@@ -104,7 +104,7 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
   min-width: 200px;
   padding: 20px;
   height: 68px;
@@ -129,9 +129,9 @@
     border: 2.5px solid transparent;
     background:
       linear-gradient(var(--neutral-1), var(--neutral-2)) padding-box,
-      linear-gradient(to bottom, rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.45)) border-box;
+      linear-gradient(to bottom, var(--color-black-10), var(--color-black-45)) border-box;
     z-index: var(--z-0);
-    transition: all 0.4s ease;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
   }
 
   &:hover::after {
@@ -163,7 +163,7 @@
   bottom: 0;
   margin: auto;
   transform: scale(1.25);
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -273,7 +273,7 @@
   height: 2px;
   width: 0;
   left: -5px;
-  background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.5));
+  background: linear-gradient(to right, transparent, var(--color-black-50));
 }
 
 .feedback-button:focus .state--default .icon::before {

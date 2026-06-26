@@ -1,0 +1,10 @@
+{
+  "biDrilldown": {
+    "dailyDetail": "[ZH:dailyDetail]",
+    "days": "[ZH:days]",
+    "detail": "[ZH:detail]",
+    "recent": "[ZH:recent]",
+    "subDimensionTop": "[ZH:subDimensionTop]",
+    "total": "[ZH:total]"
+  }
+}

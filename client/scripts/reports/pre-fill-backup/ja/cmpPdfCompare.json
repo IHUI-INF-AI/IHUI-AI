@@ -1,0 +1,8 @@
+{
+  "cmpPdfCompare": {
+    "selectPdfA": "[ZH:selectPdfA]",
+    "selectPdfB": "[ZH:selectPdfB]",
+    "syncScroll": "[ZH:syncScroll]",
+    "syncZoom": "[ZH:syncZoom]"
+  }
+}

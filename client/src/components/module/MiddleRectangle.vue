@@ -53,7 +53,7 @@ const handleClick = (item: Item) => emit('click', item)
     transition: transform 0.2s;
 
     &:hover {
-      transform: translateY(-2px);
+      
       }
   }
 

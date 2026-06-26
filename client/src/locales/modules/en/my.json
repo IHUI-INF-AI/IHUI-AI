@@ -1,0 +1,28 @@
+{
+  "my": {
+    "memberMenu": {
+      "account": "账号",
+      "article": "文章",
+      "ask": "提问",
+      "certificate": "certificate",
+      "circle": "圈子",
+      "comment": "评论",
+      "content": "内容",
+      "exam": "考试",
+      "examRecord": "examRecord",
+      "examSignUp": "examSignUp",
+      "examWrong": "examWrong",
+      "fans": "粉丝",
+      "favorites": "收藏",
+      "follow": "关注",
+      "homework": "homework",
+      "learn": "学习",
+      "learnRecord": "learnRecord",
+      "personal": "个人",
+      "point": "积分",
+      "resource": "资源",
+      "setting": "setting",
+      "sns": "sns"
+    }
+  }
+}

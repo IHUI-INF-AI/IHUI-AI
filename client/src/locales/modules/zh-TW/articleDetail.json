@@ -1,0 +1,10 @@
+{
+  "articleDetail": {
+    "anonymousAuthor": "anonymousAuthor",
+    "article": "文章",
+    "backToList": "backToList",
+    "favorite": "收藏",
+    "like": "点赞",
+    "read": "read"
+  }
+}

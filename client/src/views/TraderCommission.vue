@@ -333,14 +333,14 @@ onMounted(() => {
 .main-amount {
   font-size: 36px;
   font-weight: 700;
-  color: var(--color-orange-ff9800);
+  color: var(--el-color-warning);
   margin-bottom: 8px;
   display: flex;
   align-items: baseline;
 }
 
 .amount-highlight {
-  color: var(--color-orange-ff9800);
+  color: var(--el-color-warning);
   font-size: 32px;
   font-weight: 700;
   margin: 0 4px;

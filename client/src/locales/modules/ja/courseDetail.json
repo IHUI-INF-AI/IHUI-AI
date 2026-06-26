@@ -1,0 +1,19 @@
+{
+  "courseDetail": {
+    "addToCart": "addToCart",
+    "addedToCart": "addedToCart",
+    "back": "返回",
+    "beginner": "beginner",
+    "buyNow": "buyNow",
+    "courseIntro": "courseIntro",
+    "courseOutline": "courseOutline",
+    "fortyFiveMin": "fortyFiveMin",
+    "goCheckout": "goCheckout",
+    "learnShortVideoFromZero": "learnShortVideoFromZero",
+    "ninetyMin": "ninetyMin",
+    "sixtyMin": "sixtyMin",
+    "teacherZhang": "teacherZhang",
+    "title": "标题",
+    "twelveLessons": "twelveLessons"
+  }
+}

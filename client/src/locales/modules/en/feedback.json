@@ -1,0 +1,25 @@
+{
+  "feedback": {
+    "content": {
+      "tip": "tip"
+    },
+    "rules": {
+      "contentMin": "contentMin",
+      "contentRequired": "contentRequired"
+    },
+    "submitSuccess": "submitSuccess",
+    "title": "标题",
+    "type": {
+      "bug": "bug",
+      "experience": "experience",
+      "feature": "功能",
+      "other": "other"
+    }
+  },
+  "Feedback": {
+    "feedbackRecords": "feedbackRecords",
+    "loading": "加载中",
+    "submitFailed": "submitFailed",
+    "submitFeedback": "submitFeedback"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "adminGrayRelease": {
+    "confirmRollback": "[ZH:confirmRollback]",
+    "createRelease": "[ZH:createRelease]",
+    "enterRollbackReason": "[ZH:enterRollbackReason]"
+  }
+}

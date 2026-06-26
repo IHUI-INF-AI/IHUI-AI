@@ -572,7 +572,7 @@ function formatTime(d: Date): string {
     border-color 0.2s ease;
 
   &:hover {
-    transform: translateY(-2px);
+    
     border-color: var(--el-border-color);
   }
 }
@@ -593,7 +593,7 @@ function formatTime(d: Date): string {
 .kpi-card.tone-success { color: var(--el-color-success); }
 .kpi-card.tone-warning { color: var(--el-color-warning); }
 .kpi-card.tone-danger { color: var(--el-color-danger); }
-.kpi-card.tone-info { color: var(--color-blue-1890ff); }
+.kpi-card.tone-info { color: var(--el-color-primary); }
 
 .kpi-body {
   flex: 1;
@@ -766,7 +766,7 @@ function formatTime(d: Date): string {
 .tone-success .module-icon { color: var(--el-color-success); }
 .tone-warning .module-icon { color: var(--el-color-warning); }
 .tone-danger .module-icon { color: var(--el-color-danger); }
-.tone-info .module-icon { color: var(--color-blue-1890ff); }
+.tone-info .module-icon { color: var(--el-color-primary); }
 .tone-neutral .module-icon { color: var(--el-text-color-secondary); }
 
 .module-name {
@@ -1005,7 +1005,7 @@ function formatTime(d: Date): string {
 .dot-success { background-color: var(--el-color-success); }
 .dot-warning { background-color: var(--el-color-warning); }
 .dot-danger { background-color: var(--el-color-danger); }
-.dot-info { background-color: var(--color-blue-1890ff); }
+.dot-info { background-color: var(--el-color-primary); }
 
 .timeline-body {
   flex: 1;

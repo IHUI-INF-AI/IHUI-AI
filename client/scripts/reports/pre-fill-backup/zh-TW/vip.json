@@ -1,0 +1,177 @@
+{
+  "vip": {
+    "title": "升級VIP會員",
+    "subtitle": "解鎖全部AI工具，享受專屬特權服務，僅需 ¥{amount}",
+    "featuresTitle": "VIP專屬特權",
+    "buyButton": "立即開通",
+    "purchaseTitle": "確認購買",
+    "purchaseDesc": "確認您的VIP會員購買資訊",
+    "confirmPayment": "確認支付",
+    "purchaseSuccess": "購買成功",
+    "purchaseFailed": "購買失敗",
+    "paymentSuccess": "支付成功",
+    "useQrCode": "請使用掃碼支付",
+    "stats": {
+      "activeUsers": "活躍用戶",
+      "aiFeatures": "AI功能",
+      "satisfaction": "滿意度"
+    },
+    "features": {
+      "ai_copywriting": {
+        "title": "AI營銷文案",
+        "desc": "智能生成營銷文案，提升轉化率"
+      },
+      "ai_chat": {
+        "title": "AI智能對話",
+        "desc": "與AI進行自然流暢的對話"
+      },
+      "ai_analysis": {
+        "title": "AI數據分析",
+        "desc": "智能分析數據，提供洞察"
+      },
+      "ai_design": {
+        "title": "AI智能設計",
+        "desc": "AI輔助設計，提升創作效率"
+      }
+    },
+    "hero": {
+      "title": "升級VIP會員",
+      "subtitle": "解鎖全部AI工具，享受專屬特權服務",
+      "stats": {
+        "aiTools": "AI工具",
+        "customerService": "專屬客服",
+        "unlimited": "無限使用"
+      }
+    },
+    "card": {
+      "vipMember": "VIP會員",
+      "memberName": "尊貴會員",
+      "diamondMember": "鑽石會員",
+      "benefits": {
+        "unlimitedChat": "✓ 無限AI對話",
+        "exclusiveModel": "✓ 專屬模型訪問",
+        "prioritySupport": "✓ 優先技術支持"
+      }
+    },
+    "benefits": {
+      "title": "VIP專屬特權",
+      "subtitle": "全方位提升您的AI使用體驗"
+    },
+    "pricing": {
+      "title": "選擇適合您的套餐",
+      "subtitle": "靈活的定價方案，滿足不同需求",
+      "billing": {
+        "monthly": "按月付費",
+        "yearly": "按年付費",
+        "month": "月",
+        "year": "年"
+      },
+      "discount": {
+        "yearlyDiscount": "年付限時優惠",
+        "originalPrice": "原價 ¥{price}"
+      },
+      "plans": {
+        "upgrade": "升級套餐",
+        "subscribe": "立即開通",
+        "recommended": "推薦"
+      },
+      "loading": "加載套餐資訊...",
+      "retry": "重新加載"
+    },
+    "testimonials": {
+      "title": "用戶真實評價",
+      "subtitle": "看看其他用戶怎麼說"
+    },
+    "faq": {
+      "title": "常見問題",
+      "subtitle": "解答您關心的問題"
+    },
+    "cta": {
+      "title": "準備好體驗VIP特權了嗎？",
+      "subtitle": "立即升級，解鎖全部AI工具和專屬服務",
+      "upgrade": "立即升級VIP",
+      "viewPlans": "查看套餐詳情",
+      "guarantee": "7天無理由退款保障"
+    },
+    "payment": {
+      "paymentMethods": "支付方式",
+      "alipay": "alipay",
+      "confirmPay": "確認支付 ¥{price}",
+      "cancel": "取消",
+      "qrCodeTitle": "掃碼支付",
+      "qrCodeTip": "請使用手機掃描下方二維碼完成支付",
+      "qrCodeAlt": "支付二維碼",
+      "close": "關閉",
+      "confirmOrder": "確認訂單",
+      "orderDetails": "訂單詳情",
+      "billingCycle": "計費週期：{cycle}",
+      "monthly": "按月",
+      "yearly": "按年",
+      "yearlyDiscount": "年付優惠",
+      "total": "總計",
+      "wechatPay": "微信支付",
+      "fetchVipPriceFailed": "獲取VIP價格失敗",
+      "purchaseVipFailed": "購買VIP失敗",
+      "selectProduct": "選擇產品",
+      "vipName": "AI智匯社 VIP會員",
+      "paymentOnetime": "一次性支付，終身使用",
+      "lifetimeMember": "永久會員",
+      "payNow": "立即支付 {amount} 元",
+      "benefits": {
+        "unlimitedCopy": "✓ 無限AI文案生成",
+        "premiumModel": "✓ 高級AI模型",
+        "referral": "✓ 分傭計劃資格",
+        "support": "✓ 7*24小時技術支持",
+        "lifetime": "✓ 一次付費，永久使用"
+      }
+    },
+    "paymentFailed": "支付失敗",
+    "userMembershipBenefits": {
+      "benefit10One": "[ZH:benefit10One]",
+      "benefit10Three": "[ZH:benefit10Three]",
+      "benefit10Title": "[ZH:benefit10Title]",
+      "benefit10Two": "[ZH:benefit10Two]",
+      "benefit11Title": "[ZH:benefit11Title]",
+      "benefit1One": "[ZH:benefit1One]",
+      "benefit1Three": "[ZH:benefit1Three]",
+      "benefit1Title": "[ZH:benefit1Title]",
+      "benefit1Two": "[ZH:benefit1Two]",
+      "benefit2Title": "[ZH:benefit2Title]",
+      "benefit3Title": "[ZH:benefit3Title]",
+      "benefit4Title": "[ZH:benefit4Title]",
+      "benefit5Title": "[ZH:benefit5Title]",
+      "benefit6Title": "[ZH:benefit6Title]",
+      "benefit7One": "[ZH:benefit7One]",
+      "benefit7Three": "[ZH:benefit7Three]",
+      "benefit7Title": "[ZH:benefit7Title]",
+      "benefit7Two": "[ZH:benefit7Two]",
+      "benefit8Title": "[ZH:benefit8Title]",
+      "benefit9Title": "[ZH:benefit9Title]",
+      "benefitName": "[ZH:benefitName]",
+      "normalUser": "[ZH:normalUser]",
+      "trader": "[ZH:trader]",
+      "traderPrice": "[ZH:traderPrice]",
+      "upgrade": "[ZH:upgrade]",
+      "vip": "[ZH:vip]",
+      "vipPrice": "[ZH:vipPrice]"
+    }
+  },
+  "vipLevelPopup": {
+    "benefitLevel1": "限時消費<b style=\"color: var(--color-red)\">588</b>開通會員,獲贈<b style=\"color: var(--color-red)\">588</b>點成長值,達到<b style=\"color: var(--color-red)\">1級:算法萌芽</b>",
+    "benefitLevel2": "達到<b style=\"color: var(--color-red)\">1500</b>智匯力達到<b style=\"color: var(--color-red)\">2級:數智啟源</b>，享受<b style=\"color: var(--color-red)\">9.8</b>折",
+    "benefitLevel3": "達到<b style=\"color: var(--color-red)\">3000</b>智匯力達到<b style=\"color: var(--color-red)\">3級:模型初階</b>，享受<b style=\"color: var(--color-red)\">9.5</b>折",
+    "benefitLevel4": "達到<b style=\"color: var(--color-red)\">4500</b>智匯力達到<b style=\"color: var(--color-red)\">4級:智探先驅</b>，享受<b style=\"color: var(--color-red)\">9.2</b>折",
+    "benefitLevel5": "達到<b style=\"color: var(--color-red)\">6000</b>智匯力達到<b style=\"color: var(--color-red)\">5級:算構初階</b>，享受<b style=\"color: var(--color-red)\">8.9</b>折",
+    "benefitLevel6": "達到<b style=\"color: var(--color-red)\">7500</b>智匯力達到<b style=\"color: var(--color-red)\">6級:數據專家</b>，享受<b style=\"color: var(--color-red)\">8.6</b>折",
+    "benefitLevel7": "達到<b style=\"color: var(--color-red)\">9000</b>智匯力達到<b style=\"color: var(--color-red)\">7級:智壘中樞</b>，享受<b style=\"color: var(--color-red)\">8.3</b>折",
+    "benefitLevel8": "達到<b style=\"color: var(--color-red)\">10500</b>智匯力達到<b style=\"color: var(--color-red)\">8級:智能領航</b>，享受<b style=\"color: var(--color-red)\">8</b>折",
+    "benefitLevel9": "達到<b style=\"color: var(--color-red)\">12000</b>智匯力達到<b style=\"color: var(--color-red)\">9級:量子智腦</b>，享受<b style=\"color: var(--color-red)\">7.7</b>折",
+    "benefitLevel10": "達到<b style=\"color: var(--color-red)\">18888</b>智匯力達到<b style=\"color: var(--color-red)\">10級:超維先知</b>，享受<b style=\"color: var(--color-red)\">7</b>折",
+    "goActivate": "[ZH:goActivate]",
+    "level0Desc": "[ZH:level0Desc]"
+  },
+  "Vip": {
+    "oneClickVip": "[ZH:oneClickVip]",
+    "permanentVip": "[ZH:permanentVip]"
+  }
+}

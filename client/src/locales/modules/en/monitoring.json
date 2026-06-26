@@ -1,0 +1,53 @@
+{
+  "monitoring": {
+    "acknowledge": "acknowledge",
+    "activeAlerts": "activeAlerts",
+    "activeTours": "activeTours",
+    "alertRules": "alertRules",
+    "anomalyDetection": "anomalyDetection",
+    "cancel": "取消",
+    "completionRate": "completionRate",
+    "condition": "condition",
+    "cooldownTime": "cooldownTime",
+    "cpuUsage": "cpuUsage",
+    "create": "创建",
+    "currentValue": "currentValue",
+    "errorRate": "errorRate",
+    "expectedValue": "expectedValue",
+    "memoryUsage": "memoryUsage",
+    "metrics": {
+      "cpuUsage": "cpuUsage",
+      "memoryUsage": "memoryUsage",
+      "tourComplete": "tourComplete",
+      "tourError": "tourError",
+      "tourStart": "tourStart"
+    },
+    "monitorMetric": "monitorMetric",
+    "newRule": "newRule",
+    "operators": {
+      "eq": "eq",
+      "gt": "gt",
+      "lt": "lt"
+    },
+    "performanceMonitor": "performanceMonitor",
+    "renderFps": "renderFps",
+    "ruleName": "ruleName",
+    "seconds": "seconds",
+    "severity": "severity",
+    "severityLevel": "severityLevel",
+    "severityLevels": {
+      "critical": "critical",
+      "info": "信息",
+      "warning": "警告"
+    },
+    "status": "状态",
+    "systemResources": "systemResources",
+    "timeRange": {
+      "1h": "1h",
+      "24h": "24h",
+      "7d": "7d"
+    },
+    "type": "类型",
+    "viewAll": "viewAll"
+  }
+}

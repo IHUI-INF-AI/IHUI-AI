@@ -496,11 +496,11 @@ watch(visible, (val) => {
       border-radius: var(--global-border-radius);
       overflow: hidden;
       background: var(--el-fill-color-light);
-      transition: all 0.2s;
+      transition: transform 0.2s, outline-color 0.2s, outline-width 0.2s;
       cursor: pointer;
       
       &:hover {
-        transform: translateY(-2px);
+        
       }
       
       &.is-selected {

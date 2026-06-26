@@ -1,0 +1,8 @@
+{
+  "logs": {
+    "getUserInfoFailed": "getUserInfoFailed",
+    "loginFailed": "登录失败",
+    "refreshTokenFailed": "refreshTokenFailed",
+    "thirdPartyLoginFailed": "thirdPartyLoginFailed"
+  }
+}

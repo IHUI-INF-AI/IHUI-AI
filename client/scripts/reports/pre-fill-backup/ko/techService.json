@@ -1,0 +1,54 @@
+{
+  "techService": {
+    "appointmentFailed": "[ZH:appointmentFailed]",
+    "appointmentSubmitted": "[ZH:appointmentSubmitted]",
+    "appointmentTitle": "[ZH:appointmentTitle]",
+    "form": {
+      "datePlaceholder": "[ZH:datePlaceholder]",
+      "description": "[ZH:description]",
+      "descriptionPlaceholder": "[ZH:descriptionPlaceholder]",
+      "email": "[ZH:email]",
+      "emailPlaceholder": "[ZH:emailPlaceholder]",
+      "invalidEmail": "[ZH:invalidEmail]",
+      "invalidPhone": "[ZH:invalidPhone]",
+      "name": "[ZH:name]",
+      "namePlaceholder": "[ZH:namePlaceholder]",
+      "phone": "[ZH:phone]",
+      "phonePlaceholder": "[ZH:phonePlaceholder]",
+      "preferredDate": "[ZH:preferredDate]",
+      "preferredTime": "[ZH:preferredTime]",
+      "timePlaceholder": "[ZH:timePlaceholder]",
+      "validationRequired": "[ZH:validationRequired]"
+    },
+    "services": {
+      "consultation": {
+        "desc": "[ZH:desc]",
+        "title": "[ZH:title]"
+      },
+      "custom": {
+        "desc": "[ZH:desc]",
+        "title": "[ZH:title]"
+      },
+      "docs": {
+        "desc": "[ZH:desc]",
+        "title": "[ZH:title]"
+      },
+      "feedback": {
+        "desc": "[ZH:desc]",
+        "title": "[ZH:title]"
+      },
+      "support": {
+        "desc": "[ZH:desc]",
+        "title": "[ZH:title]"
+      },
+      "training": {
+        "desc": "[ZH:desc]",
+        "title": "[ZH:title]"
+      }
+    },
+    "submitAppointment": "[ZH:submitAppointment]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]",
+    "underDevelopment": "[ZH:underDevelopment]"
+  }
+}

@@ -14,13 +14,14 @@
       "questionJudgment": "搜索判断题",
       "questionMulti": "搜索多选题",
       "questionSingle": "搜索单选题",
-      "questionSubjective": "搜索主观题"
+      "questionSubjective": "搜索主观题",
+      "chapter": "章节",
+      "chapterSection": "chapterSection"
     },
     "label": {
       "user": "用户",
       "paper": "试卷",
       "score": "得分",
-      "duration": "用时",
       "submitTime": "提交时间"
     }
   }

@@ -1,0 +1,13 @@
+{
+  "openPlatformDocs": {
+    "핵심 장점": "문서 센마음",
+    "userDocs": "생각사용게문서",
+    "developerDocs": "개발게문서",
+    "selectDoc": "요청부마음왼쪽측면선택문서",
+    "loadFailed": "불러오기문서실패",
+    "searchPlaceholder": "검색문서...",
+    "toc": "목차",
+    "title": "문서중간마음",
+    "enterpriseService": "[ZH:enterpriseService]"
+  }
+}

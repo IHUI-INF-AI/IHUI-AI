@@ -1,0 +1,45 @@
+{
+  "plaza": {
+    "aiChat": "AI 對話",
+    "aiCoding": "AI 程式設計",
+    "aiDrawing": "AI 繪圖",
+    "aiNeedPlaza": "AI 需求廣場",
+    "aiVideo": "AI 影片",
+    "aiWriting": "AI 寫作",
+    "all": "全部",
+    "anonymous": "匿名用戶",
+    "back": "返回",
+    "completed": "已完成",
+    "createNew": "發布需求",
+    "form": {
+      "cancel": "取消",
+      "descriptionPlaceholder": "請輸入需求描述",
+      "titlePlaceholder": "請輸入需求標題"
+    },
+    "loading": "載入中",
+    "myNeeds": "我的需求",
+    "needCategory": "需求分類",
+    "needDescription": "需求描述",
+    "needTitle": "需求標題",
+    "needType": "需求類型",
+    "noData": "暫無資料",
+    "ongoing": "進行中",
+    "publish": "發布",
+    "publishFirst": "發布第一條需求",
+    "publishNeed": "發布需求",
+    "searchPlaceholder": "請輸入搜尋內容",
+    "selectCategory": "請選擇分類",
+    "selectType": "請選擇類型",
+    "submit": "提交",
+    "submitting": "提交中",
+    "subtitle": "發布你的 AI 需求，獲取專業解決方案",
+    "type1": "開發類",
+    "type2": "設計類",
+    "type3": "商業類",
+    "types": {
+      "business": "商業諮詢",
+      "design": "設計",
+      "development": "開發定製"
+    }
+  }
+}

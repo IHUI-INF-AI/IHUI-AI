@@ -1,0 +1,9 @@
+{
+  "featureAppleLogin": {
+    "appleLoginFailed": "[ZH:appleLoginFailed]",
+    "appleLoginFailed2": "[ZH:appleLoginFailed2]",
+    "appleLoginFailed3": "[ZH:appleLoginFailed3]",
+    "appleLoginProcessFailed": "[ZH:appleLoginProcessFailed]",
+    "appleLoginRetry": "[ZH:appleLoginRetry]"
+  }
+}

@@ -270,7 +270,7 @@ function onClose() {
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: var(--color-gray-light);
+      background: var(--el-fill-color-light);
       font-size: 14px;
       font-weight: 700;
     }
@@ -348,7 +348,7 @@ function onClose() {
   border: var(--unified-border);
   background: transparent;
   color: v.$text-primary;
-  transition: all 0.2s;
+  transition: opacity 0.2s, border-color 0.2s, color 0.2s;
 
   &.primary {
     background: var(--el-text-color-primary);

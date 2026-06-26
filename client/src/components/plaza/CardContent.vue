@@ -165,7 +165,7 @@ function close() { emit('close') }
 .main-image {
   width: 100%;
   height: 180px;
-  border-radius: var(--global-border-radius) 10px 0 0;
+  border-radius: var(--global-border-radius) var(--global-border-radius) 0 0;
   margin-bottom: 4px;
   object-fit: cover;
 }

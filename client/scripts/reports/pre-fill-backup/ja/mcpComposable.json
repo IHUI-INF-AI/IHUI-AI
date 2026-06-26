@@ -1,0 +1,10 @@
+{
+  "mcpComposable": {
+    "batchDone": "[ZH:batchDone]",
+    "calling": "[ZH:calling]",
+    "error": "[ZH:error]",
+    "failed": "[ZH:failed]",
+    "success": "[ZH:success]",
+    "toolNotFound": "[ZH:toolNotFound]"
+  }
+}

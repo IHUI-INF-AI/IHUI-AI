@@ -1,0 +1,60 @@
+{
+  "toolbar": {
+    "agents": {
+      "title": "标题"
+    },
+    "marketing": {
+      "desc": "描述",
+      "title": "标题"
+    },
+    "menu": {
+      "aiTechnicalServices": "aiTechnicalServices",
+      "oneStopEquipment": "oneStopEquipment",
+      "trafficOperation": "trafficOperation"
+    },
+    "tools": {
+      "categories": {
+        "creativeDesign": "creativeDesign"
+      },
+      "items": {
+        "copy": {
+          "desc": "描述",
+          "tag1": "标签 1",
+          "tag2": "标签",
+          "title": "标题"
+        },
+        "creator": "创建者",
+        "digital": {
+          "desc": "描述",
+          "tag1": "标签 1",
+          "tag2": "标签",
+          "title": "标题"
+        },
+        "edit": {
+          "desc": "描述",
+          "tag1": "标签 1",
+          "tag2": "标签",
+          "title": "标题"
+        },
+        "image": {
+          "desc": "描述",
+          "tag1": "标签 1",
+          "tag2": "标签",
+          "title": "标题"
+        },
+        "live": {
+          "desc": "描述",
+          "tag1": "标签 1",
+          "tag2": "标签",
+          "title": "标题"
+        },
+        "video": {
+          "desc": "描述",
+          "tag1": "标签 1",
+          "tag2": "标签",
+          "title": "标题"
+        }
+      }
+    }
+  }
+}

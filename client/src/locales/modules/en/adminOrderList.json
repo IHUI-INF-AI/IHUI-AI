@@ -1,0 +1,6 @@
+{
+  "adminOrderList": {
+    "cancelled": "已取消",
+    "completed": "已完成"
+  }
+}

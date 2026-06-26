@@ -633,7 +633,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   background: var(--el-fill-color-light);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s;
 }
 
 .file-item:hover {

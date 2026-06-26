@@ -397,7 +397,7 @@ onMounted(() => {
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: border-color 0.3s, color 0.3s, opacity 0.3s;
     .ico { font-size: 20px; filter: grayscale(1); }
     .label { font-family: var(--font-family-mono); font-size: 9px; font-weight: 800; }
     &.active { border: 2px solid var(--border-unified-color-hover); color: var(--el-text-color-primary); .ico { filter: grayscale(0); } }
@@ -434,7 +434,7 @@ onMounted(() => {
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: border-color 0.3s, background-color 0.3s;
   .upload-ico { color: var(--el-text-color-secondary); font-size: 24px; }
   .upload-txt { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
   &:hover, &.active { border: 2px solid var(--border-unified-color-hover); background: var(--el-fill-color-light); .upload-ico, .upload-txt { color: var(--el-color-primary); } }
@@ -464,7 +464,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 40px;
-  .btn-transmit { background: var(--el-text-color-primary); color: var(--el-bg-color-page); border: none; padding: 16px 40px; border-radius: var(--global-border-radius); font-family: var(--font-family-mono); font-size: 13px; font-weight: 900; cursor: pointer; transition: all 0.3s; &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); } }
+  .btn-transmit { background: var(--el-text-color-primary); color: var(--el-bg-color-page); border: none; padding: 16px 40px; border-radius: var(--global-border-radius); font-family: var(--font-family-mono); font-size: 13px; font-weight: 900; cursor: pointer; transition: background-color 0.3s, color 0.3s; &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); } }
   .btn-reset { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
 }
 
@@ -480,11 +480,11 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   padding: 20px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: border-color 0.3s;
 
   &:hover {
     border-color: var(--el-color-primary);
-    transform: translateY(-2px);
+    
   }
 
   .item-header {
@@ -574,7 +574,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
 }
 
-html.dark .feedback-page {
+:where(html.dark) .feedback-page {
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
 }

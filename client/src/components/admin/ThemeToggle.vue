@@ -47,7 +47,7 @@ onMounted(() => {
   background: transparent;
   border: var(--unified-border);
   color: var(--el-text-color-primary);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 
   @media (hover: hover) {
     &:hover {

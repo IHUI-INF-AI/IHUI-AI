@@ -233,7 +233,7 @@ onMounted(() => {
   cursor: pointer;
   color: var(--el-text-color-secondary);
   font-size: 13px;
-  transition: all 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
 }
 
 .action-btn:hover:not(:disabled) {
@@ -278,7 +278,7 @@ onMounted(() => {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid var(--color-text-muted);
+  border: 3px solid var(--el-text-color-placeholder);
   border-top-color: var(--el-color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -311,7 +311,7 @@ onMounted(() => {
   font-size: 14px;
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .download-link {
@@ -330,7 +330,7 @@ onMounted(() => {
 }
 
 .retry-btn:hover {
-  background: var(--color-text-muted);
+  background: var(--el-text-color-placeholder);
 }
 
 .office-iframe {

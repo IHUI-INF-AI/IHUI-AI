@@ -325,7 +325,7 @@ const handleLevelClick = () => {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: transform 0.2s, background-color 0.2s;
 }
 
 .btn-recharge {
@@ -334,7 +334,7 @@ const handleLevelClick = () => {
 }
 
 .btn-recharge:hover {
-  transform: translateY(-1px);
+  
   }
 
 .btn-edit {
@@ -353,6 +353,6 @@ const handleLevelClick = () => {
 }
 
 .btn-login:hover {
-  transform: translateY(-1px);
+  
   }
 </style>

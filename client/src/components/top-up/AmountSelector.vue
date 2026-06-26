@@ -111,7 +111,7 @@ watch(
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   gap: 8px;
 
   &:hover {

@@ -1,0 +1,15 @@
+{
+  "performance": {
+    "alerts": "alerts",
+    "cls": "cls",
+    "d7": "d7",
+    "fid": "fid",
+    "h1": "h1",
+    "h24": "h24",
+    "lcp": "lcp",
+    "loadDist": "loadDist",
+    "scoreDist": "scoreDist",
+    "trend": "trend",
+    "ttfb": "ttfb"
+  }
+}

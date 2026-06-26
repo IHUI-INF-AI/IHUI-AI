@@ -1,0 +1,15 @@
+{
+  "apiDocs": {
+    "nav": {
+      "authentication": "authentication",
+      "chatCompletions": "chatCompletions",
+      "endpoints": "endpoints",
+      "errorHandling": "errorHandling",
+      "imageGeneration": "imageGeneration",
+      "models": "模型",
+      "overview": "overview",
+      "pricing": "pricing",
+      "sdks": "sdks"
+    }
+  }
+}

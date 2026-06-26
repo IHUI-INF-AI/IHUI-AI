@@ -1,0 +1,28 @@
+{
+  "tokenValue": {
+    "balanceTitle": "balanceTitle",
+    "noRecords": "noRecords",
+    "stats": {
+      "currentBalance": "currentBalance",
+      "totalEarned": "totalEarned",
+      "totalUsed": "totalUsed"
+    },
+    "subtitle": "副标题",
+    "table": {
+      "consumption": "consumption",
+      "name": "名称",
+      "time": "时间"
+    },
+    "timeRange": {
+      "all": "全部",
+      "month": "月",
+      "week": "week",
+      "year": "年"
+    },
+    "title": "标题",
+    "typeTabs": {
+      "agent": "智能体",
+      "model": "模型"
+    }
+  }
+}

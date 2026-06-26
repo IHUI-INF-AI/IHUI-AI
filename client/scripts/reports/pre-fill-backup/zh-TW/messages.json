@@ -1,0 +1,23 @@
+{
+  "messages": {
+    "allTasksCompleted": "[ZH:allTasksCompleted]",
+    "cacheCleared": "[ZH:cacheCleared]",
+    "checkFormInput": "[ZH:checkFormInput]",
+    "favoriteAdded": "[ZH:favoriteAdded]",
+    "favoriteRemoved": "[ZH:favoriteRemoved]",
+    "formRefNotFound": "[ZH:formRefNotFound]",
+    "missingAuthParams": "[ZH:missingAuthParams]",
+    "operationFailed": "[ZH:operationFailed]",
+    "pauseResumeQueue": "[ZH:pauseResumeQueue]",
+    "queuePaused": "[ZH:queuePaused]",
+    "queueResumed": "[ZH:queueResumed]",
+    "taskSuccess": "[ZH:taskSuccess]",
+    "tasksCompletedWithFailures": "[ZH:tasksCompletedWithFailures]",
+    "toggleQueueMonitor": "[ZH:toggleQueueMonitor]",
+    "toolNotFound": "[ZH:toolNotFound]",
+    "uploadSuccess": "[ZH:uploadSuccess]",
+    "workflowPaused": "[ZH:workflowPaused]",
+    "workflowResumed": "[ZH:workflowResumed]",
+    "workflowSuccess": "[ZH:workflowSuccess]"
+  }
+}

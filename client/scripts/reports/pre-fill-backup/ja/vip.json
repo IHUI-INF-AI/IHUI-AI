@@ -1,0 +1,177 @@
+{
+  "vip": {
+    "title": "VIP会員にアップグレード",
+    "subtitle": "すべてのAIツールのロックを解除し、専用特権サービスをお楽しみください。¥{amount} のみ",
+    "featuresTitle": "VIP専用特権",
+    "buyButton": "今すぐ開通",
+    "purchaseTitle": "購入確認",
+    "purchaseDesc": "VIP会員の購入情報を確認してください",
+    "confirmPayment": "支払い確認",
+    "purchaseSuccess": "購入成功",
+    "purchaseFailed": "購入失敗",
+    "paymentSuccess": "支払い成功",
+    "useQrCode": "スキャンコードで支払ってください",
+    "stats": {
+      "activeUsers": "アクティブユーザー",
+      "aiFeatures": "AI機能",
+      "satisfaction": "満足度"
+    },
+    "features": {
+      "ai_copywriting": {
+        "title": "AIマーケティングコピー",
+        "desc": "スマートにマーケティングコピーを生成し、コンバージョン率を向上"
+      },
+      "ai_chat": {
+        "title": "AIスマート対話",
+        "desc": "AIと自然でスムーズな対話"
+      },
+      "ai_analysis": {
+        "title": "AIデータ分析",
+        "desc": "スマートにデータを分析し、インサイトを提供"
+      },
+      "ai_design": {
+        "title": "AIスマートデザイン",
+        "desc": "AI支援デザイン、創作効率を向上"
+      }
+    },
+    "hero": {
+      "title": "VIP会員にアップグレード",
+      "subtitle": "すべてのAIツールのロックを解除し、専用特権サービスをお楽しみください",
+      "stats": {
+        "aiTools": "AIツール",
+        "customerService": "専用カスタマーサービス",
+        "unlimited": "無制限使用"
+      }
+    },
+    "card": {
+      "vipMember": "VIP会員",
+      "memberName": "プレミアム会員",
+      "diamondMember": "ダイヤモンド会員",
+      "benefits": {
+        "unlimitedChat": "✓ 無制限AI対話",
+        "exclusiveModel": "✓ 専用モデルアクセス",
+        "prioritySupport": "✓ 優先テクニカルサポート"
+      }
+    },
+    "benefits": {
+      "title": "VIP専用特権",
+      "subtitle": "あなたのAI使用体験を全方位に向上"
+    },
+    "pricing": {
+      "title": "あなたに合ったプランを選択",
+      "subtitle": "柔軟な価格プラン、異なるニーズを満たす",
+      "billing": {
+        "monthly": "月額払い",
+        "yearly": "年額払い",
+        "month": "月",
+        "year": "年"
+      },
+      "discount": {
+        "yearlyDiscount": "年額払い限定割引",
+        "originalPrice": "通常価格 ¥{price}"
+      },
+      "plans": {
+        "upgrade": "プランアップグレード",
+        "subscribe": "今すぐ開通",
+        "recommended": "おすすめ"
+      },
+      "loading": "プラン情報を読み込み中...",
+      "retry": "再読み込み"
+    },
+    "testimonials": {
+      "title": "ユーザーの実際の評価",
+      "subtitle": "他のユーザーの声を聞く"
+    },
+    "faq": {
+      "title": "よくある質問",
+      "subtitle": "気になる質問にお答えします"
+    },
+    "cta": {
+      "title": "VIP特権を体験する準備はできましたか？",
+      "subtitle": "今すぐアップグレードして、すべてのAIツールと専用サービスをアンロック",
+      "upgrade": "今すぐVIPにアップグレード",
+      "viewPlans": "プラン詳細を見る",
+      "guarantee": "7日間無条件返金保証"
+    },
+    "payment": {
+      "paymentMethods": "支払い方法",
+      "alipay": "alipay",
+      "confirmPay": "支払い確認 ¥{price}",
+      "cancel": "キャンセル",
+      "qrCodeTitle": "スキャンコード支払い",
+      "qrCodeTip": "携帯で下のQRコードをスキャンして支払いを完了してください",
+      "qrCodeAlt": "支払いQRコード",
+      "close": "閉じる",
+      "confirmOrder": "注文確認",
+      "orderDetails": "注文詳細",
+      "billingCycle": "課金サイクル：{cycle}",
+      "monthly": "月額",
+      "yearly": "年額",
+      "yearlyDiscount": "年額割引",
+      "total": "合計",
+      "wechatPay": "WeChat Pay",
+      "fetchVipPriceFailed": "VIP価格の取得に失敗",
+      "purchaseVipFailed": "VIP購入失敗",
+      "selectProduct": "製品を選択",
+      "vipName": "AIジフイシャ VIP会員",
+      "paymentOnetime": "一回限り支払い、永久使用",
+      "lifetimeMember": "永久会員",
+      "payNow": "今すぐ支払う {amount} 元",
+      "benefits": {
+        "unlimitedCopy": "✓ 無制限AIコピー生成",
+        "premiumModel": "✓ 高級AIモデル",
+        "referral": "✓ コミッションプラン資格",
+        "support": "✓ 7*24時間テクニカルサポート",
+        "lifetime": "✓ 一回支払い、永久使用"
+      }
+    },
+    "paymentFailed": "支払い失敗",
+    "userMembershipBenefits": {
+      "benefit10One": "[ZH:benefit10One]",
+      "benefit10Three": "[ZH:benefit10Three]",
+      "benefit10Title": "[ZH:benefit10Title]",
+      "benefit10Two": "[ZH:benefit10Two]",
+      "benefit11Title": "[ZH:benefit11Title]",
+      "benefit1One": "[ZH:benefit1One]",
+      "benefit1Three": "[ZH:benefit1Three]",
+      "benefit1Title": "[ZH:benefit1Title]",
+      "benefit1Two": "[ZH:benefit1Two]",
+      "benefit2Title": "[ZH:benefit2Title]",
+      "benefit3Title": "[ZH:benefit3Title]",
+      "benefit4Title": "[ZH:benefit4Title]",
+      "benefit5Title": "[ZH:benefit5Title]",
+      "benefit6Title": "[ZH:benefit6Title]",
+      "benefit7One": "[ZH:benefit7One]",
+      "benefit7Three": "[ZH:benefit7Three]",
+      "benefit7Title": "[ZH:benefit7Title]",
+      "benefit7Two": "[ZH:benefit7Two]",
+      "benefit8Title": "[ZH:benefit8Title]",
+      "benefit9Title": "[ZH:benefit9Title]",
+      "benefitName": "[ZH:benefitName]",
+      "normalUser": "[ZH:normalUser]",
+      "trader": "[ZH:trader]",
+      "traderPrice": "[ZH:traderPrice]",
+      "upgrade": "[ZH:upgrade]",
+      "vip": "[ZH:vip]",
+      "vipPrice": "[ZH:vipPrice]"
+    }
+  },
+  "vipLevelPopup": {
+    "benefitLevel1": "期間限定消費<b style=\"color: var(--color-red)\">588</b>で会員を開通し、<b style=\"color: var(--color-red)\">588</b>ポイントの成長値を獲得、<b style=\"color: var(--color-red)\">レベル1:アルゴリズム萌芽</b>に到達",
+    "benefitLevel2": "<b style=\"color: var(--color-red)\">1500</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル2:デジタル啓源</b>に到達、<b style=\"color: var(--color-red)\">9.8</b>割引を享受",
+    "benefitLevel3": "<b style=\"color: var(--color-red)\">3000</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル3:モデル初階</b>に到達、<b style=\"color: var(--color-red)\">9.5</b>割引を享受",
+    "benefitLevel4": "<b style=\"color: var(--color-red)\">4500</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル4:智探先駆</b>に到達、<b style=\"color: var(--color-red)\">9.2</b>割引を享受",
+    "benefitLevel5": "<b style=\"color: var(--color-red)\">6000</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル5:算構初階</b>に到達、<b style=\"color: var(--color-red)\">8.9</b>割引を享受",
+    "benefitLevel6": "<b style=\"color: var(--color-red)\">7500</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル6:データ専門家</b>に到達、<b style=\"color: var(--color-red)\">8.6</b>割引を享受",
+    "benefitLevel7": "<b style=\"color: var(--color-red)\">9000</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル7:智壘中樞</b>に到達、<b style=\"color: var(--color-red)\">8.3</b>割引を享受",
+    "benefitLevel8": "<b style=\"color: var(--color-red)\">10500</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル8:スマートナビ</b>に到達、<b style=\"color: var(--color-red)\">8</b>割引を享受",
+    "benefitLevel9": "<b style=\"color: var(--color-red)\">12000</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル9:量子智脳</b>に到達、<b style=\"color: var(--color-red)\">7.7</b>割引を享受",
+    "benefitLevel10": "<b style=\"color: var(--color-red)\">18888</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル10:超次元予言者</b>に到達、<b style=\"color: var(--color-red)\">7</b>割引を享受",
+    "goActivate": "[ZH:goActivate]",
+    "level0Desc": "[ZH:level0Desc]"
+  },
+  "Vip": {
+    "oneClickVip": "[ZH:oneClickVip]",
+    "permanentVip": "[ZH:permanentVip]"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "viewerOfficeViewer": {
+    "docLoadFailed": "docLoadFailed",
+    "download": "下载",
+    "largeDocHint": "largeDocHint",
+    "loadingDoc": "loadingDoc",
+    "officeDoc": "officeDoc",
+    "openInOfficeOnline": "openInOfficeOnline",
+    "reset": "重置",
+    "tryDownload": "tryDownload",
+    "zoomOut": "zoomOut"
+  }
+}

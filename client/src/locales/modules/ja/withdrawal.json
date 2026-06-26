@@ -1,0 +1,56 @@
+{
+  "withdrawal": {
+    "availableAmount": "availableAmount",
+    "form": {
+      "alipayAccount": "alipayAccount",
+      "alipayPlaceholder": "alipayPlaceholder",
+      "amount": "金额",
+      "amountPlaceholder": "amountPlaceholder",
+      "amountTip": "amountTip",
+      "bankAccount": "bankAccount",
+      "bankName": "bankName",
+      "bankNamePlaceholder": "bankNamePlaceholder",
+      "bankPlaceholder": "bankPlaceholder",
+      "method": "method",
+      "realName": "realName",
+      "realNamePlaceholder": "realNamePlaceholder",
+      "remark": "remark",
+      "remarkPlaceholder": "remarkPlaceholder",
+      "wechatAccount": "wechatAccount",
+      "wechatPlaceholder": "wechatPlaceholder",
+      "withdrawAll": "withdrawAll"
+    },
+    "inputValidAmount": "inputValidAmount",
+    "insufficientBalance": "insufficientBalance",
+    "messages": {
+      "fetchInfoFailed": "fetchInfoFailed",
+      "pleaseLogin": "请先登录"
+    },
+    "methods": {
+      "alipay": "alipay",
+      "bank": "bank",
+      "wechat": "wechat"
+    },
+    "rules": {
+      "minAmount": "minAmount",
+      "processingTime": "processingTime"
+    },
+    "selectMethod": "selectMethod",
+    "submit": {
+      "button": "button",
+      "submitting": "提交中"
+    },
+    "submitPending": "submitPending",
+    "submitSuccess": "submitSuccess",
+    "title": "标题",
+    "validation": {
+      "accountRequired": "accountRequired",
+      "amountExceed": "amountExceed",
+      "amountMin": "amountMin",
+      "amountRequired": "amountRequired",
+      "bankAccountInvalid": "bankAccountInvalid",
+      "bankNameRequired": "bankNameRequired",
+      "realNameRequired": "realNameRequired"
+    }
+  }
+}

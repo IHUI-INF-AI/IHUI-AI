@@ -1,0 +1,9 @@
+{
+  "time": {
+    "daysAgo": "天前",
+    "hoursAgo": "小时前",
+    "justNow": "刚刚",
+    "minutesAgo": "分钟前",
+    "never": "从不"
+  }
+}

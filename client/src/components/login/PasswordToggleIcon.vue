@@ -43,7 +43,7 @@ const handleClick = () => {
   cursor: pointer;
   color: var(--el-text-color-secondary);
   border-radius: var(--global-border-radius);
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease;
   
   &:hover {
     color: var(--el-color-primary);

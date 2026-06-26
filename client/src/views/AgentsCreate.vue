@@ -59,7 +59,7 @@
 
               <el-form-item :label="t('agents.category')" prop="category" class="glass-input-wrapper">
                 <el-select v-model="formData.category" :placeholder="t('agents.selectCategory')"
-                  style="width: 100%" class="industrial-select">
+                  class="industrial-select full-width">
                   <el-option v-for="category in categories" :key="category.id" :label="category.name"
                     :value="category.id" />
                 </el-select>
@@ -67,7 +67,7 @@
 
               <el-form-item :label="t('agents.platform')" prop="platform" class="glass-input-wrapper">
                 <el-select v-model="formData.platform" :placeholder="t('agents.selectPlatform')"
-                  style="width: 100%" class="industrial-select">
+                  class="industrial-select full-width">
                   <el-option :label="t('agents.platformInternal')" value="internal" />
                   <el-option :label="t('agents.platformCoze')" value="coze" />
                   <el-option :label="t('agents.platformN8n')" value="n8n" />
@@ -82,8 +82,7 @@
                   filterable
                   allow-create
                   :placeholder="t('agents.tagsPlaceholder')"
-                  style="width: 100%"
-                  class="industrial-select"
+                  class="industrial-select full-width"
                 >
                   <el-option v-for="tag in commonTags" :key="tag" :label="tag" :value="tag" />
                 </el-select>
@@ -256,12 +255,12 @@ $brand-accent: var(--el-bg-color);
 $brand-glow: var(--color-white-15);
 $brand-glow-strong: var(--color-white-25);
 $industrial-bg: var(--color-dark-bg-1);
-$industrial-surface: var(--color-gray-111);
+$industrial-surface: var(--el-bg-color);
 $industrial-border: var(--border-unified-color);
 $industrial-border-hover: var(--border-unified-color-hover);
-$industrial-text: var(--color-gray-ededed);
-$industrial-text-muted: var(--color-gray-888888);
-$industrial-text-dim: var(--color-gray-555555);
+$industrial-text: var(--el-text-color-secondary);
+$industrial-text-muted: var(--el-text-color-placeholder);
+$industrial-text-dim: var(--el-text-color-secondary);
 $glass-bg: color-mix(in srgb, var(--el-color-primary) 70%, transparent);
 $glass-border: var(--border-unified-color);
 $glass-border-hover: var(--border-unified-color-hover);
@@ -376,7 +375,7 @@ $glass-border-hover: var(--border-unified-color-hover);
     font-weight: 600;
     letter-spacing: 0.05em;
     color: $industrial-text-muted;
-    font-family: 'EDIX';
+    font-family: var(--font-family-edix);
     text-transform: uppercase;
   }
 }
@@ -544,7 +543,7 @@ $glass-border-hover: var(--border-unified-color-hover);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     box-shadow: none;
-    transition: all 0.25s ease;
+    transition: border-color 0.25s ease, background-color 0.25s ease;
 
     &:hover {
       border-color: $industrial-border-hover;
@@ -612,7 +611,7 @@ $glass-border-hover: var(--border-unified-color-hover);
   border: none;
   cursor: pointer;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .btn-text {
     position: relative;
@@ -626,7 +625,7 @@ $glass-border-hover: var(--border-unified-color-hover);
     color: $brand-primary;
 
     &:hover:not(:disabled) {
-      transform: translateY(-2px);
+      
     }
 
     &:active:not(:disabled) {
@@ -782,5 +781,9 @@ $glass-border-hover: var(--border-unified-color-hover);
 // ============================================
 // Element Plus 下拉菜单覆盖（使用全局样式 _element-plus.scss）
 // ============================================
+
+.full-width {
+  width: 100%;
+}
 </style>
 

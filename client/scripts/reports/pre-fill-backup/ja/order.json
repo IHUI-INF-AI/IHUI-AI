@@ -1,0 +1,10 @@
+{
+  "order": {
+    "status": {
+      "completed": "[ZH:completed]",
+      "pending": "[ZH:pending]",
+      "refunded": "[ZH:refunded]",
+      "unsettled": "[ZH:unsettled]"
+    }
+  }
+}

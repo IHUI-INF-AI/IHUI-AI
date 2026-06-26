@@ -537,9 +537,9 @@ $surface-glass: var(--color-white-3);
 $surface-glass-hover: var(--color-white-6);
 $border-subtle: var(--border-unified-color);
 $border-active: var(--border-unified-color-hover);
-$text-primary: var(--color-gray-ededed);
-$text-secondary: var(--color-gray-888888);
-$text-muted: var(--color-gray-555555);
+$text-primary: var(--el-text-color-secondary);
+$text-secondary: var(--el-text-color-placeholder);
+$text-muted: var(--el-text-color-secondary);
 $glow-primary: var(--color-white-5);
 $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
@@ -704,7 +704,8 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border-radius: var(--global-border-radius);
   padding: 24px;
   backdrop-filter: blur(20px);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-backdrop-filter: blur(20px);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   // 顶部高光
@@ -721,7 +722,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   &:hover {
     background: $surface-glass-hover;
     border-color: $border-active;
-    transform: translateY(-2px);
+    
   }
 
   &--primary {
@@ -749,6 +750,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
     .el-dialog__header {
       border-bottom: var(--unified-border-bottom);
       padding: 20px 24px;
@@ -904,7 +906,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     box-shadow: none;
-    transition: all 0.3s ease;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
 
     &:hover,
     &.is-focus {
@@ -936,6 +938,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   inset: 0;
   background: var(--color-black-50);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: var(--z-notification);
   display: flex;
   align-items: center;
@@ -952,6 +955,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .dc-spinner {
@@ -994,6 +998,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   z-index: calc(var(--z-base) + 9);
   min-width: 160px;
   padding: 4px 0;
@@ -1049,7 +1054,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border-radius: var(--global-border-radius);
   border: none;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   &--primary {
@@ -1058,7 +1063,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
     &:hover {
       background: var(--el-bg-color);
-      transform: translateY(-1px);
+      
     }
 
     &:active {

@@ -324,7 +324,7 @@ onMounted(() => {
   cursor: pointer;
   color: var(--el-bg-color);
   font-size: 14px;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .action-btn:hover {
@@ -366,7 +366,7 @@ onMounted(() => {
 }
 
 .download-link:hover {
-  background: var(--color-blue-245bdb);
+  background: var(--el-color-primary);
 }
 
 .is-audio .media-container {

@@ -1822,7 +1822,7 @@ $text-main: var(--el-text-color-primary);
 $text-sec: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--color-gray-333);
+$brand-secondary: var(--el-text-color-primary);
 
 .settings-page-root {
   background: $bg-page;
@@ -1877,7 +1877,7 @@ $brand-secondary: var(--color-gray-333);
   transition: none;
 
   &.scroll-animated {
-    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -1926,6 +1926,7 @@ $brand-secondary: var(--color-gray-333);
 .glass {
   background: rgb(var(--el-fill-color-light-rgb), 0.6);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -2004,7 +2005,7 @@ $brand-secondary: var(--color-gray-333);
   }
 
   .page-header__badge-text {
-    font-family: 'EDIX';
+    font-family: var(--font-family-edix);
     text-transform: uppercase;
   }
 
@@ -2074,7 +2075,7 @@ $brand-secondary: var(--color-gray-333);
     justify-content: center;
     font-size: 22px;
     flex-shrink: 0;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s;
 
     &.danger {
       background: rgb(var(--color-danger-dark), 0.1);
@@ -2088,7 +2089,7 @@ $brand-secondary: var(--color-gray-333);
   }
 
   .section-idx {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     font-size: 12px;
     font-weight: 900;
     color: $brand-primary;
@@ -2172,7 +2173,7 @@ $brand-secondary: var(--color-gray-333);
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
   background: rgb(var(--el-fill-color-rgb), 0.5);
-  transition: all 0.3s;
+  transition: border-color 0.3s;
 
   &:focus {
     outline: 2px solid color-mix(in srgb, $brand-primary 30%, transparent);
@@ -2189,7 +2190,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 0.9rem;
   background: rgb(var(--el-fill-color-rgb), 0.5);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: border-color 0.3s;
 
   &:focus {
     outline: 2px solid color-mix(in srgb, $brand-primary 30%, transparent);
@@ -2217,7 +2218,7 @@ $brand-secondary: var(--color-gray-333);
     inset: 0;
     background: rgb(var(--el-fill-color-rgb), 0.8);
     border: var(--unified-border);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: var(--global-border-radius);
 
     &::before {
@@ -2228,7 +2229,7 @@ $brand-secondary: var(--color-gray-333);
       left: 2px;
       bottom: 2px;
       background: var(--el-bg-color);
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
     }
@@ -2254,11 +2255,11 @@ $brand-secondary: var(--color-gray-333);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, transform 0.3s, border-color 0.3s;
 
   &:hover {
     background: $brand-secondary;
-    transform: translateY(-2px);
+    
     border-color: color-mix(in srgb, $brand-primary 30%, transparent);
   }
 }
@@ -2272,11 +2273,11 @@ $brand-secondary: var(--color-gray-333);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, transform 0.3s, border-color 0.3s;
 
   &:hover {
     background: var(--el-color-danger-dark-2);
-    transform: translateY(-2px);
+    
     border-color: rgb(var(--el-color-danger-rgb), 0.4);
   }
 }
@@ -2294,7 +2295,7 @@ $brand-secondary: var(--color-gray-333);
   border-radius: var(--global-border-radius);
   object-fit: cover;
   border: 2px solid $border-light;
-  transition: all 0.3s;
+  transition: border-color 0.3s, transform 0.3s;
 
   &:hover {
     border-color: $brand-primary;
@@ -2310,7 +2311,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, border-color 0.3s;
 
   &:hover {
     background: color-mix(in srgb, $brand-primary 8%, transparent);
@@ -2324,6 +2325,7 @@ $brand-secondary: var(--color-gray-333);
   inset: 0;
   background: var(--color-black-60);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2374,7 +2376,7 @@ $brand-secondary: var(--color-gray-333);
     border-radius: var(--global-border-radius);
     font-size: 1.5rem;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s;
 
     &:hover {
       background: color-mix(in srgb, $brand-primary 10%, transparent);
@@ -2429,7 +2431,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 0.95rem;
   background: rgb(var(--el-fill-color-rgb), 0.5);
   box-sizing: border-box;
-  transition: all 0.3s;
+  transition: border-color 0.3s;
 
   &:focus {
     outline: 2px solid color-mix(in srgb, $brand-primary 40%, transparent);
@@ -2493,7 +2495,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s;
 
   &:hover {
     background: rgb(var(--el-fill-color-rgb), 0.8);
@@ -2509,18 +2511,18 @@ $brand-secondary: var(--color-gray-333);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, transform 0.3s;
 
   &:hover {
     background: $brand-secondary;
-    transform: translateY(-1px);
+    
   }
 }
 
 // ============ 对话框过渡 ============
 .dialog-fade-enter-active,
 .dialog-fade-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease;
 }
 
 .dialog-fade-enter-from,
@@ -2619,7 +2621,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--el-text-color-secondary);
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--font-family-mono);
   letter-spacing: 0.03em;
 }
 

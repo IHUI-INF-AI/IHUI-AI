@@ -1,0 +1,18 @@
+{
+  "userCenter": {
+    "clickToLogin": "[ZH:clickToLogin]",
+    "copyWebsite": {
+      "failed": "[ZH:failed]",
+      "success": "[ZH:success]"
+    },
+    "defaultUsername": "[ZH:defaultUsername]",
+    "memberLevel": "[ZH:memberLevel]",
+    "membershipBenefits": "[ZH:membershipBenefits]",
+    "notLoggedIn": "[ZH:notLoggedIn]",
+    "openMembershipPrivilege": "[ZH:openMembershipPrivilege]",
+    "recharge": "[ZH:recharge]",
+    "regularMember": "[ZH:regularMember]",
+    "tokenBalance": "[ZH:tokenBalance]",
+    "vipMember": "[ZH:vipMember]"
+  }
+}

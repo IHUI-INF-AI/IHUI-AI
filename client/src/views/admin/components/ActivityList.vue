@@ -161,7 +161,7 @@ onMounted(() => {
 
 <style scoped>
 .ip-text {
-  font-family: monospace;
+  font-family: var(--font-family-mono);
   font-size: 12px;
 }
 </style>

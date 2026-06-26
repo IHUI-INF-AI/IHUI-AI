@@ -14,13 +14,14 @@
       "questionJudgment": "O/X 문제 검색",
       "questionMulti": "객관식 검색",
       "questionSingle": "단일 선택 검색",
-      "questionSubjective": "주관식 검색"
+      "questionSubjective": "주관식 검색",
+      "chapter": "章节",
+      "chapterSection": "chapterSection"
     },
     "label": {
       "user": "사용자",
       "paper": "시험지",
       "score": "점수",
-      "duration": "소요 시간",
       "submitTime": "제출 시간"
     }
   }

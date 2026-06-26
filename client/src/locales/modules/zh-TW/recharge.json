@@ -1,0 +1,21 @@
+{
+  "recharge": {
+    "alipay": "alipay",
+    "fetchConfigFailed": "fetchConfigFailed",
+    "moreMethods": "moreMethods",
+    "normalUser": "normalUser",
+    "officialRecharge": "officialRecharge",
+    "operator": "操作员",
+    "rate": "rate",
+    "recharge": "充值",
+    "rechargeFailed": "rechargeFailed",
+    "rechargeSuccess": "rechargeSuccess",
+    "selectAmount": "selectAmount",
+    "selectAmountAndPayment": "selectAmountAndPayment",
+    "selectPayment": "selectPayment",
+    "title": "标题",
+    "tokens": "tokens",
+    "vipUser": "vipUser",
+    "wechatPay": "wechatPay"
+  }
+}

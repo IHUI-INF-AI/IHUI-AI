@@ -1,0 +1,27 @@
+{
+  "llmChatCenter": {
+    "actions": {
+      "clearChat": "清空对话",
+      "clearChatConfirm": "确认清空对话?",
+      "clearChatSuccess": "clearChatSuccess",
+      "close": "关闭",
+      "closeSearch": "closeSearch",
+      "copy": "复制",
+      "delete": "删除",
+      "edit": "编辑",
+      "exportChat": "导出对话",
+      "like": "点赞",
+      "regenerate": "重新生成",
+      "searchMessages": "searchMessages",
+      "viewStats": "viewStats"
+    },
+    "agentThinkingProcess": "agentThinkingProcess",
+    "newConversation": "新对话",
+    "status": {
+      "edited": "已编辑"
+    },
+    "websocket": {
+      "connectionFailed": "connectionFailed"
+    }
+  }
+}

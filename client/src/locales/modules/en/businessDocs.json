@@ -1,0 +1,256 @@
+{
+  "businessDocs": {
+    "changelog": {
+      "items": {
+        "v090[0]": "v090[0]",
+        "v090[1]": "v090[1]",
+        "v090[2]": "v090[2]",
+        "v090[3]": "v090[3]",
+        "v100[0]": "v100[0]",
+        "v100[1]": "v100[1]",
+        "v100[2]": "v100[2]",
+        "v100[3]": "v100[3]",
+        "v100[4]": "v100[4]",
+        "v100[5]": "v100[5]",
+        "v110[0]": "v110[0]",
+        "v110[1]": "v110[1]",
+        "v110[2]": "v110[2]",
+        "v110[3]": "v110[3]",
+        "v110[4]": "v110[4]"
+      },
+      "title": "标题"
+    },
+    "contributing": {
+      "note": "note",
+      "steps": {
+        "branch": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "check": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "clone": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "commit": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "dev": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "fork": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "install": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "push": {
+          "desc": "描述",
+          "title": "标题"
+        }
+      },
+      "title": "标题"
+    },
+    "deploy": {
+      "steps": {
+        "build": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "clone": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "env": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "install": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "preview": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "production": {
+          "desc": "描述",
+          "title": "标题"
+        }
+      },
+      "title": "标题"
+    },
+    "environment": {
+      "desc": "描述",
+      "key": "键",
+      "no": "否",
+      "note": "note",
+      "required": "必填",
+      "title": "标题",
+      "vars": {
+        "buildPlatform": "buildPlatform",
+        "viteApiBaseUrl": "viteApiBaseUrl",
+        "viteAppTitle": "viteAppTitle",
+        "viteCspReportUri": "viteCspReportUri",
+        "viteEnableMonitor": "viteEnableMonitor",
+        "viteSentryDsn": "viteSentryDsn",
+        "viteUseVize": "viteUseVize"
+      },
+      "yes": "是"
+    },
+    "faq": {
+      "items": {
+        "browser": {
+          "a": "a",
+          "q": "q"
+        },
+        "bug": {
+          "a": "a",
+          "q": "q"
+        },
+        "contribute": {
+          "a": "a",
+          "q": "q"
+        },
+        "demo": {
+          "a": "a",
+          "q": "q"
+        },
+        "deploy": {
+          "a": "a",
+          "q": "q"
+        },
+        "language": {
+          "a": "a",
+          "q": "q"
+        },
+        "pwa": {
+          "a": "a",
+          "q": "q"
+        },
+        "techStack": {
+          "a": "a",
+          "q": "q"
+        }
+      },
+      "title": "标题"
+    },
+    "modules": {
+      "desc": "描述",
+      "list": {
+        "admin": {
+          "desc": "描述",
+          "endpoints": {
+            "login": "登录",
+            "menus": "menus",
+            "roles": "角色",
+            "users": "用户"
+          },
+          "title": "标题"
+        },
+        "ai": {
+          "desc": "描述",
+          "endpoints": {
+            "agentsCreate": "agentsCreate",
+            "chat": "对话",
+            "generate": "generate",
+            "models": "模型"
+          },
+          "title": "标题"
+        },
+        "auth": {
+          "desc": "描述",
+          "endpoints": {
+            "login": "登录",
+            "logout": "退出登录",
+            "refresh": "刷新",
+            "register": "注册",
+            "userInfo": "用户信息"
+          },
+          "title": "标题"
+        },
+        "payment": {
+          "desc": "描述",
+          "endpoints": {
+            "aliPay": "aliPay",
+            "aliPayNotify": "aliPayNotify",
+            "aliPaySuccess": "aliPaySuccess",
+            "orderCreate": "orderCreate",
+            "wxPay": "wxPay"
+          },
+          "title": "标题"
+        },
+        "user": {
+          "desc": "描述",
+          "endpoints": {
+            "orders": "订单",
+            "profileGet": "profileGet",
+            "profileUpdate": "profileUpdate",
+            "vipLevels": "vipLevels"
+          },
+          "title": "标题"
+        }
+      },
+      "method": "method",
+      "path": "path",
+      "title": "标题"
+    },
+    "overview": {
+      "description": "描述",
+      "descriptionValue": "descriptionValue",
+      "license": "license",
+      "node": "node",
+      "projectName": "projectName",
+      "title": "标题",
+      "version": "version"
+    },
+    "security": {
+      "items": {
+        "csp": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "hmac": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "rbac": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "session": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "webhook": {
+          "desc": "描述",
+          "title": "标题"
+        },
+        "xss": {
+          "desc": "描述",
+          "title": "标题"
+        }
+      },
+      "title": "标题"
+    },
+    "subtitle": "副标题",
+    "tab": {
+      "changelog": "changelog",
+      "contributing": "contributing",
+      "deploy": "deploy",
+      "environment": "environment",
+      "faq": "常见问题",
+      "modules": "modules",
+      "overview": "overview",
+      "security": "安全"
+    },
+    "title": "标题"
+  }
+}

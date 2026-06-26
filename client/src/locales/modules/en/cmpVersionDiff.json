@@ -1,0 +1,8 @@
+{
+  "cmpVersionDiff": {
+    "compareFailed": "compareFailed",
+    "getVersionFailed": "getVersionFailed",
+    "selectDiffVersion": "selectDiffVersion",
+    "selectVersionToCompare": "selectVersionToCompare"
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "agentScenario": {
+    "axes": {
+      "autonomy": {
+        "high": "[ZH:high]",
+        "low": "[ZH:low]",
+        "title": "[ZH:title]"
+      },
+      "complexity": {
+        "high": "[ZH:high]",
+        "low": "[ZH:low]",
+        "title": "[ZH:title]"
+      }
+    },
+    "characteristics": {
+      "title": "[ZH:title]"
+    },
+    "cta": {
+      "contact": "[ZH:contact]",
+      "description": "[ZH:description]",
+      "learnMore": "[ZH:learnMore]",
+      "title": "[ZH:title]"
+    },
+    "examples": {
+      "title": "[ZH:title]"
+    },
+    "footer": {
+      "contact": "[ZH:contact]",
+      "enterprise": "[ZH:enterprise]",
+      "humanMachine": "[ZH:humanMachine]"
+    },
+    "guide": {
+      "intro": "[ZH:intro]",
+      "steps": {
+        "evaluate": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        },
+        "identify": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        },
+        "pilot": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        },
+        "scale": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        }
+      },
+      "title": "[ZH:title]"
+    },
+    "heroSubtitle": "[ZH:heroSubtitle]",
+    "heroTitle": "[ZH:heroTitle]",
+    "overview": {
+      "description": "[ZH:description]",
+      "keyPoint": "[ZH:keyPoint]",
+      "keyPointText": "[ZH:keyPointText]",
+      "title": "[ZH:title]"
+    },
+    "quadrants": {
+      "complex": {
+        "badge": "[ZH:badge]",
+        "chars": {
+          "autonomousExecution": "[ZH:autonomousExecution]",
+          "autonomousPlanning": "[ZH:autonomousPlanning]",
+          "lifecycle": "[ZH:lifecycle]",
+          "multiAgent": "[ZH:multiAgent]"
+        },
+        "examples": {
+          "marketing": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "multiAgent": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          }
+        },
+        "fullDescription": "[ZH:fullDescription]",
+        "title": "[ZH:title]",
+        "value": "[ZH:value]"
+      },
+      "decision": {
+        "chars": {
+          "openEnded": "[ZH:openEnded]",
+          "output": "[ZH:output]",
+          "prediction": "[ZH:prediction]",
+          "reasoning": "[ZH:reasoning]"
+        },
+        "examples": {
+          "advisor": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "analysis": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          }
+        },
+        "fullDescription": "[ZH:fullDescription]",
+        "title": "[ZH:title]",
+        "value": "[ZH:value]"
+      },
+      "execution": {
+        "chars": {
+          "clearIntent": "[ZH:clearIntent]",
+          "crossSystem": "[ZH:crossSystem]",
+          "multiAPI": "[ZH:multiAPI]",
+          "multiStep": "[ZH:multiStep]"
+        },
+        "examples": {
+          "approval": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "meeting": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          }
+        },
+        "fullDescription": "[ZH:fullDescription]",
+        "title": "[ZH:title]",
+        "value": "[ZH:value]"
+      },
+      "simple": {
+        "chars": {
+          "calls": "[ZH:calls]",
+          "dependency": "[ZH:dependency]",
+          "steps": "[ZH:steps]",
+          "volume": "[ZH:volume]"
+        },
+        "examples": {
+          "qa": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "workflow": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          }
+        },
+        "fullDescription": "[ZH:fullDescription]",
+        "title": "[ZH:title]",
+        "value": "[ZH:value]"
+      }
+    },
+    "value": {
+      "title": "[ZH:title]"
+    }
+  }
+}

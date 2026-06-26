@@ -174,7 +174,6 @@ function numResult(num: number) {
   width: 90px;
   height: 90px;
   border-radius: var(--global-border-radius);
-  border-radius: var(--global-border-radius);
 }
 
 .xin-left {
@@ -280,13 +279,12 @@ function numResult(num: number) {
 }
 
 .xin-title-hot {
-  float: right;
   font-size: 13px;
   font-weight: 700;
   line-height: 16px;
   color: var(--color--ff5f33);
   margin-top: -4px;
-  margin-left: 2px;
+  margin-left: auto;
 }
 
 .xin-title-hot span {

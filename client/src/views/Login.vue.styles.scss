@@ -223,7 +223,7 @@ $login-header-gap: 12px;
   overflow: visible;
   box-sizing: border-box;
   position: relative;
-  transition: all 0.3s ease;
+  transition: width 0.3s ease;
 }
 
 :where(.main-content.login-route) :where(.language-selector) {
@@ -973,7 +973,7 @@ $login-header-gap: 12px;
 }
 
 /* 暗色模式 - 通过覆盖 CSS 变量实现 */
-:where(html.dark, body.dark, .dark-mode) .switch-project-btn {
+:where(html.dark, .dark-mode) .switch-project-btn {
   --spb-color: var(--el-color-white);
   --spb-bg: transparent;
   --spb-hover-bg: var(--el-fill-color-light);
@@ -1087,6 +1087,7 @@ $login-header-gap: 12px;
 :where(html.dark) .login-content.login-page :deep(.login-content.login-page) {
   background: var(--color-dark-1e293b-95);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   }
 
 :where(html.dark) .login-content.login-page :deep(.el-button--primary:hover) {
@@ -1114,7 +1115,7 @@ $login-header-gap: 12px;
   overflow: visible;
   box-sizing: border-box;
   position: relative;
-  transition: all 0.3s ease;
+  transition: width 0.3s ease;
 }
 
 :where(.main-content.login-route) :where(.search-wrapper.expanded) {
@@ -1649,7 +1650,7 @@ input.verification-code-digit {
   cursor: pointer;
   padding: 8px;
   border-radius: var(--global-border-radius);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
   max-width: 36px;
   min-width: 36px;
   width: 36px;
@@ -1683,7 +1684,7 @@ input.verification-code-digit {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   // Hover 状态 - 显示提示窗口
@@ -1696,7 +1697,7 @@ input.verification-code-digit {
   // Hover 状态 - 按钮背景效果
   &:hover {
     background-color: var(--el-bg-color-hover);
-    transform: translateY(-2px);
+    
   }
 }
 
@@ -1972,7 +1973,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     box-shadow: none;
     border: var(--unified-border);
     background: var(--el-fill-color-lighter);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 
     &:hover {
       border-color: var(--el-border-color);
@@ -1998,11 +1999,11 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     font-size: 15px;
     background: var(--el-text-color-primary);
     border: none;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease;
 
     &:hover {
       background: var(--el-bg-color);
-      transform: translateY(-2px);
+      
       }
 
     &:active {
@@ -2015,11 +2016,11 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
     background: var(--el-bg-color);
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, transform 0.2s ease;
 
     &:hover {
       border-color: var(--el-border-color);
-      transform: translateY(-2px);
+      
     }
   }
   

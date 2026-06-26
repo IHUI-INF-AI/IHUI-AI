@@ -1564,7 +1564,7 @@ cleanup.add(() => {
   border: var(--menu-item-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
   height: var(--menu-item-height);
@@ -1683,7 +1683,7 @@ div.menu-item {
   border: var(--menu-item-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
   height: var(--menu-item-height);
@@ -1834,7 +1834,7 @@ div.menu-item {
 }
 
 // 暗色模式 - 深邃的科技感
-html.dark .dropdown-menu {
+:where(html.dark) .dropdown-menu {
   // 深色玻璃背景
   background: var(--color-dark-141419-95);
   backdrop-filter: blur(24px) saturate(150%);
@@ -1953,7 +1953,7 @@ html.dark .dropdown-menu {
 }
 
 // 暗色模式下的菜单项
-html.dark .dropdown-item {
+:where(html.dark) .dropdown-item {
   color: var(--color-white-90);
 
   &:hover {
@@ -2029,8 +2029,8 @@ html.dark .dropdown-item {
 
   body .glass-header.dark-mode button.menu-item.active,
   body .glass-header.dark-mode a.menu-item.active,
-  body html.dark .glass-header button.menu-item.active,
-  body html.dark .glass-header a.menu-item.active {
+  body :where(html.dark) .glass-header button.menu-item.active,
+  body :where(html.dark) .glass-header a.menu-item.active {
     background-color: var(--el-color-white);
     color: var(--el-color-black);
     border-color: var(--el-color-primary);

@@ -1,0 +1,23 @@
+{
+  "distributionTeamDetail": {
+    "amount": "金额",
+    "createTime": "创建时间",
+    "loadMemberInfoFailed": "loadMemberInfoFailed",
+    "memberNotFound": "memberNotFound",
+    "nickname": "昵称",
+    "orderNo": "orderNo",
+    "ordersList": "ordersList",
+    "registerTime": "registerTime",
+    "status": "状态",
+    "statusCancelled": "statusCancelled",
+    "statusPaid": "statusPaid",
+    "statusPending": "statusPending",
+    "statusUnknown": "statusUnknown",
+    "subCount": "subCount",
+    "subordinatesList": "subordinatesList",
+    "subtitle": "副标题",
+    "title": "标题",
+    "totalCommission": "totalCommission",
+    "username": "用户名"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "tasks": {
+    "cancel": "[ZH:cancel]",
+    "cancelFailed": "[ZH:cancelFailed]",
+    "cancelSuccess": "[ZH:cancelSuccess]",
+    "cancelledAt": "[ZH:cancelledAt]",
+    "confirmCancel": "[ZH:confirmCancel]",
+    "createdAt": "[ZH:createdAt]",
+    "noTasks": "[ZH:noTasks]",
+    "retry": "[ZH:retry]",
+    "status": {
+      "cancelled": "[ZH:cancelled]",
+      "completed": "[ZH:completed]",
+      "failed": "[ZH:failed]",
+      "pending": "[ZH:pending]",
+      "processing": "[ZH:processing]",
+      "unknown": "[ZH:unknown]"
+    },
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]",
+    "updatedAt": "[ZH:updatedAt]",
+    "viewResults": "[ZH:viewResults]"
+  }
+}

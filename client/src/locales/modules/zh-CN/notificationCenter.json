@@ -3,6 +3,28 @@
     "title": "通知中心",
     "markAllRead": "全部已读",
     "all": "全部",
-    "unread": "未读"
+    "unread": "未读",
+    "allMarkedRead": "全部已读",
+    "allTypes": "全部类型",
+    "deleteFailed": "删除失败",
+    "detailTitle": "详情",
+    "level": {
+      "error": "错误",
+      "info": "信息",
+      "warn": "警告"
+    },
+    "loadFailed": "加载失败",
+    "noNotifications": "暂无通知",
+    "operationFailed": "操作失败",
+    "subtitle": "副标题",
+    "total": "总计",
+    "typeAgent": "智能体类型",
+    "typeMarketing": "营销类型",
+    "typeOrder": "订单类型",
+    "typeOther": "其他",
+    "typeRefund": "退款类型",
+    "typeSite": "typeSite",
+    "typeSystem": "系统类型",
+    "typeWallet": "typeWallet"
   }
 }

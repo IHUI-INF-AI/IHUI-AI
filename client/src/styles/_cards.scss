@@ -110,7 +110,7 @@
   }
 }
 
-html.dark .card-neutral {
+:where(html.dark) .card-neutral {
   background-color: var(--el-bg-color);
 
   &:hover {
@@ -172,7 +172,7 @@ html.dark .card-neutral {
   letter-spacing: 0.05em;
   z-index: var(--z-base);
 
-  html.dark & {
+  :where(html.dark) & {
     background: var(--el-bg-color-page);
     color: var(--el-color-primary);
   }

@@ -1,0 +1,8 @@
+{
+  "featureCallback": {
+    "attack": "[ZH:attack]",
+    "expired": "[ZH:expired]",
+    "missing": "[ZH:missing]",
+    "verifyFailed": "[ZH:verifyFailed]"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "visionAnalysis": {
+    "buttons": {
+      "analyze": "分析"
+    },
+    "form": {
+      "prompt": "提示词",
+      "promptPlaceholder": "请输入提示词",
+      "selectImage": "选择图片",
+      "upload": "上传"
+    },
+    "messages": {
+      "analyzeSuccess": "analyzeSuccess",
+      "uploadAndPromptRequired": "uploadAndPromptRequired",
+      "uploadFailed": "上传失败"
+    },
+    "result": {
+      "answer": "答案",
+      "reasoning": "推理",
+      "title": "标题"
+    },
+    "tag": "标签",
+    "title": "标题"
+  }
+}

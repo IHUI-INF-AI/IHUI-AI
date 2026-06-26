@@ -1,0 +1,6 @@
+{
+  "aiGenImageGenQwen": {
+    "qwenRemarkMissing": "[ZH:qwenRemarkMissing]",
+    "websocketNotSupport": "[ZH:websocketNotSupport]"
+  }
+}

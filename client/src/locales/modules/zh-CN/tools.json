@@ -1,0 +1,13 @@
+{
+  "tools": {
+    "loading": "加载中",
+    "localData": "localData",
+    "noMatch": "无匹配",
+    "realtimeData": "realtimeData",
+    "sortByHot": "sortByHot",
+    "sortByName": "按名称排序",
+    "sortDefault": "sortDefault",
+    "title": "标题",
+    "usage": "使用方法"
+  }
+}

@@ -291,7 +291,7 @@ $text-muted: var(--el-text-color-placeholder);
   border-radius: var(--global-border-radius);
   overflow: clip;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease;
   border: var(--unified-border);
 
   :global(html.dark) & {

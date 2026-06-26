@@ -1,0 +1,13 @@
+{
+  "userLoginPopup": {
+    "codePlaceholder": "[ZH:codePlaceholder]",
+    "codeSendFailed": "[ZH:codeSendFailed]",
+    "codeSent": "[ZH:codeSent]",
+    "enterPhone": "[ZH:enterPhone]",
+    "invalidPhone": "[ZH:invalidPhone]",
+    "loginSuccess": "[ZH:loginSuccess]",
+    "phonePlaceholder": "[ZH:phonePlaceholder]",
+    "wechatLoginNotConfigured": "[ZH:wechatLoginNotConfigured]",
+    "welcomeBack": "[ZH:welcomeBack]"
+  }
+}

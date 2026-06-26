@@ -1,0 +1,18 @@
+{
+  "study": {
+    "chunkUploadFailed": "chunkUploadFailed",
+    "deleteSuccessReview": "deleteSuccessReview",
+    "editSuccessReview": "editSuccessReview",
+    "mainTrackPrefix": "mainTrackPrefix",
+    "publishSuccessContinue": "publishSuccessContinue",
+    "relatedApp": "relatedApp",
+    "selectPhase": "selectPhase",
+    "selectTags": "selectTags",
+    "selectTrack": "selectTrack",
+    "topComment": "topComment",
+    "uploadFailed": "uploadFailed",
+    "uploadSuccess": "uploadSuccess",
+    "uploadVideoCourse": "uploadVideoCourse",
+    "videoUploadSuccess": "videoUploadSuccess"
+  }
+}

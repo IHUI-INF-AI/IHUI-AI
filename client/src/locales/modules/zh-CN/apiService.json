@@ -1,0 +1,167 @@
+{
+  "apiService": {
+    "apps": {
+      "apiKeys": "API 密钥",
+      "createFailed": "创建失败",
+      "createSuccess": "创建成功",
+      "createdAt": "创建时间",
+      "deleteConfirm": "确认删除?",
+      "deleteFailed": "删除失败",
+      "deleteSuccess": "删除成功",
+      "requests": "请求",
+      "updateFailed": "更新失败",
+      "updateSuccess": "更新成功"
+    },
+    "billing": {
+      "apiKey": "API Key",
+      "app": "应用",
+      "exportFailed": "导出失败",
+      "exportSuccess": "导出成功",
+      "input": "输入",
+      "latency": "延迟",
+      "output": "输出",
+      "requestTime": "请求时间",
+      "tokens": "令牌"
+    },
+    "debug": {
+      "addHeader": "添加请求头",
+      "body": "正文",
+      "bodyPlaceholder": "请输入请求体",
+      "format": "格式",
+      "headerKey": "请求头键",
+      "headerValue": "请求头值",
+      "headers": "请求头",
+      "method": "方法",
+      "responseBody": "响应体",
+      "responseHeaders": "响应头",
+      "responseTime": "响应时间",
+      "url": "链接",
+      "urlPlaceholder": "请输入链接"
+    },
+    "groups": {
+      "appCount": "应用数量",
+      "comparison": {
+        "feature": "功能",
+        "recommendation": "推荐",
+        "recommendationText": "推荐说明",
+        "scenarios": "适用场景"
+      },
+      "createFailed": "创建失败",
+      "createSuccess": "创建成功",
+      "createdAt": "创建时间",
+      "deleteConfirm": "确认删除?",
+      "deleteFailed": "删除失败",
+      "deleteSuccess": "删除成功",
+      "features": {
+        "concurrent": "并发数",
+        "models": "模型",
+        "rateLimit": "速率限制"
+      },
+      "updateFailed": "更新失败",
+      "updateSuccess": "更新成功"
+    },
+    "home": {
+      "advantages": {
+        "fastConnection": "快速连接",
+        "fastConnectionDesc": "全球高速节点直连，毫秒级响应",
+        "globalDirect": "全球直连",
+        "globalDirectDesc": "覆盖全球主要区域，无需代理转发",
+        "lowLatency": "低延迟",
+        "lowLatencyDesc": "智能路由优化，平均延迟低于100ms",
+        "noBan": "免封锁",
+        "noBanDesc": "多节点自动切换，避免IP封锁",
+        "noProxy": "无代理",
+        "noProxyDesc": "直连API服务器，无中间代理风险",
+        "payAsYouGo": "按量付费",
+        "payAsYouGoDesc": "灵活计费，用多少付多少",
+        "subtitle": "副标题",
+        "title": "标题"
+      },
+      "quickStart": {
+        "startUsing": "开始使用",
+        "step1": {
+          "button": "按钮",
+          "content": "内容",
+          "description": "描述",
+          "title": "标题"
+        },
+        "step2": {
+          "content": "内容",
+          "description": "描述",
+          "title": "标题"
+        },
+        "step3": {
+          "button": "按钮",
+          "content": "内容",
+          "description": "描述",
+          "title": "标题"
+        },
+        "subtitle": "副标题",
+        "title": "标题"
+      }
+    },
+    "logs": {
+      "app": "应用",
+      "basicInfo": "基本信息",
+      "cost": "费用",
+      "detail": "详情",
+      "endpoint": "端点",
+      "errorMessage": "错误信息",
+      "headerKey": "请求头键",
+      "headerValue": "请求头值",
+      "input": "输入",
+      "ip": "IP",
+      "latency": "延迟",
+      "method": "方法",
+      "model": "模型",
+      "noBody": "无请求体",
+      "noHeaders": "无请求头",
+      "output": "输出",
+      "protocol": "协议",
+      "request": "请求",
+      "requestBody": "请求体",
+      "requestHeaders": "请求头",
+      "response": "响应",
+      "responseBody": "响应体",
+      "responseHeaders": "响应头",
+      "status": "状态",
+      "statusCode": "状态码",
+      "time": "时间",
+      "tokens": "令牌",
+      "userAgent": "用户代理"
+    },
+    "packages": {
+      "downgradeConfirm": "确认降级？",
+      "downgradeFailed": "降级失败",
+      "downgradeSuccess": "降级成功",
+      "endDate": "结束日期",
+      "quota": "配额",
+      "remaining": "剩余",
+      "startDate": "开始日期",
+      "upgrade": "升级",
+      "upgradeFailed": "升级失败",
+      "upgradeSuccess": "升级成功"
+    },
+    "tickets": {
+      "close": "关闭",
+      "reopen": "重新打开",
+      "replies": "回复"
+    },
+    "usage": {
+      "apiPath": "API 路径",
+      "appName": "应用名称",
+      "avgLatency": "平均延迟",
+      "byApp": "按应用",
+      "cost": "费用",
+      "errorRate": "错误率",
+      "groupName": "分组名称",
+      "maxLatency": "最大延迟",
+      "requests": "请求",
+      "successRate": "成功率",
+      "topApis": "热门API",
+      "topGroups": "热门分组",
+      "topLatency": "高延迟排行",
+      "topStatsNotAvailable": "暂无统计数据"
+    }
+  }
+}

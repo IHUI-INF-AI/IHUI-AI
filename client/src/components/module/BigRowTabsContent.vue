@@ -75,11 +75,11 @@ const handleClick = (item: BigItem) => emit('click', item)
     background: var(--el-bg-color);
     border: var(--unified-border);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.2s, transform 0.2s;
 
     &:hover {
       border-color: var(--el-color-primary);
-      transform: translateY(-2px);
+      
       }
   }
 

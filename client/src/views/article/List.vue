@@ -84,7 +84,7 @@ onMounted(reload)
   .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; }
   .search-input { flex: 1; }
   .sort-select { width: 140px; }
-  .article-item { display: flex; gap: 16px; background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border: var(--unified-border); &:hover { border-color: var(--el-color-primary); transform: translateX(4px); } }
+  .article-item { display: flex; gap: 16px; background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s, transform 0.2s; border: var(--unified-border); &:hover { border-color: var(--el-color-primary); transform: translateX(4px); } }
   .item-cover { width: 180px; height: 120px; flex-shrink: 0; border-radius: var(--global-border-radius); overflow: hidden; background: var(--el-fill-color-light); img { width: 100%; height: 100%; object-fit: cover; display: block; } }
   .item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .item-title { margin: 0 0 8px; font-size: 16px; color: var(--el-text-color-primary); display: flex; align-items: center; gap: 6px; }

@@ -113,14 +113,14 @@ const formatValue = (value: number | string): string => {
     padding: 16px;
     background-color: var(--el-fill-color-light);
     border-radius: var(--global-border-radius);
-    transition: all 0.2s;
+    transition: background-color 0.2s, transform 0.2s;
 
     &.stat-item-clickable {
       cursor: pointer;
 
       &:hover {
         background-color: var(--el-fill-color);
-        transform: translateY(-2px);
+        
       }
     }
 

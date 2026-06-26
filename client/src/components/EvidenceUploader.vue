@@ -330,13 +330,13 @@ v.$text-primary: var(--el-text-color-primary);
   padding: 24px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s, background-color 0.2s;
   background: var(--el-bg-color);
 
   &:hover,
   &.dragging {
     border-color: v.$primary-color;
-    background: var(--color-blue-1890ff-04);
+    background: rgba(var(--el-color-primary-rgb), 0.04);
   }
 }
 

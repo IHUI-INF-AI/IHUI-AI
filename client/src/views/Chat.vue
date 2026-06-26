@@ -438,7 +438,7 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   flex-shrink: 0;
 }
 
-html.dark .message-avatar {
+:where(html.dark) .message-avatar {
   color: var(--color-dark-bg-1);
 }
 .message-item.ai .message-avatar { background: var(--el-color-success); }
@@ -511,9 +511,33 @@ html.dark .message-avatar {
   font-size: 13px;
 }
 .send-btn { background: var(--el-color-primary); color: var(--color-on-primary); }
-html.dark .send-btn { color: var(--color-dark-bg-1); }
+:where(html.dark) .send-btn { color: var(--color-dark-bg-1); }
 .send-btn:disabled { background: var(--el-fill-color-dark); cursor: not-allowed; }
 .send-btn:hover:not(:disabled) { background: var(--el-color-primary); }
 .clear-btn { background: var(--el-fill-color-dark); color: var(--el-text-color-primary); }
 .clear-btn:hover { background: var(--el-fill-color-darker); }
-</style>
+
+/* ==================== Dark Mode ==================== */
+:where(html.dark) .message-content { background: var(--el-fill-color-darker); }
+:where(html.dark) .message-item.user .message-content { background: var(--el-color-primary); }
+
+/* ==================== Responsive ==================== */
+@media (max-width: 768px) {
+  .chat-page { padding: 12px; }
+  .chat-container { height: calc(100vh - 24px); }
+  .chat-status-bar { padding: 10px 12px; gap: 8px; }
+  .chat-messages { padding: 12px; gap: 8px; }
+  .message-item { max-width: 85%; }
+  .chat-input-area { padding: 10px; }
+  .chat-textarea { padding: 8px; }
+  .send-btn, .clear-btn { padding: 8px 14px; }
+}
+@media (max-width: 480px) {
+  .chat-page { padding: 8px; }
+  .chat-container { height: calc(100vh - 16px); border-radius: 0; border: none; }
+  .status-info { gap: 6px; }
+  .model-select { font-size: 12px; padding: 3px 6px; }
+  .message-item { max-width: 90%; gap: 8px; }
+  .message-avatar { width: 30px; height: 30px; font-size: 11px; }
+  .message-content { padding: 8px 10px; font-size: 13px; }
+}</style>

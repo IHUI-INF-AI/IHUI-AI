@@ -1,12 +1,23 @@
+// variables.scss - 简化版 SCSS 变量集合
+// Relationship with _design-tokens.scss:
+//   - _design-tokens.scss has more granular breakpoints (375/428/576px) vs this file (640/768/1024px)
+//   - Both are actively used by different components - do NOT merge breakpoints
+//   - Color/layout variables here are duplicates of _design-tokens.scss with !default
+//   - Prefer _design-tokens.scss for new code; this file exists for backward compatibility
+
+// variables.scss - Simplified SCSS variable set
+// See _design-tokens.scss for the comprehensive token system
+// Do NOT merge breakpoints - different files use different breakpoint scales
+
 @use './_global-tokens' as gt;
 
 // 色彩基调：黑白主题
 $primary-color: var(--el-text-color-primary);
 $primary-light: var(--el-text-color-primary);
 $primary-dark: var(--el-text-color-primary);
-$success-color: var(--color-green-16a34a);
+$success-color: var(--el-color-success);
 $warning-color: var(--el-text-color-primary);
-$danger-color: var(--color-red-ef4444);
+$danger-color: var(--el-color-danger);
 $info-color: var(--el-text-color-primary);
 
 // 品牌强调色
@@ -18,15 +29,15 @@ $brand-pink: var(--el-text-color-primary);
 
 // 工具图标纯色
 $tool-gradient-purple: var(--el-text-color-primary);
-$tool-gradient-amber: var(--color-amber-fbbf24);
+$tool-gradient-amber: var(--el-color-warning);
 $tool-gradient-blue: var(--el-text-color-primary);
-$tool-gradient-green: var(--color-green-4ade80);
+$tool-gradient-green: var(--el-color-success);
 $tool-gradient-cyan: var(--el-text-color-primary);
 $tool-gradient-violet: var(--el-text-color-primary);
 $tool-gradient-indigo: var(--el-text-color-primary);
 $tool-gradient-rose: var(--el-text-color-primary);
 $tool-gradient-orange: var(--el-text-color-primary);
-$tool-gradient-success: var(--color-emerald-500);
+$tool-gradient-success: var(--el-color-success);
 
 // 社交平台品牌色
 $social-wechat: var(--el-text-color-primary);
@@ -36,11 +47,11 @@ $social-qq: var(--el-text-color-primary);
 // 图表/状态颜色
 $chart-success: var(--color-success);
 $chart-danger: var(--color-danger-variant);
-$chart-info: var(--color-blue-1890ff);
-$chart-warning: var(--color-orange-fa8c16);
+$chart-info: var(--el-color-primary);
+$chart-warning: var(--el-color-warning);
 
 // 灰阶色板
-$gray-50: var(--color-gray-fafafa);
+$gray-50: var(--el-fill-color-lighter);
 $gray-100: var(--color-neutral-100);
 $gray-200: var(--color-neutral-200);
 $gray-300: var(--color-neutral-300);
@@ -61,10 +72,10 @@ $dark-bg-6: var(--el-text-color-primary);
 
 // 浅色背景层级
 $light-bg-1: var(--el-bg-color);
-$light-bg-2: var(--color-gray-fafafa);
+$light-bg-2: var(--el-fill-color-lighter);
 $light-bg-3: var(--color-neutral-f7f8fa);
 $light-bg-4: var(--color-neutral-100);
-$light-bg-5: var(--color-gray-light);
+$light-bg-5: var(--el-fill-color-light);
 $light-bg-6: var(--color-border-light);
 
 // 文字颜色
@@ -76,7 +87,7 @@ $text-muted: var(--el-text-color-placeholder);
 $text-light: var(--el-text-color-placeholder);
 $text-dark-primary: var(--el-text-color-primary);
 $text-dark-secondary: var(--el-text-color-primary);
-$text-dark-muted: var(--color-gray-a1a1a1);
+$text-dark-muted: var(--el-text-color-placeholder);
 
 // 背景颜色
 $bg-primary: var(--el-bg-color);
@@ -91,7 +102,7 @@ $border-gray-2: var(--color-gray-dde2e6);
 $border-gray-3: var(--color-gray-ccd2d8);
 
 // 尺寸变量
-$header-height: 64px;
+$header-height: 60px;
 $sidebar-width: 240px;
 $sidebar-collapsed-width: 64px;
 
@@ -165,7 +176,9 @@ $breakpoint-xl: 1280px;
 $breakpoint-2xl: 1536px;
 
 // 内容最大宽度
-$content-max-width: 1200px;
+$content-max-width-lg: 1400px;
+$content-max-width-md: 960px;
+$content-max-width-sm: 720px;
 
 // Z-index变量
 $z-dropdown: 1000;

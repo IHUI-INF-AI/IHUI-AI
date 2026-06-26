@@ -71,8 +71,6 @@
         "originalPrice": "原价 ¥{price}"
       },
       "plans": {
-        "vip": "会员",
-        "trader": "操盘手",
         "upgrade": "升级套餐",
         "subscribe": "立即开通",
         "recommended": "推荐"
@@ -96,54 +94,13 @@
       "guarantee": "7天无理由退款保障"
     },
     "payment": {
-      "title": "支付",
-      "subtitle": "请选择支付方式完成订单",
-      "orderInfo": "订单信息",
-      "productName": "商品名称",
-      "orderNo": "订单号",
-      "amount": "金额",
       "paymentMethods": "支付方式",
-      "platformCoins": {
-        "name": "平台币支付",
-        "desc": "使用账户余额支付"
-      },
-      "alipay": "alipay",
-      "wechat": {
-        "name": "微信支付",
-        "desc": "使用微信扫码支付"
-      },
-      "card": {
-        "name": "银行卡",
-        "desc": "使用银行卡支付"
-      },
+      "alipay": "支付宝",
       "confirmPay": "确认支付 ¥{price}",
       "cancel": "取消",
-      "underDevelopment": "功能开发中",
-      "confirmPayment": "确认支付",
-      "processing": "处理中...",
-      "invalidOrderInfo": "订单信息无效",
-      "cardNotSupported": "银行卡支付暂不支持，请选择其他支付方式",
-      "createOrderFailed": "创建支付订单失败",
-      "paymentDataError": "支付数据错误",
-      "paymentSuccess": "支付成功",
-      "paymentFailed": "支付失败",
-      "insufficientBalance": "平台币余额不足，请选择其他支付方式或先充值",
-      "orderAlreadyPaid": "订单已支付",
       "qrCodeTitle": "扫码支付",
-      "generatingQRCode": "正在生成支付二维码...",
       "qrCodeTip": "请使用手机扫描下方二维码完成支付",
-      "qrCodeFailed": "二维码生成失败",
-      "openPaymentPage": "打开支付页面",
-      "checkStatus": "检查支付状态",
-      "cancelPayment": "取消支付",
-      "paymentNotAvailable": "支付功能暂未开放",
-      "paymentRedirecting": "正在跳转到支付页面...",
-      "wechatPaymentRequiresJSAPI": "微信支付需要在微信环境中使用",
-      "pageTitleKeyword": "支付",
-      "pageTitle": "支付页面",
-      "defaultProductName": "未命名商品",
       "qrCodeAlt": "支付二维码",
-      "unsupportedMethod": "不支持的支付方式",
       "close": "关闭",
       "confirmOrder": "确认订单",
       "orderDetails": "订单详情",
@@ -168,7 +125,36 @@
         "lifetime": "✓ 一次付费，永久使用"
       }
     },
-    "paymentFailed": "支付失败"
+    "paymentFailed": "支付失败",
+    "userMembershipBenefits": {
+      "benefit10One": "benefit10One",
+      "benefit10Three": "benefit10Three",
+      "benefit10Title": "benefit10Title",
+      "benefit10Two": "benefit10Two",
+      "benefit11Title": "benefit11Title",
+      "benefit1One": "benefit1One",
+      "benefit1Three": "benefit1Three",
+      "benefit1Title": "benefit1Title",
+      "benefit1Two": "benefit1Two",
+      "benefit2Title": "benefit2Title",
+      "benefit3Title": "benefit3Title",
+      "benefit4Title": "benefit4Title",
+      "benefit5Title": "benefit5Title",
+      "benefit6Title": "benefit6Title",
+      "benefit7One": "benefit7One",
+      "benefit7Three": "benefit7Three",
+      "benefit7Title": "benefit7Title",
+      "benefit7Two": "benefit7Two",
+      "benefit8Title": "benefit8Title",
+      "benefit9Title": "benefit9Title",
+      "benefitName": "benefitName",
+      "normalUser": "普通用户",
+      "trader": "trader",
+      "traderPrice": "traderPrice",
+      "upgrade": "升级",
+      "vip": "VIP",
+      "vipPrice": "vipPrice"
+    }
   },
   "vipLevelPopup": {
     "benefitLevel1": "限时消费<b style=\"color: var(--color-red)\">588</b>开通会员,获赠<b style=\"color: var(--color-red)\">588</b>点成长值,达到<b style=\"color: var(--color-red)\">1级:算法萌芽</b>",
@@ -180,6 +166,12 @@
     "benefitLevel7": "达到<b style=\"color: var(--color-red)\">9000</b>智汇力达到<b style=\"color: var(--color-red)\">7级:智垒中枢</b>，享受<b style=\"color: var(--color-red)\">8.3</b>折",
     "benefitLevel8": "达到<b style=\"color: var(--color-red)\">10500</b>智汇力达到<b style=\"color: var(--color-red)\">8级:智能领航</b>，享受<b style=\"color: var(--color-red)\">8</b>折",
     "benefitLevel9": "达到<b style=\"color: var(--color-red)\">12000</b>智汇力达到<b style=\"color: var(--color-red)\">9级:量子智脑</b>，享受<b style=\"color: var(--color-red)\">7.7</b>折",
-    "benefitLevel10": "达到<b style=\"color: var(--color-red)\">18888</b>智汇力达到<b style=\"color: var(--color-red)\">10级:超维先知</b>，享受<b style=\"color: var(--color-red)\">7</b>折"
+    "benefitLevel10": "达到<b style=\"color: var(--color-red)\">18888</b>智汇力达到<b style=\"color: var(--color-red)\">10级:超维先知</b>，享受<b style=\"color: var(--color-red)\">7</b>折",
+    "goActivate": "去激活",
+    "level0Desc": "等级 0 描述"
+  },
+  "Vip": {
+    "oneClickVip": "oneClickVip",
+    "permanentVip": "permanentVip"
   }
 }

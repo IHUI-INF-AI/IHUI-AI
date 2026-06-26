@@ -1,0 +1,66 @@
+{
+  "becomeSupplier": {
+    "benefits": {
+      "market": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "security": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "settlement": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "support": {
+        "description": "描述",
+        "title": "标题"
+      }
+    },
+    "form": {
+      "address": "地址",
+      "addressPlaceholder": "addressPlaceholder",
+      "business": "business",
+      "businessPlaceholder": "businessPlaceholder",
+      "companyName": "companyName",
+      "companyNamePlaceholder": "companyNamePlaceholder",
+      "contactName": "contactName",
+      "contactNamePlaceholder": "contactNamePlaceholder",
+      "email": "邮箱",
+      "emailPlaceholder": "emailPlaceholder",
+      "intention": "intention",
+      "intentionPlaceholder": "intentionPlaceholder",
+      "phone": "手机号",
+      "phonePlaceholder": "phonePlaceholder",
+      "processing": "处理中",
+      "reset": "重置",
+      "submit": "提交",
+      "submitProposal": "submitProposal"
+    },
+    "processSteps": {
+      "businessNegotiation": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "onlineDocking": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "qualificationReview": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "signAgreement": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "submitApplication": {
+        "description": "描述",
+        "title": "标题"
+      }
+    },
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

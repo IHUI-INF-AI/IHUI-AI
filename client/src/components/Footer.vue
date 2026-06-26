@@ -1373,7 +1373,7 @@ onMounted(() => {
   line-height: 1;
   font-weight: 700;
   text-decoration: none;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease, background-color 0.3s ease;
   white-space: nowrap;
   position: relative;
   padding: 0;

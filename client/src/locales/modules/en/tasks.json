@@ -1,0 +1,24 @@
+{
+  "tasks": {
+    "cancel": "取消",
+    "cancelFailed": "cancelFailed",
+    "cancelSuccess": "cancelSuccess",
+    "cancelledAt": "cancelledAt",
+    "confirmCancel": "确认取消",
+    "createdAt": "createdAt",
+    "noTasks": "noTasks",
+    "retry": "重试",
+    "status": {
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "failed": "失败",
+      "pending": "待处理",
+      "processing": "处理中",
+      "unknown": "unknown"
+    },
+    "subtitle": "副标题",
+    "title": "标题",
+    "updatedAt": "updatedAt",
+    "viewResults": "viewResults"
+  }
+}

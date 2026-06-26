@@ -4,29 +4,7 @@
 // ============================================
 
 @layer base {
-  // 全局 Tooltip 样式覆盖
-  .el-popper.is-dark {
-    background: var(--el-bg-color);
-    border: 1px solid var(--border-unified-color);
-    border-radius: var(--global-border-radius);
-    color: var(--el-text-color-primary);
-  }
 
-  .el-popper.is-dark .el-popper__arrow::before {
-    background: var(--el-bg-color);
-    border-color: var(--border-unified-color);
-  }
-
-  :where(html.dark) .el-popper.is-dark {
-    background: var(--el-text-color-primary);
-    border: 1px solid var(--border-unified-color);
-    color: var(--color-gray-ededed);
-  }
-
-  :where(html.dark) .el-popper.is-dark .el-popper__arrow::before {
-    background: var(--el-text-color-primary);
-    border-color: var(--border-unified-color);
-  }
 
   // 切换项目按钮
   :where(.el-button.switch-project-btn) {
@@ -88,16 +66,6 @@
     }
   }
 
-  // 路由切换动画
-  .fade-enter-active,
-  .fade-leave-active {
-    transition: opacity 0.3s ease;
-  }
-
-  .fade-enter-from,
-  .fade-leave-to {
-    opacity: 0;
-  }
 
   .slide-enter-active,
   .slide-leave-active {

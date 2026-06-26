@@ -1,0 +1,10 @@
+{
+  "memberLearnRecord": {
+    "continuousDays": "[ZH:continuousDays]",
+    "empty": "[ZH:empty]",
+    "learnDays": "[ZH:learnDays]",
+    "learnMinutes": "[ZH:learnMinutes]",
+    "title": "[ZH:title]",
+    "today": "[ZH:today]"
+  }
+}

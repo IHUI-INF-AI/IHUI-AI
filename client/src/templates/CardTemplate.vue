@@ -106,7 +106,7 @@ function handleClick(event: MouseEvent) {
     cursor: pointer;
     
     &:hover {
-      transform: translateY(-2px);
+      
       box-shadow: var(--global-box-shadow-lg);
     }
     

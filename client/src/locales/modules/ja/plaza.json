@@ -1,0 +1,45 @@
+{
+  "plaza": {
+    "aiChat": "AIチャット",
+    "aiCoding": "AIコーディング",
+    "aiDrawing": "AI画像生成",
+    "aiNeedPlaza": "AIニーズ広場",
+    "aiVideo": "AI動画",
+    "aiWriting": "AIライティング",
+    "all": "すべて",
+    "anonymous": "匿名",
+    "back": "戻る",
+    "completed": "完了",
+    "createNew": "新規作成",
+    "form": {
+      "cancel": "キャンセル",
+      "descriptionPlaceholder": "ニーズの説明を入力",
+      "titlePlaceholder": "ニーズのタイトルを入力"
+    },
+    "loading": "読み込み中",
+    "myNeeds": "自分のニーズ",
+    "needCategory": "カテゴリ",
+    "needDescription": "説明",
+    "needTitle": "タイトル",
+    "needType": "タイプ",
+    "noData": "データなし",
+    "ongoing": "進行中",
+    "publish": "投稿",
+    "publishFirst": "最初のニーズを投稿",
+    "publishNeed": "ニーズを投稿",
+    "searchPlaceholder": "検索...",
+    "selectCategory": "カテゴリを選択",
+    "selectType": "タイプを選択",
+    "submit": "送信",
+    "submitting": "送信中",
+    "subtitle": "AIニーズを投稿して専門的な解決策を入手",
+    "type1": "開発",
+    "type2": "デザイン",
+    "type3": "ビジネス",
+    "types": {
+      "business": "ビジネス",
+      "design": "デザイン",
+      "development": "開発"
+    }
+  }
+}

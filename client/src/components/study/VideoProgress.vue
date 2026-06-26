@@ -76,7 +76,7 @@ const thinkingProgress = computed(() => {
 }
 
 .progress-back {
-  background: linear-gradient(to right, var(--color-purple-722ed1) 30%, var(--el-color-primary) 50%, var(--color-green-52c41a) 70%);
+  background: linear-gradient(to right, var(--el-color-info) 30%, var(--el-color-primary) 50%, var(--el-color-success) 70%);
   position: absolute;
   inset: -150px;
   animation: rotate 5s linear infinite;
@@ -115,7 +115,7 @@ const thinkingProgress = computed(() => {
 .progress-bar-container {
   width: 100%;
   height: 18px;
-  background-color: var(--color-gray-light);
+  background-color: var(--el-fill-color-light);
   border-radius: var(--global-border-radius);
   margin: 10px 0;
   overflow: hidden;
@@ -124,7 +124,7 @@ const thinkingProgress = computed(() => {
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(214deg, var(--color-purple-722ed1) 3%, var(--color-amber-fbbf24) 30%, var(--color-red-f5222d) 55%, var(--color-amber-fbbf24) 75%, var(--color-purple-722ed1) 96%);
+  background: linear-gradient(214deg, var(--el-color-info) 3%, var(--el-color-warning) 30%, var(--el-color-danger) 55%, var(--el-color-warning) 75%, var(--el-color-info) 96%);
   background-size: 200% 100%;
   border-radius: var(--global-border-radius);
   transition: width 0.3s ease;
@@ -159,7 +159,7 @@ const thinkingProgress = computed(() => {
   background-color: var(--color-purple-d7b3fc);
   animation: loaderpulse 1.5s infinite ease-in-out;
   position: relative;
-  z-index: 0;
+  z-index: var(--z-0);
 }
 
 .loader-dot::after {

@@ -1,0 +1,22 @@
+{
+  "commonText": {
+    "add": "[ZH:add]",
+    "delete": "[ZH:delete]",
+    "failed": "[ZH:failed]",
+    "fileTypes": {
+      "audio": "[ZH:audio]",
+      "image": "[ZH:image]",
+      "video": "[ZH:video]"
+    },
+    "noData": "[ZH:noData]",
+    "status": {
+      "cancelled": "[ZH:cancelled]",
+      "completed": "[ZH:completed]",
+      "pending": "[ZH:pending]",
+      "processing": "[ZH:processing]",
+      "refunded": "[ZH:refunded]"
+    },
+    "success": "[ZH:success]",
+    "view": "[ZH:view]"
+  }
+}

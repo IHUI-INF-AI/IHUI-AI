@@ -1,0 +1,29 @@
+{
+  "grayRelease": {
+    "alerts": "alerts",
+    "avgCompletion": "avgCompletion",
+    "completed": "已完成",
+    "confirmRollback": "confirmRollback",
+    "createSuccess": "createSuccess",
+    "detail": "详情",
+    "enterGuidId": "enterGuidId",
+    "enterTourId": "enterTourId",
+    "exposed": "exposed",
+    "metrics": "metrics",
+    "nextPhase": "nextPhase",
+    "notReachedThreshold": "notReachedThreshold",
+    "ongoing": "ongoing",
+    "pause": "暂停",
+    "phaseProgress": "phaseProgress",
+    "promote": "promote",
+    "releaseList": "releaseList",
+    "releasePaused": "releasePaused",
+    "releaseResumed": "releaseResumed",
+    "releaseRolledBack": "releaseRolledBack",
+    "releaseStarted": "releaseStarted",
+    "resume": "继续",
+    "rollback": "rollback",
+    "rollbackReason": "rollbackReason",
+    "start": "开始"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "myCommission": {
+    "available": "[ZH:available]",
+    "buyer": "[ZH:buyer]",
+    "commission": "[ZH:commission]",
+    "copy": "[ZH:copy]",
+    "copyFailed": "[ZH:copyFailed]",
+    "copySuccess": "[ZH:copySuccess]",
+    "noCommission": "[ZH:noCommission]",
+    "orderTime": "[ZH:orderTime]",
+    "pending": "[ZH:pending]",
+    "relatedOrder": "[ZH:relatedOrder]",
+    "title": "[ZH:title]",
+    "todayCommission": "[ZH:todayCommission]",
+    "totalCommission": "[ZH:totalCommission]",
+    "withdraw": "[ZH:withdraw]",
+    "withdrawDetail": "[ZH:withdrawDetail]",
+    "withdrawDetailInfo": "[ZH:withdrawDetailInfo]",
+    "withdrawSuccess": "[ZH:withdrawSuccess]",
+    "withdrawn": "[ZH:withdrawn]",
+    "yuan": "[ZH:yuan]"
+  }
+}

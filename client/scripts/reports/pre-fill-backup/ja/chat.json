@@ -1,0 +1,22 @@
+{
+  "chat": {
+    "ai": "[ZH:ai]",
+    "connected": "[ZH:connected]",
+    "connecting": "[ZH:connecting]",
+    "connectionError": "[ZH:connectionError]",
+    "ctrlEnterPlaceholder": "[ZH:ctrlEnterPlaceholder]",
+    "disconnected": "[ZH:disconnected]",
+    "foundMessages": "[ZH:foundMessages]",
+    "generating": "[ZH:generating]",
+    "inputHint": "[ZH:inputHint]",
+    "me": "[ZH:me]",
+    "mockData": "[ZH:mockData]",
+    "model": "[ZH:model]",
+    "qwenMax": "[ZH:qwenMax]",
+    "qwenPlus": "[ZH:qwenPlus]",
+    "qwenTurbo": "[ZH:qwenTurbo]",
+    "searchMessage": "[ZH:searchMessage]",
+    "send": "[ZH:send]",
+    "startConversation": "[ZH:startConversation]"
+  }
+}

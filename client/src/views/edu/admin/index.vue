@@ -141,10 +141,10 @@ onMounted(async () => {
   cursor: pointer;
   text-align: center;
   padding: 32px 16px;
-  transition: all 0.2s;
+  transition: transform 0.2s;
   margin-bottom: 16px;
   &:hover {
-    transform: translateY(-4px);
+    
   }
 }
 .menu-label {

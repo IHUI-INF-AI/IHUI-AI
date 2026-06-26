@@ -1,0 +1,19 @@
+{
+  "p20Dashboard": {
+    "agentActivity": "agentActivity",
+    "callCount": "callCount",
+    "cardAgents": "cardAgents",
+    "cardOrders": "cardOrders",
+    "cardRevenue": "cardRevenue",
+    "cardUsers": "cardUsers",
+    "courseCategory": "courseCategory",
+    "loadFailed": "loadFailed",
+    "orderStatus": "orderStatus",
+    "revenue": "revenue",
+    "revenueAxis": "revenueAxis",
+    "revenueTrend": "revenueTrend",
+    "subtitle": "副标题",
+    "title": "标题",
+    "unknown": "unknown"
+  }
+}

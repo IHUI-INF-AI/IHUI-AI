@@ -521,7 +521,7 @@ watch(visible, (newVal) => {
     background: transparent;
     color: var(--el-color-primary);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 0.2s;
     white-space: nowrap;
 
     &:hover:not(:disabled) {
@@ -579,7 +579,7 @@ watch(visible, (newVal) => {
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     background: var(--unified-input-bg-color);
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, outline 0.2s ease, outline-offset 0.2s ease;
     color: var(--el-text-color-primary);
     padding: 0;
 

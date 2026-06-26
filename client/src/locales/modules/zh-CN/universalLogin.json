@@ -1,0 +1,20 @@
+{
+  "universalLogin": {
+    "codeSendFailed": "验证码发送失败",
+    "codeSendSuccess": "codeSendSuccess",
+    "codeSentSms": "codeSentSms",
+    "defaultUser": "defaultUser",
+    "hoursMinutes": "hoursMinutes",
+    "minutesOnly": "minutesOnly",
+    "network": "网络",
+    "noStack": "noStack",
+    "phoneFormatError": "phoneFormatError",
+    "sendFailed": "发送失败",
+    "sendTooFrequent": "sendTooFrequent",
+    "timeout": "请求超时",
+    "wechatCallbackFailed": "wechatCallbackFailed",
+    "wechatInitFailed": "wechatInitFailed",
+    "wechatLoadFailed": "wechatLoadFailed",
+    "wechatQrFailed": "wechatQrFailed"
+  }
+}

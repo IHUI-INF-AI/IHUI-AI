@@ -14,7 +14,7 @@
   border-radius: var(--global-border-radius);
   outline: none;
   cursor: pointer;
-  transition: all 0.1s linear;
+  transition: border-color 0.1s linear;
   appearance: none;
   user-select: none;
   color: var(--el-bg-color-page);
@@ -58,7 +58,7 @@
   /* 定义组件私有 CSS 变量，支持状态覆盖 */
   --chat-example-transform: translateY(0);
   
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.3s ease;
   transform: var(--chat-example-transform);
   letter-spacing: 0;
   background: var(--el-bg-color-page);

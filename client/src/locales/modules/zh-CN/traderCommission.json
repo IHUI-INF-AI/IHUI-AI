@@ -1,0 +1,39 @@
+{
+  "traderCommission": {
+    "errors": {
+      "copyFailed": "复制失败",
+      "copySuccess": "复制成功"
+    },
+    "noRecords": "暂无记录",
+    "pendingCommission": "pendingCommission",
+    "status": {
+      "cancelled": "已取消",
+      "pending": "待处理",
+      "settled": "已结算",
+      "unknown": "未知"
+    },
+    "subtitle": "副标题",
+    "table": {
+      "actions": "操作",
+      "buyer": "买家",
+      "commissionAmount": "commissionAmount",
+      "copyOrderId": "copyOrderId",
+      "orderTime": "下单时间",
+      "relatedOrder": "相关订单",
+      "status": "状态"
+    },
+    "tabs": {
+      "all": "全部",
+      "cancelled": "已取消",
+      "pending": "待处理",
+      "settled": "已结算"
+    },
+    "title": "标题",
+    "todayCommission": "今日佣金",
+    "totalCommission": "佣金总额",
+    "withdraw": "提现",
+    "withdrawDetails": "withdrawDetails",
+    "withdrawableCommission": "withdrawableCommission",
+    "withdrawnCommission": "withdrawnCommission"
+  }
+}

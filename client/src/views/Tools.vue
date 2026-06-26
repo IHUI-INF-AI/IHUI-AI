@@ -389,7 +389,7 @@ onMounted(async () => {
   border-radius: var(--global-border-radius);
   padding: 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -397,7 +397,7 @@ onMounted(async () => {
 
 .tool-card:hover {
   border-color: var(--el-color-primary);
-  transform: translateY(-2px);
+  
   }
 
 .tool-card-header {
@@ -441,7 +441,7 @@ onMounted(async () => {
   border-radius: var(--global-border-radius);
 }
 
-html.dark .tool-tag {
+:where(html.dark) .tool-tag {
   color: var(--el-color-primary);
   background: var(--el-bg-color);
 }

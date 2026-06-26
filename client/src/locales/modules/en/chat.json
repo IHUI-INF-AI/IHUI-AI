@@ -1,0 +1,22 @@
+{
+  "chat": {
+    "ai": "AI",
+    "me": "Me",
+    "model": "Model",
+    "send": "Send",
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "connectionError": "Connection Error",
+    "disconnected": "Disconnected",
+    "generating": "Generating",
+    "mockData": "Mock Data",
+    "qwenTurbo": "Qwen Turbo",
+    "qwenPlus": "Qwen Plus",
+    "qwenMax": "Qwen Max",
+    "ctrlEnterPlaceholder": "Press Ctrl+Enter to send",
+    "inputHint": "Type a message...",
+    "startConversation": "New Conversation",
+    "searchMessage": "Search Messages",
+    "foundMessages": "Found Messages"
+  }
+}

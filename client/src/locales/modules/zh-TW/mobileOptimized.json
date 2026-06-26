@@ -1,12 +1,1 @@
-{
-  "mobileOptimized": {
-    "title": "移動端優化",
-    "description": "專為移動設備優化的體驗",
-    "responsiveDesign": "響應式設計",
-    "responsiveDesignDesc": "完美適配各種螢幕尺寸",
-    "touchOptimization": "觸控優化",
-    "touchOptimizationDesc": "優化的觸控互動體驗",
-    "fastLoading": "快速載入",
-    "fastLoadingDesc": "優化的移動端效能"
-  }
-}
+{}

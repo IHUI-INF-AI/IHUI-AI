@@ -1,0 +1,33 @@
+{
+  "themeBackup": {
+    "auto": "[ZH:auto]",
+    "autoBackup": "[ZH:autoBackup]",
+    "backupCreated": "[ZH:backupCreated]",
+    "backupDeleted": "[ZH:backupDeleted]",
+    "backupRestored": "[ZH:backupRestored]",
+    "confirmDelete": "[ZH:confirmDelete]",
+    "createBackup": "[ZH:createBackup]",
+    "delete": "[ZH:delete]",
+    "deleteWarning": "[ZH:deleteWarning]",
+    "export": "[ZH:export]",
+    "exportSuccess": "[ZH:exportSuccess]",
+    "import": "[ZH:import]",
+    "importFailed": "[ZH:importFailed]",
+    "importPlaceholder": "[ZH:importPlaceholder]",
+    "importSuccess": "[ZH:importSuccess]",
+    "interval": "[ZH:interval]",
+    "intervals": {
+      "daily": "[ZH:daily]",
+      "hourly": "[ZH:hourly]",
+      "weekly": "[ZH:weekly]"
+    },
+    "manualBackup": "[ZH:manualBackup]",
+    "maxBackups": "[ZH:maxBackups]",
+    "noBackups": "[ZH:noBackups]",
+    "restore": "[ZH:restore]",
+    "restoreFailed": "[ZH:restoreFailed]",
+    "storageSize": "[ZH:storageSize]",
+    "title": "[ZH:title]",
+    "totalBackups": "[ZH:totalBackups]"
+  }
+}

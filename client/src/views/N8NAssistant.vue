@@ -688,7 +688,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border-radius: var(--global-border-radius);
   position: relative;
   z-index: var(--z-base);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &::before {
     content: '';
@@ -706,7 +706,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
   &:hover {
     border-color: $border-accent;
-    transform: translateY(-2px);
+    
   }
 }
 
@@ -816,7 +816,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border-radius: var(--global-border-radius);
     background: transparent;
     color: $text-primary;
-    transition: all 0.3s;
+    transition: border-color 0.3s, color 0.3s;
 
     &:hover {
       border-color: $accent-cyan;
@@ -905,7 +905,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     height: 6px;
     border-radius: var(--global-border-radius);
     background: $text-muted;
-    transition: all 0.3s;
+    transition: background-color 0.3s;
 
     &.active {
       background: $accent-cyan;
@@ -952,7 +952,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
       border-radius: var(--global-border-radius);
       background: var(--color-white-2);
       border: var(--unified-border);
-      transition: all 0.3s;
+      transition: background-color 0.3s, border-color 0.3s;
 
       &:last-child {
         margin-bottom: 0;
@@ -1164,7 +1164,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: transform 0.3s, border-color 0.3s;
 
     &:hover {
       transform: scale(1.05);
@@ -1231,7 +1231,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
       cursor: pointer;
-      transition: all 0.3s;
+      transition: border-color 0.3s;
 
       &:hover {
         border-color: $accent-cyan;
@@ -1303,7 +1303,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border-radius: var(--global-border-radius);
   background: transparent;
   color: $text-muted;
-  transition: all 0.3s;
+  transition: border-color 0.3s, color 0.3s, background-color 0.3s;
 
   &:hover {
     border-color: $accent-cyan;
@@ -1411,12 +1411,12 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     color: $text-primary;
     white-space: nowrap;
     position: relative;
-    transition: all 0.3s;
+    transition: transform 0.3s, border-color 0.3s;
 
     // 扫光效果已移至全局样式 (styles/index.scss)
 
     &:hover {
-      transform: translateY(-3px);
+      
       border-color: $accent-cyan;
 
       @include glow-effect($accent-cyan, 0.25);
@@ -1588,7 +1588,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         border: var(--unified-border);
         border-radius: var(--global-border-radius);
         box-shadow: none;
-        transition: all 0.3s;
+        transition: border-color 0.3s;
 
         &:hover,
         &.is-focus {
@@ -1629,7 +1629,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
           font-size: 14px;
           padding: 14px 16px;
           resize: none;
-          transition: all 0.3s;
+          transition: border-color 0.3s;
 
           &::placeholder {
             color: $text-muted;
@@ -1677,12 +1677,12 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     font-size: 14px;
     font-weight: 600;
     position: relative;
-    transition: all 0.3s;
+    transition: transform 0.3s, opacity 0.3s;
 
     // 扫光效果已移至全局样式 (styles/index.scss)
 
     &:hover:not(:disabled) {
-      transform: translateY(-2px);
+      
 
       @include glow-effect($accent-cyan, 0.4);
     }
@@ -1703,7 +1703,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 // ============================================
 .slide-fade-enter-active,
 .slide-fade-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .slide-fade-enter-from,
@@ -1714,7 +1714,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
 .scale-fade-enter-active,
 .scale-fade-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .scale-fade-enter-from,

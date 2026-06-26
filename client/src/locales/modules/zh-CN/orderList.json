@@ -1,0 +1,9 @@
+{
+  "orderList": {
+    "noOrders": "暂无订单",
+    "orderNo": "订单号",
+    "orderTime": "下单时间",
+    "searchPlaceholder": "请输入搜索内容",
+    "title": "标题"
+  }
+}

@@ -1343,7 +1343,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   z-index: var(--z-header);
   opacity: 0;
   visibility: hidden;
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 
   &.is-visible {
     opacity: 1;
@@ -1361,6 +1361,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     padding: 16px 12px;
     background: rgb(var(--el-color-white-rgb), 0.8);
     backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
   }
@@ -1372,7 +1373,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     cursor: pointer;
     padding: 4px 8px 4px 4px;
     border-radius: var(--global-border-radius);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
 
     &:hover {
       background: var(--el-fill-color-light);
@@ -1401,7 +1402,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       height: 8px;
       border-radius: var(--global-border-radius);
       background: var(--el-border-color);
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
       flex-shrink: 0;
     }
 
@@ -1411,7 +1412,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       white-space: nowrap;
       opacity: 0.7;
       transform: translateX(-4px);
-      transition: all 0.2s ease;
+      transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
       font-weight: 500;
     }
   }
@@ -1624,7 +1625,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   padding: 40px 0;
   opacity: 0;
   transform: translateY(-20px);
-  transition: all 0.8s $transition-smooth;
+  transition: opacity 0.5s $transition-smooth, transform 0.5s $transition-smooth;
 
   &.is-visible {
     opacity: 1;
@@ -1637,7 +1638,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 1px;
-    transition: all 0.3s ease;
+    transition: color 0.3s ease, transform 0.3s ease;
 
     &:hover {
       color: var(--el-text-color-primary);
@@ -1859,7 +1860,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       border-radius: var(--global-border-radius);
       position: relative;
       overflow: hidden;
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
 
       &::before {
         content: '';
@@ -1872,7 +1873,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
       &:hover {
         background: var(--el-color-primary);
-        transform: translateY(-1px);
+        
         border-color: rgb(var(--el-color-black-rgb), 0.3);
 
         &::before {
@@ -1907,7 +1908,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       border: var(--unified-border);
       background: transparent;
       color: var(--el-text-color-primary);
-      transition: all 0.2s ease;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
 
       &:hover {
         border-color: var(--el-text-color-primary);
@@ -2014,7 +2015,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 // ===== 全局微交互动画 =====
 @keyframes subtle-float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  50% {  }
 }
 
 @keyframes pulse-glow {
@@ -2164,7 +2165,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     background: var(--el-bg-color);
     padding: 40px 36px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease;
     position: relative;
     overflow: hidden;
 
@@ -2253,7 +2254,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         justify-content: center;
         background: var(--el-fill-color-extra-light);
         border-radius: var(--global-border-radius);
-        transition: all 0.3s ease;
+        transition: transform 0.3s ease;
 
         .el-icon {
           color: var(--el-text-color-secondary);
@@ -2299,7 +2300,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         padding: 5px 12px;
         background: var(--el-fill-color-light);
         border-radius: var(--global-border-radius);
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease, color 0.2s ease;
         font-weight: 500;
 
         &:hover {
@@ -2325,7 +2326,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       :where(.module-arrow) {
         color: var(--el-text-color-placeholder);
         opacity: 0;
-        transition: all 0.3s ease;
+        transition: transform 0.3s ease, opacity 0.3s ease;
       }
     }
   }
@@ -2365,7 +2366,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: border-color 0.3s ease;
 
     &:hover {
       border-color: var(--el-border-color);
@@ -2452,7 +2453,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         background: var(--el-fill-color-light);
         border-radius: var(--global-border-radius);
         flex-shrink: 0;
-        transition: all 0.2s ease;
+        transition: transform 0.2s ease, background-color 0.2s ease;
 
         .el-icon {
           color: var(--el-text-color-secondary);
@@ -2494,7 +2495,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       background: var(--el-fill-color-lighter);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
-      transition: all 0.2s ease;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
 
       &:hover {
         border-color: var(--el-border-color);
@@ -2779,12 +2780,12 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     border-radius: var(--global-border-radius);
     padding: 24px;
     cursor: pointer;
-    transition: all 0.25s ease;
+    transition: border-color 0.25s ease, transform 0.25s ease;
     position: relative;
 
     &:hover {
       border-color: var(--el-border-color);
-      transform: translateY(-2px);
+      
 
       :where(.quadrant-header .q-number) {
         background: $accent-blue;
@@ -2892,7 +2893,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
       :where(.quadrant-icon) {
         color: var(--el-text-color-placeholder);
-        transition: all 0.3s ease;
+        transition: color 0.3s ease, transform 0.3s ease;
       }
     }
 
@@ -2923,7 +2924,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         padding: 4px 10px;
         background: var(--el-fill-color-extra-light);
         border-radius: var(--global-border-radius);
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease, color 0.2s ease;
 
         &:hover {
           background: rgba($accent-blue, 0.1);
@@ -2938,7 +2939,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         background: var(--el-border-color-lighter);
         border-radius: var(--global-border-radius);
         margin-bottom: 8px;
-        transition: all 0.6s ease;
+        transition: width 0.4s ease, background-color 0.4s ease;
       }
 
       :where(.progress-label) {
@@ -2962,7 +2963,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       border: var(--unified-border);
 
       &:hover {
-        transform: translateY(-2px);
+        
         border-color: rgba($accent-blue, 0.6);
       }
     }
@@ -3016,7 +3017,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       border: none;
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
 
       &:hover:not(.active) {
         background: rgb(var(--el-color-white-rgb), 0.5);
@@ -3045,14 +3046,14 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         padding: 4px 8px;
         background: var(--el-fill-color-light);
         border-radius: var(--global-border-radius);
-        transition: all 0.2s ease;
+        transition: color 0.2s ease, background-color 0.2s ease;
       }
 
       .phase-name {
         font-size: 13px;
         font-weight: 600;
         color: var(--el-text-color-secondary);
-        transition: all 0.3s ease;
+        transition: color 0.3s ease;
       }
     }
   }
@@ -3086,7 +3087,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     gap: 32px;
     padding-bottom: 48px;
     opacity: 0.5;
-    transition: all 0.4s $transition-smooth;
+    transition: opacity 0.4s $transition-smooth;
 
     &:last-child {
       padding-bottom: 0;
@@ -3143,12 +3144,12 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.4s $transition-smooth;
+        transition: background-color 0.4s $transition-smooth, border-color 0.4s $transition-smooth, border-width 0.4s $transition-smooth;
 
         .el-icon {
           font-size: 20px;
           color: var(--el-text-color-secondary);
-          transition: all 0.3s ease;
+          transition: color 0.3s ease;
         }
       }
 
@@ -3169,7 +3170,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       padding: 24px;
-      transition: all 0.4s $transition-smooth;
+      transition: background-color 0.4s $transition-smooth, border-color 0.4s $transition-smooth;
 
       :where(.phase-header) {
         margin-bottom: 20px;
@@ -3185,7 +3186,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
           border-radius: var(--global-border-radius);
           display: inline-block;
           margin-bottom: 12px;
-          transition: all 0.3s ease;
+          transition: color 0.3s ease, background-color 0.3s ease;
         }
 
         h3 {
@@ -3301,7 +3302,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     padding: 24px;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease;
 
     &:hover {
       border-color: var(--el-border-color);
@@ -3416,12 +3417,12 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       background: var(--el-bg-color);
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
-      transition: all 0.3s ease;
+      transition: border-color 0.3s ease, transform 0.3s ease;
       flex-shrink: 0;
 
       &:hover {
         border-color: $accent-blue;
-        transform: translateY(-2px);
+        
       }
 
       :where(.partner-logo) {
@@ -3509,7 +3510,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     padding: 28px 40px;
     border-radius: var(--global-border-radius);
     position: relative;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 
     &.original {
       background: var(--el-fill-color-light);
@@ -3525,7 +3526,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       border: var(--unified-border);
 
       &:hover {
-        transform: translateY(-2px);
+        
         border-color: rgb(var(--el-color-success-rgb), 0.5);
       }
 
@@ -3701,7 +3702,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 // ===== 暗色模式适配 - 增强版 =====
-html.dark {
+:where(html.dark) {
   .enterprise-service-page {
     --dark-card-bg: rgb(var(--el-color-white-rgb), 0.03);
     --dark-card-hover: rgb(var(--el-color-white-rgb), 0.06);
@@ -3739,6 +3740,7 @@ html.dark {
   .side-nav {
     background: rgb(var(--el-color-black-rgb), 0.6);
     backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-color: rgb(var(--el-color-white-rgb), 0.08);
 
     :where(.side-nav-item) {

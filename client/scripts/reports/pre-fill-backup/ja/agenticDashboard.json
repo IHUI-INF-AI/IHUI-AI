@@ -1,0 +1,13 @@
+{
+  "agenticDashboard": {
+    "activeSwarms": "[ZH:activeSwarms]",
+    "coordination": "[ZH:coordination]",
+    "iteration": "[ZH:iteration]",
+    "noActiveSwarms": "[ZH:noActiveSwarms]",
+    "seoDescription": "[ZH:seoDescription]",
+    "seoKeywords": "[ZH:seoKeywords]",
+    "seoTitle": "[ZH:seoTitle]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "performance": {
+    "alerts": "告警",
+    "cls": "cls",
+    "d7": "7 天",
+    "fid": "fid",
+    "h1": "h1",
+    "h24": "24 小时",
+    "lcp": "lcp",
+    "loadDist": "loadDist",
+    "scoreDist": "scoreDist",
+    "trend": "趋势",
+    "ttfb": "ttfb"
+  }
+}

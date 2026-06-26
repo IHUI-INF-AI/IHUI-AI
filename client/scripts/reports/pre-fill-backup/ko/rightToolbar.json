@@ -1,0 +1,12 @@
+{
+  "rightToolbar": {
+    "columnDisplay": "[ZH:columnDisplay]",
+    "dialogTitle": "[ZH:dialogTitle]",
+    "hide": "[ZH:hide]",
+    "hideSearch": "[ZH:hideSearch]",
+    "refresh": "[ZH:refresh]",
+    "show": "[ZH:show]",
+    "showSearch": "[ZH:showSearch]",
+    "toggleColumns": "[ZH:toggleColumns]"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "distributionCompany": {
+    "copy": "[ZH:copy]",
+    "copyFailed": "[ZH:copyFailed]",
+    "downloadFailed": "[ZH:downloadFailed]",
+    "downloadQRCode": "[ZH:downloadQRCode]",
+    "downloading": "[ZH:downloading]",
+    "inviteLinkCopied": "[ZH:inviteLinkCopied]",
+    "inviteLinkPlaceholder": "[ZH:inviteLinkPlaceholder]",
+    "inviteQRCode": "[ZH:inviteQRCode]",
+    "loading": "[ZH:loading]",
+    "qrCodeDownloadSuccess": "[ZH:qrCodeDownloadSuccess]",
+    "qrCodeNotLoaded": "[ZH:qrCodeNotLoaded]",
+    "shareInvite": "[ZH:shareInvite]",
+    "shareInviteDesc": "[ZH:shareInviteDesc]",
+    "shareInviteTitle": "[ZH:shareInviteTitle]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]",
+    "userIncomplete": "[ZH:userIncomplete]"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "security": {
+    "newDeviceLogin": "newDeviceLogin",
+    "newDeviceLoginMessage": "newDeviceLoginMessage",
+    "secureAccount": "secureAccount",
+    "suspiciousLogin": "suspiciousLogin",
+    "suspiciousLoginMessage": "suspiciousLoginMessage"
+  }
+}

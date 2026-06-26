@@ -1,0 +1,58 @@
+{
+  "themeSettings": {
+    "advanced": {
+      "accessibility": "accessibility",
+      "announceChanges": "announceChanges",
+      "debug": "debug",
+      "export": "导出",
+      "exportReport": "exportReport",
+      "exportSuccess": "exportSuccess",
+      "focusDefault": "focusDefault",
+      "focusHighContrast": "focusHighContrast",
+      "focusIndicator": "focusIndicator",
+      "focusLarge": "focusLarge",
+      "hideDebug": "hideDebug",
+      "import": "导入",
+      "importExport": "importExport",
+      "importSuccess": "importSuccess",
+      "keyboardNav": "keyboardNav",
+      "showDebug": "showDebug",
+      "voiceControl": "voiceControl"
+    },
+    "basic": {
+      "currentTheme": "currentTheme",
+      "preview": "预览",
+      "quickActions": "quickActions",
+      "reset": "重置",
+      "resetSuccess": "resetSuccess",
+      "toggleDark": "toggleDark"
+    },
+    "schedule": {
+      "add": "添加",
+      "days": "days",
+      "label": "label",
+      "mode": "mode",
+      "nextSwitch": "nextSwitch",
+      "time": "时间",
+      "title": "标题"
+    },
+    "search": "搜索",
+    "sync": {
+      "download": "下载",
+      "lastSynced": "lastSynced",
+      "notSynced": "notSynced",
+      "syncSuccess": "syncSuccess",
+      "syncing": "syncing",
+      "title": "标题",
+      "upload": "上传"
+    },
+    "tabs": {
+      "advanced": "高级",
+      "basic": "基础",
+      "presets": "presets",
+      "schedule": "schedule",
+      "sync": "sync"
+    },
+    "title": "标题"
+  }
+}

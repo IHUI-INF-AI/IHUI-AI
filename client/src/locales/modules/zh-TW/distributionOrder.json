@@ -1,0 +1,13 @@
+{
+  "distributionOrder": {
+    "buyer": "buyer",
+    "commission": "佣金",
+    "noOrders": "noOrders",
+    "orderNo": "orderNo",
+    "orderTime": "orderTime",
+    "searchPlaceholder": "请输入搜索内容",
+    "title": "标题",
+    "totalCommission": "totalCommission",
+    "totalOrders": "totalOrders"
+  }
+}

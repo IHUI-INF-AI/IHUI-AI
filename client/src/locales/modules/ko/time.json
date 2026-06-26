@@ -1,0 +1,9 @@
+{
+  "time": {
+    "daysAgo": "daysAgo",
+    "hoursAgo": "hoursAgo",
+    "justNow": "justNow",
+    "minutesAgo": "minutesAgo",
+    "never": "never"
+  }
+}

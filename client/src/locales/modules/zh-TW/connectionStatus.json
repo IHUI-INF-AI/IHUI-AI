@@ -1,10 +1,1 @@
-{
-  "connectionStatus": {
-    "connected": "已連接",
-    "connecting": "連接中",
-    "reconnecting": "重連中",
-    "disconnected": "未連接",
-    "error": "連接錯誤",
-    "reconnectAttempts": "重連嘗試: {attempts}/{maxAttempts}"
-  }
-}
+{}

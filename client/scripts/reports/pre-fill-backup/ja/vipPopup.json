@@ -1,0 +1,11 @@
+{
+  "vipPopup": {
+    "activateNow": "[ZH:activateNow]",
+    "agreeRecharge": "[ZH:agreeRecharge]",
+    "continuous": "[ZH:continuous]",
+    "monthly": "[ZH:monthly]",
+    "noProduct": "[ZH:noProduct]",
+    "paySuccess": "[ZH:paySuccess]",
+    "productInfoError": "[ZH:productInfoError]"
+  }
+}

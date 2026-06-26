@@ -70,7 +70,7 @@ function selectBar(item: { name: string; id?: string | number }, index: number) 
   font-size: 14px;
   font-weight: normal;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: color 0.3s, background-color 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;

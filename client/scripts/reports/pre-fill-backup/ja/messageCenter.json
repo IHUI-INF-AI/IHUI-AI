@@ -1,0 +1,25 @@
+{
+  "messageCenter": {
+    "allMarkedRead": "[ZH:allMarkedRead]",
+    "deleteFailed": "[ZH:deleteFailed]",
+    "deleted": "[ZH:deleted]",
+    "detailTitle": "[ZH:detailTitle]",
+    "empty": "[ZH:empty]",
+    "loadFailed": "[ZH:loadFailed]",
+    "markAllRead": "[ZH:markAllRead]",
+    "markRead": "[ZH:markRead]",
+    "operateFailed": "[ZH:operateFailed]",
+    "subtitle": "[ZH:subtitle]",
+    "tabAll": "[ZH:tabAll]",
+    "tabFavorite": "[ZH:tabFavorite]",
+    "tabLike": "[ZH:tabLike]",
+    "tabPrivate": "[ZH:tabPrivate]",
+    "tabSystem": "[ZH:tabSystem]",
+    "title": "[ZH:title]",
+    "topFlag": "[ZH:topFlag]",
+    "typeNotice": "[ZH:typeNotice]",
+    "typeOther": "[ZH:typeOther]",
+    "typePrivate": "[ZH:typePrivate]",
+    "typeSystem": "[ZH:typeSystem]"
+  }
+}

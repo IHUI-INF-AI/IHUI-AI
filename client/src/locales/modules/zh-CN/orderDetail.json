@@ -28,7 +28,6 @@
     "cancelOrderConfirm": "确定要取消此订单吗？",
     "cancelOrderTitle": "取消订单",
     "orderCancelled": "订单已取消",
-    "invoiceDownloadInDevelopment": "发票下载功能开发中",
     "applyRefund": "申请退款",
     "refundReasonPlaceholder": "请输入退款原因（必填，至少5个字符）",
     "refundReasonRequired": "退款原因不能为空",

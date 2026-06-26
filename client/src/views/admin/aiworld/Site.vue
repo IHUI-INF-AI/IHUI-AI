@@ -258,7 +258,7 @@ onMounted(reload)
 .preview-detail__panel :deep(a:hover) { text-decoration: underline; }
 .preview-detail__panel :deep(blockquote) { margin: 12px 0; padding: 8px 16px; border-left: 4px solid var(--el-color-primary-light-5); background: var(--el-fill-color-light); border-radius: var(--global-border-radius); }
 .preview-detail__panel :deep(pre) { margin: 12px 0; padding: 12px; background: var(--el-fill-color-darker); border-radius: var(--global-border-radius); overflow-x: auto; }
-.preview-detail__panel :deep(code) { font-family: monospace; font-size: 13px; }
+.preview-detail__panel :deep(code) { font-family: var(--font-family-mono); font-size: 13px; }
 .preview-detail__panel-empty {
   padding: 24px;
   text-align: center;

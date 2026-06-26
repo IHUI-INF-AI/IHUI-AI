@@ -18,6 +18,12 @@
     "Status": "Status",
     "errorInfo": "Error Info",
     "failed": "Failed",
-    "status": "Status"
+    "status": "Status",
+    "chatTest": "chatTest",
+    "compTest": "compTest",
+    "genTest": "genTest",
+    "serviceTest": "serviceTest",
+    "testComplete": "testComplete",
+    "typeTest": "typeTest"
   }
 }

@@ -109,7 +109,7 @@ function formatValue(value: any): string {
     .node-value {
       font-size: 12px;
       color: var(--el-text-color-regular);
-      font-family: monospace;
+      font-family: var(--font-family-mono);
       margin-left: auto;
       max-width: 300px;
       overflow: hidden;

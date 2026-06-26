@@ -1,0 +1,29 @@
+{
+  "admin": {
+    "eventBus": {
+      "allSubscriptionsCleared": "[ZH:allSubscriptionsCleared]",
+      "confirmClearAll": "[ZH:confirmClearAll]",
+      "confirmClearHistory": "[ZH:confirmClearHistory]",
+      "eventSent": "[ZH:eventSent]",
+      "historyCleared": "[ZH:historyCleared]",
+      "subscriptionDeleted": "[ZH:subscriptionDeleted]"
+    },
+    "sms": {
+      "createTime": "[ZH:createTime]",
+      "remark": "[ZH:remark]",
+      "searchPlaceholder": "[ZH:searchPlaceholder]",
+      "signName": "[ZH:signName]",
+      "status": "[ZH:status]",
+      "statusDisabled": "[ZH:statusDisabled]",
+      "statusEnabled": "[ZH:statusEnabled]",
+      "templateCode": "[ZH:templateCode]",
+      "templateContent": "[ZH:templateContent]",
+      "templateName": "[ZH:templateName]",
+      "templateType": "[ZH:templateType]",
+      "toggleStatus": "[ZH:toggleStatus]",
+      "typeMarketing": "[ZH:typeMarketing]",
+      "typeNotice": "[ZH:typeNotice]",
+      "typeVerify": "[ZH:typeVerify]"
+    }
+  }
+}

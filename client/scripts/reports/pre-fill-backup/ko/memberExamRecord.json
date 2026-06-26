@@ -1,0 +1,14 @@
+{
+  "memberExamRecord": {
+    "correct": "[ZH:correct]",
+    "detailTip": "[ZH:detailTip]",
+    "duration": "[ZH:duration]",
+    "examPaper": "[ZH:examPaper]",
+    "noRecords": "[ZH:noRecords]",
+    "score": "[ZH:score]",
+    "submitTime": "[ZH:submitTime]",
+    "title": "[ZH:title]",
+    "totalScore": "[ZH:totalScore]",
+    "wrong": "[ZH:wrong]"
+  }
+}

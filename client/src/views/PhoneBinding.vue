@@ -552,7 +552,7 @@ const _handleBack = () => {
   background: var(--el-fill-color-light);
   color: var(--el-text-color-regular);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   flex-shrink: 0;
 
   &:hover {
@@ -586,7 +586,7 @@ const _handleBack = () => {
   border-radius: var(--el-input-border-radius);
   background-color: var(--unified-input-bg-color);
   background: var(--unified-input-bg-color);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
   padding: 0 10px;
   padding-right: 4px;
   height: clamp(48px, 4.5vw, 52px);
@@ -676,7 +676,7 @@ const _handleBack = () => {
   background: transparent;
   color: var(--el-color-primary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color 0.2s;
   white-space: nowrap;
 
   &:hover:not(:disabled) {
@@ -720,7 +720,7 @@ const _handleBack = () => {
   font-weight: 600;
   color: var(--el-text-color-primary);
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
   padding: 0;
   box-sizing: border-box;
 

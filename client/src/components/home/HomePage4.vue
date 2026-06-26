@@ -194,7 +194,7 @@ defineExpose({
     border: 2.5px solid var(--border-unified-color);
   }
   
-  html.dark & {
+  :where(html.dark) & {
     border: 2.5px solid var(--border-unified-color);
   }
 }
@@ -204,7 +204,7 @@ defineExpose({
     border: 2.5px solid var(--border-unified-color);
   }
   
-  html.dark & {
+  :where(html.dark) & {
     border: 2.5px solid var(--border-unified-color);
   }
 }
@@ -270,7 +270,7 @@ defineExpose({
     color: var(--el-text-color-placeholder);
   }
 
-  html.dark .pricing-title-english,
+  :where(html.dark) .pricing-title-english,
   html.dark #fourth-page .pricing-title-english,
   html.dark h2.pricing-title-english {
     color: var(--color-white-50);
@@ -374,7 +374,7 @@ defineExpose({
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     transform: translateZ(0);
 
-    html.dark & {
+    :where(html.dark) & {
       background: var(--color-dark-1e283c-60);
       border: 2.5px solid var(--border-unified-color);
       box-shadow: none;
@@ -409,7 +409,7 @@ defineExpose({
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     transform: translateZ(0);
 
-    html.dark & {
+    :where(html.dark) & {
       background: var(--color-dark-231e32-65);
       border: 2.5px solid var(--border-unified-color);
       box-shadow: none;
@@ -453,7 +453,7 @@ defineExpose({
       }
     }
 
-    html.dark & {
+    :where(html.dark) & {
       background: var(--color-dark-23232d-75);
       border: 2.5px solid var(--border-unified-color);
       box-shadow: none;
@@ -487,7 +487,7 @@ defineExpose({
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
 
-    html.dark & {
+    :where(html.dark) & {
       background: var(--color-dark-28231e-70);
       border: 2.5px solid var(--border-unified-color);
       box-shadow: none;
@@ -587,7 +587,7 @@ defineExpose({
     height: 1px;
     background: var(--color-black-8);
     
-    html.dark & {
+    :where(html.dark) & {
       background: var(--color-white-8);
     }
   }
@@ -702,7 +702,7 @@ defineExpose({
   letter-spacing: 0.3px;
 
   /* 暗色主题适配 */
-  html.dark & {
+  :where(html.dark) & {
     background: var(--color-black-95);
     color: var(--el-text-color-primary);
     box-shadow: none;
@@ -804,7 +804,7 @@ defineExpose({
   background: var(--el-bg-color-page);
   color: var(--el-bg-color);
 
-  html.dark & {
+  :where(html.dark) & {
     background: var(--el-bg-color);
     color: var(--el-text-color-primary);
   }

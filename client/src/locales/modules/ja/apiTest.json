@@ -16,6 +16,12 @@
     "category": "カテゴリ",
     "testItem": "テスト項目",
     "status": "ステータス",
-    "errorInfo": "エラー情報"
+    "errorInfo": "エラー情報",
+    "chatTest": "chatTest",
+    "compTest": "compTest",
+    "genTest": "genTest",
+    "serviceTest": "serviceTest",
+    "testComplete": "testComplete",
+    "typeTest": "typeTest"
   }
 }

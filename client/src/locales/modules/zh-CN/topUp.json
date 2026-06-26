@@ -1,0 +1,41 @@
+{
+  "topUp": {
+    "amountLabels": {
+      "coins": "金币"
+    },
+    "cancel": "取消",
+    "customAmount": "customAmount",
+    "customPlaceholder": "自定义占位",
+    "errors": {
+      "amountDecimals": "amountDecimals",
+      "amountRange": "金额范围",
+      "createOrderFailed": "创建订单失败",
+      "createOrderRetry": "createOrderRetry",
+      "invalidAmount": "金额无效",
+      "logger": {
+        "createOrderFailed": "创建订单失败"
+      },
+      "selectAmount": "选择金额"
+    },
+    "loading": "加载中",
+    "notice1": "通知 1",
+    "notice2": "通知",
+    "notice3": "通知 3",
+    "noticeTitle": "通知",
+    "paymentMethods": {
+      "alipay": {
+        "desc": "描述",
+        "name": "名称"
+      },
+      "wechat": {
+        "desc": "描述",
+        "name": "名称"
+      }
+    },
+    "selectAmount": "选择金额",
+    "selectPaymentMethod": "selectPaymentMethod",
+    "submit": "提交",
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

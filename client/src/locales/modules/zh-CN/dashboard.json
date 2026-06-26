@@ -15,19 +15,14 @@
     "limitFreeCount": "限免",
     "paidCount": "收费",
     "quickActions": "快速操作",
-    "modelManagement": "模型管理",
-    "feeConfig": "收费配置",
-    "examineManagement": "审核管理",
-    "userCenter": "用户中心",
-    "settlementManagement": "结算管理",
     "noData": "暂无数据",
     "loadStatsFailed": "加载统计数据失败，请刷新页面重试",
     "navigationFailed": "导航失败，请稍后重试",
-    "analytics": "analytics",
-    "badge": "badge",
+    "analytics": "分析",
+    "badge": "徽章",
     "realTime": "realTime",
-    "refresh": "refresh",
-    "shortcuts": "shortcuts",
-    "subtitle": "subtitle"
+    "refresh": "刷新",
+    "shortcuts": "快捷键",
+    "subtitle": "副标题"
   }
 }

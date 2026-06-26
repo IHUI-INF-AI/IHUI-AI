@@ -1,0 +1,41 @@
+{
+  "topUp": {
+    "amountLabels": {
+      "coins": "coins"
+    },
+    "cancel": "取消",
+    "customAmount": "customAmount",
+    "customPlaceholder": "customPlaceholder",
+    "errors": {
+      "amountDecimals": "amountDecimals",
+      "amountRange": "amountRange",
+      "createOrderFailed": "createOrderFailed",
+      "createOrderRetry": "createOrderRetry",
+      "invalidAmount": "invalidAmount",
+      "logger": {
+        "createOrderFailed": "createOrderFailed"
+      },
+      "selectAmount": "selectAmount"
+    },
+    "loading": "加载中",
+    "notice1": "notice1",
+    "notice2": "notice2",
+    "notice3": "notice3",
+    "noticeTitle": "noticeTitle",
+    "paymentMethods": {
+      "alipay": {
+        "desc": "描述",
+        "name": "名称"
+      },
+      "wechat": {
+        "desc": "描述",
+        "name": "名称"
+      }
+    },
+    "selectAmount": "selectAmount",
+    "selectPaymentMethod": "selectPaymentMethod",
+    "submit": "提交",
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

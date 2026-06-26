@@ -355,7 +355,7 @@ onMounted(async () => {
     }
 
     .badge-text {
-      font-family: 'EDIX';
+      font-family: var(--font-family-edix);
       font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.05em;
@@ -394,7 +394,7 @@ onMounted(async () => {
   background: hsl(var(--muted));
   border-radius: var(--global-border-radius);
 
-  html.dark & {
+  :where(html.dark) & {
     background: var(--color-dark-bg-3);
   }
 
@@ -407,10 +407,10 @@ onMounted(async () => {
     border: none;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
     white-space: nowrap;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--muted-foreground));
     }
 
@@ -418,7 +418,7 @@ onMounted(async () => {
       color: var(--el-text-color-primary);
       background: hsl(var(--background));
 
-      html.dark & {
+      :where(html.dark) & {
         color: hsl(var(--foreground));
         background: var(--color-dark-bg-5);
       }
@@ -429,7 +429,7 @@ onMounted(async () => {
       background: hsl(var(--background));
       border: var(--unified-border);
 
-      html.dark & {
+      :where(html.dark) & {
         color: hsl(var(--foreground));
         background: var(--color-dark-bg-5);
         border-color: var(--color-dark-bg-6);
@@ -488,7 +488,7 @@ onMounted(async () => {
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s;
 
     &.active {
       background: var(--el-text-color-primary);
@@ -558,12 +558,12 @@ onMounted(async () => {
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     overflow: hidden;
-    transition: all 0.4s;
+    transition: background-color 0.4s, border-color 0.4s, transform 0.4s;
 
     &:hover {
       border-color: var(--el-border-color-light);
       background: var(--el-fill-color);
-      transform: translateY(-4px);
+      
       .entry-image img {
         transform: scale(1.05);
       }
@@ -663,7 +663,7 @@ onMounted(async () => {
       font-size: 12px;
       font-weight: 800;
       color: var(--el-text-color-secondary);
-      transition: all 0.3s;
+      transition: color 0.3s;
       display: flex;
       align-items: center;
       gap: 8px;

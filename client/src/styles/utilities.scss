@@ -362,7 +362,7 @@
   transition: transform $transition-base;
   
   &:hover {
-    transform: translateY(-4px);
+    
   }
 }
 
@@ -511,11 +511,11 @@
   border: 1px solid var(--border-unified-color);
   border-radius: var(--global-border-radius);
   padding: clamp(20px, 3vw, 32px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     border: 2px solid var(--border-unified-color-hover);
-    transform: translateY(-4px);
+    
     }
 }
 
@@ -525,7 +525,7 @@
   border: 1px solid var(--border-unified-color);
   border-radius: var(--global-border-radius);
   padding: clamp(24px, 3vw, 36px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   gap: clamp(12px, 2vw, 20px);
@@ -538,7 +538,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease;
 
     .el-icon, svg {
       font-size: clamp(24px, 3vw, 32px);
@@ -567,7 +567,7 @@
 
   &:hover {
     border-color: var(--el-text-color-primary);
-    transform: translateY(-6px);
+    
     .feature-icon-box {
       background: var(--el-text-color-primary);
 
@@ -586,15 +586,15 @@
   border: 1px solid var(--border-unified-color);
   border-radius: var(--global-border-radius);
   padding: clamp(24px, 3vw, 36px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  html.dark & {
+  :where(html.dark) & {
     background: var(--color-black-50);
     border: 1px solid var(--border-unified-color);
   }
 
   &:hover {
-    transform: translateY(-4px);
+    
     }
 }
 
@@ -605,7 +605,7 @@
   border-radius: var(--global-border-radius);
   padding: clamp(20px, 3vw, 28px);
   text-align: center;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, border-width 0.3s ease, transform 0.3s ease;
 
   .stat-value {
     font-size: clamp(28px, 4vw, 40px);
@@ -624,7 +624,7 @@
 
   &:hover {
     border: 2px solid var(--border-unified-color-hover);
-    transform: translateY(-2px);
+    
   }
 }
 
@@ -643,7 +643,7 @@
   border-radius: var(--global-border-radius);
   border: none;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
 
   // 主要按钮
@@ -653,7 +653,7 @@
 
     &:hover {
       opacity: 0.85;
-      transform: translateY(-2px);
+      
       }
 
     &:active {
@@ -891,7 +891,7 @@
 
   &.success {
     background: var(--color-green-16a34a-10);
-    color: var(--color-green-16a34a);
+    color: var(--el-color-success);
   }
 
   &.warning {
@@ -900,7 +900,7 @@
   }
 
   &.danger {
-    background: var(--color-red-transparent-10);
+    background: rgba(var(--el-color-danger-rgb), 0.1);
     color: var(--color-danger-dark);
   }
 
@@ -915,7 +915,7 @@
   width: 8px;
   height: 8px;
   border-radius: var(--global-border-radius);
-  background: var(--color-green-16a34a);
+  background: var(--el-color-success);
   position: relative;
 
   &::after {
@@ -1031,7 +1031,7 @@
               box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    transform: translateY(-6px);
+    
     }
 }
 
@@ -1246,7 +1246,7 @@
   letter-spacing: 0.05em;
   z-index: var(--z-base);
 
-  html.dark & {
+  :where(html.dark) & {
     background: var(--el-bg-color-page);
     color: var(--el-text-color-primary);
   }
@@ -1388,7 +1388,7 @@
   border-radius: var(--global-border-radius);
   border: 1px solid var(--border-unified-color);
   background: var(--el-bg-color);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease;
 
   &:focus {
     border-color: var(--el-text-color-primary);
@@ -1421,7 +1421,7 @@
   border: 1px solid var(--border-unified-color);
   background: var(--el-bg-color);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 
   &:hover {
     border-color: var(--el-text-color-primary);

@@ -105,7 +105,7 @@
 }
 
 // 暗色模式支持
-html.dark {
+:where(html.dark) {
   .code-block-wrapper {
     background-color: var(--el-fill-color-darker);
 

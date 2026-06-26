@@ -529,7 +529,7 @@ defineExpose({
   border: none;
   background: transparent;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .tab-btn.active {
@@ -791,7 +791,7 @@ defineExpose({
   padding: 24px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s;
 }
 
 .upload-area:hover {

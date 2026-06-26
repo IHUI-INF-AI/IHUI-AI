@@ -1,0 +1,31 @@
+{
+  "indexHome": {
+    "featuredArticles": "精选文章",
+    "free": "免费",
+    "hotCourses": "hotCourses",
+    "latestNews": "latestNews",
+    "liveBadge": "liveBadge",
+    "livingNow": "livingNow",
+    "masterTeacher": "masterTeacher",
+    "more": "更多",
+    "peopleLearning": "正在学习",
+    "platformTitle": "platformTitle",
+    "qeArticle": "qeArticle",
+    "qeAsk": "qeAsk",
+    "qeCircle": "qeCircle",
+    "qeCourse": "qeCourse",
+    "qeExam": "qeExam",
+    "qeLive": "qeLive",
+    "qeNews": "qeNews",
+    "qeResource": "qeResource",
+    "quickEntry": "quickEntry",
+    "searchPlaceholder": "请输入搜索内容",
+    "signUp": "注册",
+    "statCourses": "statCourses",
+    "statExam": "statExam",
+    "statLive": "statLive",
+    "statStudents": "statStudents",
+    "subtitle": "副标题",
+    "upcomingExams": "upcomingExams"
+  }
+}

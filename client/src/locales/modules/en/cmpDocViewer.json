@@ -1,0 +1,29 @@
+{
+  "cmpDocViewer": {
+    "categoryArchive": "categoryArchive",
+    "categoryAudio": "categoryAudio",
+    "categoryCad": "categoryCad",
+    "categoryCode": "categoryCode",
+    "categoryDocument": "categoryDocument",
+    "categoryImage": "categoryImage",
+    "categoryMarkdown": "categoryMarkdown",
+    "categoryModel3d": "categoryModel3d",
+    "categoryPdf": "categoryPdf",
+    "categoryPresentation": "categoryPresentation",
+    "categorySpreadsheet": "categorySpreadsheet",
+    "categoryText": "categoryText",
+    "categoryUnknown": "categoryUnknown",
+    "categoryVideo": "categoryVideo",
+    "defaultTitle": "defaultTitle",
+    "download": "下载",
+    "fullscreen": "fullscreen",
+    "loadingDoc": "loadingDoc",
+    "nextPage": "nextPage",
+    "pdfLoadFailed": "pdfLoadFailed",
+    "pdfTools": "pdfTools",
+    "prevPage": "prevPage",
+    "reset": "重置",
+    "zoomIn": "zoomIn",
+    "zoomOut": "zoomOut"
+  }
+}

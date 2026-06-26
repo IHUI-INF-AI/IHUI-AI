@@ -420,9 +420,9 @@ $brand-primary: v.$primary-color;
 
   &.sla-critical {
     background: var(--el-color-danger);
-    color: #fff;
+    color: var(--el-color-white);
     border-color: var(--el-color-danger);
-    .sla-value { color: #fff; }
+    .sla-value { color: var(--el-color-white); }
   }
 }
 
@@ -579,7 +579,7 @@ $brand-primary: v.$primary-color;
   white-space: nowrap;
 }
 
-.id-col { font-family: monospace; font-size: 12px; }
+.id-col { font-family: var(--font-family-mono); font-size: 12px; }
 .amount-col { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .status-pill {
@@ -589,7 +589,7 @@ $brand-primary: v.$primary-color;
   font-size: 12px;
   font-weight: 700;
 
-  &.status-pending, &.status-reviewing { background: var(--el-color-primary-light-9); color: var(--color-blue-1890ff); }
+  &.status-pending, &.status-reviewing { background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
   &.status-approved, &.status-completed, &.status-processing { background: var(--el-color-success-light-9); color: var(--el-color-success); }
   &.status-rejected, &.status-failed { background: var(--el-color-danger-light-9); color: var(--el-color-danger); }
   &.status-cancelled { background: var(--color-black-6); color: $text-sec; }
@@ -606,7 +606,7 @@ $brand-primary: v.$primary-color;
   &.sla-green { background: var(--el-color-success-light-7); color: var(--el-color-success); }
   &.sla-yellow { background: var(--el-color-warning-light-7); color: var(--el-color-warning); }
   &.sla-red { background: var(--el-color-danger-light-7); color: var(--el-color-danger); }
-  &.sla-critical { background: var(--el-color-danger); color: #fff; }
+  &.sla-critical { background: var(--el-color-danger); color: var(--el-color-white); }
 }
 
 .sla-hours {

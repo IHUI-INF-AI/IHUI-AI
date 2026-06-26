@@ -774,7 +774,7 @@ defineExpose({
 }
 
 // 暗色模式适配
-html.dark .qr-loading-overlay {
+:where(html.dark) .qr-loading-overlay {
   background: var(--color-black-90);
   animation: fadeIn 0.3s ease;
 }

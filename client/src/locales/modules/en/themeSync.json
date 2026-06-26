@@ -1,0 +1,102 @@
+{
+  "themeSync": {
+    "autoSync": "autoSync",
+    "cancel": "取消",
+    "cancelled": "已取消",
+    "conflict": {
+      "cloudBackup": "cloudBackup",
+      "confirm": "确认",
+      "description": "描述",
+      "keepLocal": "keepLocal",
+      "merge": "merge",
+      "mergeDesc": "mergeDesc",
+      "rememberChoice": "rememberChoice",
+      "thisDevice": "thisDevice",
+      "title": "标题",
+      "useCloud": "useCloud"
+    },
+    "history": {
+      "actionConflict": "actionConflict",
+      "actionDownload": "actionDownload",
+      "actionUpload": "actionUpload",
+      "avgDuration": "avgDuration",
+      "clear": "清空",
+      "clearConfirm": "clearConfirm",
+      "empty": "empty",
+      "export": "导出",
+      "exportFailed": "exportFailed",
+      "exportSuccess": "exportSuccess",
+      "failed": "失败",
+      "showAll": "showAll",
+      "showLess": "showLess",
+      "success": "成功",
+      "title": "标题"
+    },
+    "intervals": {
+      "daily": "daily",
+      "hourly": "hourly",
+      "weekly": "weekly"
+    },
+    "lastSync": "lastSync",
+    "loginRequired": "loginRequired",
+    "notifications": "notifications",
+    "offlineCannotProcess": "offlineCannotProcess",
+    "offlineMode": "offlineMode",
+    "offlineQueue": "offlineQueue",
+    "processQueue": "processQueue",
+    "progress": {
+      "completing": "completing",
+      "finalizing": "finalizing",
+      "preparing": "preparing",
+      "uploading": "上传中"
+    },
+    "settings": {
+      "devices": {
+        "active": "已激活",
+        "current": "current",
+        "remove": "移除",
+        "removeConfirm": "removeConfirm",
+        "removeSuccess": "removeSuccess",
+        "title": "标题",
+        "total": "总计"
+      },
+      "encryption": {
+        "disable": "禁用",
+        "disableConfirm": "disableConfirm",
+        "disabled": "已禁用",
+        "disabledSuccess": "disabledSuccess",
+        "enable": "启用",
+        "enabled": "已启用",
+        "setPassword": "setPassword",
+        "setupFailed": "setupFailed",
+        "setupSuccess": "setupSuccess",
+        "title": "标题"
+      },
+      "performance": {
+        "avgDuration": "avgDuration",
+        "export": "导出",
+        "exportSuccess": "exportSuccess",
+        "operations": "operations",
+        "reportTitle": "reportTitle",
+        "successRate": "successRate",
+        "title": "标题",
+        "viewReport": "viewReport"
+      }
+    },
+    "status": {
+      "error": "错误",
+      "idle": "idle",
+      "synced": "synced",
+      "syncing": "syncing"
+    },
+    "syncFailed": "syncFailed",
+    "syncInterval": "syncInterval",
+    "syncNow": "syncNow",
+    "syncSuccess": "syncSuccess",
+    "timeDaysAgo": "timeDaysAgo",
+    "timeHoursAgo": "timeHoursAgo",
+    "timeJustNow": "timeJustNow",
+    "timeMinutesAgo": "timeMinutesAgo",
+    "title": "标题"
+  }
+}

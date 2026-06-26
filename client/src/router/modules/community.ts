@@ -4,6 +4,18 @@ import { loadModule, getCurrentLocale } from '@/locales'
 
 type RedirectTo = { path: string; query: Record<string, string | string[]> }
 
+// 2026-06-26 新增: 路由级 i18n 模块预加载辅助函数
+// 用法: 在 route.beforeEnter 中调用 preloadI18nOnRoute(['plaza', 'xuqiu'])
+// 行为: 路由进入前 await 加载声明的 i18n 模块, 保证页面渲染时 t() 拿到翻译, 避免键名裸露
+// (asyncModule 竞态防护的第三道保险, 配合 coreModules + prefetchCommonI18nModules 一起生效)
+function preloadI18nOnRoute(modules: string[]) {
+  return async () => {
+    if (modules.length === 0) return
+    const locale = getCurrentLocale()
+    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
+  }
+}
+
 export const communityRoutes: Array<RouteRecordRaw> = [
   {
     path: '/plaza',
@@ -17,6 +29,8 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: 'seo.plaza.desc',
       keywords: 'seo.plaza.keywords',
     },
+    // 2026-06-26: 预加载 plaza i18n 模块, 避免键名裸露
+    beforeEnter: preloadI18nOnRoute(['plaza']),
   },
   {
     path: '/xuqiu/:id',
@@ -31,6 +45,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: '查看需求详情和评论',
       keywords: '需求,详情,评论',
     },
+    beforeEnter: preloadI18nOnRoute(['xuqiu']),
   },
   {
     path: '/xuqiu',
@@ -44,6 +59,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: 'seo.xuqiu.desc',
       keywords: 'seo.xuqiu.keywords',
     },
+    beforeEnter: preloadI18nOnRoute(['xuqiu']),
   },
   {
     path: '/tools-store',
@@ -84,6 +100,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: 'seo.courses.desc',
       keywords: 'seo.courses.keywords',
     },
+    beforeEnter: preloadI18nOnRoute(['courses']),
   },
   {
     path: '/courses/:id',
@@ -98,6 +115,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.courseDetail.keywords',
       requiresAuth: true,
     },
+    beforeEnter: preloadI18nOnRoute(['courses', 'courseDetail']),
   },
   {
     path: '/community',
@@ -121,6 +139,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.about.keywords',
       requiresAuth: false, // 公开页面:未登录可访问,API 请求无 token 时静默拒绝而非跳转 /login
     },
+    beforeEnter: preloadI18nOnRoute(['about']),
   },
   {
     path: '/feedback',
@@ -134,6 +153,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: 'seo.feedback.desc',
       keywords: 'seo.feedback.keywords',
     },
+    beforeEnter: preloadI18nOnRoute(['feedback', 'feedbackPage']),
   },
   {
     path: '/help',
@@ -156,6 +176,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: 'seo.share.desc',
       keywords: 'seo.share.keywords',
     },
+    beforeEnter: preloadI18nOnRoute(['share']),
   },
   {
     path: '/share/:id?',
@@ -170,6 +191,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: '分享内容到各个社交平台',
       keywords: '分享,社交,推广',
     },
+    beforeEnter: preloadI18nOnRoute(['share']),
   },
   {
     path: '/ai-career',
@@ -184,6 +206,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: '为您的孩子提供专业的AI学习指导',
       keywords: 'AI,生涯指导,教育',
     },
+    beforeEnter: preloadI18nOnRoute(['aiCareer']),
   },
   {
     path: '/tech-service',
@@ -198,6 +221,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: '获取专业的技术支持和帮助',
       keywords: '技术服务,支持,帮助',
     },
+    beforeEnter: preloadI18nOnRoute(['techService', 'myAppointments']),
   },
   {
     path: '/my-appointments',
@@ -212,6 +236,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: '查看和管理您的服务预约',
       keywords: '预约,服务预约,我的预约',
     },
+    beforeEnter: preloadI18nOnRoute(['myAppointments', 'techService']),
   },
   {
     path: '/webview',
@@ -242,6 +267,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       description: 'seo.customService.desc',
       keywords: 'seo.customService.keywords',
     },
+    beforeEnter: preloadI18nOnRoute(['customerService']),
   },
   {
     path: '/enterprise',
@@ -256,6 +282,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '企业AI化,智能体,AI转型,企业服务,智汇AI社',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['enterprise', 'enterpriseService']),
   },
   {
     path: '/enterprise/agent-scenario',
@@ -270,6 +297,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '智能体,AI场景,企业AI化,场景罗盘',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['agentScenario']),
   },
   {
     path: '/enterprise/human-machine-collaboration',
@@ -287,6 +315,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '人机协作,超级员工,超级团队,AI组织',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['humanMachine']),
   },
   {
     path: '/learn-ai',
@@ -302,6 +331,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       requiresAuth: false,
       showFooter: false,
     },
+    beforeEnter: preloadI18nOnRoute(['learnAI', 'learn']),
   },
   {
     path: '/learn-ai/:pathMatch(.*)*',
@@ -317,6 +347,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       requiresAuth: false,
       showFooter: false,
     },
+    beforeEnter: preloadI18nOnRoute(['learnAI', 'learn']),
   },
   {
     path: '/privacy-policy',
@@ -376,6 +407,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '文档,API,开发指南,技术文档',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['documentCenter', 'help', 'termsAndPolicies']),
   },
   {
     path: '/about/news-center',
@@ -390,6 +422,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '新闻,动态,产品更新,行业资讯',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['newsCenter', 'homePage3']),
   },
   {
     path: '/about/about-us',
@@ -404,6 +437,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '关于我们,公司简介,团队',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['aboutUs']),
   },
   {
     path: '/about/contact-us',
@@ -418,6 +452,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '联系我们,咨询,商务合作',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['aboutUs', 'footer']),
   },
   {
     path: '/about/become-supplier',
@@ -432,6 +467,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '供应商,合作,申请',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['becomeSupplier']),
   },
   {
     path: '/messages',
@@ -446,6 +482,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '消息,站内信,公告,通知',
       requiresAuth: true,
     },
+    beforeEnter: preloadI18nOnRoute(['messageCenter']),
   },
   {
     path: '/notifications',
@@ -460,6 +497,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '通知,订单通知,钱包通知',
       requiresAuth: true,
     },
+    beforeEnter: preloadI18nOnRoute(['notificationCenter']),
   },
   {
     path: '/points',
@@ -474,6 +512,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '积分,签到,积分商城,兑换',
       requiresAuth: true,
     },
+    beforeEnter: preloadI18nOnRoute(['pointCenter']),
   },
   {
     path: '/search',
@@ -506,6 +545,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '问答,AI问答,知识分享',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['askList']),
   },
   {
     path: '/ask/:id(\\d+)',
@@ -520,6 +560,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '问答详情,AI问答',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['askDetail']),
   },
   {
     path: '/circle',
@@ -534,6 +575,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '圈子,兴趣社区,同好',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['circleList']),
   },
   {
     path: '/circle/:id(\\d+)',
@@ -548,6 +590,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '圈子详情,动态',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['circleDetail']),
   },
   {
     path: '/exam',
@@ -562,6 +605,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '考试,试卷,错题本',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['examList']),
   },
   {
     path: '/exam/:id(\\d+)',
@@ -576,6 +620,7 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '在线考试,答题',
       requiresAuth: true,
     },
+    beforeEnter: preloadI18nOnRoute(['examDo']),
   },
   {
     path: '/ranking',
@@ -590,5 +635,6 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       keywords: '排行榜,积分榜,热度榜',
       requiresAuth: false,
     },
+    beforeEnter: preloadI18nOnRoute(['ranking']),
   },
 ]

@@ -1,0 +1,102 @@
+{
+  "themeSync": {
+    "autoSync": "自动同步",
+    "cancel": "取消",
+    "cancelled": "已取消",
+    "conflict": {
+      "cloudBackup": "使用云端备份版本",
+      "confirm": "确认",
+      "description": "检测到本地和云端主题数据存在冲突，请选择处理方式",
+      "keepLocal": "保留本地版本",
+      "merge": "合并两端更改",
+      "mergeDesc": "将本地和云端的更改合并在一起",
+      "rememberChoice": "记住我的选择",
+      "thisDevice": "此设备上的版本",
+      "title": "同步冲突",
+      "useCloud": "使用云端版本"
+    },
+    "history": {
+      "actionConflict": "冲突解决",
+      "actionDownload": "下载",
+      "actionUpload": "上传",
+      "avgDuration": "平均耗时",
+      "clear": "清空",
+      "clearConfirm": "确认清空？",
+      "empty": "暂无记录",
+      "export": "导出",
+      "exportFailed": "导出失败",
+      "exportSuccess": "导出成功",
+      "failed": "失败",
+      "showAll": "展开全部",
+      "showLess": "收起",
+      "success": "成功",
+      "title": "同步历史"
+    },
+    "intervals": {
+      "daily": "每天",
+      "hourly": "每小时",
+      "weekly": "每周"
+    },
+    "lastSync": "上次同步",
+    "loginRequired": "请先登录",
+    "notifications": "通知",
+    "offlineCannotProcess": "离线状态下无法处理",
+    "offlineMode": "离线模式",
+    "offlineQueue": "离线队列",
+    "processQueue": "处理离线队列",
+    "progress": {
+      "completing": "正在完成",
+      "finalizing": "正在收尾",
+      "preparing": "准备中",
+      "uploading": "上传中"
+    },
+    "settings": {
+      "devices": {
+        "active": "已激活",
+        "current": "当前设备",
+        "remove": "移除",
+        "removeConfirm": "确认移除？",
+        "removeSuccess": "移除成功",
+        "title": "已同步设备",
+        "total": "总计"
+      },
+      "encryption": {
+        "disable": "禁用",
+        "disableConfirm": "确认禁用？",
+        "disabled": "已禁用",
+        "disabledSuccess": "已成功禁用",
+        "enable": "启用",
+        "enabled": "已启用",
+        "setPassword": "设置密码",
+        "setupFailed": "设置失败",
+        "setupSuccess": "设置成功",
+        "title": "加密设置"
+      },
+      "performance": {
+        "avgDuration": "平均耗时",
+        "export": "导出",
+        "exportSuccess": "导出成功",
+        "operations": "操作记录",
+        "reportTitle": "性能报表",
+        "successRate": "成功率",
+        "title": "性能统计",
+        "viewReport": "查看报表"
+      }
+    },
+    "status": {
+      "error": "错误",
+      "idle": "空闲",
+      "synced": "已同步",
+      "syncing": "同步中"
+    },
+    "syncFailed": "同步失败",
+    "syncInterval": "同步间隔",
+    "syncNow": "立即同步",
+    "syncSuccess": "同步成功",
+    "timeDaysAgo": "{n}天前",
+    "timeHoursAgo": "{n}小时前",
+    "timeJustNow": "刚刚",
+    "timeMinutesAgo": "{n}分钟前",
+    "title": "主题同步"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "plaza": {
+    "aiChat": "AI 채팅",
+    "aiCoding": "AI 코딩",
+    "aiDrawing": "AI 그림",
+    "aiNeedPlaza": "AI 수요 광장",
+    "aiVideo": "AI 동영상",
+    "aiWriting": "AI 글쓰기",
+    "all": "전체",
+    "anonymous": "익명",
+    "back": "돌아가기",
+    "completed": "완료",
+    "createNew": "새로 만들기",
+    "form": {
+      "cancel": "취소",
+      "descriptionPlaceholder": "수요 설명 입력",
+      "titlePlaceholder": "수요 제목 입력"
+    },
+    "loading": "로딩 중",
+    "myNeeds": "내 수요",
+    "needCategory": "분류",
+    "needDescription": "설명",
+    "needTitle": "제목",
+    "needType": "유형",
+    "noData": "데이터 없음",
+    "ongoing": "진행 중",
+    "publish": "게시",
+    "publishFirst": "첫 수요 게시",
+    "publishNeed": "수요 게시",
+    "searchPlaceholder": "검색...",
+    "selectCategory": "분류 선택",
+    "selectType": "유형 선택",
+    "submit": "제출",
+    "submitting": "제출 중",
+    "subtitle": "AI 수요를 게시하고 전문적인 해결책을 받으세요",
+    "type1": "개발",
+    "type2": "디자인",
+    "type3": "비즈니스",
+    "types": {
+      "business": "비즈니스",
+      "design": "디자인",
+      "development": "개발"
+    }
+  }
+}

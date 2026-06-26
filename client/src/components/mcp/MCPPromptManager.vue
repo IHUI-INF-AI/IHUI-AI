@@ -252,10 +252,10 @@ onMounted(async () => {
   .prompt-card {
     margin-bottom: 16px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s;
 
     &:hover {
-      transform: translateY(-2px);
+      
       box-shadow: none;
     }
 

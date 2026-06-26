@@ -2,6 +2,15 @@ import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
 import { loadModule, getCurrentLocale } from '@/locales'
 
+// 2026-06-26: 路由级 i18n 模块预加载辅助函数
+function preloadI18n(modules: string[]) {
+  return async () => {
+    if (modules.length === 0) return
+    const locale = getCurrentLocale()
+    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
+  }
+}
+
 export const baseRoutes: Array<RouteRecordRaw> = [
   {
     path: '/',
@@ -15,11 +24,7 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       preload: true,
       showFooter: false,
     },
-    beforeEnter: async () => {
-      // 预加载 home 模块，避免组件渲染时显示 i18n key
-      await loadModule(getCurrentLocale(), 'home')
-      return true
-    },
+    beforeEnter: preloadI18n(['home']),
   },
   {
     path: '/home',
@@ -41,6 +46,7 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: 'seo.designSystem.desc',
       keywords: 'seo.designSystem.keywords',
     },
+    beforeEnter: preloadI18n(['designSystem']),
   },
   {
     path: '/storybook',
@@ -55,6 +61,7 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: 'seo.componentShowcase.desc',
       keywords: 'seo.componentShowcase.keywords',
     },
+    beforeEnter: preloadI18n(['componentShowcase']),
   },
   {
     path: '/business-docs',
@@ -69,6 +76,7 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: 'seo.businessDocs.desc',
       keywords: 'seo.businessDocs.keywords',
     },
+    beforeEnter: preloadI18n(['businessDocs']),
   },
   {
     path: '/aizhs-demo',
@@ -82,6 +90,7 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       title: 'routes.aizhsDemo',
       description: 'seo.aizhsDemo.desc',
     },
+    beforeEnter: preloadI18n(['aizhsDemo']),
   },
   {
     path: '/login',
@@ -92,6 +101,7 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: '登录智汇AI社区 - 支持多种登录方式',
       keywords: '登录,用户登录,账号登录',
     },
+    beforeEnter: preloadI18n(['login']),
   },
   {
     path: '/register',
@@ -105,6 +115,7 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: '注册智汇AI社区账号 - 开始您的AI之旅',
       keywords: '注册,用户注册,账号注册',
     },
+    beforeEnter: preloadI18n(['register']),
   },
   {
     path: '/403',
@@ -116,6 +127,7 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: 'seo.forbidden.desc',
       keywords: 'seo.forbidden.keywords',
     },
+    beforeEnter: preloadI18n(['forbidden']),
   },
   {
     path: '/:pathMatch(.*)*',

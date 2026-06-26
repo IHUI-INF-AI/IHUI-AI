@@ -1,0 +1,32 @@
+{
+  "unifiedViewer": {
+    "archiveFile": "archiveFile",
+    "cadFile": "cadFile",
+    "cadHint": "cadHint",
+    "catArchive": "catArchive",
+    "catAudio": "catAudio",
+    "catCad": "catCad",
+    "catCode": "catCode",
+    "catDocument": "catDocument",
+    "catImage": "catImage",
+    "catModel3d": "catModel3d",
+    "catPresentation": "catPresentation",
+    "catSpreadsheet": "catSpreadsheet",
+    "catText": "catText",
+    "catVideo": "catVideo",
+    "download": "下载",
+    "downloadExtract": "downloadExtract",
+    "downloadFile": "下载文件",
+    "downloadView": "downloadView",
+    "extension": "扩展",
+    "file": "文件",
+    "format": "format",
+    "fullscreen": "fullscreen",
+    "loading": "加载中",
+    "mimeType": "mimeType",
+    "notSupport": "notSupport",
+    "openInNewTab": "openInNewTab",
+    "type": "类型",
+    "unknown": "unknown"
+  }
+}

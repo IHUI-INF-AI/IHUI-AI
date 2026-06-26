@@ -48,18 +48,18 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('settlement.settlementList') }}</span>
-          <div style="display: flex; gap: 10px">
+          <div class="card-header-actions">
             <el-input
               v-model="searchKeyword"
               :placeholder="t('settlement.searchPlaceholder')"
-              style="width: 240px"
+              class="search-input"
               clearable
               @input="debouncedLoadSettlements"
             />
             <el-select
               v-model="filterSettlement"
               @change="loadSettlements"
-              style="width: 120px"
+              class="filter-select"
               clearable
             >
               <el-option :label="t('settlement.allStatus')" value="" />
@@ -83,7 +83,7 @@
         <el-table-column prop="order_no" :label="t('settlement.orderNo')" min-width="150" />
         <el-table-column :label="t('settlement.amount')" width="120">
           <template #default="{ row }">
-            <span style="color: var(--el-color-primary); font-weight: 700">
+            <span class="amount-text">
               ¥{{ ((row.amount || 0) / 100).toFixed(2) }}
             </span>
           </template>
@@ -123,9 +123,7 @@
         </el-table-column>
       </el-table>
 
-      <div
-        style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center"
-      >
+      <div class="pagination-wrapper">
         <el-button :disabled="selectedRows.length === 0" @click="handleBatchDelete">
           {{ t('settlement.batchDelete') }} ({{ selectedRows.length }})
         </el-button>
@@ -196,7 +194,7 @@
             :placeholder="t('settlement.selectStartDate')"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
-            style="width: 100%"
+            class="full-width"
           />
         </el-form-item>
         <el-form-item :label="t('settlement.endDate')">
@@ -206,7 +204,7 @@
             :placeholder="t('settlement.selectEndDate')"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
-            style="width: 100%"
+            class="full-width"
           />
         </el-form-item>
         <el-form-item :label="t('settlement.developerUuid')">
@@ -503,6 +501,35 @@ onMounted(() => {
 
   .settlement-detail {
     // 样式
+  }
+
+  .card-header-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .search-input {
+    width: 240px;
+  }
+
+  .filter-select {
+    width: 120px;
+  }
+
+  .amount-text {
+    color: var(--el-color-primary);
+    font-weight: 700;
+  }
+
+  .pagination-wrapper {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .full-width {
+    width: 100%;
   }
 }
 </style>

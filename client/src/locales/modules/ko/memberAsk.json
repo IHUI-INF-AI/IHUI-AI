@@ -1,0 +1,12 @@
+{
+  "memberAsk": {
+    "answerPrefix": "answerPrefix",
+    "answers": "answers",
+    "askPrefix": "askPrefix",
+    "emptyAnswer": "emptyAnswer",
+    "emptyQuestion": "emptyQuestion",
+    "myAnswers": "myAnswers",
+    "myQuestions": "myQuestions",
+    "title": "标题"
+  }
+}

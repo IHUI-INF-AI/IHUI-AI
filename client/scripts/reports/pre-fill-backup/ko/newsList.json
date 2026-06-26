@@ -1,0 +1,12 @@
+{
+  "newsList": {
+    "all": "[ZH:all]",
+    "desc": "[ZH:desc]",
+    "hot": "[ZH:hot]",
+    "official": "[ZH:official]",
+    "read": "[ZH:read]",
+    "title": "[ZH:title]",
+    "top": "[ZH:top]",
+    "viewHot": "[ZH:viewHot]"
+  }
+}

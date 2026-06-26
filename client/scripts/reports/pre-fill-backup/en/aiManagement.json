@@ -1,0 +1,10 @@
+{
+  "aiManagement": {
+    "agentList": "[ZH:agentList]",
+    "aiChat": "[ZH:aiChat]",
+    "clearSelection": "[ZH:clearSelection]",
+    "selectAgentHint": "[ZH:selectAgentHint]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]"
+  }
+}

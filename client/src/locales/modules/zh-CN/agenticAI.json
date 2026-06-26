@@ -1,0 +1,30 @@
+{
+  "agenticAI": {
+    "actions": "操作",
+    "autoOptimize": "autoOptimize",
+    "coordinationHierarchical": "分层协作",
+    "coordinationMarketBased": "市场协作",
+    "coordinationMode": "coordinationMode",
+    "coordinationPeerToPeer": "点对点协作",
+    "createAndExecute": "创建并执行",
+    "createSwarm": "createSwarm",
+    "enterTaskDescription": "enterTaskDescription",
+    "id": "编号",
+    "maxIterations": "最大迭代次数",
+    "mySwarm": "mySwarm",
+    "selectSwarmHint": "selectSwarmHint",
+    "status": {
+      "completed": "已完成",
+      "failed": "失败",
+      "pending": "待处理",
+      "running": "运行中",
+      "title": "标题"
+    },
+    "subtitle": "副标题",
+    "task": "任务",
+    "taskDescription": "任务描述",
+    "taskDescriptionPlaceholder": "请输入任务描述",
+    "title": "标题",
+    "view": "查看"
+  }
+}

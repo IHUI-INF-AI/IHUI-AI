@@ -373,7 +373,7 @@ defineExpose({
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s, border-width 0.2s;
   }
 
   input:checked + .checkmark {

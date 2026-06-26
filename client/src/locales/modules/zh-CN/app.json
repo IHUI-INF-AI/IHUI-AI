@@ -1,13 +1,6 @@
 {
   "app": {
     "skipToMain": "跳转到主要内容",
-    "offlineWarning": "网络连接已断开，请检查您的网络设置",
-    "errorTitle": "出错了",
-    "showErrorDetails": "显示错误详情",
-    "reload": "重新加载",
-    "goHome": "返回首页",
-    "unknownError": "未知错误",
-    "loading": "加载中",
-    "loadingText": "加载中..."
+    "offlineWarning": "网络连接已断开，请检查您的网络设置"
   }
 }

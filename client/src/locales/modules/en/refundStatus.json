@@ -1,0 +1,9 @@
+{
+  "refundStatus": {
+    "cancelRefund": "cancelRefund",
+    "evidenceTitle": "evidenceTitle",
+    "operator": "操作员",
+    "statusUnknown": "statusUnknown",
+    "timelineTitle": "timelineTitle"
+  }
+}

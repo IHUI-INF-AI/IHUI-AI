@@ -68,7 +68,7 @@ onMounted(() => {
   border-bottom: var(--unified-border);
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: var(--z-sticky);
 }
 
 .settings-layout__header-inner {

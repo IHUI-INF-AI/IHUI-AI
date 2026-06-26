@@ -1,0 +1,23 @@
+{
+  "myCommission": {
+    "available": "可用",
+    "buyer": "买家",
+    "commission": "佣金",
+    "copy": "复制",
+    "copyFailed": "复制失败",
+    "copySuccess": "复制成功",
+    "noCommission": "noCommission",
+    "orderTime": "下单时间",
+    "pending": "待处理",
+    "relatedOrder": "相关订单",
+    "title": "标题",
+    "todayCommission": "今日佣金",
+    "totalCommission": "佣金总额",
+    "withdraw": "提现",
+    "withdrawDetail": "withdrawDetail",
+    "withdrawDetailInfo": "withdrawDetailInfo",
+    "withdrawSuccess": "withdrawSuccess",
+    "withdrawn": "已提现",
+    "yuan": "元"
+  }
+}

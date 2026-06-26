@@ -1,0 +1,9 @@
+{
+  "viewerMediaViewer": {
+    "download": "下载",
+    "loop": "循环",
+    "mediaLoadFailed": "mediaLoadFailed",
+    "mute": "静音",
+    "playSpeed": "playSpeed"
+  }
+}

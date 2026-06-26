@@ -241,7 +241,7 @@ defineExpose({
   width: 48px;
   height: 48px;
   font-size: 20px;
-  transition: all 0.3s;
+  transition: transform 0.3s;
 }
 
 .voice-button:hover {
@@ -269,6 +269,7 @@ defineExpose({
   left: 50%;
   transform: translateX(-50%);
   background: var(--el-bg-color);
+  border: var(--unified-border);
   padding: 16px 24px;
   border-radius: var(--global-border-radius);
   text-align: center;

@@ -237,7 +237,7 @@ const hasPlatformCapabilities = computed(() => {
 <style scoped lang="scss">
 .agent-card {
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: var(--global-border-radius);
   background: var(--el-fill-color-light);
   border: none;
@@ -344,7 +344,7 @@ const hasPlatformCapabilities = computed(() => {
 
     .favorite-btn {
       flex-shrink: 0;
-      transition: all 0.2s ease;
+      transition: transform 0.2s ease;
 
       &:hover {
         transform: scale(1.1);

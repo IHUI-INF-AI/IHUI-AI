@@ -1,0 +1,47 @@
+{
+  "agentChat": {
+    "agentReply": "agentReply",
+    "audioRecording": "audioRecording",
+    "errors": {
+      "loadModelsFailed": "加载模型失败",
+      "sendMessageFailed": "发送消息失败",
+      "startVoiceRecognitionFailed": "startVoiceRecognitionFailed",
+      "switchModeFailed": "switchModeFailed"
+    },
+    "hideReasoning": "hideReasoning",
+    "inputMessagePlaceholder": "inputMessagePlaceholder",
+    "messageSent": "messageSent",
+    "pleaseEnterContent": "请输入内容",
+    "reasoningChain": {
+      "step1": "第 1 步",
+      "step2": "第 2 步",
+      "step3": "第 3 步"
+    },
+    "roles": {
+      "assistant": "assistant",
+      "user": "用户"
+    },
+    "showReasoning": "showReasoning",
+    "stages": {
+      "acting": "代理",
+      "reasoning": "推理",
+      "result": "结果"
+    },
+    "success": {
+      "copyToClipboard": "复制到剪贴板",
+      "messageDeleted": "消息已删除",
+      "messageUpdated": "messageUpdated"
+    },
+    "timeLabels": {
+      "justNow": "刚刚",
+      "minutesAgo": "分钟前"
+    },
+    "voiceRecognition": {
+      "stopped": "stopped"
+    },
+    "warnings": {
+      "confirmDelete": "确认删除",
+      "maxFileUpload": "maxFileUpload"
+    }
+  }
+}

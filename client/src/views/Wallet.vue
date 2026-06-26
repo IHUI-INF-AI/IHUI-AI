@@ -744,7 +744,7 @@ $brand-primary: v.$primary-color;
     font-weight: 700;
     cursor: pointer;
     border: none;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s, transform 0.3s;
 
     .btn-text {
       position: relative;
@@ -756,7 +756,7 @@ $brand-primary: v.$primary-color;
       color: var(--el-text-color-primary);
 
       &:hover {
-        transform: translateY(-2px);
+        
       }
     }
 
@@ -797,7 +797,7 @@ $brand-primary: v.$primary-color;
 
     &.income { background: var(--el-color-success-light-9); color: var(--el-color-success); }
     &.expense { background: var(--el-color-danger-light-9); color: var(--el-color-danger); }
-    &.net { background: var(--el-color-primary-light-9); color: var(--color-blue-1890ff); }
+    &.net { background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
     &.count { background: var(--el-color-warning-light-9); color: var(--el-color-warning); }
   }
 
@@ -935,7 +935,7 @@ $brand-primary: v.$primary-color;
     border: var(--unified-border);
     background: transparent;
     color: $text-main;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
 
     .btn-text {
       position: relative;
@@ -974,7 +974,7 @@ $brand-primary: v.$primary-color;
   background: transparent;
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 
   &.active {
     background: var(--el-text-color-primary);
@@ -1013,7 +1013,7 @@ $brand-primary: v.$primary-color;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 
   &:hover {
     background: $brand-primary;

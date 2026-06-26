@@ -522,7 +522,7 @@ onMounted(() => {
       border-radius: var(--global-border-radius);
       background: var(--el-bg-color);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: border-color 0.2s, background-color 0.2s;
 
       .el-icon {
         font-size: 24px;
@@ -657,7 +657,7 @@ onMounted(() => {
 
     .hot-tag {
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 
       &:hover {
         background: var(--el-color-primary-light-8);

@@ -1,0 +1,41 @@
+{
+  "payment": {
+    "alipay": "[ZH:alipay]",
+    "channelBusyHint": "[ZH:channelBusyHint]",
+    "checkOrderFailed": "[ZH:checkOrderFailed]",
+    "coins": "[ZH:coins]",
+    "createOrderFailed": "[ZH:createOrderFailed]",
+    "loading": "[ZH:loading]",
+    "memberCenter": "[ZH:memberCenter]",
+    "memberCenterSubtitle": "[ZH:memberCenterSubtitle]",
+    "memberServiceAgreement": "[ZH:memberServiceAgreement]",
+    "orderCancelled": "[ZH:orderCancelled]",
+    "payFailed": "[ZH:payFailed]",
+    "paySuccess": "[ZH:paySuccess]",
+    "paymentMethod": "[ZH:paymentMethod]",
+    "pleaseLoginFirst": "[ZH:pleaseLoginFirst]",
+    "privilege1": "[ZH:privilege1]",
+    "privilege2": "[ZH:privilege2]",
+    "privilege3": "[ZH:privilege3]",
+    "privilege4": "[ZH:privilege4]",
+    "qrcodeExpired": "[ZH:qrcodeExpired]",
+    "qrcodeValidity": "[ZH:qrcodeValidity]",
+    "redirectingPayment": "[ZH:redirectingPayment]",
+    "refreshAndRetry": "[ZH:refreshAndRetry]",
+    "scanToPay": "[ZH:scanToPay]",
+    "superValue": "[ZH:superValue]",
+    "userInfoIncomplete": "[ZH:userInfoIncomplete]",
+    "userNoOpenid": "[ZH:userNoOpenid]",
+    "vipPrivileges": "[ZH:vipPrivileges]",
+    "vipTitle": "[ZH:vipTitle]",
+    "wechat": "[ZH:wechat]",
+    "wechatPay": "[ZH:wechatPay]"
+  },
+  "Payment": {
+    "alreadyVip": "[ZH:alreadyVip]",
+    "incompleteProduct": "[ZH:incompleteProduct]",
+    "notLogged": "[ZH:notLogged]",
+    "notLoggedOrNoOpenId": "[ZH:notLoggedOrNoOpenId]",
+    "selectPayMethod": "[ZH:selectPayMethod]"
+  }
+}

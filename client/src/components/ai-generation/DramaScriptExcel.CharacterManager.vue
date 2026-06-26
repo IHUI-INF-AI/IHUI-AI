@@ -440,7 +440,7 @@ const handleFormAppearanceUpload = (response: UploadResponse) => {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   background: var(--el-bg-color);
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s;
   cursor: pointer;
 
   &:hover {

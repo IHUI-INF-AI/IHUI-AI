@@ -1,0 +1,110 @@
+{
+  "login": {
+    "agreement": {
+      "and": "和",
+      "prefix": "前缀",
+      "privacyPolicy": "隐私政策",
+      "userAgreement": "用户协议"
+    },
+    "aiModels": "AI 模型",
+    "apple": {
+      "loggingIn": "登录中",
+      "retry": "重试",
+      "securityTip": "安全提示"
+    },
+    "availability": "可用性",
+    "buttons": {
+      "login": "登录",
+      "register": "注册",
+      "submitLogin": "提交登录",
+      "submitRegister": "提交注册"
+    },
+    "crossProject": {
+      "admin": "管理员",
+      "loggingIn": "登录中",
+      "switchTo": "切换到",
+      "user": "用户"
+    },
+    "error": {
+      "insecureConnection": "连接不安全"
+    },
+    "forgotPassword": "忘记密码",
+    "goLogin": "去登录",
+    "goRegister": "去注册",
+    "google": {
+      "loggingIn": "登录中",
+      "retry": "重试",
+      "securityTip": "安全提示"
+    },
+    "hasAccount": "已有账号",
+    "hidePassword": "隐藏密码",
+    "ihuiLogo": "IHUI Logo",
+    "mode": {
+      "hasAccount": "已有账号",
+      "noAccount": "无账号",
+      "userLogin": "用户登录",
+      "userRegister": "用户注册"
+    },
+    "noAccount": "无账号",
+    "oneStopAI": "一站式 AI",
+    "password": {
+      "hide": "隐藏",
+      "show": "显示"
+    },
+    "placeholders": {
+      "confirmLoginPassword": "请确认登录密码",
+      "confirmPassword": "确认密码",
+      "email": "邮箱",
+      "password": "密码",
+      "phone": "手机号",
+      "phoneRegister": "手机注册",
+      "setLoginPassword": "请设置登录密码",
+      "setPassword": "设置密码",
+      "smsCode": "短信验证码",
+      "username": "用户名",
+      "usernameOrEmail": "用户名或邮箱"
+    },
+    "project": {
+      "admin": "管理员",
+      "eduAdmin": "教育管理端",
+      "eduWeb": "教育 Web 端",
+      "main": "主",
+      "open": "打开",
+      "user": "用户"
+    },
+    "selectProject": "请选择项目",
+    "showPassword": "显示密码",
+    "subtitle": "副标题",
+    "switchPlatform": "切换平台",
+    "tabs": {
+      "account": "账号",
+      "accountRegister": "账号注册",
+      "phone": "手机号",
+      "phoneRegister": "手机注册"
+    },
+    "thirdParty": {
+      "accountLogin": "账号密码登录",
+      "alipay": "支付宝",
+      "alipayLogin": "支付宝登录",
+      "comingSoon": "敬请期待",
+      "emailLogin": "邮箱登录",
+      "feishu": "飞书",
+      "feishuLogin": "飞书登录",
+      "notice": "通知",
+      "or": "或",
+      "otherMethods": "其他方式",
+      "phoneLogin": "手机号登录",
+      "privacyPolicy": "隐私政策",
+      "quickLogin": "快捷登录",
+      "securityNotice1": "安全提醒 1",
+      "securityNotice2": "安全提醒 2",
+      "securityNotice3": "安全提醒 3",
+      "selectPreferred": "请选择偏好",
+      "termsOfService": "服务条款"
+    },
+    "users": "用户",
+    "users500k": "50万+用户",
+    "welcomeTitle": "欢迎",
+    "worldFirst": "全球领先"
+  }
+}

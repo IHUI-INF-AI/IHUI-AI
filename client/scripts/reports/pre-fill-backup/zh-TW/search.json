@@ -1,0 +1,47 @@
+{
+  "search": {
+    "searchPlaceholder": {
+      "hot": "搜尋熱詞",
+      "searchPage": "輸入關鍵詞搜尋智能體 / 課程 / 內容"
+    },
+    "add": "[ZH:add]",
+    "addedConditions": "[ZH:addedConditions]",
+    "advanced": "[ZH:advanced]",
+    "conditions": "[ZH:conditions]",
+    "field": {
+      "category": "[ZH:category]",
+      "description": "[ZH:description]",
+      "name": "[ZH:name]",
+      "tag": "[ZH:tag]"
+    },
+    "keyword": "[ZH:keyword]",
+    "keywordPlaceholder": "[ZH:keywordPlaceholder]",
+    "operator": {
+      "contains": "[ZH:contains]",
+      "endsWith": "[ZH:endsWith]",
+      "equals": "[ZH:equals]",
+      "startsWith": "[ZH:startsWith]"
+    },
+    "presetName": "[ZH:presetName]",
+    "presets": "[ZH:presets]",
+    "reset": "[ZH:reset]",
+    "savePreset": "[ZH:savePreset]",
+    "search": "[ZH:search]",
+    "selectField": "[ZH:selectField]",
+    "selectOperator": "[ZH:selectOperator]",
+    "selectPreset": "[ZH:selectPreset]",
+    "valuePlaceholder": "[ZH:valuePlaceholder]"
+  },
+  "searchPage": {
+    "hotSearch": "熱門搜尋",
+    "loading": "載入中...",
+    "emptyHot": "暫無熱門搜尋",
+    "resultSummary": "找到 {total} 個結果",
+    "noResult": "未找到相關結果",
+    "typeAgent": "智能體",
+    "typeCourse": "課程",
+    "typeContent": "內容",
+    "typeAsk": "問答",
+    "typeCircle": "圈子"
+  }
+}

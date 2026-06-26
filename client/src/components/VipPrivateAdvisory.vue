@@ -144,7 +144,7 @@ function hideServicePopup() {
   border-radius: var(--global-border-radius);
   overflow: hidden;
   transform: translateY(100vh) rotateX(5deg);
-  transition: all 0.3s ease-in-out;
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
   opacity: 0.8;
   background: url("https://file.aizhs.top/sys-mini/default/sdh_back.jpg") no-repeat;
   background-size: 100%;
@@ -269,6 +269,7 @@ function hideServicePopup() {
   z-index: var(--z-max);
   background-color: var(--color-black-40);
   backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 .service-popup-content {
@@ -278,6 +279,7 @@ function hideServicePopup() {
   opacity: 1;
   background: var(--color-white-40);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow: none;
 }
 

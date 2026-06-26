@@ -1,0 +1,8 @@
+{
+  "simpleFallback": {
+    "defaultMessage": "默认消息",
+    "goHome": "回到首页",
+    "loading": "加载中",
+    "reload": "重新加载"
+  }
+}

@@ -29,9 +29,9 @@ $primary-light: var(--el-text-color-primary) !default;
 $primary-dark: var(--el-text-color-primary) !default;
 
 // 1.2 语义颜色
-$success-color: var(--color-green-16a34a) !default;
+$success-color: var(--el-color-success) !default;
 $warning-color: var(--el-text-color-primary) !default;
-$danger-color: var(--color-red-ef4444) !default;
+$danger-color: var(--el-color-danger) !default;
 $info-color: var(--el-text-color-primary) !default;
 
 // 1.3 文字颜色 - 亮色模式
@@ -111,7 +111,7 @@ $screen-xxl: $breakpoint-xl !default;
 // ============================================
 
 // 3.1 布局尺寸
-$header-height: 64px !default;
+$header-height: 60px !default;
 $sidebar-width: 240px !default;
 $sidebar-collapsed-width: 64px !default;
 
@@ -314,7 +314,7 @@ $z-toast: 1080 !default;
   --el-text-color-regular: var(--el-text-color-primary);
   --el-text-color-secondary: var(--el-text-color-primary);
   --el-text-color-placeholder: var(--color-gray-a8abb2);
-  --el-text-color-disabled: var(--color-gray-c0c4cc);
+  --el-text-color-disabled: var(--el-text-color-disabled);
 
   // 描边 - 设计语言：极细描边 1px，亮色 （--el-border-color）（与 element-plus-vars 一致）
   --border-unified-color: var(--el-text-color-primary);
@@ -329,9 +329,9 @@ $z-toast: 1080 !default;
   --el-border-color-dark: var(--border-unified-color);
   --el-border-color-darker: var(--border-unified-color);
   --el-border-color-hover: var(--border-unified-color-hover);
-  --el-fill-color: var(--color-gray-f0f2f5);
-  --el-fill-color-light: var(--color-gray-f5f7fa);
-  --el-fill-color-lighter: var(--color-gray-fafafa);
+  --el-fill-color: var(--el-fill-color-lighter);
+  --el-fill-color-light: var(--el-fill-color-lighter);
+  --el-fill-color-lighter: var(--el-fill-color-lighter);
   --el-fill-color-extra-light: var(--el-text-color-primary);
   --el-fill-color-dark: var(--el-text-color-primary);
   --el-fill-color-darker: var(--el-text-color-primary);
@@ -509,7 +509,7 @@ $z-toast: 1080 !default;
 
   // 品牌色 - 暗色模式纯色
   --brand-color: var(--el-bg-color);
-  --brand-color-hover: var(--color-text-muted);
+  --brand-color-hover: var(--el-text-color-placeholder);
 
   // Element Plus 变量 - 暗色模式
   --el-color-primary: var(--el-bg-color);
@@ -524,9 +524,9 @@ $z-toast: 1080 !default;
   --el-bg-color-hover: var(--el-text-color-primary);
   --el-bg-color-overlay: var(--el-text-color-primary);
   --el-text-color-primary: var(--color-gray-e5eaf3);
-  --el-text-color-regular: var(--color-gray-cfd3dc);
+  --el-text-color-regular: var(--el-border-color-lighter);
   --el-text-color-secondary: var(--color-gray-a3a6ad);
-  --el-text-color-placeholder: var(--color-gray-8d9095);
+  --el-text-color-placeholder: var(--el-text-color-placeholder);
   --el-text-color-disabled: var(--el-text-color-primary);
 
   // 描边 - 设计语言：极细描边 1px，暗色 （--color-gray-1f1f1f）
@@ -810,7 +810,7 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
               border-color $transition-premium;
   
   &:hover {
-    transform: translateY(-4px);
+    
     border-color: var(--el-text-color-primary);
   }
 }
@@ -853,7 +853,7 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
     
     &:hover {
       opacity: 0.85;
-      transform: translateY(-1px);
+      
     }
   } @else if $variant == 'secondary' {
     background: transparent;
@@ -928,7 +928,7 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
 // 12.13 暗色模式下的 Premium 样式
 // 注意：此 mixin 必须在选择器内部使用，不能在顶层使用
 @mixin premium-dark-mode {
-  @at-root html.dark #{&} {
+  @at-root :where(html.dark) #{&} {
     @content;
   }
 }

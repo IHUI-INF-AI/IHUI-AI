@@ -11,6 +11,59 @@
     "courseCenter": "课程中心",
     "personalCenter": "个人中心",
     "feedback": "意见反馈",
-    "aboutUs": "关于我们"
+    "aboutUs": "关于我们",
+    "channels": {
+      "coreDocs": {
+        "desc": "描述",
+        "status": "状态",
+        "title": "标题"
+      },
+      "feedback": {
+        "desc": "描述",
+        "status": "状态",
+        "title": "标题"
+      },
+      "liveUplink": {
+        "desc": "描述",
+        "status": "状态",
+        "title": "标题"
+      }
+    },
+    "faqs": {
+      "apiKeyLeak": {
+        "answer": "答案",
+        "question": "问题"
+      },
+      "beginner": "初学者",
+      "credits": {
+        "answer": "答案",
+        "question": "问题"
+      },
+      "optimize": "优化",
+      "quality": {
+        "answer": "答案",
+        "question": "问题"
+      },
+      "recharge": "充值",
+      "register": {
+        "answer": "答案",
+        "question": "问题"
+      }
+    },
+    "feedbackFailed": "反馈失败",
+    "feedbackSubmitted": "反馈已提交",
+    "no": "否",
+    "sectionLabels": {
+      "knowledgeNodes": "知识节点",
+      "uplinkChannels": "上行通道"
+    },
+    "tags": {
+      "billing": "计费",
+      "prompt": "提示词",
+      "register": "注册",
+      "security": "安全"
+    },
+    "wasThisHelpful": "这有帮助吗?",
+    "yes": "是"
   }
 }

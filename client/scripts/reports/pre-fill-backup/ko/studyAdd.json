@@ -1,0 +1,13 @@
+{
+  "studyAdd": {
+    "cover": "[ZH:cover]",
+    "desc": "[ZH:desc]",
+    "enterDesc": "[ZH:enterDesc]",
+    "enterTitle": "[ZH:enterTitle]",
+    "publishFirst": "[ZH:publishFirst]",
+    "title": "[ZH:title]",
+    "uploadCover": "[ZH:uploadCover]",
+    "uploadVideo": "[ZH:uploadVideo]",
+    "videoSynth": "[ZH:videoSynth]"
+  }
+}

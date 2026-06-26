@@ -589,7 +589,7 @@ $border-light: var(--el-border-color-lighter);
   transition: none;
 
   &.scroll-animated {
-    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -637,7 +637,7 @@ $border-light: var(--el-border-color-lighter);
   -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     border-color: var(--el-border-color);
@@ -692,7 +692,7 @@ $border-light: var(--el-border-color-lighter);
     border-radius: var(--global-border-radius);
     overflow: hidden;
     border: var(--unified-border);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
       transform: scale(1.05);
@@ -722,7 +722,7 @@ $border-light: var(--el-border-color-lighter);
 
       // EDIX 字体 - 英文品牌名
       &.font-edix {
-        font-family: 'EDIX';
+        font-family: var(--font-family-edix);
       }
     }
 
@@ -741,7 +741,7 @@ $border-light: var(--el-border-color-lighter);
 
       // EDIX 字体 - 英文徽章
       &.font-edix {
-        font-family: 'EDIX';
+        font-family: var(--font-family-edix);
       }
     }
   }
@@ -763,7 +763,7 @@ $border-light: var(--el-border-color-lighter);
 
     // h1 标签使用 EDIX 字体
     &.font-edix {
-      font-family: 'EDIX';
+      font-family: var(--font-family-edix);
     }
 
     .title-prefix {
@@ -782,7 +782,7 @@ $border-light: var(--el-border-color-lighter);
       white-space: nowrap;
 
       &.font-edix {
-        font-family: 'EDIX';
+        font-family: var(--font-family-edix);
       }
     }
   }
@@ -822,7 +822,7 @@ $border-light: var(--el-border-color-lighter);
 
         // EDIX 字体 - 数值
         &.font-edix {
-          font-family: 'EDIX';
+          font-family: var(--font-family-edix);
         }
       }
 
@@ -863,7 +863,7 @@ $border-light: var(--el-border-color-lighter);
 
       // EDIX 字体 - 装饰文字
       &.font-edix {
-        font-family: 'EDIX';
+        font-family: var(--font-family-edix);
       }
     }
   }
@@ -896,11 +896,11 @@ $border-light: var(--el-border-color-lighter);
       background: var(--el-bg-color);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
-      transition: all 0.3s ease;
+      transition: background-color 0.3s ease, transform 0.3s ease;
 
       &:hover {
         background: var(--el-bg-color);
-        transform: translateY(-2px);
+        
       }
     }
 
@@ -931,7 +931,7 @@ $border-light: var(--el-border-color-lighter);
 
   // 输入框聚焦效果增强
   :deep(.el-input__wrapper) {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: var(--unified-border);
 
     &:hover {
@@ -949,11 +949,11 @@ $border-light: var(--el-border-color-lighter);
   :deep(.el-button--primary) {
     background: var(--el-text-color-primary);
     border: none;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
       background: var(--el-text-color-regular);
-      transform: translateY(-2px);
+      
     }
 
     &:active {

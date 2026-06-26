@@ -1,0 +1,23 @@
+{
+  "agentIncome": {
+    "title": "智能體收入",
+    "subtitle": "查看您的智能體收入統計和結算記錄",
+    "incomeOverview": "收益概覽",
+    "todayIncome": "今日收入",
+    "pendingSettlement": "待結算金額",
+    "withdrawableAmount": "可提現金額",
+    "accumulatedIncome": "累計收入",
+    "all": "全部",
+    "unsettled": "未結算",
+    "settled": "已結算",
+    "agentName": "智能體名稱",
+    "orderNo": "訂單號",
+    "chargeType": "收費類型",
+    "quantity": "數量",
+    "settlementStatus": "結算狀態",
+    "withdrawalStatus": "提現狀態",
+    "withdrawn": "已提現",
+    "notWithdrawn": "未提現",
+    "createTime": "創建時間"
+  }
+}

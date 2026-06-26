@@ -1,0 +1,14 @@
+{
+  "memberExamWrong": {
+    "analysis": "analysis",
+    "correctAnswer": "正确答案",
+    "empty": "空",
+    "enterExam": "进入考试",
+    "master": "主",
+    "masteredFailed": "masteredFailed",
+    "masteredSuccess": "masteredSuccess",
+    "myAnswer": "myAnswer",
+    "notAnswered": "未回答",
+    "title": "标题"
+  }
+}

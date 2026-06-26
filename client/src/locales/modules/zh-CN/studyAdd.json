@@ -1,0 +1,13 @@
+{
+  "studyAdd": {
+    "cover": "封面",
+    "desc": "描述",
+    "enterDesc": "enterDesc",
+    "enterTitle": "请输入标题",
+    "publishFirst": "publishFirst",
+    "title": "标题",
+    "uploadCover": "上传封面",
+    "uploadVideo": "上传视频",
+    "videoSynth": "videoSynth"
+  }
+}

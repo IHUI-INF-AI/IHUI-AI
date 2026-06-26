@@ -1,0 +1,8 @@
+{
+  "unifiedQr": {
+    "auth": "auth",
+    "loginRequired": "loginRequired",
+    "needLoginFirst": "needLoginFirst",
+    "qrFailed": "qrFailed"
+  }
+}

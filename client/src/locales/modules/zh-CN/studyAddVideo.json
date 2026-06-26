@@ -1,0 +1,18 @@
+{
+  "studyAddVideo": {
+    "addLink": "addLink",
+    "addResourceLink": "addResourceLink",
+    "collectionTitle": "collectionTitle",
+    "descPlaceholder": "请输入描述",
+    "done": "已完成",
+    "edit": "编辑",
+    "linkPlaceholder": "linkPlaceholder",
+    "publish": "发布",
+    "remarkPlaceholder": "请输入备注",
+    "searchAgent": "searchAgent",
+    "shelf": "shelf",
+    "titlePlaceholder": "请输入标题",
+    "uploadNext": "uploadNext",
+    "video": "视频"
+  }
+}

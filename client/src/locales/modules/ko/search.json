@@ -4,11 +4,33 @@
       "hot": "인기 검색어 검색",
       "searchPage": "키워드를 입력하여 에이전트 / 코스 / 콘텐츠 검색"
     },
-    "label": {
-      "keyword": "인기 검색어",
-      "searchCount": "검색 수",
-      "actions": "작업"
-    }
+    "add": "添加",
+    "addedConditions": "addedConditions",
+    "advanced": "高级",
+    "conditions": "conditions",
+    "field": {
+      "category": "分类",
+      "description": "描述",
+      "name": "名称",
+      "tag": "标签"
+    },
+    "keyword": "keyword",
+    "keywordPlaceholder": "keywordPlaceholder",
+    "operator": {
+      "contains": "contains",
+      "endsWith": "endsWith",
+      "equals": "equals",
+      "startsWith": "startsWith"
+    },
+    "presetName": "presetName",
+    "presets": "presets",
+    "reset": "重置",
+    "savePreset": "savePreset",
+    "search": "搜索",
+    "selectField": "selectField",
+    "selectOperator": "selectOperator",
+    "selectPreset": "selectPreset",
+    "valuePlaceholder": "valuePlaceholder"
   },
   "searchPage": {
     "hotSearch": "인기 검색",

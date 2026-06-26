@@ -227,7 +227,7 @@ html {
   }
 
   // 高亮透明
-  :root, html.dark {
+  :root, :where(html.dark) {
     --highlight-background: transparent;
     --highlight-border: transparent;
     --inspector-highlight-background: transparent;
@@ -355,32 +355,9 @@ html {
 
 @layer components {
   // 全局 mixin，供组件使用
-  @mixin pricing-card-border-hover {
-    html:not(.dark) & {
-      border: 2.5px solid var(--border-unified-color);
-    }
-
-    html.dark & {
-      border: 2.5px solid var(--border-unified-color);
-    }
-  }
-
-  @mixin pricing-card-border-active {
-    html:not(.dark) & {
-      border: 2.5px solid var(--border-unified-color);
-    }
-
-    html.dark & {
-      border: 2.5px solid var(--border-unified-color);
-    }
-  }
-
-  // 全局类
-  .pricing-card-border-hover {
-    @include pricing-card-border-hover;
-  }
-
+  // Pricing card border states (flat design: same for light/dark)
+  .pricing-card-border-hover,
   .pricing-card-border-active {
-    @include pricing-card-border-active;
+    border: 2.5px solid var(--border-unified-color);
   }
 }

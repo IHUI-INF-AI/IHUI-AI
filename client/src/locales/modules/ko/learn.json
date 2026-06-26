@@ -12,6 +12,7 @@
       "signup": "신청 검색",
       "order": "주문 검색",
       "lesson": "강의 검색"
-    }
+    },
+    "hotRecommend": "hotRecommend"
   }
 }

@@ -1,0 +1,26 @@
+{
+  "memberSetting": {
+    "bind": "bind",
+    "bound": "bound",
+    "changePassword": "修改密码",
+    "codeSent": "codeSent",
+    "confirmPassword": "confirmPassword",
+    "email": "邮箱",
+    "emailNotice": "emailNotice",
+    "getCode": "getCode",
+    "msgNotice": "msgNotice",
+    "newPassword": "newPassword",
+    "oldPassword": "oldPassword",
+    "phoneNumber": "phoneNumber",
+    "pwdChanged": "pwdChanged",
+    "pwdMismatch": "pwdMismatch",
+    "saved": "saved",
+    "smsNotice": "smsNotice",
+    "tabEmail": "tabEmail",
+    "tabNotice": "tabNotice",
+    "tabPassword": "tabPassword",
+    "tabPhone": "tabPhone",
+    "title": "标题",
+    "verifyCode": "verifyCode"
+  }
+}

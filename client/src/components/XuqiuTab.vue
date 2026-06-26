@@ -350,7 +350,7 @@ cleanup.add(() => {
   margin: 0 2px;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   flex-shrink: 0;
   min-height: 40px;
@@ -381,7 +381,7 @@ cleanup.add(() => {
     height: 24px;
     border-radius: var(--global-border-radius);
     background: var(--el-bg-color);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
     flex-shrink: 0;
 
     .icon {
@@ -399,7 +399,7 @@ cleanup.add(() => {
     font-size: 14px;
     font-weight: 500;
     color: var(--el-text-color-secondary);
-    transition: all 0.2s ease;
+    transition: color 0.2s ease;
     line-height: 1.4;
   }
 

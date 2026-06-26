@@ -1,0 +1,14 @@
+{
+  "themeShortcut": {
+    "disabled": "已禁用",
+    "enabled": "已启用",
+    "resetDefaults": "resetDefaults",
+    "shortcutUpdated": "shortcutUpdated",
+    "shortcutsReset": "shortcutsReset",
+    "tip1": "tip1",
+    "tip2": "tip2",
+    "tip3": "tip3",
+    "tips": "tips",
+    "title": "标题"
+  }
+}

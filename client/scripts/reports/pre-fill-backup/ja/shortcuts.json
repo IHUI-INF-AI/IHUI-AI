@@ -1,0 +1,14 @@
+{
+  "shortcuts": {
+    "noResults": "[ZH:noResults]",
+    "scopes": {
+      "chat": "[ZH:chat]",
+      "drama": "[ZH:drama]",
+      "editor": "[ZH:editor]",
+      "input": "[ZH:input]"
+    },
+    "search": "[ZH:search]",
+    "title": "[ZH:title]",
+    "toggleTip": "[ZH:toggleTip]"
+  }
+}

@@ -235,7 +235,7 @@ defineExpose({
 </script>
 
 <style scoped>
-.third-party-login {
+.third-party-login-universal {
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -287,7 +287,7 @@ defineExpose({
   cursor: pointer;
   padding: 8px;
   border-radius: var(--global-border-radius);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
   position: relative;
   max-width: 36px;
   min-width: 36px;
@@ -335,7 +335,7 @@ defineExpose({
   pointer-events: none;
   
   /* 动画过渡 - HMR */
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Hover 状态 - 显示提示窗口 */
@@ -348,7 +348,7 @@ defineExpose({
 /* Hover 状态 - 按钮背景效果 */
 .third-party-icon:hover {
   background-color: var(--el-bg-color-hover);
-  transform: translateY(-2px);
+  
 }
 
 .third-party-icon.is-loading {
@@ -483,12 +483,12 @@ defineExpose({
   color: var(--el-text-color-secondary);
 }
 
-html.dark .third-party-icon:hover {
+:where(html.dark) .third-party-icon:hover {
   background-color: var(--el-bg-color-overlay);
 }
 
 /* 暗色模式 - 提示窗口 */
-html.dark .third-party-icon::after {
+:where(html.dark) .third-party-icon::after {
   background: var(--color-white-92);
   color: var(--el-text-color-primary);
   font-size: 13px;
@@ -499,7 +499,7 @@ html.dark .third-party-icon::after {
   -webkit-backdrop-filter: blur(12px);
 }
 
-html.dark .loading-overlay {
+:where(html.dark) .loading-overlay {
   background-color: var(--color-black-80);
 }
 

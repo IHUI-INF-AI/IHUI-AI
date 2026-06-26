@@ -101,7 +101,7 @@
             <div class="ai-world-page__grid">
               <RouterLink v-for="item in detailItems" :key="item.id"
                 :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card"
-                :style="{ backgroundColor: 'var(--color-gray-light)' }">
+                :style="{ backgroundColor: 'var(--el-fill-color-light)' }">
                 <div class="ai-world-card__icon-wrap">
                   <img :src="item.coverUrl" :alt="item.title" class="ai-world-card__icon" loading="lazy"
                     @error="handleImageError" />
@@ -142,7 +142,7 @@
               <div class="ai-world-page__grid">
                 <RouterLink v-for="item in selectedChild(navSection).items" :key="item.id"
                   :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card"
-                  :style="{ backgroundColor: 'var(--color-gray-light)' }">
+                  :style="{ backgroundColor: 'var(--el-fill-color-light)' }">
                   <div class="ai-world-card__icon-wrap">
                     <img :src="item.coverUrl" :alt="item.title" class="ai-world-card__icon" loading="lazy"
                       @error="handleImageError" />
@@ -668,13 +668,13 @@ $aw-gray-page: var(--color-neutral-100);
 $aw-panel-bg: var(--el-bg-color);
 
 /* 菜单栏、内容区白色背景 */
-$aw-gray-card: var(--color-gray-fafafa);
+$aw-gray-card: var(--el-fill-color-lighter);
 
 /* 卡片背景（略亮于页面，与背景区分） */
 $aw-gray-elevated: var(--color-gray-e8e8e8);
 
 /* 悬停、选中、图标容器略深 */
-$aw-gray-border: var(--color-text-muted);
+$aw-gray-border: var(--el-text-color-placeholder);
 
 /* 描边 */
 
@@ -1042,7 +1042,7 @@ $aw-gray-border: var(--color-text-muted);
   font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem);
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--color-gray-ededed);
+  color: var(--el-text-color-secondary);
   line-height: 1.25;
 }
 
@@ -1076,7 +1076,7 @@ $aw-gray-border: var(--color-text-muted);
 }
 
 .ai-world-page__hero-slide:hover .ai-world-page__hero-slide__cta {
-  background: var(--color-gray-fafafa);
+  background: var(--el-fill-color-lighter);
   border-color: var(--el-bg-color);
   color: var(--color-dark-bg-1);
 }
@@ -1222,7 +1222,7 @@ $aw-gray-border: var(--color-text-muted);
 
   &:hover {
     color: var(--el-text-color-primary);
-    background: var(--color-text-muted);
+    background: var(--el-text-color-placeholder);
     border-color: $aw-gray-border;
   }
 }
@@ -1369,7 +1369,7 @@ $aw-gray-border: var(--color-text-muted);
 }
 
 .ai-world-page .ai-world-card {
-  background: var(--color-gray-fafafa);
+  background: var(--el-fill-color-lighter);
 }
 
 .ai-world-page .ai-world-card:hover {

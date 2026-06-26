@@ -1,0 +1,43 @@
+{
+  "designer": {
+    "actions": {
+      "generate": "generate",
+      "reset": "重置"
+    },
+    "empty": "empty",
+    "errors": {
+      "enterRequirement": "enterRequirement",
+      "generateFailed": "generateFailed",
+      "selectModel": "selectModel"
+    },
+    "expect": {
+      "audit": "审计",
+      "blueprint": "blueprint",
+      "code": "代码",
+      "strategy": "strategy"
+    },
+    "input": "输入",
+    "labels": {
+      "audit": "审计",
+      "blueprint": "blueprint",
+      "code": "代码",
+      "strategy": "strategy"
+    },
+    "mode": "mode",
+    "model": "模型",
+    "placeholder": "请输入",
+    "prompts": {
+      "line1": "line1",
+      "line2": "line2",
+      "line3": "line3",
+      "line4": "line4"
+    },
+    "selectModel": "selectModel",
+    "tabs": {
+      "html": "html",
+      "output": "输出",
+      "react": "react",
+      "vue": "vue"
+    }
+  }
+}

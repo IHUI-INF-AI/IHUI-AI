@@ -1,0 +1,22 @@
+{
+  "chat": {
+    "ai": "AI",
+    "me": "나",
+    "model": "모델",
+    "send": "전송",
+    "connected": "연결됨",
+    "connecting": "연결 중",
+    "connectionError": "연결 오류",
+    "disconnected": "연결 끊김",
+    "generating": "생성 중",
+    "mockData": "모의 데이터",
+    "qwenTurbo": "Qwen Turbo",
+    "qwenPlus": "Qwen Plus",
+    "qwenMax": "Qwen Max",
+    "ctrlEnterPlaceholder": "Ctrl+Enter를 눌러 전송",
+    "inputHint": "메시지를 입력하세요...",
+    "startConversation": "새 대화 시작",
+    "searchMessage": "메시지 검색",
+    "foundMessages": "검색 결과"
+  }
+}

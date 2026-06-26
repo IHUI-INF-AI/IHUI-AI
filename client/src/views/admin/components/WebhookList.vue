@@ -145,7 +145,7 @@ onMounted(() => fetchWebhooks())
   white-space: nowrap;
   display: block;
   max-width: 250px;
-  font-family: monospace;
+  font-family: var(--font-family-mono);
   font-size: 12px;
 }
 .text-muted { color: var(--el-text-color-placeholder); }

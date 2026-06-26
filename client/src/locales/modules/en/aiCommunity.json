@@ -1,7 +1,6 @@
 {
   "aiCommunity": {
     "title": "Zhihui AI Community",
-    "subtitle": "Chat and interact with AI assistants",
     "startChat": "Start Chat",
     "you": "You",
     "ai": "AI Assistant",
@@ -50,16 +49,10 @@
     },
     "actions": {
       "publish": "Publish",
-      "share": "Share",
-      "like": "Like",
-      "favorite": "Favorite",
-      "comment": "Comment",
-      "download": "Download",
-      "viewPrompt": "View Prompt"
+      "share": "Share"
     },
     "empty": {
-      "title": "Title",
-      "description": "Become the first person to publish AI creations!"
+      "title": "Title"
     },
     "loading": "Loading",
     "loadMore": "Load More",
@@ -76,11 +69,7 @@
     "detail": {
       "model": "Model",
       "prompt": "Prompt",
-      "createdAt": "Created At",
-      "comments": "Comment",
-      "noComments": "NoComment",
-      "addComment": "Post a comment...",
-      "sendComment": "Send"
+      "createdAt": "Created At"
     },
     "filters": {
       "all": "All",
@@ -100,7 +89,8 @@
       "imageGeneration": "AI Image Generation",
       "musicCreation": "AI Music Creation",
       "videoGeneration": "AI Video Generation",
-      "writingAssistant": "AI Writing Assistant"
+      "writingAssistant": "AI Writing Assistant",
+      "hotTools": "hotTools"
     }
   }
 }

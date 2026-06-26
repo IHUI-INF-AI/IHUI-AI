@@ -467,10 +467,10 @@ onMounted(() => {
 
   .knowledge-base-card {
     cursor: pointer;
-    transition: all 0.3s;
+    transition: transform 0.3s;
 
     &:hover {
-      transform: translateY(-4px);
+      
     }
 
     .card-header {

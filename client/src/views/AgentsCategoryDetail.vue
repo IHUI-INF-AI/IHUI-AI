@@ -303,7 +303,7 @@ watch(
   transition: transform 0.2s;
 
   &:hover {
-    transform: translateY(-2px);
+    
   }
 }
 

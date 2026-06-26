@@ -12,6 +12,7 @@
       "signup": "申込を検索",
       "order": "注文を検索",
       "lesson": "レッスンを検索"
-    }
+    },
+    "hotRecommend": "hotRecommend"
   }
 }

@@ -12,27 +12,16 @@
       "kpiConversationsUnit": "次",
       "kpiConversationsDesc": "用户平均 {avg} 轮",
       "moduleNameOrders": "订单管理",
-      "moduleStatOrders": "{n} 单",
       "moduleNameProducts": "产品管理",
-      "moduleStatProducts": "{n} 个",
       "moduleNameUsers": "用户管理",
       "moduleNameAgents": "智能体",
-      "moduleStatAgents": "{n} 个",
       "moduleNameDistribution": "分销",
-      "moduleStatDistribution": "活跃 {n}",
       "moduleNamePromotion": "营销活动",
-      "moduleStatPromotion": "进行中 {n}",
       "moduleNameContent": "内容管理",
-      "moduleStatContent": "{n} 篇",
       "moduleNameFeedback": "用户反馈",
-      "moduleStatFeedback": "{n} 条新",
       "moduleNameAnalytics": "数据分析",
-      "moduleStatAnalytics": "实时",
-      "moduleStatWebhook": "健康",
       "moduleNameTool": "系统工具",
-      "moduleStatTool": "{n} 项",
       "moduleNameSettings": "系统设置",
-      "moduleStatSettings": "已配置",
       "todoTitle1": "审核 {count} 笔待处理退款申请",
       "todoDueToday": "今天 {time}",
       "todoTitle2": "处理用户反馈:功能建议 #234",
@@ -43,37 +32,7 @@
       "todoTitle5": "回访 VIP 即将到期用户 {count} 位",
       "todoDueNextWeek": "下周内",
       "todoTitle6": "复核 {month} 月份财务对账单",
-      "todoDueNextMonth": "下月 {day} 日",
-      "monitorCpuName": "CPU 使用率",
-      "monitorCpuDetail": "{cores} 核 · 平均负载 {load}",
-      "monitorMemoryName": "内存使用率",
-      "monitorMemoryDetail": "已用 {used} / {total}",
-      "monitorDiskName": "磁盘使用率",
-      "monitorDiskDetail": "已用 {used} / {total}",
-      "monitorQpsDetail": "当前 {current} · 峰值 {peak}",
-      "monitorErrorName": "错误率",
-      "monitorErrorDetail": "近 1 小时 {rate}%",
-      "monitorLatencyName": "P99 延迟",
-      "monitorLatencyDetail": "中位数 {median} · P99 {p99}",
-      "timelineTitle1": "新用户注册",
-      "timelineDesc1": "用户 {user} 通过邀请码注册",
-      "timelineTitle2": "订单已完成",
-      "timelineDesc2": "{orderId} 支付成功,¥{amount}",
-      "timelineTitle3": "订单退款",
-      "timelineDesc3": "{orderId} 退款申请,¥{amount}",
-      "timelineTitle4": "用户登录",
-      "timelineDesc4": "管理员登录后台,IP {ip}",
-      "timelineTitle5": "订单创建",
-      "timelineDesc5": "新订单 {orderId} 待支付",
-      "timelineTitle6": "违规处理",
-      "timelineDesc6": "用户 {user} 触发反作弊规则",
-      "timelineTitle7": "订单完成",
-      "timelineDesc7": "{orderId} 已发货,顺丰 {trackingNo}",
-      "timeMinutesAgo": "{n} 分钟前",
-      "timeHoursAgo": "{n} 小时前"
-    },
-    "searchPlaceholder": {
-      "news": "搜索新闻"
+      "todoDueNextMonth": "下月 {day} 日"
     },
     "placeholder": {
       "allEvents": "全部事件",
@@ -82,9 +41,7 @@
       "allTypes": "全部类型",
       "filterType": "筛选类型",
       "optional": "可选",
-      "stepId": "步骤ID",
       "dependsOn": "依赖步骤",
-      "searchRefund": "按单号/订单号/原因搜索",
       "versionNumber": "请输入版本号"
     },
     "label": {
@@ -169,10 +126,6 @@
       "pageUrl": "页面URL",
       "occurrenceTime": "发生时间",
       "userAgent": "用户代理",
-      "tableName": "表名",
-      "recordCount": "记录数",
-      "size": "大小 (MB)",
-      "fragmentation": "碎片率",
       "scoreUnit": "分",
       "acknowledged": "已确认",
       "unacknowledged": "未确认",
@@ -188,10 +141,6 @@
       "paused": "暂停",
       "pause": "暂停",
       "resume": "恢复",
-      "amount": "金额",
-      "bank": "银行",
-      "bankAccount": "账号",
-      "appliedAt": "申请时间",
       "balance": "余额",
       "frozen": "冻结",
       "totalEarnings": "累计收益",
@@ -239,7 +188,6 @@
       "webhookManage": "Webhook管理",
       "confirmDelete": "确定要删除吗？",
       "activityDetail": "活动详情",
-      "refundDetail": "退款详情",
       "createGrayRelease": "创建灰度发布",
       "releaseDetail": "发布详情",
       "exposedUsers": "曝光用户",
@@ -251,14 +199,7 @@
       "completed": "已完成",
       "skipped": "已跳过",
       "failed": "失败",
-      "errorDetail": "错误详情",
-      "totalTables": "总表数量",
-      "totalRecords": "总记录数",
-      "dbSize": "数据库大小"
-    },
-    "aria": {
-      "keyMetrics": "关键指标",
-      "usageRate": "占用率 {percent}%"
+      "errorDetail": "错误详情"
     },
     "menu": {
       "group": {
@@ -324,7 +265,9 @@
         "settingAgreement": "协议管理",
         "searchHot": "热搜词",
         "aiworldSite": "AI世界站点",
-        "backendHealth": "后端健康"
+        "backendHealth": "后端健康",
+        "migration": "migration",
+        "notification": "通知"
       }
     },
     "backendHealth": {
@@ -353,6 +296,13 @@
       "clearHistory": "清空历史",
       "exportCsv": "导出 CSV",
       "exportEmpty": "暂无数据可导出"
-    }
+    },
+    "batchEdit": "批量编辑",
+    "batchSave": "batchSave",
+    "canRetryHint": "canRetryHint",
+    "failed": "失败",
+    "items": "项目",
+    "retryFailed": "重试失败",
+    "updating": "更新中"
   }
 }

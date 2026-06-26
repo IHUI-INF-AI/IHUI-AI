@@ -346,7 +346,7 @@
 }
 
 // 暗色模式按钮样式
-html.dark {
+:where(html.dark) {
   :where(:root) .el-button.switch-project-btn,
   :where(:root) .el-button.switch-project-btn.el-button--primary,
   :where(:root) .el-button.switch-project-btn.el-button--primary:where(.is-plain),
@@ -436,7 +436,7 @@ html.dark {
   border: none;
   border-radius: var(--global-border-radius);
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   cursor: pointer;
 
   span,
@@ -544,7 +544,7 @@ html.dark {
   border: none;
   border-radius: var(--global-border-radius);
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   padding: 8px 16px;
   cursor: pointer;
 
@@ -577,7 +577,7 @@ html.dark {
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   white-space: nowrap;
 
@@ -610,7 +610,7 @@ html.dark {
   }
 }
 
-html.dark .btn-luxe {
+:where(html.dark) .btn-luxe {
   &.primary {
     background: var(--el-color-primary);
     color: var(--el-bg-color-page);
@@ -657,7 +657,7 @@ html.dark .btn-luxe {
   }
 }
 
-html.dark .agreement-agree-button {
+:where(html.dark) .agreement-agree-button {
   background-color: var(--el-color-primary);
   border-color: var(--border-unified-color);
   color: var(--el-bg-color-page);

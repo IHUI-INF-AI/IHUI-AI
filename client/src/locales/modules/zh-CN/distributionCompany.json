@@ -1,0 +1,21 @@
+{
+  "distributionCompany": {
+    "copy": "复制",
+    "copyFailed": "复制失败",
+    "downloadFailed": "下载失败",
+    "downloadQRCode": "下载二维码",
+    "downloading": "下载中",
+    "inviteLinkCopied": "邀请链接已复制",
+    "inviteLinkPlaceholder": "inviteLinkPlaceholder",
+    "inviteQRCode": "inviteQRCode",
+    "loading": "加载中",
+    "qrCodeDownloadSuccess": "qrCodeDownloadSuccess",
+    "qrCodeNotLoaded": "qrCodeNotLoaded",
+    "shareInvite": "shareInvite",
+    "shareInviteDesc": "shareInviteDesc",
+    "shareInviteTitle": "shareInviteTitle",
+    "subtitle": "副标题",
+    "title": "标题",
+    "userIncomplete": "userIncomplete"
+  }
+}

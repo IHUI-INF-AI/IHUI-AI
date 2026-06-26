@@ -1,0 +1,13 @@
+{
+  "learnCertificateDownload": {
+    "banner": "横幅",
+    "breadcrumbCert": "breadcrumbCert",
+    "breadcrumbCourse": "课程",
+    "certText": "certText",
+    "download": "下载",
+    "downloadStart": "downloadStart",
+    "issueTime": "发布时间",
+    "notExist": "不存在",
+    "print": "打印"
+  }
+}

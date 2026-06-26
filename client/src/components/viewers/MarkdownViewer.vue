@@ -288,7 +288,7 @@ watch(() => props.src, loadContent, { immediate: true })
   cursor: pointer;
   color: var(--el-text-color-secondary);
   font-size: 13px;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .action-btn:hover {

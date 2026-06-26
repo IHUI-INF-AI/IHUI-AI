@@ -234,7 +234,7 @@ const switchProject = (targetSource: 'admin' | 'user') => {
         color: var(--el-text-color-primary);
         width: auto;
         min-width: auto;
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease, color 0.2s ease;
 
         &:hover {
           background-color: var(--el-fill-color-light);

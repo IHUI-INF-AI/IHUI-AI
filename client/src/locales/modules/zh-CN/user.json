@@ -1,0 +1,243 @@
+{
+  "user": {
+    "apiService": {
+      "description": "描述",
+      "title": "标题"
+    },
+    "benefits": {
+      "description": "描述",
+      "title": "标题"
+    },
+    "common": {
+      "prompt": "提示词"
+    },
+    "dialogs": {
+      "removeDevice": {
+        "confirm": "确认"
+      }
+    },
+    "examine": {
+      "title": "标题"
+    },
+    "favorites": {
+      "title": "标题"
+    },
+    "menu": {
+      "apiService": "API 服务",
+      "benefits": "权益",
+      "developer": "开发者",
+      "examine": "审核",
+      "favorites": "收藏",
+      "messages": "消息",
+      "orders": "订单",
+      "privacy": "隐私",
+      "profile": "资料",
+      "purchaseRecords": "购买记录",
+      "purchases": "已购",
+      "security": "安全",
+      "settings": "设置",
+      "statistics": "统计",
+      "study": "学习",
+      "uploadAgent": "上传智能体"
+    },
+    "messages": {
+      "allRead": "全部已读",
+      "clearCacheCancelButton": "取消",
+      "clearCacheConfirm": "确认清空缓存?",
+      "clearCacheConfirmButton": "确认",
+      "clearCacheFailed": "清空缓存失败",
+      "clearCacheSuccess": "清空缓存成功",
+      "clearCacheTitle": "清空缓存",
+      "deleteSuccess": "删除成功",
+      "deviceRemoved": "设备已移除",
+      "emailRequired": "请输入邮箱",
+      "emailVerificationSent": "验证邮件已发送",
+      "examineApproveSuccess": "审核通过",
+      "examineRejectSuccess": "审核已拒绝",
+      "exportDataCancelButton": "取消",
+      "exportDataConfirm": "确认导出数据?",
+      "exportDataConfirmButton": "确认导出",
+      "exportDataFailed": "导出数据失败",
+      "exportDataSuccess": "导出数据成功",
+      "exportDataTitle": "导出数据",
+      "languageSaveFailed": "语言保存失败",
+      "languageSaveSuccess": "语言保存成功",
+      "loadMessageSquaresFailed": "加载消息广场失败",
+      "loadMessageSquaresFailedRetry": "重试",
+      "markedRead": "已读",
+      "messages": "消息",
+      "notificationSaveFailed": "通知保存失败",
+      "notificationSaveSuccess": "通知保存成功",
+      "orderStatus": {
+        "cancelled": "已取消",
+        "completed": "已完成",
+        "failed": "失败",
+        "pending": "待处理",
+        "processing": "处理中"
+      },
+      "orderType": {
+        "consumption": "消耗",
+        "recharge": "充值",
+        "refund": "退款",
+        "withdraw": "提现"
+      },
+      "passwordChangeFailedRetry": "重试",
+      "passwordChanged": "密码已修改",
+      "phoneRequired": "请输入手机号",
+      "phoneVerificationSent": "phoneVerificationSent",
+      "privacySaveFailed": "privacySaveFailed",
+      "privacySaveSuccess": "privacySaveSuccess",
+      "saveFailedRetry": "saveFailedRetry",
+      "saveSuccess": "保存成功",
+      "settings": {
+        "accountDeletionFailed": "accountDeletionFailed",
+        "accountDeletionSuccess": "accountDeletionSuccess",
+        "appSettingsUpdateFailed": "appSettingsUpdateFailed",
+        "appSettingsUpdateSuccess": "appSettingsUpdateSuccess",
+        "avatarUploadFailed": "头像上传失败",
+        "avatarUploadSuccess": "头像上传成功",
+        "dataClearFailed": "dataClearFailed",
+        "dataClearSuccess": "数据清空成功",
+        "imageFormatError": "imageFormatError",
+        "imageSizeError": "imageSizeError",
+        "imageTooLarge": "imageTooLarge",
+        "insufficientPermissionClearData": "insufficientPermissionClearData",
+        "insufficientPermissionDeleteAccount": "insufficientPermissionDeleteAccount",
+        "notificationUpdateFailed": "notificationUpdateFailed",
+        "notificationUpdateSuccess": "notificationUpdateSuccess",
+        "passwordChangeFailed": "passwordChangeFailed",
+        "passwordChangeSuccess": "passwordChangeSuccess",
+        "passwordConfirmRequired": "passwordConfirmRequired",
+        "passwordError": "passwordError",
+        "passwordMismatch": "两次密码不一致",
+        "passwordRequired": "请输入密码",
+        "passwordTooShort": "密码至少 8 位",
+        "privacyUpdateFailed": "privacyUpdateFailed",
+        "privacyUpdateSuccess": "privacyUpdateSuccess",
+        "profileUpdateFailed": "资料更新失败",
+        "profileUpdateSuccess": "profileUpdateSuccess",
+        "unsupportedImageFormat": "unsupportedImageFormat"
+      },
+      "themeSaveFailed": "themeSaveFailed",
+      "themeSaveSuccess": "themeSaveSuccess",
+      "title": "标题",
+      "uploadIncomplete": "uploadIncomplete",
+      "uploadSuccess": "上传成功",
+      "userInfoNotFound": "userInfoNotFound"
+    },
+    "priority": {
+      "high": "高",
+      "low": "低",
+      "medium": "中",
+      "urgent": "紧急"
+    },
+    "privacy": {
+      "title": "标题"
+    },
+    "purchases": {
+      "title": "标题"
+    },
+    "quickActions": "快捷操作",
+    "sections": {
+      "developer": {
+        "description": "描述"
+      },
+      "examine": {
+        "description": "描述"
+      },
+      "favorites": {
+        "description": "描述"
+      },
+      "messages": {
+        "description": "描述"
+      },
+      "orders": {
+        "description": "描述"
+      },
+      "privacy": {
+        "description": "描述"
+      },
+      "profile": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "purchaseRecords": {
+        "description": "描述"
+      },
+      "purchases": {
+        "description": "描述"
+      },
+      "security": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "settings": {
+        "description": "描述"
+      },
+      "statistics": {
+        "description": "描述"
+      },
+      "upload": {
+        "description": "描述",
+        "title": "标题"
+      }
+    },
+    "settings": {
+      "title": "标题"
+    },
+    "sidebar": {
+      "ariaLabel": "ariaLabel",
+      "menuAriaLabel": "menuAriaLabel",
+      "unreadMessages": "unreadMessages"
+    },
+    "statistics": {
+      "description": "描述",
+      "title": "标题",
+      "withdrawal": {
+        "errors": {
+          "amountExceedsBalance": "amountExceedsBalance",
+          "invalidAccount": "invalidAccount",
+          "invalidAmount": "金额无效"
+        },
+        "status": {
+          "approved": "已通过",
+          "inReview": "inReview",
+          "pendingReview": "pendingReview",
+          "rejected": "已拒绝",
+          "unknown": "未知",
+          "withdrawn": "已提现"
+        },
+        "success": {
+          "submitSuccess": "提交成功"
+        }
+      }
+    },
+    "strength": {
+      "medium": "中",
+      "strong": "强",
+      "weak": "弱"
+    },
+    "study": {
+      "description": "描述",
+      "title": "标题"
+    },
+    "validation": {
+      "confirmPassword": "确认密码",
+      "email": "邮箱",
+      "emailRequired": "请输入邮箱",
+      "newPassword": "新密码",
+      "nickname": "昵称",
+      "nicknameLength": "nicknameLength",
+      "oldPassword": "旧密码",
+      "passwordMatch": "passwordMatch",
+      "passwordStrength": "密码强度",
+      "phone": "手机号",
+      "phoneRequired": "请输入手机号",
+      "signatureLength": "signatureLength"
+    }
+  },
+  "User": {
+    "nickname": "昵称",
+    "nickname2": "nickname2"
+  }
+}

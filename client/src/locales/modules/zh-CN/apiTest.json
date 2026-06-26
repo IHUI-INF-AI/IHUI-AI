@@ -16,6 +16,12 @@
     "category": "分类",
     "testItem": "测试项",
     "status": "状态",
-    "errorInfo": "错误信息"
+    "errorInfo": "错误信息",
+    "chatTest": "chatTest",
+    "compTest": "compTest",
+    "genTest": "genTest",
+    "serviceTest": "serviceTest",
+    "testComplete": "testComplete",
+    "typeTest": "typeTest"
   }
 }

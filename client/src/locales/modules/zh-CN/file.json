@@ -1,0 +1,65 @@
+{
+  "file": {
+    "batchDelete": "批量删除",
+    "batchDownload": "batchDownload",
+    "batchShare": "batchShare",
+    "clearSelection": "清空选择",
+    "delete": "删除",
+    "diff": {
+      "additions": "additions",
+      "changeDetails": "changeDetails",
+      "changes": "changes",
+      "compare": "对比",
+      "deletions": "deletions",
+      "from": "来自",
+      "line": "Line",
+      "selectVersions": "selectVersions",
+      "similarity": "similarity",
+      "to": "到"
+    },
+    "download": "下载",
+    "empty": "空",
+    "manager": {
+      "title": "标题"
+    },
+    "preview": "预览",
+    "remove": "移除",
+    "search": "搜索",
+    "selected": "已选择",
+    "share": {
+      "1day": "1day",
+      "1hour": "1hour",
+      "7days": "7days",
+      "expires": "expires",
+      "forever": "forever",
+      "password": "密码",
+      "passwordHint": "passwordHint",
+      "title": "标题"
+    },
+    "sort": {
+      "date": "日期",
+      "name": "名称",
+      "size": "大小"
+    },
+    "sortBy": "排序方式",
+    "stats": {
+      "selected": "已选择",
+      "total": "总计",
+      "totalSize": "totalSize"
+    },
+    "upload": {
+      "dragDrop": "dragDrop",
+      "title": "标题"
+    },
+    "versions": {
+      "compare": "对比",
+      "current": "当前",
+      "diff": "diff",
+      "empty": "空",
+      "new": "最新",
+      "rollback": "回滚",
+      "summary": "摘要",
+      "title": "标题"
+    }
+  }
+}

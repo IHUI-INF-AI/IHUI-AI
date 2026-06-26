@@ -1,0 +1,167 @@
+{
+  "apiService": {
+    "apps": {
+      "apiKeys": "apiKeys",
+      "createFailed": "createFailed",
+      "createSuccess": "createSuccess",
+      "createdAt": "createdAt",
+      "deleteConfirm": "确认删除?",
+      "deleteFailed": "deleteFailed",
+      "deleteSuccess": "deleteSuccess",
+      "requests": "requests",
+      "updateFailed": "updateFailed",
+      "updateSuccess": "updateSuccess"
+    },
+    "billing": {
+      "apiKey": "API Key",
+      "app": "app",
+      "exportFailed": "exportFailed",
+      "exportSuccess": "exportSuccess",
+      "input": "输入",
+      "latency": "latency",
+      "output": "输出",
+      "requestTime": "requestTime",
+      "tokens": "tokens"
+    },
+    "debug": {
+      "addHeader": "addHeader",
+      "body": "body",
+      "bodyPlaceholder": "bodyPlaceholder",
+      "format": "format",
+      "headerKey": "headerKey",
+      "headerValue": "headerValue",
+      "headers": "headers",
+      "method": "method",
+      "responseBody": "responseBody",
+      "responseHeaders": "responseHeaders",
+      "responseTime": "responseTime",
+      "url": "url",
+      "urlPlaceholder": "urlPlaceholder"
+    },
+    "groups": {
+      "appCount": "appCount",
+      "comparison": {
+        "feature": "功能",
+        "recommendation": "recommendation",
+        "recommendationText": "recommendationText",
+        "scenarios": "scenarios"
+      },
+      "createFailed": "createFailed",
+      "createSuccess": "createSuccess",
+      "createdAt": "createdAt",
+      "deleteConfirm": "确认删除?",
+      "deleteFailed": "deleteFailed",
+      "deleteSuccess": "deleteSuccess",
+      "features": {
+        "concurrent": "concurrent",
+        "models": "模型",
+        "rateLimit": "rateLimit"
+      },
+      "updateFailed": "updateFailed",
+      "updateSuccess": "updateSuccess"
+    },
+    "home": {
+      "advantages": {
+        "fastConnection": "fastConnection",
+        "fastConnectionDesc": "fastConnectionDesc",
+        "globalDirect": "globalDirect",
+        "globalDirectDesc": "globalDirectDesc",
+        "lowLatency": "lowLatency",
+        "lowLatencyDesc": "lowLatencyDesc",
+        "noBan": "noBan",
+        "noBanDesc": "noBanDesc",
+        "noProxy": "noProxy",
+        "noProxyDesc": "noProxyDesc",
+        "payAsYouGo": "payAsYouGo",
+        "payAsYouGoDesc": "payAsYouGoDesc",
+        "subtitle": "副标题",
+        "title": "标题"
+      },
+      "quickStart": {
+        "startUsing": "startUsing",
+        "step1": {
+          "button": "button",
+          "content": "内容",
+          "description": "描述",
+          "title": "标题"
+        },
+        "step2": {
+          "content": "内容",
+          "description": "描述",
+          "title": "标题"
+        },
+        "step3": {
+          "button": "button",
+          "content": "内容",
+          "description": "描述",
+          "title": "标题"
+        },
+        "subtitle": "副标题",
+        "title": "标题"
+      }
+    },
+    "logs": {
+      "app": "app",
+      "basicInfo": "basicInfo",
+      "cost": "cost",
+      "detail": "详情",
+      "endpoint": "端点",
+      "errorMessage": "errorMessage",
+      "headerKey": "headerKey",
+      "headerValue": "headerValue",
+      "input": "输入",
+      "ip": "ip",
+      "latency": "latency",
+      "method": "method",
+      "model": "模型",
+      "noBody": "noBody",
+      "noHeaders": "noHeaders",
+      "output": "输出",
+      "protocol": "protocol",
+      "request": "请求",
+      "requestBody": "requestBody",
+      "requestHeaders": "requestHeaders",
+      "response": "响应",
+      "responseBody": "responseBody",
+      "responseHeaders": "responseHeaders",
+      "status": "状态",
+      "statusCode": "statusCode",
+      "time": "时间",
+      "tokens": "tokens",
+      "userAgent": "userAgent"
+    },
+    "packages": {
+      "downgradeConfirm": "downgradeConfirm",
+      "downgradeFailed": "downgradeFailed",
+      "downgradeSuccess": "downgradeSuccess",
+      "endDate": "endDate",
+      "quota": "quota",
+      "remaining": "remaining",
+      "startDate": "startDate",
+      "upgrade": "upgrade",
+      "upgradeFailed": "upgradeFailed",
+      "upgradeSuccess": "upgradeSuccess"
+    },
+    "tickets": {
+      "close": "关闭",
+      "reopen": "reopen",
+      "replies": "replies"
+    },
+    "usage": {
+      "apiPath": "apiPath",
+      "appName": "appName",
+      "avgLatency": "avgLatency",
+      "byApp": "byApp",
+      "cost": "cost",
+      "errorRate": "errorRate",
+      "groupName": "groupName",
+      "maxLatency": "maxLatency",
+      "requests": "requests",
+      "successRate": "successRate",
+      "topApis": "topApis",
+      "topGroups": "topGroups",
+      "topLatency": "topLatency",
+      "topStatsNotAvailable": "topStatsNotAvailable"
+    }
+  }
+}

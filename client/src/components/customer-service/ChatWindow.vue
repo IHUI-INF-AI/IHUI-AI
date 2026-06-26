@@ -529,7 +529,7 @@ cleanup.add(() => {
       background: var(--el-bg-color);
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background-color 0.2s;
 
       &:hover {
         background: var(--el-fill-color-light);
@@ -739,7 +739,7 @@ cleanup.add(() => {
   }
 
   30% {
-    transform: translateY(-10px);
+    
     opacity: 1;
   }
 }

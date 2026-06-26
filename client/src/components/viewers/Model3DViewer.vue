@@ -95,7 +95,7 @@ const modelType = computed(() => {
 
 .file-name {
   font-size: 14px;
-  color: var(--color-text-muted);
+  color: var(--el-text-color-placeholder);
 }
 
 .file-type {
@@ -123,9 +123,9 @@ const modelType = computed(() => {
   background: transparent;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  color: var(--color-text-muted);
+  color: var(--el-text-color-placeholder);
   font-size: 14px;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
   text-decoration: none;
 }
 
@@ -157,7 +157,7 @@ const modelType = computed(() => {
 .model-title {
   font-size: 18px;
   font-weight: 500;
-  color: var(--color-text-muted);
+  color: var(--el-text-color-placeholder);
   margin-bottom: 8px;
 }
 
@@ -187,7 +187,7 @@ const modelType = computed(() => {
 
 .info-value {
   font-size: 14px;
-  color: var(--color-text-muted);
+  color: var(--el-text-color-placeholder);
 }
 
 .download-btn {
@@ -204,7 +204,7 @@ const modelType = computed(() => {
 }
 
 .download-btn:hover {
-  background: var(--color-blue-245bdb);
+  background: var(--el-color-primary);
 }
 
 .model-hint {

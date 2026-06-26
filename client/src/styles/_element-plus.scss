@@ -337,7 +337,7 @@
   background-color: var(--color-white-90);
 }
 
-html.dark .el-loading-mask {
+:where(html.dark) .el-loading-mask {
   background-color: var(--color-black-90);
 }
 

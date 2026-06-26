@@ -446,6 +446,7 @@ defineExpose({
   background-color: var(--abd-overlay-bg);
   z-index: var(--abd-overlay-z-index);
   backdrop-filter: blur(var(--abd-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--abd-overlay-blur));
 }
 
 /* 账号绑定对话框 - 适配明暗模式 */

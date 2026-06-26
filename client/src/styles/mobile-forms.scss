@@ -174,7 +174,7 @@
 }
 
 // 暗色模式支持
-html.dark {
+:where(html.dark) {
   @media (width <= 768px) {
     .el-button:not(.hero-cta-btn),
     .el-input,

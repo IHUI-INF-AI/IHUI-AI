@@ -1,0 +1,7 @@
+{
+  "unifiedAuth": {
+    "loginInfoParseFailed": "[ZH:loginInfoParseFailed]",
+    "loginSuccess": "[ZH:loginSuccess]",
+    "logoutSuccess": "[ZH:logoutSuccess]"
+  }
+}

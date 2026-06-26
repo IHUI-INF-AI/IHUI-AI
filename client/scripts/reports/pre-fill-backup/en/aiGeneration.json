@@ -1,0 +1,28 @@
+{
+  "aiGeneration": {
+    "doubaoImage": "[ZH:doubaoImage]",
+    "doubaoImageDesc": "[ZH:doubaoImageDesc]",
+    "hunyuan3D": "[ZH:hunyuan3D]",
+    "hunyuan3DDesc": "[ZH:hunyuan3DDesc]",
+    "imageGeneration": "[ZH:imageGeneration]",
+    "jimengImage": "[ZH:jimengImage]",
+    "jimengImageDesc": "[ZH:jimengImageDesc]",
+    "klingVideo": "[ZH:klingVideo]",
+    "klingVideoDesc": "[ZH:klingVideoDesc]",
+    "model3D": "[ZH:model3D]",
+    "oneclickVideo": "[ZH:oneclickVideo]",
+    "oneclickVideoDesc": "[ZH:oneclickVideoDesc]",
+    "qwenImage": "[ZH:qwenImage]",
+    "qwenImageDesc": "[ZH:qwenImageDesc]",
+    "qwenImageI2I": "[ZH:qwenImageI2I]",
+    "qwenImageI2IDesc": "[ZH:qwenImageI2IDesc]",
+    "qwenVideo": "[ZH:qwenVideo]",
+    "qwenVideoDesc": "[ZH:qwenVideoDesc]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]",
+    "videoGeneration": "[ZH:videoGeneration]",
+    "visionAnalysis": "[ZH:visionAnalysis]",
+    "visionAnalysisDesc": "[ZH:visionAnalysisDesc]",
+    "visionAnalysisTitle": "[ZH:visionAnalysisTitle]"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "withdrawDialog": {
+    "agreePrefix": "[ZH:agreePrefix]",
+    "amount": "[ZH:amount]",
+    "availableBalance": "[ZH:availableBalance]",
+    "bankCard": "[ZH:bankCard]",
+    "bindNow": "[ZH:bindNow]",
+    "change": "[ZH:change]",
+    "noBankCard": "[ZH:noBankCard]",
+    "submit": "[ZH:submit]",
+    "submitting": "[ZH:submitting]",
+    "termsTitle": "[ZH:termsTitle]",
+    "title": "[ZH:title]"
+  }
+}

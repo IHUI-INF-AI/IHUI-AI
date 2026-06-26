@@ -1,0 +1,15 @@
+{
+  "learnDetail": {
+    "buyNow": "buyNow",
+    "chapters": "chapters",
+    "continueLearn": "continueLearn",
+    "favorite": "收藏",
+    "favorited": "favorited",
+    "learnCount": "learnCount",
+    "learnNow": "learnNow",
+    "noChapters": "noChapters",
+    "notExist": "notExist",
+    "reviews": "reviews",
+    "teacher": "teacher"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "resourceDetail": {
+    "anonymous": "匿名",
+    "breadcrumbResource": "breadcrumbResource",
+    "current": "当前",
+    "downloadResource": "downloadResource",
+    "downloadTimes": "downloadTimes",
+    "favorite": "收藏",
+    "freeDownload": "freeDownload",
+    "like": "点赞",
+    "notExist": "不存在",
+    "operateFailed": "操作失败",
+    "pointsDownload": "pointsDownload",
+    "rateResource": "rateResource",
+    "rating": "评分",
+    "scoreUnit": "scoreUnit",
+    "size": "大小",
+    "uploader": "uploader",
+    "views": "浏览"
+  }
+}

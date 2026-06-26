@@ -362,7 +362,7 @@ const teamMembers = computed(() => [
     }
 
     .badge-text {
-      font-family: 'EDIX';
+      font-family: var(--font-family-edix);
       font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.05em;
@@ -599,7 +599,7 @@ const teamMembers = computed(() => [
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
   z-index: calc(var(--z-base) + 9);
 
   &:hover {

@@ -333,7 +333,7 @@ const handleX = () => {
       border: none;
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, opacity 0.2s ease, outline 0.2s ease;
       background: var(--el-bg-color-page);
 
       &:hover:not(.disabled) {

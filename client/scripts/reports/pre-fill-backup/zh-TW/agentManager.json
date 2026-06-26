@@ -1,0 +1,27 @@
+{
+  "agentManager": {
+    "agentNamePlaceholder": "[ZH:agentNamePlaceholder]",
+    "createAgent": "[ZH:createAgent]",
+    "deleteConfirm": "[ZH:deleteConfirm]",
+    "deleteTitle": "[ZH:deleteTitle]",
+    "editAgent": "[ZH:editAgent]",
+    "model": "[ZH:model]",
+    "name": "[ZH:name]",
+    "selectModelPlaceholder": "[ZH:selectModelPlaceholder]",
+    "selectTypePlaceholder": "[ZH:selectTypePlaceholder]",
+    "status": "[ZH:status]",
+    "statusActive": "[ZH:statusActive]",
+    "statusDeprecated": "[ZH:statusDeprecated]",
+    "statusInactive": "[ZH:statusInactive]",
+    "statusUnknown": "[ZH:statusUnknown]",
+    "systemPrompt": "[ZH:systemPrompt]",
+    "systemPromptPlaceholder": "[ZH:systemPromptPlaceholder]",
+    "test": "[ZH:test]",
+    "testAgent": "[ZH:testAgent]",
+    "title": "[ZH:title]",
+    "type": "[ZH:type]",
+    "typeActing": "[ZH:typeActing]",
+    "typeReasoning": "[ZH:typeReasoning]",
+    "typeSpecialist": "[ZH:typeSpecialist]"
+  }
+}

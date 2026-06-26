@@ -72,9 +72,7 @@
               label-position="top"
               class="forgot-form fp-form"
             >
-              <div class="fp-form-group fp-stagger-item" style="
-
---stagger: 1">
+              <div class="fp-form-group fp-stagger-item fp-stagger-item--1">
                 <label class="fp-label">
                   <span class="fp-label-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -96,9 +94,7 @@
                 </el-form-item>
               </div>
 
-              <div class="fp-form-group fp-stagger-item" style="
-
---stagger: 2">
+              <div class="fp-form-group fp-stagger-item fp-stagger-item--2">
                 <label class="fp-label">
                   <span class="fp-label-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -132,9 +128,7 @@
                 </el-form-item>
               </div>
 
-              <div class="fp-form-group fp-stagger-item" style="
-
---stagger: 3">
+              <div class="fp-form-group fp-stagger-item fp-stagger-item--3">
                 <button type="button" @click="handleStep1Next" class="fp-submit-btn fp-ripple">
                   <span class="fp-btn-content">
                     <span>{{ t('forgotPassword.next') }}</span>
@@ -160,9 +154,7 @@
               label-position="top"
               class="forgot-form fp-form"
             >
-              <div class="fp-form-group fp-stagger-item" style="
-
---stagger: 1">
+              <div class="fp-form-group fp-stagger-item fp-stagger-item--1">
                 <label class="fp-label">
                   <span class="fp-label-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -186,9 +178,7 @@
                 </el-form-item>
               </div>
 
-              <div class="fp-form-group fp-stagger-item" style="
-
---stagger: 2">
+              <div class="fp-form-group fp-stagger-item fp-stagger-item--2">
                 <label class="fp-label">
                   <span class="fp-label-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -212,9 +202,7 @@
                 </el-form-item>
               </div>
 
-              <div class="fp-form-group fp-stagger-item" style="
-
---stagger: 3">
+              <div class="fp-form-group fp-stagger-item fp-stagger-item--3">
                 <div class="fp-password-tips">
                   <div class="fp-tips-header">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -233,9 +221,7 @@
                 </div>
               </div>
 
-              <div class="fp-form-group fp-stagger-item" style="
-
---stagger: 4">
+              <div class="fp-form-group fp-stagger-item fp-stagger-item--4">
                 <button type="button" @click="handleStep2Next" class="fp-submit-btn fp-ripple">
                   <span class="fp-btn-content">
                     <span>{{ t('forgotPassword.next') }}</span>
@@ -660,7 +646,7 @@ $transition-slow: 0.5s;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all $transition-normal ease;
+  transition: background-color $transition-normal ease, border-color $transition-normal ease;
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
@@ -767,7 +753,7 @@ $transition-slow: 0.5s;
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: all $transition-normal ease;
+  transition: background-color $transition-normal ease, border-color $transition-normal ease;
   
   .fp-step-number {
     font-size: 12px;
@@ -783,7 +769,7 @@ $transition-slow: 0.5s;
     color: $accent-cyan;
     opacity: 0;
     transform: scale(0);
-    transition: all $transition-normal ease;
+    transition: opacity $transition-normal ease, transform $transition-normal ease, color $transition-normal ease;
   }
 }
 
@@ -856,7 +842,12 @@ $transition-slow: 0.5s;
 // 交错动画
 .fp-stagger-item {
   animation: fp-stagger-in 0.5s ease-out backwards;
-  animation-delay: calc(var(--stagger) * 0.1s);
+  animation-delay: calc(var(--stagger, 0) * 0.1s);
+
+  &--1 { --stagger: 1; }
+  &--2 { --stagger: 2; }
+  &--3 { --stagger: 3; }
+  &--4 { --stagger: 4; }
 }
 
 @keyframes fp-stagger-in {
@@ -915,7 +906,7 @@ $transition-slow: 0.5s;
     border-radius: var(--global-border-radius);
     pointer-events: none;
     border: var(--unified-border);
-    transition: all $transition-normal ease;
+    transition: border-color $transition-normal ease;
   }
   
   &:focus-within {
@@ -932,7 +923,7 @@ $transition-slow: 0.5s;
     border-radius: var(--global-border-radius);
     padding: 12px 16px;
     box-shadow: none;
-    transition: all $transition-normal ease;
+    transition: background-color $transition-normal ease, border-color $transition-normal ease;
     
     &:hover {
       background: var(--color-white-5);
@@ -988,7 +979,7 @@ $transition-slow: 0.5s;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all $transition-normal ease;
+  transition: background-color $transition-normal ease, border-color $transition-normal ease, opacity $transition-normal ease;
   
   &:hover:not(:disabled) {
     background: var(--color-cyan-00f0ff-20);
@@ -1022,10 +1013,10 @@ $transition-slow: 0.5s;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all $transition-normal ease;
+  transition: transform $transition-normal ease;
   
   &:hover {
-    transform: translateY(-2px);
+    
     .fp-btn-arrow {
       transform: translateX(4px);
     }
@@ -1271,7 +1262,7 @@ $transition-slow: 0.5s;
 // ==========================================
 .fp-slide-enter-active,
 .fp-slide-leave-active {
-  transition: all $transition-normal ease;
+  transition: opacity $transition-normal ease, transform $transition-normal ease;
 }
 
 .fp-slide-enter-from {
@@ -1379,7 +1370,7 @@ $transition-slow: 0.5s;
 // ==========================================
 // 暗色模式适配
 // ==========================================
-html.dark {
+:where(html.dark) {
   .forgot-password-page {
     background: $brand-primary;
   }

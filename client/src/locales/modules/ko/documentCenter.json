@@ -1,0 +1,33 @@
+{
+  "documentCenter": {
+    "apiDocs": "apiDocs",
+    "comingSoon": "comingSoon",
+    "developerDocs": "developerDocs",
+    "files": "files",
+    "guides": "guides",
+    "incentiveProgram": {
+      "label": "label",
+      "monetizationGuide": "monetizationGuide",
+      "monetizationGuideDesc": "monetizationGuideDesc",
+      "overview": "overview",
+      "overviewDesc": "overviewDesc",
+      "platformIntro": "platformIntro",
+      "platformIntroDesc": "platformIntroDesc",
+      "publishGuide": "publishGuide",
+      "publishGuideDesc": "publishGuideDesc"
+    },
+    "linkCopied": "linkCopied",
+    "noShared": "noShared",
+    "quickStart": "quickStart",
+    "searchPlaceholder": "请输入搜索内容",
+    "shareDeleted": "shareDeleted",
+    "shareLink": "shareLink",
+    "shared": "已分享",
+    "support": "技术支持",
+    "title": "标题",
+    "upload": "上传",
+    "uploadError": "uploadError",
+    "uploadSuccess": "uploadSuccess",
+    "userDocs": "userDocs"
+  }
+}

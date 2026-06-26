@@ -223,7 +223,7 @@ input:checked + .slider::before {
   border-radius: var(--global-border-radius);
   font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .upload-btn:hover {
@@ -344,7 +344,7 @@ input:checked + .slider::before {
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--el-text-color-primary); /* 统一纯黑色（亮色模式） */
-  transition: all 0.2s;
+  transition: background-color 0.2s;
 }
 
 .cancel-btn:hover {

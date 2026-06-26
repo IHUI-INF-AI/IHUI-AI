@@ -389,7 +389,7 @@ onMounted(() => {
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease;
 
     &:hover {
       background: var(--el-fill-color-light);

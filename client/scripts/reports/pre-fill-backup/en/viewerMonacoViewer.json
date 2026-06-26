@@ -1,0 +1,15 @@
+{
+  "viewerMonacoViewer": {
+    "chars": "[ZH:chars]",
+    "codeFile": "[ZH:codeFile]",
+    "codeLoadFailed": "[ZH:codeLoadFailed]",
+    "copied": "[ZH:copied]",
+    "copy": "[ZH:copy]",
+    "download": "[ZH:download]",
+    "downloadView": "[ZH:downloadView]",
+    "lines": "[ZH:lines]",
+    "loadFailed": "[ZH:loadFailed]",
+    "loading": "[ZH:loading]",
+    "wordWrap": "[ZH:wordWrap]"
+  }
+}

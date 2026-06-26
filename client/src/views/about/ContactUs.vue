@@ -226,11 +226,11 @@ const getSplit = (key: string, index: number): string => {
     display: flex;
     align-items: flex-start;
     gap: 16px;
-    transition: all 0.3s ease;
+    transition: border-color 0.3s ease, transform 0.3s ease;
 
     &:hover {
       border: var(--el-border-width-primary) solid var(--el-color-primary);
-      transform: translateY(-4px);
+      
       }
 
     .card-icon {

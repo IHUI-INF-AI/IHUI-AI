@@ -1,0 +1,66 @@
+{
+  "becomeSupplier": {
+    "benefits": {
+      "market": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "security": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "settlement": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "support": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      }
+    },
+    "form": {
+      "address": "[ZH:address]",
+      "addressPlaceholder": "[ZH:addressPlaceholder]",
+      "business": "[ZH:business]",
+      "businessPlaceholder": "[ZH:businessPlaceholder]",
+      "companyName": "[ZH:companyName]",
+      "companyNamePlaceholder": "[ZH:companyNamePlaceholder]",
+      "contactName": "[ZH:contactName]",
+      "contactNamePlaceholder": "[ZH:contactNamePlaceholder]",
+      "email": "[ZH:email]",
+      "emailPlaceholder": "[ZH:emailPlaceholder]",
+      "intention": "[ZH:intention]",
+      "intentionPlaceholder": "[ZH:intentionPlaceholder]",
+      "phone": "[ZH:phone]",
+      "phonePlaceholder": "[ZH:phonePlaceholder]",
+      "processing": "[ZH:processing]",
+      "reset": "[ZH:reset]",
+      "submit": "[ZH:submit]",
+      "submitProposal": "[ZH:submitProposal]"
+    },
+    "processSteps": {
+      "businessNegotiation": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "onlineDocking": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "qualificationReview": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "signAgreement": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "submitApplication": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      }
+    },
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]"
+  }
+}

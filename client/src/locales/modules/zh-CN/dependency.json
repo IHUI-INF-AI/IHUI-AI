@@ -1,0 +1,31 @@
+{
+  "dependency": {
+    "activeSessions": "activeSessions",
+    "addStep": "addStep",
+    "avgCompletionRate": "avgCompletionRate",
+    "clearCompleted": "clearCompleted",
+    "cleared": "已清空",
+    "configuredTours": "configuredTours",
+    "confirmDeleteAction": "confirmDeleteAction",
+    "delete": "删除",
+    "deleteSuccess": "删除成功",
+    "dependencyConfig": "dependencyConfig",
+    "editConfig": "editConfig",
+    "enterTourId": "请输入旅游 ID",
+    "executionStatus": "executionStatus",
+    "failedSteps": "失败步骤",
+    "intervalPrefix": "intervalPrefix",
+    "maxRetriesPrefix": "maxRetriesPrefix",
+    "milliseconds": "毫秒",
+    "modeConditional": "modeConditional",
+    "modeParallel": "modeParallel",
+    "modeSequential": "modeSequential",
+    "newConfig": "新建配置",
+    "optional": "可选",
+    "required": "必填",
+    "saveSuccess": "保存成功",
+    "seconds": "秒",
+    "stepDependencies": "stepDependencies",
+    "timesSuffix": "timesSuffix"
+  }
+}

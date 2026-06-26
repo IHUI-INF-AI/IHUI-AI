@@ -14,13 +14,14 @@
       "questionJudgment": "Search judgment questions",
       "questionMulti": "Search multiple choice questions",
       "questionSingle": "Search single choice questions",
-      "questionSubjective": "Search subjective questions"
+      "questionSubjective": "Search subjective questions",
+      "chapter": "章节",
+      "chapterSection": "chapterSection"
     },
     "label": {
       "user": "User",
       "paper": "Paper",
       "score": "Score",
-      "duration": "Duration",
       "submitTime": "Submit Time"
     }
   }

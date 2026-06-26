@@ -317,7 +317,7 @@ onMounted(async () => {
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s;
 }
 
 .drawer-toggle:hover {
@@ -334,7 +334,7 @@ onMounted(async () => {
 .drawer-item {
   padding: 12px 16px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, color 0.3s;
   border-bottom: var(--unified-border-bottom);
 }
 
@@ -385,7 +385,7 @@ onMounted(async () => {
   }
 
 .agent-card:hover {
-  transform: translateY(-4px);
+  transform: none;
   }
 
 .agent-avatar {

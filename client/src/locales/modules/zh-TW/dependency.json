@@ -1,0 +1,31 @@
+{
+  "dependency": {
+    "activeSessions": "activeSessions",
+    "addStep": "addStep",
+    "avgCompletionRate": "avgCompletionRate",
+    "clearCompleted": "clearCompleted",
+    "cleared": "cleared",
+    "configuredTours": "configuredTours",
+    "confirmDeleteAction": "confirmDeleteAction",
+    "delete": "删除",
+    "deleteSuccess": "deleteSuccess",
+    "dependencyConfig": "dependencyConfig",
+    "editConfig": "editConfig",
+    "enterTourId": "enterTourId",
+    "executionStatus": "executionStatus",
+    "failedSteps": "failedSteps",
+    "intervalPrefix": "intervalPrefix",
+    "maxRetriesPrefix": "maxRetriesPrefix",
+    "milliseconds": "milliseconds",
+    "modeConditional": "modeConditional",
+    "modeParallel": "modeParallel",
+    "modeSequential": "modeSequential",
+    "newConfig": "newConfig",
+    "optional": "可选",
+    "required": "必填",
+    "saveSuccess": "saveSuccess",
+    "seconds": "seconds",
+    "stepDependencies": "stepDependencies",
+    "timesSuffix": "timesSuffix"
+  }
+}

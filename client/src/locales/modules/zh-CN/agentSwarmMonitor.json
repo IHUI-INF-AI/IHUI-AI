@@ -1,0 +1,25 @@
+{
+  "agentSwarmMonitor": {
+    "agentName": "智能体名称",
+    "agentStatus": "智能体状态",
+    "averageExecutionTime": "averageExecutionTime",
+    "averageTokens": "averageTokens",
+    "completedSteps": "completedSteps",
+    "corrected": "corrected",
+    "correctedResult": "correctedResult",
+    "currentIteration": "currentIteration",
+    "currentStep": "当前步骤",
+    "errorLabel": "errorLabel",
+    "executionTime": "executionTime",
+    "failedSteps": "失败步骤",
+    "performanceMetrics": "performanceMetrics",
+    "reflection": "reflection",
+    "status": "状态",
+    "successRate": "成功率",
+    "suggestions": "建议",
+    "task": "任务",
+    "toolResults": "toolResults",
+    "totalSteps": "共 {n} 步",
+    "type": "类型"
+  }
+}

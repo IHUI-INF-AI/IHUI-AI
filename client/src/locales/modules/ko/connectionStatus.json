@@ -1,10 +1,1 @@
-{
-  "connectionStatus": {
-    "connected": "완료연결",
-    "connecting": "연결중간",
-    "reconnecting": "대규모연결중간",
-    "disconnected": "미연결",
-    "error": "연결오류",
-    "reconnectAttempts": "재연결 시도: {attempts}/{maxAttempts}"
-  }
-}
+{}

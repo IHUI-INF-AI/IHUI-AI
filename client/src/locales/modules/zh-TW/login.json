@@ -1,0 +1,110 @@
+{
+  "login": {
+    "agreement": {
+      "and": "and",
+      "prefix": "prefix",
+      "privacyPolicy": "隐私政策",
+      "userAgreement": "用户协议"
+    },
+    "aiModels": "aiModels",
+    "apple": {
+      "loggingIn": "登录中",
+      "retry": "重试",
+      "securityTip": "securityTip"
+    },
+    "availability": "availability",
+    "buttons": {
+      "login": "登录",
+      "register": "注册",
+      "submitLogin": "submitLogin",
+      "submitRegister": "submitRegister"
+    },
+    "crossProject": {
+      "admin": "管理员",
+      "loggingIn": "登录中",
+      "switchTo": "switchTo",
+      "user": "用户"
+    },
+    "error": {
+      "insecureConnection": "insecureConnection"
+    },
+    "forgotPassword": "忘记密码",
+    "goLogin": "goLogin",
+    "goRegister": "goRegister",
+    "google": {
+      "loggingIn": "登录中",
+      "retry": "重试",
+      "securityTip": "securityTip"
+    },
+    "hasAccount": "hasAccount",
+    "hidePassword": "hidePassword",
+    "ihuiLogo": "ihuiLogo",
+    "mode": {
+      "hasAccount": "hasAccount",
+      "noAccount": "noAccount",
+      "userLogin": "userLogin",
+      "userRegister": "userRegister"
+    },
+    "noAccount": "noAccount",
+    "oneStopAI": "oneStopAI",
+    "password": {
+      "hide": "隐藏",
+      "show": "显示"
+    },
+    "placeholders": {
+      "confirmLoginPassword": "confirmLoginPassword",
+      "confirmPassword": "confirmPassword",
+      "email": "邮箱",
+      "password": "密码",
+      "phone": "手机号",
+      "phoneRegister": "phoneRegister",
+      "setLoginPassword": "setLoginPassword",
+      "setPassword": "setPassword",
+      "smsCode": "smsCode",
+      "username": "用户名",
+      "usernameOrEmail": "usernameOrEmail"
+    },
+    "project": {
+      "admin": "管理员",
+      "eduAdmin": "eduAdmin",
+      "eduWeb": "eduWeb",
+      "main": "main",
+      "open": "打开",
+      "user": "用户"
+    },
+    "selectProject": "selectProject",
+    "showPassword": "showPassword",
+    "subtitle": "副标题",
+    "switchPlatform": "switchPlatform",
+    "tabs": {
+      "account": "账号",
+      "accountRegister": "accountRegister",
+      "phone": "手机号",
+      "phoneRegister": "phoneRegister"
+    },
+    "thirdParty": {
+      "accountLogin": "账号密码登录",
+      "alipay": "alipay",
+      "alipayLogin": "alipayLogin",
+      "comingSoon": "comingSoon",
+      "emailLogin": "邮箱登录",
+      "feishu": "feishu",
+      "feishuLogin": "feishuLogin",
+      "notice": "notice",
+      "or": "or",
+      "otherMethods": "otherMethods",
+      "phoneLogin": "手机号登录",
+      "privacyPolicy": "隐私政策",
+      "quickLogin": "快捷登录",
+      "securityNotice1": "securityNotice1",
+      "securityNotice2": "securityNotice2",
+      "securityNotice3": "securityNotice3",
+      "selectPreferred": "selectPreferred",
+      "termsOfService": "termsOfService"
+    },
+    "users": "用户",
+    "users500k": "users500k",
+    "welcomeTitle": "welcomeTitle",
+    "worldFirst": "worldFirst"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "topUpSuccess": {
+    "backToHome": "backToHome",
+    "message": "消息",
+    "title": "标题",
+    "viewAccount": "viewAccount"
+  }
+}

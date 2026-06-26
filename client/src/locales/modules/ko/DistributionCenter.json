@@ -1,0 +1,8 @@
+{
+  "DistributionCenter": {
+    "copyImage": "copyImage",
+    "distributionTitle": "distributionTitle",
+    "imageCopied": "imageCopied",
+    "longPressToSave": "longPressToSave"
+  }
+}

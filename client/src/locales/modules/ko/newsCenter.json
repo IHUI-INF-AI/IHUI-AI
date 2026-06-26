@@ -1,0 +1,14 @@
+{
+  "newsCenter": {
+    "categories": {
+      "industry": "industry"
+    },
+    "loadMore": "loadMore",
+    "loadingMore": "加载更多",
+    "minRead": "minRead",
+    "pageInfo": "pageInfo",
+    "readMore": "readMore",
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

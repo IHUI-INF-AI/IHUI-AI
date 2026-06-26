@@ -3149,7 +3149,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 
     .el-icon {
       font-size: 22px;
@@ -3475,7 +3475,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       --aic-icon-size: var(--aic-header-btn-icon-size);
       
       padding: 0;
-      transition: all 0.3s ease;
+      transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -3649,7 +3649,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       background: var(--el-bg-color-page);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
-      transition: all 0.3s ease;
+      transition: transform 0.3s ease, border-color 0.3s ease;
       position: relative;
       padding-left: 48px;
 
@@ -3877,7 +3877,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                transition: all 0.2s ease;
+                transition: background-color 0.2s ease, color 0.2s ease;
 
                 .el-icon {
                   color: inherit;
@@ -3977,7 +3977,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         position: relative;
         z-index: var(--z-base);
         pointer-events: auto;
-        transition: all 0.3s ease;
+        transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
         display: inline-flex;
         flex-direction: row;
         align-items: center;
@@ -4236,7 +4236,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
   }
 
   30% {
-    transform: translateY(-4px);
+    
   }
 }
 
@@ -4346,7 +4346,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     border-radius: var(--global-border-radius);
     background: var(--el-bg-color-page);
     border: var(--unified-border);
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
     position: relative;
     overflow: hidden;
 
@@ -4520,7 +4520,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       padding: 12px 16px;
       font-size: 14px;
       line-height: 1.6;
-      transition: all 0.3s ease;
+      transition: border-color 0.3s ease;
       resize: none;
 
       &:focus {
@@ -4543,7 +4543,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       border-radius: var(--global-border-radius);
       padding: 10px 20px;
       font-weight: 500;
-      transition: all 0.3s ease;
+      transition: transform 0.3s ease, background-color 0.3s ease;
 
       &:hover {
         transform: translateY(0); // 扁平化设计：移除位移
@@ -4634,7 +4634,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
 .message-fade-enter-active,
 .message-fade-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .message-fade-enter-from,
@@ -4645,13 +4645,13 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
 .slide-down-enter-active,
 .slide-down-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .slide-down-enter-from,
 .slide-down-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  
 }
 </style>
 

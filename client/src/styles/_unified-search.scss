@@ -15,7 +15,7 @@
   --unified-search-btn-hover-bg: var(--el-text-color-primary);
 }
 
-html.dark {
+:where(html.dark) {
   --unified-search-bg: var(--el-bg-color);
   --unified-search-border: var(--border-unified-color);
   --unified-search-focus-color: var(--el-text-color-primary);
@@ -42,7 +42,7 @@ html.dark {
     border-color: var(--unified-search-focus-color);
   }
 
-  html.dark & {
+  :where(html.dark) & {
     &:focus-within {
       border-width: 2px;
       border-color: var(--unified-search-focus-color);
@@ -61,7 +61,7 @@ html.dark {
       box-shadow: none;
       padding: 6px 16px;
       height: 44px;
-      transition: all $transition-base ease;
+      transition: background-color $transition-base ease;
 
       &:hover {
         background: var(--color-black-3);
@@ -114,7 +114,7 @@ html.dark {
     border-radius: var(--global-border-radius);
     padding: 6px 16px;
     height: 44px;
-    transition: all $transition-base ease;
+    transition: border-color $transition-base ease, border-width $transition-base ease;
 
     &:hover {
       border: 2px solid var(--border-unified-color-hover);
@@ -190,7 +190,7 @@ html.dark {
       border-radius: var(--global-border-radius);
       padding: 6px 16px;
       height: 44px;
-      transition: all $transition-base ease;
+      transition: border-color $transition-base ease, border-width $transition-base ease;
 
       &:hover {
         border: 2px solid var(--border-unified-color-hover);

@@ -1,0 +1,22 @@
+{
+  "chat": {
+    "ai": "AI",
+    "me": "我",
+    "model": "模型",
+    "send": "发送",
+    "connected": "已连接",
+    "connecting": "连接中",
+    "connectionError": "连接错误",
+    "disconnected": "已断开",
+    "generating": "生成中",
+    "mockData": "模拟数据",
+    "qwenTurbo": "通义千问 Turbo",
+    "qwenPlus": "通义千问 Plus",
+    "qwenMax": "通义千问 Max",
+    "ctrlEnterPlaceholder": "按 Ctrl+Enter 发送消息",
+    "inputHint": "请输入消息...",
+    "startConversation": "开始新对话",
+    "searchMessage": "搜索消息",
+    "foundMessages": "找到的消息"
+  }
+}

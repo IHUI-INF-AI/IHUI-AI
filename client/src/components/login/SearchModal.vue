@@ -130,7 +130,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   cursor: pointer;
   outline: none;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
   flex-shrink: 0;
 
   &:hover {
@@ -155,12 +155,12 @@ html:not(.dark) .search-close-button svg {
   stroke: var(--el-text-color-primary);
 }
 
-html.dark .search-input-icon {
-  color: var(--color-gray-8d9095);
+:where(html.dark) .search-input-icon {
+  color: var(--el-text-color-placeholder);
 }
 
-html.dark .search-close-button svg {
-  stroke: var(--color-gray-cfd3dc);
+:where(html.dark) .search-close-button svg {
+  stroke: var(--el-border-color-lighter);
 }
 
 @keyframes fadeIn {

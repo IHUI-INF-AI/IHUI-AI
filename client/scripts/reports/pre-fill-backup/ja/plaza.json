@@ -1,0 +1,45 @@
+{
+  "plaza": {
+    "aiChat": "[ZH:aiChat]",
+    "aiCoding": "[ZH:aiCoding]",
+    "aiDrawing": "[ZH:aiDrawing]",
+    "aiNeedPlaza": "[ZH:aiNeedPlaza]",
+    "aiVideo": "[ZH:aiVideo]",
+    "aiWriting": "[ZH:aiWriting]",
+    "all": "[ZH:all]",
+    "anonymous": "[ZH:anonymous]",
+    "back": "[ZH:back]",
+    "completed": "[ZH:completed]",
+    "createNew": "[ZH:createNew]",
+    "form": {
+      "cancel": "[ZH:cancel]",
+      "descriptionPlaceholder": "[ZH:descriptionPlaceholder]",
+      "titlePlaceholder": "[ZH:titlePlaceholder]"
+    },
+    "loading": "[ZH:loading]",
+    "myNeeds": "[ZH:myNeeds]",
+    "needCategory": "[ZH:needCategory]",
+    "needDescription": "[ZH:needDescription]",
+    "needTitle": "[ZH:needTitle]",
+    "needType": "[ZH:needType]",
+    "noData": "[ZH:noData]",
+    "ongoing": "[ZH:ongoing]",
+    "publish": "[ZH:publish]",
+    "publishFirst": "[ZH:publishFirst]",
+    "publishNeed": "[ZH:publishNeed]",
+    "searchPlaceholder": "[ZH:searchPlaceholder]",
+    "selectCategory": "[ZH:selectCategory]",
+    "selectType": "[ZH:selectType]",
+    "submit": "[ZH:submit]",
+    "submitting": "[ZH:submitting]",
+    "subtitle": "[ZH:subtitle]",
+    "type1": "[ZH:type1]",
+    "type2": "[ZH:type2]",
+    "type3": "[ZH:type3]",
+    "types": {
+      "business": "[ZH:business]",
+      "design": "[ZH:design]",
+      "development": "[ZH:development]"
+    }
+  }
+}

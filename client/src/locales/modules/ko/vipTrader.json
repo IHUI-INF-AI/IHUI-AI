@@ -1,0 +1,52 @@
+{
+  "vipTrader": {
+    "features": {
+      "agentBeta": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "aiCourses": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "allVipRights": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "customAgentDiscount": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "distributionQualification": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "founderQa": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "offlineLearning": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "secondaryDistribution": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "title": "标题",
+      "verticalAccountIncubation": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "vipMaxDiscount": {
+        "desc": "描述",
+        "title": "标题"
+      }
+    },
+    "purchase": {
+      "button": "button"
+    },
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

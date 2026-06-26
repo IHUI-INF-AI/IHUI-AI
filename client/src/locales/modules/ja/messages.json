@@ -1,0 +1,23 @@
+{
+  "messages": {
+    "allTasksCompleted": "allTasksCompleted",
+    "cacheCleared": "cacheCleared",
+    "checkFormInput": "checkFormInput",
+    "favoriteAdded": "favoriteAdded",
+    "favoriteRemoved": "favoriteRemoved",
+    "formRefNotFound": "formRefNotFound",
+    "missingAuthParams": "missingAuthParams",
+    "operationFailed": "operationFailed",
+    "pauseResumeQueue": "pauseResumeQueue",
+    "queuePaused": "queuePaused",
+    "queueResumed": "queueResumed",
+    "taskSuccess": "taskSuccess",
+    "tasksCompletedWithFailures": "tasksCompletedWithFailures",
+    "toggleQueueMonitor": "toggleQueueMonitor",
+    "toolNotFound": "toolNotFound",
+    "uploadSuccess": "uploadSuccess",
+    "workflowPaused": "workflowPaused",
+    "workflowResumed": "workflowResumed",
+    "workflowSuccess": "workflowSuccess"
+  }
+}

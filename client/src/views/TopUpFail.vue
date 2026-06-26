@@ -265,7 +265,7 @@ $font-family-mono: monospace;
   // 入场动画
   opacity: 0;
   transform: translateY(30px) scale(0.95);
-  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   
   &--visible {
     opacity: 1;
@@ -386,7 +386,7 @@ $font-family-mono: monospace;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: var(--color-red-transparent-10);
+  background: rgba(var(--el-color-danger-rgb), 0.1);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   margin-bottom: 20px;
@@ -468,7 +468,7 @@ $font-family-mono: monospace;
   font-weight: 600;
   cursor: pointer;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
   &__icon {
     width: 18px;
@@ -487,7 +487,7 @@ $font-family-mono: monospace;
     color: var(--el-bg-color-page);
 
     &:hover {
-      transform: translateY(-2px);
+      
 
       .tf-btn__icon {
         transform: rotate(-45deg);
@@ -507,7 +507,7 @@ $font-family-mono: monospace;
     &:hover {
       background: var(--color-white-10);
       border-color: var(--border-unified-color-hover);
-      transform: translateY(-2px);
+      
       
       .tf-btn__icon {
         transform: scale(1.1);
@@ -579,7 +579,7 @@ $font-family-mono: monospace;
     border-color: var(--border-unified-color);
     
     &__border {
-      background: var(--color-red-transparent-10);
+      background: rgba(var(--el-color-danger-rgb), 0.1);
     }
   }
   

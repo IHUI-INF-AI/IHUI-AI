@@ -1,0 +1,19 @@
+{
+  "dialogBottom": {
+    "agree": "同意",
+    "developerNotice": "developerNotice",
+    "findExpert": "findExpert",
+    "iAmDeveloper": "iAmDeveloper",
+    "ipContent": "ipContent",
+    "ipTitle": "ipTitle",
+    "privacyContent": "privacyContent",
+    "privacyTitle": "privacyTitle",
+    "responsibilityContent": "responsibilityContent",
+    "responsibilityTitle": "responsibilityTitle",
+    "slogan": "slogan",
+    "standardContent": "standardContent",
+    "standardTitle": "standardTitle",
+    "tradeContent": "tradeContent",
+    "tradeTitle": "tradeTitle"
+  }
+}

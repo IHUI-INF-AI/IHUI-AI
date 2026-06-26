@@ -3,10 +3,6 @@
     "searchPlaceholder": {
       "category": "搜索分类",
       "content": "搜索文章"
-    },
-    "label": {
-      "categoryName": "分类名称",
-      "actions": "操作"
     }
   }
 }

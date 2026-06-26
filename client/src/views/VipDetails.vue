@@ -264,7 +264,7 @@ onMounted(() => {
 }
 
 // 暗色模式下的VIP卡片
-html.dark .vip-card {
+:where(html.dark) .vip-card {
   // 扁平化设计：无阴影
 }
 

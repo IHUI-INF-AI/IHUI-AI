@@ -1,0 +1,9 @@
+{
+  "vipIntroducePopup": {
+    "loading": "加载中",
+    "noContinuousOptions": "noContinuousOptions",
+    "noMonthlyOptions": "noMonthlyOptions",
+    "pointsPerMonth": "pointsPerMonth",
+    "trial": "trial"
+  }
+}

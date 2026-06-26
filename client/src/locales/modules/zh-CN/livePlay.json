@@ -1,0 +1,15 @@
+{
+  "livePlay": {
+    "danmuPlaceholder": "danmuPlaceholder",
+    "likes": "点赞",
+    "liveIntro": "liveIntro",
+    "liveNotFound": "liveNotFound",
+    "noIntro": "noIntro",
+    "notLive": "notLive",
+    "points": "积分",
+    "send": "发送",
+    "sentGift": "sentGift",
+    "statistics": "统计",
+    "views": "浏览"
+  }
+}

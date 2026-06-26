@@ -149,7 +149,7 @@ function onViewOrder() {
   align-items: center;
   padding: 28px 20px;
   border-radius: var(--global-border-radius);
-  background: var(--color-gray-fafafa);
+  background: var(--el-fill-color-lighter);
 
   &.incoming {
     background: linear-gradient(135deg, var(--el-text-color-primary) 0%, var(--el-text-color-regular) 100%);
@@ -232,7 +232,7 @@ function onViewOrder() {
 
   &.status-pending {
     background: var(--el-color-primary-light-9);
-    color: var(--color-blue-1890ff);
+    color: var(--el-color-primary);
   }
 
   &.status-failed {
@@ -264,7 +264,7 @@ function onViewOrder() {
   border: var(--unified-border);
   background: transparent;
   color: v.$text-primary;
-  transition: all 0.2s;
+  transition: opacity 0.2s, border-color 0.2s, color 0.2s;
 
   &.primary {
     background: var(--el-text-color-primary);

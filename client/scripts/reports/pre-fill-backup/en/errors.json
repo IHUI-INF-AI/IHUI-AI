@@ -1,0 +1,10 @@
+{
+  "errors": {
+    "aiCallFailed": "[ZH:aiCallFailed]",
+    "cannotLoadSwaggerDocs": "[ZH:cannotLoadSwaggerDocs]",
+    "loadDataFailed": "[ZH:loadDataFailed]",
+    "navigateFail": "[ZH:navigateFail]",
+    "routeNotFound": "[ZH:routeNotFound]",
+    "userInfoEmpty": "[ZH:userInfoEmpty]"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "AgenticAIPage": {
+    "createSwarmFailed": "createSwarmFailed",
+    "createSwarmFailed2": "createSwarmFailed2",
+    "swarmCreated": "swarmCreated"
+  }
+}

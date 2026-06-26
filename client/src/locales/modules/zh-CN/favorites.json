@@ -1,0 +1,18 @@
+{
+  "favorites": {
+    "agent": "智能体",
+    "all": "全部",
+    "conversation": "对话",
+    "knowledge": "knowledge",
+    "noFavorites": "暂无收藏",
+    "removeFavorite": "removeFavorite",
+    "removeFavoriteConfirm": "removeFavoriteConfirm",
+    "removeFavoriteFailed": "removeFavoriteFailed",
+    "removeFavoriteSuccess": "removeFavoriteSuccess",
+    "retry": "重试",
+    "selectType": "选择类型",
+    "subtitle": "副标题",
+    "title": "标题",
+    "tool": "工具"
+  }
+}

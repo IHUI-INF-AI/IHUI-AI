@@ -1,0 +1,120 @@
+{
+  "videoGen": {
+    "kling": {
+      "buttons": {
+        "checkStatus": "查看状态",
+        "checking": "检查中",
+        "generate": "生成",
+        "identify": "识别"
+      },
+      "downloadStarted": "下载已开始",
+      "downloadVideo": "下载视频",
+      "form": {
+        "prompt": "提示词",
+        "promptPlaceholder": "请输入提示词",
+        "selectFace": "选择人脸",
+        "selectFaceId": "选择人脸模板",
+        "selectVideo": "选择视频",
+        "uploadVideo": "上传视频"
+      },
+      "instructions": {
+        "description": "上传视频或选择人脸模板，使用 AI 生成视频内容",
+        "title": "使用说明"
+      },
+      "message": "消息",
+      "messages": {
+        "checkStatusFailed": "查询状态失败",
+        "fillComplete": "请完整填写所有字段",
+        "generateFailed": "生成失败",
+        "identifyFailed": "识别失败",
+        "identifySuccess": "识别成功",
+        "pollTimeout": "轮询超时，请稍后重试",
+        "statusCompleted": "任务已完成",
+        "statusFailed": "任务失败",
+        "taskId": "任务ID",
+        "taskIdRequired": "请输入任务ID",
+        "taskSubmitted": "任务已提交",
+        "uploadFirst": "请先上传文件"
+      },
+      "previewVideo": "预览视频",
+      "startPolling": "开始轮询",
+      "status": {
+        "completed": "已完成",
+        "failed": "失败",
+        "pending": "待处理",
+        "processing": "处理中",
+        "title": "任务状态"
+      },
+      "steps": {
+        "generate": "生成",
+        "identify": "识别",
+        "upload": "上传"
+      },
+      "stopPolling": "停止轮询",
+      "tag": "可灵",
+      "title": "可灵视频生成",
+      "videoUrlEmpty": "视频链接为空"
+    },
+    "oneClick": {
+      "buttons": {
+        "generate": "生成"
+      },
+      "downloadStarted": "下载已开始",
+      "downloadVideo": "下载视频",
+      "durationUnit": "秒",
+      "form": {
+        "audioPlaceholder": "请选择音频风格",
+        "audioStyle": "音频风格",
+        "duration": "时长",
+        "ratio": "画面比例",
+        "topic": "主题",
+        "topicPlaceholder": "请输入视频主题"
+      },
+      "messages": {
+        "checkFailed": "检查失败",
+        "pollTimeout": "轮询超时，请稍后重试",
+        "status": "状态",
+        "topicRequired": "请输入视频主题"
+      },
+      "previewVideo": "预览视频",
+      "ratios": {
+        "r11": "1:1",
+        "r169": "16:9",
+        "r916": "9:16"
+      },
+      "startPolling": "开始轮询",
+      "status": {
+        "completed": "已完成",
+        "failed": "失败",
+        "pending": "待处理",
+        "processing": "处理中"
+      },
+      "stopPolling": "停止轮询",
+      "tag": "一键生成",
+      "title": "一键视频生成",
+      "videoUrlEmpty": "视频链接为空"
+    },
+    "qwen": {
+      "buttons": {
+        "generate": "生成"
+      },
+      "form": {
+        "images": "参考图片",
+        "imagesPlaceholder": "请上传参考图片",
+        "prompt": "提示词",
+        "promptPlaceholder": "请输入提示词"
+      },
+      "messages": {
+        "generateFailed": "生成失败",
+        "generateSuccess": "生成成功",
+        "promptRequired": "请输入提示词"
+      },
+      "progress": {
+        "connecting": "连接中",
+        "generating": "生成中"
+      },
+      "tag": "通义万相",
+      "title": "通义万相视频生成"
+    }
+  }
+}

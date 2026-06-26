@@ -1,0 +1,19 @@
+{
+  "statisticsComponents": {
+    "passed": "已通过",
+    "pending": "待处理",
+    "purchaseStats": "purchaseStats",
+    "rejected": "已拒绝",
+    "reviewStats": "reviewStats",
+    "settled": "已结算",
+    "settlementStats": "settlementStats",
+    "totalPurchases": "totalPurchases",
+    "totalRevenue": "总收入",
+    "totalReviews": "totalReviews",
+    "totalSettlements": "totalSettlements",
+    "totalWithdrawn": "totalWithdrawn",
+    "uniqueAgents": "uniqueAgents",
+    "uniqueBuyers": "uniqueBuyers",
+    "unsettled": "未结算"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "examDo": {
+    "backToList": "返回列表",
+    "duration": "时长",
+    "examResult": "考试结果",
+    "failed": "失败",
+    "inputAnswer": "输入答案",
+    "inputEssay": "inputEssay",
+    "minutes": "分钟",
+    "passScore": "passScore",
+    "passed": "已通过",
+    "questionCount": "questionCount",
+    "remaining": "剩余",
+    "score": "分数",
+    "startExam": "开始考试",
+    "submit": "提交",
+    "typeEssay": "typeEssay",
+    "typeFill": "typeFill",
+    "typeJudge": "typeJudge",
+    "typeMultiple": "typeMultiple",
+    "typeSingle": "typeSingle"
+  }
+}

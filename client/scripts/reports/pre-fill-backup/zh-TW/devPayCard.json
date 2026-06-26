@@ -1,0 +1,18 @@
+{
+  "devPayCard": {
+    "discount": "[ZH:discount]",
+    "discount50": "[ZH:discount50]",
+    "discount70": "[ZH:discount70]",
+    "discount80": "[ZH:discount80]",
+    "month": "[ZH:month]",
+    "noDiscount": "[ZH:noDiscount]",
+    "orderTime": "[ZH:orderTime]",
+    "pending": "[ZH:pending]",
+    "permanent": "[ZH:permanent]",
+    "price": "[ZH:price]",
+    "purchased": "[ZH:purchased]",
+    "relatedOrderNo": "[ZH:relatedOrderNo]",
+    "settled": "[ZH:settled]",
+    "year": "[ZH:year]"
+  }
+}

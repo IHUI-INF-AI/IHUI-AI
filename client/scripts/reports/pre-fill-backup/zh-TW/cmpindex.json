@@ -1,0 +1,28 @@
+{
+  "second": "秒",
+  "minute": "分鐘",
+  "hour": "小時",
+  "day": "日",
+  "month": "月",
+  "week": "週",
+  "year": "年",
+  "timeExpr": "時間表達式",
+  "cronExpr": "Cron表達式",
+  "confirm": "確定",
+  "reset": "重置",
+  "cancel": "取消",
+  "cmpindex": {
+    "cancel": "[ZH:cancel]",
+    "confirm": "[ZH:confirm]",
+    "cronExpr": "[ZH:cronExpr]",
+    "day": "[ZH:day]",
+    "hour": "[ZH:hour]",
+    "minute": "[ZH:minute]",
+    "month": "[ZH:month]",
+    "reset": "[ZH:reset]",
+    "second": "[ZH:second]",
+    "timeExpr": "[ZH:timeExpr]",
+    "week": "[ZH:week]",
+    "year": "[ZH:year]"
+  }
+}

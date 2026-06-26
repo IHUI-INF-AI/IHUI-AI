@@ -1357,11 +1357,11 @@ cleanup.add(() => {
   --bg-input: var(--el-bg-color);
   --bg-code: var(--color-neutral-100);
   --bg-tip: var(--el-text-color-primary);
-  --bg-avatar: var(--color-gray-light);
+  --bg-avatar: var(--el-fill-color-light);
   --bg-quick-action: var(--el-text-color-primary);
-  --text-primary: var(--color-gray-333);
-  --text-secondary: var(--color-gray-666);
-  --text-muted: var(--color-gray-999);
+  --text-primary: var(--el-text-color-primary);
+  --text-secondary: var(--el-text-color-secondary);
+  --text-muted: var(--el-text-color-placeholder);
   --border-color: var(--border-unified-color);
   --accent-color: var(--color-primary);
   --accent-hover: var(--color-primary);
@@ -1376,7 +1376,7 @@ cleanup.add(() => {
 }
 
 // 暗色模式变量
-html.dark .ai-assistant-page {
+:where(html.dark) .ai-assistant-page {
   --bg-page: var(--color-dark-bg-1);
   --bg-card: var(--color-dark-bg-2);
   --bg-input: var(--el-text-color-primary);
@@ -1384,9 +1384,9 @@ html.dark .ai-assistant-page {
   --bg-tip: var(--color-primary-10);
   --bg-avatar: var(--color-dark-bg-3);
   --bg-quick-action: var(--color-primary-10);
-  --text-primary: var(--color-gray-light);
+  --text-primary: var(--el-fill-color-light);
   --text-secondary: var(--el-text-color-primary);
-  --text-muted: var(--color-gray-666);
+  --text-muted: var(--el-text-color-secondary);
   --border-color: var(--border-unified-color);
   --accent-color: var(--color-primary);
   --accent-hover: var(--el-text-color-primary);
@@ -1600,7 +1600,7 @@ html.dark .ai-assistant-page {
   padding: 2px 6px;
   background: var(--bg-code);
   border-radius: var(--global-border-radius);
-  font-family: monospace;
+  font-family: var(--font-family-mono);
 }
 
 .answer-content :deep(.content-link) {
@@ -1687,7 +1687,7 @@ html.dark .ai-assistant-page {
   color: var(--accent-color);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.3s;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 .quick-action-btn:hover {
@@ -1878,7 +1878,7 @@ html.dark .ai-assistant-page {
     padding: 2px 6px;
     background: var(--bg-code);
     border-radius: var(--global-border-radius);
-    font-family: monospace;
+    font-family: var(--font-family-mono);
   }
 
   :deep(.content-link) {

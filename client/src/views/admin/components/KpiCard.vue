@@ -68,7 +68,7 @@ const TrendDown = Warning
 }
 
 .kpi-card:hover {
-  transform: translateY(-2px);
+  
   border-color: var(--el-border-color);
 }
 
@@ -88,7 +88,7 @@ const TrendDown = Warning
 .kpi-card.tone-success { color: var(--el-color-success); }
 .kpi-card.tone-warning { color: var(--el-color-warning); }
 .kpi-card.tone-danger { color: var(--el-color-danger); }
-.kpi-card.tone-info { color: var(--color-blue-1890ff); }
+.kpi-card.tone-info { color: var(--el-color-primary); }
 
 .kpi-body {
   flex: 1;

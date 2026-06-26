@@ -1,0 +1,227 @@
+{
+  "hardcoded": {
+    "a_i_chat": {
+      "isAudioP1": "isAudioP1",
+      "voiceAud": "voiceAud",
+      "删除2": "删除2"
+    },
+    "a_i_dialog": {
+      "新模型1": "新模型1",
+      "热门": "热门",
+      "热门2": "热门2"
+    },
+    "agent": {
+      "scenario": {
+        "企业已部署Q1": "企业已部署Q1",
+        "应用象限": "应用象限",
+        "效率提升": "效率提升"
+      }
+    },
+    "agentic": {
+      "swarm": {
+        "monitor": {
+          "效率": "效率",
+          "目标": "目标",
+          "约束": "约束",
+          "质量": "质量"
+        }
+      }
+    },
+    "agents": {
+      "create": {
+        "基础信息": "基础信息",
+        "配置选项": "配置选项"
+      }
+    },
+    "agents_hub": {
+      "全部平台": "全部平台",
+      "内部1": "内部1"
+    },
+    "aizhs": {
+      "demo": {
+        "Vue3TypeSc": "Vue3TypeSc"
+      }
+    },
+    "app": {
+      "AI智能助手": "AI智能助手"
+    },
+    "code": {
+      "block": {
+        "代码": "代码"
+      }
+    },
+    "content": {
+      "对话区域": "对话区域"
+    },
+    "cross": {
+      "project": {
+        "banner": {
+          "切换?) }}</span>\r\n      <el-button v-if=\"currentSource === ": "切换?) }}</span>\r\n      <el-button v-if=\"currentSource === ",
+          "总管理端": "总管理端",
+          "用户?) }}</el-button>\r\n      <el-button v-if=\"currentSource === ": "用户?) }}</el-button>\r\n      <el-button v-if=\"currentSource === "
+        }
+      }
+    },
+    "demo": {
+      "navigation": {
+        "组件演示导航": "组件演示导航",
+        "返回首页": "返回首页"
+      }
+    },
+    "edu_documentation": {
+      "allDocs": "allDocs",
+      "confirmDelete": "确认删除",
+      "convertFailed": "convertFailed",
+      "converting": "converting",
+      "deleteConfirm": "确认删除?",
+      "deleteConfirmTitle": "确认删除",
+      "deleteFailed": "删除失败",
+      "deleteSuccess": "删除成功",
+      "docCategory": "docCategory",
+      "docTitle": "docTitle",
+      "docTitlePlaceholder": "docTitlePlaceholder",
+      "documentCenter": "文档中心",
+      "downloadDocument": "downloadDocument",
+      "editDialogTitle": "editDialogTitle",
+      "enterTitle": "请输入标题",
+      "exitFullscreen": "退出全屏",
+      "filePreview": "filePreview",
+      "formatAudio": "formatAudio",
+      "formatDocs": "formatDocs",
+      "formatImages": "formatImages",
+      "formatSheets": "formatSheets",
+      "formatSlides": "formatSlides",
+      "formatVideos": "formatVideos",
+      "fullscreenView": "fullscreenView",
+      "iframeLoadFailed": "iframeLoadFailed",
+      "iframeLoadTimeout": "iframeLoadTimeout",
+      "loadingDocument": "loadingDocument",
+      "modeMarkdown": "modeMarkdown",
+      "modeMarkdownDesc": "modeMarkdownDesc",
+      "modeOriginal": "modeOriginal",
+      "modeOriginalDesc": "modeOriginalDesc",
+      "noDocs": "noDocs",
+      "noFileSelected": "noFileSelected",
+      "noMatchingDocs": "noMatchingDocs",
+      "officePreviewUnavailable": "officePreviewUnavailable",
+      "reload": "重新加载",
+      "saving": "保存中",
+      "search": "搜索",
+      "selectFile": "选择文件",
+      "selectFileLabel": "selectFileLabel",
+      "supportedFormats": "supportedFormats",
+      "updateFailed": "更新失败",
+      "updateSuccess": "更新成功",
+      "uploadAndConvert": "uploadAndConvert",
+      "uploadDialogTitle": "uploadDialogTitle",
+      "uploadDocument": "uploadDocument",
+      "uploadFailed": "上传失败",
+      "uploadMode": "uploadMode",
+      "uploadRetry": "uploadRetry",
+      "uploadSuccessMarkdown": "uploadSuccessMarkdown",
+      "uploadSuccessOriginal": "uploadSuccessOriginal",
+      "uploadSuccessViewHint": "uploadSuccessViewHint",
+      "uploadTimeout": "uploadTimeout",
+      "uploading": "上传中",
+      "正在加载文档": "正在加载文档",
+      "目录": "目录",
+      "目录导航": "目录导航",
+      "返回": "返回",
+      "返回顶部1": "返回顶部1",
+      "重新加载": "重新加载"
+    },
+    "headerActions": {
+      "close": "关闭",
+      "scanWechatTip": "scanWechatTip",
+      "wechatMiniProgram": "wechatMiniProgram",
+      "wechatQrCode": "wechatQrCode"
+    },
+    "header_logo": {
+      "展开或收起移动端": "展开或收起移动端"
+    },
+    "human": {
+      "machine": {
+        "collaboration": {
+          "成本降低": "成本降低",
+          "效率提升": "效率提升",
+          "满意度": "满意度"
+        }
+      }
+    },
+    "index": {
+      "反馈": "反馈",
+      "选择字体": "选择字体"
+    },
+    "input1": {
+      "发送1": "发送1",
+      "启用工具": "启用工具",
+      "模板": "模板",
+      "模板列表内容": "模板列表内容",
+      "请输入您的需求可": "请输入您的需求可",
+      "选择模板": "选择模板"
+    },
+    "mobile": {
+      "menu": {
+        "AI应用商店": "AI应用商店",
+        "关于我们": "关于我们",
+        "服务与支持": "服务与支持"
+      }
+    },
+    "models_hub": {
+      "图片1": "图片1",
+      "文本": "文本",
+      "视频2": "视频2",
+      "音频3": "音频3"
+    },
+    "package": {
+      "card": {
+        "月": "月"
+      }
+    },
+    "project": {
+      "selector": {
+        "demo": {
+          "Header样式移动": "Header样式移动",
+          "当前选择": "当前选择",
+          "登录页横幅样式": "登录页横幅样式",
+          "选中项目": "选中项目",
+          "项目Key": "项目Key",
+          "项目URL": "项目URL",
+          "项目选择器组件演示": "项目选择器组件演示"
+        }
+      }
+    },
+    "prompt_templates": {
+      "分类5": "分类5",
+      "模板内容4": "模板内容4",
+      "模板名称3": "模板名称3",
+      "添加自定义模板2": "添加自定义模板2",
+      "输入具体的提示词1": "输入具体的提示词1",
+      "输入模板名称如周": "输入模板名称如周"
+    },
+    "scroll_down_button": {
+      "向下滚动": "向下滚动"
+    },
+    "voice": {
+      "record": {
+        "语音录制组件已拆分请": "语音录制组件已拆分请"
+      },
+      "recording": {
+        "animation": {
+          "图标": "图标",
+          "完成": "完成",
+          "录音": "录音",
+          "提供": "提供",
+          "智汇AI": "智汇AI",
+          "服务": "服务",
+          "点击": "点击",
+          "麦克风": "麦克风"
+        }
+      }
+    },
+    "xuqiu_detail": {
+      "errorMes1": "errorMes1",
+      "加载失败": "加载失败"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "adminDependencyManager": {
+    "confirmDeleteConfig": "confirmDeleteConfig",
+    "enterTourId": "enterTourId",
+    "newConfig": "newConfig"
+  }
+}

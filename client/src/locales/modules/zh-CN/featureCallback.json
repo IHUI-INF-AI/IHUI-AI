@@ -1,0 +1,8 @@
+{
+  "featureCallback": {
+    "attack": "attack",
+    "expired": "已过期",
+    "missing": "missing",
+    "verifyFailed": "验证失败"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "pointCenter": {
+    "availablePoints": "[ZH:availablePoints]",
+    "dailySignin": "[ZH:dailySignin]",
+    "exchangeConfirm": "[ZH:exchangeConfirm]",
+    "exchangeConfirmTitle": "[ZH:exchangeConfirmTitle]",
+    "exchangeFailed": "[ZH:exchangeFailed]",
+    "exchangeNow": "[ZH:exchangeNow]",
+    "exchangeSuccess": "[ZH:exchangeSuccess]",
+    "level": "[ZH:level]",
+    "noExchanges": "[ZH:noExchanges]",
+    "noGoods": "[ZH:noGoods]",
+    "noLogs": "[ZH:noLogs]",
+    "points": "[ZH:points]",
+    "signedToday": "[ZH:signedToday]",
+    "signinFailed": "[ZH:signinFailed]",
+    "signinSuccess": "[ZH:signinSuccess]",
+    "statusCancelled": "[ZH:statusCancelled]",
+    "statusCompleted": "[ZH:statusCompleted]",
+    "statusPending": "[ZH:statusPending]",
+    "statusShipped": "[ZH:statusShipped]",
+    "statusUnknown": "[ZH:statusUnknown]",
+    "stock": "[ZH:stock]",
+    "subtitle": "[ZH:subtitle]",
+    "tabExchanges": "[ZH:tabExchanges]",
+    "tabGoods": "[ZH:tabGoods]",
+    "tabLogs": "[ZH:tabLogs]",
+    "title": "[ZH:title]",
+    "total": "[ZH:total]",
+    "used": "[ZH:used]"
+  }
+}

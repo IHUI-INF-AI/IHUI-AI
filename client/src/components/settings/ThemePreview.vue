@@ -131,7 +131,7 @@ onUnmounted(() => {
   border: 2px solid transparent;
   border-radius: var(--global-border-radius);
   padding: 8px;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, border-width 0.2s ease;
 }
 
 .preview-mode-card:hover {

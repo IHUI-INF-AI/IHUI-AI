@@ -1,0 +1,23 @@
+{
+  "messages": {
+    "allTasksCompleted": "allTasksCompleted",
+    "cacheCleared": "缓存已清空",
+    "checkFormInput": "checkFormInput",
+    "favoriteAdded": "favoriteAdded",
+    "favoriteRemoved": "favoriteRemoved",
+    "formRefNotFound": "formRefNotFound",
+    "missingAuthParams": "missingAuthParams",
+    "operationFailed": "操作失败",
+    "pauseResumeQueue": "pauseResumeQueue",
+    "queuePaused": "队列已暂停",
+    "queueResumed": "queueResumed",
+    "taskSuccess": "taskSuccess",
+    "tasksCompletedWithFailures": "tasksCompletedWithFailures",
+    "toggleQueueMonitor": "toggleQueueMonitor",
+    "toolNotFound": "工具未找到",
+    "uploadSuccess": "上传成功",
+    "workflowPaused": "workflowPaused",
+    "workflowResumed": "workflowResumed",
+    "workflowSuccess": "workflowSuccess"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "confirmPurchase": {
+    "agreeTerms": "agreeTerms",
+    "createOrderFailed": "createOrderFailed",
+    "payCancelled": "payCancelled",
+    "paySuccess": "paySuccess",
+    "paymentMethod": "paymentMethod",
+    "pleaseLogin": "请先登录",
+    "priv1": "priv1",
+    "priv2": "priv2",
+    "priv3": "priv3",
+    "priv4": "priv4",
+    "priv5": "priv5",
+    "redirectingPay": "redirectingPay",
+    "vipTitle": "vipTitle",
+    "wechat": "wechat",
+    "wechatPay": "wechatPay"
+  }
+}

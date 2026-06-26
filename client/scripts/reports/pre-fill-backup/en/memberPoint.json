@@ -1,0 +1,12 @@
+{
+  "memberPoint": {
+    "available": "[ZH:available]",
+    "continuousSign": "[ZH:continuousSign]",
+    "days": "[ZH:days]",
+    "level": "[ZH:level]",
+    "myPoints": "[ZH:myPoints]",
+    "pointDetails": "[ZH:pointDetails]",
+    "totalPoints": "[ZH:totalPoints]",
+    "used": "[ZH:used]"
+  }
+}

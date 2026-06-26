@@ -42,7 +42,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--global-border-radius);
-  transition: all 0.2s ease;
+  transition: width 0.2s ease, padding 0.2s ease, background-color 0.2s ease;
   font-size: var(--header-action-font-size, 14px);
   font-weight: 700;
 }
@@ -433,7 +433,7 @@ body .app-download-dropdown-menu {
 }
 
 @keyframes mobileMenuSlideIn {
-  from { opacity: 0; transform: translateY(-8px); }
+  from { opacity: 0;  }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -622,8 +622,8 @@ body .app-download-dropdown-menu {
 
 :where(#mobile-menu) .mobile-login-row .mobile-login-button:hover,
 :where(.mobile-menu) .mobile-login-row .mobile-login-button:hover {
-  background-color: var(--color-gray-333);
-  background: var(--color-gray-333);
+  background-color: var(--el-text-color-primary);
+  background: var(--el-text-color-primary);
   color: var(--color-white);
   -webkit-text-fill-color: var(--color-white);
 }
@@ -638,8 +638,8 @@ body .app-download-dropdown-menu {
 
 :where(html.dark) :where(#mobile-menu) .mobile-login-row .mobile-login-button:hover,
 :where(html.dark) :where(.mobile-menu) .mobile-login-row .mobile-login-button:hover {
-  background-color: var(--color-gray-333);
-  background: var(--color-gray-333);
+  background-color: var(--el-text-color-primary);
+  background: var(--el-text-color-primary);
   color: var(--color-white);
   -webkit-text-fill-color: var(--color-white);
 }
@@ -721,7 +721,7 @@ body .app-download-dropdown-menu {
         border: none;
         background-color: transparent;
         color: var(--el-text-color-primary);
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease, color 0.2s ease;
         
         &:hover { background-color: var(--el-fill-color-light); }
 

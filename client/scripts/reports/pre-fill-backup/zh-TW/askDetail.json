@@ -1,0 +1,14 @@
+{
+  "askDetail": {
+    "adopt": "[ZH:adopt]",
+    "adopted": "[ZH:adopted]",
+    "answers": "[ZH:answers]",
+    "backToList": "[ZH:backToList]",
+    "essence": "[ZH:essence]",
+    "favorite": "[ZH:favorite]",
+    "questionNotFound": "[ZH:questionNotFound]",
+    "submitAnswer": "[ZH:submitAnswer]",
+    "top": "[ZH:top]",
+    "writeAnswerPlaceholder": "[ZH:writeAnswerPlaceholder]"
+  }
+}

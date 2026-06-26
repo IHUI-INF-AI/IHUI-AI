@@ -1446,10 +1446,10 @@ const handleImageLoad = (event: Event, index: number) => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: var(--color-gray-999);
+  color: var(--el-text-color-placeholder);
   
   &:hover {
-    color: var(--color-gray-333);
+    color: var(--el-text-color-primary);
   }
 }
 
@@ -1466,7 +1466,7 @@ const handleImageLoad = (event: Event, index: number) => {
 
 .miniapp-scan-tip {
   font-size: 14px;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
 }
 </style>
 

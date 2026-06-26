@@ -1,0 +1,20 @@
+{
+  "resourceList": {
+    "desc": "[ZH:desc]",
+    "empty": "[ZH:empty]",
+    "free": "[ZH:free]",
+    "points": "[ZH:points]",
+    "searchPlaceholder": "[ZH:searchPlaceholder]",
+    "sortDownload": "[ZH:sortDownload]",
+    "sortHot": "[ZH:sortHot]",
+    "sortNew": "[ZH:sortNew]",
+    "title": "[ZH:title]",
+    "top": "[ZH:top]",
+    "typeArchive": "[ZH:typeArchive]",
+    "typeAudio": "[ZH:typeAudio]",
+    "typeDoc": "[ZH:typeDoc]",
+    "typeImage": "[ZH:typeImage]",
+    "typePlaceholder": "[ZH:typePlaceholder]",
+    "typeVideo": "[ZH:typeVideo]"
+  }
+}

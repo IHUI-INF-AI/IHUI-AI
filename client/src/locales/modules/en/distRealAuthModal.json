@@ -1,0 +1,7 @@
+{
+  "distRealAuthModal": {
+    "incompleteUserInfo": "incompleteUserInfo",
+    "realAuthFailed": "realAuthFailed",
+    "realAuthSuccess": "realAuthSuccess"
+  }
+}

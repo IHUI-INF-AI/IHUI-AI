@@ -534,7 +534,7 @@ onMounted(async () => {
     font-size: 13px;
     color: var(--el-text-color-regular);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.2s, background-color 0.2s, color 0.2s;
     user-select: none;
   }
 
@@ -567,7 +567,7 @@ onMounted(async () => {
     color: var(--el-text-color-primary);
     background: var(--el-bg-color);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.2s, background-color 0.2s, color 0.2s, opacity 0.2s;
     font-family: inherit;
   }
 

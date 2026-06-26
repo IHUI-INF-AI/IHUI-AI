@@ -1,0 +1,8 @@
+{
+  "utils": {
+    "voiceRecorder": {
+      "microphonePermissionDenied": "microphonePermissionDenied",
+      "recordingFailed": "recordingFailed"
+    }
+  }
+}

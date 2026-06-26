@@ -1,0 +1,15 @@
+{
+  "distributionOrders": {
+    "statusCancelled": "statusCancelled",
+    "statusPaid": "statusPaid",
+    "statusPending": "statusPending",
+    "statusUnknown": "statusUnknown",
+    "subtitle": "副标题",
+    "tabAll": "tabAll",
+    "tabCancelled": "tabCancelled",
+    "tabPaid": "tabPaid",
+    "tabPending": "tabPending",
+    "title": "标题",
+    "unknownProduct": "unknownProduct"
+  }
+}

@@ -564,7 +564,7 @@ $uc-transition-slow: 0.6s;
 
   &:hover {
     border-color: $uc-border-glow;
-    transform: translateY(-2px);
+    
   }
 
   &--hero {

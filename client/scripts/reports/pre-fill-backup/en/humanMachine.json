@@ -1,0 +1,180 @@
+{
+  "humanMachine": {
+    "architecture": {
+      "infoWorld": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "physicalWorld": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "superEnterprise": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      }
+    },
+    "cta": {
+      "contact": "[ZH:contact]",
+      "description": "[ZH:description]",
+      "learnMore": "[ZH:learnMore]",
+      "title": "[ZH:title]"
+    },
+    "footer": {
+      "agentScenario": "[ZH:agentScenario]",
+      "contact": "[ZH:contact]",
+      "enterprise": "[ZH:enterprise]"
+    },
+    "heroSubtitle": "[ZH:heroSubtitle]",
+    "heroTitle": "[ZH:heroTitle]",
+    "implementation": {
+      "intro": "[ZH:intro]",
+      "steps": {
+        "assessment": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        },
+        "optimize": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        },
+        "pilot": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        },
+        "planning": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        },
+        "scale": {
+          "desc": "[ZH:desc]",
+          "title": "[ZH:title]"
+        }
+      },
+      "title": "[ZH:title]"
+    },
+    "infoWorld": {
+      "advanced": {
+        "description": "[ZH:description]",
+        "items": {
+          "agent": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "generative": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "perception": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "physical": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          }
+        },
+        "title": "[ZH:title]"
+      },
+      "basic": {
+        "description": "[ZH:description]",
+        "items": {
+          "automation": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "informatization": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          },
+          "iot": {
+            "desc": "[ZH:desc]",
+            "name": "[ZH:name]"
+          }
+        },
+        "title": "[ZH:title]"
+      },
+      "evolution": "[ZH:evolution]",
+      "intro": "[ZH:intro]",
+      "title": "[ZH:title]"
+    },
+    "physicalWorld": {
+      "humanValue": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]",
+        "values": {
+          "critical": "[ZH:critical]",
+          "culture": "[ZH:culture]",
+          "humility": "[ZH:humility]",
+          "mission": "[ZH:mission]"
+        }
+      },
+      "intro": "[ZH:intro]",
+      "process": {
+        "description": "[ZH:description]",
+        "forward": {
+          "goal": "[ZH:goal]",
+          "label": "[ZH:label]",
+          "process": "[ZH:process]",
+          "role": "[ZH:role]"
+        },
+        "reverse": {
+          "label": "[ZH:label]",
+          "process": "[ZH:process]",
+          "role": "[ZH:role]"
+        },
+        "title": "[ZH:title]"
+      },
+      "structure": {
+        "description": "[ZH:description]",
+        "features": {
+          "digital": "[ZH:digital]",
+          "hybrid": "[ZH:hybrid]",
+          "mapping": "[ZH:mapping]"
+        },
+        "title": "[ZH:title]"
+      },
+      "title": "[ZH:title]"
+    },
+    "superEnterprise": {
+      "intro": "[ZH:intro]",
+      "metrics": {
+        "cost": "[ZH:cost]",
+        "costDesc": "[ZH:costDesc]",
+        "efficiency": "[ZH:efficiency]",
+        "efficiencyDesc": "[ZH:efficiencyDesc]",
+        "experience": "[ZH:experience]",
+        "experienceDesc": "[ZH:experienceDesc]",
+        "title": "[ZH:title]"
+      },
+      "superEmployee": {
+        "description": "[ZH:description]",
+        "features": {
+          "creativity": "[ZH:creativity]",
+          "decision": "[ZH:decision]",
+          "productivity": "[ZH:productivity]"
+        },
+        "title": "[ZH:title]"
+      },
+      "superProduct": {
+        "description": "[ZH:description]",
+        "features": {
+          "intelligent": "[ZH:intelligent]",
+          "iterative": "[ZH:iterative]",
+          "personalized": "[ZH:personalized]"
+        },
+        "title": "[ZH:title]"
+      },
+      "superTeam": {
+        "description": "[ZH:description]",
+        "features": {
+          "agility": "[ZH:agility]",
+          "collaboration": "[ZH:collaboration]",
+          "intelligence": "[ZH:intelligence]"
+        },
+        "title": "[ZH:title]"
+      },
+      "title": "[ZH:title]"
+    }
+  }
+}

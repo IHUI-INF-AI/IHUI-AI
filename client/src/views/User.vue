@@ -628,7 +628,7 @@ $bg-page: var(--el-bg-color-page);
   transition: opacity 0.6s ease, transform 0.6s ease;
 
   &.scroll-animated {
-    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -677,7 +677,7 @@ $bg-page: var(--el-bg-color-page);
       border-bottom: var(--unified-border-bottom);
 
       .nav-badge-text {
-        font-family: 'EDIX';
+        font-family: var(--font-family-edix);
         font-size: 16px;
         font-weight: 600;
         color: var(--el-text-color-secondary);
@@ -700,7 +700,7 @@ $bg-page: var(--el-bg-color-page);
       margin-bottom: 4px;
       position: relative;
       overflow: hidden;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       border: none;
       background: transparent;
 
@@ -712,7 +712,7 @@ $bg-page: var(--el-bg-color-page);
         justify-content: center;
         background: var(--el-fill-color-light);
         border-radius: var(--global-border-radius);
-        transition: all 0.3s;
+        transition: background-color 0.3s, transform 0.3s;
         flex-shrink: 0;
       }
 
@@ -814,7 +814,7 @@ $bg-page: var(--el-bg-color-page);
     }
 
     .badge-text {
-      font-family: 'EDIX';
+      font-family: var(--font-family-edix);
       font-size: 14px;
       font-weight: 600;
       letter-spacing: 0.05em;
@@ -857,7 +857,7 @@ $bg-page: var(--el-bg-color-page);
 // ============ 内容切换动画 ============
 .content-fade-enter-active,
 .content-fade-leave-active {
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .content-fade-enter-from {
@@ -980,7 +980,7 @@ $bg-page: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
   background: var(--el-fill-color-lighter);
   cursor: pointer;
-  transition: all 0.25s;
+  transition: background-color 0.25s, transform 0.25s;
 
   &:hover {
     background: var(--el-fill-color);
@@ -1038,10 +1038,10 @@ $bg-page: var(--el-bg-color-page);
   overflow: hidden;
   background: var(--el-fill-color-lighter);
   cursor: pointer;
-  transition: all 0.25s;
+  transition: border-color 0.25s, transform 0.25s;
 
   &:hover {
-    transform: translateY(-4px);
+    
     border-color: var(--el-border-color);
   }
 
@@ -1077,11 +1077,11 @@ $bg-page: var(--el-bg-color-page);
   border: 1px solid transparent;
   background: var(--el-fill-color-lighter);
   cursor: pointer;
-  transition: all 0.25s;
+  transition: background-color 0.25s, border-color 0.25s, transform 0.25s;
 
   &:hover {
     background: var(--el-fill-color);
-    transform: translateY(-2px);
+    
     border-color: var(--el-border-color);
   }
 
@@ -1203,7 +1203,7 @@ $bg-page: var(--el-bg-color-page);
 }
 
 // ============ 暗色模式适配 ============
-html.dark {
+:where(html.dark) {
   .glass-card {
     --glass-card-bg: var(--el-bg-color);
     --glass-card-border: var(--unified-border);

@@ -1,0 +1,24 @@
+{
+  "themePreset": {
+    "applied": "applied",
+    "create": "创建",
+    "created": "created",
+    "deleteConfirm": "确认删除?",
+    "deleted": "已删除",
+    "duplicated": "duplicated",
+    "edit": "编辑",
+    "export": "导出",
+    "exported": "exported",
+    "import": "导入",
+    "importFailed": "importFailed",
+    "imported": "imported",
+    "mode": "mode",
+    "name": "名称",
+    "nameRequired": "nameRequired",
+    "reset": "重置",
+    "resetConfirm": "resetConfirm",
+    "resetSuccess": "resetSuccess",
+    "title": "标题",
+    "updated": "updated"
+  }
+}

@@ -1181,7 +1181,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       --header-btn-icon-size: var(--aid-icon-md);
       
       padding: 0;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       border-radius: var(--global-border-radius);
       display: inline-flex;
       align-items: center;
@@ -1286,7 +1286,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           padding: 10px 12px;
           font-size: 14px;
           line-height: 1.6;
-          transition: all 0.2s ease;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, outline-color 0.2s ease;
           resize: none;
           background: transparent;
           color: var(--el-text-color-primary);
@@ -1823,7 +1823,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         
         padding: 0;
         border-radius: var(--global-border-radius);
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1979,7 +1979,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
         &:active:not(:disabled) {
           transform: translateY(0) scale(1); // 扁平化设计
-          transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         &:disabled {
@@ -2362,7 +2362,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         border-color: rgb(var(--el-color-primary-rgb), 0.6);
         color: var(--color-on-primary);
         transform: translateY(0) scale(1); // 扁平化设计
-        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       &:disabled {
@@ -2459,7 +2459,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       user-select: none;
       padding: 4px 8px;
       border-radius: var(--global-border-radius);
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, border-width 0.2s ease;
       box-sizing: border-box;
 
       // 未激活状态：低对比度描边
@@ -2570,7 +2570,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     margin-right: 0;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, border-width 0.2s ease;
     cursor: pointer;
     height: var(--mct-item-height);
     line-height: 16px;
@@ -3119,8 +3119,8 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         background: var(--el-fill-color-light);
         color: var(--el-text-color-secondary);
         border: var(--unified-border);
-        transition: all 0.2s ease;
-        
+        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
         .el-icon {
           font-size: 12px;
         }
@@ -3167,7 +3167,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     margin: 0;
     padding: 8px 12px;
     border-radius: var(--global-border-radius);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 
     &:hover {
       background: var(--el-fill-color-light);

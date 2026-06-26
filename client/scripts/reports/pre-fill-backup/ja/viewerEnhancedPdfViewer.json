@@ -1,0 +1,11 @@
+{
+  "viewerEnhancedPdfViewer": {
+    "download": "[ZH:download]",
+    "fullscreen": "[ZH:fullscreen]",
+    "loadingPdf": "[ZH:loadingPdf]",
+    "pdfLoadFailed": "[ZH:pdfLoadFailed]",
+    "prevPage": "[ZH:prevPage]",
+    "search": "[ZH:search]",
+    "zoomOut": "[ZH:zoomOut]"
+  }
+}

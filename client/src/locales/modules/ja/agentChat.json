@@ -1,0 +1,47 @@
+{
+  "agentChat": {
+    "agentReply": "agentReply",
+    "audioRecording": "audioRecording",
+    "errors": {
+      "loadModelsFailed": "loadModelsFailed",
+      "sendMessageFailed": "sendMessageFailed",
+      "startVoiceRecognitionFailed": "startVoiceRecognitionFailed",
+      "switchModeFailed": "switchModeFailed"
+    },
+    "hideReasoning": "hideReasoning",
+    "inputMessagePlaceholder": "inputMessagePlaceholder",
+    "messageSent": "messageSent",
+    "pleaseEnterContent": "pleaseEnterContent",
+    "reasoningChain": {
+      "step1": "step1",
+      "step2": "step2",
+      "step3": "step3"
+    },
+    "roles": {
+      "assistant": "assistant",
+      "user": "用户"
+    },
+    "showReasoning": "showReasoning",
+    "stages": {
+      "acting": "acting",
+      "reasoning": "reasoning",
+      "result": "result"
+    },
+    "success": {
+      "copyToClipboard": "copyToClipboard",
+      "messageDeleted": "messageDeleted",
+      "messageUpdated": "messageUpdated"
+    },
+    "timeLabels": {
+      "justNow": "justNow",
+      "minutesAgo": "minutesAgo"
+    },
+    "voiceRecognition": {
+      "stopped": "stopped"
+    },
+    "warnings": {
+      "confirmDelete": "确认删除",
+      "maxFileUpload": "maxFileUpload"
+    }
+  }
+}

@@ -332,7 +332,7 @@ cleanup.add(() => {
 }
 
 .compare-btn:hover {
-  background: var(--color-blue-245bdb);
+  background: var(--el-color-primary);
 }
 
 .sync-controls {

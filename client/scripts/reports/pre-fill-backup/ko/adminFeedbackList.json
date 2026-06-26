@@ -1,0 +1,7 @@
+{
+  "adminFeedbackList": {
+    "closed": "[ZH:closed]",
+    "resolved": "[ZH:resolved]",
+    "setProcessing": "[ZH:setProcessing]"
+  }
+}

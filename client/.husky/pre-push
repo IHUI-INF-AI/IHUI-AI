@@ -1,6 +1,11 @@
 #!/usr/bin/env sh
-# Pre-push 钩子：完整 TypeScript 类型检查 + 样式审计 + 高特异性检测
-# 防止有类型错误或样式问题的代码进入远端分支
+# Pre-push 钩子：完整 TypeScript 类型检查 + 样式审计 + 高特异性检测 + i18n 完整性
+# 防止有类型错误或样式问题或 i18n 缺失键的代码进入远端分支
+#
+# 2026-06-26 新增: i18n 完整性检查 (check:i18n:completeness + check:i18n:keys)
+#   - check:i18n:completeness: 5 种语言之间的覆盖率, 低于阈值 (en=90%, ja=50%, ko=30%, zh-TW=80%) 失败
+#   - check:i18n:keys: 源码 t('xxx') 引用 vs locale 文件, 与 baseline 对比, 新增缺失键则失败
+#     (项目历史有 9064 个已知缺失键, baseline 已锁定, 仅拦新增)
 
 set -e
 
@@ -16,3 +21,9 @@ npm run tokens:naming --silent
 
 echo "▶ Running high specificity selector check..."
 HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent
+
+echo "▶ Running i18n completeness check (5-language coverage)..."
+npm run check:i18n --silent
+
+echo "▶ Running i18n key reference check (vs baseline)..."
+npm run check:i18n:keys --silent

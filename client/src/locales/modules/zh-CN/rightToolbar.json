@@ -1,0 +1,12 @@
+{
+  "rightToolbar": {
+    "columnDisplay": "columnDisplay",
+    "dialogTitle": "对话框标题",
+    "hide": "隐藏",
+    "hideSearch": "hideSearch",
+    "refresh": "刷新",
+    "show": "显示",
+    "showSearch": "showSearch",
+    "toggleColumns": "toggleColumns"
+  }
+}

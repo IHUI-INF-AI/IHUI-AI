@@ -1,0 +1,9 @@
+{
+  "drama": {
+    "addCharDesc": "addCharDesc",
+    "coherent": "coherent",
+    "confirmCharContinue": "confirmCharContinue",
+    "sceneTransition": "sceneTransition",
+    "transition": "transition"
+  }
+}

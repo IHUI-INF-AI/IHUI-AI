@@ -1,0 +1,9 @@
+{
+  "security": {
+    "newDeviceLogin": "[ZH:newDeviceLogin]",
+    "newDeviceLoginMessage": "[ZH:newDeviceLoginMessage]",
+    "secureAccount": "[ZH:secureAccount]",
+    "suspiciousLogin": "[ZH:suspiciousLogin]",
+    "suspiciousLoginMessage": "[ZH:suspiciousLoginMessage]"
+  }
+}

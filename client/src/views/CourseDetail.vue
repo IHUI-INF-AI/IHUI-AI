@@ -185,7 +185,7 @@ function buyNow() {
 
     .text {
       font-size: 14px;
-      color: var(--color-gray-333);
+      color: var(--el-text-color-primary);
     }
   }
 }
@@ -198,13 +198,13 @@ function buyNow() {
   .section-title {
     font-size: 16px;
     font-weight: 700;
-    color: var(--color-gray-333);
+    color: var(--el-text-color-primary);
     margin-bottom: 12px;
   }
 
   .section-content {
     font-size: 14px;
-    color: var(--color-gray-666);
+    color: var(--el-text-color-secondary);
     line-height: 1.8;
   }
 }
@@ -222,18 +222,18 @@ function buyNow() {
   padding-right: 12px;
 
   .outline-title {
-    color: var(--color-gray-333);
+    color: var(--el-text-color-primary);
   }
 
   .outline-duration {
-    color: var(--color-gray-999);
+    color: var(--el-text-color-placeholder);
     font-size: 12px;
   }
 }
 
 .outline-content {
   font-size: 13px;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
   line-height: 1.6;
 }
 

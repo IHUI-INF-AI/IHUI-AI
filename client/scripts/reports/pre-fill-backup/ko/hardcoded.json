@@ -1,0 +1,227 @@
+{
+  "hardcoded": {
+    "a_i_chat": {
+      "isAudioP1": "[ZH:isAudioP1]",
+      "voiceAud": "[ZH:voiceAud]",
+      "删除2": "[ZH:删除2]"
+    },
+    "a_i_dialog": {
+      "新模型1": "[ZH:新模型1]",
+      "热门": "[ZH:热门]",
+      "热门2": "[ZH:热门2]"
+    },
+    "agent": {
+      "scenario": {
+        "企业已部署Q1": "[ZH:企业已部署Q1]",
+        "应用象限": "[ZH:应用象限]",
+        "效率提升": "[ZH:效率提升]"
+      }
+    },
+    "agentic": {
+      "swarm": {
+        "monitor": {
+          "效率": "[ZH:效率]",
+          "目标": "[ZH:目标]",
+          "约束": "[ZH:约束]",
+          "质量": "[ZH:质量]"
+        }
+      }
+    },
+    "agents": {
+      "create": {
+        "基础信息": "[ZH:基础信息]",
+        "配置选项": "[ZH:配置选项]"
+      }
+    },
+    "agents_hub": {
+      "全部平台": "[ZH:全部平台]",
+      "内部1": "[ZH:内部1]"
+    },
+    "aizhs": {
+      "demo": {
+        "Vue3TypeSc": "[ZH:Vue3TypeSc]"
+      }
+    },
+    "app": {
+      "AI智能助手": "[ZH:AI智能助手]"
+    },
+    "code": {
+      "block": {
+        "代码": "[ZH:代码]"
+      }
+    },
+    "content": {
+      "对话区域": "[ZH:对话区域]"
+    },
+    "cross": {
+      "project": {
+        "banner": {
+          "切换?) }}</span>\r\n      <el-button v-if=\"currentSource === ": "[ZH:切换?) }}</span>\r\n      <el-button v-if=\"currentSource === ]",
+          "总管理端": "[ZH:总管理端]",
+          "用户?) }}</el-button>\r\n      <el-button v-if=\"currentSource === ": "[ZH:用户?) }}</el-button>\r\n      <el-button v-if=\"currentSource === ]"
+        }
+      }
+    },
+    "demo": {
+      "navigation": {
+        "组件演示导航": "[ZH:组件演示导航]",
+        "返回首页": "[ZH:返回首页]"
+      }
+    },
+    "edu_documentation": {
+      "allDocs": "[ZH:allDocs]",
+      "confirmDelete": "[ZH:confirmDelete]",
+      "convertFailed": "[ZH:convertFailed]",
+      "converting": "[ZH:converting]",
+      "deleteConfirm": "[ZH:deleteConfirm]",
+      "deleteConfirmTitle": "[ZH:deleteConfirmTitle]",
+      "deleteFailed": "[ZH:deleteFailed]",
+      "deleteSuccess": "[ZH:deleteSuccess]",
+      "docCategory": "[ZH:docCategory]",
+      "docTitle": "[ZH:docTitle]",
+      "docTitlePlaceholder": "[ZH:docTitlePlaceholder]",
+      "documentCenter": "[ZH:documentCenter]",
+      "downloadDocument": "[ZH:downloadDocument]",
+      "editDialogTitle": "[ZH:editDialogTitle]",
+      "enterTitle": "[ZH:enterTitle]",
+      "exitFullscreen": "[ZH:exitFullscreen]",
+      "filePreview": "[ZH:filePreview]",
+      "formatAudio": "[ZH:formatAudio]",
+      "formatDocs": "[ZH:formatDocs]",
+      "formatImages": "[ZH:formatImages]",
+      "formatSheets": "[ZH:formatSheets]",
+      "formatSlides": "[ZH:formatSlides]",
+      "formatVideos": "[ZH:formatVideos]",
+      "fullscreenView": "[ZH:fullscreenView]",
+      "iframeLoadFailed": "[ZH:iframeLoadFailed]",
+      "iframeLoadTimeout": "[ZH:iframeLoadTimeout]",
+      "loadingDocument": "[ZH:loadingDocument]",
+      "modeMarkdown": "[ZH:modeMarkdown]",
+      "modeMarkdownDesc": "[ZH:modeMarkdownDesc]",
+      "modeOriginal": "[ZH:modeOriginal]",
+      "modeOriginalDesc": "[ZH:modeOriginalDesc]",
+      "noDocs": "[ZH:noDocs]",
+      "noFileSelected": "[ZH:noFileSelected]",
+      "noMatchingDocs": "[ZH:noMatchingDocs]",
+      "officePreviewUnavailable": "[ZH:officePreviewUnavailable]",
+      "reload": "[ZH:reload]",
+      "saving": "[ZH:saving]",
+      "search": "[ZH:search]",
+      "selectFile": "[ZH:selectFile]",
+      "selectFileLabel": "[ZH:selectFileLabel]",
+      "supportedFormats": "[ZH:supportedFormats]",
+      "updateFailed": "[ZH:updateFailed]",
+      "updateSuccess": "[ZH:updateSuccess]",
+      "uploadAndConvert": "[ZH:uploadAndConvert]",
+      "uploadDialogTitle": "[ZH:uploadDialogTitle]",
+      "uploadDocument": "[ZH:uploadDocument]",
+      "uploadFailed": "[ZH:uploadFailed]",
+      "uploadMode": "[ZH:uploadMode]",
+      "uploadRetry": "[ZH:uploadRetry]",
+      "uploadSuccessMarkdown": "[ZH:uploadSuccessMarkdown]",
+      "uploadSuccessOriginal": "[ZH:uploadSuccessOriginal]",
+      "uploadSuccessViewHint": "[ZH:uploadSuccessViewHint]",
+      "uploadTimeout": "[ZH:uploadTimeout]",
+      "uploading": "[ZH:uploading]",
+      "正在加载文档": "[ZH:正在加载文档]",
+      "目录": "[ZH:目录]",
+      "目录导航": "[ZH:目录导航]",
+      "返回": "[ZH:返回]",
+      "返回顶部1": "[ZH:返回顶部1]",
+      "重新加载": "[ZH:重新加载]"
+    },
+    "headerActions": {
+      "close": "[ZH:close]",
+      "scanWechatTip": "[ZH:scanWechatTip]",
+      "wechatMiniProgram": "[ZH:wechatMiniProgram]",
+      "wechatQrCode": "[ZH:wechatQrCode]"
+    },
+    "header_logo": {
+      "展开或收起移动端": "[ZH:展开或收起移动端]"
+    },
+    "human": {
+      "machine": {
+        "collaboration": {
+          "成本降低": "[ZH:成本降低]",
+          "效率提升": "[ZH:效率提升]",
+          "满意度": "[ZH:满意度]"
+        }
+      }
+    },
+    "index": {
+      "反馈": "[ZH:反馈]",
+      "选择字体": "[ZH:选择字体]"
+    },
+    "input1": {
+      "发送1": "[ZH:发送1]",
+      "启用工具": "[ZH:启用工具]",
+      "模板": "[ZH:模板]",
+      "模板列表内容": "[ZH:模板列表内容]",
+      "请输入您的需求可": "[ZH:请输入您的需求可]",
+      "选择模板": "[ZH:选择模板]"
+    },
+    "mobile": {
+      "menu": {
+        "AI应用商店": "[ZH:AI应用商店]",
+        "关于我们": "[ZH:关于我们]",
+        "服务与支持": "[ZH:服务与支持]"
+      }
+    },
+    "models_hub": {
+      "图片1": "[ZH:图片1]",
+      "文本": "[ZH:文本]",
+      "视频2": "[ZH:视频2]",
+      "音频3": "[ZH:音频3]"
+    },
+    "package": {
+      "card": {
+        "月": "[ZH:月]"
+      }
+    },
+    "project": {
+      "selector": {
+        "demo": {
+          "Header样式移动": "[ZH:Header样式移动]",
+          "当前选择": "[ZH:当前选择]",
+          "登录页横幅样式": "[ZH:登录页横幅样式]",
+          "选中项目": "[ZH:选中项目]",
+          "项目Key": "[ZH:项目Key]",
+          "项目URL": "[ZH:项目URL]",
+          "项目选择器组件演示": "[ZH:项目选择器组件演示]"
+        }
+      }
+    },
+    "prompt_templates": {
+      "分类5": "[ZH:分类5]",
+      "模板内容4": "[ZH:模板内容4]",
+      "模板名称3": "[ZH:模板名称3]",
+      "添加自定义模板2": "[ZH:添加自定义模板2]",
+      "输入具体的提示词1": "[ZH:输入具体的提示词1]",
+      "输入模板名称如周": "[ZH:输入模板名称如周]"
+    },
+    "scroll_down_button": {
+      "向下滚动": "[ZH:向下滚动]"
+    },
+    "voice": {
+      "record": {
+        "语音录制组件已拆分请": "[ZH:语音录制组件已拆分请]"
+      },
+      "recording": {
+        "animation": {
+          "图标": "[ZH:图标]",
+          "完成": "[ZH:完成]",
+          "录音": "[ZH:录音]",
+          "提供": "[ZH:提供]",
+          "智汇AI": "[ZH:智汇AI]",
+          "服务": "[ZH:服务]",
+          "点击": "[ZH:点击]",
+          "麦克风": "[ZH:麦克风]"
+        }
+      }
+    },
+    "xuqiu_detail": {
+      "errorMes1": "[ZH:errorMes1]",
+      "加载失败": "[ZH:加载失败]"
+    }
+  }
+}

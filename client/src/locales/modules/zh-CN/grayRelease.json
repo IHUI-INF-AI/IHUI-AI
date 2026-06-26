@@ -1,0 +1,29 @@
+{
+  "grayRelease": {
+    "alerts": "告警",
+    "avgCompletion": "avgCompletion",
+    "completed": "已完成",
+    "confirmRollback": "确认回滚",
+    "createSuccess": "创建成功",
+    "detail": "详情",
+    "enterGuidId": "enterGuidId",
+    "enterTourId": "请输入旅游 ID",
+    "exposed": "exposed",
+    "metrics": "指标",
+    "nextPhase": "nextPhase",
+    "notReachedThreshold": "notReachedThreshold",
+    "ongoing": "ongoing",
+    "pause": "暂停",
+    "phaseProgress": "phaseProgress",
+    "promote": "promote",
+    "releaseList": "releaseList",
+    "releasePaused": "releasePaused",
+    "releaseResumed": "releaseResumed",
+    "releaseRolledBack": "releaseRolledBack",
+    "releaseStarted": "releaseStarted",
+    "resume": "继续",
+    "rollback": "回滚",
+    "rollbackReason": "rollbackReason",
+    "start": "开始"
+  }
+}

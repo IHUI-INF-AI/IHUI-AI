@@ -78,6 +78,7 @@ const skip = () => {
   z-index: var(--z-loading);
   background-color: var(--color-black-50);
   backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .tour-tooltip {
@@ -162,7 +163,7 @@ const skip = () => {
 }
 
 // 暗色模式支持
-html.dark {
+:where(html.dark) {
   .tour-overlay {
     background-color: var(--color-black-70);
   }

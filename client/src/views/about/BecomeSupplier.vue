@@ -341,7 +341,7 @@ const handleReset = () => formRef.value?.resetFields()
     &:hover {
       background: var(--el-text-color-regular);
       border-color: var(--el-text-color-regular);
-      transform: translateY(-2px);
+      
     }
 
     &:active {
@@ -396,11 +396,11 @@ const handleReset = () => formRef.value?.resetFields()
     font-size: 15px;
     font-weight: 900;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
 
     &:hover {
       background: var(--el-color-primary-light-3);
-      transform: translateY(-2px);
+      
     }
 
     &:disabled {
@@ -419,7 +419,7 @@ const handleReset = () => formRef.value?.resetFields()
     padding: 12px 32px;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: color 0.3s, border-color 0.3s;
 
     &:hover {
       color: var(--el-text-color-primary);
@@ -469,14 +469,14 @@ const handleReset = () => formRef.value?.resetFields()
     font-size: 13px;
     font-weight: 900;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s;
     &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); }
   }
   .btn-reset { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
 }
 
 /* ---------- 暗色模式覆盖 ---------- */
-html.dark .become-supplier-page {
+:where(html.dark) .become-supplier-page {
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
 }
@@ -556,7 +556,7 @@ html.dark .become-supplier-page {
   }
 }
 
-html.dark .become-supplier-page :deep(.tech-form) {
+:where(html.dark) .become-supplier-page :deep(.tech-form) {
   .el-form-item__label { color: var(--el-text-color-secondary); }
 
   .el-input .el-input__wrapper,

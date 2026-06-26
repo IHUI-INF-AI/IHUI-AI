@@ -1,0 +1,29 @@
+{
+  "admin": {
+    "eventBus": {
+      "allSubscriptionsCleared": "allSubscriptionsCleared",
+      "confirmClearAll": "confirmClearAll",
+      "confirmClearHistory": "confirmClearHistory",
+      "eventSent": "eventSent",
+      "historyCleared": "历史已清空",
+      "subscriptionDeleted": "subscriptionDeleted"
+    },
+    "sms": {
+      "createTime": "创建时间",
+      "remark": "备注",
+      "searchPlaceholder": "请输入搜索内容",
+      "signName": "signName",
+      "status": "状态",
+      "statusDisabled": "已禁用",
+      "statusEnabled": "已启用",
+      "templateCode": "templateCode",
+      "templateContent": "templateContent",
+      "templateName": "templateName",
+      "templateType": "templateType",
+      "toggleStatus": "toggleStatus",
+      "typeMarketing": "营销类型",
+      "typeNotice": "通知类型",
+      "typeVerify": "typeVerify"
+    }
+  }
+}

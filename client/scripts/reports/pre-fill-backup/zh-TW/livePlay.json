@@ -1,0 +1,15 @@
+{
+  "livePlay": {
+    "danmuPlaceholder": "[ZH:danmuPlaceholder]",
+    "likes": "[ZH:likes]",
+    "liveIntro": "[ZH:liveIntro]",
+    "liveNotFound": "[ZH:liveNotFound]",
+    "noIntro": "[ZH:noIntro]",
+    "notLive": "[ZH:notLive]",
+    "points": "[ZH:points]",
+    "send": "[ZH:send]",
+    "sentGift": "[ZH:sentGift]",
+    "statistics": "[ZH:statistics]",
+    "views": "[ZH:views]"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "pwa": {
+    "installTitle": "安裝應用",
+    "installDescription": "將應用添加到主螢幕，獲得更好的使用體驗",
+    "install": "安裝",
+    "installLater": "稍後",
+    "installSuccess": "應用已安裝到主螢幕",
+    "updateTitle": "發現新版本",
+    "updateDescription": "重新整理頁面以獲取最新功能",
+    "updateNow": "立即更新",
+    "updateLater": "稍後更新"
+  }
+}

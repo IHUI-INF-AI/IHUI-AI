@@ -1,0 +1,8 @@
+{
+  "markdownViewer": {
+    "chars": "chars",
+    "editMode": "editMode",
+    "lines": "lines",
+    "previewMode": "previewMode"
+  }
+}

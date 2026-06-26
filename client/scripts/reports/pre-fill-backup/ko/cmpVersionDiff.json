@@ -1,0 +1,8 @@
+{
+  "cmpVersionDiff": {
+    "compareFailed": "[ZH:compareFailed]",
+    "getVersionFailed": "[ZH:getVersionFailed]",
+    "selectDiffVersion": "[ZH:selectDiffVersion]",
+    "selectVersionToCompare": "[ZH:selectVersionToCompare]"
+  }
+}

@@ -49,9 +49,7 @@
             <p>{{ t('register.sidebar.subtitle') }}</p>
           </div>
           <div class="sidebar-features">
-            <div class="feature-item fade-in-left" style="
-
---delay: 0.3s">
+            <div class="feature-item fade-in-left feature-item--1">
               <div class="feature-icon">
                 <el-icon><User /></el-icon>
               </div>
@@ -65,9 +63,7 @@
               </div>
               <span>{{ t('register.sidebar.features.experience') }}</span>
             </div>
-            <div class="feature-item fade-in-left" style="
-
---delay: 0.5s">
+            <div class="feature-item fade-in-left feature-item--3">
               <div class="feature-icon">
                 <el-icon><Key /></el-icon>
               </div>
@@ -79,9 +75,7 @@
 
       <!-- 注册表单区域 -->
       <div class="register-form-container">
-        <div class="form-wrapper glass-card fade-in-right" style="
-
---delay: 0.2s">
+        <div class="form-wrapper glass-card fade-in-right">
           <!-- 卡片顶部装饰 -->
           <div class="card-glow"></div>
           <div class="card-top-accent"></div>
@@ -915,6 +909,7 @@ $bg-page: var(--el-bg-color-page);
 .glass-panel {
   background: var(--el-bg-color);
   backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
   border: var(--unified-border);
 }
 
@@ -975,7 +970,7 @@ $bg-page: var(--el-bg-color-page);
   background: var(--color-white-4);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     background: var(--color-white-8);
@@ -1018,9 +1013,10 @@ $bg-page: var(--el-bg-color-page);
 .glass-card {
   background: rgb(var(--el-bg-color-rgb), 0.92);
   backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     border-color: var(--border-unified-color-hover);
@@ -1028,8 +1024,7 @@ $bg-page: var(--el-bg-color-page);
 }
 
 // 暗色模式
-html.dark .glass-card,
-body.dark .glass-card {
+:where(html.dark) .glass-card {
   background: var(--color-dark-1c1c1c-92);
   border: var(--unified-border);
   }
@@ -1071,7 +1066,7 @@ body.dark .glass-card {
   color: $text-sec;
   position: relative;
   border-radius: var(--global-border-radius);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
 
   .tab-text {
@@ -1085,7 +1080,7 @@ body.dark .glass-card {
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     opacity: 0;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: var(--z-base);
   }
 
@@ -1136,7 +1131,7 @@ body.dark .glass-card {
   background: rgb(var(--el-fill-color-rgb), 0.3);
   padding: 4px 16px;
   height: 48px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: none;
 
   &:hover {
@@ -1173,12 +1168,12 @@ body.dark .glass-card {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover:not(:disabled) {
     border-color: $brand-secondary;
     background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
-    transform: translateY(-2px);
+    
   }
 
   &:disabled {
@@ -1206,7 +1201,7 @@ body.dark .glass-card {
 .strength-fill {
   height: 100%;
   border-radius: var(--global-border-radius);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &.strength-weak {
     background: var(--el-color-danger);
@@ -1253,7 +1248,7 @@ body.dark .glass-card {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1267,12 +1262,12 @@ body.dark .glass-card {
   // 扫光效果已移至全局样式 (styles/index.scss)
 
   &:hover:not(:disabled) {
-    transform: translateY(-3px);
+    
     border-color: var(--el-color-primary);
   }
 
   &:active:not(:disabled) {
-    transform: translateY(-1px);
+    
   }
 
   &:disabled {
@@ -1389,7 +1384,7 @@ body.dark .glass-card {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .third-icon {
     font-size: 18px;
@@ -1398,7 +1393,7 @@ body.dark .glass-card {
   &:hover {
     border-color: var(--el-color-primary);
     background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
-    transform: translateY(-3px);
+    
   }
 }
 
@@ -1429,19 +1424,40 @@ body.dark .glass-card {
 .fade-in-left {
   opacity: 0;
   animation: fadeInLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  animation-delay: var(--delay);
+  animation-delay: var(--delay, 0s);
+}
+
+// 延迟变体
+.logo.fade-in-left {
+  --delay: 0.1s;
+}
+
+.sidebar-title.fade-in-left {
+  --delay: 0.2s;
+}
+
+.feature-item--1 {
+  --delay: 0.3s;
+}
+
+.feature-item--2 {
+  --delay: 0.4s;
+}
+
+.feature-item--3 {
+  --delay: 0.5s;
 }
 
 .fade-in-right {
   opacity: 0;
   animation: fadeInRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  animation-delay: var(--delay);
+  animation-delay: 0.2s;
 }
 
 // 表单切换动画
 .form-slide-enter-active,
 .form-slide-leave-active {
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .form-slide-enter-from {

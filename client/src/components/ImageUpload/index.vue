@@ -260,7 +260,7 @@ export default {
 // Remove animation effect
   :deep(.el-list-enter-active),
   :deep(.el-list-leave-active) {
-  transition: all 0s;
+  transition: opacity 0s, transform 0s;
 }
 
   :deep(.el-list-enter),

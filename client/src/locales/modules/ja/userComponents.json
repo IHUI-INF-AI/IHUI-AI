@@ -1,0 +1,117 @@
+{
+  "userComponents": {
+    "developer": {
+      "copy": "复制",
+      "regenerate": "重新生成",
+      "remainingQuota": "remainingQuota",
+      "successRate": "successRate",
+      "title": "标题",
+      "totalCalls": "totalCalls",
+      "viewDocs": "viewDocs"
+    },
+    "examine": {
+      "empty": "empty",
+      "rejectReason": "rejectReason",
+      "resubmit": "resubmit",
+      "title": "标题",
+      "view": "查看"
+    },
+    "favorites": {
+      "empty": "empty",
+      "remove": "移除",
+      "title": "标题",
+      "view": "查看"
+    },
+    "infoCard": {
+      "edit": "编辑"
+    },
+    "loginPopup": {
+      "code": "代码",
+      "login": "登录",
+      "phone": "手机号",
+      "sendCode": "发送验证码",
+      "wechatLogin": "微信登录"
+    },
+    "messages": {
+      "empty": "empty",
+      "title": "标题"
+    },
+    "orders": {
+      "empty": "empty",
+      "orderNo": "orderNo",
+      "payNow": "payNow",
+      "title": "标题",
+      "viewDetails": "viewDetails"
+    },
+    "privacy": {
+      "allowSearch": "allowSearch",
+      "allowSearchDesc": "allowSearchDesc",
+      "publicProfile": "publicProfile",
+      "publicProfileDesc": "publicProfileDesc",
+      "receiveMessages": "receiveMessages",
+      "receiveMessagesDesc": "receiveMessagesDesc",
+      "showOnlineStatus": "showOnlineStatus",
+      "showOnlineStatusDesc": "showOnlineStatusDesc",
+      "title": "标题"
+    },
+    "profile": {
+      "admin": "管理员",
+      "editProfile": "editProfile",
+      "email": "邮箱",
+      "phone": "手机号",
+      "registerTime": "registerTime"
+    },
+    "purchaseRecords": {
+      "applyInvoice": "applyInvoice",
+      "empty": "empty",
+      "orderNo": "orderNo",
+      "status": {
+        "completed": "已完成",
+        "pending": "待处理",
+        "refunded": "refunded"
+      },
+      "title": "标题",
+      "viewDetails": "viewDetails"
+    },
+    "purchases": {
+      "download": "下载",
+      "empty": "empty",
+      "title": "标题",
+      "view": "查看"
+    },
+    "security": {
+      "emailBinding": "emailBinding",
+      "loginPassword": "loginPassword",
+      "loginPasswordDesc": "loginPasswordDesc",
+      "modify": "modify",
+      "phoneBinding": "phoneBinding",
+      "title": "标题"
+    },
+    "settings": {
+      "language": "语言",
+      "languageDesc": "languageDesc",
+      "notifications": "notifications",
+      "notificationsDesc": "notificationsDesc",
+      "soundEffects": "soundEffects",
+      "soundEffectsDesc": "soundEffectsDesc",
+      "theme": "主题",
+      "themeDesc": "themeDesc",
+      "title": "标题"
+    },
+    "statistics": {
+      "chartDeveloping": "chartDeveloping",
+      "favorites": "收藏",
+      "orders": "订单",
+      "title": "标题",
+      "totalSpent": "totalSpent",
+      "totalViews": "totalViews",
+      "usageTrend": "usageTrend"
+    },
+    "upload": {
+      "delete": "删除",
+      "empty": "empty",
+      "title": "标题",
+      "view": "查看"
+    }
+  }
+}

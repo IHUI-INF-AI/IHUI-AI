@@ -1,0 +1,10 @@
+{
+  "aiList": {
+    "createFailed": "createFailed",
+    "createSuccess": "createSuccess",
+    "deleteFailed": "deleteFailed",
+    "deleteSuccess": "deleteSuccess",
+    "updateFailed": "updateFailed",
+    "updateSuccess": "updateSuccess"
+  }
+}

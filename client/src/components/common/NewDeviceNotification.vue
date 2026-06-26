@@ -174,7 +174,7 @@ const handleSecureAccount = () => {
   cursor: pointer;
   color: var(--el-text-color-secondary);
   border-radius: var(--global-border-radius);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 
   &:hover {
     background: var(--el-fill-color);
@@ -184,7 +184,7 @@ const handleSecureAccount = () => {
 
 .notification-slide-enter-active,
 .notification-slide-leave-active {
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 .notification-slide-enter-from {

@@ -1,0 +1,30 @@
+{
+  "apiTestPage": {
+    "category": {
+      "chat": "对话",
+      "export": "导出",
+      "generation": "生成",
+      "type": "类型"
+    },
+    "duration": "时长",
+    "logFail": "logFail",
+    "logPass": "logPass",
+    "testName": {
+      "agentImport": "agentImport",
+      "aiChatTypeImport": "aiChatTypeImport",
+      "aiGenAdapterImport": "aiGenAdapterImport",
+      "aiGenImport": "aiGenImport",
+      "aiModelImport": "aiModelImport",
+      "fastapiImport": "fastapiImport",
+      "ihuiStreamImport": "ihuiStreamImport",
+      "llmChatImport": "llmChatImport",
+      "mcpImport": "mcpImport",
+      "serviceUnifiedExport": "serviceUnifiedExport",
+      "unifiedChatImport": "unifiedChatImport",
+      "unifiedGenImport": "unifiedGenImport"
+    }
+  },
+  "ApiTestPage": {
+    "startAITest": "startAITest"
+  }
+}

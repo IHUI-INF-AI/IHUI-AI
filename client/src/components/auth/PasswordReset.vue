@@ -572,7 +572,7 @@ watch(
 
     :where(.strength-fill) {
       height: 100%;
-      transition: all 0.3s;
+      transition: background-color 0.3s, width 0.3s;
 
       &.weak {
         background: var(--el-color-danger);

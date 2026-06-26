@@ -4,11 +4,33 @@
       "hot": "搜索热词",
       "searchPage": "输入关键词搜索智能体 / 课程 / 内容"
     },
-    "label": {
-      "keyword": "热词",
-      "searchCount": "搜索数",
-      "actions": "操作"
-    }
+    "add": "添加",
+    "addedConditions": "addedConditions",
+    "advanced": "高级",
+    "conditions": "conditions",
+    "field": {
+      "category": "分类",
+      "description": "描述",
+      "name": "名称",
+      "tag": "标签"
+    },
+    "keyword": "关键词",
+    "keywordPlaceholder": "请输入关键词",
+    "operator": {
+      "contains": "contains",
+      "endsWith": "endsWith",
+      "equals": "equals",
+      "startsWith": "startsWith"
+    },
+    "presetName": "presetName",
+    "presets": "预设",
+    "reset": "重置",
+    "savePreset": "savePreset",
+    "search": "搜索",
+    "selectField": "selectField",
+    "selectOperator": "selectOperator",
+    "selectPreset": "selectPreset",
+    "valuePlaceholder": "valuePlaceholder"
   },
   "searchPage": {
     "hotSearch": "热门搜索",

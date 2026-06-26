@@ -1,0 +1,10 @@
+{
+  "memberHomework": {
+    "deadline": "[ZH:deadline]",
+    "empty": "[ZH:empty]",
+    "status": "[ZH:status]",
+    "submit": "[ZH:submit]",
+    "submitted": "[ZH:submitted]",
+    "title": "[ZH:title]"
+  }
+}

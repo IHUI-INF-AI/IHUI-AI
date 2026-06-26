@@ -1,0 +1,16 @@
+{
+  "themeToggle": {
+    "autoMode": "跟随系统",
+    "clickToChange": "clickToChange",
+    "currentMode": "currentMode",
+    "darkMode": "暗黑模式",
+    "highContrastDark": "highContrastDark",
+    "highContrastLight": "highContrastLight",
+    "lightMode": "明亮模式",
+    "menuLabel": "menuLabel",
+    "switchingToDark": "switchingToDark",
+    "switchingToHighContrastDark": "switchingToHighContrastDark",
+    "switchingToHighContrastLight": "switchingToHighContrastLight",
+    "switchingToLight": "switchingToLight"
+  }
+}

@@ -255,7 +255,7 @@ const goToDocumentCenter = () => {
         padding: 16px;
         border-radius: var(--global-border-radius);
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: background-color 0.3s ease;
 
         &:hover {
           background: var(--el-bg-color-page);

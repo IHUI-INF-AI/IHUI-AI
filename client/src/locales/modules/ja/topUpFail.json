@@ -1,0 +1,8 @@
+{
+  "topUpFail": {
+    "backToHome": "backToHome",
+    "defaultMessage": "defaultMessage",
+    "retry": "重试",
+    "title": "标题"
+  }
+}

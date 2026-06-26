@@ -784,7 +784,7 @@ const updateVideoProvider = (provider: VideoProvider) => {
   --acs-panel-shadow: var(--el-box-shadow-light);
 }
 
-html.dark .ai-capability-selector__backdrop {
+:where(html.dark) .ai-capability-selector__backdrop {
   --acs-border: var(--unified-border);
   --acs-text-primary: var(--el-text-color-primary);
   --acs-text-secondary: var(--el-text-color-secondary);
@@ -812,7 +812,7 @@ html.dark .ai-capability-selector__backdrop {
   transition: opacity 0.25s var(--acs-ease);
 }
 
-html.dark .ai-capability-selector__backdrop {
+:where(html.dark) .ai-capability-selector__backdrop {
   background: var(--el-mask-color);
 }
 
@@ -1161,7 +1161,7 @@ html.dark .ai-capability-selector__backdrop {
 .ai-capability-selector__backdrop .ai-capability-selector__agentic-card:hover {
   background: var(--acs-bg-hover);
   border-color: var(--acs-text-muted);
-  transform: translateY(-1px);
+  
 }
 
 .ai-capability-selector__backdrop .ai-capability-selector__agentic-icon {

@@ -1,0 +1,27 @@
+{
+  "agentManager": {
+    "agentNamePlaceholder": "请输入智能体名称",
+    "createAgent": "创建智能体",
+    "deleteConfirm": "确认删除?",
+    "deleteTitle": "删除标题",
+    "editAgent": "编辑智能体",
+    "model": "模型",
+    "name": "名称",
+    "selectModelPlaceholder": "请选择模型",
+    "selectTypePlaceholder": "selectTypePlaceholder",
+    "status": "状态",
+    "statusActive": "已激活",
+    "statusDeprecated": "已废弃",
+    "statusInactive": "未激活",
+    "statusUnknown": "未知",
+    "systemPrompt": "systemPrompt",
+    "systemPromptPlaceholder": "systemPromptPlaceholder",
+    "test": "测试",
+    "testAgent": "testAgent",
+    "title": "标题",
+    "type": "类型",
+    "typeActing": "typeActing",
+    "typeReasoning": "typeReasoning",
+    "typeSpecialist": "typeSpecialist"
+  }
+}

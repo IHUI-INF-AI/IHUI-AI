@@ -1,0 +1,16 @@
+{
+  "errorDashboard": {
+    "d30": "d30",
+    "d7": "7 天",
+    "errorRate": "错误率",
+    "h24": "24 小时",
+    "other": "其他",
+    "recentErrors": "recentErrors",
+    "resolved": "已解决",
+    "stackInfo": "stackInfo",
+    "todayErrors": "todayErrors",
+    "totalErrors": "totalErrors",
+    "trend": "趋势",
+    "typeDistribution": "类型分布"
+  }
+}

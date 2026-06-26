@@ -1,0 +1,21 @@
+{
+  "resourceDetail": {
+    "anonymous": "[ZH:anonymous]",
+    "breadcrumbResource": "[ZH:breadcrumbResource]",
+    "current": "[ZH:current]",
+    "downloadResource": "[ZH:downloadResource]",
+    "downloadTimes": "[ZH:downloadTimes]",
+    "favorite": "[ZH:favorite]",
+    "freeDownload": "[ZH:freeDownload]",
+    "like": "[ZH:like]",
+    "notExist": "[ZH:notExist]",
+    "operateFailed": "[ZH:operateFailed]",
+    "pointsDownload": "[ZH:pointsDownload]",
+    "rateResource": "[ZH:rateResource]",
+    "rating": "[ZH:rating]",
+    "scoreUnit": "[ZH:scoreUnit]",
+    "size": "[ZH:size]",
+    "uploader": "[ZH:uploader]",
+    "views": "[ZH:views]"
+  }
+}

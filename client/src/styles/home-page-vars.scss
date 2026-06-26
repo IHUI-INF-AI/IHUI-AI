@@ -47,12 +47,12 @@
   
   // 颜色
   --home-title-color: var(--el-text-color-primary);
-  --home-subtitle-color: var(--color-gray-999);
+  --home-subtitle-color: var(--el-text-color-placeholder);
   --home-description-color: var(--el-text-color-regular);
 }
 
 // 暗色模式变量覆盖
-html.dark {
+:where(html.dark) {
   --home-card-bg: var(--color-white-5);
   --home-card-border: 1px solid var(--border-unified-color);
   --home-title-color: var(--el-bg-color);

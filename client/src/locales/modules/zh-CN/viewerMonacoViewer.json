@@ -1,0 +1,15 @@
+{
+  "viewerMonacoViewer": {
+    "chars": "字符",
+    "codeFile": "代码文件",
+    "codeLoadFailed": "代码加载失败",
+    "copied": "已复制",
+    "copy": "复制",
+    "download": "下载",
+    "downloadView": "下载查看",
+    "lines": "行",
+    "loadFailed": "加载失败",
+    "loading": "加载中",
+    "wordWrap": "wordWrap"
+  }
+}

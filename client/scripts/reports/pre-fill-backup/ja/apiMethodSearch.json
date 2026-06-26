@@ -1,0 +1,14 @@
+{
+  "apiMethodSearch": {
+    "actions": "[ZH:actions]",
+    "apiPath": "[ZH:apiPath]",
+    "copied": "[ZH:copied]",
+    "copyFailed": "[ZH:copyFailed]",
+    "copyMethodName": "[ZH:copyMethodName]",
+    "description": "[ZH:description]",
+    "loadFailed": "[ZH:loadFailed]",
+    "methodName": "[ZH:methodName]",
+    "noMatch": "[ZH:noMatch]",
+    "searchPlaceholder": "[ZH:searchPlaceholder]"
+  }
+}

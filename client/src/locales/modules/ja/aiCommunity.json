@@ -1,7 +1,6 @@
 {
   "aiCommunity": {
     "title": "AIクリエイションコミュニティ",
-    "subtitle": "世界最高のAIクリエイション作品を発見",
     "heroTitle": "AIクリエイションの無限の可能性を探求",
     "heroSubtitle": "Midjourney、DALL-E、Sora、SunoなどトップクラスのAI作品を集結",
     "searchPlaceholder": "AIクリエイションを検索...",
@@ -30,16 +29,10 @@
     },
     "actions": {
       "publish": "クリエイションを公開",
-      "like": "いいね",
-      "favorite": "お気に入り",
-      "comment": "コメント",
-      "share": "シェア",
-      "download": "ダウンロード",
-      "viewPrompt": "プロンプトを表示"
+      "share": "シェア"
     },
     "empty": {
-      "title": "コンテンツがありません",
-      "description": "最初のAIクリエイションを公開しましょう！"
+      "title": "コンテンツがありません"
     },
     "loading": "読み込み中...",
     "loadMore": "もっと読み込む",
@@ -56,17 +49,14 @@
     "detail": {
       "prompt": "プロンプト",
       "model": "AIモデル",
-      "createdAt": "作成時間",
-      "comments": "コメント",
-      "noComments": "コメントがありません",
-      "addComment": "コメントを投稿...",
-      "sendComment": "送信"
+      "createdAt": "作成時間"
     },
     "tools": {
       "imageGeneration": "AI画像生成",
       "musicCreation": "AI音楽作成",
       "videoGeneration": "AI動画生成",
-      "writingAssistant": "AIライティングアシスタント"
+      "writingAssistant": "AIライティングアシスタント",
+      "hotTools": "hotTools"
     }
   }
 }

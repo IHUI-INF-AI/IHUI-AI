@@ -61,11 +61,11 @@
   /* 图表/状态颜色 */
   --chart-success: var(--color-success);
   --chart-danger: var(--color-danger-variant);
-  --chart-info: var(--color-blue-1890ff);
-  --chart-warning: var(--color-orange-fa8c16);
+  --chart-info: var(--el-color-primary);
+  --chart-warning: var(--el-color-warning);
 
   /* 灰阶色板 */
-  --gray-50: var(--color-gray-fafafa);
+  --gray-50: var(--el-fill-color-lighter);
   --gray-100: var(--color-neutral-100);
   --gray-200: var(--color-neutral-200);
   --gray-300: var(--color-neutral-300);
@@ -86,30 +86,30 @@
 
   /* 浅色背景层级 */
   --light-bg-1: var(--el-bg-color);
-  --light-bg-2: var(--color-gray-fafafa);
+  --light-bg-2: var(--el-fill-color-lighter);
   --light-bg-3: var(--color-neutral-f7f8fa);
   --light-bg-4: var(--color-neutral-100);
-  --light-bg-5: var(--color-gray-light);
+  --light-bg-5: var(--el-fill-color-light);
   --light-bg-6: var(--color-border-light);
 
   /* 文字颜色扩展 */
   --text-tertiary: var(--el-text-color-secondary);
   --text-muted: var(--el-text-color-placeholder);
   --text-light: var(--el-text-color-placeholder);
-  --text-dark-muted: var(--color-gray-a1a1a1);
+  --text-dark-muted: var(--el-text-color-placeholder);
 
   /* 亮色主题核心背景变量 - 修复循环：原写法 var(--el-bg-color) 会自引用，改为具体颜色 */
-  --el-bg-color: #ffffff;
+  --el-bg-color: var(--el-color-white);
   --el-bg-color-page: #ffffff;
   --el-bg-color-hover: var(--el-text-color-primary);
   --el-bg-color-overlay: #ffffff;
 
   /* 亮色主题文字颜色变量 */
   --el-text-color-primary: var(--color-gray-303133);
-  --el-text-color-regular: var(--color-gray-606266);
+  --el-text-color-regular: var(--el-text-color-regular);
   --el-text-color-secondary: var(--el-text-color-primary);
   --el-text-color-placeholder: var(--color-gray-a8abb2);
-  --el-text-color-disabled: var(--color-gray-c0c4cc);
+  --el-text-color-disabled: var(--el-text-color-disabled);
 
   /* 描边 - 设计语言：极细描边 1px，亮色：浅灰（仅 _global-tokens 写死） */
   --border-unified-color: #{gt.$border-unified-light};
@@ -131,9 +131,9 @@
   --unified-border-bottom: 1px solid var(--border-unified-color);
 
   /* 填充颜色变量 - 亮色：浅灰 */
-  --el-fill-color: var(--color-gray-f0f2f5);
-  --el-fill-color-light: var(--color-gray-fafafa);
-  --el-fill-color-lighter: var(--color-gray-fafafa);
+  --el-fill-color: var(--el-fill-color-lighter);
+  --el-fill-color-light: var(--el-fill-color-lighter);
+  --el-fill-color-lighter: var(--el-fill-color-lighter);
   --el-fill-color-extra-light: var(--el-text-color-primary);
   --el-fill-color-dark: var(--el-text-color-primary);
   --el-fill-color-darker: var(--el-text-color-primary);
@@ -169,7 +169,7 @@
   /* 按钮灰度级别变量 - 用于区分不同套餐 */
 
   /* 基础版 - 浅灰色 */
-  --button-basic-bg: var(--color-text-muted);
+  --button-basic-bg: var(--el-text-color-placeholder);
   --button-basic-text: var(--el-text-color-primary);
   --button-basic-hover-bg: var(--ai-gray-1);
   --button-basic-hover-text: var(--el-text-color-primary);
@@ -209,9 +209,9 @@ html.dark {
   --el-bg-color-hover: var(--color-dark-bg-5);
   --el-bg-color-overlay: var(--color-dark-bg-3);
   --el-text-color-primary: var(--color-gray-e5eaf3);
-  --el-text-color-regular: var(--color-gray-cfd3dc);
+  --el-text-color-regular: var(--el-border-color-lighter);
   --el-text-color-secondary: var(--color-gray-a3a6ad);
-  --el-text-color-placeholder: var(--color-gray-8d9095);
+  --el-text-color-placeholder: var(--el-text-color-placeholder);
   --el-text-color-disabled: var(--el-text-color-primary);
 
   /* 描边 - 设计语言：极细描边 1px，暗色：深灰（仅 _global-tokens 写死） */
@@ -255,7 +255,7 @@ html.dark {
   --el-button-text-color: #{gt.$el-button-text-on-primary-dark};
   --el-button-bg-color: var(--el-color-primary);
   --el-button-hover-text-color: #{gt.$el-button-text-on-primary-dark};
-  --el-button-hover-bg-color: var(--color-text-muted);
+  --el-button-hover-bg-color: var(--el-text-color-placeholder);
   --el-button-active-text-color: #{gt.$el-button-text-on-primary-dark};
   --el-button-active-bg-color: var(--el-text-color-placeholder);
   --el-mask-color: transparent;
@@ -267,7 +267,7 @@ html.dark {
   /* 突出按钮变量 - 用于重要/推荐按钮（黑白对比）- 暗色模式 */
   --button-emphasized-bg: var(--el-bg-color);
   --button-emphasized-text: var(--el-text-color-primary);
-  --button-emphasized-hover-bg: var(--color-gray-light);
+  --button-emphasized-hover-bg: var(--el-fill-color-light);
   --button-emphasized-hover-text: var(--el-text-color-primary);
 
   /* 按钮灰度级别变量 - 用于区分不同套餐 - 暗色模式 */
@@ -275,19 +275,19 @@ html.dark {
   /* 基础版 - 白色背景，与卡片形成对比 */
   --button-basic-bg: var(--el-bg-color);
   --button-basic-text: var(--el-text-color-primary);
-  --button-basic-hover-bg: var(--color-gray-light);
+  --button-basic-hover-bg: var(--el-fill-color-light);
   --button-basic-hover-text: var(--el-text-color-primary);
 
   /* 企业版 - 白色背景，与卡片形成对比 */
   --button-enterprise-bg: var(--el-bg-color);
   --button-enterprise-text: var(--el-text-color-primary);
-  --button-enterprise-hover-bg: var(--color-gray-light);
+  --button-enterprise-hover-bg: var(--el-fill-color-light);
   --button-enterprise-hover-text: var(--el-text-color-primary);
 
   /* 旗舰版 - 白色背景，与卡片形成对比 */
   --button-flagship-bg: var(--el-bg-color);
   --button-flagship-text: var(--el-text-color-primary);
-  --button-flagship-hover-bg: var(--color-gray-light);
+  --button-flagship-hover-bg: var(--el-fill-color-light);
   --button-flagship-hover-text: var(--el-text-color-primary);
 
   /* 下拉菜单边框颜色 - 暗色模式：使用标准边框颜色 */

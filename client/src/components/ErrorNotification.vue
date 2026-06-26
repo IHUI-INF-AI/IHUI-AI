@@ -320,7 +320,7 @@ onMounted(() => {
 
 .slide-down-enter-active,
 .slide-down-leave-active {
-  transition: all 0.3s ease;
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding-top 0.3s ease, margin-top 0.3s ease;
   max-height: 500px;
   overflow: hidden;
 }

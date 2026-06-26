@@ -335,7 +335,7 @@ defineExpose({
 }
 
 /* 暗色模式适配 */
-html.dark .country-code {
+:where(html.dark) .country-code {
   color: var(--el-text-color-primary);
 }
 

@@ -1,0 +1,13 @@
+{
+  "pwa": {
+    "installTitle": "アプリをインストール",
+    "installDescription": "アプリをホーム画面に追加して、より良い体験を得ましょう",
+    "install": "インストール",
+    "installLater": "後で",
+    "installSuccess": "アプリがホーム画面にインストールされました",
+    "updateTitle": "新バージョンあり",
+    "updateDescription": "最新機能を取得するために更新",
+    "updateNow": "今すぐ更新",
+    "updateLater": "後で"
+  }
+}

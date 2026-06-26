@@ -1,0 +1,8 @@
+{
+  "chatMode": {
+    "agentMode": "agentMode",
+    "enterAgentMode": "enterAgentMode",
+    "exitAgentMode": "exitAgentMode",
+    "normalMode": "normalMode"
+  }
+}

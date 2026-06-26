@@ -229,7 +229,7 @@ watch(() => props.src, loadPdf, { immediate: true })
   cursor: pointer;
   color: var(--el-text-color-primary);
   font-size: 14px;
-  transition: all 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
   text-decoration: none;
 }
 

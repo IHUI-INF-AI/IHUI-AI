@@ -1,0 +1,30 @@
+{
+  "cmpEnhancedFileUpload": {
+    "accessPassword": "accessPassword",
+    "autoShare": "autoShare",
+    "cancel": "取消",
+    "clickSelectFile": "clickSelectFile",
+    "clickSelectFolder": "clickSelectFolder",
+    "compressImage": "compressImage",
+    "compressed": "compressed",
+    "copy": "复制",
+    "expire1Day": "expire1Day",
+    "expire1Hour": "expire1Hour",
+    "expire7Days": "expire7Days",
+    "expireForever": "expireForever",
+    "folderMode": "folderMode",
+    "folderUpload": "folderUpload",
+    "linkCopied": "linkCopied",
+    "maxDownloads": "maxDownloads",
+    "maxDownloadsPlaceholder": "maxDownloadsPlaceholder",
+    "passwordPlaceholder": "passwordPlaceholder",
+    "pendingFiles": "pendingFiles",
+    "shareFile": "shareFile",
+    "shared": "已分享",
+    "startUpload": "startUpload",
+    "uploadFailed": "uploadFailed",
+    "uploaded": "uploaded",
+    "uploadingProgress": "uploadingProgress",
+    "validity": "validity"
+  }
+}

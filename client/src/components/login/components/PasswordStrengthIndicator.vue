@@ -74,7 +74,7 @@ const strengthText = computed(() => {
 .strength-fill {
   height: 100%;
   border-radius: var(--global-border-radius);
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
 
   &.weak {
     background-color: var(--color-danger-variant);

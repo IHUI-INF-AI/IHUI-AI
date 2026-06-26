@@ -1,0 +1,12 @@
+{
+  "learnHomework": {
+    "course": "[ZH:course]",
+    "deadline": "[ZH:deadline]",
+    "empty": "[ZH:empty]",
+    "homework": "[ZH:homework]",
+    "score": "[ZH:score]",
+    "status": "[ZH:status]",
+    "submit": "[ZH:submit]",
+    "submitted": "[ZH:submitted]"
+  }
+}

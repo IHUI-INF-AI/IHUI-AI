@@ -8853,6 +8853,7 @@ cleanup.add(() => {
       box-sizing: border-box;
       border-radius: var(--global-border-radius);
       backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       background: var(--el-bg-color-page);
       border: var(--unified-border);
       z-index: var(--z-0); /* 让标题栏叠在上层以显示图标/名称/按钮 */
@@ -9024,7 +9025,7 @@ cleanup.add(() => {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 
     // 图标
     .el-icon {
@@ -9604,7 +9605,7 @@ cleanup.add(() => {
   min-width: 140px;
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
   &:hover {
-    transform: translateY(-1px);
+    
   }
   &:active {
     transform: translateY(0);
@@ -10628,7 +10629,7 @@ cleanup.add(() => {
   background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 
   &:hover {
     background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
@@ -10802,7 +10803,7 @@ cleanup.add(() => {
   height: 28px;
   padding: 0 12px;
   border-radius: var(--global-border-radius);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
@@ -10958,7 +10959,7 @@ cleanup.add(() => {
   border-left: 3px solid var(--el-border-color);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-left-color 0.2s;
 
   &:hover {
     background: var(--el-fill-color-light);
@@ -11135,7 +11136,7 @@ cleanup.add(() => {
   }
 
   30% {
-    transform: translateY(-10px);
+    
     opacity: 1;
   }
 }
@@ -11190,7 +11191,7 @@ cleanup.add(() => {
 
 .dialog-slide-enter-active,
 .dialog-slide-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dialog-slide-enter-from {
@@ -11205,19 +11206,19 @@ cleanup.add(() => {
 
 .slide-down-enter-active,
 .slide-down-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, max-height 0.3s ease;
 }
 
 .slide-down-enter-from,
 .slide-down-leave-to {
   opacity: 0;
   max-height: 0;
-  transform: translateY(-10px);
+  
 }
 
 .message-fade-enter-active,
 .message-fade-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .message-fade-enter-from {
@@ -11227,7 +11228,7 @@ cleanup.add(() => {
 
 .message-fade-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  
 }
 
 // 统计对话框样式
@@ -11371,7 +11372,7 @@ cleanup.add(() => {
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background-color 0.2s, border-color 0.2s, border-width 0.2s;
       position: relative;
 
       &:hover {
@@ -11514,7 +11515,7 @@ cleanup.add(() => {
 // 快捷操作动画
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .slide-up-enter-from,
@@ -11915,7 +11916,7 @@ cleanup.add(() => {
       align-items: center;
       padding: 6px 12px;
       border-radius: var(--global-border-radius);
-      transition: all 0.2s;
+      transition: color 0.2s, background-color 0.2s;
 
       svg {
         flex-shrink: 0;
@@ -12116,7 +12117,7 @@ button.mini-delete-btn {
       color: var(--color-gray-111);
 
       .el-icon {
-        color: var(--color-gray-666);
+        color: var(--el-text-color-secondary);
       }
     }
 
@@ -12143,13 +12144,13 @@ button.mini-delete-btn {
     --ai-item-hover-bg: var(--color-white-6);
 
     .el-dropdown-menu__item {
-      color: var(--color-gray-ededed);
+      color: var(--el-text-color-secondary);
 
       &:hover:not(.is-disabled) {
-        color: var(--color-gray-ededed);
+        color: var(--el-text-color-secondary);
 
         .el-icon {
-          color: var(--color-gray-a1a1a1);
+          color: var(--el-text-color-placeholder);
         }
       }
     }
@@ -12485,7 +12486,7 @@ button.mini-delete-btn {
           border-radius: var(--global-border-radius);
           background: var(--el-fill-color-light);
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.2s ease;
 
           &:hover {
             background: var(--el-color-primary-light-9);
@@ -12733,7 +12734,7 @@ button.mini-delete-btn {
   --el-bg-color: var(--color-dark-bg-2);
   --el-bg-color-page: var(--color-dark-bg-1);
   --el-text-color-primary: var(--color-gray-e5eaf3);
-  --el-text-color-regular: var(--color-gray-cfd3dc);
+  --el-text-color-regular: var(--el-border-color-lighter);
   --el-text-color-secondary: var(--color-gray-a3a6ad);
   --el-border-color: var(--border-unified-color);
   --el-border-color-light: var(--border-unified-color);
@@ -12803,7 +12804,7 @@ button.mini-delete-btn {
     border: var(--unified-border);
     background: var(--el-fill-color-light);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, border-width 0.2s ease;
 
     &:hover {
       background: var(--el-fill-color);
@@ -12962,7 +12963,7 @@ button.mini-delete-btn {
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       margin-right: 0;
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, border-width 0.2s ease;
       cursor: pointer;
       height: 28px;
       line-height: 16px;
@@ -13052,7 +13053,7 @@ button.mini-delete-btn {
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
   z-index: var(--z-loading);
 }
 
@@ -13067,7 +13068,7 @@ button.mini-delete-btn {
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
   z-index: var(--z-loading);
 }
 
@@ -13222,7 +13223,7 @@ $cs-accent-cyan: var(--el-text-color-primary);
     text-align: left;
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .cs-faq-pill:hover {
@@ -13243,7 +13244,7 @@ $cs-accent-cyan: var(--el-text-color-primary);
     color: $cs-accent-blue;
     opacity: 0;
     transform: translateX(-6px);
-    transition: all 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease;
   }
 
   .cs-faq-pill:hover .cs-pill-arrow {

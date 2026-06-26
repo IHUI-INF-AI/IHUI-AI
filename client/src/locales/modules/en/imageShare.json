@@ -1,0 +1,14 @@
+{
+  "imageShare": {
+    "copyFailed": "copyFailed",
+    "copyLink": "copyLink",
+    "copySuccess": "copySuccess",
+    "download": "下载",
+    "noImage": "noImage",
+    "noImageToDownload": "noImageToDownload",
+    "noLinkToCopy": "noLinkToCopy",
+    "shareImage": "shareImage",
+    "shareMethod": "shareMethod",
+    "title": "标题"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "viewerOfficeViewer": {
+    "docLoadFailed": "[ZH:docLoadFailed]",
+    "download": "[ZH:download]",
+    "largeDocHint": "[ZH:largeDocHint]",
+    "loadingDoc": "[ZH:loadingDoc]",
+    "officeDoc": "[ZH:officeDoc]",
+    "openInOfficeOnline": "[ZH:openInOfficeOnline]",
+    "reset": "[ZH:reset]",
+    "tryDownload": "[ZH:tryDownload]",
+    "zoomOut": "[ZH:zoomOut]"
+  }
+}

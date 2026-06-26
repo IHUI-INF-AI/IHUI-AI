@@ -206,7 +206,7 @@ const handleShare2 = () => {
       color: var(--el-text-color-secondary);
 
       .server-name {
-        font-family: monospace;
+        font-family: var(--font-family-mono);
         background: var(--el-bg-color-page);
         padding: 2px 6px;
         border-radius: var(--global-border-radius);
@@ -239,7 +239,7 @@ const handleShare2 = () => {
     .result-error {
       .error-message {
         margin: 8px 0;
-        font-family: monospace;
+        font-family: var(--font-family-mono);
         font-size: 13px;
       }
 

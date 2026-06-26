@@ -1,0 +1,10 @@
+{
+  "errors": {
+    "aiCallFailed": "aiCallFailed",
+    "cannotLoadSwaggerDocs": "cannotLoadSwaggerDocs",
+    "loadDataFailed": "加载数据失败",
+    "navigateFail": "navigateFail",
+    "routeNotFound": "routeNotFound",
+    "userInfoEmpty": "userInfoEmpty"
+  }
+}

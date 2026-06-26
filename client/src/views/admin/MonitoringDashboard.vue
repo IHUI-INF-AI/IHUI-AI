@@ -427,7 +427,7 @@ cleanup.add(() => chart?.dispose())
 .resource-item span {
   display: block;
   margin-bottom: 8px;
-  color: var(--color-gray-606266);
+  color: var(--el-text-color-regular);
 }
 
 .mt-20 {

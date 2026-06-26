@@ -664,7 +664,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   padding: 40px 0;
   opacity: 0;
   transform: translateY(-20px);
-  transition: all 0.8s $transition-smooth;
+  transition: opacity 0.5s $transition-smooth, transform 0.5s $transition-smooth;
   
   &.is-visible {
     opacity: 1;
@@ -677,8 +677,8 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 1px;
-    transition: all 0.3s ease;
-    
+    transition: color 0.3s ease, transform 0.3s ease;
+
     &:hover {
       color: var(--el-text-color-primary);
       transform: translateX(-4px);
@@ -828,7 +828,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 [v-scroll-reveal] {
   opacity: 0;
   transform: translateY(40px);
-  transition: all 0.8s $transition-smooth;
+  transition: opacity 0.5s $transition-smooth, transform 0.5s $transition-smooth;
   
   &.is-revealed {
     opacity: 1;
@@ -956,9 +956,9 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     border-radius: var(--global-border-radius);
     margin-bottom: 20px;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
     cursor: pointer;
-    
+
     &:hover {
       border-color: var(--el-border-color-lighter);
     }
@@ -1016,7 +1016,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     padding: 0 32px;
     opacity: 0;
     overflow: hidden;
-    transition: all 0.4s ease;
+    transition: max-height 0.4s ease, padding 0.4s ease, opacity 0.4s ease;
   }
   
   .quadrant-description {
@@ -1277,7 +1277,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 // 暗色模式适配
-html.dark {
+:where(html.dark) {
   .scenario-bg {
     .gradient-layer {
       background: color-mix(in srgb, var(--el-color-primary) 4%, transparent);

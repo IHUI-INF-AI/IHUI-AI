@@ -1,0 +1,10 @@
+{
+  "memberFollow": {
+    "empty": "empty",
+    "followed": "followed",
+    "followers": "followers",
+    "following": "following",
+    "mutualFollow": "mutualFollow",
+    "title": "标题"
+  }
+}

@@ -293,7 +293,7 @@ defineExpose({ focus, clear, setContent, inputRef })
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s;
 }
 
 .quick-tool-item:hover {

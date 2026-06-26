@@ -417,7 +417,7 @@ function getModeLabel(mode: AIMode): string {
 
 .cs-status-text {
   font-size: 12px;
-  font-family: monospace;
+  font-family: var(--font-family-mono);
   color: var(--el-text-color-secondary);
 }
 </style>

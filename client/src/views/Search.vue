@@ -202,7 +202,7 @@ onMounted(() => {
   font-size: 14px;
   color: var(--el-text-color-primary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
 
 .hot-tag:hover {

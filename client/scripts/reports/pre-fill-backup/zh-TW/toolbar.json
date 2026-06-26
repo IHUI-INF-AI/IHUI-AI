@@ -1,0 +1,60 @@
+{
+  "toolbar": {
+    "agents": {
+      "title": "[ZH:title]"
+    },
+    "marketing": {
+      "desc": "[ZH:desc]",
+      "title": "[ZH:title]"
+    },
+    "menu": {
+      "aiTechnicalServices": "[ZH:aiTechnicalServices]",
+      "oneStopEquipment": "[ZH:oneStopEquipment]",
+      "trafficOperation": "[ZH:trafficOperation]"
+    },
+    "tools": {
+      "categories": {
+        "creativeDesign": "[ZH:creativeDesign]"
+      },
+      "items": {
+        "copy": {
+          "desc": "[ZH:desc]",
+          "tag1": "[ZH:tag1]",
+          "tag2": "[ZH:tag2]",
+          "title": "[ZH:title]"
+        },
+        "creator": "[ZH:creator]",
+        "digital": {
+          "desc": "[ZH:desc]",
+          "tag1": "[ZH:tag1]",
+          "tag2": "[ZH:tag2]",
+          "title": "[ZH:title]"
+        },
+        "edit": {
+          "desc": "[ZH:desc]",
+          "tag1": "[ZH:tag1]",
+          "tag2": "[ZH:tag2]",
+          "title": "[ZH:title]"
+        },
+        "image": {
+          "desc": "[ZH:desc]",
+          "tag1": "[ZH:tag1]",
+          "tag2": "[ZH:tag2]",
+          "title": "[ZH:title]"
+        },
+        "live": {
+          "desc": "[ZH:desc]",
+          "tag1": "[ZH:tag1]",
+          "tag2": "[ZH:tag2]",
+          "title": "[ZH:title]"
+        },
+        "video": {
+          "desc": "[ZH:desc]",
+          "tag1": "[ZH:tag1]",
+          "tag2": "[ZH:tag2]",
+          "title": "[ZH:title]"
+        }
+      }
+    }
+  }
+}

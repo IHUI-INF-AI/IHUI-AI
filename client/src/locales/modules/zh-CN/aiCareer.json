@@ -1,0 +1,116 @@
+{
+  "aiCareer": {
+    "messages": {
+      "submitFailed": "提交失败",
+      "submitSuccess": "提交成功"
+    },
+    "options": {
+      "classLevel": {
+        "advanced": "高级",
+        "normal": "普通"
+      },
+      "extraTime": {
+        "heavy": "较重",
+        "plenty": "充足"
+      },
+      "hobbiesPlaceholder": "请输入爱好",
+      "languageDifficulty": {
+        "comprehension": "理解力",
+        "readingSpeed": "阅读速度",
+        "vocabulary": "词汇量",
+        "writing": "写作能力"
+      },
+      "learningGoal": {
+        "1": "提升成绩",
+        "2": "考上理想学校",
+        "3": "培养学习兴趣",
+        "4": "提高综合素质",
+        "5": "其他"
+      },
+      "learningObstacle": {
+        "daydreaming": "上课走神",
+        "gameAddiction": "游戏成瘾",
+        "lowEfficiency": "学习效率低下",
+        "procrastination": "拖延症"
+      },
+      "personality": {
+        "cannotHandleFailure": "无法面对失败",
+        "extroverted": "外向",
+        "introverted": "内向",
+        "problemSolver": "问题解决者"
+      },
+      "personalityTest1": {
+        "quiet": "安静型",
+        "social": "社交型"
+      },
+      "personalityTest2": {
+        "abstract": "抽象型",
+        "concrete": "具体型"
+      },
+      "personalityTest3": {
+        "emotional": "感性型",
+        "logical": "理性型"
+      },
+      "personalityTest4": {
+        "planned": "计划型",
+        "spontaneous": "随性型"
+      },
+      "personalityTest5": {
+        "quietRelax": "安静放松",
+        "socialRelax": "社交放松"
+      },
+      "pressureTolerance": {
+        "challenging": "抗压能力强",
+        "light": "压力较轻",
+        "moderate": "中等压力"
+      },
+      "school": {
+        "key": "重点学校",
+        "private": "私立学校",
+        "public": "公立学校"
+      },
+      "scienceCharacteristicsPlaceholder": "请输入学科特长",
+      "scoreRangePlaceholder": "请输入分数范围"
+    },
+    "personalityTests": {
+      "test1": "社交偏好测试",
+      "test2": "思维方式测试",
+      "test3": "决策风格测试",
+      "test4": "生活习惯测试",
+      "test5": "放松方式测试"
+    },
+    "questions": {
+      "classLevel": "班级水平",
+      "extraTime": "课外时间分配",
+      "hobbies": "兴趣爱好",
+      "languageDifficulty": "语言学习难点",
+      "learningGoal": "学习目标",
+      "learningObstacle": "学习障碍",
+      "personality": "性格特征",
+      "pressureTolerance": "抗压能力",
+      "school": "学校类型",
+      "scienceCharacteristics": "学科特长",
+      "scoreRange": "分数范围"
+    },
+    "submit": "提交",
+    "subtitle": "AI 职业规划",
+    "title": "AI 职业测评",
+    "validation": {
+      "classLevel": "班级水平",
+      "extraTime": "课外时间分配",
+      "languageDifficulty": "语言学习难点",
+      "learningGoal": "学习目标",
+      "learningObstacle": "学习障碍",
+      "personality": "性格特征",
+      "personalityTest1": "社交偏好测试",
+      "personalityTest2": "思维方式测试",
+      "personalityTest3": "决策风格测试",
+      "personalityTest4": "生活习惯测试",
+      "personalityTest5": "放松方式测试",
+      "pressureTolerance": "抗压能力",
+      "required": "此项为必填",
+      "school": "学校类型",
+      "scoreRange": "分数范围"
+    }
+  }
+}

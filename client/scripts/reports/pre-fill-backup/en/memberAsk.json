@@ -1,0 +1,12 @@
+{
+  "memberAsk": {
+    "answerPrefix": "[ZH:answerPrefix]",
+    "answers": "[ZH:answers]",
+    "askPrefix": "[ZH:askPrefix]",
+    "emptyAnswer": "[ZH:emptyAnswer]",
+    "emptyQuestion": "[ZH:emptyQuestion]",
+    "myAnswers": "[ZH:myAnswers]",
+    "myQuestions": "[ZH:myQuestions]",
+    "title": "[ZH:title]"
+  }
+}

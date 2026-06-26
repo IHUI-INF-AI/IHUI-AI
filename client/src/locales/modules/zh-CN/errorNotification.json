@@ -1,0 +1,10 @@
+{
+  "errorNotification": {
+    "closeAria": "closeAria",
+    "details": "详情",
+    "errorCode": "错误码",
+    "hideDetails": "hideDetails",
+    "recovery": "recovery",
+    "showDetails": "showDetails"
+  }
+}

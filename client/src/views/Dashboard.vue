@@ -480,12 +480,13 @@ $accent-red: var(--el-color-danger);
 .glass-card {
   background: var(--color-white-70);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-  
+
   &:hover {
     border-color: color-mix(in srgb, var(--el-text-color-primary) 15%, transparent);
   }
@@ -545,10 +546,10 @@ $accent-red: var(--el-color-danger);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s;
-    
+    transition: transform 0.3s;
+
     &:hover {
-      transform: translateY(-2px);
+      
     }
   }
 }
@@ -751,8 +752,8 @@ $accent-red: var(--el-color-danger);
   padding: 16px;
   background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
   border-radius: var(--global-border-radius);
-  transition: all 0.3s;
-  
+  transition: background-color 0.3s;
+
   &:hover {
     background: color-mix(in srgb, var(--el-text-color-primary) 4%, transparent);
   }
@@ -845,9 +846,9 @@ $accent-red: var(--el-color-danger);
     color: $text-sec;
     opacity: 0;
     transform: translateX(-8px);
-    transition: all 0.3s;
+    transition: opacity 0.3s, transform 0.3s;
   }
-  
+
   &:hover .action-arrow {
     opacity: 1;
     transform: translateX(0);
@@ -858,7 +859,7 @@ $accent-red: var(--el-color-danger);
 .scroll-reveal {
   opacity: 0;
   transform: translateY(20px);
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   
   &.scroll-animated {
     opacity: 1;

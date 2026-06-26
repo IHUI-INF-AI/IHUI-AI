@@ -1,0 +1,76 @@
+{
+  "showcase": {
+    "buttons": {
+      "danger": "[ZH:danger]",
+      "disabled": "[ZH:disabled]",
+      "info": "[ZH:info]",
+      "loading": "[ZH:loading]",
+      "primary": "[ZH:primary]",
+      "round": "[ZH:round]",
+      "success": "[ZH:success]",
+      "title": "[ZH:title]",
+      "warning": "[ZH:warning]"
+    },
+    "data": {
+      "columnCategory": "[ZH:columnCategory]",
+      "columnName": "[ZH:columnName]",
+      "columnStatus": "[ZH:columnStatus]",
+      "title": "[ZH:title]"
+    },
+    "feedback": {
+      "errorAlert": "[ZH:errorAlert]",
+      "successAlert": "[ZH:successAlert]",
+      "tagDanger": "[ZH:tagDanger]",
+      "tagInfo": "[ZH:tagInfo]",
+      "tagSuccess": "[ZH:tagSuccess]",
+      "tagWarning": "[ZH:tagWarning]",
+      "title": "[ZH:title]",
+      "warningAlert": "[ZH:warningAlert]"
+    },
+    "forms": {
+      "ai": "[ZH:ai]",
+      "checkbox": "[ZH:checkbox]",
+      "date": "[ZH:date]",
+      "datePlaceholder": "[ZH:datePlaceholder]",
+      "female": "[ZH:female]",
+      "input": "[ZH:input]",
+      "inputPlaceholder": "[ZH:inputPlaceholder]",
+      "male": "[ZH:male]",
+      "optionA": "[ZH:optionA]",
+      "optionB": "[ZH:optionB]",
+      "optionC": "[ZH:optionC]",
+      "radio": "[ZH:radio]",
+      "react": "[ZH:react]",
+      "select": "[ZH:select]",
+      "selectPlaceholder": "[ZH:selectPlaceholder]",
+      "switch": "[ZH:switch]",
+      "textarea": "[ZH:textarea]",
+      "title": "[ZH:title]",
+      "vue": "[ZH:vue]"
+    },
+    "navigation": {
+      "breadcrumbCurrent": "[ZH:breadcrumbCurrent]",
+      "breadcrumbDocs": "[ZH:breadcrumbDocs]",
+      "breadcrumbHome": "[ZH:breadcrumbHome]",
+      "menuAbout": "[ZH:menuAbout]",
+      "menuAgents": "[ZH:menuAgents]",
+      "menuDocs": "[ZH:menuDocs]",
+      "menuHome": "[ZH:menuHome]",
+      "next": "[ZH:next]",
+      "prev": "[ZH:prev]",
+      "step1": "[ZH:step1]",
+      "step2": "[ZH:step2]",
+      "step3": "[ZH:step3]",
+      "title": "[ZH:title]"
+    },
+    "subtitle": "[ZH:subtitle]",
+    "tab": {
+      "buttons": "[ZH:buttons]",
+      "data": "[ZH:data]",
+      "feedback": "[ZH:feedback]",
+      "forms": "[ZH:forms]",
+      "navigation": "[ZH:navigation]"
+    },
+    "title": "[ZH:title]"
+  }
+}

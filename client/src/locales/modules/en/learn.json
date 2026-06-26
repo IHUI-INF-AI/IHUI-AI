@@ -12,6 +12,7 @@
       "signup": "Search signups",
       "order": "Search orders",
       "lesson": "Search lessons"
-    }
+    },
+    "hotRecommend": "hotRecommend"
   }
 }

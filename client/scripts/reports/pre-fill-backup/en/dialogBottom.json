@@ -1,0 +1,19 @@
+{
+  "dialogBottom": {
+    "agree": "[ZH:agree]",
+    "developerNotice": "[ZH:developerNotice]",
+    "findExpert": "[ZH:findExpert]",
+    "iAmDeveloper": "[ZH:iAmDeveloper]",
+    "ipContent": "[ZH:ipContent]",
+    "ipTitle": "[ZH:ipTitle]",
+    "privacyContent": "[ZH:privacyContent]",
+    "privacyTitle": "[ZH:privacyTitle]",
+    "responsibilityContent": "[ZH:responsibilityContent]",
+    "responsibilityTitle": "[ZH:responsibilityTitle]",
+    "slogan": "[ZH:slogan]",
+    "standardContent": "[ZH:standardContent]",
+    "standardTitle": "[ZH:standardTitle]",
+    "tradeContent": "[ZH:tradeContent]",
+    "tradeTitle": "[ZH:tradeTitle]"
+  }
+}

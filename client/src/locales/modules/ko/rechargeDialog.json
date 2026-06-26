@@ -1,0 +1,20 @@
+{
+  "rechargeDialog": {
+    "actions": "actions",
+    "alipay": "alipay",
+    "amountAriaLabel": "amountAriaLabel",
+    "amountLabel": "amountLabel",
+    "amountRange": "amountRange",
+    "bankCard": "bankCard",
+    "openedA11y": "openedA11y",
+    "payNow": "payNow",
+    "paymentMethod": "paymentMethod",
+    "presetsLabel": "presetsLabel",
+    "processing": "处理中",
+    "selectAmount": "selectAmount",
+    "selectTip": "selectTip",
+    "txDescription": "txDescription",
+    "walletRecharge": "walletRecharge",
+    "wechat": "wechat"
+  }
+}

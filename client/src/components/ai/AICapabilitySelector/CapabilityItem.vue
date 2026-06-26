@@ -145,13 +145,13 @@ const resolvedIconUrl = computed(() => {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   &:hover {
     background: hsl(var(--muted) / 0.5);
     border-color: hsl(var(--border));
-    transform: translateY(-1px);
+    
     }
 
   &--selected {

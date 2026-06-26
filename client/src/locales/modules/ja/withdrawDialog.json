@@ -1,0 +1,15 @@
+{
+  "withdrawDialog": {
+    "agreePrefix": "agreePrefix",
+    "amount": "金额",
+    "availableBalance": "availableBalance",
+    "bankCard": "bankCard",
+    "bindNow": "bindNow",
+    "change": "change",
+    "noBankCard": "noBankCard",
+    "submit": "提交",
+    "submitting": "提交中",
+    "termsTitle": "termsTitle",
+    "title": "标题"
+  }
+}

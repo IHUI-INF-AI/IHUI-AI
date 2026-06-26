@@ -141,16 +141,16 @@
 }
 
 // 暗色模式输入框
-html.dark :where(.el-input__wrapper),
-html.dark :where(.el-select__wrapper) {
+:where(html.dark) :where(.el-input__wrapper),
+:where(html.dark) :where(.el-select__wrapper) {
   background-color: transparent;
 }
 
 // 暗色模式下选择元素容器背景透明
-html.dark :where(.el-select__wrapper),
-html.dark :where(.el-select__selection),
-html.dark :where(.el-input__wrapper),
-html.dark :where(.el-textarea__wrapper) {
+:where(html.dark) :where(.el-select__wrapper),
+:where(html.dark) :where(.el-select__selection),
+:where(html.dark) :where(.el-input__wrapper),
+:where(html.dark) :where(.el-textarea__wrapper) {
   background-color: transparent;
   border-radius: var(--global-border-radius);
   background-image: none;

@@ -1,0 +1,21 @@
+{
+  "askList": {
+    "allCategories": "全部分类",
+    "askQuestion": "askQuestion",
+    "category": "分类",
+    "community": "社区",
+    "content": "内容",
+    "contentPlaceholder": "请输入内容",
+    "essence": "精华",
+    "hottest": "最热",
+    "latest": "最新",
+    "mostAnswered": "mostAnswered",
+    "noQuestions": "noQuestions",
+    "pinned": "已置顶",
+    "searchPlaceholder": "请输入搜索内容",
+    "selectCategory": "选择分类",
+    "subtitle": "副标题",
+    "title": "标题",
+    "titlePlaceholder": "请输入标题"
+  }
+}

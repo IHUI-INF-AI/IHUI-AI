@@ -702,7 +702,7 @@ $text-main: var(--el-text-color-primary);
 $text-sec: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--color-gray-333);
+$brand-secondary: var(--el-text-color-primary);
 
 // ============ 主容器 ============
 .agents-container {
@@ -727,7 +727,7 @@ $brand-secondary: var(--color-gray-333);
     border-radius: 0;
 
     /* 暗色模式：提升特异性至 (0,3,2) 高于亮色基础 (0,3,1)，用层顺序控制 即可覆盖 */
-    html.dark & {
+    :where(html.dark) & {
       background-color: var(--page-bg-color);
       background: var(--page-bg-color);
     }
@@ -791,7 +791,7 @@ $brand-secondary: var(--color-gray-333);
   transition: none;
 
   &.scroll-animated {
-    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -804,6 +804,7 @@ $brand-secondary: var(--color-gray-333);
 .glass-card {
   background: rgb(var(--el-fill-color-light-rgb), 0.4);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
 }
@@ -857,6 +858,7 @@ $brand-secondary: var(--color-gray-333);
       width: fit-content;
       background: rgb(var(--el-fill-color-light-rgb), 0.3);
       backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
 
       .status-dot {
         width: 6px;
@@ -997,8 +999,9 @@ $brand-secondary: var(--color-gray-333);
       border-radius: var(--global-border-radius);
       background: rgb(var(--el-fill-color-light-rgb), 0.4);
       backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border: var(--unified-border);
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
       &:hover {
         border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
@@ -1029,7 +1032,7 @@ $brand-secondary: var(--color-gray-333);
     .el-pager li {
       border-radius: var(--global-border-radius);
       margin: 0 2px;
-      transition: all 0.3s;
+      transition: background-color 0.3s, color 0.3s;
 
       &:hover {
         background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
@@ -1045,7 +1048,7 @@ $brand-secondary: var(--color-gray-333);
     .btn-prev,
     .btn-next {
       border-radius: var(--global-border-radius);
-      transition: all 0.3s;
+      transition: background-color 0.3s;
 
       &:hover {
         background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
@@ -1157,7 +1160,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
 
   &.active {
     background: $brand-primary;
@@ -1183,7 +1186,7 @@ $brand-secondary: var(--color-gray-333);
   font-weight: 600;
   color: $text-sec;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, color 0.3s;
 
   &.active {
     background: $brand-primary;
@@ -1203,7 +1206,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 14px;
   color: $text-sec;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: color 0.3s;
 
   &.active {
     color: $brand-primary;
@@ -1224,7 +1227,7 @@ $brand-secondary: var(--color-gray-333);
 
 .dev-agent-card {
   padding: 20px;
-  transition: all 0.3s;
+  transition: border-color 0.3s;
 
   &:hover {
     border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
@@ -1359,12 +1362,12 @@ $brand-secondary: var(--color-gray-333);
 /* 暗色模式：智能体页面整体与容器使用深色背景
    原使用高优先级覆盖 Vue scoped [data-v-xxx] 属性选择器，
    已通过 html.dark & 嵌套将特异性提升至 (0,3,2)，用层顺序控制 */
-html.dark .agents-bg-system {
+:where(html.dark) .agents-bg-system {
   background-color: var(--page-bg-color);
   background: var(--page-bg-color);
 }
 
-html.dark .agents-content {
+:where(html.dark) .agents-content {
   background-color: transparent;
   background: transparent;
 }
@@ -1385,7 +1388,7 @@ html.dark .agents-content {
   border-color: var(--border-unified-color);
 }
 
-html.dark .glass-card {
+:where(html.dark) .glass-card {
   background: var(--el-fill-color-darker);
   border-color: var(--border-unified-color);
 }

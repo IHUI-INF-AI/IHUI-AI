@@ -1,0 +1,19 @@
+{
+  "courseDetail": {
+    "addToCart": "[ZH:addToCart]",
+    "addedToCart": "[ZH:addedToCart]",
+    "back": "[ZH:back]",
+    "beginner": "[ZH:beginner]",
+    "buyNow": "[ZH:buyNow]",
+    "courseIntro": "[ZH:courseIntro]",
+    "courseOutline": "[ZH:courseOutline]",
+    "fortyFiveMin": "[ZH:fortyFiveMin]",
+    "goCheckout": "[ZH:goCheckout]",
+    "learnShortVideoFromZero": "[ZH:learnShortVideoFromZero]",
+    "ninetyMin": "[ZH:ninetyMin]",
+    "sixtyMin": "[ZH:sixtyMin]",
+    "teacherZhang": "[ZH:teacherZhang]",
+    "title": "[ZH:title]",
+    "twelveLessons": "[ZH:twelveLessons]"
+  }
+}

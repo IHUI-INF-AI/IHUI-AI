@@ -1,0 +1,12 @@
+{
+  "errorBoundary": {
+    "reload": "重新載入",
+    "unknownError": "未知錯誤",
+    "retry": "重試",
+    "showDetails": "顯示詳情",
+    "errorDetails": "錯誤詳情",
+    "componentError": "組件錯誤",
+    "goHome": "返回首頁",
+    "currentPath": "[ZH:currentPath]"
+  }
+}

@@ -4,10 +4,6 @@
       "index": "搜索账号"
     },
     "label": {
-      "account": "账号",
-      "role": "角色",
-      "lastLogin": "最后登录",
-      "actions": "操作",
       "loginPassword": "登录密码",
       "twoFactor": "二次验证",
       "securityEmail": "安全邮箱",

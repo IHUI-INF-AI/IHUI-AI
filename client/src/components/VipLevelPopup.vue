@@ -143,7 +143,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   overflow: hidden;
   transform: translateY(100vh) rotateX(5deg);
-  transition: all 0.3s ease-in-out;
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
   opacity: 0.8;
 }
 
@@ -241,7 +241,7 @@ onMounted(() => {
   margin: 0 auto;
   font-size: 24px;
   font-weight: 700;
-  color: var(--color-gray-333);
+  color: var(--el-text-color-primary);
   border: var(--unified-border);
   background-image: linear-gradient(to bottom, var(--el-color-white), var(--el-fill-color-lighter));
   cursor: pointer;

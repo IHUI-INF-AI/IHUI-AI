@@ -1,0 +1,11 @@
+{
+  "memberFavorites": {
+    "article": "文章",
+    "ask": "提问",
+    "circle": "圈子",
+    "lesson": "课时",
+    "live": "直播",
+    "noFavorites": "noFavorites",
+    "title": "标题"
+  }
+}

@@ -220,7 +220,7 @@ const handleForgotPassword = () => {
 }
 
 :deep(.dark-mode) .account-form-container,
-html.dark .account-form-container,
+:where(html.dark) .account-form-container,
 .dark-mode .account-form-container {
   --account-form-bg: transparent;
   --account-form-color: var(--el-color-white);

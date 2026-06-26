@@ -104,7 +104,7 @@ function selectAllTab() {
   flex: none; display: flex; align-items: center;
   padding: 6px 4px; border-radius: var(--global-border-radius); font-weight: 700;
   color: var(--color-black-60); border: var(--unified-border);
-  cursor: pointer; height: 24px;
+  cursor: pointer; height: auto;
 }
 
 .tab-item.active {
@@ -119,8 +119,8 @@ function selectAllTab() {
 }
 
 .add-dialog {
-  position: fixed; inset: 0;
-  margin: auto; z-index: var(--z-sticky); width: 200px; height: 150px;
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: var(--z-sticky); width: 200px; height: 150px;
   border-radius: var(--global-border-radius); background: var(--color-white); border: var(--unified-border);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }

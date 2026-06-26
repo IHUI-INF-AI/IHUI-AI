@@ -1,0 +1,17 @@
+{
+  "circleDetail": {
+    "back": "返回",
+    "essence": "精华",
+    "join": "加入",
+    "joined": "joined",
+    "members": "会员",
+    "noDesc": "无描述",
+    "noPosts": "noPosts",
+    "owner": "所有者",
+    "postPlaceholder": "postPlaceholder",
+    "posts": "帖子",
+    "postsTitle": "postsTitle",
+    "publish": "发布",
+    "top": "置顶"
+  }
+}

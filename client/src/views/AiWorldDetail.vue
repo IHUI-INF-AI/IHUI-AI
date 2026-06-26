@@ -156,9 +156,9 @@ onUnmounted(() => {
 /* 颜色变量：与 AiWorld.vue 保持一致 */
 $aw-gray-page: var(--color-neutral-100);
 $aw-panel-bg: var(--el-bg-color);
-$aw-gray-card: var(--color-gray-fafafa);
+$aw-gray-card: var(--el-fill-color-lighter);
 $aw-gray-elevated: var(--color-gray-e8e8e8);
-$aw-gray-border: var(--color-text-muted);
+$aw-gray-border: var(--el-text-color-placeholder);
 
 .ai-world-page {
   --ai-world-page-bg: #{$aw-gray-page};
@@ -228,7 +228,7 @@ $aw-gray-border: var(--color-text-muted);
 
   &:hover {
     color: var(--el-text-color-primary);
-    background: var(--color-text-muted);
+    background: var(--el-text-color-placeholder);
     border-color: $aw-gray-border;
   }
 }

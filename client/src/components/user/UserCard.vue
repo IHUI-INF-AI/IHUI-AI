@@ -88,12 +88,12 @@ function handleClick(key: string) {
   background: var(--el-fill-color-lighter);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, transform 0.3s;
 }
 
 .action-card:hover {
   background: var(--el-fill-color-light);
-  transform: translateY(-2px);
+  
   }
 
 .action-icon {

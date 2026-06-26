@@ -1,0 +1,30 @@
+{
+  "vipDetails": {
+    "monthly": {
+      "benefits": {
+        "0": "0",
+        "1": "1",
+        "2": "2",
+        "3": "3"
+      },
+      "days": "days",
+      "select": "选择",
+      "title": "标题"
+    },
+    "monthlyMember": "monthlyMember",
+    "subtitle": "副标题",
+    "title": "标题",
+    "yearly": {
+      "benefits": {
+        "0": "0",
+        "1": "1",
+        "2": "2",
+        "3": "3"
+      },
+      "days": "days",
+      "select": "选择",
+      "title": "标题"
+    },
+    "yearlyMember": "yearlyMember"
+  }
+}

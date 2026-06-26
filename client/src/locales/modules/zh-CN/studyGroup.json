@@ -1,0 +1,19 @@
+{
+  "studyGroup": {
+    "cover": "封面",
+    "delist": "delist",
+    "descPlaceholder": "请输入描述",
+    "edit": "编辑",
+    "enterGroupDesc": "enterGroupDesc",
+    "enterGroupTitle": "enterGroupTitle",
+    "groupDesc": "groupDesc",
+    "groupTitle": "groupTitle",
+    "pleaseSelect": "请选择",
+    "publish": "发布",
+    "selectTrack": "选择音轨",
+    "subTrack": "subTrack",
+    "titlePlaceholder": "请输入标题",
+    "uploadCover": "上传封面",
+    "uploadVideo": "上传视频"
+  }
+}

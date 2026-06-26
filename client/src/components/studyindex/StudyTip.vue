@@ -78,7 +78,7 @@ function toMyModel() {
   font-family: inherit;
   font-size: 14px;
   font-weight: 700;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
   white-space: nowrap;
   padding-right: 10px;
 }
@@ -101,6 +101,7 @@ function toMyModel() {
   border: var(--unified-border);
   background: var(--color-blue-d9e6fd);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   font-weight: 700;
   margin-right: 2px;
   padding: 4px 0;

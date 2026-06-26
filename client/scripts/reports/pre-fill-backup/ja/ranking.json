@@ -1,0 +1,11 @@
+{
+  "ranking": {
+    "dayRank": "[ZH:dayRank]",
+    "monthRank": "[ZH:monthRank]",
+    "noData": "[ZH:noData]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]",
+    "totalRank": "[ZH:totalRank]",
+    "weekRank": "[ZH:weekRank]"
+  }
+}

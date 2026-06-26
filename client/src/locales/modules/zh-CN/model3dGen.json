@@ -1,0 +1,23 @@
+{
+  "model3dGen": {
+    "buttons": {
+      "generate": "生成"
+    },
+    "form": {
+      "format": "格式",
+      "prompt": "提示词",
+      "promptPlaceholder": "请输入提示词",
+      "uploadImage": "上传图片"
+    },
+    "messages": {
+      "generateFailed": "生成失败",
+      "promptRequired": "请输入提示词"
+    },
+    "tabs": {
+      "image": "图片",
+      "text": "文本"
+    },
+    "tag": "标签",
+    "title": "标题"
+  }
+}

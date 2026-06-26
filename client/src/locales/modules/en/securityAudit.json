@@ -1,0 +1,30 @@
+{
+  "securityAudit": {
+    "authzTitle": "authzTitle",
+    "behaviorCount": "behaviorCount",
+    "behaviorTitle": "behaviorTitle",
+    "configTitle": "configTitle",
+    "cooldown": "cooldown",
+    "findingsTitle": "findingsTitle",
+    "loadingPolicies": "loadingPolicies",
+    "noAuthz": "noAuthz",
+    "noBehavior": "noBehavior",
+    "noFindings": "noFindings",
+    "policiesCount": "policiesCount",
+    "policiesTitle": "policiesTitle",
+    "refreshAll": "refreshAll",
+    "refreshed": "refreshed",
+    "riskCritical": "riskCritical",
+    "riskElevated": "riskElevated",
+    "riskLabel": "riskLabel",
+    "riskOk": "riskOk",
+    "riskScoreAria": "riskScoreAria",
+    "riskWarning": "riskWarning",
+    "simulateFailure": "simulateFailure",
+    "simulatedFailures": "simulatedFailures",
+    "subtitle": "副标题",
+    "title": "标题",
+    "userId": "userId",
+    "userIdPlaceholder": "userIdPlaceholder"
+  }
+}

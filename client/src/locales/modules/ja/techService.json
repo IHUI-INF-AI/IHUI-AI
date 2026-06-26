@@ -1,0 +1,54 @@
+{
+  "techService": {
+    "appointmentFailed": "appointmentFailed",
+    "appointmentSubmitted": "appointmentSubmitted",
+    "appointmentTitle": "appointmentTitle",
+    "form": {
+      "datePlaceholder": "datePlaceholder",
+      "description": "描述",
+      "descriptionPlaceholder": "descriptionPlaceholder",
+      "email": "邮箱",
+      "emailPlaceholder": "emailPlaceholder",
+      "invalidEmail": "邮箱格式不正确",
+      "invalidPhone": "手机号格式不正确",
+      "name": "名称",
+      "namePlaceholder": "namePlaceholder",
+      "phone": "手机号",
+      "phonePlaceholder": "phonePlaceholder",
+      "preferredDate": "preferredDate",
+      "preferredTime": "preferredTime",
+      "timePlaceholder": "timePlaceholder",
+      "validationRequired": "validationRequired"
+    },
+    "services": {
+      "consultation": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "custom": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "docs": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "feedback": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "support": {
+        "desc": "描述",
+        "title": "标题"
+      },
+      "training": {
+        "desc": "描述",
+        "title": "标题"
+      }
+    },
+    "submitAppointment": "submitAppointment",
+    "subtitle": "副标题",
+    "title": "标题",
+    "underDevelopment": "underDevelopment"
+  }
+}

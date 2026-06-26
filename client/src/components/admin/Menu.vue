@@ -174,7 +174,7 @@ const groups = computed<MenuGroup[]>(() => [
     color: var(--color-white-70);
     text-decoration: none; font-size: 13px;
     border-radius: var(--global-border-radius);
-    transition: all 0.2s;
+    transition: color 0.2s, background-color 0.2s;
     &:hover { color: var(--color-on-primary); background: var(--color-white-8); }
     &.active { color: var(--color-on-primary); background: var(--el-color-primary); }
   }
@@ -190,7 +190,7 @@ const groups = computed<MenuGroup[]>(() => [
     line-height: 1;
     background: var(--el-color-danger);
     /* 暗色模式可读性 (2026-06-24 封版): 始终白字, 避免 el-bg-color 暗色模式变深字 */
-    color: #fff;
+    color: var(--el-color-white);
     border: 1px solid var(--el-color-danger);
   }
   .menu-badge-dot {

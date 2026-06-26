@@ -1,0 +1,25 @@
+{
+  "feedback": {
+    "content": {
+      "tip": "[ZH:tip]"
+    },
+    "rules": {
+      "contentMin": "[ZH:contentMin]",
+      "contentRequired": "[ZH:contentRequired]"
+    },
+    "submitSuccess": "[ZH:submitSuccess]",
+    "title": "[ZH:title]",
+    "type": {
+      "bug": "[ZH:bug]",
+      "experience": "[ZH:experience]",
+      "feature": "[ZH:feature]",
+      "other": "[ZH:other]"
+    }
+  },
+  "Feedback": {
+    "feedbackRecords": "[ZH:feedbackRecords]",
+    "loading": "[ZH:loading]",
+    "submitFailed": "[ZH:submitFailed]",
+    "submitFeedback": "[ZH:submitFeedback]"
+  }
+}

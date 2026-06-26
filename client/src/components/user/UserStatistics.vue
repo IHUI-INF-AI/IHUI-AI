@@ -2,8 +2,8 @@
   <div class="user-statistics">
     <h3 class="section-title">{{ t('userComponents.statistics.title') }}</h3>
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon">
+      <div class="stat-card stat-views">
+        <div class="stat-icon stat-icon--primary">
           <el-icon :size="32"><View /></el-icon>
         </div>
         <div class="stat-info">
@@ -13,7 +13,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">
+        <div class="stat-icon stat-icon--warning">
           <el-icon :size="32"><Star /></el-icon>
         </div>
         <div class="stat-info">
@@ -23,7 +23,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">
+        <div class="stat-icon stat-icon--success">
           <el-icon :size="32"><ShoppingCart /></el-icon>
         </div>
         <div class="stat-info">
@@ -33,7 +33,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">
+        <div class="stat-icon stat-icon--info">
           <el-icon :size="32"><Wallet /></el-icon>
         </div>
         <div class="stat-info">
@@ -103,7 +103,7 @@ const _props = defineProps<{
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
+  
   }
 
 .stat-icon {
@@ -116,6 +116,11 @@ const _props = defineProps<{
   color: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
 }
+
+.stat-icon--primary { background: var(--el-color-primary); color: var(--color-on-primary); }
+.stat-icon--warning { background: var(--el-color-warning); color: var(--color-on-primary); }
+.stat-icon--success { background: var(--el-color-success); color: var(--color-on-primary); }
+.stat-icon--info { background: var(--el-text-color-secondary); color: var(--color-on-primary); }
 
 .stat-info {
   display: flex;

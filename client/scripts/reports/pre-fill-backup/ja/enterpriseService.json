@@ -1,0 +1,210 @@
+{
+  "enterpriseService": {
+    "adoptionRate": "[ZH:adoptionRate]",
+    "architecture": {
+      "aiEffect": {
+        "metrics": {
+          "cost": "[ZH:cost]",
+          "efficiency": "[ZH:efficiency]",
+          "experience": "[ZH:experience]"
+        },
+        "superEmployee": "[ZH:superEmployee]",
+        "superProduct": "[ZH:superProduct]",
+        "superTeam": "[ZH:superTeam]",
+        "title": "[ZH:title]"
+      },
+      "description": "[ZH:description]",
+      "infoWorld": {
+        "advanced": {
+          "items": {
+            "agent": "[ZH:agent]",
+            "generative": "[ZH:generative]",
+            "perception": "[ZH:perception]",
+            "physical": "[ZH:physical]"
+          },
+          "label": "[ZH:label]"
+        },
+        "basic": {
+          "items": {
+            "automation": "[ZH:automation]",
+            "informatization": "[ZH:informatization]",
+            "iot": "[ZH:iot]"
+          },
+          "label": "[ZH:label]"
+        },
+        "title": "[ZH:title]"
+      },
+      "physicalWorld": {
+        "culture": {
+          "description": "[ZH:description]",
+          "title": "[ZH:title]"
+        },
+        "process": {
+          "description": "[ZH:description]",
+          "title": "[ZH:title]"
+        },
+        "structure": {
+          "description": "[ZH:description]",
+          "title": "[ZH:title]"
+        },
+        "title": "[ZH:title]"
+      },
+      "title": "[ZH:title]"
+    },
+    "badge": "[ZH:badge]",
+    "badgeNew": "[ZH:badgeNew]",
+    "communityLabel": "[ZH:communityLabel]",
+    "compass": {
+      "axes": {
+        "autonomy": {
+          "high": "[ZH:high]",
+          "low": "[ZH:low]"
+        },
+        "complexity": {
+          "high": "[ZH:high]",
+          "low": "[ZH:low]"
+        }
+      },
+      "cta": "[ZH:cta]",
+      "description": "[ZH:description]",
+      "title": "[ZH:title]"
+    },
+    "coreService": "[ZH:coreService]",
+    "courseDuration": {
+      "oneLesson": "[ZH:oneLesson]",
+      "series": "[ZH:series]"
+    },
+    "courses": {
+      "aiTools": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "culture": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "description": "[ZH:description]",
+      "thinking": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "title": "[ZH:title]"
+    },
+    "exit": "[ZH:exit]",
+    "footer": {
+      "agentScenario": "[ZH:agentScenario]",
+      "company": "[ZH:company]",
+      "contact": "[ZH:contact]",
+      "humanMachine": "[ZH:humanMachine]",
+      "location": "[ZH:location]"
+    },
+    "heroSubtitle": "[ZH:heroSubtitle]",
+    "heroTitle": "[ZH:heroTitle]",
+    "join": {
+      "benefits": {
+        "aiAssistant": "[ZH:aiAssistant]",
+        "allCourses": "[ZH:allCourses]",
+        "exploration": "[ZH:exploration]",
+        "mutualAid": "[ZH:mutualAid]",
+        "onlineCommunity": "[ZH:onlineCommunity]",
+        "refund": "[ZH:refund]",
+        "title": "[ZH:title]"
+      },
+      "cta": "[ZH:cta]",
+      "currentPrice": "[ZH:currentPrice]",
+      "description": "[ZH:description]",
+      "earlyBird": "[ZH:earlyBird]",
+      "hint": "[ZH:hint]",
+      "originalPrice": "[ZH:originalPrice]",
+      "perYear": "[ZH:perYear]",
+      "seatsNote": "[ZH:seatsNote]",
+      "title": "[ZH:title]"
+    },
+    "jumpToSection": "[ZH:jumpToSection]",
+    "layers": {
+      "layer01": "[ZH:layer01]",
+      "layer02": "[ZH:layer02]",
+      "layer03": "[ZH:layer03]"
+    },
+    "learnMore": "[ZH:learnMore]",
+    "modules": {
+      "aiService": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "localCommunity": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "module01": "[ZH:module01]",
+      "module02": "[ZH:module02]",
+      "module03": "[ZH:module03]",
+      "onlineCommunity": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      }
+    },
+    "phases": {
+      "phase01": "[ZH:phase01]",
+      "phase02": "[ZH:phase02]",
+      "phase03": "[ZH:phase03]"
+    },
+    "positioning": {
+      "description": "[ZH:description]",
+      "title": "[ZH:title]"
+    },
+    "scrollProgress": "[ZH:scrollProgress]",
+    "sectionNavigation": "[ZH:sectionNavigation]",
+    "sections": {
+      "agentCompass": "[ZH:agentCompass]",
+      "architecture": "[ZH:architecture]",
+      "courseSystem": "[ZH:courseSystem]",
+      "joinUs": "[ZH:joinUs]",
+      "positioning": "[ZH:positioning]",
+      "serviceModules": "[ZH:serviceModules]",
+      "toolsOverview": "[ZH:toolsOverview]"
+    },
+    "skipToMain": "[ZH:skipToMain]",
+    "stats": {
+      "earlyBirdLabel": "[ZH:earlyBirdLabel]",
+      "priceLabel": "[ZH:priceLabel]",
+      "seatsLabel": "[ZH:seatsLabel]"
+    },
+    "tools": {
+      "description": "[ZH:description]",
+      "function": {
+        "office": "[ZH:office]",
+        "production": "[ZH:production]",
+        "rd": "[ZH:rd]",
+        "sales": "[ZH:sales]",
+        "title": "[ZH:title]"
+      },
+      "general": {
+        "image": "[ZH:image]",
+        "text": "[ZH:text]",
+        "title": "[ZH:title]",
+        "video": "[ZH:video]",
+        "voice": "[ZH:voice]"
+      },
+      "industry": {
+        "education": "[ZH:education]",
+        "government": "[ZH:government]",
+        "healthcare": "[ZH:healthcare]",
+        "manufacturing": "[ZH:manufacturing]",
+        "title": "[ZH:title]"
+      },
+      "partners": {
+        "title": "[ZH:title]"
+      },
+      "title": "[ZH:title]"
+    },
+    "typingPhrases": {
+      "humanMachineCollaboration": "[ZH:humanMachineCollaboration]",
+      "intelligentTransformation": "[ZH:intelligentTransformation]",
+      "rationalEfficiency": "[ZH:rationalEfficiency]"
+    }
+  },
+  "EnterpriseService": {
+    "enterpriseDesc": "[ZH:enterpriseDesc]"
+  }
+}

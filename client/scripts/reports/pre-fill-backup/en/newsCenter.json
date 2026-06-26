@@ -1,0 +1,14 @@
+{
+  "newsCenter": {
+    "categories": {
+      "industry": "[ZH:industry]"
+    },
+    "loadMore": "[ZH:loadMore]",
+    "loadingMore": "[ZH:loadingMore]",
+    "minRead": "[ZH:minRead]",
+    "pageInfo": "[ZH:pageInfo]",
+    "readMore": "[ZH:readMore]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]"
+  }
+}

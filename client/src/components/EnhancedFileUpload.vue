@@ -485,7 +485,7 @@ defineExpose({
   padding: 40px 20px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, background-color 0.3s ease;
   background: var(--el-fill-color-light);
 }
 

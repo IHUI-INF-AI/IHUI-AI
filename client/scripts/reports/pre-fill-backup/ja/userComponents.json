@@ -1,0 +1,117 @@
+{
+  "userComponents": {
+    "developer": {
+      "copy": "[ZH:copy]",
+      "regenerate": "[ZH:regenerate]",
+      "remainingQuota": "[ZH:remainingQuota]",
+      "successRate": "[ZH:successRate]",
+      "title": "[ZH:title]",
+      "totalCalls": "[ZH:totalCalls]",
+      "viewDocs": "[ZH:viewDocs]"
+    },
+    "examine": {
+      "empty": "[ZH:empty]",
+      "rejectReason": "[ZH:rejectReason]",
+      "resubmit": "[ZH:resubmit]",
+      "title": "[ZH:title]",
+      "view": "[ZH:view]"
+    },
+    "favorites": {
+      "empty": "[ZH:empty]",
+      "remove": "[ZH:remove]",
+      "title": "[ZH:title]",
+      "view": "[ZH:view]"
+    },
+    "infoCard": {
+      "edit": "[ZH:edit]"
+    },
+    "loginPopup": {
+      "code": "[ZH:code]",
+      "login": "[ZH:login]",
+      "phone": "[ZH:phone]",
+      "sendCode": "[ZH:sendCode]",
+      "wechatLogin": "[ZH:wechatLogin]"
+    },
+    "messages": {
+      "empty": "[ZH:empty]",
+      "title": "[ZH:title]"
+    },
+    "orders": {
+      "empty": "[ZH:empty]",
+      "orderNo": "[ZH:orderNo]",
+      "payNow": "[ZH:payNow]",
+      "title": "[ZH:title]",
+      "viewDetails": "[ZH:viewDetails]"
+    },
+    "privacy": {
+      "allowSearch": "[ZH:allowSearch]",
+      "allowSearchDesc": "[ZH:allowSearchDesc]",
+      "publicProfile": "[ZH:publicProfile]",
+      "publicProfileDesc": "[ZH:publicProfileDesc]",
+      "receiveMessages": "[ZH:receiveMessages]",
+      "receiveMessagesDesc": "[ZH:receiveMessagesDesc]",
+      "showOnlineStatus": "[ZH:showOnlineStatus]",
+      "showOnlineStatusDesc": "[ZH:showOnlineStatusDesc]",
+      "title": "[ZH:title]"
+    },
+    "profile": {
+      "admin": "[ZH:admin]",
+      "editProfile": "[ZH:editProfile]",
+      "email": "[ZH:email]",
+      "phone": "[ZH:phone]",
+      "registerTime": "[ZH:registerTime]"
+    },
+    "purchaseRecords": {
+      "applyInvoice": "[ZH:applyInvoice]",
+      "empty": "[ZH:empty]",
+      "orderNo": "[ZH:orderNo]",
+      "status": {
+        "completed": "[ZH:completed]",
+        "pending": "[ZH:pending]",
+        "refunded": "[ZH:refunded]"
+      },
+      "title": "[ZH:title]",
+      "viewDetails": "[ZH:viewDetails]"
+    },
+    "purchases": {
+      "download": "[ZH:download]",
+      "empty": "[ZH:empty]",
+      "title": "[ZH:title]",
+      "view": "[ZH:view]"
+    },
+    "security": {
+      "emailBinding": "[ZH:emailBinding]",
+      "loginPassword": "[ZH:loginPassword]",
+      "loginPasswordDesc": "[ZH:loginPasswordDesc]",
+      "modify": "[ZH:modify]",
+      "phoneBinding": "[ZH:phoneBinding]",
+      "title": "[ZH:title]"
+    },
+    "settings": {
+      "language": "[ZH:language]",
+      "languageDesc": "[ZH:languageDesc]",
+      "notifications": "[ZH:notifications]",
+      "notificationsDesc": "[ZH:notificationsDesc]",
+      "soundEffects": "[ZH:soundEffects]",
+      "soundEffectsDesc": "[ZH:soundEffectsDesc]",
+      "theme": "[ZH:theme]",
+      "themeDesc": "[ZH:themeDesc]",
+      "title": "[ZH:title]"
+    },
+    "statistics": {
+      "chartDeveloping": "[ZH:chartDeveloping]",
+      "favorites": "[ZH:favorites]",
+      "orders": "[ZH:orders]",
+      "title": "[ZH:title]",
+      "totalSpent": "[ZH:totalSpent]",
+      "totalViews": "[ZH:totalViews]",
+      "usageTrend": "[ZH:usageTrend]"
+    },
+    "upload": {
+      "delete": "[ZH:delete]",
+      "empty": "[ZH:empty]",
+      "title": "[ZH:title]",
+      "view": "[ZH:view]"
+    }
+  }
+}

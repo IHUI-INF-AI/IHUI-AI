@@ -105,7 +105,7 @@ const Notification = defineAsyncComponent(() => import('@/components/Notificatio
   border: none;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
   height: 40px;
   min-height: 40px;
   max-height: 40px;

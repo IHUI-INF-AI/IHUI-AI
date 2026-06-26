@@ -1,0 +1,15 @@
+{
+  "learnDetail": {
+    "buyNow": "[ZH:buyNow]",
+    "chapters": "[ZH:chapters]",
+    "continueLearn": "[ZH:continueLearn]",
+    "favorite": "[ZH:favorite]",
+    "favorited": "[ZH:favorited]",
+    "learnCount": "[ZH:learnCount]",
+    "learnNow": "[ZH:learnNow]",
+    "noChapters": "[ZH:noChapters]",
+    "notExist": "[ZH:notExist]",
+    "reviews": "[ZH:reviews]",
+    "teacher": "[ZH:teacher]"
+  }
+}

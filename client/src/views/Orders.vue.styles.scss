@@ -40,6 +40,7 @@
   display: flex;
   align-items: center;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow: none;
   transition: background-color 0.3s ease;
 
@@ -102,14 +103,15 @@
   padding: 0.75rem 1.5rem;
   border-radius: var(--global-border-radius); /* 统一6px圆角 */
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
   font-weight: 500;
   position: relative;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 
   &:hover {
     background: var(--el-bg-color-hover); /* hover时纯白色 */
-    transform: translateY(-2px);
+    
   }
 }
 
@@ -204,7 +206,7 @@
 }
 
 .orders-page .go-shop-btn:hover {
-  transform: translateY(-2px);
+  
 }
 
 .orders-list {
@@ -222,6 +224,7 @@
   border-style: solid;
   border-color: var(--border-unified-color);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow: none;
   transition:
     transform 0.2s,
@@ -230,7 +233,7 @@
 
   &:hover {
     background: var(--color-blue-f0f1f9-50);
-    transform: translateY(-2px);
+    
   }
 }
 
@@ -258,7 +261,7 @@
   border-radius: var(--global-border-radius);
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 /* 待支付状态 - 醒目橙黄色系 */
@@ -396,7 +399,7 @@
   background: var(--el-bg-color-page);
   color: var(--el-text-color-regular);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -420,9 +423,9 @@
   }
 
   &.warning {
-    background: var(--color-orange-ff9800);
+    background: var(--el-color-warning);
     color: var(--el-bg-color);
-    border-color: var(--color-orange-ff9800);
+    border-color: var(--el-color-warning);
 
     &:hover {
       background: var(--color-orange-f57c00);
@@ -592,7 +595,7 @@
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, transform 0.2s;
   min-width: 80px;
 }
 
@@ -602,7 +605,7 @@
 }
 
 .action-btn.primary:hover {
-  transform: translateY(-1px);
+  
   box-shadow: none;
 }
 
@@ -639,13 +642,14 @@
   padding: 0.75rem 2rem;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.3s ease;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .load-more-btn:hover {
   background: var(--color-black-30);
-  transform: translateY(-2px);
+  
 }
 
 .no-more {

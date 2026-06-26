@@ -324,7 +324,7 @@ const handleTrash2 = (template: PromptTemplate) => {
   &:hover {
     background-color: var(--el-fill-color);
     border-color: var(--el-border-color-hover);
-    transform: translateY(-2px);
+    
 
     .delete-btn {
       opacity: 1;
@@ -370,10 +370,10 @@ const handleTrash2 = (template: PromptTemplate) => {
       justify-content: center;
       height: 20px;
       
-      &.code { background: var(--color-blue-007bff-10); color: var(--color-blue-007bff); }
-      &.writing { background: var(--color-orange-ff9900-10); color: var(--color-orange-ff9900); }
-      &.creative { background: var(--color-green-52c41a-10); color: var(--color-green-52c41a); }
-      &.analysis { background: var(--color-red-transparent-10-alt); color: var(--color-red-f5222d); }
+      &.code { background: var(--color-blue-007bff-10); color: var(--el-color-primary); }
+      &.writing { background: var(--color-orange-ff9900-10); color: var(--el-color-warning); }
+      &.creative { background: var(--color-green-52c41a-10); color: var(--el-color-success); }
+      &.analysis { background: rgba(var(--el-color-danger-rgb), 0.1); color: var(--el-color-danger); }
       &.language { background: var(--ai-language-tag-bg); color: var(--ai-language-tag); }
     }
   }
@@ -400,7 +400,7 @@ const handleTrash2 = (template: PromptTemplate) => {
   top: 14px;
   right: 14px;
   opacity: 0;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   
   &:hover {
     transform: scale(1.1);

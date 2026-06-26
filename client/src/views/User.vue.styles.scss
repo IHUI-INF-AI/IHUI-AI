@@ -71,7 +71,7 @@
     border: none;
     border-radius: var(--global-border-radius); /* 统一6px圆角 */
     padding: clamp(8px, 1vw, 12px);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
 
     // 高度自适应内容
@@ -115,7 +115,7 @@
       padding: clamp(10px, 1.5vw, 14px) clamp(12px, 2vw, 20px);
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       color: var(--el-text-color-primary);
       font-size: clamp(13px, 1.8vw, 15px);
       font-weight: 400;
@@ -255,7 +255,7 @@
       @keyframes fadeInDown {
         from {
           opacity: 0;
-          transform: translateY(-10px);
+          
         }
 
         to {
@@ -284,7 +284,7 @@
       box-shadow: none; /* ?glass-card 扁平化一致，无阴? */
       min-height: 500px;
       margin-bottom: 20px; // 卡片底部间距，与左侧 sidebar-nav 一?
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       will-change: transform;
 
       &:hover {
@@ -385,7 +385,7 @@
       color: var(--el-text-color-primary);
       border-radius: var(--global-border-radius);
       margin: 4px 8px;
-      transition: all 0.2s;
+      transition: background-color 0.2s, color 0.2s;
 
       &:hover {
         background: var(--el-bg-color-page);
@@ -524,7 +524,7 @@
     background: var(--el-bg-color); /* 统一浅灰? */
     border-radius: var(--global-border-radius); /* 统一6px圆角 */
     border: none;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
 
     &:hover {
       background: var(--el-bg-color-hover);
@@ -555,7 +555,7 @@
       border-radius: var(--global-border-radius); /* 统一6px圆角 */
       border: none;
       margin-bottom: 12px;
-      transition: all 0.2s;
+      transition: background-color 0.2s, border-color 0.2s;
 
       &:hover {
         background: var(--el-bg-color-hover);
@@ -642,7 +642,7 @@
   background: var(--el-bg-color); /* 统一浅灰? */
   border: none;
   border-radius: var(--global-border-radius); /* 统一6px圆角 */
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
 
   &:hover {
@@ -738,7 +738,7 @@
   background: var(--el-bg-color); /* 统一浅灰? */
   border: none;
   border-radius: var(--global-border-radius); /* 统一6px圆角 */
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
 
   &:hover {
@@ -841,7 +841,7 @@
     &:hover {
       background: var(--color-black-2);
       border-color: var(--border-unified-color);
-      transform: translateY(-2px);
+      
 
       &::before {
         background: var(--el-bg-color-page);
@@ -915,7 +915,7 @@
   background: var(--el-bg-color); /* 统一浅灰? */
   border: none;
   border-radius: var(--global-border-radius); /* 统一6px圆角 */
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
 
   &:hover {
     background: var(--el-bg-color-hover); /* hover时纯白色 */
@@ -952,7 +952,7 @@
     &:hover {
       background: var(--color-black-80);
       border-color: var(--color-black-80);
-      transform: translateY(-1px);
+      
     }
   }
 }
@@ -1197,11 +1197,11 @@
       background: var(--el-bg-color); /* 统一浅灰? */
       border: none;
       border-radius: var(--global-border-radius); /* 统一6px圆角 */
-      transition: all 0.2s;
+      transition: background-color 0.2s, transform 0.2s;
 
       &:hover {
         background: var(--el-bg-color-hover); /* hover时纯白色 */
-        transform: translateY(-2px);
+        
       }
 
       .stat-item {
@@ -1217,7 +1217,7 @@
           justify-content: center;
           background: var(--el-bg-color); /* 统一浅灰? */
           border: none;
-          transition: all 0.2s;
+          transition: background-color 0.2s;
           border-radius: var(--global-border-radius); /* 统一6px圆角 */
 
           &:hover {

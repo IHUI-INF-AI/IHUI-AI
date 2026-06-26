@@ -71,8 +71,6 @@
         "originalPrice": "Original Price ¥{price}"
       },
       "plans": {
-        "vip": "Member",
-        "trader": "Trader",
         "upgrade": "Upgrade Plan",
         "subscribe": "Subscribe Now",
         "recommended": "Recommended"
@@ -96,47 +94,13 @@
       "guarantee": "7-day no-questions-asked refund guarantee"
     },
     "payment": {
-      "title": "Payment",
-      "subtitle": "Please select a payment method to complete your order",
-      "orderInfo": "Order Information",
-      "productName": "Product Name",
-      "orderNo": "Order Number",
-      "amount": "Amount",
       "paymentMethods": "Payment Methods",
       "alipay": "alipay",
-      "wechat": {
-        "name": "WeChat Pay",
-        "desc": "Scan QR code with WeChat to pay"
-      },
-      "card": {
-        "name": "Bank Card",
-        "desc": "Pay with bank card"
-      },
       "confirmPay": "Confirm Payment ¥{price}",
       "cancel": "Cancel",
-      "underDevelopment": "Feature Under Development",
-      "confirmPayment": "Confirm Payment",
-      "processing": "Processing...",
-      "invalidOrderInfo": "Invalid order information",
-      "cardNotSupported": "Bank card payment is not supported, please choose another payment method",
-      "createOrderFailed": "Failed to create payment order",
-      "paymentDataError": "Payment data error",
-      "paymentSuccess": "Payment successful",
       "orderAlReadyPaid": "Order alReady paid",
-      "orderAlreadyPaid": "Order already paid",
       "qrCodeTitle": "Scan to Pay",
-      "generatingQRCode": "Generating payment QR code...",
       "qrCodeTip": "Please scan the QR code below with your phone to complete payment",
-      "qrCodeFailed": "Failed to generate QR code",
-      "openPaymentPage": "Open Payment Page",
-      "checkStatus": "Check Payment Status",
-      "cancelPayment": "Cancel Payment",
-      "paymentNotAvailable": "Payment feature not yet available",
-      "paymentRedirecting": "Redirecting to payment page...",
-      "wechatPaymentRequiresJSAPI": "WeChat Pay requires WeChat environment",
-      "pageTitleKeyword": "Payment",
-      "pageTitle": "Payment Page",
-      "defaultProductName": "Unnamed Product",
       "qrCodeAlt": "Payment QR Code",
       "close": "Close",
       "confirmOrder": "Confirm Order",
@@ -150,13 +114,6 @@
       "fetchVipPriceFailed": "Failed to fetch VIP price",
       "purchaseVipFailed": "Failed to purchase VIP",
       "selectProduct": "Select Product",
-      "platformCoins": {
-        "name": "Platform Coin Payment",
-        "desc": "UseAccount balancePayment"
-      },
-      "paymentFailed": "PaymentFailed",
-      "insufficientBalance": "Insufficient platform coin balance, please select other payment method or recharge first",
-      "unsupportedMethod": "Unsupported payment method",
       "vipName": "AI ZhiHui Community VIP",
       "paymentOnetime": "One-time payment, lifetime use",
       "lifetimeMember": "Lifetime member",
@@ -169,7 +126,36 @@
         "lifetime": "✓ Pay once, use forever"
       }
     },
-    "paymentFailed": "Payment Failed"
+    "paymentFailed": "Payment Failed",
+    "userMembershipBenefits": {
+      "benefit10One": "benefit10One",
+      "benefit10Three": "benefit10Three",
+      "benefit10Title": "benefit10Title",
+      "benefit10Two": "benefit10Two",
+      "benefit11Title": "benefit11Title",
+      "benefit1One": "benefit1One",
+      "benefit1Three": "benefit1Three",
+      "benefit1Title": "benefit1Title",
+      "benefit1Two": "benefit1Two",
+      "benefit2Title": "benefit2Title",
+      "benefit3Title": "benefit3Title",
+      "benefit4Title": "benefit4Title",
+      "benefit5Title": "benefit5Title",
+      "benefit6Title": "benefit6Title",
+      "benefit7One": "benefit7One",
+      "benefit7Three": "benefit7Three",
+      "benefit7Title": "benefit7Title",
+      "benefit7Two": "benefit7Two",
+      "benefit8Title": "benefit8Title",
+      "benefit9Title": "benefit9Title",
+      "benefitName": "benefitName",
+      "normalUser": "normalUser",
+      "trader": "trader",
+      "traderPrice": "traderPrice",
+      "upgrade": "upgrade",
+      "vip": "VIP",
+      "vipPrice": "vipPrice"
+    }
   },
   "vipLevelPopup": {
     "benefitLevel1": "Limited-time spend <b style=\"color: var(--color-red)\">588</b> to activate membership, get <b style=\"color: var(--color-red)\">588</b> growth points, reach <b style=\"color: var(--color-red)\">Level 1: Algorithm Sprout</b>",
@@ -181,6 +167,12 @@
     "benefitLevel7": "Reach <b style=\"color: var(--color-red)\">9000</b> Zhihui Points to reach <b style=\"color: var(--color-red)\">Level 7: Intelligence Hub</b>, enjoy <b style=\"color: var(--color-red)\">8.3</b> discount",
     "benefitLevel8": "Reach <b style=\"color: var(--color-red)\">10500</b> Zhihui Points to reach <b style=\"color: var(--color-red)\">Level 8: Intelligent Navigation</b>, enjoy <b style=\"color: var(--color-red)\">8</b> discount",
     "benefitLevel9": "Reach <b style=\"color: var(--color-red)\">12000</b> Zhihui Points to reach <b style=\"color: var(--color-red)\">Level 9: Quantum Intelligence Brain</b>, enjoy <b style=\"color: var(--color-red)\">7.7</b> discount",
-    "benefitLevel10": "Reach <b style=\"color: var(--color-red)\">18888</b> Zhihui Points to reach <b style=\"color: var(--color-red)\">Level 10: Hyper-dimensional Prophet</b>, enjoy <b style=\"color: var(--color-red)\">7</b> discount"
+    "benefitLevel10": "Reach <b style=\"color: var(--color-red)\">18888</b> Zhihui Points to reach <b style=\"color: var(--color-red)\">Level 10: Hyper-dimensional Prophet</b>, enjoy <b style=\"color: var(--color-red)\">7</b> discount",
+    "goActivate": "goActivate",
+    "level0Desc": "level0Desc"
+  },
+  "Vip": {
+    "oneClickVip": "oneClickVip",
+    "permanentVip": "permanentVip"
   }
 }

@@ -273,7 +273,7 @@ cleanup.add(() => {
 <style scoped lang="scss">
 .distribution-order-page {
   min-height: 100vh;
-  background: var(--color-gray-f5f7fa);
+  background: var(--el-fill-color-lighter);
   padding: 20px;
 }
 
@@ -317,7 +317,7 @@ cleanup.add(() => {
   font-size: 16px;
   color: var(--el-text-color-primary);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
   border-radius: var(--global-border-radius);
   position: relative;
   font-weight: 500;
@@ -370,12 +370,13 @@ cleanup.add(() => {
   background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
   border: var(--unified-border);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-radius: var(--global-border-radius);
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
 
   &:hover {
-    transform: translateY(-2px);
+    
     }
 }
 

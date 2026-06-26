@@ -58,7 +58,7 @@
     >
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="100px">
         <el-form-item :label="t('keyManagement.keyType')" prop="type">
-          <el-select v-model="createForm.type" :placeholder="t('keyManagement.pleaseSelect')" style="width: 100%">
+          <el-select v-model="createForm.type" :placeholder="t('keyManagement.pleaseSelect')" class="full-width">
             <el-option
               v-for="opt in typeOptions"
               :key="opt.value"
@@ -401,7 +401,11 @@ onMounted(() => {
   }
 }
 
-html.dark .key-management-page {
+:where(html.dark) .key-management-page {
   background: var(--el-bg-color-page);
+}
+
+.full-width {
+  width: 100%;
 }
 </style>

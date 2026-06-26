@@ -1,0 +1,18 @@
+{
+  "study": {
+    "chunkUploadFailed": "chunkUploadFailed",
+    "deleteSuccessReview": "deleteSuccessReview",
+    "editSuccessReview": "editSuccessReview",
+    "mainTrackPrefix": "mainTrackPrefix",
+    "publishSuccessContinue": "publishSuccessContinue",
+    "relatedApp": "relatedApp",
+    "selectPhase": "selectPhase",
+    "selectTags": "选择标签",
+    "selectTrack": "选择音轨",
+    "topComment": "topComment",
+    "uploadFailed": "上传失败",
+    "uploadSuccess": "上传成功",
+    "uploadVideoCourse": "uploadVideoCourse",
+    "videoUploadSuccess": "videoUploadSuccess"
+  }
+}

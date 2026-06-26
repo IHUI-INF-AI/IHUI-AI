@@ -1,0 +1,9 @@
+{
+  "refundStatus": {
+    "cancelRefund": "[ZH:cancelRefund]",
+    "evidenceTitle": "[ZH:evidenceTitle]",
+    "operator": "[ZH:operator]",
+    "statusUnknown": "[ZH:statusUnknown]",
+    "timelineTitle": "[ZH:timelineTitle]"
+  }
+}

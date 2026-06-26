@@ -47,7 +47,7 @@
               <el-divider />
               <h3>{{ t('mcpUseProject.coreFeatures') }}</h3>
               <el-row :gutter="16">
-                <el-col :span="12">
+                <el-col :span="12" :xs="24">
                   <el-card shadow="hover" class="feature-card">
                     <div class="feature-icon">🤖</div>
                     <h4>{{ t('mcpUseProject.mcpAgents') }}</h4>
@@ -149,7 +149,7 @@
                     </el-button>
                   </el-card>
                 </el-col>
-                <el-col :span="12">
+                <el-col :span="12" :xs="24">
                   <el-card shadow="hover" class="doc-link-card" @click="openLocalDoc('python')">
                     <div class="doc-icon">🐍</div>
                     <h4>{{ t('mcpUseProject.pythonDocs') }}</h4>
@@ -195,20 +195,20 @@
               <template #header>
                 <span>{{ t('mcpUseProject.quickLinks') }}</span>
               </template>
-              <el-space direction="vertical" style="width: 100%">
-                <el-button type="primary" style="width: 100%" @click="goToManager">
+              <el-space direction="vertical" class="links-card__space">
+                <el-button type="primary" class="full-width" @click="goToManager">
                   <el-icon><Setting /></el-icon>
                   {{ t('mcpUseProject.mcpUseManagement') }}
                 </el-button>
-                <el-button style="width: 100%" @click="openLocalDoc('readme')">
+                <el-button class="full-width" @click="openLocalDoc('readme')">
                   <el-icon><Document /></el-icon>
                   {{ t('mcpUseProject.viewReadme') }}
                 </el-button>
-                <el-button style="width: 100%" @click="openLocalDoc('typescript')">
+                <el-button class="full-width" @click="openLocalDoc('typescript')">
                   <el-icon><Document /></el-icon>
                   {{ t('mcpUseProject.typescriptDoc') }}
                 </el-button>
-                <el-button style="width: 100%" @click="openLocalDoc('python')">
+                <el-button class="full-width" @click="openLocalDoc('python')">
                   <el-icon><Document /></el-icon>
                   {{ t('mcpUseProject.pythonDoc') }}
                 </el-button>
@@ -540,10 +540,10 @@ onMounted(() => {
       text-align: center;
       margin-bottom: 16px;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: transform 0.3s;
 
       &:hover {
-        transform: translateY(-4px);
+        
       }
 
       .feature-icon {
@@ -586,10 +586,10 @@ onMounted(() => {
 
     .doc-link-card {
       cursor: pointer;
-      transition: all 0.3s;
+      transition: transform 0.3s;
 
       &:hover {
-        transform: translateY(-4px);
+        
       }
 
       .doc-icon {
@@ -613,9 +613,20 @@ onMounted(() => {
   }
 
   .stats-card,
-  .links-card,
   .structure-card {
     margin-bottom: 20px;
+  }
+
+  .links-card {
+    margin-bottom: 20px;
+
+    &__space {
+      width: 100%;
+    }
+
+    &__btn {
+      width: 100%;
+    }
   }
 
   .readme-content {
@@ -649,6 +660,10 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .full-width {
+    width: 100%;
   }
 }
 </style>

@@ -1,0 +1,26 @@
+{
+  "memberSetting": {
+    "bind": "[ZH:bind]",
+    "bound": "[ZH:bound]",
+    "changePassword": "[ZH:changePassword]",
+    "codeSent": "[ZH:codeSent]",
+    "confirmPassword": "[ZH:confirmPassword]",
+    "email": "[ZH:email]",
+    "emailNotice": "[ZH:emailNotice]",
+    "getCode": "[ZH:getCode]",
+    "msgNotice": "[ZH:msgNotice]",
+    "newPassword": "[ZH:newPassword]",
+    "oldPassword": "[ZH:oldPassword]",
+    "phoneNumber": "[ZH:phoneNumber]",
+    "pwdChanged": "[ZH:pwdChanged]",
+    "pwdMismatch": "[ZH:pwdMismatch]",
+    "saved": "[ZH:saved]",
+    "smsNotice": "[ZH:smsNotice]",
+    "tabEmail": "[ZH:tabEmail]",
+    "tabNotice": "[ZH:tabNotice]",
+    "tabPassword": "[ZH:tabPassword]",
+    "tabPhone": "[ZH:tabPhone]",
+    "title": "[ZH:title]",
+    "verifyCode": "[ZH:verifyCode]"
+  }
+}

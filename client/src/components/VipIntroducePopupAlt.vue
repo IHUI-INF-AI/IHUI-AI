@@ -172,7 +172,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   overflow: hidden;
   transform: translateY(100vh) rotateX(5deg);
-  transition: all 0.3s ease-in-out;
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
   opacity: 0.8;
   background-image: var(--color-gradient-purple-yellow);
   }
@@ -264,14 +264,14 @@ onMounted(() => {
   margin: 10px auto;
   font-size: 15px;
   font-weight: 500;
-  color: var(--color-gray-333);
+  color: var(--el-text-color-primary);
   border: var(--unified-border);
   background-image: linear-gradient(to bottom, var(--el-color-white), var(--el-fill-color-lighter));
   cursor: pointer;
 }
 
 .dark-button {
-  background-color: var(--color-gray-333);
+  background-color: var(--el-text-color-primary);
   background-image: none;
   color: var(--color-white);
   border: var(--unified-border);

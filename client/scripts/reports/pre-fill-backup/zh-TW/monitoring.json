@@ -1,0 +1,53 @@
+{
+  "monitoring": {
+    "acknowledge": "[ZH:acknowledge]",
+    "activeAlerts": "[ZH:activeAlerts]",
+    "activeTours": "[ZH:activeTours]",
+    "alertRules": "[ZH:alertRules]",
+    "anomalyDetection": "[ZH:anomalyDetection]",
+    "cancel": "[ZH:cancel]",
+    "completionRate": "[ZH:completionRate]",
+    "condition": "[ZH:condition]",
+    "cooldownTime": "[ZH:cooldownTime]",
+    "cpuUsage": "[ZH:cpuUsage]",
+    "create": "[ZH:create]",
+    "currentValue": "[ZH:currentValue]",
+    "errorRate": "[ZH:errorRate]",
+    "expectedValue": "[ZH:expectedValue]",
+    "memoryUsage": "[ZH:memoryUsage]",
+    "metrics": {
+      "cpuUsage": "[ZH:cpuUsage]",
+      "memoryUsage": "[ZH:memoryUsage]",
+      "tourComplete": "[ZH:tourComplete]",
+      "tourError": "[ZH:tourError]",
+      "tourStart": "[ZH:tourStart]"
+    },
+    "monitorMetric": "[ZH:monitorMetric]",
+    "newRule": "[ZH:newRule]",
+    "operators": {
+      "eq": "[ZH:eq]",
+      "gt": "[ZH:gt]",
+      "lt": "[ZH:lt]"
+    },
+    "performanceMonitor": "[ZH:performanceMonitor]",
+    "renderFps": "[ZH:renderFps]",
+    "ruleName": "[ZH:ruleName]",
+    "seconds": "[ZH:seconds]",
+    "severity": "[ZH:severity]",
+    "severityLevel": "[ZH:severityLevel]",
+    "severityLevels": {
+      "critical": "[ZH:critical]",
+      "info": "[ZH:info]",
+      "warning": "[ZH:warning]"
+    },
+    "status": "[ZH:status]",
+    "systemResources": "[ZH:systemResources]",
+    "timeRange": {
+      "1h": "[ZH:1h]",
+      "24h": "[ZH:24h]",
+      "7d": "[ZH:7d]"
+    },
+    "type": "[ZH:type]",
+    "viewAll": "[ZH:viewAll]"
+  }
+}

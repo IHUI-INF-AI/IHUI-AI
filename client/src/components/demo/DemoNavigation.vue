@@ -50,7 +50,7 @@ import { HomeFilled } from '@element-plus/icons-vue'
   border-radius: var(--global-border-radius);
   color: var(--el-text-color-regular);
   text-decoration: none;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   font-size: 14px;
 
   &:hover {

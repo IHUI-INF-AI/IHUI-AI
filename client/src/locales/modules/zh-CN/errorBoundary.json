@@ -1,16 +1,12 @@
 {
   "errorBoundary": {
-    "pageLoadError": "页面加载失败",
     "reload": "重新加载",
     "goHome": "返回首页",
     "unknownError": "未知错误",
-    "loadTimeout": "加载超时，请稍后重试",
     "retry": "重试",
-    "hideDetails": "隐藏详情",
     "showDetails": "显示详情",
     "errorDetails": "错误详情",
-    "title": "标题",
-    "message": "消息",
-    "componentError": "组件错误"
+    "componentError": "组件错误",
+    "currentPath": "currentPath"
   }
 }

@@ -1,0 +1,25 @@
+{
+  "adminHomeIndex": {
+    "askManage": "[ZH:askManage]",
+    "askManageSub": "[ZH:askManageSub]",
+    "carouselManage": "[ZH:carouselManage]",
+    "carouselManageSub": "[ZH:carouselManageSub]",
+    "courseManage": "[ZH:courseManage]",
+    "courseManageSub": "[ZH:courseManageSub]",
+    "dataOverview": "[ZH:dataOverview]",
+    "examManage": "[ZH:examManage]",
+    "examManageSub": "[ZH:examManageSub]",
+    "liveManage": "[ZH:liveManage]",
+    "liveManageSub": "[ZH:liveManageSub]",
+    "memberManage": "[ZH:memberManage]",
+    "memberManageSub": "[ZH:memberManageSub]",
+    "orderManage": "[ZH:orderManage]",
+    "orderManageSub": "[ZH:orderManageSub]",
+    "rolePermission": "[ZH:rolePermission]",
+    "rolePermissionSub": "[ZH:rolePermissionSub]",
+    "totalCourses": "[ZH:totalCourses]",
+    "totalOrders": "[ZH:totalOrders]",
+    "totalRevenue": "[ZH:totalRevenue]",
+    "totalUsers": "[ZH:totalUsers]"
+  }
+}

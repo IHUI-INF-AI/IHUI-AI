@@ -1,0 +1,167 @@
+{
+  "apiService": {
+    "apps": {
+      "apiKeys": "[ZH:apiKeys]",
+      "createFailed": "[ZH:createFailed]",
+      "createSuccess": "[ZH:createSuccess]",
+      "createdAt": "[ZH:createdAt]",
+      "deleteConfirm": "[ZH:deleteConfirm]",
+      "deleteFailed": "[ZH:deleteFailed]",
+      "deleteSuccess": "[ZH:deleteSuccess]",
+      "requests": "[ZH:requests]",
+      "updateFailed": "[ZH:updateFailed]",
+      "updateSuccess": "[ZH:updateSuccess]"
+    },
+    "billing": {
+      "apiKey": "[ZH:apiKey]",
+      "app": "[ZH:app]",
+      "exportFailed": "[ZH:exportFailed]",
+      "exportSuccess": "[ZH:exportSuccess]",
+      "input": "[ZH:input]",
+      "latency": "[ZH:latency]",
+      "output": "[ZH:output]",
+      "requestTime": "[ZH:requestTime]",
+      "tokens": "[ZH:tokens]"
+    },
+    "debug": {
+      "addHeader": "[ZH:addHeader]",
+      "body": "[ZH:body]",
+      "bodyPlaceholder": "[ZH:bodyPlaceholder]",
+      "format": "[ZH:format]",
+      "headerKey": "[ZH:headerKey]",
+      "headerValue": "[ZH:headerValue]",
+      "headers": "[ZH:headers]",
+      "method": "[ZH:method]",
+      "responseBody": "[ZH:responseBody]",
+      "responseHeaders": "[ZH:responseHeaders]",
+      "responseTime": "[ZH:responseTime]",
+      "url": "[ZH:url]",
+      "urlPlaceholder": "[ZH:urlPlaceholder]"
+    },
+    "groups": {
+      "appCount": "[ZH:appCount]",
+      "comparison": {
+        "feature": "[ZH:feature]",
+        "recommendation": "[ZH:recommendation]",
+        "recommendationText": "[ZH:recommendationText]",
+        "scenarios": "[ZH:scenarios]"
+      },
+      "createFailed": "[ZH:createFailed]",
+      "createSuccess": "[ZH:createSuccess]",
+      "createdAt": "[ZH:createdAt]",
+      "deleteConfirm": "[ZH:deleteConfirm]",
+      "deleteFailed": "[ZH:deleteFailed]",
+      "deleteSuccess": "[ZH:deleteSuccess]",
+      "features": {
+        "concurrent": "[ZH:concurrent]",
+        "models": "[ZH:models]",
+        "rateLimit": "[ZH:rateLimit]"
+      },
+      "updateFailed": "[ZH:updateFailed]",
+      "updateSuccess": "[ZH:updateSuccess]"
+    },
+    "home": {
+      "advantages": {
+        "fastConnection": "[ZH:fastConnection]",
+        "fastConnectionDesc": "[ZH:fastConnectionDesc]",
+        "globalDirect": "[ZH:globalDirect]",
+        "globalDirectDesc": "[ZH:globalDirectDesc]",
+        "lowLatency": "[ZH:lowLatency]",
+        "lowLatencyDesc": "[ZH:lowLatencyDesc]",
+        "noBan": "[ZH:noBan]",
+        "noBanDesc": "[ZH:noBanDesc]",
+        "noProxy": "[ZH:noProxy]",
+        "noProxyDesc": "[ZH:noProxyDesc]",
+        "payAsYouGo": "[ZH:payAsYouGo]",
+        "payAsYouGoDesc": "[ZH:payAsYouGoDesc]",
+        "subtitle": "[ZH:subtitle]",
+        "title": "[ZH:title]"
+      },
+      "quickStart": {
+        "startUsing": "[ZH:startUsing]",
+        "step1": {
+          "button": "[ZH:button]",
+          "content": "[ZH:content]",
+          "description": "[ZH:description]",
+          "title": "[ZH:title]"
+        },
+        "step2": {
+          "content": "[ZH:content]",
+          "description": "[ZH:description]",
+          "title": "[ZH:title]"
+        },
+        "step3": {
+          "button": "[ZH:button]",
+          "content": "[ZH:content]",
+          "description": "[ZH:description]",
+          "title": "[ZH:title]"
+        },
+        "subtitle": "[ZH:subtitle]",
+        "title": "[ZH:title]"
+      }
+    },
+    "logs": {
+      "app": "[ZH:app]",
+      "basicInfo": "[ZH:basicInfo]",
+      "cost": "[ZH:cost]",
+      "detail": "[ZH:detail]",
+      "endpoint": "[ZH:endpoint]",
+      "errorMessage": "[ZH:errorMessage]",
+      "headerKey": "[ZH:headerKey]",
+      "headerValue": "[ZH:headerValue]",
+      "input": "[ZH:input]",
+      "ip": "[ZH:ip]",
+      "latency": "[ZH:latency]",
+      "method": "[ZH:method]",
+      "model": "[ZH:model]",
+      "noBody": "[ZH:noBody]",
+      "noHeaders": "[ZH:noHeaders]",
+      "output": "[ZH:output]",
+      "protocol": "[ZH:protocol]",
+      "request": "[ZH:request]",
+      "requestBody": "[ZH:requestBody]",
+      "requestHeaders": "[ZH:requestHeaders]",
+      "response": "[ZH:response]",
+      "responseBody": "[ZH:responseBody]",
+      "responseHeaders": "[ZH:responseHeaders]",
+      "status": "[ZH:status]",
+      "statusCode": "[ZH:statusCode]",
+      "time": "[ZH:time]",
+      "tokens": "[ZH:tokens]",
+      "userAgent": "[ZH:userAgent]"
+    },
+    "packages": {
+      "downgradeConfirm": "[ZH:downgradeConfirm]",
+      "downgradeFailed": "[ZH:downgradeFailed]",
+      "downgradeSuccess": "[ZH:downgradeSuccess]",
+      "endDate": "[ZH:endDate]",
+      "quota": "[ZH:quota]",
+      "remaining": "[ZH:remaining]",
+      "startDate": "[ZH:startDate]",
+      "upgrade": "[ZH:upgrade]",
+      "upgradeFailed": "[ZH:upgradeFailed]",
+      "upgradeSuccess": "[ZH:upgradeSuccess]"
+    },
+    "tickets": {
+      "close": "[ZH:close]",
+      "reopen": "[ZH:reopen]",
+      "replies": "[ZH:replies]"
+    },
+    "usage": {
+      "apiPath": "[ZH:apiPath]",
+      "appName": "[ZH:appName]",
+      "avgLatency": "[ZH:avgLatency]",
+      "byApp": "[ZH:byApp]",
+      "cost": "[ZH:cost]",
+      "errorRate": "[ZH:errorRate]",
+      "groupName": "[ZH:groupName]",
+      "maxLatency": "[ZH:maxLatency]",
+      "requests": "[ZH:requests]",
+      "successRate": "[ZH:successRate]",
+      "topApis": "[ZH:topApis]",
+      "topGroups": "[ZH:topGroups]",
+      "topLatency": "[ZH:topLatency]",
+      "topStatsNotAvailable": "[ZH:topStatsNotAvailable]"
+    }
+  }
+}

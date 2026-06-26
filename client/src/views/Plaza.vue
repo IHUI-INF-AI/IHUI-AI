@@ -12,7 +12,7 @@
           <p class="subtitle">{{ t('plaza.subtitle') }}</p>
         </div>
         <div class="header-actions">
-          <button v-if="!showSetPath" class="btn-primary-tech" style="color: var(--el-bg-color);" @click="toSet">
+          <button v-if="!showSetPath" class="btn-primary-tech" @click="toSet">
             <el-icon>
               <Plus />
             </el-icon>
@@ -445,7 +445,7 @@ onMounted(() => getData())
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s, transform 0.3s;
 
     .el-icon {
       color: inherit;
@@ -454,7 +454,7 @@ onMounted(() => getData())
     &:hover {
       background: var(--el-color-primary);
       color: var(--el-bg-color);
-      transform: translateY(-2px);
+      
     }
   }
 
@@ -471,7 +471,7 @@ onMounted(() => getData())
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: border-color 0.3s;
 
     &:hover {
       border-color: var(--el-text-color-primary);
@@ -521,7 +521,7 @@ onMounted(() => getData())
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background-color 0.3s, color 0.3s;
 
       &.active {
         background: var(--el-text-color-primary);
@@ -535,7 +535,7 @@ onMounted(() => getData())
   }
 }
 
-html.dark .pill-selector button.active {
+:where(html.dark) .pill-selector button.active {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
 }
@@ -564,17 +564,17 @@ html.dark .pill-selector button.active {
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s, transform 0.3s;
 
     &:hover {
       background: var(--el-color-primary);
       color: var(--el-bg-color-page);
-      transform: translateY(-2px);
+      
     }
   }
 }
 
-html.dark .empty-action-btn {
+:where(html.dark) .empty-action-btn {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
 
@@ -611,12 +611,12 @@ html.dark .empty-action-btn {
   border-radius: var(--global-border-radius);
   position: relative;
   overflow: hidden;
-  transition: all 0.4s;
+  transition: background-color 0.4s, border-color 0.4s, transform 0.4s;
 
   &:hover {
     border: var(--el-border-width-primary) solid var(--el-color-primary);
     background: var(--el-fill-color-extra-light);
-    transform: translateY(-4px);
+    
   }
 
   .node-header {
@@ -797,12 +797,12 @@ html.dark .empty-action-btn {
     font-size: 13px;
     font-weight: 900;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s, color 0.3s, transform 0.3s, opacity 0.3s;
 
     &:hover {
       background: var(--el-color-primary);
       color: var(--el-bg-color-page);
-      transform: translateY(-2px);
+      
     }
 
     &:disabled {

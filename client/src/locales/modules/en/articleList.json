@@ -1,0 +1,17 @@
+{
+  "articleList": {
+    "anonymous": "anonymous",
+    "comment": "评论",
+    "essence": "essence",
+    "essenceLabel": "essenceLabel",
+    "featuredArticles": "featuredArticles",
+    "hottest": "hottest",
+    "latest": "最新",
+    "like": "点赞",
+    "noArticle": "noArticle",
+    "pageDesc": "pageDesc",
+    "read": "read",
+    "searchArticle": "searchArticle",
+    "top": "置顶"
+  }
+}

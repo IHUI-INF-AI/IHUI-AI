@@ -1,0 +1,33 @@
+{
+  "themeBackup": {
+    "auto": "auto",
+    "autoBackup": "autoBackup",
+    "backupCreated": "backupCreated",
+    "backupDeleted": "backupDeleted",
+    "backupRestored": "backupRestored",
+    "confirmDelete": "确认删除",
+    "createBackup": "createBackup",
+    "delete": "删除",
+    "deleteWarning": "deleteWarning",
+    "export": "导出",
+    "exportSuccess": "exportSuccess",
+    "import": "导入",
+    "importFailed": "importFailed",
+    "importPlaceholder": "importPlaceholder",
+    "importSuccess": "importSuccess",
+    "interval": "interval",
+    "intervals": {
+      "daily": "daily",
+      "hourly": "hourly",
+      "weekly": "weekly"
+    },
+    "manualBackup": "manualBackup",
+    "maxBackups": "maxBackups",
+    "noBackups": "noBackups",
+    "restore": "restore",
+    "restoreFailed": "restoreFailed",
+    "storageSize": "storageSize",
+    "title": "标题",
+    "totalBackups": "totalBackups"
+  }
+}

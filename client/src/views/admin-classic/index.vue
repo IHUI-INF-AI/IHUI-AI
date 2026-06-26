@@ -363,14 +363,14 @@ onMounted(() => {
 .welcome-title {
   font-size: 20px;
   font-weight: 700;
-  color: var(--color-gray-222);
+  color: var(--el-text-color-primary);
   line-height: 1.4;
   margin: 0;
 }
 
 .welcome-subtitle {
   font-size: 13px;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
   margin: 4px 0 0;
   line-height: 1.5;
 }
@@ -392,7 +392,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   background-color: var(--color-bg-page);
   border: var(--unified-border);
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
 }
 
 .env-production {
@@ -410,7 +410,7 @@ onMounted(() => {
 .env-development {
   background-color: var(--el-color-primary-light-9);
   border-color: var(--el-color-primary-light-7);
-  color: var(--color-blue-1890ff);
+  color: var(--el-color-primary);
 }
 
 /* ═══ 数据卡片网格 ═══ */
@@ -434,7 +434,7 @@ onMounted(() => {
 
   &:hover {
     border-color: var(--color-gray-d0);
-    transform: translateY(-1px);
+    
   }
 }
 
@@ -454,7 +454,7 @@ onMounted(() => {
 .stat-card-success .stat-icon { color: var(--el-color-success); background-color: var(--el-color-success-light-9); }
 .stat-card-warning .stat-icon { color: var(--el-color-warning); background-color: var(--el-color-warning-light-9); }
 .stat-card-danger .stat-icon { color: var(--el-color-danger); background-color: var(--el-color-danger-light-9); }
-.stat-card-info .stat-icon { color: var(--color-blue-1890ff); background-color: var(--el-color-primary-light-9); }
+.stat-card-info .stat-icon { color: var(--el-color-primary); background-color: var(--el-color-primary-light-9); }
 
 .stat-body {
   flex: 1;
@@ -463,7 +463,7 @@ onMounted(() => {
 
 .stat-label {
   font-size: 13px;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
   line-height: 1.4;
 }
 
@@ -477,7 +477,7 @@ onMounted(() => {
 .stat-number {
   font-size: 24px;
   font-weight: 700;
-  color: var(--color-gray-222);
+  color: var(--el-text-color-primary);
   line-height: 1.2;
   letter-spacing: 0.5px;
   font-variant-numeric: tabular-nums;
@@ -485,7 +485,7 @@ onMounted(() => {
 
 .stat-unit {
   font-size: 12px;
-  color: var(--color-gray-999);
+  color: var(--el-text-color-placeholder);
 }
 
 .stat-trend {
@@ -504,7 +504,7 @@ onMounted(() => {
   }
 
   .trend-period {
-    color: var(--color-gray-999);
+    color: var(--el-text-color-placeholder);
     margin-left: 4px;
     font-weight: 400;
   }
@@ -545,7 +545,7 @@ onMounted(() => {
 .panel-title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--color-gray-222);
+  color: var(--el-text-color-primary);
   margin: 0;
   line-height: 1.2;
 }
@@ -608,12 +608,12 @@ onMounted(() => {
 .quick-success .quick-icon { color: var(--el-color-success); }
 .quick-warning .quick-icon { color: var(--el-color-warning); }
 .quick-danger .quick-icon { color: var(--el-color-danger); }
-.quick-info .quick-icon { color: var(--color-blue-1890ff); }
-.quick-neutral .quick-icon { color: var(--color-gray-666); }
+.quick-info .quick-icon { color: var(--el-color-primary); }
+.quick-neutral .quick-icon { color: var(--el-text-color-secondary); }
 
 .quick-label {
   font-size: 13px;
-  color: var(--color-gray-333);
+  color: var(--el-text-color-primary);
   font-weight: 500;
 }
 
@@ -640,7 +640,7 @@ onMounted(() => {
   font-weight: 500;
   border-radius: var(--global-border-radius);
   background-color: var(--color-bg-page);
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
 }
 
 .status-dot {
@@ -689,7 +689,7 @@ onMounted(() => {
 .status-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-gray-222);
+  color: var(--el-text-color-primary);
 }
 
 .status-value {
@@ -708,7 +708,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: var(--color-gray-999);
+  color: var(--el-text-color-placeholder);
 }
 
 /* ═══ 活动列表 ═══ */
@@ -756,7 +756,7 @@ onMounted(() => {
 .avatar-success { background-color: var(--el-color-success); }
 .avatar-warning { background-color: var(--el-color-warning); }
 .avatar-danger { background-color: var(--el-color-danger); }
-.avatar-info { background-color: var(--color-blue-1890ff); }
+.avatar-info { background-color: var(--el-color-primary); }
 
 .activity-body {
   flex: 1;
@@ -766,14 +766,14 @@ onMounted(() => {
 .activity-title {
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-gray-222);
+  color: var(--el-text-color-primary);
   line-height: 1.4;
   margin-bottom: 2px;
 }
 
 .activity-desc {
   font-size: 12px;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
   line-height: 1.5;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -782,7 +782,7 @@ onMounted(() => {
 
 .activity-time {
   font-size: 12px;
-  color: var(--color-gray-999);
+  color: var(--el-text-color-placeholder);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -791,7 +791,7 @@ onMounted(() => {
   padding: 40px 20px;
   text-align: center;
   font-size: 13px;
-  color: var(--color-gray-999);
+  color: var(--el-text-color-placeholder);
 }
 
 /* ═══ 暗色模式适配 ═══ */

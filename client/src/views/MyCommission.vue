@@ -61,8 +61,8 @@
             <div class="item-left">
               <div class="status pending">
                 <span>{{ t('myCommission.commission') }}</span>
-                <span style="margin-left: 20px">{{ t('myCommission.pending') }}</span>
-                <span style="margin-left: 370px">¥{{ item.amount }}</span>
+                <span class="status__label">{{ t('myCommission.pending') }}</span>
+                <span class="status__amount">¥{{ item.amount }}</span>
               </div>
               <div class="order-user">{{ t('myCommission.buyer') }}：{{ item.buyer_nickname }}</div>
               <div class="order-id">
@@ -198,7 +198,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .commission-page {
   min-height: 100vh;
-  background: var(--color-gray-f5f7fa);
+  background: var(--el-fill-color-lighter);
   padding: 20px;
 }
 
@@ -247,14 +247,14 @@ onMounted(() => {
 .main-amount {
   font-size: 28px;
   font-weight: 700;
-  color: var(--color-orange-ff9800);
+  color: var(--el-color-warning);
   margin-bottom: 8px;
   display: flex;
   align-items: baseline;
 }
 
 .amount-highlight {
-  color: var(--color-orange-ff9800);
+  color: var(--el-color-warning);
   font-size: 28px;
   font-weight: 700;
   margin: 0 4px;
@@ -333,7 +333,7 @@ onMounted(() => {
   font-size: 15px;
   color: var(--el-text-color-placeholder);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
   border-radius: var(--global-border-radius);
   font-weight: 500;
 
@@ -377,20 +377,31 @@ onMounted(() => {
 .status {
   font-size: 15px;
   margin-bottom: 8px;
-  display: block;
+  display: flex;
+  align-items: center;
   font-weight: 500;
 }
 
+.status__label {
+  margin-left: 20px;
+}
+
+.status__amount {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--el-color-warning);
+}
+
 .status.pending {
-  color: var(--color-orange-ff9900);
+  color: var(--el-color-warning);
 }
 
 .status.completed {
-  color: var(--color-green-19be6b);
+  color: var(--el-color-success);
 }
 
 .status.canceled {
-  color: var(--color-red-ed3f14);
+  color: var(--el-color-danger);
 }
 
 .order-user,
@@ -413,7 +424,7 @@ onMounted(() => {
   right: 20px;
   top: 60%;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
 
   &:hover {
     background-color: var(--el-fill-color);

@@ -344,7 +344,7 @@ onMounted(() => {
 
 .guide-preview p {
   margin-bottom: 15px;
-  color: var(--color-gray-606266);
+  color: var(--el-text-color-regular);
 }
 
 .mt-20 {

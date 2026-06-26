@@ -1,0 +1,18 @@
+{
+  "learn": {
+    "searchPlaceholder": {
+      "category": "搜尋分類",
+      "map": "搜尋學習路徑",
+      "topic": "搜尋專題",
+      "topicCategory": "搜尋專題分類",
+      "report": "搜尋報告",
+      "orderInvoiceApplication": "搜尋申請",
+      "orderInvoiceTitle": "搜尋抬頭",
+      "lessonTrash": "搜尋回收站課程",
+      "signup": "搜尋報名",
+      "order": "搜尋訂單",
+      "lesson": "搜尋課程"
+    },
+    "hotRecommend": "[ZH:hotRecommend]"
+  }
+}

@@ -1651,7 +1651,7 @@ const handleChange = (event: Event) => {
   transform: translateZ(-120px) translateX(100px) translateY(100px);
 }
 
-html.dark .grid::after {
+:where(html.dark) .grid::after {
   background: radial-gradient(
     circle at center,
     var(--color-white-8) 0%,
@@ -1660,7 +1660,7 @@ html.dark .grid::after {
   );
 }
 
-html.dark .grid::before {
+:where(html.dark) .grid::before {
   background: radial-gradient(
     circle at center,
     var(--ai-gray-transparent-3) 0%,
@@ -1717,7 +1717,7 @@ html.dark .grid::before {
   transform-style: preserve-3d;
   padding: 7px;
   will-change: transform;
-  transition: all 0.6s ease;
+  transition: transform 0.3s ease;
   width: 100%;
   height: 100%;
   border-radius: var(--global-border-radius); /* 更圆润的边角，更现代 */
@@ -1784,7 +1784,7 @@ html.dark .grid::before {
   cursor: text;
 }
 
-html.dark .card {
+:where(html.dark) .card {
   /* 更优雅的暗色模式背景 - 使用渐变 */
   background: linear-gradient(
     135deg,
@@ -1822,7 +1822,7 @@ html.dark .card {
   -webkit-backdrop-filter: blur(10px) saturate(150%);
 }
 
-html.dark .card::before {
+:where(html.dark) .card::before {
   /* 暗色模式下的内部光晕效果 */
   background: radial-gradient(
     ellipse at center,
@@ -1869,7 +1869,7 @@ html.dark .card::before {
   opacity: 0.75; /* 提高不透明度，增强可见度 */
 }
 
-html.dark .outline::before {
+:where(html.dark) .outline::before {
   /* 更优雅的暗色模式渐变 */
   background: radial-gradient(
     ellipse at center,
@@ -1891,7 +1891,7 @@ html.dark .outline::before {
   bottom: 60px;
   margin: auto;
   opacity: 0;
-  transition: all 0.3s linear;
+  transition: opacity 0.3s linear;
 }
 
 .wave::before,
@@ -1910,8 +1910,8 @@ html.dark .outline::before {
   opacity: 0.7;
 }
 
-html.dark .wave::before,
-html.dark .wave::after {
+:where(html.dark) .wave::before,
+:where(html.dark) .wave::after {
   /* 暗色模式下使用黑灰色边框 */
   border-color: var(--border-unified-color);
   opacity: 0.8; /* 提高不透明度，增强可见度 */
@@ -1963,7 +1963,7 @@ html.dark .wave::after {
   overflow: visible;
 }
 
-html.dark .circle-1 {
+:where(html.dark) .circle-1 {
   /* 更优雅的暗色模式渐变背景 */
   background: radial-gradient(
     circle at 30% 30%,
@@ -1993,7 +1993,7 @@ html.dark .circle-1 {
   right: 25%;
 }
 
-html.dark .circle-1::before {
+:where(html.dark) .circle-1::before {
   background: var(--color-gray-transparent-4);
   opacity: 0.5; /* 提高不透明度 */
 }
@@ -2004,7 +2004,7 @@ html.dark .circle-1::before {
   left: 25%;
 }
 
-html.dark .circle-1::after {
+:where(html.dark) .circle-1::after {
   background: var(--color-gray-transparent-6);
   opacity: 0.4; /* 提高不透明度 */
 }
@@ -2029,7 +2029,7 @@ html.dark .circle-1::after {
   animation: line 3s ease-in-out calc(var(--i) * -1s) infinite;
   stroke-dasharray: 100;
   stroke-dashoffset: 10;
-  transition: all 0.3s linear;
+  transition: opacity 0.3s linear;
 }
 
 .circle-2 {
@@ -2101,7 +2101,7 @@ html.dark .circle-1::after {
   border-left: var(--unified-border);
   }
 
-html.dark .circle-2::before {
+:where(html.dark) .circle-2::before {
   background: var(--color-gray-transparent-5);
   opacity: 0.6; /* 提高不透明度 */
 }
@@ -2115,7 +2115,7 @@ html.dark .circle-2::before {
   opacity: 0.4;
 }
 
-html.dark .circle-2::after {
+:where(html.dark) .circle-2::after {
   background: var(--color-gray-glow);
   opacity: 0.5; /* 提高不透明度 */
 }
@@ -2152,7 +2152,7 @@ html.dark .circle-2::after {
   inset: 0;
   animation: bg 4s linear infinite;
   border-radius: inherit;
-  transition: all 0.4s linear;
+  transition: opacity 0.4s linear;
   opacity: 0;
 }
 
@@ -2175,7 +2175,7 @@ html.dark .circle-2::after {
 .voice-recording-animation .icon svg {
   width: var(--vra-icon-size); /* 增大图标尺寸 */
   height: var(--vra-icon-size); /* 增大图标尺寸 */
-  transition: all 0.8s cubic-bezier(0.7, -1, 0.3, 1.5);
+  transition: transform 0.4s cubic-bezier(0.7, -1, 0.3, 1.5);
   position: absolute;
 }
 
@@ -2343,7 +2343,7 @@ html.dark .circle-2::after {
 
 /* 暗色模式下的加粗文本 - 使用更亮的灰色 */
 :where(html.dark) :where(.voice-recording-animation) .card footer .bold {
-  background: linear-gradient(135deg, var(--ai-gray-1) 0%, var(--color-text-muted) 50%, var(--ai-gray-1) 100%);
+  background: linear-gradient(135deg, var(--ai-gray-1) 0%, var(--el-text-color-placeholder) 50%, var(--ai-gray-1) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2352,11 +2352,11 @@ html.dark .circle-2::after {
 
 /* 暗色模式下 hover 加粗文本 - 使用最亮的灰色 */
 :where(html.dark) :where(.voice-recording-animation) .wrap:hover footer .bold {
-  background: linear-gradient(135deg, var(--color-text-muted) 0%, var(--color-gray-light) 50%, var(--color-text-muted) 100%);
+  background: linear-gradient(135deg, var(--el-text-color-placeholder) 0%, var(--el-fill-color-light) 50%, var(--el-text-color-placeholder) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  color: var(--color-text-muted); /* 降级方案 - 最亮的灰色 */
+  color: var(--el-text-color-placeholder); /* 降级方案 - 最亮的灰色 */
 }
 
 .card footer span {
@@ -2489,6 +2489,7 @@ html.dark .circle-2::after {
 
 .wrap:hover .card::before {
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   background: transparent;
 }
 
@@ -2551,11 +2552,11 @@ html.dark .circle-2::after {
   transform: translateY(-4px) translateZ(20px);
 
   /* 使用更亮的文本颜色 */
-  background: linear-gradient(135deg, var(--color-gray-f0f2f5) 0%, var(--el-text-color-primary) 50%, var(--color-gray-f0f2f5) 100%);
+  background: linear-gradient(135deg, var(--el-fill-color-lighter) 0%, var(--el-text-color-primary) 50%, var(--el-fill-color-lighter) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  color: var(--color-gray-f0f2f5); /* 降级方案 - 更亮的浅灰色 */
+  color: var(--el-fill-color-lighter); /* 降级方案 - 更亮的浅灰色 */
 
  /* 扁平化设计：移除文本投影 */
   opacity: 1;
@@ -2907,7 +2908,7 @@ html.dark .circle-2::after {
 
 <!-- 全局样式：用于暗色主题 -->
 <style lang="scss">
-html.dark .voice-recording-animation {
+:where(html.dark) .voice-recording-animation {
   /* 暗色模式下使用更深的背景，但保持半透明 */
   --vra-bg-overlay: var(--color-black-40);
   --vra-blur: 8px;
@@ -2962,7 +2963,7 @@ html.dark .voice-recording-animation {
   
   .card footer .bold {
     /* 暗色模式下的加粗文本 - 更亮的灰色 */
-    background: linear-gradient(135deg, var(--ai-gray-1) 0%, var(--color-text-muted) 50%, var(--ai-gray-1) 100%);
+    background: linear-gradient(135deg, var(--ai-gray-1) 0%, var(--el-text-color-placeholder) 50%, var(--ai-gray-1) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

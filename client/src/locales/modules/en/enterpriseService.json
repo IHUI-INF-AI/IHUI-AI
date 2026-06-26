@@ -1,0 +1,210 @@
+{
+  "enterpriseService": {
+    "adoptionRate": "adoptionRate",
+    "architecture": {
+      "aiEffect": {
+        "metrics": {
+          "cost": "cost",
+          "efficiency": "efficiency",
+          "experience": "experience"
+        },
+        "superEmployee": "superEmployee",
+        "superProduct": "superProduct",
+        "superTeam": "superTeam",
+        "title": "标题"
+      },
+      "description": "描述",
+      "infoWorld": {
+        "advanced": {
+          "items": {
+            "agent": "智能体",
+            "generative": "generative",
+            "perception": "perception",
+            "physical": "physical"
+          },
+          "label": "label"
+        },
+        "basic": {
+          "items": {
+            "automation": "automation",
+            "informatization": "informatization",
+            "iot": "iot"
+          },
+          "label": "label"
+        },
+        "title": "标题"
+      },
+      "physicalWorld": {
+        "culture": {
+          "description": "描述",
+          "title": "标题"
+        },
+        "process": {
+          "description": "描述",
+          "title": "标题"
+        },
+        "structure": {
+          "description": "描述",
+          "title": "标题"
+        },
+        "title": "标题"
+      },
+      "title": "标题"
+    },
+    "badge": "badge",
+    "badgeNew": "badgeNew",
+    "communityLabel": "communityLabel",
+    "compass": {
+      "axes": {
+        "autonomy": {
+          "high": "高",
+          "low": "低"
+        },
+        "complexity": {
+          "high": "高",
+          "low": "低"
+        }
+      },
+      "cta": "cta",
+      "description": "描述",
+      "title": "标题"
+    },
+    "coreService": "coreService",
+    "courseDuration": {
+      "oneLesson": "oneLesson",
+      "series": "series"
+    },
+    "courses": {
+      "aiTools": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "culture": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "description": "描述",
+      "thinking": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "title": "标题"
+    },
+    "exit": "exit",
+    "footer": {
+      "agentScenario": "智能体场景",
+      "company": "公司",
+      "contact": "联系我们",
+      "humanMachine": "人机协作",
+      "location": "location"
+    },
+    "heroSubtitle": "heroSubtitle",
+    "heroTitle": "heroTitle",
+    "join": {
+      "benefits": {
+        "aiAssistant": "AI 助手",
+        "allCourses": "allCourses",
+        "exploration": "exploration",
+        "mutualAid": "mutualAid",
+        "onlineCommunity": "onlineCommunity",
+        "refund": "退款",
+        "title": "标题"
+      },
+      "cta": "cta",
+      "currentPrice": "currentPrice",
+      "description": "描述",
+      "earlyBird": "earlyBird",
+      "hint": "hint",
+      "originalPrice": "originalPrice",
+      "perYear": "perYear",
+      "seatsNote": "seatsNote",
+      "title": "标题"
+    },
+    "jumpToSection": "jumpToSection",
+    "layers": {
+      "layer01": "layer01",
+      "layer02": "layer02",
+      "layer03": "layer03"
+    },
+    "learnMore": "learnMore",
+    "modules": {
+      "aiService": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "localCommunity": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "module01": "module01",
+      "module02": "module02",
+      "module03": "module03",
+      "onlineCommunity": {
+        "description": "描述",
+        "title": "标题"
+      }
+    },
+    "phases": {
+      "phase01": "phase01",
+      "phase02": "phase02",
+      "phase03": "phase03"
+    },
+    "positioning": {
+      "description": "描述",
+      "title": "标题"
+    },
+    "scrollProgress": "scrollProgress",
+    "sectionNavigation": "sectionNavigation",
+    "sections": {
+      "agentCompass": "agentCompass",
+      "architecture": "architecture",
+      "courseSystem": "courseSystem",
+      "joinUs": "joinUs",
+      "positioning": "positioning",
+      "serviceModules": "serviceModules",
+      "toolsOverview": "toolsOverview"
+    },
+    "skipToMain": "skipToMain",
+    "stats": {
+      "earlyBirdLabel": "earlyBirdLabel",
+      "priceLabel": "priceLabel",
+      "seatsLabel": "seatsLabel"
+    },
+    "tools": {
+      "description": "描述",
+      "function": {
+        "office": "office",
+        "production": "production",
+        "rd": "rd",
+        "sales": "sales",
+        "title": "标题"
+      },
+      "general": {
+        "image": "图片",
+        "text": "文本",
+        "title": "标题",
+        "video": "视频",
+        "voice": "voice"
+      },
+      "industry": {
+        "education": "education",
+        "government": "government",
+        "healthcare": "healthcare",
+        "manufacturing": "manufacturing",
+        "title": "标题"
+      },
+      "partners": {
+        "title": "标题"
+      },
+      "title": "标题"
+    },
+    "typingPhrases": {
+      "humanMachineCollaboration": "humanMachineCollaboration",
+      "intelligentTransformation": "intelligentTransformation",
+      "rationalEfficiency": "rationalEfficiency"
+    }
+  },
+  "EnterpriseService": {
+    "enterpriseDesc": "enterpriseDesc"
+  }
+}

@@ -726,9 +726,9 @@ const startResize = (e: MouseEvent) => {
     flex-shrink: 0;
     margin-left: 12px;
     border-radius: var(--global-border-radius);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
     color: var(--el-text-color-regular);
-    
+
     &:hover {
       background-color: var(--el-fill-color-light);
       color: var(--el-color-primary);
@@ -818,12 +818,12 @@ const startResize = (e: MouseEvent) => {
     font-size: 14px;
     font-weight: 500;
     color: var(--el-text-color-regular);
-    transition: all 0.2s ease;
-    
+    transition: color 0.2s ease;
+
     &:hover {
       color: var(--el-color-primary);
     }
-    
+
     &.is-active {
       color: var(--el-color-primary);
       font-weight: 600;
@@ -875,7 +875,7 @@ const startResize = (e: MouseEvent) => {
       padding: 0 12px;
       border-radius: var(--global-border-radius);
       margin-bottom: 2px;
-      transition: all 0.2s ease;
+      transition: background-color 0.2s ease, color 0.2s ease;
       cursor: pointer;
 
       &:hover {
@@ -1057,10 +1057,10 @@ const startResize = (e: MouseEvent) => {
       display: block;
       padding: 4px 8px;
       border-radius: var(--global-border-radius); // 使用项目标准圆角
-      transition: all 0.2s ease;
+      transition: color 0.2s ease, background-color 0.2s ease;
 
       // 扁平化设计：无阴影
-      
+
       &:hover {
         color: var(--el-color-primary);
         background-color: var(--el-fill-color-light);

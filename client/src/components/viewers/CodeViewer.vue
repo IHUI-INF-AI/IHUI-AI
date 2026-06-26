@@ -218,7 +218,7 @@ watch(() => props.src, loadCode, { immediate: true })
   cursor: pointer;
   color: var(--el-color-primary-light-3);
   font-size: 13px;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .action-btn:hover {

@@ -868,7 +868,7 @@ $text-main: var(--el-text-color-primary);
 $text-sec: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--color-gray-333);
+$brand-secondary: var(--el-text-color-primary);
 
 .courses-container {
   width: 100%;
@@ -935,7 +935,7 @@ $brand-secondary: var(--color-gray-333);
   transition: none;
 
   &.scroll-animated {
-    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -954,6 +954,7 @@ $brand-secondary: var(--color-gray-333);
 .glass {
   background: rgb(var(--el-fill-color-light-rgb), 0.4);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -1006,6 +1007,7 @@ $brand-secondary: var(--color-gray-333);
       margin-bottom: 16px;
       background: rgb(var(--el-fill-color-light-rgb), 0.3);
       backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
 
       .status-dot {
         width: 6px;
@@ -1054,7 +1056,7 @@ $brand-secondary: var(--color-gray-333);
       background: rgb(var(--el-fill-color-rgb), 0.5);
       box-shadow: none;
       border: var(--unified-border);
-      transition: all 0.3s;
+      transition: border-color 0.3s;
 
       &:hover, &.is-focus {
         border-color: $brand-primary;
@@ -1077,7 +1079,7 @@ $brand-secondary: var(--color-gray-333);
       background: rgb(var(--el-fill-color-rgb), 0.5);
       box-shadow: none;
       border: var(--unified-border);
-      transition: all 0.3s;
+      transition: border-color 0.3s;
 
       &:hover, &.is-focus {
         border-color: $brand-primary;
@@ -1166,11 +1168,11 @@ $brand-secondary: var(--color-gray-333);
       font-size: 14px;
       border: none;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background-color 0.3s, transform 0.3s;
 
       &:hover {
         background: $brand-secondary;
-        transform: translateY(-2px);
+        
       }
     }
   }
@@ -1217,7 +1219,7 @@ $brand-secondary: var(--color-gray-333);
       z-index: calc(var(--z-base) + 1);
 
       .free-tag {
-        background: var(--color-emerald-500);
+        background: var(--el-color-success);
         border: none;
         color: var(--el-bg-color);
         font-weight: 800;
@@ -1325,7 +1327,7 @@ $brand-secondary: var(--color-gray-333);
           gap: 6px;
 
           .el-icon {
-            color: var(--color-amber-fbbf24);
+            color: var(--el-color-warning);
           }
         }
       }
@@ -1338,7 +1340,7 @@ $brand-secondary: var(--color-gray-333);
         font-size: 13px;
         border: none;
         cursor: pointer;
-        transition: all 0.3s;
+        transition: background-color 0.3s, color 0.3s, transform 0.3s;
       }
 
       .enroll-btn {
@@ -1347,7 +1349,7 @@ $brand-secondary: var(--color-gray-333);
 
         &:hover {
           background: $brand-secondary;
-          transform: translateY(-2px);
+          
         }
       }
 
@@ -1433,12 +1435,12 @@ $brand-secondary: var(--color-gray-333);
         font-size: 14px;
         border: none;
         cursor: pointer;
-        transition: all 0.3s;
+        transition: background-color 0.3s, transform 0.3s;
         flex-shrink: 0;
 
         &:hover {
           background: $brand-secondary;
-          transform: translateY(-2px);
+          
           }
       }
     }
@@ -1549,7 +1551,7 @@ $brand-secondary: var(--color-gray-333);
       margin-bottom: 12px;
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: transform 0.3s ease;
 
       &:hover {
         transform: translateX(4px);
@@ -1557,7 +1559,7 @@ $brand-secondary: var(--color-gray-333);
 
       &.completed {
         .el-icon {
-          color: var(--color-emerald-500);
+          color: var(--el-color-success);
         }
       }
 
@@ -1602,7 +1604,7 @@ $brand-secondary: var(--color-gray-333);
       font-size: 16px;
       border: none;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background-color 0.3s, color 0.3s, transform 0.3s;
 
       &.primary {
         background: $brand-primary;
@@ -1610,7 +1612,7 @@ $brand-secondary: var(--color-gray-333);
 
         &:hover {
           background: $brand-secondary;
-          transform: translateY(-3px);
+          
           }
       }
     }

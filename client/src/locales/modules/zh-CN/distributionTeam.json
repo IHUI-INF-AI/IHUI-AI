@@ -1,0 +1,17 @@
+{
+  "distributionTeam": {
+    "commission": "佣金",
+    "inviteTime": "inviteTime",
+    "noMembers": "noMembers",
+    "orderCount": "订单数",
+    "searchPlaceholder": "请输入搜索内容",
+    "subtitle": "副标题",
+    "tabActive": "tabActive",
+    "tabAll": "全部",
+    "tabInactive": "tabInactive",
+    "title": "标题",
+    "totalCommission": "佣金总额",
+    "totalMembers": "totalMembers",
+    "transactionVolume": "transactionVolume"
+  }
+}

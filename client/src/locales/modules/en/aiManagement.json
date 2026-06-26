@@ -1,0 +1,10 @@
+{
+  "aiManagement": {
+    "agentList": "智能体列表",
+    "aiChat": "AI 对话",
+    "clearSelection": "clearSelection",
+    "selectAgentHint": "selectAgentHint",
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

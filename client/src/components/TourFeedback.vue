@@ -183,7 +183,7 @@ const saveFeedback = (feedback: TourFeedback) => {
     .rating-label {
       margin-bottom: 12px;
       font-size: 14px;
-      color: var(--color-gray-606266);
+      color: var(--el-text-color-regular);
     }
 
     .rating-stars {
@@ -193,9 +193,9 @@ const saveFeedback = (feedback: TourFeedback) => {
 
       .star-icon {
         font-size: 32px;
-        color: var(--color-gray-c0c4cc);
+        color: var(--el-text-color-disabled);
         cursor: pointer;
-        transition: all 0.2s;
+        transition: transform 0.2s, color 0.2s;
 
         &:hover {
           transform: scale(1.1);
@@ -220,7 +220,7 @@ const saveFeedback = (feedback: TourFeedback) => {
     .tags-label {
       margin-bottom: 12px;
       font-size: 14px;
-      color: var(--color-gray-606266);
+      color: var(--el-text-color-regular);
     }
 
     .tags-container {
@@ -230,7 +230,7 @@ const saveFeedback = (feedback: TourFeedback) => {
 
       .feedback-tag {
         cursor: pointer;
-        transition: all 0.2s;
+        transition: opacity 0.2s;
 
         &:hover {
           opacity: 0.8;
@@ -243,7 +243,7 @@ const saveFeedback = (feedback: TourFeedback) => {
     .comment-label {
       margin-bottom: 12px;
       font-size: 14px;
-      color: var(--color-gray-606266);
+      color: var(--el-text-color-regular);
     }
   }
 }

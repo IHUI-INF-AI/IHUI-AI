@@ -117,10 +117,10 @@ const showTermsOfService = () => {
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   background-color: var(--el-bg-color);
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 
   &:hover {
-    transform: translateY(-1px);
+    
     border-color: var(--el-border-color-darker);
   }
 

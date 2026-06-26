@@ -1,0 +1,135 @@
+{
+  "data": {
+    "a_i_chat": {
+      "图片1": "[ZH:图片1]",
+      "视频": "[ZH:视频]",
+      "识别2": "[ZH:识别2]",
+      "语音3": "[ZH:语音3]",
+      "音乐4": "[ZH:音乐4]"
+    },
+    "about": {
+      "张明远": "[ZH:张明远]",
+      "李思涵1": "[ZH:李思涵1]",
+      "王晓峰2": "[ZH:王晓峰2]"
+    },
+    "agents_create": {
+      "AI助手": "[ZH:AI助手]"
+    },
+    "dashboard": {
+      "审核管理2": "[ZH:审核管理2]",
+      "模型管理": "[ZH:模型管理]",
+      "用户中心3": "[ZH:用户中心3]",
+      "结算管理4": "[ZH:结算管理4]",
+      "费用配置1": "[ZH:费用配置1]"
+    },
+    "enterprise_service": {
+      "AI专业服务9": "[ZH:AI专业服务9]",
+      "AI工具课程19": "[ZH:AI工具课程19]",
+      "AI时代企业理性2": "[ZH:AI时代企业理性2]",
+      "httpswei29": "[ZH:httpswei29]",
+      "专业大模型与智能10": "[ZH:专业大模型与智能10]",
+      "九章智算云25": "[ZH:九章智算云25]",
+      "企业AI化服务会3": "[ZH:企业AI化服务会3]",
+      "企业服务30": "[ZH:企业服务30]",
+      "企业服务4": "[ZH:企业服务4]",
+      "便捷的在线交流平8": "[ZH:便捷的在线交流平8]",
+      "加入18": "[ZH:加入18]",
+      "华为云28": "[ZH:华为云28]",
+      "在地社群5": "[ZH:在地社群5]",
+      "定位12": "[ZH:定位12]",
+      "工具17": "[ZH:工具17]",
+      "思维类课程20": "[ZH:思维类课程20]",
+      "文化类课程21": "[ZH:文化类课程21]",
+      "智汇AI社1": "[ZH:智汇AI社1]",
+      "智汇AI社企业服": "[ZH:智汇AI社企业服]",
+      "服务13": "[ZH:服务13]",
+      "架构14": "[ZH:架构14]",
+      "火山引擎22": "[ZH:火山引擎22]",
+      "百度智能云27": "[ZH:百度智能云27]",
+      "线上社群7": "[ZH:线上社群7]",
+      "线下课程探索活动6": "[ZH:线下课程探索活动6]",
+      "罗盘15": "[ZH:罗盘15]",
+      "腾讯云24": "[ZH:腾讯云24]",
+      "致远互联26": "[ZH:致远互联26]",
+      "课程16": "[ZH:课程16]",
+      "阿里云23": "[ZH:阿里云23]",
+      "首页11": "[ZH:首页11]"
+    },
+    "index": {
+      "宋体3": "[ZH:宋体3]",
+      "微软雅黑2": "[ZH:微软雅黑2]",
+      "楷体5": "[ZH:楷体5]",
+      "黑体4": "[ZH:黑体4]",
+      "默认": "[ZH:默认]",
+      "默认1": "[ZH:默认1]"
+    },
+    "input1": {
+      "klimg系列1": "[ZH:klimg系列1]",
+      "sora2系列": "[ZH:sora2系列]"
+    },
+    "mobile_bottom_nav": {
+      "AI应用商店": "[ZH:AI应用商店]",
+      "动态3": "[ZH:动态3]",
+      "广场1": "[ZH:广场1]",
+      "我的4": "[ZH:我的4]",
+      "智汇AI2": "[ZH:智汇AI2]"
+    },
+    "open_platform": {
+      "AI核心生产力4": "[ZH:AI核心生产力4]",
+      "advantagesArchItem1": "[ZH:advantagesArchItem1]",
+      "advantagesArchItem2": "[ZH:advantagesArchItem2]",
+      "advantagesArchItem3": "[ZH:advantagesArchItem3]",
+      "advantagesArchItem4": "[ZH:advantagesArchItem4]",
+      "advantagesArchTitle": "[ZH:advantagesArchTitle]",
+      "advantagesHighlight1": "[ZH:advantagesHighlight1]",
+      "advantagesHighlight2": "[ZH:advantagesHighlight2]",
+      "advantagesHighlight3": "[ZH:advantagesHighlight3]",
+      "advantagesHighlight4": "[ZH:advantagesHighlight4]",
+      "advantagesHighlightsTitle": "[ZH:advantagesHighlightsTitle]",
+      "advantagesIntro": "[ZH:advantagesIntro]",
+      "advantagesModulesItem1": "[ZH:advantagesModulesItem1]",
+      "advantagesModulesItem2": "[ZH:advantagesModulesItem2]",
+      "advantagesModulesItem3": "[ZH:advantagesModulesItem3]",
+      "advantagesModulesItem4": "[ZH:advantagesModulesItem4]",
+      "advantagesModulesTitle": "[ZH:advantagesModulesTitle]",
+      "advantagesSubtitle": "[ZH:advantagesSubtitle]",
+      "advantagesTitle": "[ZH:advantagesTitle]",
+      "phrase2": "[ZH:phrase2]",
+      "phrase3": "[ZH:phrase3]",
+      "phrase4": "[ZH:phrase4]",
+      "平均可用性SLA2": "[ZH:平均可用性SLA2]",
+      "活跃开发者DEV1": "[ZH:活跃开发者DEV1]",
+      "系统吞吐量REQ": "[ZH:系统吞吐量REQ]",
+      "边缘接入延迟LA3": "[ZH:边缘接入延迟LA3]"
+    },
+    "project_selector_demo": {
+      "总管理端": "[ZH:总管理端]",
+      "教育管理后台2": "[ZH:教育管理后台2]",
+      "智汇AI教育平台1": "[ZH:智汇AI教育平台1]"
+    },
+    "prompt_templates": {
+      "代码2": "[ZH:代码2]",
+      "写作3": "[ZH:写作3]",
+      "分析5": "[ZH:分析5]",
+      "创意4": "[ZH:创意4]",
+      "语言1": "[ZH:语言1]",
+      "通用": "[ZH:通用]"
+    },
+    "publish_dialog": {
+      "智汇AI2": "[ZH:智汇AI2]",
+      "豆包1": "[ZH:豆包1]",
+      "通义千问": "[ZH:通义千问]"
+    },
+    "third_party_login_universal": {
+      "支付宝": "[ZH:支付宝]"
+    },
+    "universal_third_party_auth": {
+      "Apple登录2": "[ZH:Apple登录2]",
+      "Google登录": "[ZH:Google登录]",
+      "使用AppleI3": "[ZH:使用AppleI3]",
+      "使用飞书账号登录5": "[ZH:使用飞书账号登录5]",
+      "全球通用登录1": "[ZH:全球通用登录1]",
+      "飞书登录4": "[ZH:飞书登录4]"
+    }
+  }
+}

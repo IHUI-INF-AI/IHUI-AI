@@ -1,0 +1,25 @@
+{
+  "termsAndPolicies": {
+    "policies": {
+      "paymentTerms": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "privacyPolicy": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "termsOfService": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "userAgreement": {
+        "description": "描述",
+        "title": "标题"
+      }
+    },
+    "readFullText": "readFullText",
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

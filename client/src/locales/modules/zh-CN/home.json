@@ -1,6 +1,5 @@
 {
   "home": {
-    "welcome": "欢迎来到智汇AI社区",
     "page1": {
       "content": "智汇AI社区，探索AI无限可能",
       "ctaPrimary": "立即体验",
@@ -15,8 +14,7 @@
         "appStore": "AI应用商店",
         "contentCreation": "内容创作",
         "edu": "AI教育",
-        "navigation": "智能导航",
-        "mcpUse": "MCP使用"
+        "navigation": "智能导航"
       },
       "advantages": {
         "title": "核心优势",
@@ -97,26 +95,11 @@
       "title": "新会员特惠！",
       "subtitle": "立即订阅，获得双倍积分！",
       "doublePoints": "2倍积分",
-      "credits": {
-        "starter": "Starter 获得 {total}（额外 {extra}）积分",
-        "basic": "Basic 获得 {total}（额外 {extra}）积分",
-        "pro": "Pro 获得 {total}（额外 {extra}）积分"
-      },
-      "hint": "立即订阅，首月即可获得 {highlight}",
       "primaryButton": "获取额外积分",
       "secondaryLink": "我不需要免费积分",
       "close": "关闭"
     },
-    "comments": {
-      "mainContent": "首页内容：向下平铺显示",
-      "firstPage": "第一页",
-      "mainTitle": "中间主标题",
-      "interactiveText": "保留原有的交互式文字效果（可选）",
-      "secondPage": "第二页",
-      "featuresGrid": "功能模块展示"
-    },
     "input": {
-      "placeholder": "输入您的问题，支持ctrl/cmd+Enter发送",
       "model": "模型",
       "auto": "自动",
       "manual": "手动",
@@ -134,15 +117,7 @@
         "other": "全能"
       },
       "noModelData": "暂无{type}模型数据",
-      "loadModelFailed": "加载模型列表失败，请稍后重试",
       "apiAccess": "API对接"
-    },
-    "features": {
-      "modelIntegration": "模型集成",
-      "appStore": "AppStore",
-      "contentCreation": "Content创造",
-      "edu": "Edu",
-      "navigation": "导航"
     },
     "hardcoded": {
       "hot": "热门",

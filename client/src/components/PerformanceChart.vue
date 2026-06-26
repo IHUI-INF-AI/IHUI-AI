@@ -50,7 +50,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const canvasWidth = ref(640)
 const canvasHeight = computed(() => props.height)
 
-const colors = ['var(--el-text-color-primary)', 'var(--color-blue-1890ff)', 'var(--el-color-success)', 'var(--el-color-warning)', 'var(--color-purple-722ed1)']
+const colors = ['var(--el-text-color-primary)', 'var(--el-color-primary)', 'var(--el-color-success)', 'var(--el-color-warning)', 'var(--el-color-info)']
 
 function drawChart() {
   const c = canvasRef.value

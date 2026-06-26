@@ -1781,7 +1781,17 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
     css: {
       preprocessorOptions: {
         scss: {
-          additionalData: `@use "@/styles/variables.scss" as *;`,
+          // 函数形式: 排除 variables.scss 自身, 避免 @use 注入导致模块循环引用
+          additionalData: (source: string, filename: string) => {
+            // 跳过 variables.scss 自身以及已被 variables.scss @use 的文件
+            if (
+              filename.includes('variables.scss') ||
+              filename.includes('_global-tokens.scss')
+            ) {
+              return source
+            }
+            return `@use "@/styles/variables.scss" as *;\n${source}`
+          },
           silenceDeprecations: ['legacy-js-api', 'import'],
           importer: undefined,
         },

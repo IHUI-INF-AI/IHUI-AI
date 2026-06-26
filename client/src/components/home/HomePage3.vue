@@ -388,7 +388,7 @@ defineExpose({
     text-align: center;
     opacity: 0.7;
 
-    html.dark & {
+    :where(html.dark) & {
       color: var(--color-white-50);
     }
   }
@@ -401,7 +401,7 @@ defineExpose({
     letter-spacing: -0.02em;
     line-height: 1.2;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--foreground));
     }
   }
@@ -418,7 +418,7 @@ defineExpose({
     line-height: 1.5;
     opacity: 0.8;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--muted-foreground));
     }
   }
@@ -446,7 +446,7 @@ defineExpose({
   background: hsl(var(--muted));
   border-radius: var(--global-border-radius);
 
-  html.dark & {
+  :where(html.dark) & {
     background: var(--color-dark-bg-3);
   }
 
@@ -459,10 +459,10 @@ defineExpose({
     border: none;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
     white-space: nowrap;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--muted-foreground));
     }
 
@@ -470,7 +470,7 @@ defineExpose({
       color: var(--el-text-color-primary);
       background: hsl(var(--background));
 
-      html.dark & {
+      :where(html.dark) & {
         color: hsl(var(--foreground));
         background: var(--color-dark-bg-5);
       }
@@ -481,7 +481,7 @@ defineExpose({
       background: hsl(var(--background));
       border: var(--unified-border);
 
-      html.dark & {
+      :where(html.dark) & {
         color: hsl(var(--foreground));
         background: var(--color-dark-bg-5);
         border-color: var(--color-dark-bg-6);
@@ -511,7 +511,7 @@ defineExpose({
     border-radius: var(--global-border-radius);
     will-change: background-position;
 
-    html.dark & {
+    :where(html.dark) & {
       background: linear-gradient(
         90deg,
         var(--color-dark-bg-3) 0%,
@@ -627,7 +627,7 @@ defineExpose({
   border: var(--unified-border);
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s ease;
 
-  html.dark & {
+  :where(html.dark) & {
     background: var(--color-dark-bg-1);
     border-color: var(--color-dark-bg-4);
   }
@@ -641,10 +641,10 @@ defineExpose({
   }
 
   &:hover {
-    transform: translateY(-6px);
+    
     border-color: hsl(var(--border));
 
-    html.dark & {
+    :where(html.dark) & {
       border-color: var(--color-dark-bg-6);
     }
 
@@ -722,7 +722,7 @@ defineExpose({
     -webkit-box-orient: vertical;
     overflow: hidden;
 
-    html.dark & {
+    :where(html.dark) & {
       color: var(--el-text-color-primary);
     }
   }
@@ -764,7 +764,7 @@ defineExpose({
   transition: transform 0.3s ease, border-color 0.3s ease;
   flex: 1;
 
-  html.dark & {
+  :where(html.dark) & {
     background: var(--color-dark-bg-1);
     border-color: var(--color-dark-bg-4);
   }
@@ -774,10 +774,10 @@ defineExpose({
   }
 
   &:hover {
-    transform: translateY(-3px);
+    
     border-color: hsl(var(--border));
 
-    html.dark & {
+    :where(html.dark) & {
       border-color: var(--color-dark-bg-6);
     }
 
@@ -794,7 +794,7 @@ defineExpose({
     overflow: hidden;
     background: hsl(var(--muted));
 
-    html.dark & {
+    :where(html.dark) & {
       background: var(--color-dark-bg-3);
     }
 
@@ -848,7 +848,7 @@ defineExpose({
     -webkit-box-orient: vertical;
     overflow: hidden;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--foreground));
     }
   }
@@ -863,7 +863,7 @@ defineExpose({
     -webkit-box-orient: vertical;
     overflow: hidden;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--muted-foreground));
     }
   }
@@ -874,7 +874,7 @@ defineExpose({
     opacity: 0.7;
     margin-top: auto;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--muted-foreground));
     }
   }
@@ -893,12 +893,12 @@ defineExpose({
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
 
   &:hover {
     background: hsl(var(--muted));
     border-color: hsl(var(--border));
-    transform: translateY(-2px);
+    
 
     .news-list-item__arrow {
       transform: translateX(3px);
@@ -941,7 +941,7 @@ defineExpose({
     -webkit-box-orient: vertical;
     overflow: hidden;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--foreground));
     }
   }
@@ -951,7 +951,7 @@ defineExpose({
     color: var(--el-text-color-secondary);
     opacity: 0.7;
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--muted-foreground));
     }
   }
@@ -969,7 +969,7 @@ defineExpose({
       height: 14px;
     }
 
-    html.dark & {
+    :where(html.dark) & {
       color: hsl(var(--muted-foreground));
     }
   }

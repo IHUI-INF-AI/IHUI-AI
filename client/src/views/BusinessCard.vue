@@ -355,7 +355,7 @@ onMounted(() => {
   padding: 48px 24px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: border-color 0.3s, background-color 0.3s;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -1,0 +1,16 @@
+{
+  "notification": {
+    "allRead": "allRead",
+    "center": "center",
+    "empty": "empty",
+    "loadAbnormal": "loadAbnormal",
+    "markAllReadFailed": "markAllReadFailed",
+    "markAllReadSuccess": "markAllReadSuccess",
+    "markReadFailed": "markReadFailed",
+    "messages": "messages",
+    "operationFailed": "operationFailed",
+    "title": "标题",
+    "viewAll": "viewAll",
+    "viewUserCenter": "viewUserCenter"
+  }
+}

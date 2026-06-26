@@ -1,0 +1,13 @@
+{
+  "agenticDashboard": {
+    "activeSwarms": "activeSwarms",
+    "coordination": "协作",
+    "iteration": "iteration",
+    "noActiveSwarms": "noActiveSwarms",
+    "seoDescription": "SEO 描述",
+    "seoKeywords": "SEO 关键词",
+    "seoTitle": "SEO 标题",
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

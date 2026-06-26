@@ -71,8 +71,6 @@
         "originalPrice": "정가 ¥{price}"
       },
       "plans": {
-        "vip": "회원",
-        "trader": "트레이더",
         "upgrade": "플랜 업그레이드",
         "subscribe": "지금 개통",
         "recommended": "추천"
@@ -96,54 +94,13 @@
       "guarantee": "7일 무조건 환불 보장"
     },
     "payment": {
-      "title": "결제",
-      "subtitle": "결제 방법을 선택하여 주문을 완료하세요",
-      "orderInfo": "주문 정보",
-      "productName": "상품명",
-      "orderNo": "주문번호",
-      "amount": "금액",
       "paymentMethods": "결제 방법",
-      "platformCoins": {
-        "name": "플랫폼 코인 결제",
-        "desc": "계정 잔액으로 결제"
-      },
       "alipay": "alipay",
-      "wechat": {
-        "name": "WeChat Pay",
-        "desc": "WeChat 스캔 코드로 결제"
-      },
-      "card": {
-        "name": "은행 카드",
-        "desc": "은행 카드로 결제"
-      },
       "confirmPay": "결제 확인 ¥{price}",
       "cancel": "취소",
-      "underDevelopment": "개발 중",
-      "confirmPayment": "결제 확인",
-      "processing": "처리 중...",
-      "invalidOrderInfo": "주문 정보가 무효",
-      "cardNotSupported": "은행 카드 결제는 일시적으로 지원되지 않습니다. 다른 결제 방법을 선택하세요",
-      "createOrderFailed": "결제 주문 생성 실패",
-      "paymentDataError": "결제 데이터 오류",
-      "paymentSuccess": "결제 성공",
-      "paymentFailed": "결제 실패",
-      "insufficientBalance": "플랫폼 코인 잔액 부족. 다른 결제 방법을 선택하거나 먼저 충전하세요",
-      "orderAlreadyPaid": "주문이 이미 결제됨",
       "qrCodeTitle": "스캔 코드 결제",
-      "generatingQRCode": "결제 QR 코드 생성 중...",
       "qrCodeTip": "휴대폰으로 아래 QR 코드를 스캔하여 결제를 완료하세요",
-      "qrCodeFailed": "QR 코드 생성 실패",
-      "openPaymentPage": "결제 페이지 열기",
-      "checkStatus": "결제 상태 확인",
-      "cancelPayment": "결제 취소",
-      "paymentNotAvailable": "결제 기능은 아직 이용 불가",
-      "paymentRedirecting": "결제 페이지로 이동 중...",
-      "wechatPaymentRequiresJSAPI": "WeChat Pay는 WeChat 환경에서 사용해야 합니다",
-      "pageTitleKeyword": "결제",
-      "pageTitle": "결제 페이지",
-      "defaultProductName": "이름 없는 상품",
       "qrCodeAlt": "결제 QR 코드",
-      "unsupportedMethod": "지원되지 않는 결제 방법",
       "close": "닫기",
       "confirmOrder": "주문 확인",
       "orderDetails": "주문 상세",
@@ -168,7 +125,36 @@
         "lifetime": "✓ 일회 결제, 평생 사용"
       }
     },
-    "paymentFailed": "결제 실패"
+    "paymentFailed": "결제 실패",
+    "userMembershipBenefits": {
+      "benefit10One": "benefit10One",
+      "benefit10Three": "benefit10Three",
+      "benefit10Title": "benefit10Title",
+      "benefit10Two": "benefit10Two",
+      "benefit11Title": "benefit11Title",
+      "benefit1One": "benefit1One",
+      "benefit1Three": "benefit1Three",
+      "benefit1Title": "benefit1Title",
+      "benefit1Two": "benefit1Two",
+      "benefit2Title": "benefit2Title",
+      "benefit3Title": "benefit3Title",
+      "benefit4Title": "benefit4Title",
+      "benefit5Title": "benefit5Title",
+      "benefit6Title": "benefit6Title",
+      "benefit7One": "benefit7One",
+      "benefit7Three": "benefit7Three",
+      "benefit7Title": "benefit7Title",
+      "benefit7Two": "benefit7Two",
+      "benefit8Title": "benefit8Title",
+      "benefit9Title": "benefit9Title",
+      "benefitName": "benefitName",
+      "normalUser": "normalUser",
+      "trader": "trader",
+      "traderPrice": "traderPrice",
+      "upgrade": "upgrade",
+      "vip": "VIP",
+      "vipPrice": "vipPrice"
+    }
   },
   "vipLevelPopup": {
     "benefitLevel1": "기간 한정 소비 <b style=\"color: var(--color-red)\">588</b>로 회원 개통, <b style=\"color: var(--color-red)\">588</b> 성장값 획득, <b style=\"color: var(--color-red)\">레벨 1:알고리즘 새싹</b> 도달",
@@ -180,6 +166,12 @@
     "benefitLevel7": "<b style=\"color: var(--color-red)\">9000</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 7:지루 중추</b> 도달, <b style=\"color: var(--color-red)\">8.3</b> 할인 혜택",
     "benefitLevel8": "<b style=\"color: var(--color-red)\">10500</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 8:스마트 내비게이션</b> 도달, <b style=\"color: var(--color-red)\">8</b> 할인 혜택",
     "benefitLevel9": "<b style=\"color: var(--color-red)\">12000</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 9:양자 지뇌</b> 도달, <b style=\"color: var(--color-red)\">7.7</b> 할인 혜택",
-    "benefitLevel10": "<b style=\"color: var(--color-red)\">18888</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 10:초차원 예언자</b> 도달, <b style=\"color: var(--color-red)\">7</b> 할인 혜택"
+    "benefitLevel10": "<b style=\"color: var(--color-red)\">18888</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 10:초차원 예언자</b> 도달, <b style=\"color: var(--color-red)\">7</b> 할인 혜택",
+    "goActivate": "goActivate",
+    "level0Desc": "level0Desc"
+  },
+  "Vip": {
+    "oneClickVip": "oneClickVip",
+    "permanentVip": "permanentVip"
   }
 }

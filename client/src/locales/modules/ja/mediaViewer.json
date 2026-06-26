@@ -1,0 +1,8 @@
+{
+  "mediaViewer": {
+    "audioNotSupported": "audioNotSupported",
+    "downloadView": "downloadView",
+    "mediaFile": "mediaFile",
+    "videoNotSupported": "videoNotSupported"
+  }
+}

@@ -81,7 +81,7 @@
   animation: theme-loader-fade-out 0.2s ease-out forwards;
 }
 
-html.dark .theme-loader {
+:where(html.dark) .theme-loader {
   background: var(--color-black-90);
   }
 
@@ -114,7 +114,7 @@ html.high-contrast-dark .theme-loader {
 .theme-loader-progress {
   width: 80px;
   height: 3px;
-  background: var(--el-fill-color-light, var(--color-gray-f5f7fa));
+  background: var(--el-fill-color-light, var(--el-fill-color-lighter));
   border-radius: 2px;
   overflow: hidden;
 }

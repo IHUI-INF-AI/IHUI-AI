@@ -342,7 +342,7 @@ onMounted(() => {
       padding: 4px 8px;
       background: var(--el-fill-color);
       border-radius: var(--global-border-radius);
-      font-family: monospace;
+      font-family: var(--font-family-mono);
     }
   }
 }
@@ -403,7 +403,7 @@ onMounted(() => {
     padding: 8px 12px;
     background: var(--el-fill-color-light);
     border-radius: var(--global-border-radius);
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     font-size: 14px;
   }
 }

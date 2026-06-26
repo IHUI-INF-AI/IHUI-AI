@@ -1,0 +1,39 @@
+{
+  "traderCommission": {
+    "errors": {
+      "copyFailed": "copyFailed",
+      "copySuccess": "copySuccess"
+    },
+    "noRecords": "noRecords",
+    "pendingCommission": "pendingCommission",
+    "status": {
+      "cancelled": "已取消",
+      "pending": "待处理",
+      "settled": "settled",
+      "unknown": "unknown"
+    },
+    "subtitle": "副标题",
+    "table": {
+      "actions": "actions",
+      "buyer": "buyer",
+      "commissionAmount": "commissionAmount",
+      "copyOrderId": "copyOrderId",
+      "orderTime": "orderTime",
+      "relatedOrder": "relatedOrder",
+      "status": "状态"
+    },
+    "tabs": {
+      "all": "全部",
+      "cancelled": "已取消",
+      "pending": "待处理",
+      "settled": "settled"
+    },
+    "title": "标题",
+    "todayCommission": "todayCommission",
+    "totalCommission": "totalCommission",
+    "withdraw": "提现",
+    "withdrawDetails": "withdrawDetails",
+    "withdrawableCommission": "withdrawableCommission",
+    "withdrawnCommission": "withdrawnCommission"
+  }
+}

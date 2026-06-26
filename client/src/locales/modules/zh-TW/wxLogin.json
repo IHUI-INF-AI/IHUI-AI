@@ -1,10 +1,1 @@
-{
-  "wxLogin": {
-    "title": "微信登錄",
-    "description": "微信小程式登錄頁面",
-    "authorizationTitle": "微信授權登錄",
-    "authorizationDesc": "使用微信賬號快速登錄",
-    "loginButton": "微信登錄",
-    "developmentInProgress": "微信登錄功能開發中"
-  }
-}
+{}

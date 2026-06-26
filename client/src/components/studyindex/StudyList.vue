@@ -221,7 +221,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 20px 0;
-  color: var(--color-gray-999);
+  color: var(--el-text-color-placeholder);
 }
 
 .header-bar {

@@ -1,0 +1,135 @@
+{
+  "data": {
+    "a_i_chat": {
+      "图片1": "图片1",
+      "视频": "视频",
+      "识别2": "识别2",
+      "语音3": "语音3",
+      "音乐4": "音乐4"
+    },
+    "about": {
+      "张明远": "张明远",
+      "李思涵1": "李思涵1",
+      "王晓峰2": "王晓峰2"
+    },
+    "agents_create": {
+      "AI助手": "AI助手"
+    },
+    "dashboard": {
+      "审核管理2": "审核管理2",
+      "模型管理": "模型管理",
+      "用户中心3": "用户中心3",
+      "结算管理4": "结算管理4",
+      "费用配置1": "费用配置1"
+    },
+    "enterprise_service": {
+      "AI专业服务9": "AI专业服务9",
+      "AI工具课程19": "AI工具课程19",
+      "AI时代企业理性2": "AI时代企业理性2",
+      "httpswei29": "httpswei29",
+      "专业大模型与智能10": "专业大模型与智能10",
+      "九章智算云25": "九章智算云25",
+      "企业AI化服务会3": "企业AI化服务会3",
+      "企业服务30": "企业服务30",
+      "企业服务4": "企业服务4",
+      "便捷的在线交流平8": "便捷的在线交流平8",
+      "加入18": "加入18",
+      "华为云28": "华为云28",
+      "在地社群5": "在地社群5",
+      "定位12": "定位12",
+      "工具17": "工具17",
+      "思维类课程20": "思维类课程20",
+      "文化类课程21": "文化类课程21",
+      "智汇AI社1": "智汇AI社1",
+      "智汇AI社企业服": "智汇AI社企业服",
+      "服务13": "服务13",
+      "架构14": "架构14",
+      "火山引擎22": "火山引擎22",
+      "百度智能云27": "百度智能云27",
+      "线上社群7": "线上社群7",
+      "线下课程探索活动6": "线下课程探索活动6",
+      "罗盘15": "罗盘15",
+      "腾讯云24": "腾讯云24",
+      "致远互联26": "致远互联26",
+      "课程16": "课程16",
+      "阿里云23": "阿里云23",
+      "首页11": "首页11"
+    },
+    "index": {
+      "宋体3": "宋体3",
+      "微软雅黑2": "微软雅黑2",
+      "楷体5": "楷体5",
+      "黑体4": "黑体4",
+      "默认": "默认",
+      "默认1": "默认1"
+    },
+    "input1": {
+      "klimg系列1": "klimg系列1",
+      "sora2系列": "sora2系列"
+    },
+    "mobile_bottom_nav": {
+      "AI应用商店": "AI应用商店",
+      "动态3": "动态3",
+      "广场1": "广场1",
+      "我的4": "我的4",
+      "智汇AI2": "智汇AI2"
+    },
+    "open_platform": {
+      "AI核心生产力4": "AI核心生产力4",
+      "advantagesArchItem1": "advantagesArchItem1",
+      "advantagesArchItem2": "advantagesArchItem2",
+      "advantagesArchItem3": "advantagesArchItem3",
+      "advantagesArchItem4": "advantagesArchItem4",
+      "advantagesArchTitle": "advantagesArchTitle",
+      "advantagesHighlight1": "advantagesHighlight1",
+      "advantagesHighlight2": "advantagesHighlight2",
+      "advantagesHighlight3": "advantagesHighlight3",
+      "advantagesHighlight4": "advantagesHighlight4",
+      "advantagesHighlightsTitle": "advantagesHighlightsTitle",
+      "advantagesIntro": "advantagesIntro",
+      "advantagesModulesItem1": "advantagesModulesItem1",
+      "advantagesModulesItem2": "advantagesModulesItem2",
+      "advantagesModulesItem3": "advantagesModulesItem3",
+      "advantagesModulesItem4": "advantagesModulesItem4",
+      "advantagesModulesTitle": "advantagesModulesTitle",
+      "advantagesSubtitle": "advantagesSubtitle",
+      "advantagesTitle": "advantagesTitle",
+      "phrase2": "phrase2",
+      "phrase3": "phrase3",
+      "phrase4": "phrase4",
+      "平均可用性SLA2": "平均可用性SLA2",
+      "活跃开发者DEV1": "活跃开发者DEV1",
+      "系统吞吐量REQ": "系统吞吐量REQ",
+      "边缘接入延迟LA3": "边缘接入延迟LA3"
+    },
+    "project_selector_demo": {
+      "总管理端": "总管理端",
+      "教育管理后台2": "教育管理后台2",
+      "智汇AI教育平台1": "智汇AI教育平台1"
+    },
+    "prompt_templates": {
+      "代码2": "代码2",
+      "写作3": "写作3",
+      "分析5": "分析5",
+      "创意4": "创意4",
+      "语言1": "语言1",
+      "通用": "通用"
+    },
+    "publish_dialog": {
+      "智汇AI2": "智汇AI2",
+      "豆包1": "豆包1",
+      "通义千问": "通义千问"
+    },
+    "third_party_login_universal": {
+      "支付宝": "支付宝"
+    },
+    "universal_third_party_auth": {
+      "Apple登录2": "Apple登录2",
+      "Google登录": "Google登录",
+      "使用AppleI3": "使用AppleI3",
+      "使用飞书账号登录5": "使用飞书账号登录5",
+      "全球通用登录1": "全球通用登录1",
+      "飞书登录4": "飞书登录4"
+    }
+  }
+}

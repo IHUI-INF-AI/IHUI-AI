@@ -1,0 +1,25 @@
+{
+  "termsAndPolicies": {
+    "policies": {
+      "paymentTerms": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "privacyPolicy": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "termsOfService": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      },
+      "userAgreement": {
+        "description": "[ZH:description]",
+        "title": "[ZH:title]"
+      }
+    },
+    "readFullText": "[ZH:readFullText]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]"
+  }
+}

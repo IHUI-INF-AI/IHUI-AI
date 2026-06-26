@@ -1,0 +1,9 @@
+{
+  "p19AdminDashboard": {
+    "action": "action",
+    "recentActivity": "recentActivity",
+    "target": "target",
+    "time": "时间",
+    "title": "标题"
+  }
+}

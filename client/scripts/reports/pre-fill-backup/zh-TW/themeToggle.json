@@ -1,0 +1,16 @@
+{
+  "themeToggle": {
+    "autoMode": "[ZH:autoMode]",
+    "clickToChange": "[ZH:clickToChange]",
+    "currentMode": "[ZH:currentMode]",
+    "darkMode": "[ZH:darkMode]",
+    "highContrastDark": "[ZH:highContrastDark]",
+    "highContrastLight": "[ZH:highContrastLight]",
+    "lightMode": "[ZH:lightMode]",
+    "menuLabel": "[ZH:menuLabel]",
+    "switchingToDark": "[ZH:switchingToDark]",
+    "switchingToHighContrastDark": "[ZH:switchingToHighContrastDark]",
+    "switchingToHighContrastLight": "[ZH:switchingToHighContrastLight]",
+    "switchingToLight": "[ZH:switchingToLight]"
+  }
+}

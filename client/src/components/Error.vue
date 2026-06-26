@@ -38,9 +38,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onErrorCaptured } from 'vue'
+import { ref, onErrorCaptured, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/utils/logger'
+import { captureError, setErrorContext, addBreadcrumb } from '@/utils/errorTracker'
 // lucide-fallback 在 lucide-vue-next 缺失时回退到 Element Plus 图标组件,
 // 保持与 common/ErrorBoundary.vue 的图标风格一致, 避免混用 emoji 与 EP 图标.
 import { AlertTriangle, RefreshCw, Home } from '@/lib/lucide-fallback'
@@ -51,13 +52,54 @@ const hasError = ref(false)
 const errorMessage = ref('')
 const errorDetails = ref('')
 
+// 2026-06-26 修复: 在 ErrorBoundary 触发时调用 captureError 上报到 DSN
+// (Sentry/自建后端, 由 VITE_ERROR_TRACKER_DSN 启用, 未配置时仅打 logger.error 不发网络请求)
+// 同时增强上下文 (component/route/timestamp), 方便定位崩溃源.
+// 此处仅是"埋点"接入, 不新增任何功能, 复用现有 errorTracker 服务.
+let _errorContextSet = false
+function ensureErrorContextSet(): void {
+  if (_errorContextSet) return
+  _errorContextSet = true
+  setErrorContext({
+    component: 'ErrorBoundary',
+    route: typeof window !== 'undefined' ? window.location.pathname : undefined,
+  })
+}
+
 // 捕获子组件错误,显示兜底 UI
-onErrorCaptured((err: Error) => {
+onErrorCaptured((err: Error, instance: ComponentPublicInstance | null, info: string) => {
   const error = err instanceof Error ? err : new Error(String(err))
+  ensureErrorContextSet()
+  // instance 运行时携带 $options.name, 但 vue-tsc 推断的 ComponentPublicInstance 类型
+  // 未暴露 $options, 此处用类型断言提取组件名 (onErrorCaptured 的 instance 实际是
+  // ComponentInternalInstance 的代理, 运行时可访问 $options)
+  const componentName =
+    (instance as unknown as { $options?: { name?: string } } | null)?.$options?.name || 'unknown'
+  // 记录最近一次 breadcrumb (Vue 内部的 info 如 "render function" / "v-on handler")
+  addBreadcrumb({
+    category: 'vue',
+    message: info || 'onErrorCaptured',
+    level: 'error',
+    data: { componentName },
+  })
   logger.error('[ErrorBoundary] Error caught', {
     message: error.message,
     stack: error.stack,
+    info,
   })
+  // 2026-06-26 修复: 调用 captureError 上报, 失败不阻塞 UI 兜底
+  try {
+    captureError(error, {
+      action: 'vue-error-boundary',
+      metadata: {
+        vueInfo: info,
+        componentName,
+      },
+    })
+  } catch (reportErr) {
+    // 捕获上报函数本身抛错 (如 Sentry SDK 未加载), 不影响兜底 UI
+    logger.warn('[ErrorBoundary] captureError failed:', reportErr)
+  }
   hasError.value = true
   errorMessage.value = error.message || t('errorBoundary.unknownError')
   errorDetails.value = error.stack || ''

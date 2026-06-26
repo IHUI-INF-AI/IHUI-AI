@@ -109,11 +109,11 @@ const handleNavigate = (url: string, title: string) => {
   border-radius: var(--global-border-radius);
   padding: 20px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
 
   &:hover {
     background-color: var(--el-bg-color-hover);
-    transform: translateY(-2px);
+    
   }
 }
 

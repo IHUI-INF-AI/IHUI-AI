@@ -252,7 +252,7 @@ const handleAppleLogin = async () => {
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: border-color 0.2s ease, border-width 0.2s ease, opacity 0.2s ease;
       min-width: 200px;
       height: 48px;
 

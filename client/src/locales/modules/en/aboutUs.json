@@ -1,0 +1,97 @@
+{
+  "aboutUs": {
+    "companyIntro": {
+      "paragraph1": "paragraph1",
+      "paragraph2": "paragraph2",
+      "subtitle": "副标题",
+      "tag": "标签",
+      "title": "标题",
+      "visualSublabel": "visualSublabel"
+    },
+    "coreValues": {
+      "efficient": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "innovative": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "professional": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "reliable": {
+        "description": "描述",
+        "title": "标题"
+      }
+    },
+    "developmentHistory": {
+      "tag": "标签",
+      "title": "标题"
+    },
+    "heroMission": "heroMission",
+    "heroSubtitle": "heroSubtitle",
+    "heroTitle": "heroTitle",
+    "milestones": {
+      "aiAppStore": {
+        "date": "日期",
+        "description": "描述",
+        "title": "标题"
+      },
+      "angelFunding": {
+        "date": "日期",
+        "description": "描述",
+        "title": "标题"
+      },
+      "companyFounded": {
+        "date": "日期",
+        "description": "描述",
+        "title": "标题"
+      },
+      "developersMilestone": {
+        "date": "日期",
+        "description": "描述",
+        "title": "标题"
+      },
+      "firstUsers": {
+        "date": "日期",
+        "description": "描述",
+        "title": "标题"
+      },
+      "modelIntegration": {
+        "date": "日期",
+        "description": "描述",
+        "title": "标题"
+      },
+      "platformLaunched": {
+        "date": "日期",
+        "description": "描述",
+        "title": "标题"
+      },
+      "usersMilestone": {
+        "date": "日期",
+        "description": "描述",
+        "title": "标题"
+      }
+    },
+    "quickNav": {
+      "contactUs": "联系我们"
+    },
+    "team": {
+      "subtitle": "副标题",
+      "tag": "标签",
+      "title": "标题"
+    },
+    "teamMembers": {
+      "founder": {
+        "description": "描述",
+        "name": "名称",
+        "role": "角色"
+      }
+    }
+  },
+  "AboutUs": {
+    "sixKPlus": "sixKPlus"
+  }
+}

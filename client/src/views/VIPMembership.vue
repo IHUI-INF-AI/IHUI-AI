@@ -416,10 +416,10 @@ $gray-800: var(--color-dark-bg-2);
 $gray-700: var(--color-gray-1f1f1f);
 $gray-600: var(--color-dark-bg-6);
 $gray-500: var(--color-gray-3a3a3a);
-$gray-400: var(--color-gray-666);
-$gray-300: var(--color-gray-888888);
-$gray-200: var(--color-gray-a1a1a1);
-$gray-100: var(--color-gray-ededed);
+$gray-400: var(--el-text-color-secondary);
+$gray-300: var(--el-text-color-placeholder);
+$gray-200: var(--el-text-color-placeholder);
+$gray-100: var(--el-text-color-secondary);
 $glass-bg: var(--color-white-3);
 $glass-border: var(--border-unified-color);
 $glass-hover: var(--color-white-6);
@@ -502,6 +502,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
     padding: 48px 32px;
     text-align: center;
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     overflow: hidden;
 
     &::before {
@@ -657,12 +658,12 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
 
   &:hover {
     background: var(--color-dark-282828-95);
     border-color: var(--border-unified-color-hover);
-    transform: translateY(-2px);
+    
   }
 
   &__content {
@@ -701,7 +702,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
 
   &__desc {
     font-size: 13px;
-    color: var(--color-gray-999);
+    color: var(--el-text-color-placeholder);
     line-height: 1.4;
     margin: 0;
   }
@@ -789,6 +790,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
     inset: 0;
     background: var(--color-dark-0a0a0a-90);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-top: var(--unified-border);
   }
 
@@ -848,7 +850,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
     border: var(--unified-border);
 
     &:hover {
-      transform: translateY(-2px);
+      
       border-color: var(--border-unified-color-hover);
     }
 
@@ -981,7 +983,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    transition: all $transition-fast;
+    transition: background-color $transition-fast, color $transition-fast, transform $transition-fast, opacity $transition-fast;
 
     &--cancel {
       background: $glass-bg;
@@ -1001,7 +1003,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
 
       &:hover {
         background: var(--el-bg-color);
-        transform: translateY(-1px);
+        
       }
 
       &:disabled {

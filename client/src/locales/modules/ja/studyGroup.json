@@ -1,0 +1,19 @@
+{
+  "studyGroup": {
+    "cover": "封面",
+    "delist": "delist",
+    "descPlaceholder": "descPlaceholder",
+    "edit": "编辑",
+    "enterGroupDesc": "enterGroupDesc",
+    "enterGroupTitle": "enterGroupTitle",
+    "groupDesc": "groupDesc",
+    "groupTitle": "groupTitle",
+    "pleaseSelect": "pleaseSelect",
+    "publish": "发布",
+    "selectTrack": "selectTrack",
+    "subTrack": "subTrack",
+    "titlePlaceholder": "titlePlaceholder",
+    "uploadCover": "uploadCover",
+    "uploadVideo": "uploadVideo"
+  }
+}

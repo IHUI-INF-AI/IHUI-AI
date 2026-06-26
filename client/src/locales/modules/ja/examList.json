@@ -1,0 +1,36 @@
+{
+  "examList": {
+    "attemptPrefix": "attemptPrefix",
+    "attemptSuffix": "attemptSuffix",
+    "correctAnswer": "correctAnswer",
+    "difficultyAll": "difficultyAll",
+    "difficultyEasy": "difficultyEasy",
+    "difficultyHard": "difficultyHard",
+    "difficultyMedium": "difficultyMedium",
+    "difficultyUnknown": "difficultyUnknown",
+    "emptyPapers": "emptyPapers",
+    "emptyRecords": "emptyRecords",
+    "emptyWrong": "emptyWrong",
+    "minuteUnit": "minuteUnit",
+    "noDesc": "noDesc",
+    "notPassed": "notPassed",
+    "paperPrefix": "paperPrefix",
+    "passPrefix": "passPrefix",
+    "passed": "passed",
+    "questionContent": "questionContent",
+    "questionUnit": "questionUnit",
+    "remove": "移除",
+    "scorePrefix": "scorePrefix",
+    "searchPlaceholder": "请输入搜索内容",
+    "startExam": "startExam",
+    "subtitle": "副标题",
+    "tabs": {
+      "papers": "papers",
+      "records": "records",
+      "wrong": "wrong"
+    },
+    "title": "标题",
+    "usedTimePrefix": "usedTimePrefix",
+    "wrongBook": "wrongBook"
+  }
+}

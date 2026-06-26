@@ -1,0 +1,13 @@
+{
+  "distributionOrder": {
+    "buyer": "买家",
+    "commission": "佣金",
+    "noOrders": "暂无订单",
+    "orderNo": "订单号",
+    "orderTime": "下单时间",
+    "searchPlaceholder": "请输入搜索内容",
+    "title": "标题",
+    "totalCommission": "佣金总额",
+    "totalOrders": "订单总数"
+  }
+}

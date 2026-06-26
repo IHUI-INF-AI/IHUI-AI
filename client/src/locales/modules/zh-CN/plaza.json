@@ -1,0 +1,45 @@
+{
+  "plaza": {
+    "aiChat": "AI 对话",
+    "aiCoding": "AI 编程",
+    "aiDrawing": "AI 绘画",
+    "aiNeedPlaza": "AI 需求广场",
+    "aiVideo": "AI 视频",
+    "aiWriting": "AI 写作",
+    "all": "全部",
+    "anonymous": "匿名用户",
+    "back": "返回",
+    "completed": "已完成",
+    "createNew": "发布需求",
+    "form": {
+      "cancel": "取消",
+      "descriptionPlaceholder": "请输入需求描述",
+      "titlePlaceholder": "请输入需求标题"
+    },
+    "loading": "加载中",
+    "myNeeds": "我的需求",
+    "needCategory": "需求分类",
+    "needDescription": "需求描述",
+    "needTitle": "需求标题",
+    "needType": "需求类型",
+    "noData": "暂无数据",
+    "ongoing": "进行中",
+    "publish": "发布",
+    "publishFirst": "发布第一条需求",
+    "publishNeed": "发布需求",
+    "searchPlaceholder": "请输入搜索内容",
+    "selectCategory": "请选择分类",
+    "selectType": "请选择类型",
+    "submit": "提交",
+    "submitting": "提交中",
+    "subtitle": "发布你的 AI 需求，获取专业解决方案",
+    "type1": "开发类",
+    "type2": "设计类",
+    "type3": "商业类",
+    "types": {
+      "business": "商业咨询",
+      "design": "设计",
+      "development": "开发定制"
+    }
+  }
+}

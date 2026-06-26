@@ -1,0 +1,14 @@
+{
+  "aiChatInput": {
+    "enterToSend": "[ZH:enterToSend]",
+    "inputPlaceholder": "[ZH:inputPlaceholder]",
+    "messageStatsTotal": "[ZH:messageStatsTotal]",
+    "openChat": "[ZH:openChat]",
+    "pleaseEnterContentOrUploadFile": "[ZH:pleaseEnterContentOrUploadFile]",
+    "selectModel": "[ZH:selectModel]",
+    "send": "[ZH:send]",
+    "uploadFile": "[ZH:uploadFile]",
+    "voiceInput": "[ZH:voiceInput]",
+    "voiceStarted": "[ZH:voiceStarted]"
+  }
+}

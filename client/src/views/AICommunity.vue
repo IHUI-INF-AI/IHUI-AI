@@ -1204,7 +1204,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 :root.dark,
-html.dark {
+:where(html.dark) {
   --ai-community-bg-void: var(--el-bg-color);
   --ai-community-bg-primary: var(--el-fill-color-darker);
   --ai-community-bg-secondary: var(--el-fill-color-dark);
@@ -1226,7 +1226,7 @@ html.dark {
   --ai-community-card-hover-shadow: none;
   --ai-community-btn-primary-bg: var(--el-bg-color);
   --ai-community-btn-primary-color: var(--el-text-color-primary);
-  --ai-community-btn-primary-hover-bg: var(--color-gray-light);
+  --ai-community-btn-primary-hover-bg: var(--el-fill-color-light);
 }
 
 .ai-community-page {
@@ -1533,7 +1533,7 @@ html.dark {
         -webkit-backdrop-filter: blur(20px) saturate(160%);
         border: var(--unified-border);
         border-radius: var(--global-border-radius);
-        transition: all $transition-base $ease-out-expo;
+        transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo;
 
         &:hover {
           background: var(--glass-bg-hover);
@@ -1644,7 +1644,7 @@ html.dark {
     --tab-item-active-bg: hsl(var(--background));
     --tab-item-active-border: var(--border-unified-color);
 
-    html.dark & {
+    :where(html.dark) & {
       background: hsl(0 0% 12%);
       --tab-item-hover-bg: hsl(0 0% 18%);
       --tab-item-active-bg: hsl(0 0% 18%);
@@ -1660,10 +1660,10 @@ html.dark {
       border: none;
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
       white-space: nowrap;
 
-      html.dark & {
+      :where(html.dark) & {
         color: hsl(var(--muted-foreground));
       }
 
@@ -1671,7 +1671,7 @@ html.dark {
         color: var(--el-text-color-primary);
         background: var(--tab-item-hover-bg);
 
-        html.dark & {
+        :where(html.dark) & {
           color: hsl(var(--foreground));
         }
       }
@@ -1681,7 +1681,7 @@ html.dark {
         background: var(--tab-item-active-bg);
         border: var(--unified-border);
 
-        html.dark & {
+        :where(html.dark) & {
           color: hsl(var(--foreground));
           border-color: var(--tab-item-active-border);
         }
@@ -1733,7 +1733,7 @@ html.dark {
         font-size: 13px;
         font-weight: 500;
         cursor: pointer;
-        transition: all $transition-base $ease-out-expo;
+        transition: background-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo;
 
         .el-icon {
           font-size: 16px;
@@ -1779,7 +1779,7 @@ html.dark {
       font-weight: 500;
       color: var(--text-secondary);
       line-height: 1;
-      transition: all $transition-base $ease-out-expo;
+      transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo;
 
       &:hover {
         background: var(--glass-bg-hover);
@@ -1798,7 +1798,7 @@ html.dark {
       background: var(--btn-primary-bg);
       border: none;
       color: var(--btn-primary-color);
-      transition: all $transition-base $ease-out-expo;
+      transition: background-color $transition-base $ease-out-expo;
 
       &:hover {
         background: var(--btn-primary-hover-bg);
@@ -1832,7 +1832,7 @@ html.dark {
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       overflow: visible;
-      transition: all $transition-base $ease-out-expo;
+      transition: border-color $transition-base $ease-out-expo;
 
       &:hover {
         border-color: var(--border-medium);
@@ -1907,7 +1907,7 @@ html.dark {
     background: var(--glass-bg);
     border-color: var(--border-subtle);
     color: var(--text-secondary);
-    transition: all $transition-base $ease-out-expo;
+    transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo;
 
     &:hover {
       background: var(--glass-bg-hover);
@@ -2090,7 +2090,7 @@ html.dark {
       color: var(--text-primary);
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background-color 0.3s, color 0.3s;
 
       &:hover {
         background: var(--btn-primary-bg);
@@ -2117,7 +2117,7 @@ html.dark {
       font-weight: 700;
       color: var(--text-secondary);
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background-color 0.3s, color 0.3s;
 
       &:hover {
         background: var(--color-black-12);
@@ -2153,7 +2153,7 @@ html.dark {
     padding: 14px 16px;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s;
 
     &:hover {
       background: var(--color-black-8);
@@ -2164,7 +2164,7 @@ html.dark {
     }
 
     .topic-rank {
-      font-family: monospace;
+      font-family: var(--font-family-mono);
       font-size: 12px;
       font-weight: 900;
       color: var(--btn-primary-bg);
@@ -2242,7 +2242,7 @@ html.dark {
       padding: 12px;
       margin: 0 -12px;
       border-radius: var(--global-border-radius);
-      transition: all $transition-base $ease-out-expo;
+      transition: background-color $transition-base $ease-out-expo;
 
       &:hover {
         background: var(--glass-bg-hover);
@@ -2255,7 +2255,7 @@ html.dark {
 
       .creator-avatar {
         border: 2px solid var(--border-subtle);
-        transition: all $transition-base $ease-out-expo;
+        transition: transform $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo;
       }
 
       :where(.creator-info) {
@@ -2290,7 +2290,7 @@ html.dark {
         background: transparent;
         border: var(--unified-border);
         color: var(--text-secondary);
-        transition: all $transition-fast;
+        transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast;
 
         &:hover {
           background: var(--btn-primary-bg);
@@ -2327,7 +2327,7 @@ html.dark {
       background: var(--glass-bg);
       border: var(--unified-border);
       color: var(--text-secondary);
-      transition: all $transition-base $ease-out-expo;
+      transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo;
       box-shadow: none;
 
       :deep(.el-tag__content) {
@@ -2402,7 +2402,7 @@ html.dark {
         cursor: pointer;
         background: var(--glass-bg);
         border: var(--unified-border);
-        transition: all $transition-base $ease-out-expo;
+        transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, transform $transition-base $ease-out-expo;
 
         &:hover {
           background: var(--glass-bg-hover);
@@ -2482,7 +2482,7 @@ html.dark {
           font-size: 14px;
           color: var(--text-muted);
           opacity: 0;
-          transition: all $transition-base $ease-out-expo;
+          transition: opacity $transition-base $ease-out-expo, transform $transition-base $ease-out-expo;
         }
       }
     }
@@ -2534,7 +2534,7 @@ html.dark {
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   white-space: nowrap;
 
@@ -2565,7 +2565,7 @@ html.dark {
   }
 }
 
-html.dark .btn-luxe {
+:where(html.dark) .btn-luxe {
   &.primary {
     background: var(--el-color-white);
     color: var(--btn-primary-bg);
@@ -2768,7 +2768,7 @@ html.dark .btn-luxe {
       background: var(--glass-bg);
       border-color: var(--border-subtle);
       color: var(--text-secondary);
-      transition: all $transition-base $ease-out-expo;
+      transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo;
 
       &:hover {
         background: var(--glass-bg-hover);
@@ -2928,7 +2928,7 @@ html.dark .btn-luxe {
 
   .el-dropdown-menu__item {
     color: var(--text-secondary);
-    transition: all $transition-fast ;
+    transition: background-color $transition-fast, color $transition-fast;
 
     &:hover {
       background: var(--glass-bg-hover);

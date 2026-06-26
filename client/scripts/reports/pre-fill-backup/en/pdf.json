@@ -1,0 +1,23 @@
+{
+  "pdf": {
+    "actualSize": "[ZH:actualSize]",
+    "color": "[ZH:color]",
+    "copies": "[ZH:copies]",
+    "dropFileHere": "[ZH:dropFileHere]",
+    "duplex": "[ZH:duplex]",
+    "fitPage": "[ZH:fitPage]",
+    "fontSize": "[ZH:fontSize]",
+    "footer": "[ZH:footer]",
+    "header": "[ZH:header]",
+    "mergeSplit": "[ZH:mergeSplit]",
+    "opacity": "[ZH:opacity]",
+    "orientation": "[ZH:orientation]",
+    "pageRange": "[ZH:pageRange]",
+    "paperSize": "[ZH:paperSize]",
+    "printSettings": "[ZH:printSettings]",
+    "rotation": "[ZH:rotation]",
+    "scale": "[ZH:scale]",
+    "signature": "[ZH:signature]",
+    "watermark": "[ZH:watermark]"
+  }
+}

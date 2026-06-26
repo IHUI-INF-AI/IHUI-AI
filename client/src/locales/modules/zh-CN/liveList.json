@@ -1,0 +1,15 @@
+{
+  "liveList": {
+    "all": "全部",
+    "badgeLiving": "badgeLiving",
+    "badgePreview": "badgePreview",
+    "badgeReplay": "badgeReplay",
+    "empty": "空",
+    "host": "主机",
+    "living": "living",
+    "preview": "预览",
+    "replay": "回放",
+    "subtitle": "副标题",
+    "title": "标题"
+  }
+}

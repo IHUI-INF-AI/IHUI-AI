@@ -1,0 +1,7 @@
+{
+  "p19PaymentMethods": {
+    "accountBalance": "[ZH:accountBalance]",
+    "fee": "[ZH:fee]",
+    "title": "[ZH:title]"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "agentChat": {
+    "agentReply": "[ZH:agentReply]",
+    "audioRecording": "[ZH:audioRecording]",
+    "errors": {
+      "loadModelsFailed": "[ZH:loadModelsFailed]",
+      "sendMessageFailed": "[ZH:sendMessageFailed]",
+      "startVoiceRecognitionFailed": "[ZH:startVoiceRecognitionFailed]",
+      "switchModeFailed": "[ZH:switchModeFailed]"
+    },
+    "hideReasoning": "[ZH:hideReasoning]",
+    "inputMessagePlaceholder": "[ZH:inputMessagePlaceholder]",
+    "messageSent": "[ZH:messageSent]",
+    "pleaseEnterContent": "[ZH:pleaseEnterContent]",
+    "reasoningChain": {
+      "step1": "[ZH:step1]",
+      "step2": "[ZH:step2]",
+      "step3": "[ZH:step3]"
+    },
+    "roles": {
+      "assistant": "[ZH:assistant]",
+      "user": "[ZH:user]"
+    },
+    "showReasoning": "[ZH:showReasoning]",
+    "stages": {
+      "acting": "[ZH:acting]",
+      "reasoning": "[ZH:reasoning]",
+      "result": "[ZH:result]"
+    },
+    "success": {
+      "copyToClipboard": "[ZH:copyToClipboard]",
+      "messageDeleted": "[ZH:messageDeleted]",
+      "messageUpdated": "[ZH:messageUpdated]"
+    },
+    "timeLabels": {
+      "justNow": "[ZH:justNow]",
+      "minutesAgo": "[ZH:minutesAgo]"
+    },
+    "voiceRecognition": {
+      "stopped": "[ZH:stopped]"
+    },
+    "warnings": {
+      "confirmDelete": "[ZH:confirmDelete]",
+      "maxFileUpload": "[ZH:maxFileUpload]"
+    }
+  }
+}

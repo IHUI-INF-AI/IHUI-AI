@@ -2,12 +2,6 @@
   "message": {
     "searchPlaceholder": {
       "announcement": "搜索公告"
-    },
-    "label": {
-      "title": "标题",
-      "category": "分类",
-      "time": "时间",
-      "actions": "操作"
     }
   }
 }

@@ -136,12 +136,12 @@ const handleReopen = () => {
 <style scoped lang="scss">
 .ticket-card {
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
   border-radius: var(--global-border-radius);
   margin-bottom: 16px;
 
   &:hover {
-    transform: translateY(-2px);
+    
     }
 
   .ticket-header {

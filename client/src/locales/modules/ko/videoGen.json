@@ -1,0 +1,120 @@
+{
+  "videoGen": {
+    "kling": {
+      "buttons": {
+        "checkStatus": "checkStatus",
+        "checking": "checking",
+        "generate": "generate",
+        "identify": "identify"
+      },
+      "downloadStarted": "downloadStarted",
+      "downloadVideo": "downloadVideo",
+      "form": {
+        "prompt": "提示词",
+        "promptPlaceholder": "promptPlaceholder",
+        "selectFace": "selectFace",
+        "selectFaceId": "selectFaceId",
+        "selectVideo": "selectVideo",
+        "uploadVideo": "uploadVideo"
+      },
+      "instructions": {
+        "description": "描述",
+        "title": "标题"
+      },
+      "message": "消息",
+      "messages": {
+        "checkStatusFailed": "checkStatusFailed",
+        "fillComplete": "fillComplete",
+        "generateFailed": "generateFailed",
+        "identifyFailed": "identifyFailed",
+        "identifySuccess": "identifySuccess",
+        "pollTimeout": "pollTimeout",
+        "statusCompleted": "statusCompleted",
+        "statusFailed": "statusFailed",
+        "taskId": "taskId",
+        "taskIdRequired": "taskIdRequired",
+        "taskSubmitted": "taskSubmitted",
+        "uploadFirst": "uploadFirst"
+      },
+      "previewVideo": "previewVideo",
+      "startPolling": "startPolling",
+      "status": {
+        "completed": "已完成",
+        "failed": "失败",
+        "pending": "待处理",
+        "processing": "处理中",
+        "title": "标题"
+      },
+      "steps": {
+        "generate": "generate",
+        "identify": "identify",
+        "upload": "上传"
+      },
+      "stopPolling": "stopPolling",
+      "tag": "标签",
+      "title": "标题",
+      "videoUrlEmpty": "videoUrlEmpty"
+    },
+    "oneClick": {
+      "buttons": {
+        "generate": "generate"
+      },
+      "downloadStarted": "downloadStarted",
+      "downloadVideo": "downloadVideo",
+      "durationUnit": "durationUnit",
+      "form": {
+        "audioPlaceholder": "audioPlaceholder",
+        "audioStyle": "audioStyle",
+        "duration": "时长",
+        "ratio": "ratio",
+        "topic": "话题",
+        "topicPlaceholder": "topicPlaceholder"
+      },
+      "messages": {
+        "checkFailed": "checkFailed",
+        "pollTimeout": "pollTimeout",
+        "status": "状态",
+        "topicRequired": "topicRequired"
+      },
+      "previewVideo": "previewVideo",
+      "ratios": {
+        "r11": "r11",
+        "r169": "r169",
+        "r916": "r916"
+      },
+      "startPolling": "startPolling",
+      "status": {
+        "completed": "已完成",
+        "failed": "失败",
+        "pending": "待处理",
+        "processing": "处理中"
+      },
+      "stopPolling": "stopPolling",
+      "tag": "标签",
+      "title": "标题",
+      "videoUrlEmpty": "videoUrlEmpty"
+    },
+    "qwen": {
+      "buttons": {
+        "generate": "generate"
+      },
+      "form": {
+        "images": "images",
+        "imagesPlaceholder": "imagesPlaceholder",
+        "prompt": "提示词",
+        "promptPlaceholder": "promptPlaceholder"
+      },
+      "messages": {
+        "generateFailed": "generateFailed",
+        "generateSuccess": "generateSuccess",
+        "promptRequired": "promptRequired"
+      },
+      "progress": {
+        "connecting": "connecting",
+        "generating": "generating"
+      },
+      "tag": "标签",
+      "title": "标题"
+    }
+  }
+}

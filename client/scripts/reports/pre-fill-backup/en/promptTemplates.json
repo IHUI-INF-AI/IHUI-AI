@@ -1,0 +1,9 @@
+{
+  "promptTemplates": {
+    "addCustom": "[ZH:addCustom]",
+    "cancel": "[ZH:cancel]",
+    "confirm": "[ZH:confirm]",
+    "other": "[ZH:other]",
+    "title": "[ZH:title]"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "businessCard": {
+    "changeImage": "更换图片",
+    "copyCardLink": "copyCardLink",
+    "copyFailed": "复制失败",
+    "copySuccess": "复制成功",
+    "customEntry": "customEntry",
+    "dropImage": "dropImage",
+    "scanQrCode": "scanQrCode",
+    "shareCard": "shareCard",
+    "shareFailed": "分享失败",
+    "shareSuccess": "分享成功",
+    "shareToWechat": "shareToWechat",
+    "subtitle": "副标题",
+    "title": "标题",
+    "upload": "上传",
+    "uploadFailed": "上传失败",
+    "uploadHint": "uploadHint",
+    "uploadSuccess": "上传成功",
+    "uploading": "上传中"
+  }
+}

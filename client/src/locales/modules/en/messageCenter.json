@@ -1,0 +1,25 @@
+{
+  "messageCenter": {
+    "allMarkedRead": "allMarkedRead",
+    "deleteFailed": "deleteFailed",
+    "deleted": "已删除",
+    "detailTitle": "detailTitle",
+    "empty": "empty",
+    "loadFailed": "loadFailed",
+    "markAllRead": "markAllRead",
+    "markRead": "markRead",
+    "operateFailed": "operateFailed",
+    "subtitle": "副标题",
+    "tabAll": "tabAll",
+    "tabFavorite": "tabFavorite",
+    "tabLike": "tabLike",
+    "tabPrivate": "tabPrivate",
+    "tabSystem": "tabSystem",
+    "title": "标题",
+    "topFlag": "topFlag",
+    "typeNotice": "typeNotice",
+    "typeOther": "typeOther",
+    "typePrivate": "typePrivate",
+    "typeSystem": "typeSystem"
+  }
+}

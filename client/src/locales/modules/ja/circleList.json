@@ -1,0 +1,15 @@
+{
+  "circleList": {
+    "allCategories": "allCategories",
+    "members": "会员",
+    "noCircles": "noCircles",
+    "noDesc": "noDesc",
+    "official": "official",
+    "onlyOfficial": "onlyOfficial",
+    "posts": "posts",
+    "searchPlaceholder": "请输入搜索内容",
+    "subtitle": "副标题",
+    "title": "标题",
+    "top": "置顶"
+  }
+}

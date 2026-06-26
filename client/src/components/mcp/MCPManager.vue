@@ -673,10 +673,10 @@ onMounted(async () => {
   .tool-card {
     margin-bottom: 16px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s;
 
     &:hover {
-      transform: translateY(-2px);
+      
       box-shadow: none;
     }
 
@@ -720,7 +720,7 @@ onMounted(async () => {
       color: var(--el-text-color-placeholder);
 
       .history-server {
-        font-family: monospace;
+        font-family: var(--font-family-mono);
       }
 
       .history-error {

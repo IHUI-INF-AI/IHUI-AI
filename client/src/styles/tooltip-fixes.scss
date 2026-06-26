@@ -4,7 +4,7 @@
  */
 
 // 暗色模式下的tooltip修复
-html.dark {
+:where(html.dark) {
   body .button-message.el-tooltip__trigger,
   body .user-info-button.el-tooltip__trigger {
     &:hover {

@@ -1,0 +1,30 @@
+{
+  "securityAudit": {
+    "authzTitle": "[ZH:authzTitle]",
+    "behaviorCount": "[ZH:behaviorCount]",
+    "behaviorTitle": "[ZH:behaviorTitle]",
+    "configTitle": "[ZH:configTitle]",
+    "cooldown": "[ZH:cooldown]",
+    "findingsTitle": "[ZH:findingsTitle]",
+    "loadingPolicies": "[ZH:loadingPolicies]",
+    "noAuthz": "[ZH:noAuthz]",
+    "noBehavior": "[ZH:noBehavior]",
+    "noFindings": "[ZH:noFindings]",
+    "policiesCount": "[ZH:policiesCount]",
+    "policiesTitle": "[ZH:policiesTitle]",
+    "refreshAll": "[ZH:refreshAll]",
+    "refreshed": "[ZH:refreshed]",
+    "riskCritical": "[ZH:riskCritical]",
+    "riskElevated": "[ZH:riskElevated]",
+    "riskLabel": "[ZH:riskLabel]",
+    "riskOk": "[ZH:riskOk]",
+    "riskScoreAria": "[ZH:riskScoreAria]",
+    "riskWarning": "[ZH:riskWarning]",
+    "simulateFailure": "[ZH:simulateFailure]",
+    "simulatedFailures": "[ZH:simulatedFailures]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]",
+    "userId": "[ZH:userId]",
+    "userIdPlaceholder": "[ZH:userIdPlaceholder]"
+  }
+}

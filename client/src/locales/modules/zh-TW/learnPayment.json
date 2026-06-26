@@ -1,0 +1,17 @@
+{
+  "learnPayment": {
+    "alipay": "alipay",
+    "amountDue": "amountDue",
+    "balance": "余额",
+    "breadcrumbCourse": "breadcrumbCourse",
+    "breadcrumbPay": "breadcrumbPay",
+    "notExist": "notExist",
+    "orderDetail": "orderDetail",
+    "orderId": "orderId",
+    "payMethod": "payMethod",
+    "paySuccess": "paySuccess",
+    "scanTip": "scanTip",
+    "simulatePay": "simulatePay",
+    "wechat": "wechat"
+  }
+}

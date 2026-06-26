@@ -1,0 +1,39 @@
+{
+  "audit": {
+    "action": "action",
+    "actionLabel": {
+      "fileDelete": "fileDelete",
+      "fileDownload": "fileDownload",
+      "fileShare": "fileShare",
+      "fileUpload": "fileUpload",
+      "permissionAssign": "permissionAssign",
+      "userLogin": "userLogin",
+      "versionCreate": "versionCreate",
+      "versionRollback": "versionRollback"
+    },
+    "actionType": "actionType",
+    "actionTypeOption": {
+      "fileDelete": "fileDelete",
+      "fileDownload": "fileDownload",
+      "fileShare": "fileShare",
+      "fileUpload": "fileUpload",
+      "permissionAssign": "permissionAssign",
+      "userLogin": "userLogin",
+      "versionCreate": "versionCreate",
+      "versionRollback": "versionRollback"
+    },
+    "details": "详情",
+    "endDate": "endDate",
+    "failed": "失败",
+    "ip": "ip",
+    "resourceId": "resourceId",
+    "resourceType": "resourceType",
+    "startDate": "startDate",
+    "status": "状态",
+    "success": "成功",
+    "time": "时间",
+    "title": "标题",
+    "totalLogs": "totalLogs",
+    "userId": "userId"
+  }
+}

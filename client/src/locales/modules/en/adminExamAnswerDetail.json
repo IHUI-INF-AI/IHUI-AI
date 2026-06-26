@@ -1,0 +1,12 @@
+{
+  "adminExamAnswerDetail": {
+    "correctAnswer": "correctAnswer",
+    "markComment": "markComment",
+    "markScore": "markScore",
+    "notAnswered": "notAnswered",
+    "notExist": "notExist",
+    "points": "积分",
+    "title": "标题",
+    "userAnswer": "userAnswer"
+  }
+}

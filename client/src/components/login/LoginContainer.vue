@@ -162,7 +162,7 @@ const handlePhoneRegister = () => {
   --lc-input-radius: 12px;
   --lc-input-border: var(--unified-border);
   --lc-input-bg: var(--el-bg-color);
-  --lc-input-transition: all 0.3s ease;
+  --lc-input-transition: border-color 0.3s ease, border-width 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
   --lc-input-hover-shadow: var(--global-box-shadow);
   --lc-input-focus-shadow: var(--global-box-shadow);
   --lc-input-animated-shadow: var(--global-box-shadow);
@@ -170,7 +170,7 @@ const handlePhoneRegister = () => {
   --lc-btn-radius: 12px;
   --lc-btn-padding: 12px 24px;
   --lc-btn-font-weight: 600;
-  --lc-btn-transition: all 0.3s ease;
+  --lc-btn-transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
   --lc-icon-size: 44px;
   --lc-icon-img-size: 28px;
   --lc-icon-radius: 50%;
@@ -203,10 +203,11 @@ const handlePhoneRegister = () => {
   max-width: 100%;
   background: var(--color-white-95);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-radius: var(--global-border-radius);
   padding: 40px;
   margin-top: 32px;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
 
   .dark-mode & {
     background: var(--color-dark-1e1e1e-95);
@@ -232,7 +233,7 @@ const handlePhoneRegister = () => {
 
   &.input-focus-animated {
     box-shadow: var(--lc-input-animated-shadow);
-    transform: translateY(-1px);
+    
   }
 }
 
@@ -248,7 +249,7 @@ const handlePhoneRegister = () => {
   &:hover {
     background-color: var(--el-color-primary-dark-2);
     border-color: var(--el-color-primary-dark-2);
-    transform: translateY(-2px);
+    
     }
 
   &:active {
@@ -285,7 +286,7 @@ const handlePhoneRegister = () => {
   .tab-item {
     padding: 10px 20px;
     border-radius: var(--global-border-radius);
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease, font-weight 0.3s ease;
 
     &.active {
       background-color: var(--el-color-primary-light-9);
@@ -303,7 +304,7 @@ const handlePhoneRegister = () => {
 :deep(.welcome-svg) {
   opacity: 0;
   transform: translateY(20px);
-  transition: all 0.6s ease-out;
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
 
   &.loaded {
     opacity: 1;
@@ -322,6 +323,7 @@ const handlePhoneRegister = () => {
   justify-content: center;
   z-index: var(--z-notification);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 
   .loading-icon {
     font-size: 32px;
@@ -339,10 +341,10 @@ const handlePhoneRegister = () => {
 
 // 项目选择器按钮动画
 :deep(.project-selector-banner .selector-btn) {
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
 
   &:hover {
-    transform: translateY(-2px);
+    
     }
 
   &:active {
@@ -447,7 +449,7 @@ const handlePhoneRegister = () => {
 
 :deep(.slide-up-enter-active),
 :deep(.slide-up-leave-active) {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 :deep(.slide-up-enter-from),

@@ -1,0 +1,29 @@
+{
+  "sensitiveAction": {
+    "applyFailed": "applyFailed",
+    "channelEmail": "channelEmail",
+    "channelPassword": "channelPassword",
+    "channelPush": "channelPush",
+    "channelSms": "channelSms",
+    "channelTotp": "channelTotp",
+    "closeLabel": "closeLabel",
+    "codeError": "codeError",
+    "codeExpired": "codeExpired",
+    "codeSentPrefix": "codeSentPrefix",
+    "codeSentSuffix": "codeSentSuffix",
+    "codeSentWithTtl": "codeSentWithTtl",
+    "confirm": "确认",
+    "continueAction": "continueAction",
+    "defaultDescription": "defaultDescription",
+    "enterCode": "enterCode",
+    "needVerification": "needVerification",
+    "requestFailed": "requestFailed",
+    "resend": "resend",
+    "resendWithCooldown": "resendWithCooldown",
+    "sendCode": "发送验证码",
+    "verifyFailed": "verifyFailed",
+    "verifyFailedRetry": "verifyFailedRetry",
+    "verifySuccess": "verifySuccess",
+    "verifySuccessAnnounce": "verifySuccessAnnounce"
+  }
+}

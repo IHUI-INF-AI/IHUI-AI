@@ -80,7 +80,7 @@ onMounted(load)
     text-decoration: none;
     transition: transform 0.2s, border-color 0.2s;
     border: var(--unified-border);
-    &:hover { transform: translateY(-2px); border-color: var(--el-color-primary); }
+    &:hover {  border-color: var(--el-color-primary); }
     .quick-label { font-size: 14px; font-weight: 500; color: var(--el-text-color-primary); }
     .quick-sub { font-size: 12px; color: var(--el-text-color-secondary); }
   }

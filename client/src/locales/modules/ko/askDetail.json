@@ -1,0 +1,14 @@
+{
+  "askDetail": {
+    "adopt": "adopt",
+    "adopted": "adopted",
+    "answers": "answers",
+    "backToList": "backToList",
+    "essence": "essence",
+    "favorite": "收藏",
+    "questionNotFound": "questionNotFound",
+    "submitAnswer": "submitAnswer",
+    "top": "置顶",
+    "writeAnswerPlaceholder": "writeAnswerPlaceholder"
+  }
+}

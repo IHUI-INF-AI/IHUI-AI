@@ -1,0 +1,32 @@
+{
+  "pointCenter": {
+    "availablePoints": "可用积分",
+    "dailySignin": "dailySignin",
+    "exchangeConfirm": "exchangeConfirm",
+    "exchangeConfirmTitle": "exchangeConfirmTitle",
+    "exchangeFailed": "exchangeFailed",
+    "exchangeNow": "exchangeNow",
+    "exchangeSuccess": "exchangeSuccess",
+    "level": "等级",
+    "noExchanges": "noExchanges",
+    "noGoods": "noGoods",
+    "noLogs": "暂无日志",
+    "points": "积分",
+    "signedToday": "signedToday",
+    "signinFailed": "signinFailed",
+    "signinSuccess": "signinSuccess",
+    "statusCancelled": "已取消",
+    "statusCompleted": "已完成",
+    "statusPending": "待处理",
+    "statusShipped": "statusShipped",
+    "statusUnknown": "未知",
+    "stock": "库存",
+    "subtitle": "副标题",
+    "tabExchanges": "tabExchanges",
+    "tabGoods": "tabGoods",
+    "tabLogs": "tabLogs",
+    "title": "标题",
+    "total": "总计",
+    "used": "已用"
+  }
+}

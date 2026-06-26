@@ -82,7 +82,7 @@ const handleClick = () => {
   cursor: pointer;
   outline: none;
   color: var(--el-text-color-primary);
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: background-color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), outline 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), outline-offset 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   overflow: visible;
 
   // 合并亮/暗模式：用语义化 token 即可在不同主题下自动适配
@@ -155,7 +155,7 @@ const handleClick = () => {
   opacity: 0;
   margin-left: 0;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), margin-left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   white-space: nowrap;
 
   // 关键修复：scoped 样式默认无法穿透到 slot 内容或子组件根节点

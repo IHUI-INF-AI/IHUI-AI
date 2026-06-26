@@ -1,0 +1,23 @@
+{
+  "pdf": {
+    "actualSize": "actualSize",
+    "color": "颜色",
+    "copies": "copies",
+    "dropFileHere": "dropFileHere",
+    "duplex": "duplex",
+    "fitPage": "fitPage",
+    "fontSize": "fontSize",
+    "footer": "底部",
+    "header": "头部",
+    "mergeSplit": "mergeSplit",
+    "opacity": "opacity",
+    "orientation": "方向",
+    "pageRange": "pageRange",
+    "paperSize": "paperSize",
+    "printSettings": "printSettings",
+    "rotation": "rotation",
+    "scale": "缩放",
+    "signature": "签名",
+    "watermark": "watermark"
+  }
+}

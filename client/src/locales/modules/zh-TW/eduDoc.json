@@ -1,0 +1,10 @@
+{
+  "eduDoc": {
+    "admin": "管理员",
+    "delete": "删除",
+    "edit": "编辑",
+    "fileNotExist": "fileNotExist",
+    "menu": "菜单",
+    "metaDescription": "metaDescription"
+  }
+}

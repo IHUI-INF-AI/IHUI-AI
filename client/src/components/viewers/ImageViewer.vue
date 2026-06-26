@@ -248,7 +248,7 @@ onMounted(() => {
   cursor: pointer;
   color: var(--el-bg-color);
   font-size: 16px;
-  transition: all 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
 }
 
 .tool-btn:hover:not(:disabled) {
@@ -312,6 +312,6 @@ onMounted(() => {
 }
 
 .download-link:hover {
-  background: var(--color-blue-245bdb);
+  background: var(--el-color-primary);
 }
 </style>

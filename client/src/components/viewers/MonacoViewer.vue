@@ -157,7 +157,7 @@ watch(() => props.src, loadCode, { immediate: true })
 
 .file-name {
   font-size: 14px;
-  color: var(--color-text-muted);
+  color: var(--el-text-color-placeholder);
 }
 
 .language-badge {
@@ -185,7 +185,7 @@ watch(() => props.src, loadCode, { immediate: true })
   cursor: pointer;
   color: var(--el-color-primary-light-3);
   font-size: 13px;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
   text-decoration: none;
 }
 

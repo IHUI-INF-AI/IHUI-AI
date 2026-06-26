@@ -1,0 +1,17 @@
+{
+  "memberExamSignUp": {
+    "actions": "操作",
+    "cancelled": "已取消",
+    "completed": "已完成",
+    "duration": "时长",
+    "enterExam": "进入考试",
+    "exam": "考试",
+    "inProgress": "inProgress",
+    "loadFailed": "加载失败",
+    "noSignUp": "noSignUp",
+    "score": "分数",
+    "startTime": "开始时间",
+    "status": "状态",
+    "title": "标题"
+  }
+}

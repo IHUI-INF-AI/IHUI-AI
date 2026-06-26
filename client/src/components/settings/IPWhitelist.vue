@@ -277,7 +277,7 @@ onMounted(() => {
     gap: 12px;
 
     .entry-ip {
-      font-family: monospace;
+      font-family: var(--font-family-mono);
       font-size: 14px;
       color: var(--el-text-color-primary);
     }

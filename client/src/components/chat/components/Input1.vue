@@ -1060,7 +1060,7 @@ import { useI18n } from 'vue-i18n';
   
   .icon-btn:hover {
     background: var(--el-fill-color-dark);
-    transform: translateY(-1px);
+    
   }
   
   .mode-tab {
@@ -1121,7 +1121,7 @@ import { useI18n } from 'vue-i18n';
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: var(--border-unified-color);
+    border-top-color: var(--el-text-color-primary);
   }
   
   .mode-tab:hover .mode-text {
@@ -1135,7 +1135,7 @@ import { useI18n } from 'vue-i18n';
   }
   
   .mode-tab:hover {
-    transform: translateY(-1px);
+    
   }
   
   .primary-btn {
@@ -1153,7 +1153,7 @@ import { useI18n } from 'vue-i18n';
   
   .primary-btn:hover {
     background: var(--el-color-primary);
-    transform: translateY(-1px);
+    
   }
   
   /* 发送按钮 - 使用 CSS 变量，使用 CSS 变量控制 */
@@ -1162,20 +1162,20 @@ import { useI18n } from 'vue-i18n';
   .send-icon-btn {
     --send-btn-size: 32px;
     --send-btn-padding: 0;
-    
+
     width: var(--send-btn-size);
     height: var(--send-btn-size);
     min-width: var(--send-btn-size);
     min-height: var(--send-btn-size);
     padding: var(--send-btn-padding);
     border-radius: var(--global-border-radius);
-    background: var(--el-text-color-placeholder);
+    background: var(--el-fill-color);
     color: var(--el-color-white);
     }
-  
+
   /* Hover 状态：背景不变，图标变蓝色 - 使用组合选择器确保优先级 */
   .send-icon-btn:hover {
-    background: var(--el-text-color-placeholder);
+    background: var(--el-fill-color);
     color: var(--el-color-primary);
     transition: color 0.3s ease;
     transform: none;
@@ -1238,12 +1238,12 @@ import { useI18n } from 'vue-i18n';
     gap: 6px;
     font-size: 12px;
     color: var(--el-text-color-primary);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, transform 0.15s ease;
   }
-  
+
   .mode-group1 .secondary-btn:hover {
     background: var(--el-fill-color-lighter);
-    transform: translateY(-1px);
+    
   }
 
 
@@ -1288,10 +1288,10 @@ import { useI18n } from 'vue-i18n';
     border-radius: var(--global-border-radius);
     background: var(--el-bg-color);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
     min-width: 80px;
   }
-  
+
   .unified-select-wrapper:hover {
     border-color: var(--el-border-color);
     background: var(--el-fill-color-lighter);
@@ -1402,7 +1402,7 @@ import { useI18n } from 'vue-i18n';
   
   .secondary-btn:hover {
     background: var(--el-fill-color);
-    transform: translateY(-1px);
+    
   }
   
   .checkbox-group input {
@@ -1467,7 +1467,7 @@ import { useI18n } from 'vue-i18n';
 
   .template-close-btn:hover {
     background: var(--el-fill-color-dark);
-    transform: translateY(-1px);
+    
   }
 
   .template-dialog-content {

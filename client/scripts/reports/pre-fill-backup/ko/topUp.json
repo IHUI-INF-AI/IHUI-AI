@@ -1,0 +1,41 @@
+{
+  "topUp": {
+    "amountLabels": {
+      "coins": "[ZH:coins]"
+    },
+    "cancel": "[ZH:cancel]",
+    "customAmount": "[ZH:customAmount]",
+    "customPlaceholder": "[ZH:customPlaceholder]",
+    "errors": {
+      "amountDecimals": "[ZH:amountDecimals]",
+      "amountRange": "[ZH:amountRange]",
+      "createOrderFailed": "[ZH:createOrderFailed]",
+      "createOrderRetry": "[ZH:createOrderRetry]",
+      "invalidAmount": "[ZH:invalidAmount]",
+      "logger": {
+        "createOrderFailed": "[ZH:createOrderFailed]"
+      },
+      "selectAmount": "[ZH:selectAmount]"
+    },
+    "loading": "[ZH:loading]",
+    "notice1": "[ZH:notice1]",
+    "notice2": "[ZH:notice2]",
+    "notice3": "[ZH:notice3]",
+    "noticeTitle": "[ZH:noticeTitle]",
+    "paymentMethods": {
+      "alipay": {
+        "desc": "[ZH:desc]",
+        "name": "[ZH:name]"
+      },
+      "wechat": {
+        "desc": "[ZH:desc]",
+        "name": "[ZH:name]"
+      }
+    },
+    "selectAmount": "[ZH:selectAmount]",
+    "selectPaymentMethod": "[ZH:selectPaymentMethod]",
+    "submit": "[ZH:submit]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]"
+  }
+}

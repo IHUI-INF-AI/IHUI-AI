@@ -16,6 +16,12 @@
     "category": "分類",
     "testItem": "測試項",
     "status": "狀態",
-    "errorInfo": "錯誤資訊"
+    "errorInfo": "錯誤資訊",
+    "chatTest": "chatTest",
+    "compTest": "compTest",
+    "genTest": "genTest",
+    "serviceTest": "serviceTest",
+    "testComplete": "testComplete",
+    "typeTest": "typeTest"
   }
 }

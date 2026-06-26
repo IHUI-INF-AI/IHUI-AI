@@ -79,7 +79,7 @@ const handleClick = () => {
   z-index: var(--z-dropdown);
   padding: 0;
   outline: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
   &:hover {
     transform: translateX(-50%) translateY(-2px);
@@ -124,7 +124,7 @@ const handleClick = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
@@ -133,7 +133,7 @@ const handleClick = () => {
   width: 24px;
   height: 24px;
   color: var(--color-black-75);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: calc(var(--z-base) + 1);
   animation: subtle-bounce 2s ease-in-out infinite;
 }
@@ -193,7 +193,7 @@ const handleClick = () => {
 // 淡入淡出过渡
 .scroll-button-fade-enter-active,
 .scroll-button-fade-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .scroll-button-fade-enter-from {

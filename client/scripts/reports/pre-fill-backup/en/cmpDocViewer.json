@@ -1,0 +1,29 @@
+{
+  "cmpDocViewer": {
+    "categoryArchive": "[ZH:categoryArchive]",
+    "categoryAudio": "[ZH:categoryAudio]",
+    "categoryCad": "[ZH:categoryCad]",
+    "categoryCode": "[ZH:categoryCode]",
+    "categoryDocument": "[ZH:categoryDocument]",
+    "categoryImage": "[ZH:categoryImage]",
+    "categoryMarkdown": "[ZH:categoryMarkdown]",
+    "categoryModel3d": "[ZH:categoryModel3d]",
+    "categoryPdf": "[ZH:categoryPdf]",
+    "categoryPresentation": "[ZH:categoryPresentation]",
+    "categorySpreadsheet": "[ZH:categorySpreadsheet]",
+    "categoryText": "[ZH:categoryText]",
+    "categoryUnknown": "[ZH:categoryUnknown]",
+    "categoryVideo": "[ZH:categoryVideo]",
+    "defaultTitle": "[ZH:defaultTitle]",
+    "download": "[ZH:download]",
+    "fullscreen": "[ZH:fullscreen]",
+    "loadingDoc": "[ZH:loadingDoc]",
+    "nextPage": "[ZH:nextPage]",
+    "pdfLoadFailed": "[ZH:pdfLoadFailed]",
+    "pdfTools": "[ZH:pdfTools]",
+    "prevPage": "[ZH:prevPage]",
+    "reset": "[ZH:reset]",
+    "zoomIn": "[ZH:zoomIn]",
+    "zoomOut": "[ZH:zoomOut]"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "exam": {
+    "searchPlaceholder": {
+      "list": "Search exams",
+      "answer": "Search answer sheets",
+      "paper": "Search papers",
+      "paperCategory": "Search categories",
+      "paperMock": "Search mock papers",
+      "paperNormal": "Search formal papers",
+      "paperRandom": "Search random papers",
+      "question": "Search questions",
+      "questionCategory": "Search categories",
+      "questionFill": "Search fill-in-blank questions",
+      "questionJudgment": "Search judgment questions",
+      "questionMulti": "Search multiple choice questions",
+      "questionSingle": "Search single choice questions",
+      "questionSubjective": "Search subjective questions",
+      "chapter": "[ZH:chapter]",
+      "chapterSection": "[ZH:chapterSection]"
+    },
+    "label": {
+      "user": "User",
+      "paper": "Paper",
+      "score": "Score",
+      "submitTime": "Submit Time"
+    }
+  }
+}

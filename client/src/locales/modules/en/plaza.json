@@ -1,0 +1,45 @@
+{
+  "plaza": {
+    "aiChat": "AI Chat",
+    "aiCoding": "AI Coding",
+    "aiDrawing": "AI Drawing",
+    "aiNeedPlaza": "AI Demand Plaza",
+    "aiVideo": "AI Video",
+    "aiWriting": "AI Writing",
+    "all": "All",
+    "anonymous": "Anonymous",
+    "back": "Back",
+    "completed": "Completed",
+    "createNew": "Create New",
+    "form": {
+      "cancel": "Cancel",
+      "descriptionPlaceholder": "Enter demand description",
+      "titlePlaceholder": "Enter demand title"
+    },
+    "loading": "Loading",
+    "myNeeds": "My Needs",
+    "needCategory": "Category",
+    "needDescription": "Description",
+    "needTitle": "Title",
+    "needType": "Type",
+    "noData": "No Data",
+    "ongoing": "Ongoing",
+    "publish": "Publish",
+    "publishFirst": "Publish First Demand",
+    "publishNeed": "Publish Demand",
+    "searchPlaceholder": "Search...",
+    "selectCategory": "Select Category",
+    "selectType": "Select Type",
+    "submit": "Submit",
+    "submitting": "Submitting",
+    "subtitle": "Post your AI needs and get professional solutions",
+    "type1": "Development",
+    "type2": "Design",
+    "type3": "Business",
+    "types": {
+      "business": "Business",
+      "design": "Design",
+      "development": "Development"
+    }
+  }
+}

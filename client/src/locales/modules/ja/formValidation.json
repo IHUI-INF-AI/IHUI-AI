@@ -1,0 +1,33 @@
+{
+  "formValidation": {
+    "agentId": "agentId",
+    "agentIdLength": "agentIdLength",
+    "agentName": "智能体名称",
+    "agentNameLength": "agentNameLength",
+    "categoryRequired": "categoryRequired",
+    "email": "邮箱",
+    "emailRequired": "emailRequired",
+    "maxTokensRequired": "maxTokensRequired",
+    "modelId": "modelId",
+    "modelIdLength": "modelIdLength",
+    "modelName": "模型名称",
+    "modelNameLength": "modelNameLength",
+    "number": "编号",
+    "numberMax": "numberMax",
+    "numberMin": "numberMin",
+    "numberRange": "numberRange",
+    "passwordLength": "passwordLength",
+    "passwordRequired": "passwordRequired",
+    "phone": "手机号",
+    "phoneRequired": "phoneRequired",
+    "positiveNumber": "positiveNumber",
+    "providerRequired": "providerRequired",
+    "required": "必填",
+    "stringLength": "stringLength",
+    "temperatureRange": "temperatureRange",
+    "url": "url",
+    "username": "用户名",
+    "usernameLength": "usernameLength",
+    "usernamePattern": "usernamePattern"
+  }
+}

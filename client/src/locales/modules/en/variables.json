@@ -1,0 +1,48 @@
+{
+  "variables": {
+    "buttons": {
+      "cancel": "取消",
+      "delete": "删除",
+      "edit": "编辑",
+      "save": "保存"
+    },
+    "createFirstVariable": "createFirstVariable",
+    "createVariable": "createVariable",
+    "dialog": {
+      "createTitle": "createTitle",
+      "description": "描述",
+      "editTitle": "editTitle",
+      "name": "名称",
+      "value": "值"
+    },
+    "messages": {
+      "deleteConfirm": "确认删除?",
+      "deleteConfirmTitle": "deleteConfirmTitle",
+      "deleteFailed": "deleteFailed",
+      "deleteSuccess": "deleteSuccess",
+      "loadBotsFailed": "loadBotsFailed",
+      "saveFailed": "saveFailed",
+      "saveSuccess": "saveSuccess"
+    },
+    "noVariables": "noVariables",
+    "pleaseSelectBot": "pleaseSelectBot",
+    "selectBot": "selectBot",
+    "selectBotPlaceholder": "selectBotPlaceholder",
+    "subtitle": "副标题",
+    "table": {
+      "actions": "actions",
+      "description": "描述",
+      "name": "名称",
+      "type": "类型",
+      "value": "值"
+    },
+    "testBot1": "testBot1",
+    "testBot2": "testBot2",
+    "testBot3": "testBot3",
+    "title": "标题",
+    "validation": {
+      "nameRequired": "nameRequired",
+      "valueRequired": "valueRequired"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "examDo": {
+    "backToList": "[ZH:backToList]",
+    "duration": "[ZH:duration]",
+    "examResult": "[ZH:examResult]",
+    "failed": "[ZH:failed]",
+    "inputAnswer": "[ZH:inputAnswer]",
+    "inputEssay": "[ZH:inputEssay]",
+    "minutes": "[ZH:minutes]",
+    "passScore": "[ZH:passScore]",
+    "passed": "[ZH:passed]",
+    "questionCount": "[ZH:questionCount]",
+    "remaining": "[ZH:remaining]",
+    "score": "[ZH:score]",
+    "startExam": "[ZH:startExam]",
+    "submit": "[ZH:submit]",
+    "typeEssay": "[ZH:typeEssay]",
+    "typeFill": "[ZH:typeFill]",
+    "typeJudge": "[ZH:typeJudge]",
+    "typeMultiple": "[ZH:typeMultiple]",
+    "typeSingle": "[ZH:typeSingle]"
+  }
+}

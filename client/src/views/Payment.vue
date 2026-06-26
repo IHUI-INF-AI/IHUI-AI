@@ -577,13 +577,13 @@ getUserInfo()
   .title {
     font-size: 28px;
     font-weight: 600;
-    color: var(--color-gray-333);
+    color: var(--el-text-color-primary);
     margin: 0 0 8px;
   }
 
   .subtitle {
     font-size: 14px;
-    color: var(--color-gray-666);
+    color: var(--el-text-color-secondary);
     margin: 0;
   }
 }
@@ -594,14 +594,14 @@ getUserInfo()
   .package {
     padding: 24px;
     border-radius: var(--global-border-radius);
-    background: var(--color-gray-f8f8f8);
+    background: var(--el-fill-color-lighter);
     position: relative;
     border: 1px solid var(--el-border-color);
-    transition: all 0.3s;
+    transition: border-color 0.3s, background-color 0.3s;
 
     &.active {
-      border-color: var(--color-blue-0056d6);
-      background: var(--color-blue-0056d6-5);
+      border-color: var(--el-color-primary);
+      background: rgba(var(--el-color-primary-rgb), 0.05);
     }
 
     .package-header {
@@ -613,13 +613,13 @@ getUserInfo()
       .package-title {
         font-size: 18px;
         font-weight: 600;
-        color: var(--color-gray-333);
+        color: var(--el-text-color-primary);
       }
 
       .package-tag {
         font-size: 12px;
-        color: var(--color-white);
-        background: var(--color-orange-ff6b00);
+        color: var(--color-on-primary);
+        background: var(--el-color-warning);
         padding: 4px 12px;
         border-radius: var(--global-border-radius);
       }
@@ -631,13 +631,13 @@ getUserInfo()
       .price {
         font-size: 32px;
         font-weight: 600;
-        color: var(--color-blue-0056d6);
+        color: var(--el-color-primary);
         margin-right: 12px;
       }
 
       .original-price {
         font-size: 14px;
-        color: var(--color-gray-999);
+        color: var(--el-text-color-placeholder);
         text-decoration: line-through;
       }
     }
@@ -649,12 +649,12 @@ getUserInfo()
 
       p {
         font-size: 14px;
-        color: var(--color-gray-666);
+        color: var(--el-text-color-secondary);
         margin: 0;
 
         &::before {
           content: '• ';
-          color: var(--color-blue-0056d6);
+          color: var(--el-color-primary);
         }
       }
     }
@@ -665,8 +665,8 @@ getUserInfo()
       bottom: 24px;
       width: 32px;
       height: 32px;
-      background: var(--color-blue-0056d6);
-      color: var(--color-white);
+      background: var(--el-color-primary);
+      color: var(--color-on-primary);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -682,7 +682,7 @@ getUserInfo()
   .section-title {
     font-size: 16px;
     font-weight: 600;
-    color: var(--color-gray-333);
+    color: var(--el-text-color-primary);
     margin: 0 0 16px;
   }
 
@@ -691,18 +691,18 @@ getUserInfo()
     align-items: center;
     padding: 16px;
     border-radius: var(--global-border-radius);
-    background: var(--color-gray-f8f8f8);
+    background: var(--el-fill-color-lighter);
     border: 1px solid var(--el-border-color);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background-color 0.3s, border-color 0.3s;
 
     &:hover {
-      background: var(--color-gray-light);
+      background: var(--el-fill-color-light);
     }
 
     &.active {
-      border-color: var(--color-blue-0056d6);
-      background: var(--color-blue-0056d6-5);
+      border-color: var(--el-color-primary);
+      background: rgba(var(--el-color-primary-rgb), 0.05);
     }
 
     .method-icon {
@@ -713,15 +713,15 @@ getUserInfo()
 
     .method-name {
       font-size: 16px;
-      color: var(--color-gray-333);
+      color: var(--el-text-color-primary);
       flex: 1;
     }
 
     .select-icon {
       width: 28px;
       height: 28px;
-      background: var(--color-blue-0056d6);
-      color: var(--color-white);
+      background: var(--el-color-primary);
+      color: var(--color-on-primary);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -738,12 +738,12 @@ getUserInfo()
 
   .agreement-text {
     font-size: 13px;
-    color: var(--color-gray-666);
+    color: var(--el-text-color-secondary);
     margin-left: 8px;
   }
 
   .link {
-    color: var(--color-blue-0056d6);
+    color: var(--el-color-primary);
     cursor: pointer;
 
     &:hover {
@@ -760,8 +760,8 @@ getUserInfo()
   border-radius: var(--global-border-radius);
 
   &:disabled {
-    background: var(--color-gray-ccc);
-    border-color: var(--color-gray-ccc);
+    background: var(--el-disabled-bg-color);
+    border-color: var(--el-disabled-bg-color);
   }
 }
 
@@ -774,7 +774,7 @@ getUserInfo()
     height: 80px;
     border-radius: 50%;
     background: var(--el-color-danger);
-    color: var(--color-white);
+    color: var(--color-on-primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -782,20 +782,20 @@ getUserInfo()
     margin: 0 auto 24px;
 
     &.success {
-      background: var(--color-green-4caf50);
+      background: var(--el-color-success);
     }
   }
 
   .result-title {
     font-size: 20px;
     font-weight: 600;
-    color: var(--color-gray-333);
+    color: var(--el-text-color-primary);
     margin: 0 0 16px;
   }
 
   .result-message {
     font-size: 14px;
-    color: var(--color-gray-666);
+    color: var(--el-text-color-secondary);
     margin: 0 0 24px;
   }
 
@@ -814,7 +814,7 @@ getUserInfo()
   .qrcode-title {
     font-size: 16px;
     font-weight: 700;
-    color: var(--color-gray-333);
+    color: var(--el-text-color-primary);
     margin: 0 0 24px;
   }
 
@@ -829,7 +829,7 @@ getUserInfo()
     width: 200px;
     height: 200px;
     border-radius: var(--global-border-radius);
-    background: var(--color-gray-f8f8f8);
+    background: var(--el-fill-color-lighter);
     border: 1px solid var(--el-border-color);
     display: flex;
     align-items: center;
@@ -853,7 +853,7 @@ getUserInfo()
       .qr-hint {
         font-size: 16px;
         font-weight: 700;
-        color: var(--color-gray-333);
+        color: var(--el-text-color-primary);
       }
     }
 
@@ -862,14 +862,14 @@ getUserInfo()
       flex-direction: column;
       align-items: center;
       gap: 8px;
-      color: var(--color-gray-666);
+      color: var(--el-text-color-secondary);
       font-size: 13px;
 
       .qr-spinner {
         width: 32px;
         height: 32px;
-        border: 3px solid var(--color-gray-e5e5e5);
-        border-top-color: var(--color-blue-0056d6);
+        border: 3px solid var(--el-border-color);
+        border-top-color: var(--el-color-primary);
         border-radius: 50%;
         animation: qr-spin 0.8s linear infinite;
       }
@@ -884,13 +884,13 @@ getUserInfo()
 
     .countdown-label {
       font-size: 12px;
-      color: var(--color-gray-666);
+      color: var(--el-text-color-secondary);
     }
 
     .countdown-value {
       font-size: 24px;
       font-weight: 700;
-      color: var(--color-blue-0056d6);
+      color: var(--el-color-primary);
       font-variant-numeric: tabular-nums;
 
       &.urgent {
@@ -922,13 +922,13 @@ getUserInfo()
     h4 {
       font-size: 18px;
       font-weight: 700;
-      color: var(--color-gray-333);
+      color: var(--el-text-color-primary);
       margin: 0;
     }
 
     p {
       font-size: 14px;
-      color: var(--color-gray-666);
+      color: var(--el-text-color-secondary);
       margin: 0 0 12px;
     }
   }
@@ -938,10 +938,10 @@ getUserInfo()
   margin-top: 12px;
   padding: 10px 14px;
   border-radius: var(--global-border-radius);
-  background: var(--color-amber-fff7e6);
+  background: var(--el-color-warning-light-9);
   border: var(--unified-border);
   font-size: 12px;
-  color: var(--color-amber-874d00);
+  color: var(--el-color-warning-dark-2);
   text-align: left;
 }
 
@@ -960,7 +960,7 @@ getUserInfo()
   .payment-container { padding: 24px; }
   .header .title { font-size: 24px; }
   .package-container .package { padding: 20px; }
-  .package-container .package .package-price .price { font-size: 28px; }
+  :where(.package-container) .package .package-price .price { font-size: 28px; }
 }
 
 @media (max-width: 480px) {
@@ -989,4 +989,30 @@ getUserInfo()
   }
   .pay-button { height: 52px; font-size: 16px; min-height: 44px; }
 }
+
+/* ==================== Dark Mode ==================== */
+:where(html.dark) .payment-page { background: var(--el-bg-color-page); }
+:where(html.dark) .payment-container { background: var(--el-bg-color); }
+:where(html.dark) .header .title,
+:where(html.dark) .payment-methods .section-title,
+:where(html.dark) .payment-methods .method .method-name,
+:where(html.dark) .qrcode-popup .qrcode-title,
+:where(html.dark) .qrcode-popup .qrcode-expired h4,
+:where(html.dark) .result-popup .result-title { color: var(--el-text-color-primary); }
+:where(html.dark) .header .subtitle,
+:where(html.dark) .agreement .agreement-text,
+:where(html.dark) .qrcode-popup .qrcode-countdown .countdown-label,
+:where(html.dark) .qrcode-popup .qrcode-img .qr-loading,
+:where(html.dark) .qrcode-popup .qrcode-expired p,
+:where(html.dark) .result-popup .result-message { color: var(--el-text-color-secondary); }
+:where(html.dark) .package-container .package { background: var(--el-fill-color-darker); }
+:where(html.dark) .package-container .package.active { border-color: var(--el-color-primary); background: rgba(var(--el-color-primary-rgb), 0.08); }
+:where(html.dark) .package-container .package .package-price .original-price { color: var(--el-text-color-placeholder); }
+:where(html.dark) .payment-methods .method { background: var(--el-fill-color-darker); }
+:where(html.dark) .payment-methods .method.active { border-color: var(--el-color-primary); background: rgba(var(--el-color-primary-rgb), 0.08); }
+:where(html.dark) .payment-methods .method:hover { background: var(--el-fill-color); }
+:where(html.dark) .pay-button:disabled { background: var(--el-disabled-bg-color); color: var(--el-text-color-placeholder); }
+:where(html.dark) .qrcode-popup .qrcode-img { background: var(--el-fill-color-darker); }
+:where(html.dark) .qrcode-popup .qrcode-img .qr-loading .qr-spinner { border-color: var(--el-border-color); border-top-color: var(--el-color-primary); }
+:where(html.dark) .method-downgrade-hint { background: var(--el-color-warning-dark-2); border-color: var(--el-color-warning); color: var(--el-color-warning-light-9); }
 </style>

@@ -83,7 +83,8 @@ function toDev() { emit('toDev') }
   position: fixed; bottom: 0; left: 0; right: 0; z-index: var(--z-dropdown);
   border-radius: var(--global-border-radius) 35px 0 0;
   background: var(--color-rgba-255-255-250-1-);
-  padding: 5px 12px 0;
+  padding: 5px 12px 0 12px;
+  padding-bottom: env(safe-area-inset-bottom);
   display: flex; flex-direction: column; align-items: center;
 }
 .title-body { display: flex; align-items: flex-end; padding-top: 12px; margin-bottom: 8px; }
@@ -132,5 +133,5 @@ function toDev() { emit('toDev') }
 .notice-body { padding: 12px; }
 .notice-section { margin-bottom: 16px; }
 .notice-section strong { display: block; margin-bottom: 4px; font-size: 14px; }
-.notice-section p { font-size: 13px; color: var(--color-gray-666); line-height: 1.6; }
+.notice-section p { font-size: 13px; color: var(--el-text-color-secondary); line-height: 1.6; }
 </style>

@@ -1,0 +1,30 @@
+{
+  "notificationCenter": {
+    "allMarkedRead": "allMarkedRead",
+    "allTypes": "allTypes",
+    "deleteFailed": "deleteFailed",
+    "detailTitle": "detailTitle",
+    "level": {
+      "error": "错误",
+      "info": "信息",
+      "warn": "warn"
+    },
+    "loadFailed": "loadFailed",
+    "noNotifications": "noNotifications",
+    "operationFailed": "operationFailed",
+    "subtitle": "副标题",
+    "total": "总计",
+    "typeAgent": "typeAgent",
+    "typeMarketing": "typeMarketing",
+    "typeOrder": "typeOrder",
+    "typeOther": "typeOther",
+    "typeRefund": "typeRefund",
+    "typeSite": "typeSite",
+    "typeSystem": "typeSystem",
+    "typeWallet": "typeWallet",
+    "title": "通知中心",
+    "markAllRead": "全部已读",
+    "all": "全部",
+    "unread": "未读"
+  }
+}

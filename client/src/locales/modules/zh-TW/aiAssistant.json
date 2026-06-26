@@ -1,0 +1,26 @@
+{
+  "aiAssistant": {
+    "close": "关闭",
+    "copy": "复制",
+    "copyFailed": "copyFailed",
+    "copySuccess": "copySuccess",
+    "downloadSuccess": "downloadSuccess",
+    "generated": "generated",
+    "generating": "generating",
+    "guide1": "guide1",
+    "guide2": "guide2",
+    "guide3": "guide3",
+    "guide4": "guide4",
+    "guideTitle": "guideTitle",
+    "imagesUploaded": "imagesUploaded",
+    "inputTips": "inputTips",
+    "placeholder": "请输入",
+    "send": "发送",
+    "title": "标题",
+    "tokensConsumed": "tokensConsumed",
+    "uploadImage": "uploadImage",
+    "viewGuide": "viewGuide",
+    "voiceInputFailed": "voiceInputFailed",
+    "welcome": "欢迎"
+  }
+}

@@ -229,7 +229,7 @@ v.$text-primary: var(--el-text-color-primary);
     background: var(--el-color-primary-light-9);
     border: var(--unified-border);
 
-    .status-icon { background: var(--color-blue-1890ff); }
+    .status-icon { background: var(--el-color-primary); }
   }
 
   &.status-approved, &.status-completed, &.status-processing {
@@ -339,7 +339,7 @@ v.$text-primary: var(--el-text-color-primary);
     }
 
     &.active .timeline-dot {
-      background: var(--color-blue-1890ff);
+      background: var(--el-color-primary);
       animation: pulse 1.5s ease-in-out infinite;
     }
 
@@ -435,7 +435,7 @@ v.$text-primary: var(--el-text-color-primary);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, color 0.2s;
 
     .btn-text {
       position: relative;

@@ -1,0 +1,33 @@
+{
+  "documentCenter": {
+    "apiDocs": "[ZH:apiDocs]",
+    "comingSoon": "[ZH:comingSoon]",
+    "developerDocs": "[ZH:developerDocs]",
+    "files": "[ZH:files]",
+    "guides": "[ZH:guides]",
+    "incentiveProgram": {
+      "label": "[ZH:label]",
+      "monetizationGuide": "[ZH:monetizationGuide]",
+      "monetizationGuideDesc": "[ZH:monetizationGuideDesc]",
+      "overview": "[ZH:overview]",
+      "overviewDesc": "[ZH:overviewDesc]",
+      "platformIntro": "[ZH:platformIntro]",
+      "platformIntroDesc": "[ZH:platformIntroDesc]",
+      "publishGuide": "[ZH:publishGuide]",
+      "publishGuideDesc": "[ZH:publishGuideDesc]"
+    },
+    "linkCopied": "[ZH:linkCopied]",
+    "noShared": "[ZH:noShared]",
+    "quickStart": "[ZH:quickStart]",
+    "searchPlaceholder": "[ZH:searchPlaceholder]",
+    "shareDeleted": "[ZH:shareDeleted]",
+    "shareLink": "[ZH:shareLink]",
+    "shared": "[ZH:shared]",
+    "support": "[ZH:support]",
+    "title": "[ZH:title]",
+    "upload": "[ZH:upload]",
+    "uploadError": "[ZH:uploadError]",
+    "uploadSuccess": "[ZH:uploadSuccess]",
+    "userDocs": "[ZH:userDocs]"
+  }
+}

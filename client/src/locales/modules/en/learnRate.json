@@ -1,0 +1,8 @@
+{
+  "learnRate": {
+    "content": "内容",
+    "rating": "rating",
+    "reviews": "reviews",
+    "writeReview": "writeReview"
+  }
+}

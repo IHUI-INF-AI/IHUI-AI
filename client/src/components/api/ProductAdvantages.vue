@@ -127,11 +127,11 @@ const handleCardClick = (advantage: Advantage) => {
   .advantage-card {
     height: 100%;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease;
     border-radius: var(--global-border-radius);
     
     &:hover {
-      transform: translateY(-4px);
+      
       }
     
     .advantage-content {

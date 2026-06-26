@@ -1,0 +1,7 @@
+{
+  "p19PaymentMethods": {
+    "accountBalance": "accountBalance",
+    "fee": "fee",
+    "title": "标题"
+  }
+}

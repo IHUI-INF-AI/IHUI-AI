@@ -127,7 +127,7 @@
             <el-input v-model="withdrawForm.amount" type="number" :placeholder="t('distribution.withdrawDialog.amountPlaceholder')" />
           </el-form-item>
           <el-form-item :label="t('distribution.withdrawDialog.method')" prop="method">
-            <el-select v-model="withdrawForm.method" style="width: 100%">
+            <el-select v-model="withdrawForm.method" class="full-width">
               <el-option :label="t('distribution.withdrawDialog.alipay')" value="alipay" />
               <el-option :label="t('distribution.withdrawDialog.wechat')" value="wechat" />
               <el-option :label="t('distribution.withdrawDialog.bankCard')" value="bank" />
@@ -258,19 +258,19 @@ onMounted(() => { loadStats(); loadInvites(); })
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.4s;
+  transition: border-color 0.4s, transform 0.4s, background-color 0.4s;
   display: flex;
   align-items: center;
   gap: 32px;
 
   &:hover {
     border: 2px solid var(--border-unified-color-hover);
-    transform: translateY(-4px);
+    
     background: var(--el-bg-color-hover);
     .cmd-icon { color: var(--el-color-primary); transform: scale(1.1); }
   }
 
-  .cmd-icon { color: var(--el-color-primary); font-size: 32px; transition: all 0.4s; }
+  .cmd-icon { color: var(--el-color-primary); font-size: 32px; transition: color 0.4s, transform 0.4s; }
 
   .cmd-body {
     h3 { font-family: var(--font-family-mono); font-size: 14px; font-weight: 800; margin-bottom: 8px; color: var(--el-text-color-primary); }
@@ -377,7 +377,7 @@ onMounted(() => { loadStats(); loadInvites(); })
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   color: var(--el-text-color-secondary);
-  &.active { color: var(--color-emerald-500); border-color: var(--color-emerald-10b981-20); }
+  &.active { color: var(--el-color-success); border-color: var(--color-emerald-10b981-20); }
   &.paid { color: var(--el-color-primary); border-color: color-mix(in srgb, var(--el-color-primary) 20%, transparent); }
 }
 
@@ -386,7 +386,7 @@ onMounted(() => { loadStats(); loadInvites(); })
 @keyframes sweep { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
 
 /* ---------- 暗色模式覆盖 ---------- */
-html.dark .distribution-page {
+:where(html.dark) .distribution-page {
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
 }
@@ -417,7 +417,7 @@ html.dark .distribution-page {
   border-color: var(--border-unified-color);
 }
 
-html.dark .distribution-page :deep(.tech-tabs) {
+:where(html.dark) .distribution-page :deep(.tech-tabs) {
   .el-tabs__header { border-bottom-color: var(--border-unified-color); }
   .el-tabs__item { color: var(--el-text-color-secondary); &.is-active { color: var(--el-color-primary); } }
 }
@@ -433,7 +433,7 @@ html.dark .distribution-page :deep(.tech-tabs) {
   .name { color: var(--el-text-color-regular); }
 }
 
-html.dark .distribution-page :deep(.tech-table) {
+:where(html.dark) .distribution-page :deep(.tech-table) {
   --el-table-border-color: var(--border-unified-color);
   th.el-table__cell { color: var(--el-text-color-regular); border-bottom-color: var(--border-unified-color); }
   td.el-table__cell { border-bottom-color: var(--border-unified-color); color: var(--el-text-color-regular); }
@@ -447,5 +447,9 @@ html.dark .distribution-page :deep(.tech-table) {
   .invite-desc { color: var(--el-text-color-secondary); margin-bottom: 16px; }
   .invite-link-box { display: flex; gap: 12px; align-items: center; }
   .invite-link-input { flex: 1; }
+
+  .full-width {
+    width: 100%;
+  }
 }
 </style>

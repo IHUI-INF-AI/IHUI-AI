@@ -1,13 +1,1 @@
-{
-  "qrCode": {
-    "loading": "生成中...",
-    "scanning": "扫描中...",
-    "scanned": "已扫描",
-    "confirming": "确认中...",
-    "expired": "已过期",
-    "scanTipLine1": "请使用手机扫描",
-    "scanTipLine2": "二维码登录",
-    "qrCodeAlt": "登录二维码",
-    "methodQrCode": "{method}二维码"
-  }
-}
+{}

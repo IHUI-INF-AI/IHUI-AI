@@ -1,0 +1,53 @@
+{
+  "monitoring": {
+    "acknowledge": "acknowledge",
+    "activeAlerts": "activeAlerts",
+    "activeTours": "activeTours",
+    "alertRules": "alertRules",
+    "anomalyDetection": "anomalyDetection",
+    "cancel": "取消",
+    "completionRate": "完成率",
+    "condition": "condition",
+    "cooldownTime": "cooldownTime",
+    "cpuUsage": "CPU 占用",
+    "create": "创建",
+    "currentValue": "currentValue",
+    "errorRate": "错误率",
+    "expectedValue": "expectedValue",
+    "memoryUsage": "内存占用",
+    "metrics": {
+      "cpuUsage": "CPU 占用",
+      "memoryUsage": "内存占用",
+      "tourComplete": "tourComplete",
+      "tourError": "tourError",
+      "tourStart": "tourStart"
+    },
+    "monitorMetric": "monitorMetric",
+    "newRule": "新建规则",
+    "operators": {
+      "eq": "等于",
+      "gt": "大于",
+      "lt": "小于"
+    },
+    "performanceMonitor": "performanceMonitor",
+    "renderFps": "renderFps",
+    "ruleName": "规则名称",
+    "seconds": "秒",
+    "severity": "severity",
+    "severityLevel": "severityLevel",
+    "severityLevels": {
+      "critical": "严重",
+      "info": "信息",
+      "warning": "警告"
+    },
+    "status": "状态",
+    "systemResources": "systemResources",
+    "timeRange": {
+      "1h": "1h",
+      "24h": "24h",
+      "7d": "7 天"
+    },
+    "type": "类型",
+    "viewAll": "查看全部"
+  }
+}

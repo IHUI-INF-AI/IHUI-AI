@@ -266,11 +266,11 @@ onMounted(() => {
 
     .access-card {
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: transform 0.3s ease;
       text-align: center;
 
       &:hover {
-        transform: translateY(-4px);
+        
         }
 
       .access-icon {

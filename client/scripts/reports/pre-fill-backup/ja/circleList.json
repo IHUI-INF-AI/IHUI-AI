@@ -1,0 +1,15 @@
+{
+  "circleList": {
+    "allCategories": "[ZH:allCategories]",
+    "members": "[ZH:members]",
+    "noCircles": "[ZH:noCircles]",
+    "noDesc": "[ZH:noDesc]",
+    "official": "[ZH:official]",
+    "onlyOfficial": "[ZH:onlyOfficial]",
+    "posts": "[ZH:posts]",
+    "searchPlaceholder": "[ZH:searchPlaceholder]",
+    "subtitle": "[ZH:subtitle]",
+    "title": "[ZH:title]",
+    "top": "[ZH:top]"
+  }
+}

@@ -286,7 +286,7 @@ watch(
     width: auto;
     min-width: auto;
     max-width: none;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
     white-space: nowrap;
     flex-shrink: 0;
     flex-grow: 0;

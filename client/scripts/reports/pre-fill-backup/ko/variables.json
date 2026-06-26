@@ -1,0 +1,48 @@
+{
+  "variables": {
+    "buttons": {
+      "cancel": "[ZH:cancel]",
+      "delete": "[ZH:delete]",
+      "edit": "[ZH:edit]",
+      "save": "[ZH:save]"
+    },
+    "createFirstVariable": "[ZH:createFirstVariable]",
+    "createVariable": "[ZH:createVariable]",
+    "dialog": {
+      "createTitle": "[ZH:createTitle]",
+      "description": "[ZH:description]",
+      "editTitle": "[ZH:editTitle]",
+      "name": "[ZH:name]",
+      "value": "[ZH:value]"
+    },
+    "messages": {
+      "deleteConfirm": "[ZH:deleteConfirm]",
+      "deleteConfirmTitle": "[ZH:deleteConfirmTitle]",
+      "deleteFailed": "[ZH:deleteFailed]",
+      "deleteSuccess": "[ZH:deleteSuccess]",
+      "loadBotsFailed": "[ZH:loadBotsFailed]",
+      "saveFailed": "[ZH:saveFailed]",
+      "saveSuccess": "[ZH:saveSuccess]"
+    },
+    "noVariables": "[ZH:noVariables]",
+    "pleaseSelectBot": "[ZH:pleaseSelectBot]",
+    "selectBot": "[ZH:selectBot]",
+    "selectBotPlaceholder": "[ZH:selectBotPlaceholder]",
+    "subtitle": "[ZH:subtitle]",
+    "table": {
+      "actions": "[ZH:actions]",
+      "description": "[ZH:description]",
+      "name": "[ZH:name]",
+      "type": "[ZH:type]",
+      "value": "[ZH:value]"
+    },
+    "testBot1": "[ZH:testBot1]",
+    "testBot2": "[ZH:testBot2]",
+    "testBot3": "[ZH:testBot3]",
+    "title": "[ZH:title]",
+    "validation": {
+      "nameRequired": "[ZH:nameRequired]",
+      "valueRequired": "[ZH:valueRequired]"
+    }
+  }
+}

@@ -4,11 +4,33 @@
       "hot": "人気キーワードを検索",
       "searchPage": "キーワードを入力してエージェント / コース / コンテンツを検索"
     },
-    "label": {
-      "keyword": "人気キーワード",
-      "searchCount": "検索数",
-      "actions": "操作"
-    }
+    "add": "添加",
+    "addedConditions": "addedConditions",
+    "advanced": "高级",
+    "conditions": "conditions",
+    "field": {
+      "category": "分类",
+      "description": "描述",
+      "name": "名称",
+      "tag": "标签"
+    },
+    "keyword": "keyword",
+    "keywordPlaceholder": "keywordPlaceholder",
+    "operator": {
+      "contains": "contains",
+      "endsWith": "endsWith",
+      "equals": "equals",
+      "startsWith": "startsWith"
+    },
+    "presetName": "presetName",
+    "presets": "presets",
+    "reset": "重置",
+    "savePreset": "savePreset",
+    "search": "搜索",
+    "selectField": "selectField",
+    "selectOperator": "selectOperator",
+    "selectPreset": "selectPreset",
+    "valuePlaceholder": "valuePlaceholder"
   },
   "searchPage": {
     "hotSearch": "人気検索",

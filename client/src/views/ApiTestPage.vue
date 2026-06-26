@@ -30,7 +30,7 @@
             <div class="stat-label">{{ t('apiTest.failed') }}</div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :span="6" :xs="12" :sm="12">
           <div class="stat-card duration">
             <div class="stat-value">{{ summary.duration.toFixed(0) }}ms</div>
             <div class="stat-label">{{ t('apiTest.duration') }}</div>

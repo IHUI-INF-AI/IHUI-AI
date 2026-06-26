@@ -1,0 +1,25 @@
+{
+  "agentSwarmMonitor": {
+    "agentName": "[ZH:agentName]",
+    "agentStatus": "[ZH:agentStatus]",
+    "averageExecutionTime": "[ZH:averageExecutionTime]",
+    "averageTokens": "[ZH:averageTokens]",
+    "completedSteps": "[ZH:completedSteps]",
+    "corrected": "[ZH:corrected]",
+    "correctedResult": "[ZH:correctedResult]",
+    "currentIteration": "[ZH:currentIteration]",
+    "currentStep": "[ZH:currentStep]",
+    "errorLabel": "[ZH:errorLabel]",
+    "executionTime": "[ZH:executionTime]",
+    "failedSteps": "[ZH:failedSteps]",
+    "performanceMetrics": "[ZH:performanceMetrics]",
+    "reflection": "[ZH:reflection]",
+    "status": "[ZH:status]",
+    "successRate": "[ZH:successRate]",
+    "suggestions": "[ZH:suggestions]",
+    "task": "[ZH:task]",
+    "toolResults": "[ZH:toolResults]",
+    "totalSteps": "[ZH:totalSteps]",
+    "type": "[ZH:type]"
+  }
+}

@@ -474,6 +474,7 @@ $glow-white: var(--color-white-15);
     background: $surface-glass;
     border: var(--unified-border);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 }
 
@@ -487,7 +488,8 @@ $glow-white: var(--color-white-15);
   border-radius: var(--global-border-radius);
   padding: 28px;
   backdrop-filter: blur(20px);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-backdrop-filter: blur(20px);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     background: $surface-glass-hover;
@@ -762,7 +764,7 @@ $glow-white: var(--color-white-15);
   inset: 0;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease;
 
   .amount-item:hover & {
     border-color: var(--color-white-15);
@@ -865,7 +867,7 @@ $glow-white: var(--color-white-15);
   inset: 0;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease;
 
   .pay-item:hover & {
     border-color: var(--color-white-15);
@@ -905,7 +907,7 @@ $glow-white: var(--color-white-15);
   height: 20px;
   border: 2px solid $border-subtle;
   border-radius: var(--global-border-radius);
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease;
 
   .pay-item.active & {
     border-color: $brand-accent;
@@ -1006,7 +1008,7 @@ $glow-white: var(--color-white-15);
   inset: 0;
   border: 2px solid $brand-accent;
   border-radius: var(--global-border-radius);
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
 
   .recharge-btn:active:not(:disabled) & {
     transform: scale(0.98);

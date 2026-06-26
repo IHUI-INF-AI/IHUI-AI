@@ -1,0 +1,15 @@
+{
+  "aiTeam": {
+    "categories": "分类",
+    "collectFailed": "collectFailed",
+    "collectSuccess": "collectSuccess",
+    "likeFailed": "likeFailed",
+    "likeSuccess": "likeSuccess",
+    "newEmployee": "newEmployee",
+    "noAgents": "noAgents",
+    "noDescription": "noDescription",
+    "oldEmployee": "oldEmployee",
+    "searchPlaceholder": "请输入搜索内容",
+    "title": "标题"
+  }
+}

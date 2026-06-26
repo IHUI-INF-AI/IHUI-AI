@@ -1,0 +1,36 @@
+{
+  "examList": {
+    "attemptPrefix": "[ZH:attemptPrefix]",
+    "attemptSuffix": "[ZH:attemptSuffix]",
+    "correctAnswer": "[ZH:correctAnswer]",
+    "difficultyAll": "[ZH:difficultyAll]",
+    "difficultyEasy": "[ZH:difficultyEasy]",
+    "difficultyHard": "[ZH:difficultyHard]",
+    "difficultyMedium": "[ZH:difficultyMedium]",
+    "difficultyUnknown": "[ZH:difficultyUnknown]",
+    "emptyPapers": "[ZH:emptyPapers]",
+    "emptyRecords": "[ZH:emptyRecords]",
+    "emptyWrong": "[ZH:emptyWrong]",
+    "minuteUnit": "[ZH:minuteUnit]",
+    "noDesc": "[ZH:noDesc]",
+    "notPassed": "[ZH:notPassed]",
+    "paperPrefix": "[ZH:paperPrefix]",
+    "passPrefix": "[ZH:passPrefix]",
+    "passed": "[ZH:passed]",
+    "questionContent": "[ZH:questionContent]",
+    "questionUnit": "[ZH:questionUnit]",
+    "remove": "[ZH:remove]",
+    "scorePrefix": "[ZH:scorePrefix]",
+    "searchPlaceholder": "[ZH:searchPlaceholder]",
+    "startExam": "[ZH:startExam]",
+    "subtitle": "[ZH:subtitle]",
+    "tabs": {
+      "papers": "[ZH:papers]",
+      "records": "[ZH:records]",
+      "wrong": "[ZH:wrong]"
+    },
+    "title": "[ZH:title]",
+    "usedTimePrefix": "[ZH:usedTimePrefix]",
+    "wrongBook": "[ZH:wrongBook]"
+  }
+}

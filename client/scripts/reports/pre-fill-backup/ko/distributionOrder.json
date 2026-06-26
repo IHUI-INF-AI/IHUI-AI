@@ -1,0 +1,13 @@
+{
+  "distributionOrder": {
+    "buyer": "[ZH:buyer]",
+    "commission": "[ZH:commission]",
+    "noOrders": "[ZH:noOrders]",
+    "orderNo": "[ZH:orderNo]",
+    "orderTime": "[ZH:orderTime]",
+    "searchPlaceholder": "[ZH:searchPlaceholder]",
+    "title": "[ZH:title]",
+    "totalCommission": "[ZH:totalCommission]",
+    "totalOrders": "[ZH:totalOrders]"
+  }
+}

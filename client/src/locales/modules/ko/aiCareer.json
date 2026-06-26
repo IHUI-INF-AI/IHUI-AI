@@ -1,0 +1,116 @@
+{
+  "aiCareer": {
+    "messages": {
+      "submitFailed": "submitFailed",
+      "submitSuccess": "submitSuccess"
+    },
+    "options": {
+      "classLevel": {
+        "advanced": "高级",
+        "normal": "正常"
+      },
+      "extraTime": {
+        "heavy": "heavy",
+        "plenty": "plenty"
+      },
+      "hobbiesPlaceholder": "hobbiesPlaceholder",
+      "languageDifficulty": {
+        "comprehension": "comprehension",
+        "readingSpeed": "readingSpeed",
+        "vocabulary": "vocabulary",
+        "writing": "writing"
+      },
+      "learningGoal": {
+        "1": "1",
+        "2": "2",
+        "3": "3",
+        "4": "4",
+        "5": "5"
+      },
+      "learningObstacle": {
+        "daydreaming": "daydreaming",
+        "gameAddiction": "gameAddiction",
+        "lowEfficiency": "lowEfficiency",
+        "procrastination": "procrastination"
+      },
+      "personality": {
+        "cannotHandleFailure": "cannotHandleFailure",
+        "extroverted": "extroverted",
+        "introverted": "introverted",
+        "problemSolver": "problemSolver"
+      },
+      "personalityTest1": {
+        "quiet": "quiet",
+        "social": "social"
+      },
+      "personalityTest2": {
+        "abstract": "abstract",
+        "concrete": "concrete"
+      },
+      "personalityTest3": {
+        "emotional": "emotional",
+        "logical": "logical"
+      },
+      "personalityTest4": {
+        "planned": "planned",
+        "spontaneous": "spontaneous"
+      },
+      "personalityTest5": {
+        "quietRelax": "quietRelax",
+        "socialRelax": "socialRelax"
+      },
+      "pressureTolerance": {
+        "challenging": "challenging",
+        "light": "light",
+        "moderate": "moderate"
+      },
+      "school": {
+        "key": "键",
+        "private": "私有",
+        "public": "公开"
+      },
+      "scienceCharacteristicsPlaceholder": "scienceCharacteristicsPlaceholder",
+      "scoreRangePlaceholder": "scoreRangePlaceholder"
+    },
+    "personalityTests": {
+      "test1": "test1",
+      "test2": "test2",
+      "test3": "test3",
+      "test4": "test4",
+      "test5": "test5"
+    },
+    "questions": {
+      "classLevel": "classLevel",
+      "extraTime": "extraTime",
+      "hobbies": "hobbies",
+      "languageDifficulty": "languageDifficulty",
+      "learningGoal": "learningGoal",
+      "learningObstacle": "learningObstacle",
+      "personality": "personality",
+      "pressureTolerance": "pressureTolerance",
+      "school": "school",
+      "scienceCharacteristics": "scienceCharacteristics",
+      "scoreRange": "scoreRange"
+    },
+    "submit": "提交",
+    "subtitle": "副标题",
+    "title": "标题",
+    "validation": {
+      "classLevel": "classLevel",
+      "extraTime": "extraTime",
+      "languageDifficulty": "languageDifficulty",
+      "learningGoal": "learningGoal",
+      "learningObstacle": "learningObstacle",
+      "personality": "personality",
+      "personalityTest1": "personalityTest1",
+      "personalityTest2": "personalityTest2",
+      "personalityTest3": "personalityTest3",
+      "personalityTest4": "personalityTest4",
+      "personalityTest5": "personalityTest5",
+      "pressureTolerance": "pressureTolerance",
+      "required": "必填",
+      "school": "school",
+      "scoreRange": "scoreRange"
+    }
+  }
+}

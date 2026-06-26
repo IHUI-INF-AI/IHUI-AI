@@ -1,0 +1,11 @@
+{
+  "model": {
+    "capabilities": {
+      "audio": "音频",
+      "image": "图片",
+      "streaming": "streaming",
+      "streamingShort": "streamingShort",
+      "video": "视频"
+    }
+  }
+}

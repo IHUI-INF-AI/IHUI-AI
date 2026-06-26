@@ -1,0 +1,28 @@
+{
+  "resourceLibrary": {
+    "3d": "3d",
+    "3dLabel": "3dLabel",
+    "addedToFavorite": "addedToFavorite",
+    "all": "全部",
+    "audio": "音频",
+    "clearSelection": "清空选择",
+    "confirmDelete": "确认删除",
+    "copyFailed": "复制失败",
+    "deleteResource": "deleteResource",
+    "deleted": "已删除",
+    "empty": "空",
+    "favorites": "收藏",
+    "image": "图片",
+    "model": "模型",
+    "promptCopied": "promptCopied",
+    "removedFromFavorite": "removedFromFavorite",
+    "search": "搜索",
+    "selected": "已选择",
+    "text": "文本",
+    "title": "标题",
+    "total": "总计",
+    "type": "类型",
+    "use": "使用",
+    "video": "视频"
+  }
+}

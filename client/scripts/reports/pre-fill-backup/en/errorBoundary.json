@@ -1,0 +1,13 @@
+{
+  "errorBoundary": {
+    "retry": "Retry",
+    "goHome": "Go Home",
+    "showDetails": "Show Details",
+    "errorDetails": "Error Details",
+    "reload": "Reload",
+    "unknownError": "Unknown Error",
+    "${componentName} - Website NametError": "Component Error",
+    "componentError": "Component Error",
+    "currentPath": "[ZH:currentPath]"
+  }
+}

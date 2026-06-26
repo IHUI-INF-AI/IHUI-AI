@@ -1,0 +1,10 @@
+{
+  "eduDoc": {
+    "admin": "[ZH:admin]",
+    "delete": "[ZH:delete]",
+    "edit": "[ZH:edit]",
+    "fileNotExist": "[ZH:fileNotExist]",
+    "menu": "[ZH:menu]",
+    "metaDescription": "[ZH:metaDescription]"
+  }
+}

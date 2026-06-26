@@ -3,10 +3,8 @@
     "buyAgent": "エージェント購入",
     "selectPaymentMethod": "支払い方法を選択してください：",
     "close": "閉じる",
-    "purchaseFeatureInDevelopment": "購入機能は開発中",
     "backToList": "リストに戻る",
     "public": "公開",
-    "unknownCreator": "不明な作成者",
     "timesUsed": "回使用",
     "viewAgentList": "エージェントリストを見る",
     "purchaseAgent": "エージェント購入",
@@ -14,7 +12,6 @@
     "favorite": "お気に入り",
     "thumbsUp": "いいね",
     "share": "シェア",
-    "print": "印刷",
     "refreshDetails": "詳細を更新",
     "detailedInfo": "詳細情報",
     "overview": "概要",
@@ -63,8 +60,6 @@
     "statusDeprecated": "廃止済み",
     "loadReviewsFailed": "レビュー読み込み失敗",
     "loadRelatedToolsFailed": "関連ツール読み込み失敗",
-    "navigationFailed": "ナビゲーション失敗",
-    "routeNavigationError": "ルート遷移異常",
     "processing": "処理中...",
     "confirmPurchase": "購入確認",
     "agentNotLoaded": "AgentNotLoaded",
@@ -75,6 +70,7 @@
     "purchaseSuccess": "購入成功",
     "purchaseFailed": "購入失敗",
     "linkCopied": "リンクコピー済み",
-    "copyFailed": "コピー失敗"
+    "copyFailed": "コピー失敗",
+    "invalidPaymentForm": "invalidPaymentForm"
   }
 }

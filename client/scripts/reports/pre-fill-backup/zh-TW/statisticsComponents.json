@@ -1,0 +1,19 @@
+{
+  "statisticsComponents": {
+    "passed": "[ZH:passed]",
+    "pending": "[ZH:pending]",
+    "purchaseStats": "[ZH:purchaseStats]",
+    "rejected": "[ZH:rejected]",
+    "reviewStats": "[ZH:reviewStats]",
+    "settled": "[ZH:settled]",
+    "settlementStats": "[ZH:settlementStats]",
+    "totalPurchases": "[ZH:totalPurchases]",
+    "totalRevenue": "[ZH:totalRevenue]",
+    "totalReviews": "[ZH:totalReviews]",
+    "totalSettlements": "[ZH:totalSettlements]",
+    "totalWithdrawn": "[ZH:totalWithdrawn]",
+    "uniqueAgents": "[ZH:uniqueAgents]",
+    "uniqueBuyers": "[ZH:uniqueBuyers]",
+    "unsettled": "[ZH:unsettled]"
+  }
+}

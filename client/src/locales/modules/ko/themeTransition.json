@@ -1,0 +1,45 @@
+{
+  "themeTransition": {
+    "customConfig": "customConfig",
+    "direction": "direction",
+    "directions": {
+      "down": "down",
+      "left": "left",
+      "right": "right",
+      "up": "up"
+    },
+    "duration": "时长",
+    "easing": "easing",
+    "easings": {
+      "bounce": "bounce",
+      "smooth": "smooth",
+      "swift": "swift"
+    },
+    "enableOverlay": "enableOverlay",
+    "overlayColor": "overlayColor",
+    "playDemo": "playDemo",
+    "playing": "playing",
+    "presetApplied": "presetApplied",
+    "presets": "presets",
+    "preview": "预览",
+    "previewComplete": "previewComplete",
+    "previewTitle": "previewTitle",
+    "speed": "speed",
+    "speeds": {
+      "fast": "快",
+      "instant": "instant",
+      "normal": "正常",
+      "slow": "慢"
+    },
+    "title": "标题",
+    "type": "类型",
+    "types": {
+      "fade": "fade",
+      "flip": "flip",
+      "none": "无",
+      "ripple": "ripple",
+      "slide": "slide",
+      "zoom": "zoom"
+    }
+  }
+}

@@ -1016,7 +1016,7 @@ $text-main: var(--el-text-color-primary);
 $text-sec: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--color-gray-333);
+$brand-secondary: var(--el-text-color-primary);
 
 // ============ 根容器 ============
 .orders-root {
@@ -1106,6 +1106,7 @@ $brand-secondary: var(--color-gray-333);
     margin-bottom: 16px;
     background: var(--color-white-50);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 
     .status-dot {
       width: 6px;
@@ -1144,7 +1145,7 @@ $brand-secondary: var(--color-gray-333);
   padding: 16px 24px;
   background: var(--color-white-60);
   border-radius: var(--global-border-radius);
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
 
   &:focus-within {
     background: var(--color-white-90);
@@ -1183,7 +1184,7 @@ $brand-secondary: var(--color-gray-333);
   border-radius: var(--global-border-radius);
   cursor: pointer;
   color: $text-sec;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 
   &:hover {
     background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
@@ -1216,13 +1217,14 @@ $brand-secondary: var(--color-gray-333);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  Backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 
   &:hover {
     background: var(--color-white-90);
     border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
-    transform: translateY(-2px);
+    
     }
 
   &.active {
@@ -1284,7 +1286,7 @@ $brand-secondary: var(--color-gray-333);
     &:nth-child(3) {
       inset: 12px;
       animation-duration: 2s;
-      border-top-color: var(--color-gray-666);
+      border-top-color: var(--el-text-color-secondary);
     }
   }
 }
@@ -1346,7 +1348,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .btn-text {
     position: relative;
@@ -1356,7 +1358,7 @@ $brand-secondary: var(--color-gray-333);
   // 扫光效果已移至全局样式 (styles/index.scss)
 
   &:hover {
-    transform: translateY(-4px);
+    
     }
 }
 
@@ -1375,7 +1377,7 @@ $brand-secondary: var(--color-gray-333);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .btn-text {
     position: relative;
@@ -1385,7 +1387,7 @@ $brand-secondary: var(--color-gray-333);
   &:hover {
     background: $brand-primary;
     color: var(--el-bg-color);
-    transform: translateY(-2px);
+    
   }
 }
 
@@ -1441,6 +1443,7 @@ $brand-secondary: var(--color-gray-333);
   border-radius: var(--global-border-radius);
   background: var(--color-white-70);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   transition: border-color 0.2s ease;
 
@@ -1488,7 +1491,7 @@ $brand-secondary: var(--color-gray-333);
   border-radius: var(--global-border-radius);
   font-size: 13px;
   font-weight: 800;
-  transition: all 0.3s;
+  transition: background-color 0.3s, color 0.3s;
 
   .status-dot-sm {
     width: 6px;
@@ -1500,7 +1503,7 @@ $brand-secondary: var(--color-gray-333);
 }
 
 .status-pending {
-  background: var(--color-orange-ff9800);
+  background: var(--el-color-warning);
   color: var(--el-bg-color);
   }
 
@@ -1657,7 +1660,7 @@ $brand-secondary: var(--color-gray-333);
   background: var(--color-white-80);
   color: $text-sec;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1667,7 +1670,7 @@ $brand-secondary: var(--color-gray-333);
     background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
     border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
     color: $brand-primary;
-    transform: translateY(-2px);
+    
   }
 
   &.primary {
@@ -1682,7 +1685,7 @@ $brand-secondary: var(--color-gray-333);
   }
 
   &.warning {
-    background: var(--color-orange-ff9800);
+    background: var(--el-color-warning);
     color: var(--el-bg-color);
     border-color: transparent;
   }
@@ -1714,13 +1717,13 @@ $brand-secondary: var(--color-gray-333);
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     background: $brand-primary;
     color: var(--el-bg-color);
     border-color: $brand-primary;
-    transform: translateY(-3px);
+    
     }
 }
 
@@ -1751,6 +1754,7 @@ $brand-secondary: var(--color-gray-333);
   inset: 0;
   background: var(--color-black-60);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1766,6 +1770,7 @@ $brand-secondary: var(--color-gray-333);
   border-radius: var(--global-border-radius);
   background: var(--color-white-95);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   }
 
@@ -1794,7 +1799,7 @@ $brand-secondary: var(--color-gray-333);
   border-radius: var(--global-border-radius);
   cursor: pointer;
   color: $text-sec;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 
   &:hover {
     background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
@@ -1879,12 +1884,14 @@ $brand-secondary: var(--color-gray-333);
 .glass {
   background: var(--color-white-60);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
 .glass-card {
   background: var(--color-white-70);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -1895,7 +1902,7 @@ $brand-secondary: var(--color-gray-333);
   transition: none;
 
   &.scroll-animated {
-    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -1966,10 +1973,10 @@ $brand-secondary: var(--color-gray-333);
 // ============ 弹窗过渡动画 ============
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 
   .modal-content {
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 

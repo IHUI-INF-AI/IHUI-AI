@@ -1081,7 +1081,7 @@ onMounted(() => {
   background: color-mix(in srgb, var(--el-color-warning) 40%, transparent);
   border: 2px solid color-mix(in srgb, var(--el-color-warning) 80%, transparent);
   border-radius: var(--global-border-radius);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, z-index 0.2s ease;
   mix-blend-mode: multiply;
 }
 
@@ -1100,7 +1100,7 @@ onMounted(() => {
 .annotation {
   position: absolute;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: outline-color 0.2s ease, outline-width 0.2s ease, outline-offset 0.2s ease;
 }
 
 .annotation.selected {

@@ -67,7 +67,7 @@
 }
 
 /* 暗色模式 - 通过 CSS 变量覆盖 */
-html.dark .home-container {
+:where(html.dark) .home-container {
   --home-bg: var(--el-bg-color);
 }
 
@@ -100,8 +100,8 @@ html.dark .home-container {
 html.dark,
 html.dark body,
 html.dark #app,
-html.dark .app-container,
-html.dark .main-content {
+:where(html.dark) .app-container,
+:where(html.dark) .main-content {
   background-color: var(--el-bg-color);
   color: var(--el-text-color-primary);
 }
@@ -239,7 +239,7 @@ html.dark .main-content {
   color: var(--el-text-color-primary);
 
   /* 强制使用 EDIX 字体，优先级最? */
-  font-family: 'EDIX';
+  font-family: var(--font-family-edix);
 
   /* 强制在一行显? */
   white-space: nowrap;
@@ -258,8 +258,7 @@ html.dark .main-content {
 }
 
 /* 暗色模式下的 Welcome 文字 */
-:where(html.dark) :where(#first-page) .first-page-content-overlay .brand-welcome-text,
-body.dark #first-page .first-page-content-overlay .brand-welcome-text {
+:where(html.dark) :where(#first-page) .first-page-content-overlay .brand-welcome-text {
   color: var(--el-text-color-primary);
 }
 
@@ -917,7 +916,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   line-height: 1.4;
   font-weight: 300; /* 更轻的字体粗? */
   letter-spacing: 0.03em;
-  font-family: 'EDIX';
+  font-family: var(--font-family-edix);
   opacity: 0.75; /* 降低不透明度，让它作为副标? */
 }
 
@@ -1207,7 +1206,7 @@ h6[class*="title-english"].font-edix,
 h1[class*="welcome"].font-edix,
 h1[class*="brand"].font-edix {
   /* 强制使用 EDIX 字体，优先级最? */
-  font-family: 'EDIX';
+  font-family: var(--font-family-edix);
 }
 
 p {
@@ -1293,7 +1292,7 @@ p {
   border: var(--unified-border);
   border-radius: var(--global-border-radius); /* 减小圆角 */
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 80px; /* 减小最小高度 */
   min-width: 150px; /* 减小最小宽? */
   color: var(--el-text-color-primary);
@@ -1366,7 +1365,7 @@ p {
   background: var(--el-color-primary-light-9);
   color: var(--el-color-primary);
   pointer-events: auto;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: var(--z-base);
 }
@@ -1446,7 +1445,7 @@ p {
   line-height: 1.4;
   font-weight: 300;
   letter-spacing: 0.03em;
-  font-family: 'EDIX';
+  font-family: var(--font-family-edix);
   opacity: 0.75;
 }
 
@@ -1520,7 +1519,7 @@ p {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: default;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(12px);
@@ -1579,7 +1578,7 @@ p {
   height: clamp(48px, 5vw, 56px);
   border-radius: var(--global-border-radius);
   margin-bottom: clamp(12px, 1.5vh, 16px);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: var(--z-base);
 }
@@ -1772,7 +1771,7 @@ p {
 }
 
 /* 暗色模式?home-container 使用纯黑色背? */
-html.dark .home-container {
+:where(html.dark) .home-container {
   background-color: var(--el-bg-color);
   background: var(--el-bg-color);
 }
@@ -2205,7 +2204,7 @@ html.dark .home-container {
   line-height: 1.4;
   font-weight: 300;
   letter-spacing: 0.03em;
-  font-family: 'EDIX';
+  font-family: var(--font-family-edix);
   opacity: 0.75;
 }
 
@@ -2410,7 +2409,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   color: var(--el-text-color-primary);
 }
 
-html.dark .brand-welcome-text {
+:where(html.dark) .brand-welcome-text {
   color: var(--el-color-white);
 }
 
@@ -2423,7 +2422,7 @@ html.dark .brand-welcome-text {
     font-weight: 600;
     font-size: 14px;
     border-radius: var(--global-border-radius);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 
     &.el-button--primary {
       background: var(--el-text-color-primary);
@@ -2459,7 +2458,7 @@ html.dark .brand-welcome-text {
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   background: var(--el-bg-color);
-  transition: all 0.25s $transition-smooth;
+  transition: background-color 0.25s $transition-smooth, border-color 0.25s $transition-smooth;
 
   &:hover {
     border-color: var(--el-border-color);
@@ -2471,11 +2470,11 @@ html.dark .brand-welcome-text {
   }
 
   .feature-icon {
-    transition: all 0.25s ease;
+    transition: color 0.25s ease, transform 0.25s ease;
   }
 }
 
-html.dark .feature-card {
+:where(html.dark) .feature-card {
   background: var(--color-white-3);
   border-color: var(--color-white-8);
 
@@ -2489,14 +2488,14 @@ html.dark .feature-card {
 .advantage-card {
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: all 0.25s $transition-smooth;
+  transition: background-color 0.25s $transition-smooth, border-color 0.25s $transition-smooth;
   
   &:hover {
     border-color: var(--el-border-color);
     }
 }
 
-html.dark .advantage-card {
+:where(html.dark) .advantage-card {
   background: var(--color-white-3);
   border-color: var(--color-white-8);
   
@@ -2542,7 +2541,7 @@ html.dark .advantage-card {
 .news-card-container .glass {
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: all 0.3s $transition-smooth;
+  transition: border-color 0.3s $transition-smooth;
 
 }
 

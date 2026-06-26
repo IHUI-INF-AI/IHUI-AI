@@ -1,0 +1,25 @@
+{
+  "adminHomeIndex": {
+    "askManage": "askManage",
+    "askManageSub": "askManageSub",
+    "carouselManage": "carouselManage",
+    "carouselManageSub": "carouselManageSub",
+    "courseManage": "courseManage",
+    "courseManageSub": "courseManageSub",
+    "dataOverview": "dataOverview",
+    "examManage": "examManage",
+    "examManageSub": "examManageSub",
+    "liveManage": "liveManage",
+    "liveManageSub": "liveManageSub",
+    "memberManage": "memberManage",
+    "memberManageSub": "memberManageSub",
+    "orderManage": "orderManage",
+    "orderManageSub": "orderManageSub",
+    "rolePermission": "rolePermission",
+    "rolePermissionSub": "rolePermissionSub",
+    "totalCourses": "课程总数",
+    "totalOrders": "订单总数",
+    "totalRevenue": "总收入",
+    "totalUsers": "用户总数"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "showcase": {
+    "buttons": {
+      "danger": "危险",
+      "disabled": "已禁用",
+      "info": "信息",
+      "loading": "加载中",
+      "primary": "主要",
+      "round": "round",
+      "success": "成功",
+      "title": "标题",
+      "warning": "警告"
+    },
+    "data": {
+      "columnCategory": "columnCategory",
+      "columnName": "columnName",
+      "columnStatus": "columnStatus",
+      "title": "标题"
+    },
+    "feedback": {
+      "errorAlert": "errorAlert",
+      "successAlert": "successAlert",
+      "tagDanger": "tagDanger",
+      "tagInfo": "tagInfo",
+      "tagSuccess": "tagSuccess",
+      "tagWarning": "tagWarning",
+      "title": "标题",
+      "warningAlert": "warningAlert"
+    },
+    "forms": {
+      "ai": "AI",
+      "checkbox": "checkbox",
+      "date": "日期",
+      "datePlaceholder": "请选择日期",
+      "female": "女",
+      "input": "输入",
+      "inputPlaceholder": "请输入",
+      "male": "男",
+      "optionA": "optionA",
+      "optionB": "optionB",
+      "optionC": "optionC",
+      "radio": "单选",
+      "react": "React",
+      "select": "选择",
+      "selectPlaceholder": "请选择",
+      "switch": "切换",
+      "textarea": "textarea",
+      "title": "标题",
+      "vue": "Vue"
+    },
+    "navigation": {
+      "breadcrumbCurrent": "breadcrumbCurrent",
+      "breadcrumbDocs": "breadcrumbDocs",
+      "breadcrumbHome": "breadcrumbHome",
+      "menuAbout": "menuAbout",
+      "menuAgents": "menuAgents",
+      "menuDocs": "menuDocs",
+      "menuHome": "menuHome",
+      "next": "下一步",
+      "prev": "上一步",
+      "step1": "第 1 步",
+      "step2": "第 2 步",
+      "step3": "第 3 步",
+      "title": "标题"
+    },
+    "subtitle": "副标题",
+    "tab": {
+      "buttons": "buttons",
+      "data": "数据",
+      "feedback": "反馈",
+      "forms": "forms",
+      "navigation": "导航"
+    },
+    "title": "标题"
+  }
+}

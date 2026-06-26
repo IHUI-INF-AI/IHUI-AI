@@ -1,0 +1,22 @@
+{
+  "chat": {
+    "ai": "AI",
+    "me": "自分",
+    "model": "モデル",
+    "send": "送信",
+    "connected": "接続済み",
+    "connecting": "接続中",
+    "connectionError": "接続エラー",
+    "disconnected": "切断済み",
+    "generating": "生成中",
+    "mockData": "モックデータ",
+    "qwenTurbo": "Qwen Turbo",
+    "qwenPlus": "Qwen Plus",
+    "qwenMax": "Qwen Max",
+    "ctrlEnterPlaceholder": "Ctrl+Enterで送信",
+    "inputHint": "メッセージを入力...",
+    "startConversation": "新しい会話を開始",
+    "searchMessage": "メッセージを検索",
+    "foundMessages": "検索結果"
+  }
+}

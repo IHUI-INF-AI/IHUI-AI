@@ -1,0 +1,30 @@
+{
+  "knowledgeBase": {
+    "createFirstKnowledgeBase": "createFirstKnowledgeBase",
+    "createKnowledgeBase": "createKnowledgeBase",
+    "createKnowledgeBaseDialogTitle": "createKnowledgeBaseDialogTitle",
+    "createSuccess": "创建成功",
+    "delete": "删除",
+    "deleteConfirm": "确认删除?",
+    "deleteFailed": "删除失败",
+    "deleteSuccess": "删除成功",
+    "documentCount": "documentCount",
+    "edit": "编辑",
+    "editKnowledgeBaseDialogTitle": "editKnowledgeBaseDialogTitle",
+    "kbId": "kbId",
+    "kbIdLength": "kbIdLength",
+    "kbIdPlaceholder": "kbIdPlaceholder",
+    "kbIdRequired": "kbIdRequired",
+    "kbName": "kbName",
+    "kbNameLength": "kbNameLength",
+    "kbNamePlaceholder": "kbNamePlaceholder",
+    "noKnowledgeBase": "noKnowledgeBase",
+    "operationFailed": "操作失败",
+    "retry": "重试",
+    "searchFailed": "搜索失败",
+    "searchPlaceholder": "请输入搜索内容",
+    "subtitle": "副标题",
+    "title": "标题",
+    "updateSuccess": "更新成功"
+  }
+}

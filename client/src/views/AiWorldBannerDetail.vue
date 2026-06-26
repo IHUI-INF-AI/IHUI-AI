@@ -390,9 +390,9 @@ const valueItems = computed(() => [
 
 $primary: var(--el-text-color-primary);
 $secondary: var(--el-text-color-primary);
-$light: var(--color-gray-f5f7fa);
+$light: var(--el-fill-color-lighter);
 $text-primary: var(--color-gray-111);
-$text-secondary: var(--color-gray-666);
+$text-secondary: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 
 .banner-detail {
@@ -899,7 +899,7 @@ $border-light: var(--el-border-color-lighter);
 </style>
 
 <style lang="scss">
-html.dark .banner-detail {
+:where(html.dark) .banner-detail {
   --bd-text: var(--el-text-color-primary);
   --bd-text-secondary: var(--el-text-color-secondary);
   --bd-border: var(--el-border-color);

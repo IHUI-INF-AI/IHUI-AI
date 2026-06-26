@@ -1,0 +1,41 @@
+{
+  "payment": {
+    "alipay": "支付宝",
+    "channelBusyHint": "channelBusyHint",
+    "checkOrderFailed": "checkOrderFailed",
+    "coins": "金币",
+    "createOrderFailed": "创建订单失败",
+    "loading": "加载中",
+    "memberCenter": "memberCenter",
+    "memberCenterSubtitle": "memberCenterSubtitle",
+    "memberServiceAgreement": "memberServiceAgreement",
+    "orderCancelled": "orderCancelled",
+    "payFailed": "支付失败",
+    "paySuccess": "支付成功",
+    "paymentMethod": "支付方式",
+    "pleaseLoginFirst": "pleaseLoginFirst",
+    "privilege1": "privilege1",
+    "privilege2": "privilege2",
+    "privilege3": "privilege3",
+    "privilege4": "privilege4",
+    "qrcodeExpired": "qrcodeExpired",
+    "qrcodeValidity": "qrcodeValidity",
+    "redirectingPayment": "redirectingPayment",
+    "refreshAndRetry": "refreshAndRetry",
+    "scanToPay": "scanToPay",
+    "superValue": "superValue",
+    "userInfoIncomplete": "userInfoIncomplete",
+    "userNoOpenid": "userNoOpenid",
+    "vipPrivileges": "vipPrivileges",
+    "vipTitle": "VIP 标题",
+    "wechat": "微信",
+    "wechatPay": "微信支付"
+  },
+  "Payment": {
+    "alreadyVip": "alreadyVip",
+    "incompleteProduct": "incompleteProduct",
+    "notLogged": "notLogged",
+    "notLoggedOrNoOpenId": "notLoggedOrNoOpenId",
+    "selectPayMethod": "selectPayMethod"
+  }
+}

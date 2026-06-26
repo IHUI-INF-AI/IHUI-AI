@@ -1,0 +1,11 @@
+{
+  "viewerEnhancedPdfViewer": {
+    "download": "下载",
+    "fullscreen": "全屏",
+    "loadingPdf": "loadingPdf",
+    "pdfLoadFailed": "PDF 加载失败",
+    "prevPage": "上一页",
+    "search": "搜索",
+    "zoomOut": "缩小"
+  }
+}

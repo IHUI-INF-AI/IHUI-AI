@@ -1,0 +1,22 @@
+{
+  "commonText": {
+    "add": "添加",
+    "delete": "删除",
+    "failed": "失败",
+    "fileTypes": {
+      "audio": "音频",
+      "image": "图片",
+      "video": "视频"
+    },
+    "noData": "暂无数据",
+    "status": {
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "pending": "待处理",
+      "processing": "处理中",
+      "refunded": "已退款"
+    },
+    "success": "成功",
+    "view": "查看"
+  }
+}

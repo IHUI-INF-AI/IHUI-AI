@@ -1,0 +1,23 @@
+{
+  "myCommission": {
+    "available": "available",
+    "buyer": "buyer",
+    "commission": "佣金",
+    "copy": "复制",
+    "copyFailed": "copyFailed",
+    "copySuccess": "copySuccess",
+    "noCommission": "noCommission",
+    "orderTime": "orderTime",
+    "pending": "待处理",
+    "relatedOrder": "relatedOrder",
+    "title": "标题",
+    "todayCommission": "todayCommission",
+    "totalCommission": "totalCommission",
+    "withdraw": "提现",
+    "withdrawDetail": "withdrawDetail",
+    "withdrawDetailInfo": "withdrawDetailInfo",
+    "withdrawSuccess": "withdrawSuccess",
+    "withdrawn": "withdrawn",
+    "yuan": "yuan"
+  }
+}

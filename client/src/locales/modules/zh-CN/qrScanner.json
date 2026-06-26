@@ -1,9 +1,1 @@
-{
-  "qrScanner": {
-    "title": "二维码扫描",
-    "description": "移动端二维码扫描功能",
-    "scanQrCode": "扫描二维码",
-    "useCamera": "使用摄像头扫描",
-    "orFromAlbum": "或从相册选择"
-  }
-}
+{}

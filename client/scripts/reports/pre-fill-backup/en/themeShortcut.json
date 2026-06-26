@@ -1,0 +1,14 @@
+{
+  "themeShortcut": {
+    "disabled": "[ZH:disabled]",
+    "enabled": "[ZH:enabled]",
+    "resetDefaults": "[ZH:resetDefaults]",
+    "shortcutUpdated": "[ZH:shortcutUpdated]",
+    "shortcutsReset": "[ZH:shortcutsReset]",
+    "tip1": "[ZH:tip1]",
+    "tip2": "[ZH:tip2]",
+    "tip3": "[ZH:tip3]",
+    "tips": "[ZH:tips]",
+    "title": "[ZH:title]"
+  }
+}

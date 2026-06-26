@@ -1,0 +1,17 @@
+{
+  "cmpVipIntroducePopupAlt": {
+    "benefitsCount": "[ZH:benefitsCount]",
+    "feature1": "[ZH:feature1]",
+    "feature10": "[ZH:feature10]",
+    "feature2": "[ZH:feature2]",
+    "feature3": "[ZH:feature3]",
+    "feature4": "[ZH:feature4]",
+    "feature5": "[ZH:feature5]",
+    "feature6": "[ZH:feature6]",
+    "feature7": "[ZH:feature7]",
+    "feature8": "[ZH:feature8]",
+    "feature9": "[ZH:feature9]",
+    "payFailed": "[ZH:payFailed]",
+    "paySuccess": "[ZH:paySuccess]"
+  }
+}

@@ -19,9 +19,7 @@
       </header>
 
       <!-- 余额卡片 -->
-      <section class="wd-balance-card wd-glass-card wd-scroll-reveal" style="
-
---delay: 0.1s">
+      <section class="wd-balance-card wd-glass-card wd-scroll-reveal wd-delay-1">
         <div class="wd-balance-glow"></div>
         <div class="wd-balance-header">
           <span class="wd-balance-icon">◇</span>
@@ -38,9 +36,7 @@
       </section>
 
       <!-- 规则面板 -->
-      <section class="wd-rules-panel wd-glass-card wd-scroll-reveal" v-if="withdrawConfig" style="
-
---delay: 0.2s">
+      <section class="wd-rules-panel wd-glass-card wd-scroll-reveal wd-delay-2" v-if="withdrawConfig">
         <div class="wd-rules-grid">
           <div class="wd-rule-item">
             <div class="wd-rule-icon">▣</div>
@@ -61,9 +57,7 @@
       </section>
 
       <!-- 表单卡片 -->
-      <section class="wd-form-card wd-glass-card wd-scroll-reveal" style="
-
---delay: 0.3s">
+      <section class="wd-form-card wd-glass-card wd-scroll-reveal wd-delay-3">
         <el-form ref="withdrawFormRef" :model="withdrawForm" :rules="formRules" class="wd-form">
           
           <!-- 金额输入 -->
@@ -504,9 +498,9 @@ $surface-mid: var(--color-dark-bg-2);
 $surface-light: var(--color-gray-1f1f1f);
 $border-subtle: var(--border-unified-color);
 $border-active: var(--border-unified-color-hover);
-$text-primary: var(--color-gray-ededed);
-$text-secondary: var(--color-gray-a1a1a1);
-$text-muted: var(--color-gray-999);
+$text-primary: var(--el-text-color-secondary);
+$text-secondary: var(--el-text-color-placeholder);
+$text-muted: var(--el-text-color-placeholder);
 $glow-color: var(--color-white-15);
 $accent-green: var(--el-text-color-primary);
 
@@ -597,6 +591,18 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   animation-delay: var(--delay);
 }
 
+.wd-delay-1 {
+  --delay: 0.1s;
+}
+
+.wd-delay-2 {
+  --delay: 0.2s;
+}
+
+.wd-delay-3 {
+  --delay: 0.3s;
+}
+
 @keyframes wd-reveal {
   to {
     opacity: 1;
@@ -658,6 +664,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   position: relative;
   overflow: hidden;
 
@@ -839,7 +846,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 @keyframes wd-slide-in {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    
   }
 
   to {
@@ -889,7 +896,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     border-radius: var(--global-border-radius);
     box-shadow: none;
     padding: 12px 16px;
-    transition: all 0.3s $ease-out-expo;
+    transition: border-color 0.3s $ease-out-expo;
 
     &:hover {
       border-color: $border-active;
@@ -927,7 +934,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     color: $text-primary;
     font-size: 14px;
     resize: none;
-    transition: all 0.3s $ease-out-expo;
+    transition: border-color 0.3s $ease-out-expo;
 
     &::placeholder {
       color: $text-muted;
@@ -956,7 +963,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s $ease-out-expo;
+  transition: background-color 0.3s $ease-out-expo, color 0.3s $ease-out-expo, border-color 0.3s $ease-out-expo;
 
   &:hover {
     background: var(--color-white-5);
@@ -984,11 +991,11 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: all 0.3s $ease-out-expo;
+  transition: border-color 0.3s $ease-out-expo, transform 0.3s $ease-out-expo, background-color 0.3s $ease-out-expo;
 
   &:hover {
     border-color: $border-active;
-    transform: translateY(-2px);
+    
   }
 
   &.wd-method-active {
@@ -1083,11 +1090,11 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   border-radius: var(--global-border-radius);
   cursor: pointer;
   overflow: hidden;
-  transition: all 0.3s $ease-out-expo;
+  transition: border-color 0.3s $ease-out-expo, transform 0.3s $ease-out-expo, opacity 0.3s $ease-out-expo;
 
   &:hover:not(:disabled) {
     border-color: $text-secondary;
-    transform: translateY(-2px);
+    
 
     .wd-btn-bg {
       opacity: 1;

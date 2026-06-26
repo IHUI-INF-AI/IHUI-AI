@@ -274,10 +274,10 @@ onMounted(() => {
 
   .agent-card {
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease;
 
     &:hover {
-      transform: translateY(-4px);
+      
       }
 
     .agent-header {

@@ -268,7 +268,7 @@ export default {
     
     .cloud-dark {
       position: absolute;
-      fill: var(--color-gray-ccc);
+      fill: var(--el-disabled-bg-color);
       animation-name: cloud-move;
       animation-duration: 6s;
       animation-iteration-count: infinite;

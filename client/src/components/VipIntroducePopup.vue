@@ -319,7 +319,7 @@ onMounted(() => {
 .main-title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--color-gray-333);
+  color: var(--el-text-color-primary);
 }
 
 .purple-text {
@@ -370,7 +370,7 @@ onMounted(() => {
   text-align: center;
   padding: 10px 0;
   border-radius: var(--global-border-radius);
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
   cursor: pointer;
 
   &.active {
@@ -381,7 +381,7 @@ onMounted(() => {
 .tab-text {
   font-size: 16px;
   font-weight: 700;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
 }
 
 .tab-item.active .tab-text {
@@ -459,7 +459,7 @@ onMounted(() => {
 
 .original-price {
   font-size: 12px;
-  color: var(--color-gray-999);
+  color: var(--el-text-color-placeholder);
   text-decoration: line-through;
   display: block;
   margin-bottom: 4px;
@@ -474,13 +474,13 @@ onMounted(() => {
 
 .price-info {
   font-size: 12px;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
 }
 
 .loading-state {
   text-align: center;
   padding: 20px 0;
-  color: var(--color-gray-666);
+  color: var(--el-text-color-secondary);
   font-size: 14px;
 }
 

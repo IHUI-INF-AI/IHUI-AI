@@ -239,6 +239,7 @@ watch(showHelpPanel, (visible) => {
   inset: 0;
   background: var(--color-black-50);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -365,7 +366,7 @@ watch(showHelpPanel, (visible) => {
   border-radius: var(--global-border-radius);
   background: var(--el-bg-color);
   border: var(--unified-border);
-  font-family: monospace;
+  font-family: var(--font-family-mono);
   font-size: 12px;
   font-weight: 600;
   color: var(--el-text-color-primary);

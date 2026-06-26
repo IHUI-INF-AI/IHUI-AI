@@ -52,7 +52,7 @@
   }
 
   .nav-item {
-    transition: all var(--transition-base) ease;
+    transition: background-color var(--transition-base) ease, color var(--transition-base) ease, font-weight var(--transition-base) ease;
     position: relative;
 
     &:hover {

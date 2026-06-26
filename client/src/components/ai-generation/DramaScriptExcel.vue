@@ -5194,9 +5194,9 @@ const generateHtmlPreview = (): string => {
     .scene-desc { line-height: 1.6; }
     .status { display: inline-block; padding: 2px 8px; border-radius: var(--global-border-radius); font-size: 12px; }
     .status-completed { background: var(--color-success-10); color: var(--color-green-389e0d); }
-    .status-pending { background: var(--color-primary-10); color: var(--color-blue-1890ff); }
-    .status-generating { background: var(--color-orange-fa8c16-10); color: var(--color-orange-fa8c16); }
-    .status-failed { background: var(--color-red-transparent-10-alt); color: var(--color-red-f5222d); }
+    .status-pending { background: var(--color-primary-10); color: var(--el-color-primary); }
+    .status-generating { background: var(--color-orange-fa8c16-10); color: var(--el-color-warning); }
+    .status-failed { background: rgba(var(--el-color-danger-rgb), 0.1); color: var(--el-color-danger); }
   </style>
 </head>
 <body>
@@ -6458,7 +6458,7 @@ defineExpose({
   align-items: center;
   justify-content: center;
   z-index: var(--z-modal);
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
   
   &:hover {
     transform: scale(1.1);
@@ -6892,7 +6892,7 @@ defineExpose({
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       background: var(--el-bg-color);
-      transition: all 0.2s;
+      transition: border-color 0.2s, border-width 0.2s;
       
       &:hover {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -6953,7 +6953,7 @@ defineExpose({
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       background: var(--el-bg-color);
-      transition: all 0.2s;
+      transition: background-color 0.2s, border-color 0.2s, border-width 0.2s;
       cursor: pointer;
       
       &:hover {
@@ -7127,7 +7127,7 @@ defineExpose({
         padding: 10px 20px;
         
         &:hover {
-          transform: translateY(-2px);
+          
           }
       }
     }
@@ -7206,7 +7206,7 @@ defineExpose({
         cursor: pointer;
         border-radius: var(--global-border-radius);
         overflow: hidden;
-        transition: all 0.3s ease;
+        transition: transform 0.3s ease;
         &:hover {
           transform: scale(1.08) translateY(-4px);
           .keyframe-time {
@@ -7268,7 +7268,7 @@ defineExpose({
         padding: 8px 16px;
         border-radius: var(--global-border-radius);
         font-size: 13px;
-        transition: all 0.2s;
+        transition: transform 0.2s;
         
         &:hover {
           transform: scale(1.08);
@@ -7339,7 +7339,7 @@ defineExpose({
     background: var(--el-fill-color-lighter);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
-    transition: all 0.3s ease;
+    transition: border-color 0.3s ease;
     
     &:hover {
       border-color: var(--el-color-primary-light-7);
@@ -7398,7 +7398,7 @@ defineExpose({
       transition: all 0.2s;
       
       &:hover {
-        transform: translateY(-2px);
+        
         }
     }
   }
@@ -7440,10 +7440,10 @@ defineExpose({
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
-    transition: all 0.3s ease;
+    transition: border-color 0.3s ease;
     
     &:hover {
-      transform: translateY(-2px);
+      
       border-color: var(--el-color-primary-light-5);
       }
     
@@ -7489,7 +7489,7 @@ defineExpose({
     border-radius: var(--global-border-radius);
     margin-bottom: 12px;
     border: var(--unified-border);
-    transition: all 0.2s;
+    transition: border-color 0.2s;
     
     &:hover {
       border-color: var(--el-color-primary-light-7);
@@ -7562,7 +7562,7 @@ defineExpose({
       border-radius: var(--global-border-radius);
       
       &:hover {
-        transform: translateY(-1px);
+        
       }
     }
   }
@@ -7586,7 +7586,7 @@ defineExpose({
       padding: 8px 16px;
       border-radius: var(--global-border-radius);
       font-size: 13px;
-      transition: all 0.2s;
+      transition: transform 0.2s;
       
       &:hover {
         transform: scale(1.05);
@@ -7610,7 +7610,7 @@ defineExpose({
     font-size: 14px;
     border: var(--unified-border);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
     
     &:hover {
       border-color: var(--el-color-primary-light-5);
@@ -7642,7 +7642,7 @@ defineExpose({
         border: none;
         
         &:hover {
-          transform: translateY(-1px);
+          
           }
       }
     }
@@ -7671,7 +7671,7 @@ defineExpose({
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
-    transition: all 0.3s ease;
+    transition: border-color 0.3s ease, opacity 0.3s ease;
     
     &:hover {
       border-color: var(--el-color-primary-light-5);
@@ -7801,7 +7801,7 @@ defineExpose({
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
-    transition: all 0.2s;
+    transition: border-color 0.2s;
     
     &:hover {
       border-color: var(--el-border-color);
@@ -8101,6 +8101,7 @@ defineExpose({
   min-width: 180px;
   padding: 4px 0;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   
   .context-menu-item {
     display: flex;
@@ -8177,6 +8178,7 @@ defineExpose({
   min-width: 180px;
   padding: 4px 0;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   
   .context-menu-item {
     display: flex;
@@ -8228,7 +8230,7 @@ defineExpose({
 
 .dialog-slide-enter-active,
 .dialog-slide-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .dialog-slide-enter-from,
@@ -8242,10 +8244,10 @@ defineExpose({
 // 工具栏增强
 .toolbar-section {
   .el-button {
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease;
     
     &:hover {
-      transform: translateY(-1px);
+      
       }
     
     &:active {
@@ -8259,7 +8261,7 @@ defineExpose({
   transition: all 0.3s ease;
   
   &:hover {
-    transform: translateY(-2px);
+    
     }
 }
 
@@ -8287,7 +8289,7 @@ defineExpose({
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease;
   
   &:hover {
     border-color: var(--el-color-primary-light-5);
@@ -8650,7 +8652,7 @@ defineExpose({
   }
 
   50% {
-    transform: translateY(-10px);
+    
   }
 }
 
@@ -8715,7 +8717,7 @@ defineExpose({
     justify-content: center;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s, color 0.2s;
     background: var(--el-fill-color-light);
     color: var(--el-text-color-regular);
     
@@ -8891,7 +8893,7 @@ defineExpose({
       background: var(--el-fill-color-lighter);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
-      transition: all 0.2s;
+      transition: border-color 0.2s;
       
       &:hover {
         border-color: var(--el-color-primary-light-5);
@@ -8970,13 +8972,13 @@ defineExpose({
         border: 2px solid var(--el-border-color-lighter);
         border-radius: var(--global-border-radius);
         cursor: pointer;
-        transition: all 0.25s;
+        transition: background-color 0.25s, border-color 0.25s, border-width 0.25s;
         text-align: center;
         
         &:hover {
           border-color: var(--el-color-primary-light-5);
           background: var(--el-color-primary-light-9);
-          transform: translateY(-2px);
+          
         }
         
         &.active {

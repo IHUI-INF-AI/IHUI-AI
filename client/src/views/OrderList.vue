@@ -249,7 +249,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .order-list-page {
   min-height: 100vh;
-  background: var(--color-gray-f5f7fa);
+  background: var(--el-fill-color-lighter);
   padding: 20px;
 }
 
@@ -293,7 +293,7 @@ onMounted(() => {
   font-size: 16px;
   color: var(--color-gray-3d3d3d);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
   border-radius: var(--global-border-radius);
   position: relative;
 
@@ -338,10 +338,11 @@ onMounted(() => {
   background: var(--color-white-90);
   border: var(--unified-border);
   backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 0.3s ease;
 
   &:hover {
-    transform: translateY(-2px);
+    
     }
 }
 
@@ -373,7 +374,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .status-pending {
