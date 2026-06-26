@@ -129,7 +129,7 @@ class AgentDeveloper(TimestampMixin, Base):
     user_id = Column(String(64), nullable=False, comment="Developer UUID")
     order_no = Column(String(64), nullable=True, comment="Developer order number")
     status = Column(Integer, default=1, comment="0=disabled, 1=active")
-    price = Column(Float, nullable=True, comment="Developer price")
+    price = Column(BigInteger, nullable=True, comment="Developer price (分)")
     uuid = Column(String(64), nullable=True, comment="开发者唯一标识 UUID")
     user_name = Column(String(100), nullable=True, comment="用户名")
     creator_id = Column(BigInteger, nullable=True, comment="创建者用户 ID")

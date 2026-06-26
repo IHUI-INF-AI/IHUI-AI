@@ -27,7 +27,7 @@
 from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Text
 
 from app.database import Base
-from app.models.base import DelFlagMixin
+from app.models.base import DelFlagMixin, TimestampMixin
 from app.utils.datetime_helper import utcnow
 
 
@@ -210,8 +210,8 @@ class AdminConfig(DelFlagMixin, AdminBaseMixin, Base):
     del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminLogininfor(Base):
-    """系统访问记录表 admin_logininfor (无 BaseEntity 公共字段)."""
+class AdminLogininfor(TimestampMixin, Base):
+    """系统访问记录表 admin_logininfor (无 BaseEntity 公共字段, 已加 created_at/updated_at)."""
 
     __tablename__ = "admin_logininfor"
     __table_args__ = (Index("ix_admin_logininfor_status", "status"),)
@@ -228,7 +228,7 @@ class AdminLogininfor(Base):
 AdminLoginInfo = AdminLogininfor
 
 
-class AdminOperLog(Base):
+class AdminOperLog(TimestampMixin, Base):
     """操作日志记录表 admin_oper_log (无 BaseEntity 公共字段, 只追加不修改)."""
 
     __tablename__ = "admin_oper_log"
@@ -257,7 +257,7 @@ class AdminOperLog(Base):
 # =============================================================================
 
 
-class AdminUserRole(Base):
+class AdminUserRole(TimestampMixin, Base):
     """用户-角色关联表 admin_user_role."""
 
     __tablename__ = "admin_user_role"
@@ -266,7 +266,7 @@ class AdminUserRole(Base):
     role_id = Column(BigInteger, primary_key=True, comment="角色ID")
 
 
-class AdminRoleMenu(Base):
+class AdminRoleMenu(TimestampMixin, Base):
     """角色-菜单关联表 admin_role_menu."""
 
     __tablename__ = "admin_role_menu"
@@ -275,7 +275,7 @@ class AdminRoleMenu(Base):
     menu_id = Column(BigInteger, primary_key=True, comment="菜单ID")
 
 
-class AdminRoleDept(Base):
+class AdminRoleDept(TimestampMixin, Base):
     """角色-部门关联表 admin_role_dept."""
 
     __tablename__ = "admin_role_dept"
@@ -341,7 +341,7 @@ class AdminJob(DelFlagMixin, AdminBaseMixin, Base):
     del_flag = Column(String(1), nullable=True, default="0", comment="删除标志 (0存在 2删除)")
 
 
-class AdminJobLog(Base):
+class AdminJobLog(TimestampMixin, Base):
     """定时任务日志表 admin_job_log (来自 admin-job)."""
 
     __tablename__ = "admin_job_log"

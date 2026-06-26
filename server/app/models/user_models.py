@@ -43,7 +43,7 @@ class User(TenantBase):
     is_vip = Column(Integer, default=0, comment="VIP status: 0=no, 1=yes")
 
 
-class UserMargin(TenantBase):
+class UserMargin(TenantBase, TimestampMixin):
     """User token/margin balance (zhs_center_project.user_margin).
 
     建议 132: 第二个迁移到 TenantBase 的业务表.

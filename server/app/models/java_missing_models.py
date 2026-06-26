@@ -23,7 +23,7 @@ from typing import Any
 from sqlalchemy import Column, DateTime, Integer, String, Text
 
 from app.database import Base
-from app.models.base import id_column
+from app.models.base import TimestampMixin, id_column
 from app.utils.datetime_helper import utcnow
 
 
@@ -84,7 +84,7 @@ class PaymentCallback(Base):
         }
 
 
-class TransferInfo(Base):
+class TransferInfo(TimestampMixin, Base):
     """转账信息表."""
 
     __tablename__ = "transfer_infos"
@@ -96,7 +96,6 @@ class TransferInfo(Base):
     amount = Column(Integer, default=0)
     status = Column(Integer, default=0)
     remark = Column(String(255))
-    created_at = Column(DateTime, default=utcnow)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -137,7 +136,7 @@ class UserAgentFreeTimes(Base):
         }
 
 
-class WxPayNotification(Base):
+class WxPayNotification(TimestampMixin, Base):
     """微信支付通知表."""
 
     __tablename__ = "wx_pay_notifications"
@@ -155,7 +154,6 @@ class WxPayNotification(Base):
     result_code = Column(String(16))
     raw_xml = Column(Text)
     status = Column(Integer, default=0)
-    created_at = Column(DateTime, default=utcnow)
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -143,15 +143,18 @@ class TestTimeField:
 # ---------------------------------------------------------------------------
 
 class TestTimestampMixin:
-    """所有 model 必须有 created_at 和 updated_at 字段 (通过 TimestampMixin 继承)."""
+    """所有 model 必须有 created_at/updated_at 字段 (通过 TimestampMixin 继承).
+
+    兼容别名: Admin 系统的 create_time/update_time (来自 Java BaseEntity 命名).
+    """
 
     @pytest.mark.parametrize("model_class", _all_model_classes())
     def test_has_timestamp_mixin(self, model_class):
         has_mixin = issubclass(model_class, TimestampMixin)
-        has_created = "created_at" in model_class.__table__.columns
-        has_updated = "updated_at" in model_class.__table__.columns
+        has_created = "created_at" in model_class.__table__.columns or "create_time" in model_class.__table__.columns
+        has_updated = "updated_at" in model_class.__table__.columns or "update_time" in model_class.__table__.columns
         assert has_mixin or (has_created and has_updated), (
-            f"{model_class.__name__} 缺少 TimestampMixin (没有 created_at/updated_at)"
+            f"{model_class.__name__} 缺少 TimestampMixin (没有 created_at/updated_at, 也不含 create_time/update_time)"
         )
 
 

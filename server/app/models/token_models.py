@@ -8,6 +8,7 @@ from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Tex
 from app.database import Base
 from app.models.base import TimestampMixin, id_column
 from app.orm.tenant_base import TenantBase
+from app.utils.datetime_helper import utcnow
 
 
 class UserSKInfo(TimestampMixin, Base):
@@ -67,6 +68,7 @@ class ZhsOperateTokenFlow(Base):
     type = Column(Integer, nullable=True, comment="操作类型: 0=充值, 1=消耗")
     operate_desc = Column(String(255), nullable=True, comment="操作描述")
     created_at = Column(Integer, nullable=True, default=lambda: int(time.time()), comment="创建时间戳")
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, comment="更新时间 (DateTime, 与 created_at 区别: 业务修改时间)")
 
     @classmethod
     def create_flow_record(

@@ -108,12 +108,12 @@ def handle_alipay_callback(
     handled = False
     if trade_status in ("TRADE_SUCCESS", "TRADE_FINISHED"):
         order = db.execute(
-            select(EduOrder).where(EduOrder.order_no == order_no)
+            select(EduOrder).where(EduOrder.out_trade_no == order_no)
         ).scalar_one_or_none()
-        if order and order.status == "pending":
-            order.status = "paid"
+        if order and order.status == 0:  # 0=pending
+            order.status = 1  # 1=paid
             order.paid_at = utcnow()
-            order.pay_method = "alipay"
+            order.pay_type = "alipay"
             # 同步更新 EduPayOrder
             pay_order = db.execute(
                 select(EduPayOrder).where(EduPayOrder.order_id == order.id)
@@ -123,7 +123,7 @@ def handle_alipay_callback(
                 pay_order.transaction_id = payload.get("trade_no", "")
                 pay_order.paid_at = order.paid_at
             handled = True
-        elif order and order.status == "paid":
+        elif order and order.status == 1:
             handled = True  # 幂等
 
     return {"order_no": order_no, "trade_status": trade_status, "handled": handled}
@@ -157,12 +157,12 @@ def handle_wechat_callback(
     handled = False
     if success_flag:
         order = db.execute(
-            select(EduOrder).where(EduOrder.order_no == order_no)
+            select(EduOrder).where(EduOrder.out_trade_no == order_no)
         ).scalar_one_or_none()
-        if order and order.status == "pending":
-            order.status = "paid"
+        if order and order.status == 0:  # 0=pending
+            order.status = 1  # 1=paid
             order.paid_at = utcnow()
-            order.pay_method = "wechat"
+            order.pay_type = "wechat"
             pay_order = db.execute(
                 select(EduPayOrder).where(EduPayOrder.order_id == order.id)
             ).scalar_one_or_none()
@@ -171,7 +171,7 @@ def handle_wechat_callback(
                 pay_order.transaction_id = payload.get("transaction_id", "")
                 pay_order.paid_at = order.paid_at
             handled = True
-        elif order and order.status == "paid":
+        elif order and order.status == 1:
             handled = True
 
     return {"order_no": order_no, "result_code": result_code, "handled": handled}
@@ -752,7 +752,7 @@ def list_favorite_courses(db: Session, user_id: str, page: int, size: int) -> Di
     items, total = paginate(
         db, BehaviorFavorite, page=page, size=size,
         filters=[
-            BehaviorFavorite.user_uuid == user_uuid_str,
+            BehaviorFavorite.user_id == user_uuid_str,
             BehaviorFavorite.target_type == "course",
         ],
         order_by=BehaviorFavorite.created_at.desc(),
@@ -912,7 +912,7 @@ def favorite_course(db: Session, user_id: str, course_id: int) -> bool:
     existing = db.execute(
         select(BehaviorFavorite).where(
             and_(
-                BehaviorFavorite.user_uuid == user_uuid_str,
+                BehaviorFavorite.user_id == user_uuid_str,
                 BehaviorFavorite.target_id == course_id,
                 BehaviorFavorite.target_type == "course",
             )
@@ -921,7 +921,7 @@ def favorite_course(db: Session, user_id: str, course_id: int) -> bool:
     if existing:
         return True
     fav = BehaviorFavorite(
-        user_uuid=user_uuid_str,
+        user_id=user_uuid_str,
         target_id=course_id,
         target_type="course",
     )
@@ -936,7 +936,7 @@ def cancel_favorite_course(db: Session, user_id: str, course_id: int) -> bool:
     fav = db.execute(
         select(BehaviorFavorite).where(
             and_(
-                BehaviorFavorite.user_uuid == user_uuid_str,
+                BehaviorFavorite.user_id == user_uuid_str,
                 BehaviorFavorite.target_id == course_id,
                 BehaviorFavorite.target_type == "course",
             )

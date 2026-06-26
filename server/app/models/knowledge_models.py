@@ -48,4 +48,4 @@ class KnowledgeChunk(TimestampMixin, Base):
     chunk_index = Column(Integer, nullable=False, comment="切片序号")
     content = Column(Text, nullable=False, comment="切片内容")
     embedding = Column(Text, nullable=True, comment="向量JSON")
-    score = Column(Float, default=0.0, comment="相似度分数")
+    similarity_score = Column(Float, default=0.0, comment="相似度分数 (0-1, 非金额)")

@@ -26,7 +26,7 @@ class Resource(TimestampMixin, Base):
     content = Column(Text, nullable=True, comment="Resource description (Java field)")
     category_id = Column(BigInteger, nullable=True, comment="Category ID (Java field)")
     keyword = Column(String(500), nullable=True, comment="Search keyword (Java field)")
-    price = Column(Float, default=0.0, comment="Resource price (Java field)")
+    price = Column(Integer, default=0, comment="Resource price (分, Java field)")
     point = Column(Integer, default=0, comment="Reward points (Java field)")
     download_count = Column(Integer, default=0, comment="Download count (Java field)")
     view_count = Column(Integer, default=0, comment="View count (Java field)")
