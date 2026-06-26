@@ -527,6 +527,18 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register ruoyi legacy router: {e}")
 
+    # 2026-06-26 补齐: ZHS_Server_java 33 个部分迁移 Controller (152 端点)
+    # - 核心业务: LoginController/WXPayNowController/ResourceController/ResourceNowController
+    # - Agent 业务: ZhsAgentController/ZhsAgentBuyController/ZhsAgentExamineController
+    # - 课程业务: ZhsCourseController/ZhsCourseVideoController/ZhsCoursePlatformLogController 等
+    # - 其他 CRUD: AiUserFeedback/AppVersion/Distribution/Withdrawal 等
+    try:
+        from app.api.v1.zhs_server_java_legacy import router as zhs_java_legacy_router
+        app.include_router(zhs_java_legacy_router)
+        logger.info(f"ZHS Server Java legacy router registered ({len(zhs_java_legacy_router.routes)} routes)")
+    except Exception as e:
+        logger.error(f"Failed to register zhs server java legacy router: {e}")
+
     # v2 auth 路由 (转发到 v1 真实逻辑, 必须在 mock catch-all 之前注册)
     try:
         from app.api.v2_authentication import router as v2_auth_router
