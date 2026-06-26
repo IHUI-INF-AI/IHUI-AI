@@ -14,6 +14,17 @@
 
 import type { RouteRecordRaw } from 'vue-router';
 import type { Component } from 'vue';
+import { safeImport } from '../utils/componentLoader';
+import { loadModule, getCurrentLocale } from '@/locales';
+
+// 2026-06-26: 路由级 i18n 模块预加载辅助函数 (与其他 router 模块保持一致)
+function preloadI18n(modules: string[]) {
+  return async () => {
+    if (modules.length === 0) return
+    const locale = getCurrentLocale()
+    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
+  }
+}
 
 // Phase C 视图占位: 所有 edu 子页面在 view 文件建好前统一渲染 NotFound,
 // 避免 TS 类型失败, 同时路由可达不报错

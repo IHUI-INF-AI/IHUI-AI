@@ -121,6 +121,7 @@ declare module 'vue-i18n' {
   }): I18n
   export function useI18n(): {
     t: (key: string, ...args: unknown[]) => string
+    te: (key: string) => boolean
     locale: { value: string }
     [key: string]: unknown
   }

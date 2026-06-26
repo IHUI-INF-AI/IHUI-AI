@@ -43,7 +43,7 @@
     },
     "page2": {
       "title": "強大功能",
-      "titleEn": "強大功能 · PowerfulFeatures",
+      "titleEn": "PowerfulFeatures",
       "content": "探索我們提供的全方位AI服務，從模型集成到應用商店，滿足您的各種需求",
       "features": {
         "modelIntegration": "多模型集成",
@@ -54,7 +54,7 @@
       },
       "advantages": {
         "title": "核心優勢",
-        "titleEn": "核心優勢 · CoreAdvantages",
+        "titleEn": "CoreAdvantages",
         "subtitle": "為什麼選擇智匯AI",
         "professional": {
           "title": "專業",
@@ -90,13 +90,13 @@
     },
     "page4": {
       "title": "選擇適合您的套餐",
-      "titleEn": "選擇您的方案 · ChooseYourPlan",
+      "titleEn": "ChooseYourPlan",
       "content": "為不同需求的用戶提供靈活的價格方案，開啟您的AI之旅",
       "subtitle": "為不同需求的用戶提供靈活的價格方案"
     },
     "page5": {
       "title": "加入我們",
-      "titleEn": "加入我們 · JOIN US",
+      "titleEn": "JOIN US",
       "content": "成為智匯AI社區的一員，與全球AI愛好者一起探索智能未來",
       "joinText": "歡迎更多AI發燒友加入我們，共同探索人工智能的無限可能"
     },

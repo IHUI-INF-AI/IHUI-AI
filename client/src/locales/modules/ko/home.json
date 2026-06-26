@@ -89,17 +89,17 @@
           "title": "혁신신규"
         },
         "title": "핵심 장점",
-        "titleEn": "핵심 장점 · CoreAdvantages",
+        "titleEn": "CoreAdvantages",
         "subtitle": "왜 스마트 AI를 선택하나요"
       },
       "title": "강력한 기능",
-      "titleEn": "강력한 기능 · PowerfulFeatures"
+      "titleEn": "PowerfulFeatures"
     },
     "page3": {
       "핵심 장점": "핵심 장점",
       "content": "스마트 AI 커뮤니티는 AI 애호가와 개발자에게 최고 품질의 서비스와 리소스를 제공하는 데 전념합니다",
       "title": "정보우리",
-      "titleEn": "AI 뉴스 · AI NEWS",
+      "titleEn": "AI NEWS",
       "subtitle": "AI 분야의 최신 동향과 첨단 기술 탐색",
       "tabs": {
         "platform": "플랫폼 뉴스",
@@ -125,7 +125,7 @@
       "content": "스마트 AI 커뮤니티의 일원이 되어 글로벌 AI 애호가들과 함께 미래를 탐색하세요",
       "joinText": "더 많은 AI 애호가가 우리와 함께 인공스마트의 무한한 가능성을 탐색하길 환영합니다",
       "title": "참여우리",
-      "titleEn": "참여 · JOIN US"
+      "titleEn": "JOIN US"
     },
     "marquee": {
       "kouzi": "쿠자 아이콘",
