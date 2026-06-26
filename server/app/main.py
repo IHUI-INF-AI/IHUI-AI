@@ -324,10 +324,11 @@ def create_app() -> FastAPI:
 
     # 2026-06-26 P0 批次1 补迁移 (40 端点) - 必须先于 api_router 注册,
     # 静态路径 (categories/statistics) 才会先于 {course_id}/{account_id} 参数化路径匹配
+    # 挂载到 /api/v1/edu (而非 /api/v1), 保持与 edu 其它子模块一致的 URL 前缀
     try:
         from app.api.v1.edu.edu_supplement_p0_batch1 import router as edu_supplement_p0_router
-        app.include_router(edu_supplement_p0_router, prefix="/api/v1")
-        logger.info(f"Edu P0 batch1 supplement router registered ({len(edu_supplement_p0_router.routes)} routes, prefix=/api/v1)")
+        app.include_router(edu_supplement_p0_router, prefix="/api/v1/edu")
+        logger.info(f"Edu P0 batch1 supplement router registered ({len(edu_supplement_p0_router.routes)} routes, prefix=/api/v1/edu)")
     except Exception as e:
         logger.error(f"Failed to register edu P0 batch1 supplement router: {e}")
 

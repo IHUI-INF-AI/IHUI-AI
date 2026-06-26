@@ -41,7 +41,10 @@ from app.services import edu_supplement_p0_batch1 as svc
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/edu", tags=["Edu-Supplement-P0-Batch1"])
+# 路由层 prefix="": 实际前缀由 edu/__init__.py 的 register_routers 统一添加 (/edu),
+# 避免双 edu 前缀问题 (/edu/edu/...). 端点路径保持业务语义, 如
+# /pay/callback/alipay /auth/logout /account/me/password /learn/courses/{id}/enroll
+router = APIRouter(prefix="", tags=["Edu-Supplement-P0-Batch1"])
 
 
 def _get_db():
