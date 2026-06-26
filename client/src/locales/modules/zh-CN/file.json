@@ -1,40 +1,40 @@
 {
   "file": {
     "batchDelete": "批量删除",
-    "batchDownload": "batch 下载",
-    "batchShare": "batch 分享",
+    "batchDownload": "批量下载",
+    "batchShare": "批量分享",
     "clearSelection": "清空选择",
     "delete": "删除",
     "diff": {
-      "additions": "additions",
-      "changeDetails": "changeDetails",
-      "changes": "changes",
+      "additions": "新增内容",
+      "changeDetails": "变更详情",
+      "changes": "变更",
       "compare": "对比",
-      "deletions": "deletions",
+      "deletions": "删除内容",
       "from": "来自",
-      "line": "Line",
-      "selectVersions": "选择 versions",
-      "similarity": "similarity",
-      "to": "到"
+      "line": "行号",
+      "selectVersions": "选择版本",
+      "similarity": "相似度",
+      "to": "至"
     },
     "download": "下载",
-    "empty": "空",
+    "empty": "暂无文件",
     "manager": {
-      "title": "标题"
+      "title": "文件管理"
     },
     "preview": "预览",
     "remove": "移除",
     "search": "搜索",
     "selected": "已选择",
     "share": {
-      "1day": "1day",
-      "1hour": "1hour",
-      "7days": "7days",
-      "expires": "expires",
-      "forever": "forever",
+      "1day": "1天",
+      "1hour": "1小时",
+      "7days": "7天",
+      "expires": "有效期",
+      "forever": "永久有效",
       "password": "密码",
-      "passwordHint": "密码 hint",
-      "title": "标题"
+      "passwordHint": "密码提示",
+      "title": "分享"
     },
     "sort": {
       "date": "日期",
@@ -45,21 +45,21 @@
     "stats": {
       "selected": "已选择",
       "total": "总计",
-      "totalSize": "总计 大小"
+      "totalSize": "总大小"
     },
     "upload": {
-      "dragDrop": "拖动 放下",
-      "title": "标题"
+      "dragDrop": "拖放上传",
+      "title": "上传"
     },
     "versions": {
       "compare": "对比",
-      "current": "当前",
-      "diff": "diff",
-      "empty": "空",
-      "new": "最新",
+      "current": "当前版本",
+      "diff": "差异",
+      "empty": "暂无版本",
+      "new": "最新版本",
       "rollback": "回滚",
       "summary": "摘要",
-      "title": "标题"
+      "title": "版本历史"
     }
   }
 }

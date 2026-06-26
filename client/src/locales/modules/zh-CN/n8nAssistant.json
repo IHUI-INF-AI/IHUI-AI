@@ -1,2 +1,37 @@
 {
-  "n8
+  "n8nAssistant": {
+    "close": "关闭",
+    "copySuccess": "复制成功",
+    "downloadSuccess": "下载成功",
+    "generated": "已生成",
+    "generating": "生成中",
+    "guideItem1": "快速生成工作流",
+    "guideItem2": "优化节点配置",
+    "guideItem3": "调试错误排查",
+    "guideItem4": "自动化建议",
+    "guideTitle": "使用引导",
+    "imageUploadNotImplemented": "图片上传功能暂未实现",
+    "mockNotAvailable": "模拟数据不可用",
+    "mockResponseContent": "模拟响应内容",
+    "mockResponseCopy": "复制模拟响应",
+    "mockResponsePrefix": "模拟响应前缀",
+    "pageTitle": "N8N 智能助手",
+    "placeholder": "请输入您的问题",
+    "send": "发送",
+    "shareNotSupported": "暂不支持分享",
+    "suggestedQuestion1": "如何创建一个自动发送邮件的工作流？",
+    "suggestedQuestion2": "怎样连接数据库并查询数据？",
+    "suggestedQuestion3": "如何设置定时触发任务？",
+    "suggestedQuestion4": "怎样处理 API 返回的错误？",
+    "thinkingText1": "正在分析您的工作流需求",
+    "thinkingText2": "正在查找最佳实践方案",
+    "thinkingText3": "正在生成解决方案",
+    "thinkingTip": "AI 正在思考中，请稍候",
+    "thinkingTitle": "思考中",
+    "tishiTitle": "温馨提示",
+    "tokensConsumed": "已用 Tokens",
+    "viewGuide": "查看指南",
+    "voiceInputNotImplemented": "语音输入功能暂未实现",
+    "welcome": "欢迎"
+  }
+}

@@ -18,88 +18,88 @@
         "v110[3]": "v110[3]",
         "v110[4]": "v110[4]"
       },
-      "title": "标题"
+      "title": "更新日志"
     },
     "contributing": {
       "note": "备注",
       "steps": {
         "branch": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "从 main 分支创建一个新的功能分支",
+          "title": "创建分支"
         },
         "check": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "运行代码检查和测试，确保代码质量",
+          "title": "代码检查"
         },
         "clone": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "将项目代码克隆到本地开发环境",
+          "title": "克隆仓库"
         },
         "commit": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "提交代码变更，附带清晰的提交信息",
+          "title": "提交代码"
         },
         "dev": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "启动本地开发服务器，进行功能开发",
+          "title": "本地开发"
         },
         "fork": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "将项目 Fork 到自己的 GitHub 账号下",
+          "title": "Fork 项目"
         },
         "install": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "安装项目所需的依赖包",
+          "title": "安装依赖"
         },
         "push": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "将本地代码推送到远程仓库",
+          "title": "推送代码"
         }
       },
-      "title": "标题"
+      "title": "贡献指南"
     },
     "deploy": {
       "steps": {
         "build": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "执行构建命令，生成生产环境的静态文件",
+          "title": "构建项目"
         },
         "clone": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "从代码仓库拉取最新代码到服务器",
+          "title": "拉取代码"
         },
         "env": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "配置生产环境的环境变量",
+          "title": "环境配置"
         },
         "install": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "安装项目运行所需的依赖",
+          "title": "安装依赖"
         },
         "preview": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "在预览环境中验证部署效果",
+          "title": "预览验证"
         },
         "production": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "将应用部署到生产环境并上线",
+          "title": "正式部署"
         }
       },
-      "title": "标题"
+      "title": "部署指南"
     },
     "environment": {
-      "desc": "描述",
-      "key": "键",
+      "desc": "环境变量配置说明",
+      "key": "变量名",
       "no": "否",
       "note": "备注",
       "required": "必填",
-      "title": "标题",
+      "title": "环境配置",
       "vars": {
-        "buildPlatform": "buildPlatform",
-        "viteApiBaseUrl": "vite API base 链接",
-        "viteAppTitle": "vite app 标题",
-        "viteCspReportUri": "vite csp 报表 uri",
-        "viteEnableMonitor": "vite 启用 monitor",
+        "buildPlatform": "构建平台",
+        "viteApiBaseUrl": "API基础地址",
+        "viteAppTitle": "应用标题",
+        "viteCspReportUri": "CSP上报地址",
+        "viteEnableMonitor": "启用监控",
         "viteSentryDsn": "viteSentryDsn",
         "viteUseVize": "viteUseVize"
       },
@@ -108,65 +108,65 @@
     "faq": {
       "items": {
         "browser": {
-          "a": "按钮 A",
-          "q": "Q"
+          "a": "本应用支持所有现代浏览器，推荐使用 Chrome、Firefox、Edge 最新版本",
+          "q": "支持哪些浏览器？"
         },
         "bug": {
-          "a": "按钮 A",
-          "q": "Q"
+          "a": "请在 GitHub Issues 中提交 Bug，附上复现步骤和截图",
+          "q": "如何报告 Bug？"
         },
         "contribute": {
-          "a": "按钮 A",
-          "q": "Q"
+          "a": "欢迎参与贡献，请阅读贡献指南，Fork 项目后提交 PR",
+          "q": "如何参与贡献？"
         },
         "demo": {
-          "a": "按钮 A",
-          "q": "Q"
+          "a": "可以访问在线演示站点体验所有功能",
+          "q": "有在线演示吗？"
         },
         "deploy": {
-          "a": "按钮 A",
-          "q": "Q"
+          "a": "请参考部署指南，支持 Docker、Nginx 等多种部署方式",
+          "q": "如何部署项目？"
         },
         "language": {
-          "a": "按钮 A",
-          "q": "Q"
+          "a": "目前支持中文和英文，可在设置中切换语言",
+          "q": "支持哪些语言？"
         },
         "pwa": {
-          "a": "按钮 A",
-          "q": "Q"
+          "a": "本应用支持 PWA，可添加到桌面获得原生应用体验",
+          "q": "支持 PWA 吗？"
         },
         "techStack": {
-          "a": "按钮 A",
-          "q": "Q"
+          "a": "前端使用 Vue 3 + TypeScript + Vite，后端使用 Node.js",
+          "q": "技术栈是什么？"
         }
       },
-      "title": "标题"
+      "title": "常见问题"
     },
     "modules": {
-      "desc": "描述",
+      "desc": "API 模块说明",
       "list": {
         "admin": {
-          "desc": "描述",
+          "desc": "后台管理模块，负责用户管理和系统配置",
           "endpoints": {
             "login": "登录",
-            "menus": "menus",
+            "menus": "菜单管理",
             "roles": "角色",
             "users": "用户"
           },
-          "title": "标题"
+          "title": "管理后台"
         },
         "ai": {
-          "desc": "描述",
+          "desc": "AI 功能模块，提供对话、生成等智能服务",
           "endpoints": {
-            "agentsCreate": "智能体 创建",
+            "agentsCreate": "创建智能体",
             "chat": "对话",
             "generate": "生成",
             "models": "模型"
           },
-          "title": "标题"
+          "title": "AI 服务"
         },
         "auth": {
-          "desc": "描述",
+          "desc": "认证鉴权模块，处理用户登录、注册和权限验证",
           "endpoints": {
             "login": "登录",
             "logout": "退出登录",
@@ -174,83 +174,83 @@
             "register": "注册",
             "userInfo": "用户信息"
           },
-          "title": "标题"
+          "title": "认证鉴权"
         },
         "payment": {
-          "desc": "描述",
+          "desc": "支付模块，集成支付宝和微信支付",
           "endpoints": {
             "aliPay": "支付宝",
-            "aliPayNotify": "ali 支付 notify",
-            "aliPaySuccess": "ali 支付 成功",
-            "orderCreate": "订单 创建",
-            "wxPay": "wx 支付"
+            "aliPayNotify": "支付宝回调通知",
+            "aliPaySuccess": "支付宝支付成功",
+            "orderCreate": "创建订单",
+            "wxPay": "微信支付"
           },
-          "title": "标题"
+          "title": "支付服务"
         },
         "user": {
-          "desc": "描述",
+          "desc": "用户模块，管理用户信息、订单和会员",
           "endpoints": {
             "orders": "订单",
-            "profileGet": "资料 获取",
-            "profileUpdate": "资料更新",
-            "vipLevels": "VIP levels"
+            "profileGet": "获取资料",
+            "profileUpdate": "更新资料",
+            "vipLevels": "VIP等级"
           },
-          "title": "标题"
+          "title": "用户中心"
         }
       },
       "method": "方法",
       "path": "路径",
-      "title": "标题"
+      "title": "功能模块"
     },
     "overview": {
-      "description": "描述",
-      "descriptionValue": "描述 值",
+      "description": "项目简介",
+      "descriptionValue": "项目描述",
       "license": "许可证",
-      "node": "节点",
-      "projectName": "项目 名称",
-      "title": "标题",
+      "node": "运行环境",
+      "projectName": "项目名称",
+      "title": "项目概览",
       "version": "版本"
     },
     "security": {
       "items": {
         "csp": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "内容安全策略，防止 XSS 和数据注入攻击",
+          "title": "CSP 安全策略"
         },
         "hmac": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "HMAC 签名验证，确保 API 请求的完整性和真实性",
+          "title": "HMAC 签名"
         },
         "rbac": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "基于角色的访问控制，精细化管理用户权限",
+          "title": "RBAC 权限控制"
         },
         "session": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "会话管理和安全策略，防止会话劫持",
+          "title": "会话安全"
         },
         "webhook": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "Webhook 签名验证，确保回调请求的来源可信",
+          "title": "Webhook 安全"
         },
         "xss": {
-          "desc": "描述",
-          "title": "标题"
+          "desc": "XSS 防护策略，对用户输入进行严格的转义和过滤",
+          "title": "XSS 防护"
         }
       },
-      "title": "标题"
+      "title": "安全设计"
     },
-    "subtitle": "副标题",
+    "subtitle": "业务文档",
     "tab": {
-      "changelog": "changelog",
-      "contributing": "contributing",
-      "deploy": "deploy",
-      "environment": "环境",
+      "changelog": "更新日志",
+      "contributing": "贡献指南",
+      "deploy": "部署指南",
+      "environment": "环境配置",
       "faq": "常见问题",
-      "modules": "模块",
+      "modules": "功能模块",
       "overview": "概览",
       "security": "安全"
     },
-    "title": "标题"
+    "title": "开发文档"
   }
 }
