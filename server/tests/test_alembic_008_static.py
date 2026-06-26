@@ -22,7 +22,7 @@ VERSIONS = SERVER / "alembic" / "versions"
 INIT_SQL = VERSIONS / "001_init.sql"
 
 # 当前 head (2026-06-26 实际状态, 经 _verify_alembic_chain.py 验证)
-EXPECTED_HEAD = "054_add_agent_need_task_columns"
+EXPECTED_HEAD = "055_fix_model_field_types"
 MIN_CHAIN_LENGTH = 30
 
 

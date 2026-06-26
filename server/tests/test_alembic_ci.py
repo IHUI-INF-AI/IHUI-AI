@@ -205,12 +205,12 @@ def test_alembic_migration_chain_is_well_formed():
     actual = {r.revision for r in revisions}
     missing = expected - actual
     assert not missing, f"缺失迁移版本: {missing}"
-    # head 必须是 054_add_agent_need_task_columns (2026-06-26 新增)
+    # head 必须是 055_fix_model_field_types (2026-06-27 新增)
     heads = [r for r in revisions if r.down_revision and r.down_revision not in {x.revision for x in revisions if x is not r}]
     # 更稳: 没有任何迁移的 down_revision 指向 head
     all_ups = {r.down_revision for r in revisions if r.down_revision}
     actual_heads = [r.revision for r in revisions if r.revision not in all_ups]
-    assert "054_add_agent_need_task_columns" in actual_heads, f"head 应为 054_add_agent_need_task_columns, 实际 {actual_heads}"
+    assert "055_fix_model_field_types" in actual_heads, f"head 应为 055_fix_model_field_types, 实际 {actual_heads}"
 
 
 def test_alembic_002_no_longer_inserts_admin_data(alembic_tmp_db):
