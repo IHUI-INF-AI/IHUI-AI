@@ -66,7 +66,7 @@ def deduct_points_endpoint(user_id: int, payload: dict = {}, db: Session = Depen
     result = deduct_points(db, user_id=user_id, amount=payload.get("amount"))
     return success(data=result)
 
-@router.get("", summary="List members")
+@router.get("", summary="List members", dependencies=[Depends(require_role("admin"))])
 def list_members_endpoint(page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(_get_db)):
     from app.services.edu_member import list_members
     result = list_members(db)

@@ -707,7 +707,7 @@ def get_post(postId: int):  # noqa: 20
         )
 
 
-@post_router.put("", summary="修改岗位")
+@post_router.put("", summary="修改岗位", operation_id="admin_panel_update_post")
 def update_post(body: dict):
     """对应 Java: PUT /post"""
     postId = body.get("postId")

@@ -252,7 +252,7 @@ def paper_category_get(id: int):
     return _ok(category_business.get_paper_category(id))
 
 
-@router.post("/paper/category", summary="[Paper]添加分类")
+@router.post("/paper/category", summary="[Paper]添加分类", operation_id="category_legacy_paper_category_create")
 def paper_category_create(req: CategoryCreateReq):
     try:
         return _ok(category_business.create_paper_category(

@@ -539,6 +539,17 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register zhs server java legacy router: {e}")
 
+    # 2026-06-26 补齐 (阶段2b): RuoYi 后台 CRUD 六件套批量迁移 (66 Controllers / 396 端点)
+    # - 涵盖 ai-smart-society-java RuoYi 模块缺失 Controller (排除 ruoyi-system 已被 Python RBAC 替代)
+    # - 每个 Controller 生成 list/export/{id}/POST/PUT/DELETE/{ids} 六件套
+    # - 路径深度排序注册 (深路径优先, 避免子路径被父路径 {item_id} 拦截)
+    try:
+        from app.api.v1.ruoyi_legacy_crud_batch import router as ruoyi_crud_batch_router
+        app.include_router(ruoyi_crud_batch_router)
+        logger.info(f"RuoYi CRUD batch router registered ({len(ruoyi_crud_batch_router.routes)} routes)")
+    except Exception as e:
+        logger.error(f"Failed to register ruoyi crud batch router: {e}")
+
     # v2 auth 路由 (转发到 v1 真实逻辑, 必须在 mock catch-all 之前注册)
     try:
         from app.api.v2_authentication import router as v2_auth_router

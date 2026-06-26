@@ -4,7 +4,12 @@ Migrated from ihui-ai-edu-pay-service.
 Complete Phase B implementation.
 """
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+import hashlib
+import hmac
+import logging
+import os
+
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_session
@@ -20,6 +25,8 @@ from app.core.current_user import get_current_user_id
 
 
 from app.schemas.common import success
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -37,15 +44,39 @@ def create_pay_order_endpoint(user_id: int = Depends(get_current_user_id), paylo
     return success(data=result)
 
 @router.post("/pay-orders/{pay_order_id}/mark-paid", summary="Mark paid (webhook)")
-def mark_paid_endpoint(
+async def mark_paid_endpoint(
     pay_order_id: int,
+    request: Request,
     x_webhook_signature: str = Header(None, alias="X-Webhook-Signature"),
-    payload: dict = {},
-    db: Session = Depends(_get_db),
+    db=Depends(_get_db),
 ):
-    # P3-28: webhook 端点必须有签名头, 否则拒绝 (最小校验: 仅要求头存在)
-    if not x_webhook_signature:
-        raise HTTPException(status_code=403, detail="missing X-Webhook-Signature")
+    # 2026-06-26 C2 安全修复: webhook 真实验签 (HMAC-SHA256), 防止支付欺诈
+    # 配置方式: 环境变量 EDU_PAY_WEBHOOK_SECRET 与支付网关共享同一密钥
+    raw_body = await request.body()
+    secret = os.environ.get("EDU_PAY_WEBHOOK_SECRET", "")
+    if secret:
+        # 强制验签模式 (生产环境): 必须带签名且验签通过
+        if not x_webhook_signature:
+            logger.debug("pay webhook rejected: secret configured but signature missing (order=%s)", pay_order_id)
+            raise HTTPException(status_code=401, detail="Missing signature")
+        expected = "sha256=" + hmac.new(
+            secret.encode("utf-8"), raw_body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected, x_webhook_signature):
+            logger.debug("pay webhook rejected: signature mismatch (order=%s)", pay_order_id)
+            raise HTTPException(status_code=401, detail="Invalid signature")
+    else:
+        # 兼容模式 (开发环境): secret 未配置时仍要求签名头存在 (保持原有行为)
+        if not x_webhook_signature:
+            logger.debug("pay webhook rejected: signature header missing (order=%s)", pay_order_id)
+            raise HTTPException(status_code=403, detail="missing X-Webhook-Signature")
+    # 解析 body (验签通过后)
+    import json as _json
+    try:
+        payload = _json.loads(raw_body) if raw_body else {}
+    except _json.JSONDecodeError as e:
+        logger.debug("pay webhook JSON parse failed (order=%s): %s", pay_order_id, e)
+        raise HTTPException(status_code=400, detail="请求体格式错误") from e
     from app.services.edu_pay import mark_paid
     result = mark_paid(db, pay_order_id=pay_order_id, transaction_id=payload.get("transaction_id"))
     return success(data=result)

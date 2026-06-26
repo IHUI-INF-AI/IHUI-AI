@@ -624,6 +624,6 @@ def public_category_list(
 # ResourceStatisticsController - 1 endpoint
 # ---------------------------------------------------------------------------
 
-@router.get("/statistics", summary="获取资源统计数据")
+@router.get("/statistics", summary="获取资源统计数据", operation_id="resource_legacy_get_statistics")
 def get_statistics():
     return _ok(resource_business.get_resource_statistics())
