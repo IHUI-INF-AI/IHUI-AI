@@ -19,6 +19,10 @@ _SUB_ROUTER_IMPORTS = [
     # (module_path, attr_name, prefix_segment, tag)
     # phase B5 - 基础层
     ("app.api.v1.edu.auth",          "router", "/auth",          "Edu-Auth"),
+    # 2026-06-26 P0 批次1 补迁移 (40 端点: 支付回调/认证授权/会员账户/课程基础)
+    # 必须先于 member/learn 注册, 否则静态路径 (categories/statistics) 会被
+    # learn.py 的 {course_id} / member.py 的 {account_id} 参数化路径拦截.
+    ("app.api.v1.edu.edu_supplement_p0_batch1", "router", "", "Edu-Supplement-P0-Batch1"),
     ("app.api.v1.edu.member",        "router", "/member",        "Edu-Member"),
     ("app.api.v1.edu.usercenter",    "router", "/usercenter",    "Edu-UserCenter"),
     ("app.api.v1.edu.setting",       "router", "/setting",       "Edu-Setting"),
@@ -45,8 +49,6 @@ _SUB_ROUTER_IMPORTS = [
     ("app.api.v1.edu.visit_tracking","router", "/visit-tracking","Edu-Visit-Tracking"),
     # phase B - gateway (just route table)
     ("app.api.v1.edu.gateway",       "router", "",               "Edu-Gateway"),
-    # 2026-06-26 P0 批次1 补迁移 (40 端点: 支付回调/认证授权/会员账户/课程基础)
-    ("app.api.v1.edu.edu_supplement_p0_batch1", "router", "", "Edu-Supplement-P0-Batch1"),
 ]
 
 

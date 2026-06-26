@@ -23,7 +23,7 @@
  * 关闭: 把 process.env.IHUI_REPLACE_EL_EMPTY 设为 '0' / 'false', 或在调用时传 enabled: false.
  */
 
-import type { Plugin, ResolvedConfig } from 'vite'
+import type { Plugin } from 'vite'
 import { normalizePath } from 'vite'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -59,7 +59,6 @@ export default function replaceElEmptyPlugin(options: Options = {}): Plugin {
   const enabled = options.enabled ?? envEnabled
   const debug = options.debug ?? process.env.IHUI_REPLACE_EL_EMPTY_DEBUG === '1'
 
-  let viteConfig: ResolvedConfig | null = null
   // 解析后的 native 组件绝对路径 (含 ?vue 标识, 让 Vite 当 SFC 处理)
   let resolvedNativePath: string | null = null
 
@@ -98,7 +97,6 @@ export default function replaceElEmptyPlugin(options: Options = {}): Plugin {
     enforce: 'pre', // 早于 vite-plugin-vue 等插件
 
     configResolved(cfg) {
-      viteConfig = cfg
       // 计算 native 组件路径
       const fallback = path.resolve(cfg.root, 'src/components/common/NativeEmpty.vue')
       const target = options.componentPath

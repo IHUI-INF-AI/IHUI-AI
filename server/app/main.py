@@ -322,6 +322,15 @@ def create_app() -> FastAPI:
     # 主 API router 注册失败必须 raise (核心路由不可缺失, 静默吞掉会导致服务无路由可用)
     from app.api.v1.router import api_router
 
+    # 2026-06-26 P0 批次1 补迁移 (40 端点) - 必须先于 api_router 注册,
+    # 静态路径 (categories/statistics) 才会先于 {course_id}/{account_id} 参数化路径匹配
+    try:
+        from app.api.v1.edu.edu_supplement_p0_batch1 import router as edu_supplement_p0_router
+        app.include_router(edu_supplement_p0_router, prefix="/api/v1")
+        logger.info(f"Edu P0 batch1 supplement router registered ({len(edu_supplement_p0_router.routes)} routes, prefix=/api/v1)")
+    except Exception as e:
+        logger.error(f"Failed to register edu P0 batch1 supplement router: {e}")
+
     app.include_router(api_router, prefix="/api/v1")
     logger.info("API v1 router registered")
     # 2026-06-21 联调: 注册前端兼容路由 (i18n-v2/wallet/dashboard/refunds/security)
@@ -550,18 +559,11 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.error(f"Failed to register ruoyi crud batch router: {e}")
 
-    # 2026-06-26 补迁移: edu 微服务 P0 批次1 核心端点 (40 端点)
+    # 2026-06-26 补迁移: edu 微服务 P0 批次1 核心端点 (40 端点) - 已在 main() 顶部 include_router 注册
     # - 支付回调 (2): 支付宝/微信回调验签
     # - 认证授权补全 (9): 登出/刷新Token/短信/权限/角色管理
     # - 会员账户体系 (15): 密码/手机/邮箱绑定 + 账户管理
     # - 课程相关基础 (14): 报名/收藏/推荐/评分/评论
-    # 桩+日志模式: 端点可注册/鉴权/校验, service 待接入
-    try:
-        from app.api.v1.edu.edu_supplement_p0_batch1 import router as edu_supplement_p0_router
-        app.include_router(edu_supplement_p0_router)
-        logger.info(f"Edu P0 batch1 supplement router registered ({len(edu_supplement_p0_router.routes)} routes)")
-    except Exception as e:
-        logger.error(f"Failed to register edu P0 batch1 supplement router: {e}")
 
     # v2 auth 路由 (转发到 v1 真实逻辑, 必须在 mock catch-all 之前注册)
     try:

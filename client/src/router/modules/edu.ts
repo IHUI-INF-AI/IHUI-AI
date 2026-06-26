@@ -14,7 +14,6 @@
 
 import type { RouteRecordRaw } from 'vue-router';
 import type { Component } from 'vue';
-import { safeImport } from '../utils/componentLoader';
 import { loadModule, getCurrentLocale } from '@/locales';
 
 // 2026-06-26: 路由级 i18n 模块预加载辅助函数 (与其他 router 模块保持一致)
