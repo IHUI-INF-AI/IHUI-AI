@@ -293,3 +293,63 @@ client/scripts/reports/auto-translate-backup-*/
 client/scripts/reports/pre-rollback-*/
 # verify-translation-quality 运行时生成: 验证报告
 client/scripts/reports/verify-translation-*.json
+
+# ===== 根目录 main.py 临时备份/diff (2026-06-26 补充) =====
+# 防止修复 main.py 时的临时备份 (如 main-head.py / main-cr-fixed.diff) 误入库
+# 已用完应物理删除, 这里仅作 ignore 防回归
+/main-*.diff
+/main-*.patch
+/main-*.py
+/main-*.bak
+/main-*.orig
+/server-*.diff
+/api-*.diff
+/edu-*.diff
+
+# ===== 根目录 i18n/翻译相关临时输出 (2026-06-26 补充) =====
+# 防止 mock 翻译/rollback/verify 运行时在根目录生成的临时文件误入库
+# (与 client/scripts/reports/* 互补, 这里只管根目录)
+/mock.txt
+/dryrun.txt
+/verify.txt
+/check-*.txt
+
+# ===== 临时 commit 消息目录 (2026-06-26 补充) =====
+# 防止 git commit -F 临时文件目录 (如 commit_msgs/*.md) 误入库
+/commit_msgs/
+
+# ===== server/scripts 一次性诊断脚本 (2026-06-26 补充) =====
+# 与 server/.gitignore 互补, 这里只补 server/.gitignore 没覆盖的:
+# - _verify_*.py (验证脚本, 如 _verify_e2e_login_outdir.py)
+# - _compare_*.py (对比脚本, 如 _compare_ruoyi.py)
+# - _scan_*.py (扫描脚本, 如 _scan_client_hardcoded_paths.py)
+# - _create_*.py (创建脚本, 如 _create_missing_tables.py)
+# - _gen_*.py (生成脚本, 如 _gen_baseline.py / _gen_ruoyi_crud.py)
+# - _add_*.py / _probe_*.py (探针脚本)
+server/scripts/_verify_*.py
+server/scripts/_compare_*.py
+server/scripts/_scan_*.py
+server/scripts/_create_*.py
+server/scripts/_gen_*.py
+server/scripts/_add_*.py
+server/scripts/_probe_*.py
+
+# ===== 根目录临时备份/diff 第二批 (2026-06-26 补充) =====
+# 与 main-* 规则互补, 覆盖其它模块的临时备份
+# - edu-*.py/ts/txt: edu 相关临时备份 (如 edu-api-head.py, edu-router-head.ts)
+# - el-empty-*.ts: el-empty 临时备份 (如 el-empty-head.ts)
+# - gitignore-diff.txt: .gitignore 修改的 diff 输出
+# 通用规则用 *-head.* / *-diff.txt 等更宽匹配
+/edu-*.py
+/edu-*.ts
+/edu-*.txt
+/el-empty-*.ts
+/el-empty-*.py
+/gitignore-diff.txt
+/*-head.py
+/*-head.ts
+/*-head2.ts
+/*-head.diff
+/*-diff.txt
+/*-diff2.txt
+/*-diff.patch
