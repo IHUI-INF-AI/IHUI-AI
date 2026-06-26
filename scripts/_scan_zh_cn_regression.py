@@ -1,21 +1,9 @@
-"""扫描 zh-CN 翻译回归并输出 JSON 报告 (按问题类型 + 文件归类).
+"""更精准的 zh-CN 翻译回归扫描器.
 
-输出到 scripts/reports/zh_cn_regression.json:
-{
-  "stats": {
-    "total_files": 430,
-    "bad_files": 281,
-    "zh_en_mixed": 1956,
-    "value_equals_key": 634,
-    "residual_zh": 0
-  },
-  "by_file": {
-    "about.json": [
-      {"key": "AI基础设施", "value": "AI基础设施", "type": "zh-en-mixed", "leaf": "AI基础设施"},
-      ...
-    ]
-  }
-}
+修复了 _scan_zh_cn_regression.py 的过宽匹配问题:
+- {count} {amount} {name} 等占位符不视为混杂
+- AI/API/ID/URL 等通用缩写视为合法
+- 时间/数字单位 (min/max/sec/...) 不视为混杂
 """
 import json
 import re
@@ -30,39 +18,94 @@ if not ROOT.exists():
     print(f"[FATAL] zh-CN 模块目录不存在: {ROOT}", file=sys.stderr)
     sys.exit(1)
 
-# 允许的纯英文短词 (合理术语)
-ALLOWED_PURE_ENGLISH = {
-    "id", "Id", "ID", "ip", "IP", "ai", "AI", "ui", "UI", "url", "URL", "uri", "URI",
-    "json", "JSON", "xml", "XML", "html", "HTML", "css", "CSS", "js", "JS", "ts", "TS",
-    "vue", "Vue", "VUE", "react", "React", "node", "Node", "npm", "NPM",
+# 通用英文缩写 (允许出现)
+ALLOWED_ABBREVIATIONS = {
+    "id", "Id", "ID", "ip", "IP", "ai", "AI", "ui", "UI", "ux", "UX",
+    "url", "URL", "uri", "URI", "uuid", "UUID",
+    "json", "JSON", "xml", "XML", "html", "HTML", "css", "CSS", "scss", "SCSS",
+    "js", "JS", "ts", "TS", "jsx", "tsx", "vue", "Vue", "VUE",
+    "react", "React", "node", "Node", "npm", "NPM", "yarn", "Yarn",
     "ok", "OK", "no", "No", "NO", "yes", "Yes", "YES",
-    "title", "name", "type", "status", "code", "msg", "data", "time", "date",
-    "user", "admin", "token", "icon", "logo", "tag", "tags", "label", "value",
-    "true", "false", "null", "undefined",
-    "min", "max", "total", "page", "size", "limit", "offset",
-    "asc", "desc",
-    "row", "col", "rowIndex", "colIndex", "rowKey",
-    "rowClassName", "headerRowClassName", "cellClassName", "headerCellClassName",
-    "showOverflowTooltip", "formatter",
-    "PC", "Mac", "iOS", "Android", "Windows", "Linux", "Web", "App", "H5",
-    "VIP", "USD", "CNY", "EUR", "JPY", "KRW", "TWD", "RMB", "UUID",
+    "og", "OG", "seo", "SEO",
+    "api", "API", "rpc", "RPC", "rest", "REST",
+    "sdk", "SDK", "cli", "CLI", "gui", "GUI", "ide", "IDE",
+    "vip", "VIP", "vip", "Vip",
+    "pc", "PC", "mac", "Mac", "ios", "iOS", "android", "Android",
+    "windows", "Windows", "linux", "Linux", "web", "Web", "app", "App", "h5", "H5",
+    "mini", "Mini",
+    "pwa", "PWA", "spa", "SPA", "ssr", "SSR", "csr", "CSR",
+    "to", "To", "by", "By", "of", "Of", "in", "In", "on", "On", "at", "At",
+    "for", "For", "and", "And", "or", "Or", "as", "As",
+    "min", "Min", "max", "Max", "avg", "Avg", "sum", "Sum", "cnt", "Cnt",
+    "p", "P", "i", "I", "n", "N", "k", "K", "m", "M", "b", "B",
+    "kb", "KB", "mb", "MB", "gb", "GB", "tb", "TB",
+    "px", "em", "rem", "fr",
     "am", "pm", "AM", "PM",
-    "Step", "Step1", "Step2", "Step3",
+    "Step", "step",
     "bi", "Bi", "BI",
     "edu", "Edu", "EDU",
-    "k12", "K12",
-    "Vip", "vip",
-    "ot", "OT",
-    "to", "from", "by", "at", "in", "of",
-    "Sub", "sub",
+    "k12", "K12", "k-12", "K-12",
+    "v", "V", "r", "R",
+    "asc", "desc",
+    "row", "col", "Row", "Col", "idx", "Idx",
+    "plus", "Plus", "minus", "Minus",
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "h", "H", "m", "M", "s", "S", "d", "D", "w", "W",
+    "x", "X", "y", "Y", "z", "Z",
+    "ipAddress", "ip_address", "ipaddress",
+    "href", "Href", "src", "Src", "alt", "Alt",
     "titleEn", "subtitleEn", "descEn",
+    "rl", "RL",
+    "OT", "ot",
+    "sub", "Sub",
+    "notarize", "notarized",
+    "AI", "it", "IT", "PR", "pr",
+    "JR", "jr", "SR", "sr",
+    "HD", "hd", "SD", "sd", "FHD", "fhd", "4K", "8K",
+    "g", "G", "kg", "KG", "mg", "MG", "cm", "CM", "mm", "MM",
+    "3D", "3d", "2D", "2d",
+    "OAuth", "JWT", "SSO", "CDN", "DNS", "HTTP", "HTTPS", "TCP", "UDP",
+    "AES", "DES", "RSA", "SHA", "MD5",
+    "EU", "US", "UK", "JP", "KR",
+    "ATM", "POS", "CRM", "ERP", "OA",
+    "B2B", "B2C", "C2C", "B2G", "G2B", "G2C",
+    "PC", "TV", "AR", "VR", "MR", "XR",
+    "BPM", "KPI", "ROI", "GMV", "ARPU", "DAU", "MAU",
+    "Q1", "Q2", "Q3", "Q4",
+    "H5", "P5",
+    "5G", "4G", "3G", "2G",
+    "PDF", "Word", "Excel", "PPT",
+    "VIP", "vip",
 }
+
+# 占位符/变量名模式 (允许英文)
+PLACEHOLDER_PATTERN = re.compile(r"\{[^{}]*?\}")
+VARIABLE_PATTERN = re.compile(r"\{[a-zA-Z_][a-zA-Z0-9_.\-]*(?::[^}]+)?\}")
+URL_PATTERN = re.compile(r"https?://\S+|/[a-zA-Z][\w./\-]+")
+
+
+def strip_allowed(value: str) -> str:
+    """剥离开放的英文缩写 + 占位符 + URL, 只保留剩余文本."""
+    # 1. 移除 {xxx} 占位符
+    v = PLACEHOLDER_PATTERN.sub(" ", value)
+    # 2. 移除 URL
+    v = URL_PATTERN.sub(" ", v)
+    # 3. 把连续大写缩写替换掉 (如 AI API VIP)
+    # 匹配: 连续 2-6 个大写字母, 紧跟边界
+    v = re.sub(r"\b[A-Z][A-Z0-9]{1,5}\b", " ", v)
+    # 4. 把单个数字 + 字母 (如 4K, 3D) 替换掉
+    v = re.sub(r"\b\d+[A-Za-z]{1,3}\b", " ", v)
+    # 5. 把常见的允许缩写替换掉 (作为单词匹配)
+    for ab in sorted(ALLOWED_ABBREVIATIONS, key=len, reverse=True):
+        v = re.sub(rf"\b{re.escape(ab)}\b", " ", v, flags=re.IGNORECASE)
+    return v
 
 
 def is_zh_en_mixed(value: str) -> bool:
-    """值含中文 + 英文混杂."""
-    has_zh = bool(re.search(r"[\u4e00-\u9fa5]", value))
-    has_en = bool(re.search(r"[A-Za-z]", value))
+    """剥离允许内容后仍有中英混杂."""
+    stripped = strip_allowed(value)
+    has_zh = bool(re.search(r"[\u4e00-\u9fa5]", stripped))
+    has_en = bool(re.search(r"[A-Za-z]{2,}", stripped))
     return has_zh and has_en
 
 
@@ -70,7 +113,7 @@ def is_pure_english_key_like(value: str) -> bool:
     """值是纯英文 (camelCase/PascalCase 形式), 不在允许列表中."""
     if not re.match(r"^[A-Za-z][A-Za-z0-9]*$", value):
         return False
-    if value in ALLOWED_PURE_ENGLISH:
+    if value in ALLOWED_ABBREVIATIONS:
         return False
     return True
 
