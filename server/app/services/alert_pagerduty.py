@@ -76,7 +76,7 @@ def _build_event(
     if cls:
         payload["class"] = cls
     if custom_details:
-        payload["custom_details"] = custom_details
+        payload["custom_details"] = custom_details  # type: ignore[assignment]
     return {
         "routing_key": routing_key,
         "event_action": event_action,

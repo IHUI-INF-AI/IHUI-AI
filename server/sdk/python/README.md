@@ -259,8 +259,6 @@ Class | Method | HTTP request | Description
 *AgentsApi* | [**delete_api_v1_agents_agent_id_delete**](docs/AgentsApi.md#delete_api_v1_agents_agent_id_delete) | **DELETE** /api/v1/agents/{agent_id} | Delete agent
 *AgentsApi* | [**get_detail_api_v1_agents_agent_id_get**](docs/AgentsApi.md#get_detail_api_v1_agents_agent_id_get) | **GET** /api/v1/agents/{agent_id} | Get agent detail
 *AgentsApi* | [**update_api_v1_agents_agent_id_put**](docs/AgentsApi.md#update_api_v1_agents_agent_id_put) | **PUT** /api/v1/agents/{agent_id} | Update agent
-*AliLoginApi* | [**ali_pc_wx_code_api_v1_auth_login_ali_pc_wx_code_get**](docs/AliLoginApi.md#ali_pc_wx_code_api_v1_auth_login_ali_pc_wx_code_get) | **GET** /api/v1/auth/login/ali/pc/wxCode | Ali Pc Wx Code
-*AliLoginApi* | [**ali_web_wx_code_api_v1_auth_login_ali_web_wx_code_get**](docs/AliLoginApi.md#ali_web_wx_code_api_v1_auth_login_ali_web_wx_code_get) | **GET** /api/v1/auth/login/ali/web/wxCode | Ali Web Wx Code
 *AlipayApi* | [**alipay_query_api_v1_payments_alipay_query_post**](docs/AlipayApi.md#alipay_query_api_v1_payments_alipay_query_post) | **POST** /api/v1/payments/alipay/query | Query Alipay order
 *AlipayApi* | [**alipay_refund_api_v1_payments_alipay_refund_post**](docs/AlipayApi.md#alipay_refund_api_v1_payments_alipay_refund_post) | **POST** /api/v1/payments/alipay/refund | Alipay 退款（调用 alipay.trade.refund）
 *AlipayApi* | [**create_alipay_api_v1_payments_alipay_create_post**](docs/AlipayApi.md#create_alipay_api_v1_payments_alipay_create_post) | **POST** /api/v1/payments/alipay/create | Create Alipay PC / H5 page pay
@@ -347,8 +345,6 @@ Class | Method | HTTP request | Description
 *AuthIdentityApi* | [**list_identities_api_v1_auth_identity_list_get_0**](docs/AuthIdentityApi.md#list_identities_api_v1_auth_identity_list_get_0) | **GET** /api/v1/auth-identity/list | 认证列表(管理员)
 *AuthIdentityApi* | [**my_identity_api_v1_auth_identity_my_get**](docs/AuthIdentityApi.md#my_identity_api_v1_auth_identity_my_get) | **GET** /api/v1/auth-identity/my | 我的认证
 *AuthIdentityApi* | [**my_identity_api_v1_auth_identity_my_get_0**](docs/AuthIdentityApi.md#my_identity_api_v1_auth_identity_my_get_0) | **GET** /api/v1/auth-identity/my | 我的认证
-*AuthAlipayApi* | [**ali_pc_wx_code_api_v1_auth_login_ali_pc_wx_code_get**](docs/AuthAlipayApi.md#ali_pc_wx_code_api_v1_auth_login_ali_pc_wx_code_get) | **GET** /api/v1/auth/login/ali/pc/wxCode | Ali Pc Wx Code
-*AuthAlipayApi* | [**ali_web_wx_code_api_v1_auth_login_ali_web_wx_code_get**](docs/AuthAlipayApi.md#ali_web_wx_code_api_v1_auth_login_ali_web_wx_code_get) | **GET** /api/v1/auth/login/ali/web/wxCode | Ali Web Wx Code
 *AuthEnterpriseWeChatApi* | [**enterprise_pc_callback_api_v1_auth_login_enterprise_pc_callback_post**](docs/AuthEnterpriseWeChatApi.md#enterprise_pc_callback_api_v1_auth_login_enterprise_pc_callback_post) | **POST** /api/v1/auth/login/enterprise/pc/callback | Enterprise Pc Callback
 *AuthEnterpriseWeChatApi* | [**enterprise_pc_wx_code_api_v1_auth_login_enterprise_pc_wx_code_get**](docs/AuthEnterpriseWeChatApi.md#enterprise_pc_wx_code_api_v1_auth_login_enterprise_pc_wx_code_get) | **GET** /api/v1/auth/login/enterprise/pc/wxCode | Enterprise Pc Wx Code
 *AuthFeishuApi* | [**feishu_pc_test_api_v1_auth_login_feishu_pc_test_get**](docs/AuthFeishuApi.md#feishu_pc_test_api_v1_auth_login_feishu_pc_test_get) | **GET** /api/v1/auth/login/feishu/pc/test | Feishu Pc Test

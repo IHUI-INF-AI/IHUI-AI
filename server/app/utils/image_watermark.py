@@ -14,7 +14,7 @@ try:
     _HAS_PIL = True
 except ImportError:
     _HAS_PIL = False
-    Image = ImageDraw = ImageFont = None
+    Image = ImageDraw = ImageFont = None  # type: ignore[assignment]
 
 
 def add_text_watermark(
@@ -59,11 +59,11 @@ def add_text_watermark(
                     font = ImageFont.truetype(fp, font_size)
                     break
             if font is None:
-                font = ImageFont.load_default()
+                font = ImageFont.load_default()  # type: ignore[assignment]
         except Exception:
-            font = ImageFont.load_default()
+            font = ImageFont.load_default()  # type: ignore[assignment]
         bbox = draw.textbbox((0, 0), text, font=font)
-        text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        text_w, text_h = int(bbox[2] - bbox[0]), int(bbox[3] - bbox[1])
         margin = 10
         if position == "top-left":
             x, y = margin, margin
@@ -105,7 +105,7 @@ def add_image_watermark(
         base = Image.open(base_path).convert("RGBA")
         logo = Image.open(logo_path).convert("RGBA")
         w, h = int(base.width * scale), int(base.height * scale)
-        logo = logo.resize((w, h), Image.LANCZOS)
+        logo = logo.resize((w, h), Image.LANCZOS)  # type: ignore[attr-defined]
         alpha = logo.split()[3]
         alpha = alpha.point(lambda p: int(p * opacity / 255))
         logo.putalpha(alpha)

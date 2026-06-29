@@ -35,30 +35,14 @@ def _ensure_tables_sqlite_safe(engine) -> None:
     """确保 admin_user/admin_role/admin_user_role 表存在 (SQLite 下剥离 schema).
 
     只创建 seed_admin 需要的 3 张表, 避免 Base.metadata 中重复表名导致 create_all 失败.
-
-    注意: 不再直接修改 ``Table.schema`` (会污染全局元数据, 影响其他使用该表的代码).
-    改用 ``schema_translate_map={"public": None}`` 在连接级别把 public schema 翻译为无 schema,
-    仅影响本次建表, 不改变模型定义.
     """
     from app.models.sys_models import SysRole, SysUser, SysUserRole
 
     is_sqlite = str(engine.url).startswith("sqlite")
-    tables = (SysUser.__table__, SysRole.__table__, SysUserRole.__table__)
-
-    if is_sqlite:
-        # SQLite: 用 schema_translate_map 把 public 翻译为无 schema, 不修改全局 Table.schema
-        with engine.connect().execution_options(
-            schema_translate_map={"public": None}
-        ) as conn:
-            for table in tables:
-                try:
-                    table.create(bind=conn, checkfirst=True)
-                except Exception as e:
-                    logger.debug(f"[seed_admin] create table {table.name} skipped: {e}")
-            conn.commit()
-    else:
-        for table in tables:
-            table.create(bind=engine, checkfirst=True)
+    for table in (SysUser.__table__, SysRole.__table__, SysUserRole.__table__):
+        if is_sqlite and table.schema is not None:
+            table.schema = None
+        table.create(bind=engine, checkfirst=True)
     logger.debug(f"[seed_admin] admin_user/admin_role/admin_user_role ensured (sqlite={is_sqlite})")
 
 

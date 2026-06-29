@@ -29,9 +29,9 @@ try:
     from opentelemetry import trace
     from opentelemetry.trace import Status, StatusCode
 except Exception:  # opentelemetry 未安装时优雅降级
-    trace = None
-    Status = None
-    StatusCode = None
+    trace = None  # type: ignore[assignment]
+    Status = None  # type: ignore[assignment]
+    StatusCode = None  # type: ignore[assignment]
 
 
 # Bug-54: 默认慢查询阈值 (可被 hot_config 覆盖)
@@ -46,8 +46,8 @@ def _get_slow_threshold_ms() -> float:
         v = hot_get("SLOW_QUERY_MS")
         if v is not None:
             return float(v)
-    except Exception as e:
-        logger.warning(f"hot_config load failed: {e}")
+    except Exception:
+        logger.warning("Caught unexpected exception")
     return DEFAULT_SLOW_QUERY_MS
 
 

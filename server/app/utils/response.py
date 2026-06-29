@@ -1,11 +1,14 @@
-"""API 响应便捷函数 (包 ApiResponse, 旧代码兼容)."""
+"""API 响应便捷函数 (包 ApiResponse, 旧代码兼容).
+
+输出统一标准格式: {"code": "0", "msg": "success", "data": ...}
+"""
 
 from typing import Any
 
 from app.utils.response_builder import ApiResponse
 
 
-def success(data: Any = None, message: str = "ok", code: int = 0) -> dict:
+def success(data: Any = None, message: str = "success", code: int = 0) -> dict:
     """包装 ApiResponse.success."""
     return ApiResponse.success(data=data, message=message, code=code)
 

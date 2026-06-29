@@ -26,7 +26,7 @@ export interface BodyRemoveByPlatformApiV1AuthAuthBindingsRemovePost {
      */
     uuid: string;
     /**
-     * Platform name (wechat, google, alipay, feishu)
+     * Platform name (wechat, google, alipay)
      * @type {string}
      * @memberof BodyRemoveByPlatformApiV1AuthAuthBindingsRemovePost
      */

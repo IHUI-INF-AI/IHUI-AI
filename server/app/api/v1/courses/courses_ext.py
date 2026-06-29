@@ -1,5 +1,7 @@
 """教育平台扩展端点 -- 视频 / 分类 / 平台 / 支付 / 评论 / 日志 / 用户绑定 全量 CRUD."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -9,7 +11,6 @@ from app.schemas.common import error, success
 from app.security import require_login
 from app.services.order_service import create_order
 from app.services.token_service import check_user_token, deduct_user_token
-from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -104,7 +105,7 @@ class UserPlatformBind(BaseModel):
 
 
 @router.get("/videos", summary="课程视频列表")
-def list_videos(
+async def list_videos(
     course_id: int = Query(...),
     is_pay: int = Query(None, description="0 免费 1 付费"),
     page: int = Query(1, ge=1),
@@ -138,7 +139,7 @@ def list_videos(
 
 
 @router.get("/videos/{video_id}", summary="视频详情")
-def get_video(video_id: int):
+async def get_video(video_id: int):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -171,7 +172,7 @@ def get_video(video_id: int):
 
 
 @router.post("/videos/create", summary="创建视频")
-def create_video(body: VideoCreate, user_uuid: str = Depends(require_login)):
+async def create_video(body: VideoCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -209,7 +210,7 @@ def create_video(body: VideoCreate, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/videos/batch", summary="批量创建视频")
-def batch_create_videos(body: VideoBatchCreate, user_uuid: str = Depends(require_login)):
+async def batch_create_videos(body: VideoBatchCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -250,7 +251,7 @@ def batch_create_videos(body: VideoBatchCreate, user_uuid: str = Depends(require
 
 
 @router.put("/videos/{video_id}", summary="更新视频")
-def update_video(video_id: int, body: VideoUpdate, user_uuid: str = Depends(require_login)):
+async def update_video(video_id: int, body: VideoUpdate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -272,7 +273,7 @@ def update_video(video_id: int, body: VideoUpdate, user_uuid: str = Depends(requ
 
 
 @router.delete("/videos/{video_id}", summary="删除视频")
-def delete_video(video_id: int, user_uuid: str = Depends(require_login)):
+async def delete_video(video_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -292,7 +293,7 @@ def delete_video(video_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/videos/{video_id}/move", summary="移动视频到其他课程")
-def move_video(
+async def move_video(
     video_id: int,
     target_course_id: int = Query(..., description="目标课程 ID"),
     user_uuid: str = Depends(require_login),
@@ -308,7 +309,7 @@ def move_video(
         if not target:
             return error("目标课程不存在")
         old_course_id = video.course_id
-        video.course_id = target_course_id
+        video.course_id = target_course_id  # type: ignore[assignment]
         db.commit()
         return success({"id": video_id, "old_course_id": old_course_id, "new_course_id": target_course_id})
     except Exception as e:
@@ -320,7 +321,7 @@ def move_video(
 
 
 @router.post("/videos/{video_id}/issue", summary="视频发布/下架")
-def issue_video(video_id: int, user_uuid: str = Depends(require_login)):
+async def issue_video(video_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import CourseVideo
@@ -328,7 +329,7 @@ def issue_video(video_id: int, user_uuid: str = Depends(require_login)):
         video = db.query(CourseVideo).filter(CourseVideo.id == video_id).first()
         if not video:
             return error("视频不存在")
-        video.status = 0 if video.status == 1 else 1
+        video.status = 0 if video.status == 1 else 1  # type: ignore[assignment]
         db.commit()
         return success({"id": video_id, "status": video.status})
     except Exception as e:
@@ -340,7 +341,7 @@ def issue_video(video_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.get("/videos/my", summary="我创建的视频")
-def my_videos(
+async def my_videos(
     user_uuid: str = Depends(require_login),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -377,7 +378,7 @@ def my_videos(
 
 
 @router.get("/categories", summary="课程分类列表")
-def list_categories(status: int = Query(1, description="0 禁用 1 启用")):
+async def list_categories(status: int = Query(1, description="0 禁用 1 启用")):
     db = SessionFactory3()
     try:
         from sqlalchemy import text
@@ -399,7 +400,7 @@ def list_categories(status: int = Query(1, description="0 禁用 1 启用")):
 
 
 @router.get("/categories/{category_id}/parent", summary="查询分类的父级链")
-def get_category_parent(category_id: int):
+async def get_category_parent(category_id: int):
     """递归查询分类的父级链,返回从根到当前节点的完整路径."""
     db = SessionFactory3()
     try:
@@ -433,7 +434,7 @@ def get_category_parent(category_id: int):
 
 
 @router.get("/platforms", summary="教育平台列表")
-def list_platforms(
+async def list_platforms(
     status: int = Query(1),
     page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=500),
@@ -466,7 +467,7 @@ def list_platforms(
 
 
 @router.get("/platforms/{code}", summary="教育平台详情")
-def get_platform(code: str):
+async def get_platform(code: str):
     db = SessionFactory3()
     try:
         from app.models.course_models import EducationPlatform
@@ -490,7 +491,7 @@ def get_platform(code: str):
 
 
 @router.post("/platforms/create", summary="创建教育平台")
-def create_platform(body: PlatformCreate, user_uuid: str = Depends(require_login)):
+async def create_platform(body: PlatformCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import EducationPlatform
@@ -524,7 +525,7 @@ def create_platform(body: PlatformCreate, user_uuid: str = Depends(require_login
 
 
 @router.put("/platforms/{platform_id}", summary="更新教育平台")
-def update_platform(platform_id: int, body: PlatformUpdate, user_uuid: str = Depends(require_login)):
+async def update_platform(platform_id: int, body: PlatformUpdate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import EducationPlatform
@@ -550,7 +551,7 @@ def update_platform(platform_id: int, body: PlatformUpdate, user_uuid: str = Dep
 
 
 @router.delete("/platforms/{platform_id}", summary="删除教育平台(软删除)")
-def delete_platform(platform_id: int, user_uuid: str = Depends(require_login)):
+async def delete_platform(platform_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import EducationPlatform
@@ -562,7 +563,7 @@ def delete_platform(platform_id: int, user_uuid: str = Depends(require_login)):
         )
         if not p:
             return error("平台不存在")
-        p.is_del = 1
+        p.is_del = 1  # type: ignore[assignment]
         db.commit()
         return success({"id": platform_id})
     except Exception as e:
@@ -579,7 +580,7 @@ def delete_platform(platform_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/pay", summary="课程支付(先用 token 扣减)")
-def pay_course(
+async def pay_course(
     course_id: int = Query(...),
     cost_tokens: int = Query(..., description="所需 token"),
     pay_type: int = Query(0, description="0 token 1 微信 2 支付宝"),
@@ -591,7 +592,7 @@ def pay_course(
             return error(f"token 余额不足: 当前 {check['current_balance']}")
         result = deduct_user_token(user_uuid, cost_tokens, desc=f"课程购买:{course_id}")
         if not result["success"]:
-            return error(result.get("reason"))
+            return error(result.get("reason"))  # type: ignore[arg-type]
         return success(
             {
                 "course_id": course_id,
@@ -627,12 +628,11 @@ def pay_course(
 
 
 @router.get("/pay-logs", summary="课程支付日志列表")
-def list_pay_logs(
+async def list_pay_logs(
     course_id: int = Query(None),
     user_id: str = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    _: str = Depends(require_login),
 ):
     db = SessionFactory3()
     try:
@@ -682,7 +682,7 @@ def list_pay_logs(
 
 
 @router.get("/comments", summary="课程评论列表")
-def list_comments(
+async def list_comments(
     course_id: int = Query(...),
     parent_id: int = Query(None, description="父评论 ID,不传则只查顶级"),
     page: int = Query(1, ge=1),
@@ -728,7 +728,7 @@ def list_comments(
 
 
 @router.post("/comments/create", summary="提交课程评论")
-def create_comment(body: CommentCreate, user_uuid: str = Depends(require_login)):
+async def create_comment(body: CommentCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from sqlalchemy import text
@@ -746,11 +746,11 @@ def create_comment(body: CommentCreate, user_uuid: str = Depends(require_login))
                 "content": body.content,
                 "star": body.star,
                 "pid": body.parent_id or 0,
-                "now": utcnow(),
+                "now": datetime.utcnow(),
             },
         )
         db.commit()
-        return success({"id": result.lastrowid, "star": body.star, "parent_id": body.parent_id})
+        return success({"id": result.lastrowid, "star": body.star, "parent_id": body.parent_id})  # type: ignore[attr-defined]
     except Exception as e:
         db.rollback()
         logger.error(f"Create comment error: {e}")
@@ -760,7 +760,7 @@ def create_comment(body: CommentCreate, user_uuid: str = Depends(require_login))
 
 
 @router.get("/comments/parent", summary="查询评论的父级评论")
-def get_comment_parent(comment_id: int = Query(...)):
+async def get_comment_parent(comment_id: int = Query(...)):
     """查询指定评论的父级评论内容."""
     db = SessionFactory3()
     try:
@@ -801,7 +801,7 @@ def get_comment_parent(comment_id: int = Query(...)):
 
 
 @router.delete("/comments/{comment_id}", summary="删除评论(软删除)")
-def delete_comment(comment_id: int, user_uuid: str = Depends(require_login)):
+async def delete_comment(comment_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from sqlalchemy import text
@@ -811,7 +811,7 @@ def delete_comment(comment_id: int, user_uuid: str = Depends(require_login)):
             {"id": comment_id},
         )
         db.commit()
-        if result.rowcount == 0:
+        if result.rowcount == 0:  # type: ignore[attr-defined]
             return error("评论不存在或已删除")
         return success({"id": comment_id})
     except Exception as e:
@@ -828,7 +828,7 @@ def delete_comment(comment_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/video-log", summary="记录用户视频观看日志")
-def create_video_log(
+async def create_video_log(
     video_id: int = Query(...),
     course_id: int = Query(...),
     progress: int = Query(0, description="观看进度(秒)"),
@@ -850,7 +850,7 @@ def create_video_log(
                     "UPDATE zhs_user_video_log SET progress = :prog, duration = :dur, updated_at = :now "
                     "WHERE id = :id"
                 ),
-                {"prog": progress, "dur": duration, "now": utcnow(), "id": existing[0]},
+                {"prog": progress, "dur": duration, "now": datetime.utcnow(), "id": existing[0]},
             )
             db.commit()
             return success({"id": existing[0], "action": "updated"})
@@ -866,11 +866,11 @@ def create_video_log(
                 "cid": course_id,
                 "prog": progress,
                 "dur": duration,
-                "now": utcnow(),
+                "now": datetime.utcnow(),
             },
         )
         db.commit()
-        return success({"id": result.lastrowid, "action": "created"})
+        return success({"id": result.lastrowid, "action": "created"})  # type: ignore[attr-defined]
     except Exception as e:
         db.rollback()
         logger.error(f"Create video log error: {e}")
@@ -880,7 +880,7 @@ def create_video_log(
 
 
 @router.get("/video-log/list", summary="用户视频观看日志列表")
-def list_video_logs(
+async def list_video_logs(
     course_id: int = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -928,7 +928,7 @@ def list_video_logs(
 
 
 @router.get("/operate/list", summary="用户操作日志列表")
-def list_operate_logs(
+async def list_operate_logs(
     type: str = Query(None, description="操作类型: comment / pay / video 等"),
     user_id: str = Query(None),
     page: int = Query(1, ge=1),
@@ -981,7 +981,7 @@ def list_operate_logs(
 
 
 @router.get("/platform-logs", summary="平台操作日志列表")
-def list_platform_logs(
+async def list_platform_logs(
     platform_id: int = Query(None),
     user_id: str = Query(None),
     page: int = Query(1, ge=1),
@@ -1034,7 +1034,7 @@ def list_platform_logs(
 
 
 @router.post("/user-platform/bind", summary="用户绑定教育平台")
-def bind_user_platform(body: UserPlatformBind, user_uuid: str = Depends(require_login)):
+async def bind_user_platform(body: UserPlatformBind, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from sqlalchemy import text
@@ -1056,11 +1056,11 @@ def bind_user_platform(body: UserPlatformBind, user_uuid: str = Depends(require_
                 "pid": body.platform_id,
                 "acc": body.account,
                 "remark": body.remark,
-                "now": utcnow(),
+                "now": datetime.utcnow(),
             },
         )
         db.commit()
-        return success({"id": result.lastrowid, "platform_id": body.platform_id})
+        return success({"id": result.lastrowid, "platform_id": body.platform_id})  # type: ignore[attr-defined]
     except Exception as e:
         db.rollback()
         logger.error(f"Bind user platform error: {e}")
@@ -1070,7 +1070,7 @@ def bind_user_platform(body: UserPlatformBind, user_uuid: str = Depends(require_
 
 
 @router.delete("/user-platform/unbind", summary="用户解绑教育平台")
-def unbind_user_platform(
+async def unbind_user_platform(
     platform_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -1083,7 +1083,7 @@ def unbind_user_platform(
             {"uid": user_uuid, "pid": platform_id},
         )
         db.commit()
-        if result.rowcount == 0:
+        if result.rowcount == 0:  # type: ignore[attr-defined]
             return error("未绑定该平台")
         return success({"platform_id": platform_id})
     except Exception as e:
@@ -1095,7 +1095,7 @@ def unbind_user_platform(
 
 
 @router.get("/user-platform/my", summary="我的平台绑定列表")
-def my_platforms(user_uuid: str = Depends(require_login)):
+async def my_platforms(user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from sqlalchemy import text

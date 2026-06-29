@@ -102,7 +102,7 @@ def _memory_get(key: str) -> str | None:
 
 def _memory_set(key: str, val: str, ex: int | None = None) -> None:
     with _memory_lock:
-        _memory_store[key] = val
+        _memory_store[key] = val  # type: ignore[assignment]
 
 
 def _memory_delete(*keys: str) -> None:
@@ -204,18 +204,17 @@ def init_upload(
         existing_id = _memory_get(_hash_key(file_hash))
     if existing_id:
         existing = _load_session(existing_id)
-        if existing and existing.status == "completed" and existing.final_path:
+        if existing and existing.status == "completed" and existing.final_path and os.path.exists(existing.final_path):
             # 检查文件是否还在
-            if os.path.exists(existing.final_path):
-                return {
-                    "upload_id": existing.upload_id,
-                    "already_uploaded": existing.size,
-                    "chunk_size": existing.chunk_size,
-                    "total_chunks": existing.total_chunks,
-                    "status": "completed",
-                    "fast_upload": True,
-                    "final_path": existing.final_path,
-                }
+            return {
+                "upload_id": existing.upload_id,
+                "already_uploaded": existing.size,
+                "chunk_size": existing.chunk_size,
+                "total_chunks": existing.total_chunks,
+                "status": "completed",
+                "fast_upload": True,
+                "final_path": existing.final_path,
+            }
     # 2) 新建会话
     upload_id = uuid.uuid4().hex
     total_chunks = max(1, (size + chunk_size - 1) // chunk_size)

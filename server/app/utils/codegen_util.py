@@ -200,7 +200,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
 class {{ class_name }}Base(BaseModel):
@@ -227,7 +227,7 @@ class {{ class_name }}Out({{ class_name }}Base):
     """Properties to return to client."""
     {{ pk_field }}: {{ pk_type }}
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 '''
 
 _ROUTE_TEMPLATE = r'''"""CRUD routes for {{ function_name }} (auto-generated)."""
@@ -246,7 +246,7 @@ router = APIRouter()
 
 
 @router.get("/{{ business_name }}/list", summary="List {{ function_name }}")
-def list_{{ business_name }}(
+async def list_{{ business_name }}(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -263,7 +263,7 @@ def list_{{ business_name }}(
 
 
 @router.get("/{{ business_name }}/{{ '{' }}{{ pk_field }}{{ '}' }}", summary="Get {{ function_name }} detail")
-def get_{{ business_name }}(
+async def get_{{ business_name }}(
     {{ pk_field }}: {{ pk_type }} = Path(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -279,7 +279,7 @@ def get_{{ business_name }}(
 
 
 @router.post("/{{ business_name }}", summary="Create {{ function_name }}")
-def create_{{ business_name }}(
+async def create_{{ business_name }}(
     data: dict = Body(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -297,7 +297,7 @@ def create_{{ business_name }}(
 
 
 @router.put("/{{ business_name }}", summary="Update {{ function_name }}")
-def update_{{ business_name }}(
+async def update_{{ business_name }}(
     data: dict = Body(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -321,7 +321,7 @@ def update_{{ business_name }}(
 
 
 @router.delete("/{{ business_name }}/{{ '{' }}{{ pk_field }}{{ '}' }}", summary="Delete {{ function_name }}")
-def delete_{{ business_name }}(
+async def delete_{{ business_name }}(
     {{ pk_field }}: {{ pk_type }} = Path(...),
     user_uuid: str = Depends(require_login),
 ):

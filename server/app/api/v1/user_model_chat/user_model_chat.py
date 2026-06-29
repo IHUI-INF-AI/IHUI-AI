@@ -24,7 +24,7 @@ async def chat(
 ):
     """用户直接调用AI模型对话(不绑定Agent)"""
     base = api_base or "https://api.openai.com/v1"
-    with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if openai_key(api_key):
@@ -56,7 +56,7 @@ async def image(
     api_base: str | None = None,
 ):
     base = api_base or "https://api.openai.com/v1"
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if openai_key(api_key):
@@ -73,7 +73,7 @@ async def image(
 
 
 @router.get("/list", summary="可用模型列表")
-def list_models():
+async def list_models():
     """获取支持的AI模型列表"""
     return success(
         {

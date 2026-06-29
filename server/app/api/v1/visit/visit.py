@@ -17,7 +17,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("/track", summary="记录访问")
-def track(
+async def track(
     path: str = Query(..., min_length=1),
     method: str | None = None,
     query_params: str | None = None,
@@ -87,7 +87,7 @@ def track(
 
 
 @router.get("/log/list", summary="访问日志")
-def log_list(
+async def log_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_id: str | None = None,
@@ -139,7 +139,7 @@ def log_list(
 
 
 @router.get("/stats/daily", operation_id="visit_daily_stats", summary="每日访问统计")
-def daily_stats(
+async def daily_stats(
     start_date: str | None = None, end_date: str | None = None, target_type: str | None = None
 ):
     with get_session() as db:
@@ -174,7 +174,7 @@ def daily_stats(
 
 
 @router.get("/stats/today", summary="今日实时统计")
-def today_stats():
+async def today_stats():
     with get_session() as db:
         try:
             today = date.today().isoformat()
@@ -210,7 +210,7 @@ def today_stats():
 
 
 @router.get("/stats/source", summary="来源统计")
-def source_stats(start_date: str | None = None, end_date: str | None = None):
+async def source_stats(start_date: str | None = None, end_date: str | None = None):
     with get_session() as db:
         try:
             q = db.query(VisitSource)
@@ -235,7 +235,7 @@ def source_stats(start_date: str | None = None, end_date: str | None = None):
 
 
 @router.get("/stats/page", summary="页面统计")
-def page_stats(
+async def page_stats(
     start_date: str | None = None, end_date: str | None = None, limit: int = Query(50, ge=1, le=200)
 ):
     with get_session() as db:
@@ -264,7 +264,7 @@ def page_stats(
 
 
 @router.post("/source/record", summary="记录来源")
-def record_source(source: str = Query(...), stat_date: str | None = None):
+async def record_source(source: str = Query(...), stat_date: str | None = None):
     with get_session() as db:
         try:
             d = stat_date or date.today().isoformat()
@@ -280,7 +280,7 @@ def record_source(source: str = Query(...), stat_date: str | None = None):
 
 
 @router.post("/page/record", summary="记录页面访问")
-def record_page(path: str = Query(...), stat_date: str | None = None, duration: int = 0):
+async def record_page(path: str = Query(...), stat_date: str | None = None, duration: int = 0):
     with get_session() as db:
         try:
             d = stat_date or date.today().isoformat()

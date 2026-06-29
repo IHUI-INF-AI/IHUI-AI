@@ -1,7 +1,7 @@
 """用户视频评论"""
 
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Column, Index, Integer, String, Text
 
@@ -37,7 +37,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.get("/list", summary="视频评论列表")
-def list_comments(video_id: int = Query(...), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+async def list_comments(video_id: int = Query(...), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
             q = db.query(UserVideoComment).filter(
@@ -71,12 +71,12 @@ def list_comments(video_id: int = Query(...), page: int = Query(1, ge=1), limit:
 
 
 @router.post("", summary="发表视频评论")
-def add_comment(
+async def add_comment(
     video_id: int = Query(...),
-    content: str = Query(..., min_length=1),
     pid: int = 0,
     reply_user_id: str | None = None,
     reply_user_name: str | None = None,
+    content: str = Body(..., min_length=1),
 ):
     with get_session() as db:
         try:
@@ -99,7 +99,7 @@ def add_comment(
 
 
 @router.delete("/{cid}", summary="删除视频评论")
-def delete_comment(cid: int):
+async def delete_comment(cid: int):
     with get_session() as db:
         try:
             c = db.query(UserVideoComment).filter(UserVideoComment.id == cid).first()

@@ -16,7 +16,6 @@ from email.mime.text import MIMEText
 import httpx
 
 from app.config import settings
-from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +80,7 @@ def _format_alert_text(title: str, message: str, severity: str = "warning") -> d
         "title": title,
         "message": message,
         "severity": severity,
-        "timestamp": utcnow().isoformat() + "Z",
+        "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
     }
 
 
@@ -225,8 +224,8 @@ async def push_slack(webhook: str, title: str, message: str, severity: str = "wa
             j = resp.json()
             if j.get("ok") is True or j.get("success") is True:
                 return True
-        except Exception as e:
-            logger.debug("解析 Slack webhook 响应 JSON 失败: %s", e)
+        except Exception:
+            pass
         return "error" not in text and "fail" not in text
 
     ok, info = await _post_with_retry(_client, webhook, body, _check)
@@ -259,8 +258,8 @@ async def push_teams(webhook: str, title: str, message: str, severity: str = "wa
             j = resp.json()
             if j.get("ok") is True or j.get("success") is True:
                 return True
-        except Exception as e:
-            logger.debug("解析 Teams webhook 响应 JSON 失败: %s", e)
+        except Exception:
+            pass
         return "error" not in text and "fail" not in text
 
     ok, info = await _post_with_retry(_client, webhook, body, _check)
@@ -295,8 +294,8 @@ async def push_generic(webhook: str, title: str, message: str, severity: str = "
                 or j.get("code") == 0
             ):
                 return True
-        except Exception as e:
-            logger.debug("解析通用 webhook 响应 JSON 失败: %s", e)
+        except Exception:
+            pass
         if text in ("error", "fail", "failed", "false", "0"):
             return False
         return "error" not in text and "fail" not in text
@@ -408,9 +407,10 @@ async def push_alert(title: str, message: str, severity: str = "warning") -> dic
         logger.debug("func")
         pass
 
-    # 根据实际配置动态决定返回键集合 (向后兼容: 测试期望 4 个基本键, 完整 8 键用于生产)
+    # 返回全部 8 个渠道键 (即使未配置也返回 False), 避免下游 KeyError
     result = {
         "dingtalk": False, "wechat": False, "feishu": False, "email": False,
+        "pagerduty": False, "slack": False, "teams": False, "generic": False,
     }
     if settings.DINGTALK_WEBHOOK:
         result["dingtalk"] = await push_dingtalk(
@@ -474,7 +474,7 @@ async def push_alert(title: str, message: str, severity: str = "warning") -> dic
     if settings.ALERT_EMAIL_TO and settings.SMTP_HOST:
         body = f"<h2>{title}</h2><pre>{message}</pre>"
         result["email"] = send_email(
-            settings.ALERT_EMAIL_TO,
+            settings.ALERT_EMAIL_TO,  # type: ignore[arg-type]
             f"[{severity}] {title}",
             body,
         )

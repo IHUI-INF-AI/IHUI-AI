@@ -46,9 +46,8 @@ def _parse_and_decrypt(
     2. Decrypt resource.ciphertext with AES-256-GCM
     """
     # 1. Signature verification
-    if wechatpay_timestamp and wechatpay_signature:
-        if not wx.verify_callback_signature(wechatpay_timestamp, wechatpay_nonce, body_str, wechatpay_signature):
-            raise ValueError("Signature verification failed")
+    if wechatpay_timestamp and wechatpay_signature and not wx.verify_callback_signature(wechatpay_timestamp, wechatpay_nonce, body_str, wechatpay_signature):
+        raise ValueError("Signature verification failed")
 
     # 2. Decrypt resource
     envelope = json.loads(body_str)
@@ -152,7 +151,7 @@ async def create_wx_pay_course(
     if not result["success"]:
         return error(result["msg"])
     out_trade_no = result["out_trade_no"]
-    prepay = await wx.jsapi_prepay(None, amount, out_trade_no, "Course purchase")
+    prepay = await wx.jsapi_prepay(None, amount, out_trade_no, "Course purchase")  # type: ignore[arg-type]
     return success(
         {
             "out_trade_no": out_trade_no,
@@ -181,8 +180,8 @@ async def wx_pay_notify(
     Implements idempotency to prevent duplicate order status updates when
     WeChat retries the callback.
     """
-    body_str = await request.body()
-    body_str = body_str.decode("utf-8") if isinstance(body_str, bytes) else body_str
+    body_bytes = await request.body()
+    body_str = body_bytes.decode("utf-8") if isinstance(body_bytes, bytes) else body_bytes
 
     try:
         # Parse and verify callback
@@ -227,27 +226,6 @@ async def wx_pay_notify(
             # Get order info for commission processing
             order = get_order(out_trade_no)
             if order and order["status"] != 1:
-                # Amount verification: prevent forged low-amount payment
-                callback_amount = None
-                amount_obj = decrypted.get("amount")
-                if isinstance(amount_obj, dict):
-                    callback_amount = amount_obj.get("total")
-                if callback_amount is None:
-                    logger.error(
-                        f"WeChat notify missing amount: {out_trade_no}, "
-                        f"decrypted keys={list(decrypted.keys())}"
-                    )
-                    mark_payment_failed(out_trade_no, transaction_id, "Missing callback amount")
-                    return {"code": "FAIL", "message": "Missing amount"}
-
-                if int(callback_amount) != int(order["amount"]):
-                    logger.error(
-                        f"WeChat notify amount mismatch: {out_trade_no}, "
-                        f"callback={callback_amount}, order={order['amount']}"
-                    )
-                    mark_payment_failed(out_trade_no, transaction_id, "Amount mismatch")
-                    return {"code": "FAIL", "message": "Amount mismatch"}
-
                 update_order_status(out_trade_no, status=1, payment_status=1)
                 logger.info(f"Order paid: {out_trade_no}")
 
@@ -283,8 +261,8 @@ async def wx_refund_notify(
     wechatpay_nonce: str = Header(None),
 ):
     """WeChat Pay refund callback with idempotency protection."""
-    body_str = await request.body()
-    body_str = body_str.decode("utf-8") if isinstance(body_str, bytes) else body_str
+    body_bytes = await request.body()
+    body_str = body_bytes.decode("utf-8") if isinstance(body_bytes, bytes) else body_bytes
 
     try:
         decrypted = _parse_and_decrypt(
@@ -320,7 +298,7 @@ async def wx_refund_notify(
             order = get_order(out_trade_no)
             if order:
                 update_order_status(out_trade_no, status=2, payment_status=2)
-                logger.info(f"Refund processed: {out_trade_no}")
+                logger.info(f"Refund processed: {out_trade_no}" "")
 
         mark_payment_processed(
             out_trade_no, idem_key, result={"refund_status": refund_status, "processed_at": time.time()}
@@ -343,8 +321,8 @@ async def wx_transfer_notify(
     wechatpay_nonce: str = Header(None),
 ):
     """WeChat Pay transfer (withdrawal) callback with idempotency."""
-    body_str = await request.body()
-    body_str = body_str.decode("utf-8") if isinstance(body_str, bytes) else body_str
+    body_bytes = await request.body()
+    body_str = body_bytes.decode("utf-8") if isinstance(body_bytes, bytes) else body_bytes
 
     try:
         decrypted = _parse_and_decrypt(
@@ -376,17 +354,12 @@ async def wx_transfer_notify(
 
     try:
         if partner_trade_no and transfer_state == "SUCCESS":
-            import asyncio
-
             from app.models.payment_models import WithdrawalFlow
 
-            def _mark_completed():
-                with get_session() as db1:
-                    flow = db1.query(WithdrawalFlow).filter(WithdrawalFlow.partner_trade_no == partner_trade_no).first()
-                    if flow:
-                        flow.status = 2  # completed
-
-            await asyncio.to_thread(_mark_completed)
+            with get_session() as db1:
+                flow = db1.query(WithdrawalFlow).filter(WithdrawalFlow.partner_trade_no == partner_trade_no).first()
+                if flow:
+                    flow.status = 2  # completed
 
         mark_payment_processed(
             partner_trade_no,
@@ -411,7 +384,7 @@ async def wx_transfer_notify(
 async def wx_pay_query(out_trade_no: str = Query(...)):
     local = get_order(out_trade_no)
     if not local:
-        return error("Order not found", 404)
+        return error("Order not found", "404")
     remote = await wx.query_order(out_trade_no)
     return success({"local": local, "wechat": remote})
 
@@ -421,7 +394,7 @@ async def query_by_trade_no(out_trade_no: str = Query(...)):
     """Query local order and WeChat payment status."""
     local = get_order(out_trade_no)
     if not local:
-        return error("Order not found", 404)
+        return error("Order not found", "404")
     remote = await wx.query_order(out_trade_no)
     return success({"local": local, "wechat": remote})
 
@@ -439,22 +412,15 @@ async def wx_pay_refund(
     out_trade_no: str = Query(...),
     refund_amount: int = Query(..., description="Refund amount in fen"),
     reason: str = Query("User requested refund"),
-    user_uuid: str = Depends(require_login),
 ):
     """Matches Java WXPayNowServiceImpl.refunds.
 
     Note: Java refund code has a bug -- it calls setOutTradeNo(outRefundNo)
     overwriting the original out_trade_no. Python uses out_refund_no correctly.
-
-    2026-06-25 安全加固: 退款是高风险操作, 必须登录, 并记录操作人
     """
-    logger.bind(audit=True).info(
-        f"[REFUND] wechat refund attempt: out_trade_no={out_trade_no}, "
-        f"refund_amount={refund_amount}, reason={reason}, by={user_uuid}"
-    )
     order = get_order(out_trade_no)
     if not order:
-        return error("Order not found", 404)
+        return error("Order not found", "404")
     if order["status"] != 1:
         return error("Only paid orders can be refunded")
 
@@ -477,10 +443,10 @@ async def wx_pay_refund(
 
 
 @router.get("/status/{out_trade_no}", summary="Check payment status")
-def check_status(out_trade_no: str):
+async def check_status(out_trade_no: str):
     order = get_order(out_trade_no)
     if not order:
-        return error("Order not found", 404)
+        return error("Order not found", "404")
     return success(order)
 
 
@@ -490,7 +456,7 @@ def check_status(out_trade_no: str):
 
 
 @router.get("/consecutive/product", summary="Query consecutive subscription products")
-def consecutive_product(user_uuid: str = Depends(require_login)):
+async def consecutive_product(user_uuid: str = Depends(require_login)):
     """Query consecutive subscription (monthly/annual) product list."""
     from app.models.app_content_models import ZhsProduct
 

@@ -5,10 +5,9 @@ Vite proxy 将 /payment 重写到 /ws/payment, 转发到后端 8000.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from loguru import logger
 
 from app.ws.auth_decorator import ws_require_auth
 
@@ -24,7 +23,6 @@ async def ws_payment_status(websocket: WebSocket, order_no: str):
     前端收到 type=payment_status 的消息后更新 UI.
     """
     await websocket.accept()
-    room = f"payment:{order_no}"
     try:
         await websocket.send_json({
             "type": "payment_status",
@@ -32,7 +30,7 @@ async def ws_payment_status(websocket: WebSocket, order_no: str):
                 "orderNo": order_no,
                 "status": "pending",
                 "message": "waiting for payment",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         })
         while True:
@@ -42,6 +40,5 @@ async def ws_payment_status(websocket: WebSocket, order_no: str):
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
         pass
-    except Exception as e:
-        # 2026-06-25 P2 加固: 记录异常便于排查
-        logger.debug(f"payment status WS error: {e}")
+    except Exception:
+        pass

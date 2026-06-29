@@ -32,7 +32,7 @@ class ProductUpdate(BaseModel):
 
 
 @router.get("/list", summary="List products")
-def list_products(
+async def list_products(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
     name: str | None = Query(None),
@@ -75,7 +75,7 @@ def list_products(
 
 
 @router.get("/{item_id}", summary="Get product detail")
-def get_product(item_id: str):
+async def get_product(item_id: str):
     with get_session() as db:
         from app.models.app_content_models import ZhsProduct
 
@@ -96,7 +96,7 @@ def get_product(item_id: str):
 
 
 @router.post("", summary="Create product")
-def create_product(body: ProductCreate):
+async def create_product(body: ProductCreate):
     with get_session() as db:
         try:
             from app.models.app_content_models import ZhsProduct
@@ -119,7 +119,7 @@ def create_product(body: ProductCreate):
 
 
 @router.put("", summary="Update product")
-def update_product(body: ProductUpdate):
+async def update_product(body: ProductUpdate):
     with get_session() as db:
         try:
             from app.models.app_content_models import ZhsProduct
@@ -147,7 +147,7 @@ def update_product(body: ProductUpdate):
 
 
 @router.delete("/{item_ids}", summary="Delete products")
-def delete_products(item_ids: str):
+async def delete_products(item_ids: str):
     with get_session() as db:
         try:
             from app.models.app_content_models import ZhsProduct

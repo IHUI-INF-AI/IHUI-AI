@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Text
 
@@ -10,7 +10,6 @@ from app.core.current_user import current_user_id_or_guest
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
-from app.utils.datetime_helper import utcnow
 
 
 class AgentNeedTask(TimestampMixin, Base):
@@ -66,15 +65,15 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("", summary="发布需求")
-def create_task(
+async def create_task(
     title: str = Query(..., min_length=1, max_length=200),
-    description: str = Query(..., min_length=1),
     type: str = "develop",
     agent_id: str | None = None,
     agent_name: str | None = None,
     priority: int = 1,
     budget: int = 0,
     deadline: datetime | None = None,
+    description: str = Body(..., min_length=1),
 ):
     with get_session() as db:
         try:
@@ -100,7 +99,7 @@ def create_task(
 
 
 @router.get("/list", summary="需求列表")
-def list_tasks(
+async def list_tasks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
@@ -161,7 +160,7 @@ def list_tasks(
 
 
 @router.get("/{tid}", summary="需求详情")
-def get_task(tid: int):
+async def get_task(tid: int):
     with get_session() as db:
         try:
             t = db.query(AgentNeedTask).filter(AgentNeedTask.id == tid).first()
@@ -193,7 +192,7 @@ def get_task(tid: int):
 
 
 @router.put("/{tid}", summary="修改需求")
-def update_task(
+async def update_task(
     tid: int,
     title: str | None = None,
     description: str | None = None,
@@ -223,7 +222,7 @@ def update_task(
             if remark:
                 t.remark = remark
             if status == 3 and not t.complete_time:
-                t.complete_time = utcnow()
+                t.complete_time = datetime.utcnow()
             return success()
         except Exception as e:
             logger.error(f"agent task update error: {e}")
@@ -231,7 +230,7 @@ def update_task(
 
 
 @router.delete("/{tid}", summary="删除需求")
-def delete_task(tid: int):
+async def delete_task(tid: int):
     with get_session() as db:
         try:
             t = db.query(AgentNeedTask).filter(AgentNeedTask.id == tid).first()
@@ -246,7 +245,7 @@ def delete_task(tid: int):
 
 
 @router.post("/{tid}/accept", summary="开发者认领")
-def accept_task(tid: int):
+async def accept_task(tid: int):
     with get_session() as db:
         try:
             t = db.query(AgentNeedTask).filter(AgentNeedTask.id == tid).first()
@@ -257,7 +256,7 @@ def accept_task(tid: int):
             t.developer_id = _uid()
             t.developer_name = "匿名用户"
             t.status = 1
-            t.accept_time = utcnow()
+            t.accept_time = datetime.utcnow()
             return success()
         except Exception as e:
             logger.error(f"agent task accept error: {e}")
@@ -265,7 +264,7 @@ def accept_task(tid: int):
 
 
 @router.post("/{tid}/bid", summary="开发者报价")
-def bid_task(tid: int, bid: int = Query(..., ge=0), remark: str | None = None):
+async def bid_task(tid: int, bid: int = Query(..., ge=0), remark: str | None = None):
     with get_session() as db:
         try:
             t = db.query(AgentNeedTask).filter(AgentNeedTask.id == tid).first()
@@ -298,7 +297,7 @@ def bid_task(tid: int, bid: int = Query(..., ge=0), remark: str | None = None):
 
 
 @router.get("/{tid}/bids", summary="任务报价列表")
-def list_bids(tid: int):
+async def list_bids(tid: int):
     with get_session() as db:
         try:
             items = db.query(AgentTaskDeveloper).filter(AgentTaskDeveloper.task_id == tid).all()

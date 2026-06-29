@@ -29,7 +29,7 @@ async def update_review_result(req: UpdateReviewReq):
     try:
         access_token = await get_coze_jwt_access_token()
         api_url = settings.COZE_API_BASE + "/v1/connectors/" + req.connector_id + "/bots/" + req.bot_id
-        body = {"audit_status": req.audit_status}
+        body: dict[str, Any] = {"audit_status": req.audit_status}
         if req.reason:
             body["reason"] = req.reason
         async with httpx.AsyncClient(timeout=15) as client:
@@ -42,7 +42,7 @@ async def update_review_result(req: UpdateReviewReq):
             try:
                 result = resp.json()
             except Exception:
-                result = {"message": resp.text}
+                result = {"msg": resp.text, "code": "0", "data": None}
             return UpdateReviewResp(success=True, message="ok", data=result)
         else:
             raise HTTPException(status_code=resp.status_code, detail="Coze API error: " + resp.text)
@@ -50,7 +50,7 @@ async def update_review_result(req: UpdateReviewReq):
         raise
     except Exception as e:
         logger.error("Update review error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/status")
@@ -65,4 +65,4 @@ async def get_review_status(bot_id: str, connector_id: str):
         return {"success": True, "data": {"bot_id": bot_id, "connector_id": connector_id, "audit_status": 0}}
     except Exception as e:
         logger.error("Get review status error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e

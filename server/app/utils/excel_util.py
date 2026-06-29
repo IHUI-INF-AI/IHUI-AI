@@ -154,6 +154,7 @@ def import_from_excel(
         for col_idx, cell in enumerate(row):
             if col_idx < len(headers) and headers[col_idx]:
                 field = headers[col_idx]
+                assert field is not None  # mypy: narrowed by truthiness check above
                 # Type coercion
                 col_def = next((c for c in columns if c["field"] == field), None)
                 col_type = col_def.get("type", "str") if col_def else "str"

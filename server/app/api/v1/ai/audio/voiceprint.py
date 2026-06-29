@@ -7,7 +7,6 @@ Ported from coze_zhs_py/api/audio.py voiceprint section with real DashScope
 HTTP calls replacing the Coze SDK wrapper.
 """
 
-import asyncio
 import logging
 from typing import Any
 
@@ -48,7 +47,6 @@ _voiceprint_groups: dict[str, dict[str, Any]] = {}
 _voiceprint_features: dict[str, list[dict[str, Any]]] = {}
 _group_counter = 0
 _feature_counter = 0
-_voiceprint_lock = asyncio.Lock()
 
 
 def _next_group_id() -> str:
@@ -81,17 +79,16 @@ async def create_voiceprint_group(
     user_uuid: str = Depends(require_login),
 ):
     """Create a new voiceprint group for organizing speaker profiles."""
-    async with _voiceprint_lock:
-        group_id = _next_group_id()
-        group = {
-            "group_id": group_id,
-            "name": body.name,
-            "desc": body.desc or "",
-            "feature_count": 0,
-            "created_by": user_uuid,
-        }
-        _voiceprint_groups[group_id] = group
-        _voiceprint_features[group_id] = []
+    group_id = _next_group_id()
+    group = {
+        "group_id": group_id,
+        "name": body.name,
+        "desc": body.desc or "",
+        "feature_count": 0,
+        "created_by": user_uuid,
+    }
+    _voiceprint_groups[group_id] = group
+    _voiceprint_features[group_id] = []
     return success(group, msg="声纹组创建成功")
 
 
@@ -134,26 +131,25 @@ async def add_voiceprint(
     Provide either audio_url or audio_base64 containing the speaker's voice sample.
     The audio will be processed by DashScope to extract voice characteristics.
     """
-    async with _voiceprint_lock:
-        if group_id not in _voiceprint_groups:
-            return error(f"声纹组 {group_id} 不存在", "404")
+    if group_id not in _voiceprint_groups:
+        return error(f"声纹组 {group_id} 不存在", "404")
 
-        if not body.audio_url and not body.audio_base64:
-            return error("请提供 audio_url 或 audio_base64", "400")
+    if not body.audio_url and not body.audio_base64:
+        return error("请提供 audio_url 或 audio_base64", "400")
 
-        feature_id = _next_feature_id()
-        feature = {
-            "feature_id": feature_id,
-            "group_id": group_id,
-            "name": body.name,
-            "desc": body.desc or "",
-            "audio_url": body.audio_url,
-            "has_audio": bool(body.audio_url or body.audio_base64),
-            "created_by": user_uuid,
-        }
+    feature_id = _next_feature_id()
+    feature = {
+        "feature_id": feature_id,
+        "group_id": group_id,
+        "name": body.name,
+        "desc": body.desc or "",
+        "audio_url": body.audio_url,
+        "has_audio": bool(body.audio_url or body.audio_base64),
+        "created_by": user_uuid,
+    }
 
-        _voiceprint_features[group_id].append(feature)
-        _voiceprint_groups[group_id]["feature_count"] = len(_voiceprint_features[group_id])
+    _voiceprint_features[group_id].append(feature)
+    _voiceprint_groups[group_id]["feature_count"] = len(_voiceprint_features[group_id])
 
     return success(feature, msg="声纹添加成功")
 
@@ -175,21 +171,20 @@ async def add_voiceprint_upload(
     content = await file.read()
     audio_b64 = base64.b64encode(content).decode("utf-8")
 
-    async with _voiceprint_lock:
-        feature_id = _next_feature_id()
-        feature = {
-            "feature_id": feature_id,
-            "group_id": group_id,
-            "name": name,
-            "desc": desc or "",
-            "audio_base64": audio_b64,
-            "has_audio": True,
-            "original_filename": file.filename,
-            "created_by": user_uuid,
-        }
+    feature_id = _next_feature_id()
+    feature = {
+        "feature_id": feature_id,
+        "group_id": group_id,
+        "name": name,
+        "desc": desc or "",
+        "audio_base64": audio_b64,
+        "has_audio": True,
+        "original_filename": file.filename,
+        "created_by": user_uuid,
+    }
 
-        _voiceprint_features[group_id].append(feature)
-        _voiceprint_groups[group_id]["feature_count"] = len(_voiceprint_features[group_id])
+    _voiceprint_features[group_id].append(feature)
+    _voiceprint_groups[group_id]["feature_count"] = len(_voiceprint_features[group_id])
 
     return success(feature, msg="声纹添加成功")
 
@@ -206,18 +201,17 @@ async def delete_voiceprint(
     user_uuid: str = Depends(require_login),
 ):
     """Delete a voiceprint feature from a group."""
-    async with _voiceprint_lock:
-        if group_id not in _voiceprint_groups:
-            return error(f"声纹组 {group_id} 不存在", "404")
+    if group_id not in _voiceprint_groups:
+        return error(f"声纹组 {group_id} 不存在", "404")
 
-        features = _voiceprint_features.get(group_id, [])
-        original_count = len(features)
-        _voiceprint_features[group_id] = [f for f in features if f["feature_id"] != feature_id]
+    features = _voiceprint_features.get(group_id, [])
+    original_count = len(features)
+    _voiceprint_features[group_id] = [f for f in features if f["feature_id"] != feature_id]
 
-        if len(_voiceprint_features[group_id]) == original_count:
-            return error(f"声纹特征 {feature_id} 不存在", "404")
+    if len(_voiceprint_features[group_id]) == original_count:
+        return error(f"声纹特征 {feature_id} 不存在", "404")
 
-        _voiceprint_groups[group_id]["feature_count"] = len(_voiceprint_features[group_id])
+    _voiceprint_groups[group_id]["feature_count"] = len(_voiceprint_features[group_id])
     return success({"feature_id": feature_id, "group_id": group_id}, msg="声纹删除成功")
 
 
@@ -350,7 +344,7 @@ async def identify_speaker(
             "registered_speakers": [{"feature_id": f["feature_id"], "name": f["name"]} for f in features],
             "matched_speaker": None,
             "confidence": 0.0,
-            "message": "声纹比对功能需集成第三方声纹识别服务后启用",
+            "msg": "声纹比对功能需集成第三方声纹识别服务后启用",
         }
     )
 
@@ -370,7 +364,7 @@ async def identify_speaker_upload(
     content = await file.read()
     audio_b64 = base64.b64encode(content).decode("utf-8")
 
-    body = SpeakerIdentifyRequest(
+    body = SpeakerIdentifyRequest(  # type: ignore[call-arg]
         group_id=group_id,
         audio_base64=audio_b64,
     )

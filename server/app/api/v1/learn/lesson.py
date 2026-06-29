@@ -1,652 +1,408 @@
-"""课程管理 API (含章节/节点/分类关系)
-
-迁移自 edu server ihui-ai-edu-learn-service 的 lesson 模块.
-提供课程 CRUD、发布/取消发布、推荐/最热/最新列表、章节与节点管理、课程分类关系管理.
-"""
-
+"""学习模块 - 课程/章节/小节管理"""
 from datetime import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Depends, Query
 from loguru import logger
-from pydantic import BaseModel, Field
-from sqlalchemy import func
 
-from app.core.current_user import current_user_id_or_guest
+from app.core.admin_auth import admin_required
 from app.database import get_session
 from app.models.learn_models import (
-    Lesson,
-    LessonCategoryRelation,
-    LessonChapter,
-    LessonChapterSection,
-    SignUp,
+    LearnLesson,
+    LearnLessonCategoryRelation,
+    LearnLessonChapter,
+    LearnLessonChapterSection,
 )
-from app.schemas.common import error, page_result, success
+from app.schemas.common import error, success
 
 router = APIRouter()
 
 
-def _uid() -> str:
-    return current_user_id_or_guest()
-
-
-def _lesson_to_dict(item: Lesson) -> dict:
+def _lesson_to_dict(l: LearnLesson) -> dict:
     return {
-        "id": item.id,
-        "name": item.name,
-        "code": item.code,
-        "start_time": item.start_time.isoformat() if item.start_time else None,
-        "end_time": item.end_time.isoformat() if item.end_time else None,
-        "image": item.image,
-        "status": item.status,
-        "phrase": item.phrase,
-        "introduction": item.introduction,
-        "price": item.price,
-        "original_price": item.original_price,
-        "create_user_id": item.create_user_id,
-        "company_id": item.company_id,
-        "department_id": item.department_id,
-        "certificate_id": item.certificate_id,
-        "exam_paper_id": item.exam_paper_id,
-        "sort_weight": item.sort_weight,
-        "created_at": item.created_at.isoformat() if item.created_at else None,
-        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+        "id": l.id,
+        "name": l.name,
+        "code": l.code,
+        "start_time": l.start_time.isoformat() if l.start_time else None,
+        "end_time": l.end_time.isoformat() if l.end_time else None,
+        "image": l.image,
+        "status": l.status,
+        "phrase": l.phrase,
+        "introduction": l.introduction,
+        "company_id": l.company_id,
+        "department_id": l.department_id,
+        "create_user_id": l.create_user_id,
+        "price": float(l.price) if l.price is not None else 0,
+        "original_price": float(l.original_price) if l.original_price is not None else 0,
+        "created_at": l.created_at.isoformat() if l.created_at else None,
     }
 
 
-def _chapter_to_dict(item: LessonChapter) -> dict:
-    return {
-        "id": item.id,
-        "lesson_id": item.lesson_id,
-        "title": item.title,
-        "phrase": item.phrase,
-        "sort_order": item.sort_order,
-        "created_at": item.created_at.isoformat() if item.created_at else None,
-        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-    }
+# ============ 课程 ============
 
 
-def _section_to_dict(item: LessonChapterSection) -> dict:
-    return {
-        "id": item.id,
-        "lesson_chapter_id": item.lesson_chapter_id,
-        "title": item.title,
-        "type": item.type,
-        "url": item.url,
-        "phrase": item.phrase,
-        "total_time": item.total_time,
-        "sort_order": item.sort_order,
-        "content": item.content,
-        "content_type": item.content_type,
-        "created_at": item.created_at.isoformat() if item.created_at else None,
-        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Pydantic schemas
-# ---------------------------------------------------------------------------
-
-
-class LessonCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=200)
-    code: str | None = None
-    start_time: datetime | None = None
-    end_time: datetime | None = None
-    image: str | None = None
-    status: int = 0
-    phrase: str | None = None
-    introduction: str | None = None
-    price: int = 0
-    original_price: int = 0
-    company_id: int | None = None
-    department_id: int | None = None
-    certificate_id: int | None = None
-    exam_paper_id: int | None = None
-    sort_weight: int = 0
-
-
-class LessonUpdate(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=200)
-    code: str | None = None
-    start_time: datetime | None = None
-    end_time: datetime | None = None
-    image: str | None = None
-    status: int | None = None
-    phrase: str | None = None
-    introduction: str | None = None
-    price: int | None = None
-    original_price: int | None = None
-    company_id: int | None = None
-    department_id: int | None = None
-    certificate_id: int | None = None
-    exam_paper_id: int | None = None
-    sort_weight: int | None = None
-
-
-class ChapterCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
-    phrase: str | None = None
-    sort_order: int = 0
-
-
-class ChapterUpdate(BaseModel):
-    title: str | None = Field(None, min_length=1, max_length=200)
-    phrase: str | None = None
-    sort_order: int | None = None
-
-
-class ChapterSortItem(BaseModel):
-    id: int
-    sort_order: int
-
-
-class ChapterSortRequest(BaseModel):
-    items: list[ChapterSortItem]
-
-
-class SectionCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
-    type: str | None = None
-    url: str | None = None
-    phrase: str | None = None
-    total_time: int = 0
-    sort_order: int = 0
-    content: str | None = None
-    content_type: str | None = None
-
-
-class SectionUpdate(BaseModel):
-    title: str | None = Field(None, min_length=1, max_length=200)
-    type: str | None = None
-    url: str | None = None
-    phrase: str | None = None
-    total_time: int | None = None
-    sort_order: int | None = None
-    content: str | None = None
-    content_type: str | None = None
-
-
-class CategoryRelationRequest(BaseModel):
-    category_ids: list[int] = []
-
-
-# ---------------------------------------------------------------------------
-# 课程列表 / 推荐 / 最热 / 最新
-# ---------------------------------------------------------------------------
-
-
-@router.get("/list", summary="课程列表")
-def list_lessons(
+@router.get("/lesson/list", summary="课程列表")
+async def list_lessons(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    status: int | None = None,
+    category_id: int | None = None,
+    keyword: str | None = None,
+    status: str | None = None,
+):
+    with get_session() as db:
+        try:
+            q = db.query(LearnLesson)
+            if category_id:
+                lesson_ids = [
+                    r.lesson_id
+                    for r in db.query(LearnLessonCategoryRelation)
+                    .filter(LearnLessonCategoryRelation.category_id == category_id)
+                    .all()
+                ]
+                q = q.filter(LearnLesson.id.in_(lesson_ids))
+            if keyword:
+                q = q.filter(LearnLesson.name.like(f"%{keyword}%"))
+            if status:
+                q = q.filter(LearnLesson.status == status)
+            total = q.count()
+            items = q.order_by(LearnLesson.id.desc()).offset((page - 1) * limit).limit(limit).all()
+            return success([_lesson_to_dict(i) for i in items], total=total)
+        except Exception as e:
+            logger.error(f"learn lesson list error: {e}")
+            return error(str(e))
+
+
+@router.get("/lesson/trash", summary="课程回收站列表")
+async def list_lesson_trash(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     keyword: str | None = None,
 ):
     with get_session() as db:
         try:
-            q = db.query(Lesson).filter(Lesson.status != 2)
-            if status is not None:
-                q = q.filter(Lesson.status == status)
+            q = db.query(LearnLesson).filter(LearnLesson.status == "trash")
             if keyword:
-                q = q.filter(Lesson.name.like(f"%{keyword}%"))
+                q = q.filter(LearnLesson.name.like(f"%{keyword}%"))
             total = q.count()
-            items = (
-                q.order_by(Lesson.sort_weight.desc(), Lesson.id.desc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-                .all()
-            )
-            return page_result([_lesson_to_dict(i) for i in items], total, page, limit)
+            items = q.order_by(LearnLesson.id.desc()).offset((page - 1) * limit).limit(limit).all()
+            return success([_lesson_to_dict(i) for i in items], total=total)
         except Exception as e:
-            logger.exception("list_lessons error")
+            logger.error(f"learn lesson trash list error: {e}")
             return error(str(e))
 
 
-@router.get("/recommend/list", summary="推荐课程列表")
-def list_recommend_lessons(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+@router.get("/lesson/{lid}", summary="课程详情")
+async def get_lesson(lid: int):
+    with get_session() as db:
+        try:
+            l = db.query(LearnLesson).filter(LearnLesson.id == lid).first()
+            if not l:
+                return error("课程不存在", "404")
+            return success(_lesson_to_dict(l))
+        except Exception as e:
+            logger.error(f"learn lesson get error: {e}")
+            return error(str(e))
+
+
+@router.post("/lesson", summary="创建课程", dependencies=[Depends(admin_required)])
+async def create_lesson(
+    name: str = Body(..., min_length=1, max_length=100),
+    code: str = Body(..., min_length=1, max_length=100),
+    start_time: str = Body(..., description="ISO 日期"),
+    end_time: str = Body(..., description="ISO 日期"),
+    image: str = Body(..., max_length=1000),
+    phrase: str = Body(""),
+    introduction: str = Body(""),
+    status: str = Body("draft"),
+    price: float = Body(0),
+    original_price: float = Body(0),
+    company_id: int | None = Body(None),
+    department_id: int | None = Body(None),
+    create_user_id: int | None = Body(None),
 ):
     with get_session() as db:
         try:
-            q = db.query(Lesson).filter(Lesson.status == 1)
-            total = q.count()
-            items = (
-                q.order_by(Lesson.sort_weight.desc(), Lesson.id.desc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-                .all()
+            l = LearnLesson(
+                name=name,
+                code=code,
+                start_time=datetime.fromisoformat(start_time),
+                end_time=datetime.fromisoformat(end_time),
+                image=image,
+                phrase=phrase,
+                introduction=introduction,
+                status=status,
+                price=price,
+                original_price=original_price,
+                company_id=company_id,
+                department_id=department_id,
+                create_user_id=create_user_id,
             )
-            return page_result([_lesson_to_dict(i) for i in items], total, page, limit)
+            db.add(l)
+            db.flush()
+            return success({"id": l.id})
         except Exception as e:
-            logger.exception("list_recommend_lessons error")
+            logger.error(f"learn lesson create error: {e}")
             return error(str(e))
 
 
-@router.get("/hot/list", summary="最热课程列表")
-def list_hot_lessons(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+@router.put("/lesson/{lid}", summary="修改课程", dependencies=[Depends(admin_required)])
+async def update_lesson(
+    lid: int,
+    name: str | None = Body(None),
+    image: str | None = Body(None),
+    phrase: str | None = Body(None),
+    introduction: str | None = Body(None),
+    status: str | None = Body(None),
+    price: float | None = Body(None),
+    original_price: float | None = Body(None),
 ):
     with get_session() as db:
         try:
-            signup_subq = (
-                db.query(func.count(SignUp.id))
-                .filter(SignUp.lesson_id == Lesson.id, SignUp.status != 2)
-                .correlate(Lesson)
-                .scalar_subquery()
-            )
-            q = db.query(Lesson, signup_subq.label("signup_count")).filter(
-                Lesson.status == 1
-            )
-            total = q.count()
-            rows = (
-                q.order_by(
-                    signup_subq.desc(), Lesson.sort_weight.desc(), Lesson.id.desc()
-                )
-                .offset((page - 1) * limit)
-                .limit(limit)
-                .all()
-            )
-            result = []
-            for lesson, cnt in rows:
-                d = _lesson_to_dict(lesson)
-                d["signup_count"] = cnt or 0
-                result.append(d)
-            return page_result(result, total, page, limit)
+            l = db.query(LearnLesson).filter(LearnLesson.id == lid).first()
+            if not l:
+                return error("课程不存在", "404")
+            if name is not None:
+                l.name = name
+            if image is not None:
+                l.image = image
+            if phrase is not None:
+                l.phrase = phrase
+            if introduction is not None:
+                l.introduction = introduction
+            if status is not None:
+                l.status = status
+            if price is not None:
+                l.price = price
+            if original_price is not None:
+                l.original_price = original_price
+            return success({"id": l.id})
         except Exception as e:
-            logger.exception("list_hot_lessons error")
+            logger.error(f"learn lesson update error: {e}")
             return error(str(e))
 
 
-@router.get("/new/list", summary="最新课程列表")
-def list_new_lessons(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-):
+@router.delete("/lesson/{lid}", summary="删除课程", dependencies=[Depends(admin_required)])
+async def delete_lesson(lid: int):
     with get_session() as db:
         try:
-            q = db.query(Lesson).filter(Lesson.status == 1)
-            total = q.count()
+            l = db.query(LearnLesson).filter(LearnLesson.id == lid).first()
+            if not l:
+                return error("课程不存在", "404")
+            db.delete(l)
+            db.query(LearnLessonCategoryRelation).filter(LearnLessonCategoryRelation.lesson_id == lid).delete()
+            return success()
+        except Exception as e:
+            logger.error(f"learn lesson delete error: {e}")
+            return error(str(e))
+
+
+@router.post("/lesson/batch-delete", summary="批量删除课程", dependencies=[Depends(admin_required)])
+async def batch_delete_lessons(ids: list[int] = Body(..., embed=True)):
+    with get_session() as db:
+        try:
+            if not ids:
+                return error("ids 不能为空", "400")
+            id_list = [int(i) for i in ids if i is not None]
+            db.query(LearnLesson).filter(LearnLesson.id.in_(id_list)).delete(synchronize_session=False)
+            db.query(LearnLessonCategoryRelation).filter(
+                LearnLessonCategoryRelation.lesson_id.in_(id_list)
+            ).delete(synchronize_session=False)
+            return success({"success": len(id_list), "failed": 0})
+        except Exception as e:
+            logger.error(f"learn lesson batch delete error: {e}")
+            return error(str(e))
+
+
+# ============ 章 ============
+
+
+@router.get("/lesson/{lesson_id}/chapter/list", summary="课程章列表")
+async def list_chapters(lesson_id: int):
+    with get_session() as db:
+        try:
             items = (
-                q.order_by(Lesson.id.desc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-                .all()
-            )
-            return page_result([_lesson_to_dict(i) for i in items], total, page, limit)
-        except Exception as e:
-            logger.exception("list_new_lessons error")
-            return error(str(e))
-
-
-# ---------------------------------------------------------------------------
-# 课程 CRUD
-# ---------------------------------------------------------------------------
-
-
-@router.get("/{lesson_id}", summary="课程详情")
-def get_lesson(lesson_id: int):
-    with get_session() as db:
-        try:
-            lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-            if not lesson:
-                return error("课程不存在")
-            chapters = (
-                db.query(LessonChapter)
-                .filter(LessonChapter.lesson_id == lesson_id)
-                .order_by(LessonChapter.sort_order.asc(), LessonChapter.id.asc())
-                .all()
-            )
-            chapter_list = []
-            for ch in chapters:
-                sections = (
-                    db.query(LessonChapterSection)
-                    .filter(LessonChapterSection.lesson_chapter_id == ch.id)
-                    .order_by(
-                        LessonChapterSection.sort_order.asc(),
-                        LessonChapterSection.id.asc(),
-                    )
-                    .all()
-                )
-                ch_dict = _chapter_to_dict(ch)
-                ch_dict["sections"] = [_section_to_dict(s) for s in sections]
-                chapter_list.append(ch_dict)
-            data = _lesson_to_dict(lesson)
-            data["chapters"] = chapter_list
-            return success(data)
-        except Exception as e:
-            logger.exception("get_lesson error")
-            return error(str(e))
-
-
-@router.post("", summary="创建课程")
-def create_lesson(body: LessonCreate):
-    with get_session() as db:
-        try:
-            lesson = Lesson(
-                name=body.name,
-                code=body.code,
-                start_time=body.start_time,
-                end_time=body.end_time,
-                image=body.image,
-                status=body.status,
-                phrase=body.phrase,
-                introduction=body.introduction,
-                price=body.price,
-                original_price=body.original_price,
-                create_user_id=_uid(),
-                company_id=body.company_id,
-                department_id=body.department_id,
-                certificate_id=body.certificate_id,
-                exam_paper_id=body.exam_paper_id,
-                sort_weight=body.sort_weight,
-            )
-            db.add(lesson)
-            db.flush()
-            return success(_lesson_to_dict(lesson))
-        except Exception as e:
-            logger.exception("create_lesson error")
-            return error(str(e))
-
-
-@router.put("/{lesson_id}", summary="更新课程")
-def update_lesson(lesson_id: int, body: LessonUpdate):
-    with get_session() as db:
-        try:
-            lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-            if not lesson:
-                return error("课程不存在")
-            update_data = body.model_dump(exclude_unset=True)
-            for key, value in update_data.items():
-                setattr(lesson, key, value)
-            db.flush()
-            return success(_lesson_to_dict(lesson))
-        except Exception as e:
-            logger.exception("update_lesson error")
-            return error(str(e))
-
-
-@router.delete("/{lesson_id}", summary="删除课程")
-def delete_lesson(lesson_id: int):
-    with get_session() as db:
-        try:
-            lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-            if not lesson:
-                return error("课程不存在")
-            lesson.status = 2
-            db.flush()
-            return success({"id": lesson_id})
-        except Exception as e:
-            logger.exception("delete_lesson error")
-            return error(str(e))
-
-
-@router.put("/{lesson_id}/publish", summary="发布课程")
-def publish_lesson(lesson_id: int):
-    with get_session() as db:
-        try:
-            lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-            if not lesson:
-                return error("课程不存在")
-            lesson.status = 1
-            db.flush()
-            return success(_lesson_to_dict(lesson))
-        except Exception as e:
-            logger.exception("publish_lesson error")
-            return error(str(e))
-
-
-@router.put("/{lesson_id}/unpublish", summary="取消发布课程")
-def unpublish_lesson(lesson_id: int):
-    with get_session() as db:
-        try:
-            lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-            if not lesson:
-                return error("课程不存在")
-            lesson.status = 0
-            db.flush()
-            return success(_lesson_to_dict(lesson))
-        except Exception as e:
-            logger.exception("unpublish_lesson error")
-            return error(str(e))
-
-
-# ---------------------------------------------------------------------------
-# 课程分类关系
-# ---------------------------------------------------------------------------
-
-
-@router.get("/{lesson_id}/categories", summary="获取课程分类")
-def get_lesson_categories(lesson_id: int):
-    with get_session() as db:
-        try:
-            relations = (
-                db.query(LessonCategoryRelation)
-                .filter(LessonCategoryRelation.lesson_id == lesson_id)
+                db.query(LearnLessonChapter)
+                .filter(LearnLessonChapter.lesson_id == lesson_id)
+                .order_by(LearnLessonChapter.sort_order.asc())
                 .all()
             )
             return success(
                 [
                     {
-                        "id": r.id,
-                        "lesson_id": r.lesson_id,
-                        "category_id": r.category_id,
+                        "id": c.id,
+                        "lesson_id": c.lesson_id,
+                        "title": c.title,
+                        "phrase": c.phrase,
+                        "sort_order": c.sort_order,
                     }
-                    for r in relations
+                    for c in items
                 ]
             )
         except Exception as e:
-            logger.exception("get_lesson_categories error")
+            logger.error(f"learn chapter list error: {e}")
             return error(str(e))
 
 
-@router.post("/{lesson_id}/categories", summary="设置课程分类关系")
-def set_lesson_categories(lesson_id: int, body: CategoryRelationRequest):
+@router.post("/lesson/{lesson_id}/chapter", summary="创建章", dependencies=[Depends(admin_required)])
+async def create_chapter(
+    lesson_id: int,
+    title: str = Query(..., min_length=1, max_length=100),
+    phrase: str = "",
+    sort_order: int = 0,
+):
     with get_session() as db:
         try:
-            lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-            if not lesson:
-                return error("课程不存在")
-            db.query(LessonCategoryRelation).filter(
-                LessonCategoryRelation.lesson_id == lesson_id
-            ).delete(synchronize_session=False)
-            for cid in body.category_ids:
-                db.add(LessonCategoryRelation(lesson_id=lesson_id, category_id=cid))
+            c = LearnLessonChapter(lesson_id=lesson_id, title=title, phrase=phrase, sort_order=sort_order)
+            db.add(c)
             db.flush()
+            return success({"id": c.id})
+        except Exception as e:
+            logger.error(f"learn chapter create error: {e}")
+            return error(str(e))
+
+
+@router.put("/chapter/{cid}", summary="修改章", dependencies=[Depends(admin_required)])
+async def update_chapter(
+    cid: int,
+    title: str | None = None,
+    phrase: str | None = None,
+    sort_order: int | None = None,
+):
+    with get_session() as db:
+        try:
+            c = db.query(LearnLessonChapter).filter(LearnLessonChapter.id == cid).first()
+            if not c:
+                return error("章不存在", "404")
+            if title is not None:
+                c.title = title
+            if phrase is not None:
+                c.phrase = phrase
+            if sort_order is not None:
+                c.sort_order = sort_order
+            return success({"id": c.id})
+        except Exception as e:
+            logger.error(f"learn chapter update error: {e}")
+            return error(str(e))
+
+
+@router.delete("/chapter/{cid}", summary="删除章", dependencies=[Depends(admin_required)])
+async def delete_chapter(cid: int):
+    with get_session() as db:
+        try:
+            c = db.query(LearnLessonChapter).filter(LearnLessonChapter.id == cid).first()
+            if not c:
+                return error("章不存在", "404")
+            db.delete(c)
+            db.query(LearnLessonChapterSection).filter(LearnLessonChapterSection.lesson_chapter_id == cid).delete()
+            return success()
+        except Exception as e:
+            logger.error(f"learn chapter delete error: {e}")
+            return error(str(e))
+
+
+# ============ 小节 ============
+
+
+@router.get("/chapter/{chapter_id}/section/list", summary="章节小节列表")
+async def list_sections(chapter_id: int):
+    with get_session() as db:
+        try:
+            items = (
+                db.query(LearnLessonChapterSection)
+                .filter(LearnLessonChapterSection.lesson_chapter_id == chapter_id)
+                .order_by(LearnLessonChapterSection.sort_order.asc())
+                .all()
+            )
             return success(
-                {"lesson_id": lesson_id, "category_ids": body.category_ids}
+                [
+                    {
+                        "id": s.id,
+                        "lesson_chapter_id": s.lesson_chapter_id,
+                        "title": s.title,
+                        "url": s.url,
+                        "phrase": s.phrase,
+                        "total_time": s.total_time,
+                        "sort_order": s.sort_order,
+                        "type": s.type,
+                    }
+                    for s in items
+                ]
             )
         except Exception as e:
-            logger.exception("set_lesson_categories error")
+            logger.error(f"learn section list error: {e}")
             return error(str(e))
 
 
-# ---------------------------------------------------------------------------
-# 章节管理
-# ---------------------------------------------------------------------------
-
-
-@router.get("/{lesson_id}/chapters", summary="课程章节列表")
-def list_chapters(lesson_id: int):
+@router.post("/chapter/{chapter_id}/section", summary="创建小节", dependencies=[Depends(admin_required)])
+async def create_section(
+    chapter_id: int,
+    title: str = Query(..., min_length=1, max_length=100),
+    url: str = Query(..., max_length=1000),
+    phrase: str = "",
+    total_time: int = 0,
+    sort_order: int = 0,
+    type: str = "upload",
+):
     with get_session() as db:
         try:
-            chapters = (
-                db.query(LessonChapter)
-                .filter(LessonChapter.lesson_id == lesson_id)
-                .order_by(LessonChapter.sort_order.asc(), LessonChapter.id.asc())
-                .all()
-            )
-            return success([_chapter_to_dict(c) for c in chapters])
-        except Exception as e:
-            logger.exception("list_chapters error")
-            return error(str(e))
-
-
-@router.post("/{lesson_id}/chapters", summary="创建章节")
-def create_chapter(lesson_id: int, body: ChapterCreate):
-    with get_session() as db:
-        try:
-            lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-            if not lesson:
-                return error("课程不存在")
-            chapter = LessonChapter(
-                lesson_id=lesson_id,
-                title=body.title,
-                phrase=body.phrase,
-                sort_order=body.sort_order,
-            )
-            db.add(chapter)
-            db.flush()
-            return success(_chapter_to_dict(chapter))
-        except Exception as e:
-            logger.exception("create_chapter error")
-            return error(str(e))
-
-
-@router.put("/chapters/sort", summary="章节排序")
-def sort_chapters(body: ChapterSortRequest):
-    with get_session() as db:
-        try:
-            for item in body.items:
-                chapter = (
-                    db.query(LessonChapter).filter(LessonChapter.id == item.id).first()
-                )
-                if chapter:
-                    chapter.sort_order = item.sort_order
-            db.flush()
-            return success({"updated": len(body.items)})
-        except Exception as e:
-            logger.exception("sort_chapters error")
-            return error(str(e))
-
-
-@router.put("/chapters/{chapter_id}", summary="更新章节")
-def update_chapter(chapter_id: int, body: ChapterUpdate):
-    with get_session() as db:
-        try:
-            chapter = (
-                db.query(LessonChapter).filter(LessonChapter.id == chapter_id).first()
-            )
-            if not chapter:
-                return error("章节不存在")
-            update_data = body.model_dump(exclude_unset=True)
-            for key, value in update_data.items():
-                setattr(chapter, key, value)
-            db.flush()
-            return success(_chapter_to_dict(chapter))
-        except Exception as e:
-            logger.exception("update_chapter error")
-            return error(str(e))
-
-
-@router.delete("/chapters/{chapter_id}", summary="删除章节")
-def delete_chapter(chapter_id: int):
-    with get_session() as db:
-        try:
-            chapter = (
-                db.query(LessonChapter).filter(LessonChapter.id == chapter_id).first()
-            )
-            if not chapter:
-                return error("章节不存在")
-            db.query(LessonChapterSection).filter(
-                LessonChapterSection.lesson_chapter_id == chapter_id
-            ).delete(synchronize_session=False)
-            db.delete(chapter)
-            db.flush()
-            return success({"id": chapter_id})
-        except Exception as e:
-            logger.exception("delete_chapter error")
-            return error(str(e))
-
-
-# ---------------------------------------------------------------------------
-# 节点管理
-# ---------------------------------------------------------------------------
-
-
-@router.get("/chapters/{chapter_id}/sections", summary="章节节点列表")
-def list_sections(chapter_id: int):
-    with get_session() as db:
-        try:
-            sections = (
-                db.query(LessonChapterSection)
-                .filter(LessonChapterSection.lesson_chapter_id == chapter_id)
-                .order_by(
-                    LessonChapterSection.sort_order.asc(),
-                    LessonChapterSection.id.asc(),
-                )
-                .all()
-            )
-            return success([_section_to_dict(s) for s in sections])
-        except Exception as e:
-            logger.exception("list_sections error")
-            return error(str(e))
-
-
-@router.post("/chapters/{chapter_id}/sections", summary="创建节点")
-def create_section(chapter_id: int, body: SectionCreate):
-    with get_session() as db:
-        try:
-            chapter = (
-                db.query(LessonChapter).filter(LessonChapter.id == chapter_id).first()
-            )
-            if not chapter:
-                return error("章节不存在")
-            section = LessonChapterSection(
+            s = LearnLessonChapterSection(
                 lesson_chapter_id=chapter_id,
-                title=body.title,
-                type=body.type,
-                url=body.url,
-                phrase=body.phrase,
-                total_time=body.total_time,
-                sort_order=body.sort_order,
-                content=body.content,
-                content_type=body.content_type,
+                title=title,
+                url=url,
+                phrase=phrase,
+                total_time=total_time,
+                sort_order=sort_order,
+                type=type,
             )
-            db.add(section)
+            db.add(s)
             db.flush()
-            return success(_section_to_dict(section))
+            return success({"id": s.id})
         except Exception as e:
-            logger.exception("create_section error")
+            logger.error(f"learn section create error: {e}")
             return error(str(e))
 
 
-@router.put("/sections/{section_id}", summary="更新节点")
-def update_section(section_id: int, body: SectionUpdate):
+@router.put("/section/{sid}", summary="修改小节", dependencies=[Depends(admin_required)])
+async def update_section(
+    sid: int,
+    title: str | None = None,
+    url: str | None = None,
+    phrase: str | None = None,
+    total_time: int | None = None,
+    sort_order: int | None = None,
+    type: str | None = None,
+):
     with get_session() as db:
         try:
-            section = (
-                db.query(LessonChapterSection)
-                .filter(LessonChapterSection.id == section_id)
-                .first()
-            )
-            if not section:
-                return error("节点不存在")
-            update_data = body.model_dump(exclude_unset=True)
-            for key, value in update_data.items():
-                setattr(section, key, value)
-            db.flush()
-            return success(_section_to_dict(section))
+            s = db.query(LearnLessonChapterSection).filter(LearnLessonChapterSection.id == sid).first()
+            if not s:
+                return error("小节不存在", "404")
+            if title is not None:
+                s.title = title
+            if url is not None:
+                s.url = url
+            if phrase is not None:
+                s.phrase = phrase
+            if total_time is not None:
+                s.total_time = total_time
+            if sort_order is not None:
+                s.sort_order = sort_order
+            if type is not None:
+                s.type = type
+            return success({"id": s.id})
         except Exception as e:
-            logger.exception("update_section error")
+            logger.error(f"learn section update error: {e}")
             return error(str(e))
 
 
-@router.delete("/sections/{section_id}", summary="删除节点")
-def delete_section(section_id: int):
+@router.delete("/section/{sid}", summary="删除小节", dependencies=[Depends(admin_required)])
+async def delete_section(sid: int):
     with get_session() as db:
         try:
-            section = (
-                db.query(LessonChapterSection)
-                .filter(LessonChapterSection.id == section_id)
-                .first()
-            )
-            if not section:
-                return error("节点不存在")
-            db.delete(section)
-            db.flush()
-            return success({"id": section_id})
+            s = db.query(LearnLessonChapterSection).filter(LearnLessonChapterSection.id == sid).first()
+            if not s:
+                return error("小节不存在", "404")
+            db.delete(s)
+            return success()
         except Exception as e:
-            logger.exception("delete_section error")
+            logger.error(f"learn section delete error: {e}")
             return error(str(e))

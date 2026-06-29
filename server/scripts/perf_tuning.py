@@ -10,8 +10,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from datetime import timedelta
-from app.utils.datetime_helper import utcnow
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, parse_qs
@@ -32,7 +31,7 @@ PLAN_OPS = ["SeqScan", "IndexScan", "IndexOnlyScan", "HashJoin", "NestedLoop",
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:
@@ -338,7 +337,7 @@ def record_tuning_action(action_type: str, target: str, before: str,
 
 def get_tuning_summary(days: int = 30) -> Dict[str, Any]:
     """调优汇总"""
-    since = (utcnow() - timedelta(days=days)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         params = c.execute("""SELECT COUNT(*) as cnt FROM pg_params
             WHERE timestamp >= ?""", (since,)).fetchone()["cnt"]

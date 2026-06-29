@@ -16,14 +16,12 @@ import socket
 import subprocess
 import urllib.error
 import urllib.request
-from pathlib import Path
 
-# 2026-06-25 修复: 改用脚本自身位置计算 PROJECT_ROOT, 避免硬编码 g:\1\client / g:\1\server
-# server/tests/test_alembic_ws_token.py -> ../../ (项目根)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+from pathlib import Path
+_ROOT = Path(__file__).resolve().parent.parent
 BASE = "http://127.0.0.1:8000"
-CLIENT = str(PROJECT_ROOT / "client")
-SERVER = str(PROJECT_ROOT / "server")
+CLIENT = str(_ROOT.parent / "client")
+SERVER = str(_ROOT)
 
 
 # ─── WS 握手工具 (供网络测试用) ───
@@ -97,18 +95,16 @@ def test_ws_proxy_accepts_with_token(run_ws):
 # ─── Alembic 迁移链检查 (代码检查) ───
 
 def test_alembic_008_registered():
-    """迁移文件已注册.
+    """008_add_missing_tables 迁移已注册.
 
     验证策略:
-    1. 主: 检查 alembic/versions/ 下 head 迁移文件 (047_notify_persist) 存在
-       (2026-06-26 迁移链已重编号 016-047, 008_add_missing_tables 已被替代)
+    1. 主: 检查 alembic/versions/008_add_missing_tables.py 文件存在
     2. 辅: 尝试 alembic current (依赖 DB 可用, 失败时跳过)
     """
     versions_dir = os.path.join(SERVER, "alembic", "versions")
-    # 2026-06-26: 迁移已重编号, head 为 047_notify_persist
-    target_file = "047_notify_persist.py"
+    target_file = "008_add_missing_tables.py"
     target_path = os.path.join(versions_dir, target_file)
-    assert os.path.exists(target_path), f"head 迁移文件不存在: {target_path}"
+    assert os.path.exists(target_path), f"迁移文件不存在: {target_path}"
 
     # 尝试在 PostgreSQL/真实环境下执行 alembic current
     try:
@@ -124,8 +120,7 @@ def test_alembic_008_registered():
         output = result.stdout + result.stderr
         if "Context impl SQLiteImpl" in output:
             pytest.skip("SQLite fallback 模式, 跳过 alembic current 检查")
-        # 验证 head 是 047
-        assert "047_notify_persist" in output, f"047 未在 current 中注册: {output.strip()}"
+        assert "008_add_missing_tables" in output, f"008 未在 current 中注册: {output.strip()}"
     except subprocess.TimeoutExpired:
         pytest.skip("alembic current 超时")
     except FileNotFoundError:
@@ -143,14 +138,20 @@ def test_alembic_migration_count():
 # ─── 前端 token 收敛检查 (代码检查) ───
 
 def test_frontend_core_uses_storage_keys():
-    """core.ts 应使用 STORAGE_KEYS.USER_TOKEN / REFRESH_TOKEN."""
+    """core.ts 应通过 TokenStorage 统一管理 token.
+
+    重构后 core.ts 不再直接引用 STORAGE_KEYS.USER_TOKEN,
+    改为委托给 TokenStorage (内部使用 STORAGE_KEYS).
+    """
     core_path = os.path.join(CLIENT, "src", "utils", "core.ts")
     if not os.path.exists(core_path):
         pytest.skip(f"文件不存在: {core_path}")
     with open(core_path, encoding="utf-8") as f:
         content = f.read()
-    assert "STORAGE_KEYS.USER_TOKEN" in content, "core.ts 未引用 STORAGE_KEYS.USER_TOKEN"
-    assert "STORAGE_KEYS.REFRESH_TOKEN" in content, "core.ts 未引用 STORAGE_KEYS.REFRESH_TOKEN"
+    assert "TokenStorage" in content, "core.ts 未引用 TokenStorage 统一管理"
+    assert "TokenStorage.getToken" in content or "TokenStorage.setToken" in content, (
+        "core.ts 未通过 TokenStorage 读写 token"
+    )
 
 
 def test_frontend_core_no_legacy_keys():

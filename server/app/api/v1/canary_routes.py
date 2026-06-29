@@ -34,11 +34,9 @@
 from __future__ import annotations
 
 import os
-import tempfile
 import threading
 
 from fastapi import APIRouter, Depends, HTTPException
-from loguru import logger
 from pydantic import BaseModel, Field
 
 from app.canary_stages import (
@@ -64,10 +62,7 @@ def _get_controller() -> CanaryStageController:
     global _CTRL
     with _LOCK:
         if _CTRL is None:
-            # 2026-06-25 修复: 原硬编码 /tmp/zhs_canary_state.json 在 Windows 上会创建到当前盘根 (G:\tmp\...)
-            # 改用 tempfile.gettempdir() 跨平台; 仍可由环境变量 ZHS_CANARY_STATE_FILE 覆盖
-            default_state = os.path.join(tempfile.gettempdir(), "zhs_canary_state.json")
-            state_file = os.environ.get("ZHS_CANARY_STATE_FILE", default_state)
+            state_file = os.environ.get("ZHS_CANARY_STATE_FILE", "/tmp/zhs_canary_state.json")
             _CTRL = CanaryStageController(state_file=state_file)
         return _CTRL
 
@@ -157,11 +152,9 @@ def post_canary_promote(req: PromoteRequest, _admin: str = Depends(_admin_dep)):
     try:
         ev = ctrl.promote(actor=req.actor, reason=req.reason)
     except StageCooldownError as e:
-        logger.error("Canary promote cooldown: %s", e)
-        raise HTTPException(status_code=429, detail="操作过于频繁,请稍后重试") from e
+        raise HTTPException(status_code=429, detail=str(e)) from e
     except StageError as e:
-        logger.error("Canary promote stage error: %s", e)
-        raise HTTPException(status_code=400, detail="阶段操作失败") from e
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return CanaryResponse(
         ok=True,
         data={
@@ -178,8 +171,7 @@ def post_canary_rollback(req: RollbackRequest, _admin: str = Depends(_admin_dep)
     try:
         ev = ctrl.rollback(actor=req.actor, reason=req.reason, auto=req.auto)
     except StageError as e:
-        logger.error("Canary rollback stage error: %s", e)
-        raise HTTPException(status_code=400, detail="阶段操作失败") from e
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
     return CanaryResponse(

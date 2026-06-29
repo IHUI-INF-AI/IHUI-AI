@@ -8,20 +8,24 @@ Replaces Spring Security / Admin token system with:
 - DataScope data permission filtering
 """
 
-import asyncio
 import datetime as dt
+import os
 
+import bcrypt as _bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from jose import JWTError, jwt
-import bcrypt as _bcrypt
 from sqlalchemy import select
 
 from app.config import settings
 
 
 def _validate_jwt_secret() -> str:
-    """启动时强制校验 JWT_SECRET_KEY, 防止弱密钥/默认值上线."""
+    """启动时强制校验 JWT_SECRET_KEY, 防止弱密钥/默认值上线.
+
+    dev/test 环境放行弱密钥 (便于本地开发/测试), production/staging 环境强制抛错.
+    与 security/auth.py 的 _validate_session_secret / _validate_db_config 保持一致.
+    """
     secret = settings.JWT_SECRET_KEY
     weak_values = {
         "",
@@ -30,9 +34,12 @@ def _validate_jwt_secret() -> str:
         "changeme",
     }
     if secret in weak_values or len(secret) < 32:
-        raise RuntimeError(
-            "JWT_SECRET_KEY 未设置或强度不足 (>=32 字符, 不可为默认值), " "请在 .env.production 中配置强随机密钥后重启."
-        )
+        env_name = os.environ.get("ENV", settings.ENV)
+        if env_name in ("production", "prod", "staging"):
+            raise RuntimeError(
+                "JWT_SECRET_KEY 未设置或强度不足 (>=32 字符, 不可为默认值), "
+                "请在 .env.production 中配置强随机密钥后重启."
+            )
     return secret
 
 
@@ -117,15 +124,10 @@ def create_refresh_token(subject: str, family_id: str | None = None) -> tuple[st
     return token, jti, fid
 
 
-def decode_access_token(token: str, allow_refresh: bool = False) -> dict | None:
+def decode_access_token(token: str) -> dict | None:
     """Decode and validate a JWT token. Returns payload or None.
 
     Bug-26: 同时检查 JWT 黑名单, 已吊销的 token 返回 None.
-
-    allow_refresh 参数为前向兼容保留: refresh 轮转/吊销调用点显式传 True
-    表明该上下文允许解码 refresh token. 当前实现为通用解码器 (不按 type 拒绝,
-    见 test_t2_jwt_refresh_sliding 的设计选择), 参数暂不改变行为;
-    待 app/security/auth.py 的 type 校验迁移接入后生效.
     """
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
@@ -145,7 +147,7 @@ def decode_access_token(token: str, allow_refresh: bool = False) -> dict | None:
 security_scheme = HTTPBearer(auto_error=False)
 
 
-def get_current_user_uuid(
+async def get_current_user_uuid(
     credentials=Depends(security_scheme),
 ):
     """Extract and validate user UUID from JWT token.
@@ -174,7 +176,7 @@ def get_current_user_uuid(
     return payload.get("sub")
 
 
-def require_login(
+async def require_login(
     user_uuid=Depends(get_current_user_uuid),
 ):
     """Require a valid login. Returns user UUID or raises 401."""
@@ -193,42 +195,6 @@ def require_login(
     return user_uuid
 
 
-def get_current_user_id_flexible(credentials=Depends(security_scheme)) -> str | None:
-    """非强制认证: 解析 JWT 并返回用户 UUID, 无 token 时返回 None.
-
-    用于 Java Member/Follow 等 Controller 中根据"当前登录用户"做业务处理的场景.
-    区别于 require_login: 本函数不抛 401, 而是返回 None 让调用方自行处理.
-    """
-    if credentials is None:
-        return None
-    payload = decode_access_token(credentials.credentials)
-    if payload is None:
-        return None
-    return payload.get("sub")
-
-
-def _check_role_sync(user_uuid: str, required_role: str) -> bool:
-    """同步角色检查: 2026-06-25 加固后用 asyncio.to_thread 调用, 不阻塞事件循环."""
-    from app.database import get_session
-    from app.models.sys_models import SysRole, SysUser, SysUserRole
-
-    with get_session() as db:
-        # Query: admin_user -> admin_user_role -> admin_role
-        stmt = (
-            select(SysUser.user_id)
-            .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
-            .join(SysRole, SysUserRole.role_id == SysRole.role_id)
-            .where(
-                SysUser.user_uuid == user_uuid,
-                SysRole.role_key == required_role,
-                SysRole.status == "0",  # 0 = active
-                SysRole.del_flag == "0",  # 0 = not deleted
-            )
-            .limit(1)
-        )
-        return db.execute(stmt).scalar() is not None
-
-
 def require_role(required_role: str):
     """Return a dependency that checks if user has the required role.
 
@@ -237,42 +203,37 @@ def require_role(required_role: str):
 
     Returns:
         Dependency that yields user_uuid if authorized, raises 403 otherwise.
-
-    2026-06-25 加固: 同步 DB 查询通过 asyncio.to_thread 包装, 不阻塞事件循环.
     """
 
     async def _check_role(user_uuid=Depends(require_login)):
-        has_role = await asyncio.to_thread(_check_role_sync, user_uuid, required_role)
-        if not has_role:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{required_role}' required",
+        from sqlalchemy import select
+
+        from app.database import get_session
+        from app.models.sys_models import SysRole, SysUser, SysUserRole
+
+        with get_session() as db:
+            # Query: admin_user -> admin_user_role -> admin_role
+            stmt = (
+                select(SysUser.user_id)
+                .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
+                .join(SysRole, SysUserRole.role_id == SysRole.role_id)
+                .where(
+                    SysUser.user_uuid == user_uuid,
+                    SysRole.role_key == required_role,
+                    SysRole.status == "0",  # 0 = active
+                    SysRole.del_flag == "0",  # 0 = not deleted
+                )
+                .limit(1)
             )
-        return user_uuid
+            result = db.execute(stmt).scalar()
+            if result is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Role '{required_role}' required",
+                )
+            return user_uuid
 
     return _check_role
-
-
-def _check_perm_sync(user_uuid: str, permission_key: str) -> bool:
-    """同步权限检查: 通过 asyncio.to_thread 调用, 不阻塞事件循环."""
-    from app.database import get_session
-    from app.models.sys_models import SysMenu, SysRoleMenu, SysUser, SysUserRole
-
-    with get_session() as db:
-        # Query: admin_user -> admin_user_role -> admin_role_menu -> admin_menu
-        stmt = (
-            select(SysUser.user_id)
-            .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
-            .join(SysRoleMenu, SysUserRole.role_id == SysRoleMenu.role_id)
-            .join(SysMenu, SysRoleMenu.menu_id == SysMenu.menu_id)
-            .where(
-                SysUser.user_uuid == user_uuid,
-                SysMenu.perms == permission_key,
-                SysMenu.status == "0",  # 0 = active
-            )
-            .limit(1)
-        )
-        return db.execute(stmt).scalar() is not None
 
 
 def require_permission(permission_key: str):
@@ -283,18 +244,33 @@ def require_permission(permission_key: str):
 
     Returns:
         Dependency that yields user_uuid if authorized, raises 403 otherwise.
-
-    2026-06-25 加固: 同步 DB 查询通过 asyncio.to_thread 包装, 不阻塞事件循环.
     """
 
     async def _check_perm(user_uuid: str = Depends(require_login)):
-        has_perm = await asyncio.to_thread(_check_perm_sync, user_uuid, permission_key)
-        if not has_perm:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission '{permission_key}' required",
+        from app.database import get_session
+        from app.models.sys_models import SysMenu, SysRoleMenu, SysUser, SysUserRole
+
+        with get_session() as db:
+            # Query: admin_user -> admin_user_role -> admin_role_menu -> admin_menu
+            stmt = (
+                select(SysUser.user_id)
+                .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
+                .join(SysRoleMenu, SysUserRole.role_id == SysRoleMenu.role_id)
+                .join(SysMenu, SysRoleMenu.menu_id == SysMenu.menu_id)
+                .where(
+                    SysUser.user_uuid == user_uuid,
+                    SysMenu.perms == permission_key,
+                    SysMenu.status == "0",  # 0 = active
+                )
+                .limit(1)
             )
-        return user_uuid
+            result = db.execute(stmt).scalar()
+            if result is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Permission '{permission_key}' required",
+                )
+            return user_uuid
 
     return _check_perm
 
@@ -335,16 +311,12 @@ def _get_dept_ids_with_children(db, dept_id: int) -> list:
     """Return dept_id and all descendant dept_ids using the ancestors path.
 
     SysDept.ancestors stores the full path like '0,100,101'.
-    A child whose ancestors contains str(dept_id) as a complete segment is a descendant.
-    使用精确段匹配避免 dept_id=1 误匹配 100/11/21 等。
+    A child whose ancestors contains str(dept_id) is a descendant.
     """
-    from sqlalchemy import func
-
     from app.models.sys_models import SysDept
 
-    # 在 ancestors 两端补逗号后精确匹配 ,dept_id, 段, 避免子串误匹配
     stmt = select(SysDept.dept_id).where(
-        func.concat(",", SysDept.ancestors, ",").like(f"%,{dept_id},%"),
+        SysDept.ancestors.like(f"%{dept_id}%"),
         SysDept.status == "0",
         SysDept.del_flag == "0",
     )
@@ -492,3 +464,79 @@ def get_data_scope_filter(db, user_uuid: str, dept_field, create_by_field=None):
             return create_by_field == user_uuid
 
     return clause
+
+
+# ---------------------------------------------------------------------------
+# Round 25: OAuth scope 校验依赖
+# ---------------------------------------------------------------------------
+
+
+def require_oauth_scope(required_scope: str):
+    """Return a dependency that checks if the OAuth access_token has the required scope.
+
+    Round 25 新增. 用于受 OAuth access_token 保护的 API endpoint.
+
+    工作原理:
+    1. 从 Authorization Bearer header 提取 access_token
+    2. 解码 JWT, 读取 payload["scope"] (空格分隔字符串, OAuth2 标准)
+    3. 校验 required_scope 是否在 scope 集合内
+    4. 校验通过返回 user_uuid (payload["sub"]), 否则 403
+
+    与 require_login 区别:
+    - require_login 校验任意有效 JWT (业务系统自身签发)
+    - require_oauth_scope 校验 OAuth 流程签发的 access_token (payload 含 scope 字段)
+
+    Args:
+        required_scope: 必须具备的 scope (单个字符串, 如 "read:profile")
+
+    Returns:
+        Dependency that yields user_uuid if scope satisfied, raises 401/403 otherwise.
+
+    Usage:
+        @router.get("/protected", dependencies=[Depends(require_oauth_scope("read:profile"))])
+        async def protected_endpoint():
+            ...
+    """
+
+    async def _check_scope(
+        credentials=Depends(security_scheme),
+    ):
+        if credentials is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="OAuth access_token required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        try:
+            payload = decode_access_token(credentials.credentials)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid OAuth access_token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid OAuth access_token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # 校验 scope 字段
+        scope_str = payload.get("scope") or ""
+        granted_scopes = set(scope_str.split()) if scope_str else set()
+        if required_scope not in granted_scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"OAuth scope '{required_scope}' required. Granted scopes: {scope_str or '(none)'}",
+            )
+
+        user_uuid = payload.get("sub")
+        if not user_uuid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid OAuth access_token: missing subject",
+            )
+        return user_uuid
+
+    return _check_scope

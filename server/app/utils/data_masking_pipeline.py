@@ -21,7 +21,7 @@ import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class MaskAudit:
 class DataMaskingPipeline:
     """数据脱敏管道."""
 
-    DEFAULT_SENSITIVE_FIELDS = {
+    DEFAULT_SENSITIVE_FIELDS: ClassVar[set] = {
         "password",
         "passwd",
         "pwd",

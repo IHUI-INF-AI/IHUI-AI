@@ -6,7 +6,6 @@ calculate_and_deduct_tokens_for_hunyuan3d, 改造 calculate_and_deduct_tokens_by
 补全 Phase 14 加测 test_token_utils_service 的依赖面.
 """
 
-import asyncio
 import time
 from typing import Any
 
@@ -18,35 +17,31 @@ from app.database import get_session
 from app.services.token_service import deduct_user_token
 
 
-def is_active_promotion_period() -> dict[str, Any]:
+async def is_active_promotion_period() -> dict[str, Any]:
     """Check if current time is within an active promotion period."""
-    try:
-        with get_session() as db:
-            from app.models.activity_models import Activity
+    with get_session() as db:
+        from app.models.activity_models import Activity
 
-            promo = (
-                db.query(Activity)
-                .filter(Activity.status == 1)
-                .filter(Activity.begin_time <= text("NOW()"), Activity.end_time >= text("NOW()"))
-                .order_by(Activity.begin_time.desc())
-                .first()
-            )
-            if promo:
-                return {
-                    "is_active": True,
-                    "activity": {
-                        "id": promo.id,
-                        "name": promo.activity_name,
-                        "begin_time": promo.begin_time,
-                        "end_time": promo.end_time,
-                        "computing": getattr(promo, "computing", None),
-                        "multiple": getattr(promo, "multiple", None),
-                    },
-                }
-            return {"is_active": False}
-    except Exception as e:
-        logger.error(f"Check promotion period error: {e}")
-        return {"is_active": False, "error": str(e)}
+        promo = (
+            db.query(Activity)
+            .filter(Activity.status == 1)
+            .filter(Activity.begin_time <= text("NOW()"), Activity.end_time >= text("NOW()"))
+            .order_by(Activity.begin_time.desc())
+            .first()
+        )
+        if promo:
+            return {
+                "is_active": True,
+                "activity": {
+                    "id": promo.id,
+                    "name": promo.activity_name,
+                    "begin_time": promo.begin_time,
+                    "end_time": promo.end_time,
+                    "computing": getattr(promo, "computing", None),
+                    "multiple": getattr(promo, "multiple", None),
+                },
+            }
+        return {"is_active": False}
 
 
 def encode_jwt_token() -> str:
@@ -60,7 +55,7 @@ def encode_jwt_token() -> str:
     return pyjwt.encode(payload, sk, headers=headers)
 
 
-def save_conversation_to_db(
+async def save_conversation_to_db(
     user_uuid: str,
     model_name: str,
     problem: str,
@@ -77,7 +72,7 @@ def save_conversation_to_db(
     """Save conversation to DB and clean Redis cache."""
     try:
         with get_session() as db:
-            from app.models.context_models import ChatContext
+            from app.models.context_models import ChatContext  # type: ignore[attr-defined]
 
             ctx = ChatContext(
                 user_uuid=user_uuid,
@@ -109,7 +104,7 @@ def save_conversation_to_db(
         return False
 
 
-def check_user_is_vip(user_uuid: str | None) -> bool:
+async def check_user_is_vip(user_uuid: str | None) -> bool:
     """判断用户是否为 VIP / 操盘手 (is_vip >= 1).
 
     返回 bool. 空/None UUID 视为非 VIP. DB 异常隔离, 视为非 VIP.
@@ -129,7 +124,7 @@ def check_user_is_vip(user_uuid: str | None) -> bool:
         return False
 
 
-def check_user_token_sufficient(user_uuid: str, min_tokens: int = 1) -> dict[str, Any]:
+async def check_user_token_sufficient(user_uuid: str, min_tokens: int = 1) -> dict[str, Any]:
     """Check if user has sufficient token balance."""
     if not user_uuid:
         return {"sufficient": False, "balance": 0, "user_uuid": "", "error": "empty uuid"}
@@ -163,7 +158,7 @@ async def calculate_tokens_per_yuan(user_uuid: str | None) -> dict[str, Any]:
         }
 
     # 促销期优先 (不论 VIP 等级)
-    promo = await asyncio.to_thread(is_active_promotion_period)
+    promo = await is_active_promotion_period()
     if promo.get("is_active"):
         return {
             "tokens_per_yuan": settings.TOKEN_PROMOTION_PER_YUAN,
@@ -173,38 +168,33 @@ async def calculate_tokens_per_yuan(user_uuid: str | None) -> dict[str, Any]:
         }
 
     try:
-        def _lookup():
+        with get_session() as db:
             from app.models.user_models import User
 
-            with get_session() as db:
-                user = db.query(User).filter(User.uuid == user_uuid).first()
-                if not user:
-                    return None
-                return int(getattr(user, "is_vip", 0) or 0)
-
-        level = await asyncio.to_thread(_lookup)
-        if level is None:
+            user = db.query(User).filter(User.uuid == user_uuid).first()
+            if not user:
+                return {
+                    "tokens_per_yuan": settings.TOKEN_NORMAL_USER_PER_YUAN,
+                    "user_vip_level": 0,
+                    "is_promotion_period": False,
+                    "reason": "user not found",
+                }
+            level = int(getattr(user, "is_vip", 0) or 0)
+            if level >= 2:
+                rate = settings.TOKEN_TRADER_USER_PER_YUAN
+                reason = "trader level 2"
+            elif level >= 1:
+                rate = settings.TOKEN_VIP_USER_PER_YUAN
+                reason = "vip level 1"
+            else:
+                rate = settings.TOKEN_NORMAL_USER_PER_YUAN
+                reason = "normal user level 0"
             return {
-                "tokens_per_yuan": settings.TOKEN_NORMAL_USER_PER_YUAN,
-                "user_vip_level": 0,
+                "tokens_per_yuan": rate,
+                "user_vip_level": level,
                 "is_promotion_period": False,
-                "reason": "user not found",
+                "reason": reason,
             }
-        if level >= 2:
-            rate = settings.TOKEN_TRADER_USER_PER_YUAN
-            reason = "trader level 2"
-        elif level >= 1:
-            rate = settings.TOKEN_VIP_USER_PER_YUAN
-            reason = "vip level 1"
-        else:
-            rate = settings.TOKEN_NORMAL_USER_PER_YUAN
-            reason = "normal user level 0"
-        return {
-            "tokens_per_yuan": rate,
-            "user_vip_level": level,
-            "is_promotion_period": False,
-            "reason": reason,
-        }
     except Exception as e:
         logger.error(f"Calculate tokens per yuan error: {e}")
         return {
@@ -220,11 +210,15 @@ async def calculate_and_deduct_tokens_by_cost(
     yuan_cost: float,
     service_name: str,
     success: bool = True,
+    bot_id: str | None = None,
 ) -> dict[str, Any]:
     """Calculate token cost and deduct from user balance.
 
     P15-C2 改造: success=False 时短路返回 (success=True, tokens_deducted=0, reason="no deduction"),
                 保持上游调用方期待 success 标志与 "no deduction" 描述.
+
+    SpecialBotCache 接入: 传入 bot_id 时, 由 deduct_user_token 内部判断是否为特殊智能体,
+                          特殊智能体改走 VIP 等级固定金额扣费 (tokens_deducted 反映实际扣除量).
     """
     if not success:
         return {"success": True, "tokens_deducted": 0, "reason": "no deduction (success=False)"}
@@ -236,19 +230,22 @@ async def calculate_and_deduct_tokens_by_cost(
         rate_info = await calculate_tokens_per_yuan(user_uuid)
         rate = rate_info.get("tokens_per_yuan", settings.TOKEN_NORMAL_USER_PER_YUAN)
         tokens = round(rate * yuan_cost * settings.TOKEN_BASE_MULTIPLIER)
-        result = deduct_user_token(user_uuid, tokens, desc=service_name)
+        result = deduct_user_token(user_uuid, tokens, desc=service_name, bot_id=bot_id)
         if not result.get("success"):
             return {
                 "success": False,
                 "tokens_deducted": 0,
                 "reason": result.get("reason", "deduct failed"),
             }
+        # 特殊智能体扣费返回 deduct_amount (固定金额), 普通扣费返回按 yuan_cost 计算的 tokens
+        actual_deducted = result.get("deduct_amount", tokens)
         return {
             "success": True,
-            "tokens_deducted": tokens,
+            "tokens_deducted": actual_deducted,
             "balance": result.get("balance"),
             "yuan_cost": yuan_cost,
             "tokens_per_yuan": rate,
+            "is_special_bot": result.get("is_special_bot", False),
         }
     except Exception as e:
         logger.error(f"calculate_and_deduct_tokens_by_cost error: {e}")
@@ -258,8 +255,12 @@ async def calculate_and_deduct_tokens_by_cost(
 async def calculate_and_deduct_tokens_for_hunyuan3d(
     user_uuid: str,
     success: bool = True,
+    bot_id: str | None = None,
 ) -> dict[str, Any]:
-    """Hunyuan3D 固定按 1.5 元 / 次扣费."""
+    """Hunyuan3D 固定按 1.5 元 / 次扣费.
+
+    SpecialBotCache 接入: 传入 bot_id 时, 特殊智能体改走 VIP 等级固定金额扣费.
+    """
     if not success:
         return {"success": True, "tokens_deducted": 0, "reason": "no deduction (success=False)"}
 
@@ -270,18 +271,20 @@ async def calculate_and_deduct_tokens_for_hunyuan3d(
         rate_info = await calculate_tokens_per_yuan(user_uuid)
         rate = rate_info.get("tokens_per_yuan", settings.TOKEN_NORMAL_USER_PER_YUAN)
         tokens = round(rate * 1.5 * settings.TOKEN_BASE_MULTIPLIER)
-        result = deduct_user_token(user_uuid, tokens, desc="hunyuan3d")
+        result = deduct_user_token(user_uuid, tokens, desc="hunyuan3d", bot_id=bot_id)
         if not result.get("success"):
             return {
                 "success": False,
                 "tokens_deducted": 0,
                 "reason": result.get("reason", "deduct failed"),
             }
+        actual_deducted = result.get("deduct_amount", tokens)
         return {
             "success": True,
-            "tokens_deducted": tokens,
+            "tokens_deducted": actual_deducted,
             "balance": result.get("balance"),
             "yuan_cost": 1.5,
+            "is_special_bot": result.get("is_special_bot", False),
         }
     except Exception as e:
         logger.error(f"calculate_and_deduct_tokens_for_hunyuan3d error: {e}")

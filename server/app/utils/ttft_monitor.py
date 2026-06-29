@@ -198,7 +198,7 @@ class StreamTTFT:
         self._start = time.time()
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> None:
         if exc_type is not None and not self._error:
             self._error = exc_type.__name__
         self._end = time.time()
@@ -214,4 +214,3 @@ class StreamTTFT:
             token_count=self._token_count,
             error=self._error,
         )
-        return False

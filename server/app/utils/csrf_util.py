@@ -10,13 +10,10 @@
 
 import hashlib
 import hmac
-import logging
 import secrets
 import time
 
 from fastapi import HTTPException, Request, Response, status
-
-logger = logging.getLogger(__name__)
 
 # 默认 cookie / header 名
 CSRF_COOKIE_NAME = "XSRF-TOKEN"
@@ -34,16 +31,8 @@ def _secret() -> bytes:
         k = getattr(settings, "JWT_SECRET_KEY", None) or getattr(settings, "SECRET_KEY", None)
         if k:
             return k.encode("utf-8")
-    except Exception as e:
-        logger.debug("读取 CSRF 密钥失败: %s", e)  # intentionally ignored
-    # 生产环境必须显式配置密钥, 禁止使用默认弱密钥
-    import os
-
-    env = os.getenv("ENV", "dev").lower()
-    if env in ("production", "prod", "staging"):
-        raise RuntimeError(
-            "[CSRF] 生产环境必须配置 JWT_SECRET_KEY, 禁止使用默认 CSRF 密钥"
-        )
+    except Exception:
+        pass  # intentionally ignored
     return b"zhs-csrf-default-secret-key"
 
 
@@ -97,7 +86,7 @@ def verify_csrf_token(token: str, cookie_val: str, user_uuid: str = "anon") -> b
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
-def csrf_protect(request: Request) -> None:
+async def csrf_protect(request: Request) -> None:
     """FastAPI 依赖: 校验 state-changing 请求的 CSRF token.
 
     豁免: 公开白名单 (登录/回调/支付) 不需要 (见 AuthMiddleware 的 PUBLIC_PREFIXES).
@@ -125,18 +114,13 @@ def csrf_protect(request: Request) -> None:
 
 def set_csrf_cookie(response: Response, user_uuid: str = "anon") -> str:
     """生成 CSRF token + 写入 cookie, 返回前端应回传的 token 字符串."""
-    import os
-
     token, cookie_val = generate_csrf_token(user_uuid)
-    # 生产环境强制 secure, 开发环境允许 False (本地 HTTP 调试)
-    env = os.getenv("ENV", "dev").lower()
-    secure = env in ("production", "prod", "staging")
     response.set_cookie(
         key=CSRF_COOKIE_NAME,
         value=cookie_val,
         max_age=CSRF_TOKEN_TTL,
         httponly=False,  # 前端 JS 需可读
-        secure=secure,
+        secure=False,  # 生产建议 True
         samesite="lax",
         path="/",
     )

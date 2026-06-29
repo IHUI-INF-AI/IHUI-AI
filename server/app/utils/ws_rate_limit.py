@@ -4,11 +4,8 @@
 可通过 hot_config.HOT_WS_RATE_PER_SEC 调阈值.
 """
 
-import logging
 import time
 from collections import defaultdict, deque
-
-logger = logging.getLogger(__name__)
 
 # 默认阈值 (msg/sec/conn)
 DEFAULT_RATE_PER_SEC = 30
@@ -25,8 +22,8 @@ def _get_redis():
         from app.utils.redis_client import get_redis as _gr
 
         _redis_client = _gr()
-    except Exception as e:
-        logger.debug("WS 限流获取 Redis 客户端失败: %s", e)  # intentionally ignored
+    except Exception:
+        pass  # intentionally ignored
     return _redis_client
 
 
@@ -43,8 +40,8 @@ def _threshold() -> tuple[int, int]:
         b = hot_get("WS_BURST")
         if b is not None:
             burst = int(b)
-    except Exception as e:
-        logger.debug("WS 限流读取 hot_config 阈值失败: %s", e)  # intentionally ignored
+    except Exception:
+        pass  # intentionally ignored
     return rate, burst
 
 

@@ -21,7 +21,7 @@ async def chat(
     max_tokens: int = Body(2048, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if openrouter_key(api_key):
@@ -52,7 +52,7 @@ async def completion(
     max_tokens: int = Body(1024, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if openrouter_key(api_key):
@@ -94,7 +94,7 @@ async def embeddings(
     model: str = Body("openai/text-embedding-3-small", embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if openrouter_key(api_key):
@@ -112,7 +112,7 @@ async def embeddings(
 
 @router.get("/credits", summary="账户额度")
 async def credits(api_key: str = ""):
-    with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         try:
             headers = {}
             if openrouter_key(api_key):

@@ -26,9 +26,6 @@ from app.services.token_utils_service import (
 
 router = APIRouter()
 
-# 保留后台任务引用，防止被 GC 回收
-_pending_tasks: set = set()
-
 # ---------------------------------------------------------------------------
 # Kling API base URLs (Beijing node)
 # ---------------------------------------------------------------------------
@@ -138,20 +135,15 @@ async def _persist_and_record_video(
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tf:
                 tf.write(file_bytes)
                 temp_path = tf.name
-            try:
-                cap = cv2.VideoCapture(temp_path)
-                if cap.isOpened():
-                    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    cap.release()
-                    if w > 0 and h > 0:
-                        g = math.gcd(w, h)
-                        video_ratio = f"{w // g}:{h // g}"
-            finally:
-                try:
-                    os.remove(temp_path)
-                except OSError:
-                    pass
+            cap = cv2.VideoCapture(temp_path)
+            if cap.isOpened():
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                cap.release()
+                if w > 0 and h > 0:
+                    g = math.gcd(w, h)
+                    video_ratio = f"{w // g}:{h // g}"
+            os.remove(temp_path)
         except Exception as e:
             logger.warning(f"Video ratio analysis failed: {e}")
 
@@ -444,9 +436,7 @@ async def kling_lip_sync(body: LipSyncBody):
         except Exception as e:
             logger.warning(f"[Kling LipSync] background polling error: {e}")
 
-    _bg_task = asyncio.create_task(_background_poll())
-    _pending_tasks.add(_bg_task)
-    _bg_task.add_done_callback(_pending_tasks.discard)
+    asyncio.create_task(_background_poll())  # noqa: RUF006
 
     return success(
         {
@@ -591,7 +581,7 @@ async def kling_lip_sync_one_shot(body: LipSyncOneShotBody):
             for _ in range(30):
                 q = await _query(client)
                 d = (q or {}).get("data") or {}
-                st = str(d.get("task_status", "")).lower()
+                st = str(d.get("task_status", "")).lower()  # type: ignore[assignment]
                 if st == "succeed":
                     videos = (d.get("task_result") or {}).get("videos") or []
                     if videos and isinstance(videos, list):
@@ -646,9 +636,7 @@ async def kling_lip_sync_one_shot(body: LipSyncOneShotBody):
         except Exception as e:
             logger.warning(f"[Kling OneShot] background polling error: {e}")
 
-    _bg_task = asyncio.create_task(_bg())
-    _pending_tasks.add(_bg_task)
-    _bg_task.add_done_callback(_pending_tasks.discard)
+    asyncio.create_task(_bg())  # noqa: RUF006
 
     return success({"task_id": task_id, "status": "pending", "message": "任务执行中"})
 

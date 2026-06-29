@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.AiModelInfoMapper">
+    <!-- 大模型信息表 ResultMap：数据库字段与实体类属性映射 -->
+    <resultMap id="zhsAiModelInfoResultMap" type="com.ai.manager.small.domain.AiModelInfo">
+        <!-- 主键字段映射 -->
+        <id column="id" property="id" jdbcType="VARCHAR" />
+
+        <!-- 普通字段映射（按数据库字段顺序排列，便于维护） -->
+        <result column="name" property="name" jdbcType="VARCHAR" />
+        <result column="source" property="source" jdbcType="VARCHAR" />
+        <result column="img" property="img" jdbcType="VARCHAR" />
+        <result column="remark" property="remark" jdbcType="VARCHAR" />
+        <result column="type" property="type" jdbcType="TINYINT" />
+        <result column="sort" property="sort" jdbcType="INTEGER" />
+        <result column="is_del" property="isDel" jdbcType="TINYINT" />
+        <result column="creator" property="creator" jdbcType="VARCHAR" />
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP" />
+        <result column="updator" property="updator" jdbcType="VARCHAR" />
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP" />
+        <result column="quest_type" property="questType" jdbcType="VARCHAR" />
+        <result column="variables" property="variables" jdbcType="VARCHAR" />
+        <result column="is_new" property="isNew" jdbcType="VARCHAR" />
+        <result column="is_top" property="isTop" jdbcType="VARCHAR" />
+        <result column="manufacturer" property="manufacturer" jdbcType="VARCHAR" />
+    </resultMap>
+    <sql id="selectAiModelInfo">
+        SELECT
+            id, name, source, img, remark, type, sort, is_del,
+            creator, created_at, updator, updated_at, quest_type,
+            variables, is_new, is_top, manufacturer
+    </sql>
+    <sql id="fromAiModelInfo">
+        FROM zhs_ai_model_info
+    </sql>
+    <insert id="add">
+        INSERT INTO `zhs_ai_model_info_unify` (
+            `code`,
+            `type`,
+            `name`,
+            `model_code`,
+            `img`,
+            `access_key`,
+            `task_generation`,
+            `quest_type`,
+            `variables`,
+            `manufacturer`,
+            `open_desc`,
+            `model_desc`,
+            `grass_roots`,
+            `is_gratis`,
+            `is_del`,
+            `creator`
+        )
+        VALUES
+            (
+                #{agent_id},
+                1,
+        #{agent_name},
+        #{agent_id},
+        #{icon},
+        'inc-akec34f4ccc24e1727782a6eb04c0f0e2872d85fc36a3cea4f5cac92f29c4f419a',
+        'curl --location --request POST \'https://o.tbox.cn/openapi/v1/chat/create\' \\\r\n--header \'Authorization: inc-cnlf551af20f802d04f1b0cd66affdaf93458d4e38dcbe7384cb266851922de7d62\' \\\r\n--header \'Accept: text/event-stream\' \\\r\n--header \'Content-Type: application/json\' \\\r\n--header \'Cookie: aliyungf_tc=895f672e6520616ca4823271b37f0c3b6a8eaa1a9c2ee5dcbb082218319483a7\' \\\r\n--data-raw \'{\r\n    \"agent_id\":\"code\",\r\n    \"question\":\"动物园什么时候开\",\r\n    \"user_id\":\"89706d8c-af32-47b5-ad87-a1ece5e6b46d\",\r\n    \"stream\":true,\r\n    \"media_contents\": [\r\n        {\r\n            \"type\": \"image\",\r\n            \"url\": \"https://pic.rmb.bdstatic.com/bjh/events/6ffb103228140aac1c7977b004b7d93a2241.jpeg\"\r\n        }\r\n    ],\r\n    \"extra_params\": {\r\n        \"from_source\": \"CUSTOM_ZHHL\"\r\n    }\r\n}\'',
+                'ws',
+                NULL,
+        'tbox',
+        #{custom_param.welcom},
+        #{description},
+                'python',
+                0,
+             1,
+        #{custom_param.uuid}
+            );
+    </insert>
+
+    <delete id="delist">
+        update zhs_ai_model_info_unify set is_del = 1 where code = #{agent_id}
+    </delete>
+
+    <select id="queryById" resultMap="zhsAiModelInfoResultMap">
+        <include refid="selectAiModelInfo"/>
+        <include refid="fromAiModelInfo"/>
+        <where>
+            <!-- 固定过滤：只查询未删除数据（逻辑删除） -->
+            is_del = 0
+
+            <!-- 1. 主键ID：精准匹配（支持单ID查询） -->
+            <if test="id != null and id != ''">
+                AND id = #{id}
+            </if>
+<!--
+            &lt;!&ndash; 2. 模型名称：模糊匹配（支持关键词搜索） &ndash;&gt;
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+
+            &lt;!&ndash; 3. 来源厂商/厂商：精准匹配（两个字段均支持查询，根据业务选择） &ndash;&gt;
+            <if test="source != null and source != ''">
+                AND source = #{source}
+            </if>
+            <if test="manufacturer != null and manufacturer != ''">
+                AND manufacturer = #{manufacturer}
+            </if>
+
+            &lt;!&ndash; 4. 图片地址：模糊匹配（可选） &ndash;&gt;
+            <if test="img != null and img != ''">
+                AND img LIKE CONCAT('%', #{img}, '%')
+            </if>
+
+            &lt;!&ndash; 5. 备注：模糊匹配（长文本关键词搜索） &ndash;&gt;
+            <if test="remark != null and remark != ''">
+                AND remark LIKE CONCAT('%', #{remark}, '%')
+            </if>
+
+            &lt;!&ndash; 6. 模型类别：精准匹配（0=其他 | 1=文本 | 2=图片 | 3=视频 | 4=音频） &ndash;&gt;
+            <if test="type != null">
+                AND type = #{type}
+            </if>
+
+            &lt;!&ndash; 7. 请求类型：精准匹配 &ndash;&gt;
+            <if test="questType != null and questType != ''">
+                AND quest_type = #{questType}
+            </if>
+
+            &lt;!&ndash; 8. 是否新增：精准匹配（数据库字段为varchar(2)，如 '0'/'1'） &ndash;&gt;
+            <if test="isNew != null and isNew != ''">
+                AND is_new = #{isNew}
+            </if>
+
+            &lt;!&ndash; 9. 排序标识：精准匹配（is_top字段，如 '0'/'1' 标识是否置顶） &ndash;&gt;
+            <if test="isTop != null and isTop != ''">
+                AND is_top = #{isTop}
+            </if>
+
+            &lt;!&ndash; 10. 创建人：精准匹配 &ndash;&gt;
+            <if test="creator != null and creator != ''">
+                AND creator = #{creator}
+            </if>
+
+            &lt;!&ndash; 11. 修改人：精准匹配 &ndash;&gt;
+            <if test="updator != null and updator != ''">
+                AND updator = #{updator}
+            </if>
+
+            &lt;!&ndash; 12. 创建时间范围查询（开始时间 ≤ created_at） &ndash;&gt;
+            <if test="createdAtStart != null">
+                AND created_at &gt;= #{createdAtStart}
+            </if>
+            &lt;!&ndash; 创建时间范围查询（created_at ≤ 结束时间） &ndash;&gt;
+            <if test="createdAtEnd != null">
+                AND created_at &lt;= #{createdAtEnd}
+            </if>
+
+            &lt;!&ndash; 13. 修改时间范围查询（开始时间 ≤ updated_at） &ndash;&gt;
+            <if test="updatedAtStart != null">
+                AND updated_at &gt;= #{updatedAtStart}
+            </if>
+            &lt;!&ndash; 修改时间范围查询（updated_at ≤ 结束时间） &ndash;&gt;
+            <if test="updatedAtEnd != null">
+                AND updated_at &lt;= #{updatedAtEnd}
+            </if>
+
+            &lt;!&ndash; 14. 模型变量信息：模糊匹配（文本关键词搜索） &ndash;&gt;
+            <if test="variables != null and variables != ''">
+                AND variables LIKE CONCAT('%', #{variables}, '%')
+            </if>-->
+        </where>
+        <!-- 默认排序：按sort升序（优先级高），再按创建时间降序（最新数据在前） -->
+        ORDER BY sort ASC, created_at DESC
+    </select>
+</mapper>

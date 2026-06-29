@@ -12,7 +12,6 @@ import threading
 import time
 import uuid
 from datetime import datetime
-from app.utils.datetime_helper import utcnow
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -27,7 +26,7 @@ BANDS = ["delta", "theta", "alpha", "beta", "gamma"]
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:
@@ -210,7 +209,7 @@ def end_session(session_id: str, event_count: int, avg_attention: float) -> bool
     if session and session["session_start"]:
         try:
             start = datetime.fromisoformat(session["session_start"].replace("Z", ""))
-            duration = int((utcnow() - start).total_seconds())
+            duration = int((datetime.utcnow() - start).total_seconds())
         except Exception:
             duration = 0
     with _conn_lock, _conn() as c:

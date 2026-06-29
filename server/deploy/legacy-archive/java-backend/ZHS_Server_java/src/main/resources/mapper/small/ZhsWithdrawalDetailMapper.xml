@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsWithdrawalDetailMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.ZhsWithdrawalDetail" id="ZhsWithdrawalDetailResult">
+        <result property="id"    column="Id"    />
+        <result property="userId"    column="User_id"    />
+        <result property="withdrawalAmount"    column="Withdrawal_amount"    />
+        <result property="withdrawalType"    column="Withdrawal_type"    />
+        <result property="withdrawalTime"    column="Withdrawal_time"    />
+        <result property="withdrawalStatus"    column="Withdrawal_status"    />
+        <result property="reviewer"    column="reviewer"    />
+        <result property="reviewerTime"    column="Reviewer_time"    />
+        <result property="paymentTime"    column="payment_time"    />
+        <result property="isSuccess"    column="is_success"    />
+        <result property="notes"    column="notes"    />
+        <result property="outBillNo"    column="out_Bill_No"    />
+        <result property="userName"    column="user_name"    />
+        <result property="openId"    column="open_id"    />
+        <result property="weChatMsg"    column="wechat_msg"    />
+        <result property="orderIds"    column="order_ids"    />
+    </resultMap>
+
+    <sql id="selectZhsWithdrawalDetailVo">
+        select Id, User_id, Withdrawal_amount, Withdrawal_type, Withdrawal_time, Withdrawal_status, reviewer, Reviewer_time, payment_time, is_success, notes, out_Bill_No, user_name,open_id,wechat_msg, order_ids from zhs_withdrawal_detail
+    </sql>
+
+    <select id="selectZhsWithdrawalDetailList" parameterType="com.ai.manager.small.domain.ZhsWithdrawalDetail" resultMap="ZhsWithdrawalDetailResult">
+        <include refid="selectZhsWithdrawalDetailVo"/>
+        <where>  
+            <if test="params.beginWithdrawalAmount != null and params.beginWithdrawalAmount != '' and params.endWithdrawalAmount != null and params.endWithdrawalAmount != ''"> and Withdrawal_amount between #{params.beginWithdrawalAmount} and #{params.endWithdrawalAmount}</if>
+            <if test="withdrawalType != null  and withdrawalType != ''"> and Withdrawal_type = #{withdrawalType}</if>
+            <if test="params.beginWithdrawalTime != null and params.beginWithdrawalTime != '' and params.endWithdrawalTime != null and params.endWithdrawalTime != ''"> and Withdrawal_time between #{params.beginWithdrawalTime} and #{params.endWithdrawalTime}</if>
+            <if test="withdrawalStatus != null  and withdrawalStatus != ''"> and Withdrawal_status = #{withdrawalStatus}</if>
+            <if test="reviewer != null  and reviewer != ''"> and reviewer like concat('%', #{reviewer}, '%')</if>
+            <if test="params.beginReviewerTime != null and params.beginReviewerTime != '' and params.endReviewerTime != null and params.endReviewerTime != ''"> and Reviewer_time between #{params.beginReviewerTime} and #{params.endReviewerTime}</if>
+            <if test="params.beginpaymentTime != null and params.beginpaymentTime != '' and params.endpaymentTime != null and params.endpaymentTime != ''"> and payment_time between #{params.beginpaymentTime} and #{params.endpaymentTime}</if>
+            <if test="isSuccess != null  and isSuccess != ''"> and is_success = #{isSuccess}</if>
+            <if test="notes != null  and notes != ''"> and notes like concat('%', #{notes}, '%')</if>
+            <if test="outBillNo != null  and outBillNo != ''"> and out_Bill_No like concat('%', #{outBillNo}, '%')</if>
+            <if test="userName != null  and userName != ''"> and user_name like concat('%', #{userName}, '%')</if>
+            <if test="openId != null  and openId != ''"> and open_id =#{openId}</if>
+            <if test="userId != null  and userId != ''"> and user_id =#{userId}</if>
+        </where>
+    </select>
+    
+    <select id="selectZhsWithdrawalDetailById" parameterType="String" resultMap="ZhsWithdrawalDetailResult">
+        <include refid="selectZhsWithdrawalDetailVo"/>
+        where Id = #{Id} order by Id desc
+    </select>
+
+    <insert id="insertZhsWithdrawalDetail" parameterType="com.ai.manager.small.domain.ZhsWithdrawalDetail">
+        insert into zhs_withdrawal_detail
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="Id != null">Id,</if>
+            <if test="userId != null">User_id,</if>
+            <if test="withdrawalAmount != null">Withdrawal_amount,</if>
+            <if test="withdrawalType != null">Withdrawal_type,</if>
+            <if test="withdrawalTime != null">Withdrawal_time,</if>
+            <if test="withdrawalStatus != null">Withdrawal_status,</if>
+            <if test="reviewer != null">reviewer,</if>
+            <if test="reviewerTime != null">Reviewer_time,</if>
+            <if test="paymentTime != null">payment_time,</if>
+            <if test="isSuccess != null">is_success,</if>
+            <if test="notes != null">notes,</if>
+            <if test="outBillNo != null">out_Bill_No,</if>
+            <if test="userName != null">user_name,</if>
+            <if test="openId != null">open_id,</if>
+            <if test="orderIds != null">order_ids,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="Id != null">#{Id},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="withdrawalAmount != null">#{withdrawalAmount},</if>
+            <if test="withdrawalType != null">#{withdrawalType},</if>
+            <if test="withdrawalTime != null">#{withdrawalTime},</if>
+            <if test="withdrawalStatus != null">#{withdrawalStatus},</if>
+            <if test="reviewer != null">#{reviewer},</if>
+            <if test="reviewerTime != null">#{reviewerTime},</if>
+            <if test="paymentTime != null">#{paymentTime},</if>
+            <if test="isSuccess != null">#{isSuccess},</if>
+            <if test="notes != null">#{notes},</if>
+            <if test="outBillNo != null">#{outBillNo},</if>
+            <if test="userName != null">#{userName},</if>
+            <if test="openId != null">#{openId},</if>
+            <if test="orderIds != null">#{orderIds},</if>
+         </trim>
+    </insert>
+
+    <update id="updateZhsWithdrawalDetail" parameterType="com.ai.manager.small.domain.ZhsWithdrawalDetail">
+        update zhs_withdrawal_detail
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">User_id = #{userId},</if>
+            <if test="withdrawalAmount != null">Withdrawal_amount = #{withdrawalAmount},</if>
+            <if test="withdrawalType != null">Withdrawal_type = #{withdrawalType},</if>
+            <if test="withdrawalTime != null">Withdrawal_time = #{withdrawalTime},</if>
+            <if test="withdrawalStatus != null">Withdrawal_status = #{withdrawalStatus},</if>
+            <if test="reviewer != null">reviewer = #{reviewer},</if>
+            <if test="reviewerTime != null">Reviewer_time = #{reviewerTime},</if>
+            <if test="paymentTime != null">payment_time = #{paymentTime},</if>
+            <if test="isSuccess != null">is_success = #{isSuccess},</if>
+            <if test="notes != null">notes = #{notes},</if>
+            <if test="outBillNo != null">out_Bill_No = #{outBillNo},</if>
+            <if test="userName != null">user_name = #{userName},</if>
+            <if test="openId != null">open_id = #{openId},</if>
+        </trim>
+        where Id = #{Id}
+    </update>
+
+    <delete id="deleteZhsWithdrawalDetailById" parameterType="String">
+        delete from zhs_withdrawal_detail where Id = #{Id}
+    </delete>
+
+    <delete id="deleteZhsWithdrawalDetailByIds" parameterType="String">
+        delete from zhs_withdrawal_detail where Id in 
+        <foreach item="Id" collection="array" open="(" separator="," close=")">
+            #{Id}
+        </foreach>
+    </delete>
+
+
+    <select id="getOneByTransferBillNo" resultMap="ZhsWithdrawalDetailResult">
+        <include refid="selectZhsWithdrawalDetailVo"/>
+        <where>
+            out_Bill_No = #{transferBillNo}
+        </where>
+    </select>
+</mapper>

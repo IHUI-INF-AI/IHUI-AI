@@ -125,7 +125,7 @@ async def get_n8n_workflows(request_body: N8NWorkflowsRequest):
 
 
 @router.post("/addAgent", summary="通过N8N接口新增智能体")
-def add_agent(agent_data: AddAgentRequest, user_uuid: str = Depends(require_login)):
+async def add_agent(agent_data: AddAgentRequest, user_uuid: str = Depends(require_login)):
     """
     Add a new agent to the agents table and create an examination record.
     Matches the original n8n_proxy.py /addAgent endpoint.

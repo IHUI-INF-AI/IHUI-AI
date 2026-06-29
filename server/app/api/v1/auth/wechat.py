@@ -37,7 +37,7 @@ def _generate_unique_invite_code(db) -> str:
 WX_ACCESS_TOKEN_KEY = "wx:access_token"
 
 
-def _get_wechat_access_token() -> str | None:
+async def _get_wechat_access_token() -> str | None:
     """Get WeChat mini-program access_token, cached in Redis."""
     from app.utils.redis_util import get_key, set_key
 
@@ -54,8 +54,8 @@ def _get_wechat_access_token() -> str | None:
         f"&secret={settings.WX_MINI_SECRET}"
     )
     try:
-        with httpx.Client(timeout=10) as client:
-            resp = client.get(url)
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url)
             data = resp.json()
         if "access_token" not in data:
             logger.error(f"Failed to get WeChat access_token: {data}")
@@ -71,7 +71,7 @@ def _get_wechat_access_token() -> str | None:
 
 
 @router.get("/mini/login", summary="WeChat mini-program login")
-def wechat_mini_login(
+async def wechat_mini_login(
     code: str = Query(...),
     parent_id: str = Query("", description="Parent invite code for referral"),
 ):
@@ -90,8 +90,8 @@ def wechat_mini_login(
         f"&secret={settings.WX_MINI_SECRET}"
         f"&js_code={code}&grant_type=authorization_code"
     )
-    with httpx.Client(timeout=10) as client:
-        resp = client.get(url)
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url)
         data = resp.json()
     if "openid" not in data:
         return error(data.get("errmsg", "WeChat auth failed"), "401")
@@ -111,7 +111,6 @@ def wechat_mini_login(
             .filter(
                 UserThirdPartyAccount.platform == "wechat",
                 UserThirdPartyAccount.open_id == open_id,
-                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .first()
         )
@@ -174,7 +173,7 @@ def wechat_mini_login(
 
 
 @router.post("/mini/phone", summary="Get WeChat phone number")
-def get_wechat_phone(
+async def get_wechat_phone(
     code: str = Query(..., description="Code from wx.getPhoneNumber component"),
     user_uuid: str = Depends(require_login),
 ):
@@ -188,15 +187,15 @@ def get_wechat_phone(
     5. Otherwise: update user's phone and set isVIP=0
     """
     # Step 1: Get access_token
-    access_token = _get_wechat_access_token()
+    access_token = await _get_wechat_access_token()
     if not access_token:
         return error("获取微信凭证失败,请稍后重试")
 
     # Step 2: Call getuserphonenumber API
     url = f"https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token={access_token}"
     try:
-        with httpx.Client(timeout=10) as client:
-            resp = client.post(url, json={"code": code})
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(url, json={"code": code})
             data = resp.json()
 
         if data.get("errcode") != 0:
@@ -231,7 +230,6 @@ def get_wechat_phone(
                     .filter(
                         UserThirdPartyAccount.user_uuid == existing_auth.user_uuid,
                         UserThirdPartyAccount.platform == "wechat",
-                        UserThirdPartyAccount.deleted_at.is_(None),
                     )
                     .first()
                 )
@@ -243,7 +241,6 @@ def get_wechat_phone(
                         .filter(
                             UserThirdPartyAccount.user_uuid == user_uuid,
                             UserThirdPartyAccount.platform == "wechat",
-                            UserThirdPartyAccount.deleted_at.is_(None),
                         )
                         .first()
                     )
@@ -296,7 +293,7 @@ def get_wechat_phone(
 
 
 @router.post("/mini/rebind", summary="Rebind WeChat mini-program account")
-def wechat_rebind(
+async def wechat_rebind(
     code: str = Query(..., description="New WeChat login code"),
     user_uuid: str = Depends(require_login),
 ):
@@ -309,8 +306,8 @@ def wechat_rebind(
         f"&js_code={code}&grant_type=authorization_code"
     )
     try:
-        with httpx.Client(timeout=10) as client:
-            resp = client.get(url)
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url)
             data = resp.json()
         if "openid" not in data:
             return error(data.get("errmsg", "WeChat auth failed"), "401")
@@ -327,7 +324,6 @@ def wechat_rebind(
                 .filter(
                     UserThirdPartyAccount.platform == "wechat",
                     UserThirdPartyAccount.open_id == new_open_id,
-                    UserThirdPartyAccount.deleted_at.is_(None),
                 )
                 .first()
             )
@@ -354,10 +350,9 @@ def wechat_rebind(
 
 
 @router.post("/mini/rebind_by_phone", summary="Rebind WeChat by phone number")
-def wechat_rebind_by_phone(
+async def wechat_rebind_by_phone(
     phone: str = Query(..., description="User phone number"),
     open_id: str = Query(..., description="New WeChat open_id to bind"),
-    current_user_uuid: str = Depends(require_login),
 ):
     """Rebind WeChat open_id by phone number.
 
@@ -365,7 +360,6 @@ def wechat_rebind_by_phone(
       UPDATE zhs_user SET open_id = #{openId} WHERE phone = #{phone}
 
     This is the original ZHS phone-based rebind endpoint.
-    安全: 需登录, 且仅允许手机号持有者换绑自己的微信 (current_user.phone == phone).
     """
     from app.database import SessionFactory2, get_session
     from app.models.user_models import UserAuthInfo, UserThirdPartyAccount
@@ -376,9 +370,6 @@ def wechat_rebind_by_phone(
             auth = db.query(UserAuthInfo).filter(UserAuthInfo.phone == phone).first()
             if not auth:
                 return error("该手机号未注册", "404")
-            # 校验当前登录用户持有该手机号 (防越权换绑他人账号)
-            if auth.user_uuid != current_user_uuid:
-                return error("无权操作: 手机号与当前登录用户不匹配", "403")
             user_uuid = auth.user_uuid
             # Remove old wechat bindings for this user
             db.query(UserThirdPartyAccount).filter(
@@ -400,20 +391,20 @@ def wechat_rebind_by_phone(
 
 
 @router.get("/mini/qrcode", summary="Get WeChat mini-program QR code")
-def get_wechat_qrcode(
+async def get_wechat_qrcode(
     scene: str = Query(..., description="Scene string for QR code"),
     page: str = Query("pages/index/index", description="Mini-program page path"),
     user_uuid: str = Depends(require_login),
 ):
     """Generate WeChat mini-program unlimited QR code via getwxacodeunlimit."""
-    access_token = _get_wechat_access_token()
+    access_token = await _get_wechat_access_token()
     if not access_token:
         return error("获取微信凭证失败,请稍后重试")
 
     url = f"https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token={access_token}"
     try:
-        with httpx.Client(timeout=15) as client:
-            resp = client.post(
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
                 url,
                 json={
                     "scene": scene,
@@ -439,152 +430,3 @@ def get_wechat_qrcode(
     except Exception as e:
         logger.error(f"WeChat qrcode error: {e}")
         return error("获取小程序码失败,请稍后重试", "500")
-
-
-# ---------------------------------------------------------------------------
-# WeChat PC 扫码登录 (PC QR code login)
-# ---------------------------------------------------------------------------
-
-@router.get("/pc/wxCode", summary="微信PC扫码登录 - 获取授权页")
-def wechat_pc_wx_code():
-    """微信PC扫码登录入口.
-
-    返回一个 HTML 页面, 内嵌微信开放平台扫码授权 iframe,
-    扫码成功后通过 postMessage 将登录结果通知父窗口.
-    """
-    app_id = settings.WX_PC_APPID or ""
-    redirect_uri = f"https://open.weixin.qq.com/connect/qrconnect?appid={app_id}&redirect_uri=&response_type=code&scope=snsapi_login&state=pc_login#wechat_redirect"
-
-    html = f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>微信登录</title>
-<style>
-* {{ margin: 0; padding: 0; box-sizing: border-box; }}
-body {{ display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
-.login-container {{ background: #fff; border: 1px solid #e0e0e0; padding: 40px; text-align: center; }}
-.login-container h2 {{ margin-bottom: 20px; color: #333; font-size: 20px; }}
-.qrcode-wrapper {{ width: 300px; height: 400px; margin: 0 auto; }}
-.status {{ margin-top: 15px; color: #999; font-size: 14px; }}
-</style>
-</head>
-<body>
-<div class="login-container">
-  <h2>微信扫码登录</h2>
-  <div class="qrcode-wrapper">
-    <iframe src="{redirect_uri}" frameborder="0" width="300" height="400" id="wxFrame"></iframe>
-  </div>
-  <p class="status" id="status">请使用微信扫描二维码</p>
-</div>
-<script>
-window.addEventListener('message', function(event) {{
-  if (event.data && event.data.type === 'wx_login') {{
-    window.parent.postMessage(event.data, '*');
-  }}
-}});
-</script>
-</body>
-</html>"""
-    from fastapi import Response
-
-    return Response(content=html, media_type="text/html")
-
-
-@router.get("/pc/callback", summary="微信PC扫码登录回调")
-def wechat_pc_callback(code: str = Query(..., description="微信授权码")):
-    """微信PC扫码登录回调, 用 code 换取用户信息并登录.
-
-    公开接口, 微信扫码授权后回调.
-    """
-    app_id = settings.WX_PC_APPID
-    secret = settings.WX_PC_SECRET
-
-    if not app_id or not secret:
-        logger.warning("WeChat PC login not configured (WX_PC_APPID/WX_PC_SECRET empty)")
-        return error("微信PC登录未配置")
-
-    try:
-        with httpx.Client(timeout=15) as client:
-            # 1. 用 code 换 access_token
-            token_url = (
-                f"https://api.weixin.qq.com/sns/oauth2/access_token"
-                f"?appid={app_id}&secret={secret}&code={code}&grant_type=authorization_code"
-            )
-            token_resp = client.get(token_url)
-            token_data = token_resp.json()
-
-            if "errcode" in token_data:
-                logger.error(f"WeChat PC token error: {token_data}")
-                return error(token_data.get("errmsg", "微信登录失败"))
-
-            access_token = token_data.get("access_token")
-            openid = token_data.get("openid")
-
-            # 2. 用 access_token 获取用户信息
-            user_url = (
-                f"https://api.weixin.qq.com/sns/userinfo"
-                f"?access_token={access_token}&openid={openid}"
-            )
-            user_resp = client.get(user_url)
-            user_data = user_resp.json()
-
-            if "errcode" in user_data:
-                logger.error(f"WeChat PC userinfo error: {user_data}")
-                return error(user_data.get("errmsg", "获取用户信息失败"))
-
-            # 3. 查找或创建用户, 签发 JWT
-            unionid = user_data.get("unionid", "")
-            nickname = user_data.get("nickname", "")
-            avatar = user_data.get("headimgurl", "")
-
-            from app.database import get_session
-            from app.models.user_models import User, UserThirdPartyAccount
-
-            with get_session() as db:
-                user = None
-                # 先从第三方账号表查找绑定关系
-                tp_query = db.query(UserThirdPartyAccount).filter(
-                    UserThirdPartyAccount.platform == "wechat",
-                    UserThirdPartyAccount.deleted_at.is_(None),
-                )
-                if unionid:
-                    tp = tp_query.filter(UserThirdPartyAccount.union_id == unionid).first()
-                else:
-                    tp = tp_query.filter(UserThirdPartyAccount.open_id == openid).first()
-
-                if tp:
-                    user = db.query(User).filter(User.uuid == tp.user_uuid).first()
-
-                if user:
-                    if nickname and not user.nickname:
-                        user.nickname = nickname
-                    if avatar and not user.avatar:
-                        user.avatar = avatar
-                    db.commit()
-                else:
-                    user = User(
-                        nickname=nickname or f"wx_{openid[:8]}",
-                        avatar=avatar,
-                    )
-                    db.add(user)
-                    db.commit()
-                    db.refresh(user)
-
-                    # 创建第三方账号绑定
-                    binding = UserThirdPartyAccount(
-                        user_uuid=user.uuid,
-                        open_id=openid,
-                        union_id=unionid,
-                        platform="wechat",
-                    )
-                    db.add(binding)
-                    db.commit()
-
-                jwt_token = create_access_token(subject=user.uuid)
-
-            return success({"token": jwt_token, "user": {"uuid": user.uuid, "nickname": user.nickname, "avatar": user.avatar}})
-    except Exception as e:
-        logger.error(f"WeChat PC login error: {e}")
-        return error("微信登录失败,请稍后重试", "500")

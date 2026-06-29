@@ -97,7 +97,7 @@ class FileCleanupService:
 
         return cleaned
 
-    def run_cleanup(self):
+    async def run_cleanup(self):
         logger.info("开始执行文件清理...")
 
         total_cleaned = 0
@@ -177,8 +177,8 @@ class FileCleanupService:
                             file_count += 1
                         except OSError:
                             pass
-                stats[name]["total_size"] = total_size
-                stats[name]["file_count"] = file_count
+                stats[name]["total_size"] = total_size  # type: ignore[index]
+                stats[name]["file_count"] = file_count  # type: ignore[index]
 
         return stats
 

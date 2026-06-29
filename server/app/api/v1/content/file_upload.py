@@ -3,10 +3,9 @@ import base64
 import io
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from app.security import require_login
 from app.utils.file_transfer import upload_file_to_server
 
 logger = logging.getLogger(__name__)
@@ -24,11 +23,11 @@ class Base64UploadRequest(BaseModel):
 class UploadResponse(BaseModel):
     code: int
     message: str
-    url: str = None
+    url: str | None = None
 
 
 @router.post("/upload/base64", summary="Upload base64 file")
-async def upload_base64_file(request: Base64UploadRequest, http_request: Request, user_uuid: str = Depends(require_login)):
+async def upload_base64_file(request: Base64UploadRequest, http_request: Request):
     """Upload a base64-encoded file. Auto-converts webp to png."""
     try:
         # Decode base64
@@ -38,8 +37,7 @@ async def upload_base64_file(request: Base64UploadRequest, http_request: Request
         try:
             file_content = base64.b64decode(content)
         except Exception as e:
-            logger.error("Base64 decode failed: %s", e)
-            raise HTTPException(status_code=400, detail="Base64 格式无效") from e
+            raise HTTPException(status_code=400, detail="Invalid base64: " + str(e)) from e
 
         file_name = request.file_name
 
@@ -50,7 +48,7 @@ async def upload_base64_file(request: Base64UploadRequest, http_request: Request
 
                 image = Image.open(io.BytesIO(file_content))
                 if image.mode in ("RGBA", "LA", "P"):
-                    image = image.convert("RGB")
+                    image = image.convert("RGB")  # type: ignore[assignment]
                 png_buf = io.BytesIO()
                 image.save(png_buf, format="PNG")
                 file_content = png_buf.getvalue()
@@ -59,8 +57,7 @@ async def upload_base64_file(request: Base64UploadRequest, http_request: Request
             except ImportError:
                 logger.warning("PIL not installed, skipping webp conversion")
             except Exception as e:
-                logger.error("WebP conversion failed: %s", e)
-                raise HTTPException(status_code=400, detail="WebP 转换失败") from e
+                raise HTTPException(status_code=400, detail="webp conversion failed: " + str(e)) from e
 
         url = await upload_file_to_server(file_content, file_name)
         if not url:
@@ -70,17 +67,17 @@ async def upload_base64_file(request: Base64UploadRequest, http_request: Request
         raise
     except Exception as e:
         logger.error("Base64 upload error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/upload/form", summary="Upload file via form-data")
-async def upload_form_file(file: UploadFile = File(...), user_uuid: str = Depends(require_login)):
+async def upload_form_file(file: UploadFile = File(...)):
     """Upload any file via multipart/form-data."""
     try:
         file_bytes = await file.read()
         if not file_bytes:
             raise HTTPException(status_code=400, detail="Empty file")
-        url = await upload_file_to_server(file_bytes, file.filename)
+        url = await upload_file_to_server(file_bytes, file.filename)  # type: ignore[arg-type]
         if not url:
             raise HTTPException(status_code=500, detail="Upload failed")
         return UploadResponse(code=0, message="Upload successful", url=url)
@@ -88,11 +85,11 @@ async def upload_form_file(file: UploadFile = File(...), user_uuid: str = Depend
         raise
     except Exception as e:
         logger.error("Form upload error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/upload/octet", summary="Upload file via octet-stream")
-async def upload_octet_file(request: Request, file_name: str = Query(...), user_uuid: str = Depends(require_login)):
+async def upload_octet_file(request: Request, file_name: str = Query(...)):
     """Upload file via raw octet-stream body. file_name in query."""
     try:
         file_bytes = await request.body()
@@ -106,4 +103,4 @@ async def upload_octet_file(request: Request, file_name: str = Query(...), user_
         raise
     except Exception as e:
         logger.error("Octet upload error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e

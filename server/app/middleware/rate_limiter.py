@@ -11,7 +11,6 @@ Features:
 Bugfix: Replaced in-memory-only rate limiter with Redis-backed implementation.
 """
 
-import logging
 import time
 from collections import defaultdict
 
@@ -21,8 +20,6 @@ from starlette.responses import JSONResponse, Response
 
 # Bug-10: 在模块级暴露 get_redis, 便于测试 monkeypatch
 from app.utils.redis_util import get_redis
-
-logger = logging.getLogger(__name__)
 
 
 class DistributedRateLimiter:
@@ -127,8 +124,8 @@ class DistributedRateLimiter:
                 payload = decode_access_token(token)
                 if payload:
                     return f"user:{payload.get('sub')}"
-            except Exception as e:
-                logger.debug("解析 JWT 获取限流用户标识失败: %s", e)
+            except Exception:
+                pass
         return None
 
     def check_rate_limit(
@@ -247,8 +244,8 @@ def _sliding_window_check_redis(key: str, now: float, window: int, limit: int):
             if count < limit:
                 return True, count + 1
             return False, count
-    except Exception as e:
-        logger.debug("Redis 限流检查失败: %s", e)
+    except Exception:
+        pass
     return None
 
 
@@ -325,17 +322,6 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
 
         # Check rate limit
         allowed, remaining, reset_in = self.rate_limiter.check_rate_limit(key, max_req, window)
-
-        # Prometheus 指标埋点
-        try:
-            from app.metrics_rate_limit import record_allowed, record_rejected
-
-            if allowed:
-                record_allowed(request.url.path)
-            else:
-                record_rejected(request.url.path)
-        except Exception as e:
-            logger.debug("记录限流指标失败: %s", e)
 
         if not allowed:
             return JSONResponse(

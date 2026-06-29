@@ -49,7 +49,7 @@ ROUND13_SERVICES = [
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

@@ -87,7 +87,7 @@ def _cleanup_resources() -> None:
 
     # Redis 客户端
     try:
-        from app.utils.redis_util import close_redis
+        from app.utils.redis_util import close_redis  # type: ignore[attr-defined]
 
         close_redis()
         logger.info("Redis 连接已关闭")
@@ -118,8 +118,8 @@ def _handle_signal(signum, frame):
         event = get_shutdown_event()
         if event and not event.is_set():
             event.set()
-    except Exception as e:
-        logger.debug("触发停机事件失败: %s", e)
+    except Exception:
+        pass
 
     logger.info("优雅停机完成")
     # 退出 (uvicorn 捕获后会立即终止)

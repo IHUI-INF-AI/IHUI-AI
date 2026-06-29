@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>2.7.10</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.ai</groupId>
+	<artifactId>zhs_server_java</artifactId>
+	<version>0.0.1</version>
+	<name>zhs_server_java</name>
+	<description>Demo project for Spring Boot</description>
+
+	<properties>
+		<java.version>1.8</java.version>
+		<springdoc-openapi-ui.version>1.6.9</springdoc-openapi-ui.version>
+	</properties>
+	<dependencies>
+		<!-- Spring Boot JDBC -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-jdbc</artifactId>
+		</dependency>
+		<!-- MySQL 驱动 -->
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>8.0.33</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- 如未用到JPA可移除 -->
+		<!--
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		-->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-ui</artifactId>
+			<version>${springdoc-openapi-ui.version}</version>
+		</dependency>
+		<!-- Druid 数据库连接池 -->
+		<dependency>
+			<groupId>com.alibaba</groupId>
+			<artifactId>druid-spring-boot-starter</artifactId>
+			<version>1.2.20</version>
+		</dependency>
+		<!-- MyBatis -->
+		<dependency>
+			<groupId>org.mybatis.spring.boot</groupId>
+			<artifactId>mybatis-spring-boot-starter</artifactId>
+			<version>2.3.1</version>
+		</dependency>
+		<!-- HTTP 相关 -->
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpcore</artifactId>
+			<version>4.4.16</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<version>4.5.14</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpcore-nio</artifactId>
+			<version>4.4.16</version>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>1.18.30</version>
+			<scope>provided</scope>
+		</dependency>
+		<!-- 微信支付 -->
+		<dependency>
+			<groupId>com.github.wechatpay-apiv3</groupId>
+			<artifactId>wechatpay-java</artifactId>
+			<version>0.2.17</version>
+		</dependency>
+		<!-- Minio -->
+		<dependency>
+			<groupId>io.minio</groupId>
+			<artifactId>minio</artifactId>
+			<version>8.2.2</version>
+		</dependency>
+		<!-- BeanUtils -->
+		<dependency>
+			<groupId>commons-beanutils</groupId>
+			<artifactId>commons-beanutils</artifactId>
+			<version>1.9.4</version>
+		</dependency>
+		<!-- AssertJ 只保留一个 -->
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>3.22.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20201115</version>
+		</dependency>
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.17.0</version>
+		</dependency>
+		<!-- JUnit 可选，spring-boot-starter-test 已包含 -->
+		<!--
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+		</dependency>
+		-->
+		<dependency>
+			<groupId>com.auth0</groupId>
+			<artifactId>java-jwt</artifactId>
+			<version>4.2.2</version>
+		</dependency>
+		<!-- 分页插件 -->
+		<dependency>
+			<groupId>com.github.pagehelper</groupId>
+			<artifactId>pagehelper-spring-boot-starter</artifactId>
+			<version>2.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>io.projectreactor</groupId>
+			<artifactId>reactor-core</artifactId>
+			<version>3.4.34</version>
+		</dependency>
+		<!-- 安全相关 -->
+		<dependency>
+			<groupId>org.springframework.security.oauth</groupId>
+			<artifactId>spring-security-oauth2</artifactId>
+			<version>2.3.4.RELEASE</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-jwt</artifactId>
+			<version>1.0.9.RELEASE</version>
+		</dependency>
+		<!-- 动态多数据源 -->
+		<dependency>
+			<groupId>com.baomidou</groupId>
+			<artifactId>dynamic-datasource-spring-boot-starter</artifactId>
+			<version>4.3.0</version>
+		</dependency>
+
+		<!-- http工具 -->
+		<dependency>
+			<groupId>cn.hutool</groupId>
+			<artifactId>hutool-http</artifactId>
+			<version>5.8.25</version>
+		</dependency>
+
+		<!-- 视频处理 -->
+		<dependency>
+			<groupId>org.bytedeco</groupId>
+			<artifactId>javacv</artifactId>
+			<version>1.5.10</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bytedeco</groupId>
+			<artifactId>ffmpeg</artifactId>
+			<version>6.1.1-1.5.10</version>
+			<classifier>linux-x86_64</classifier>
+		</dependency>
+		<dependency>
+			<groupId>org.bytedeco</groupId>
+			<artifactId>ffmpeg</artifactId>
+			<version>6.1.1-1.5.10</version>
+			<classifier>windows-x86_64</classifier>
+		</dependency>
+		<!-- MAC -->
+<!--		<dependency>-->
+<!--			<groupId>org.bytedeco</groupId>-->
+<!--			<artifactId>ffmpeg</artifactId>-->
+<!--			<version>6.1.1-1.5.10</version>-->
+<!--			<classifier>macosx-x86_64</classifier>-->
+<!--		</dependency>-->
+
+		<!-- WebSocket支持 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+
+		<!-- 阿里云百炼 -->
+		<!-- https://mvnrepository.com/artifact/com.alibaba/dashscope-sdk-java -->
+		<dependency>
+			<groupId>com.alibaba</groupId>
+			<artifactId>dashscope-sdk-java</artifactId>
+			<version>2.21.9</version>
+		</dependency>
+		
+		<!-- MP3编码支持 -->
+		<dependency>
+			<groupId>javazoom</groupId>
+			<artifactId>jlayer</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		
+		<!-- MP3编码库 -->
+		<dependency>
+			<groupId>com.googlecode.soundlibs</groupId>
+			<artifactId>mp3spi</artifactId>
+			<version>1.9.5.4</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>com.googlecode.soundlibs</groupId>
+			<artifactId>tritonus-share</artifactId>
+			<version>0.3.7.4</version>
+		</dependency>
+
+		<!-- redis -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+			<version>3.0.10</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.alibaba</groupId>
+			<artifactId>fastjson</artifactId>
+			<version>1.2.83</version>
+		</dependency>
+
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

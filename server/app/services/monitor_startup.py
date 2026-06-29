@@ -19,7 +19,7 @@ class MonitorManager:
             return
         try:
             await cached_expiration_monitor.start()
-            self.cached_monitor = cached_expiration_monitor
+            self.cached_monitor = cached_expiration_monitor  # type: ignore[assignment]
             self.is_started = True
             logger.info("所有监听服务启动完成")
         except Exception as e:

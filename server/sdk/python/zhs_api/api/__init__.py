@@ -35,7 +35,6 @@ from zhs_api.api.agent_upload_api import AgentUploadApi
 from zhs_api.api.agent_use_detail_api import AgentUseDetailApi
 from zhs_api.api.agent_withdrawal_api import AgentWithdrawalApi
 from zhs_api.api.agents_api import AgentsApi
-from zhs_api.api.ali_login_api import AliLoginApi
 from zhs_api.api.alipay_api import AlipayApi
 from zhs_api.api.alipay_fund_api import AlipayFundApi
 from zhs_api.api.app_version_api import AppVersionApi
@@ -44,7 +43,6 @@ from zhs_api.api.ask_answer_api import AskAnswerApi
 from zhs_api.api.ask_category_api import AskCategoryApi
 from zhs_api.api.ask_question_api import AskQuestionApi
 from zhs_api.api.auth_identity_api import AuthIdentityApi
-from zhs_api.api.auth_alipay_api import AuthAlipayApi
 from zhs_api.api.auth_enterprise_we_chat_api import AuthEnterpriseWeChatApi
 from zhs_api.api.auth_feishu_api import AuthFeishuApi
 from zhs_api.api.authentication_api import AuthenticationApi

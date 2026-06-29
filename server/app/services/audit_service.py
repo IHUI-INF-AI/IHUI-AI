@@ -4,12 +4,12 @@
 """
 import logging
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.services.database_service import engine
-from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class AuditLogService:
                         "user_agent": log_data.user_agent,
                         "status": log_data.status,
                         "error_message": log_data.error_message,
-                        "created_at": utcnow()
+                        "created_at": datetime.utcnow()
                     }
                 )
                 conn.commit()
@@ -75,7 +75,7 @@ class AuditLogService:
         """查询审计日志"""
         try:
             conditions = []
-            params = {"offset": (page - 1) * page_size, "limit": page_size}
+            params: dict[str, Any] = {"offset": (page - 1) * page_size, "limit": page_size}
 
             if user_id:
                 conditions.append("user_id = :user_id")
@@ -195,7 +195,7 @@ class AuditLogService:
     def delete_old_logs(days: int = 90) -> int:
         """删除旧日志"""
         try:
-            cutoff_date = utcnow().replace(
+            cutoff_date = datetime.utcnow().replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
             cutoff_date = cutoff_date.replace(day=cutoff_date.day - days)

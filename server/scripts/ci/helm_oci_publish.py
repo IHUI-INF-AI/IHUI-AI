@@ -10,17 +10,13 @@
 """
 import os
 import tarfile
-import tempfile
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 CHARTS_DIR = ROOT / "deploy" / "helm" / "zhs-platform"
-# 2026-06-25 修复: 原硬编码 /tmp/charts 在 Windows 上会创建到 G:\tmp\...
-# 改用 tempfile.gettempdir() 跨平台; 仍可由环境变量 OUT_DIR 覆盖
-_DEFAULT_OUT_DIR = os.path.join(tempfile.gettempdir(), "charts")
-OUT_DIR = Path(os.environ.get("OUT_DIR", _DEFAULT_OUT_DIR))
+OUT_DIR = Path(os.environ.get("OUT_DIR", "/tmp/charts"))
 
 
 def load_chart_meta():

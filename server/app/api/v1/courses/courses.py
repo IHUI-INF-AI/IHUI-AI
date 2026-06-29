@@ -49,7 +49,7 @@ class CourseUpdate(BaseModel):
 
 
 @router.get("/list", summary="List courses")
-def list_courses(
+async def list_courses(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     keyword: str = Query(None),
@@ -92,7 +92,7 @@ def list_courses(
 
 
 @router.get("/{course_id}", summary="Get course detail")
-def get_course(course_id: int):
+async def get_course(course_id: int):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course, CourseVideo
@@ -142,7 +142,7 @@ def get_course(course_id: int):
 
 
 @router.post("/create", summary="Create course")
-def create_course(body: CourseCreate, user_uuid: str = Depends(require_login)):
+async def create_course(body: CourseCreate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course
@@ -179,7 +179,7 @@ def create_course(body: CourseCreate, user_uuid: str = Depends(require_login)):
 
 
 @router.put("/{course_id}", summary="Update course")
-def update_course(course_id: int, body: CourseUpdate, user_uuid: str = Depends(require_login)):
+async def update_course(course_id: int, body: CourseUpdate, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course
@@ -205,7 +205,7 @@ def update_course(course_id: int, body: CourseUpdate, user_uuid: str = Depends(r
 
 
 @router.delete("/{course_id}", summary="Delete course (soft)")
-def delete_course(course_id: int, user_uuid: str = Depends(require_login)):
+async def delete_course(course_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course
@@ -213,7 +213,7 @@ def delete_course(course_id: int, user_uuid: str = Depends(require_login)):
         course = db.query(Course).filter(Course.id == course_id, Course.is_del == 0).first()
         if not course:
             return error("Course not found", "404")
-        course.is_del = 1
+        course.is_del = 1  # type: ignore[assignment]
         db.commit()
         return success({"id": course_id})
     except Exception as e:
@@ -229,7 +229,7 @@ def delete_course(course_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/{course_id}/delist", summary="Delist (hide) course")
-def delist_course(course_id: int, user_uuid: str = Depends(require_login)):
+async def delist_course(course_id: int, user_uuid: str = Depends(require_login)):
     db = SessionFactory3()
     try:
         from app.models.course_models import Course
@@ -237,7 +237,7 @@ def delist_course(course_id: int, user_uuid: str = Depends(require_login)):
         course = db.query(Course).filter(Course.id == course_id, Course.is_del == 0).first()
         if not course:
             return error("Course not found", "404")
-        course.is_hidden = 1 if course.is_hidden == 0 else 0
+        course.is_hidden = 1 if course.is_hidden == 0 else 0  # type: ignore[assignment]
         db.commit()
         return success({"id": course_id, "is_hidden": course.is_hidden})
     except Exception as e:

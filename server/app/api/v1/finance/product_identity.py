@@ -36,7 +36,7 @@ class ProductIdentityUpdate(BaseModel):
 
 
 @router.get("/list", summary="List product identities")
-def list_product_identities(
+async def list_product_identities(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
     name: str | None = Query(None),
@@ -74,7 +74,7 @@ def list_product_identities(
 
 
 @router.get("/{item_id}", summary="Get product identity detail")
-def get_product_identity(item_id: str):
+async def get_product_identity(item_id: str):
     with get_session() as db:
         from app.models.app_content_models import ProductIdentity
 
@@ -97,7 +97,7 @@ def get_product_identity(item_id: str):
 
 
 @router.post("", summary="Create product identity")
-def create_product_identity(body: ProductIdentityCreate):
+async def create_product_identity(body: ProductIdentityCreate):
     with get_session() as db:
         try:
             from app.models.app_content_models import ProductIdentity
@@ -122,7 +122,7 @@ def create_product_identity(body: ProductIdentityCreate):
 
 
 @router.put("", summary="Update product identity")
-def update_product_identity(body: ProductIdentityUpdate):
+async def update_product_identity(body: ProductIdentityUpdate):
     with get_session() as db:
         try:
             from app.models.app_content_models import ProductIdentity
@@ -154,7 +154,7 @@ def update_product_identity(body: ProductIdentityUpdate):
 
 
 @router.delete("/{item_ids}", summary="Delete product identities")
-def delete_product_identities(item_ids: str):
+async def delete_product_identities(item_ids: str):
     with get_session() as db:
         try:
             from app.models.app_content_models import ProductIdentity

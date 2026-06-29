@@ -66,7 +66,7 @@ class DQViolation:
     threshold: float
     sample_id: str = ""
     message: str = ""
-    detected_at: float = field(default_factory=time.time)
+    detected_at: float = field(default_factory=time.time)  # type: ignore[operator]
 
 
 @dataclass
@@ -219,12 +219,12 @@ class DataQualityMonitor:
                     return False
                 target = float(val)
                 if fname == "sum_greater_than":
-                    if not (sum(vals) > target):
+                    if not (sum(vals) > target):  # type: ignore[arg-type]
                         return False
                 elif fname == "sum_less_than":
-                    if not (sum(vals) < target):
+                    if not (sum(vals) < target):  # type: ignore[arg-type]
                         return False
-                elif fname == "diff_equals" and abs(vals[0] - vals[1]) != target:
+                elif fname == "diff_equals" and abs(vals[0] - vals[1]) != target:  # type: ignore[operator]
                     return False
             except Exception:
                 return False
@@ -334,7 +334,7 @@ class DataQualityMonitor:
             try:
                 if isinstance(ts, str):
                     ts = datetime.fromisoformat(ts.replace("Z", "")).timestamp()
-                actual = time.time() - float(ts) - max_delay
+                actual = time.time() - float(ts) - max_delay  # type: ignore[arg-type]
             except Exception:
                 actual = 0.0
         elif rule.dimension == DQDimension.UNIQUENESS:

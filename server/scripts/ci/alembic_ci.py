@@ -76,8 +76,8 @@ def _ensure_base_schema(engine):
     001_initial_schema.py 的 DDL 已迁移到 PostgreSQL (BIGSERIAL),
     SQLite 跑不动 → 直接被 try/except 吞掉 → sys_user/sys_role 等基表从未建立.
 
-    注: 不能 `import app.models` 因为 app/models/__init__.py 触发 vip_models
-    与 user_models.VipLevel 的"Table already defined"冲突. 故直接走 DDL.
+    注: 历史上不能 `import app.models` 因为 vip_models (已删除) 与
+    user_models.VipLevel 的"Table already defined"冲突. 故直接走 DDL.
     """
     if engine.dialect.name != "sqlite":
         return

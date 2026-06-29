@@ -142,11 +142,10 @@ class JobRunner:
         with self._lock:
             self._total_begin += 1
             existing = self._jobs.get(job_id)
-            if existing is not None:
-                if existing.status in (JobStatus.SUCCESS, JobStatus.RUNNING, JobStatus.PENDING):
-                    self._total_skip += 1
-                    return False
-                # FAILED -> 允许重试
+            if existing is not None and existing.status in (JobStatus.SUCCESS, JobStatus.RUNNING, JobStatus.PENDING):
+                self._total_skip += 1
+                return False
+            # FAILED -> 允许重试
             rec = JobRecord(
                 job_id=job_id,
                 status=JobStatus.RUNNING,

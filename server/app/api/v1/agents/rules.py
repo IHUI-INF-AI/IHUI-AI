@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="规则列表(按 agent_id 过滤)")
-def list_rules(
+async def list_rules(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     agent_id: str = Query(None),
@@ -45,7 +45,7 @@ def list_rules(
 
 
 @router.post("/create", summary="创建规则")
-def create_rule(
+async def create_rule(
     agent_id: str = Query(...),
     rule_name: str = Query(...),
     rule_code: str = Query(...),
@@ -74,7 +74,7 @@ def create_rule(
 
 
 @router.post("/toggle", summary="启用/禁用规则")
-def toggle_rule(
+async def toggle_rule(
     rule_id: int = Query(...),
     status: int = Query(..., description="0 禁用 1 启用"),
 ):
@@ -88,7 +88,7 @@ def toggle_rule(
 
 
 @router.get("/search", summary="按关键字搜索规则")
-def search_rules(
+async def search_rules(
     agent_id: str = Query(...),
     keyword: str = Query(""),
 ):
@@ -103,7 +103,7 @@ def search_rules(
 
 
 @router.get("/need-task/list", summary="需求任务列表")
-def list_need_tasks(
+async def list_need_tasks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None),
@@ -132,7 +132,7 @@ def list_need_tasks(
 
 
 @router.post("/need-task/create", summary="创建需求任务")
-def create_need_task(
+async def create_need_task(
     task_name: str = Query(...),
     task_desc: str = Query(""),
     agent_id: str = Query(""),
@@ -166,7 +166,7 @@ def create_need_task(
 
 
 @router.post("/need-task/accept", summary="接单需求任务")
-def accept_need_task(
+async def accept_need_task(
     task_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -187,7 +187,7 @@ def accept_need_task(
 
 
 @router.post("/need-task/complete", summary="完成需求任务")
-def complete_need_task(
+async def complete_need_task(
     task_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -205,7 +205,7 @@ def complete_need_task(
             if task.accept_user_id and task.reward_tokens > 0:
                 from app.services.token_service import grant_commission
 
-                grant_commission(
+                grant_commission(  # type: ignore[call-arg]
                     task.accept_user_id,
                     task.reward_tokens,
                     invited_user_id=task.user_id,

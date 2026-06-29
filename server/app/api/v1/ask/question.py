@@ -66,7 +66,7 @@ def db_query_like(uid: str, t: str, tid: int) -> bool:
 
 
 @router.post("", summary="提出问题")
-def create_question(body: QuestionCreate):
+async def create_question(body: QuestionCreate):
     with get_session() as db:
         try:
             uid = _current_user_id()
@@ -89,16 +89,10 @@ def create_question(body: QuestionCreate):
 
 
 @router.put("", summary="修改问题")
-def update_question(body: QuestionUpdate):
-    """修改问题.
-
-    2026-06-25 P1 加固: 过滤已软删问题
-    """
+async def update_question(body: QuestionUpdate):
     with get_session() as db:
         try:
-            q = db.query(AskQuestion).filter(
-                AskQuestion.id == body.id, AskQuestion.deleted.is_(False)
-            ).first()
+            q = db.query(AskQuestion).filter(AskQuestion.id == body.id).first()
             if not q:
                 return error("问题不存在", "404")
             if body.title is not None:
@@ -120,7 +114,7 @@ def update_question(body: QuestionUpdate):
 
 
 @router.delete("", summary="删除问题")
-def delete_question(id: int = Query(...)):
+async def delete_question(id: int = Query(...)):
     with get_session() as db:
         try:
             q = db.query(AskQuestion).filter(AskQuestion.id == id).first()
@@ -135,7 +129,7 @@ def delete_question(id: int = Query(...)):
 
 
 @router.get("/list", summary="问题列表(需权限)")
-def list_questions(
+async def list_questions(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     keyword: str | None = None,
@@ -147,7 +141,7 @@ def list_questions(
 ):
     with get_session() as db:
         try:
-            q = db.query(AskQuestion).filter(AskQuestion.deleted.is_(False))
+            q = db.query(AskQuestion).filter(not AskQuestion.deleted)
             if keyword:
                 q = q.filter(AskQuestion.title.like(f"%{keyword}%"))
             if status:
@@ -160,32 +154,20 @@ def list_questions(
                 )
                 q = q.filter(AskQuestion.id.in_(qids))
             total = q.count()
-            col = getattr(AskQuestion, order_column, AskQuestion.created_at)
+            col = getattr(AskQuestion, order_column, AskQuestion.created_at)  # type: ignore[arg-type]
             if order_direction == "asc":
                 items = q.order_by(col.asc()).offset((page - 1) * limit).limit(limit).all()
             else:
                 items = q.order_by(col.desc()).offset((page - 1) * limit).limit(limit).all()
             uid = _current_user_id()
             data = []
-            qids = [it.id for it in items]
-            qcs_map = {}
-            all_cids = set()
-            if qids:
-                all_qcs = (
-                    db.query(AskQuestionCategory)
-                    .filter(AskQuestionCategory.question_id.in_(qids))
-                    .all()
-                )
-                for x in all_qcs:
-                    qcs_map.setdefault(x.question_id, []).append(x.category_id)
-                    all_cids.add(x.category_id)
-            cat_map = {}
-            if all_cids:
-                crows = db.query(AskCategory).filter(AskCategory.id.in_(list(all_cids))).all()
-                cat_map = {c.id: {"id": c.id, "name": c.name} for c in crows}
             for it in items:
-                cids = qcs_map.get(it.id, [])
-                cats = [cat_map[cid] for cid in cids if cid in cat_map]
+                qcs = db.query(AskQuestionCategory).filter(AskQuestionCategory.question_id == it.id).all()
+                cids = [x.category_id for x in qcs]
+                cats = []
+                if cids:
+                    crows = db.query(AskCategory).filter(AskCategory.id.in_(cids)).all()
+                    cats = [{"id": c.id, "name": c.name} for c in crows]
                 data.append(_q_to_dict(it, cids, cats, uid))
             return success(data, total=total)
         except Exception as e:
@@ -194,7 +176,7 @@ def list_questions(
 
 
 @router.get("/public-api/list", summary="问题列表(公开)")
-def public_list_questions(
+async def public_list_questions(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     keyword: str | None = None,
@@ -205,7 +187,7 @@ def public_list_questions(
     with get_session() as db:
         try:
             q = db.query(AskQuestion).filter(
-                AskQuestion.deleted.is_(False),
+                not AskQuestion.deleted,
                 AskQuestion.status == "published",
             )
             if keyword:
@@ -216,32 +198,20 @@ def public_list_questions(
                 )
                 q = q.filter(AskQuestion.id.in_(qids))
             total = q.count()
-            col = getattr(AskQuestion, order_column, AskQuestion.created_at)
+            col = getattr(AskQuestion, order_column, AskQuestion.created_at)  # type: ignore[arg-type]
             if order_direction == "asc":
                 items = q.order_by(col.asc()).offset((page - 1) * limit).limit(limit).all()
             else:
                 items = q.order_by(col.desc()).offset((page - 1) * limit).limit(limit).all()
             uid = _current_user_id()
             data = []
-            qids = [it.id for it in items]
-            qcs_map = {}
-            all_cids = set()
-            if qids:
-                all_qcs = (
-                    db.query(AskQuestionCategory)
-                    .filter(AskQuestionCategory.question_id.in_(qids))
-                    .all()
-                )
-                for x in all_qcs:
-                    qcs_map.setdefault(x.question_id, []).append(x.category_id)
-                    all_cids.add(x.category_id)
-            cat_map = {}
-            if all_cids:
-                crows = db.query(AskCategory).filter(AskCategory.id.in_(list(all_cids))).all()
-                cat_map = {c.id: {"id": c.id, "name": c.name} for c in crows}
             for it in items:
-                cids = qcs_map.get(it.id, [])
-                cats = [cat_map[cid] for cid in cids if cid in cat_map]
+                qcs = db.query(AskQuestionCategory).filter(AskQuestionCategory.question_id == it.id).all()
+                cids = [x.category_id for x in qcs]
+                cats = []
+                if cids:
+                    crows = db.query(AskCategory).filter(AskCategory.id.in_(cids)).all()
+                    cats = [{"id": c.id, "name": c.name} for c in crows]
                 data.append(_q_to_dict(it, cids, cats, uid))
             return success(data, total=total)
         except Exception as e:
@@ -250,10 +220,10 @@ def public_list_questions(
 
 
 @router.get("/public-api", summary="问题详情")
-def get_question(id: int = Query(...)):
+async def get_question(id: int = Query(...)):
     with get_session() as db:
         try:
-            q = db.query(AskQuestion).filter(AskQuestion.id == id, AskQuestion.deleted.is_(False)).first()
+            q = db.query(AskQuestion).filter(AskQuestion.id == id, not AskQuestion.deleted).first()
             if not q:
                 return error("问题不存在", "404")
             q.watch_num = (q.watch_num or 0) + 1
@@ -271,7 +241,7 @@ def get_question(id: int = Query(...)):
 
 
 @router.get("/public-api/member/count", summary="会员问题数")
-def member_question_count(member_id: str | None = None):
+async def member_question_count(member_id: str | None = None):
     with get_session() as db:
         try:
             uid = member_id or _current_user_id()
@@ -279,7 +249,7 @@ def member_question_count(member_id: str | None = None):
                 db.query(AskQuestion)
                 .filter(
                     AskQuestion.member_id == uid,
-                    AskQuestion.deleted.is_(False),
+                    not AskQuestion.deleted,
                 )
                 .count()
             )
@@ -290,7 +260,7 @@ def member_question_count(member_id: str | None = None):
 
 
 @router.post("/like", operation_id="ask_question_toggle_like", summary="点赞/取消点赞")
-def toggle_like(target_type: str = Query(..., pattern="^(question|answer)$"), target_id: int = Query(...)):
+async def toggle_like(target_type: str = Query(..., pattern="^(question|answer)$"), target_id: int = Query(...)):
     with get_session() as db:
         try:
             uid = _current_user_id()
@@ -324,7 +294,7 @@ def toggle_like(target_type: str = Query(..., pattern="^(question|answer)$"), ta
 
 
 @router.post("/favorite", operation_id="ask_question_toggle_favorite", summary="收藏/取消收藏")
-def toggle_favorite(target_type: str = Query(..., pattern="^(question|answer)$"), target_id: int = Query(...)):
+async def toggle_favorite(target_type: str = Query(..., pattern="^(question|answer)$"), target_id: int = Query(...)):
     with get_session() as db:
         try:
             uid = _current_user_id()
@@ -350,7 +320,7 @@ def toggle_favorite(target_type: str = Query(..., pattern="^(question|answer)$")
 
 
 @router.post("/comment", operation_id="ask_question_add_comment", summary="发表评论")
-def add_comment(body: CommentCreate):
+async def add_comment(body: CommentCreate):
     with get_session() as db:
         try:
             uid = _current_user_id()

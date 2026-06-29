@@ -6,12 +6,12 @@ POST /api/v1/login/username
 """
 
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body
 from loguru import logger
 
+from app.schemas.common import error, success
 from app.security import create_access_token, verify_password
 from app.utils.redis_util import delete_key, get_key, incr_key_with_expire
-from app.utils.response import fail, success
 
 # 登录失败限制
 _LOGIN_FAIL_PREFIX = "sms:login:fail:"
@@ -40,24 +40,27 @@ def _get_db_session():
 
 
 @router.post("/username", summary="用户名密码登录 (内置 admin/ry)")
-def login_by_username(
-    username: str = Query(..., description="用户名 (admin / ry)"),
-    password: str = Query(..., description="明文密码"),
+async def login_by_username(
+    username: str = Body(..., embed=True, description="用户名 (admin / ry)"),
+    password: str = Body(..., embed=True, description="明文密码"),
 ):
     """前端演示登录: 用户名 + 密码, 返回 JWT + 用户信息.
 
     对应 Java: AdminLoginController.login (Admin版).
+
+    2026-06-28 联调: 改 Query→Body, 对齐前端 ADMIN_LOGIN_PATHS.login 调用方式
+    (前端发送 JSON body {username, password}).
     """
     db = _get_db_session()
     if db is None:
-        return fail("数据库不可用", code=500)
+        return error("数据库不可用", code="500000")
 
     fail_key = _LOGIN_FAIL_PREFIX + username
 
     # 检查是否已被锁定
     fail_count = get_key(fail_key)
     if fail_count and int(fail_count) >= _LOGIN_FAIL_MAX:
-        return fail("登录失败次数过多,账号已锁定15分钟", code=429)
+        return error("登录失败次数过多,账号已锁定15分钟", code="429000")
 
     try:
         from app.models.sys_models import SysRole, SysUser, SysUserRole
@@ -65,12 +68,12 @@ def login_by_username(
         user = db.query(SysUser).filter(SysUser.user_name == username, SysUser.del_flag == "0").first()
         if not user:
             incr_key_with_expire(fail_key, _LOGIN_FAIL_LOCK_SECONDS)
-            return fail(f"用户不存在: {username}", code=401)
+            return error(f"用户不存在: {username}", code="401001")
         if user.status == "1":
-            return fail("账号已停用", code=403)
+            return error("账号已停用", code="403001")
         if not verify_password(password, user.password or ""):
             incr_key_with_expire(fail_key, _LOGIN_FAIL_LOCK_SECONDS)
-            return fail("密码错误", code=401)
+            return error("密码错误", code="401002")
 
         # 登录成功,清除失败计数
         delete_key(fail_key)
@@ -111,9 +114,14 @@ def login_by_username(
         refresh, _jti, _fid = create_refresh_token(subject=str(user.user_id))
         return success(
             {
+                # snake_case (后端规范)
                 "access_token": token,
                 "refresh_token": refresh,
                 "token_type": "Bearer",
+                # camelCase (前端 utils/request.ts 兼容)
+                "accessToken": token,
+                "refreshToken": refresh,
+                "tokenType": "Bearer",
                 # T2 滑动续期: 告诉前端 token 剩余有效期, 便于提前 refresh
                 "expires_in": settings.JWT_EXPIRE_MINUTES * 60,  # access 剩余秒数
                 "refresh_expires_in": 7 * 24 * 60 * 60,  # refresh 7 天
@@ -128,7 +136,7 @@ def login_by_username(
         )
     except Exception as e:
         logger.error(f"username login error: {e}")
-        return fail(f"登录失败: {e}", code=500)
+        return error(f"登录失败: {e}", code="500000")
     finally:
         try:
             db.close()

@@ -116,7 +116,7 @@ COSYVOICE_VOICES: list[dict[str, Any]] = [
 
 
 @router.get("/voices", summary="List available TTS voices")
-def list_voices(user_uuid: str = Depends(require_login)):
+async def list_voices(user_uuid: str = Depends(require_login)):
     """Return curated CosyVoice voice list.
 
     DashScope does not expose a dynamic list-voices API, so we return the
@@ -366,7 +366,7 @@ async def speech_recognize(
                     {
                         "task_id": task_id,
                         "status": poll_status,
-                        "message": "任务处理中,请稍后使用 task_id 查询结果",
+                        "msg": "任务处理中,请稍后使用 task_id 查询结果",
                     }
                 )
 
@@ -475,7 +475,7 @@ async def audio_chat(
 
     # Step 1: If audio input provided, do ASR first
     if not user_text and (body.audio_base64 or body.audio_url):
-        asr_body = RecognizeRequest(
+        asr_body = RecognizeRequest(  # type: ignore[call-arg]
             audio_url=body.audio_url,
             audio_base64=body.audio_base64,
             model="paraformer-v2",
@@ -533,7 +533,7 @@ async def audio_chat(
         return error("AI未返回有效回复")
 
     # Step 3: TTS on AI reply
-    tts_body = SpeechRequest(
+    tts_body = SpeechRequest(  # type: ignore[call-arg]
         text=ai_reply,
         voice_id=body.voice_id,
         response_format="mp3",
@@ -550,7 +550,7 @@ async def audio_chat(
                 "ai_text": ai_reply,
                 "voice_id": body.voice_id,
                 "model": body.model,
-                "message": "AI回复已生成,音频文件通过 /speech 接口获取",
+                "msg": "AI回复已生成,音频文件通过 /speech 接口获取",
             }
         )
 
@@ -612,7 +612,7 @@ async def download_audio(
         elif status == "FAILED":
             return error(f"任务失败: {output.get('message', '未知错误')}")
         else:
-            return success({"task_id": task_id, "status": status, "message": "任务处理中"})
+            return success({"task_id": task_id, "status": status, "msg": "任务处理中"})
 
     except Exception as e:
         logger.exception("Audio download error")
@@ -648,7 +648,7 @@ async def upload_audio_for_recognition(
         # 2. Use base64 inline
         audio_b64 = base64.b64encode(content).decode("utf-8")
 
-        asr_body = RecognizeRequest(
+        asr_body = RecognizeRequest(  # type: ignore[call-arg]
             audio_base64=audio_b64,
             model=model,
             language=language,

@@ -1,181 +1,159 @@
-"""学习记录 API
+"""学习模块 - 学习记录"""
 
-迁移自 edu server ihui-ai-edu-learn-service 的 record 模块.
-提供学习记录保存(同步写日志并更新报名进度)、会员课程学习记录查询、会员学习记录列表.
-"""
-
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from loguru import logger
-from pydantic import BaseModel, Field
 
-from app.core.current_user import current_user_id_or_guest
+from app.core.current_user import get_member_id_int
 from app.database import get_session
-from app.models.learn_models import Record, RecordLog, SignUp
-from app.schemas.common import error, page_result, success
+from app.models.learn_models import LearnRecord, LearnRecordLog
+from app.schemas.common import error, success
 
 router = APIRouter()
 
 
-def _uid() -> str:
-    return current_user_id_or_guest()
-
-
-def _record_to_dict(item: Record) -> dict:
-    return {
-        "id": item.id,
-        "lesson_id": item.lesson_id,
-        "lesson_chapter_section_id": item.lesson_chapter_section_id,
-        "member_id": item.member_id,
-        "learn_time": item.learn_time,
-        "sign_up_id": item.sign_up_id,
-        "max_progress_time": item.max_progress_time,
-        "status": item.status,
-        "progress": item.progress,
-        "created_at": item.created_at.isoformat() if item.created_at else None,
-        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Pydantic schemas
-# ---------------------------------------------------------------------------
-
-
-class RecordSave(BaseModel):
-    lesson_id: int
-    lesson_chapter_section_id: int
-    member_id: int
-    learn_time: int = 0
-    sign_up_id: int | None = None
-    max_progress_time: int = 0
-    progress: int = Field(0, ge=0, le=100)
-
-
-# ---------------------------------------------------------------------------
-# 学习记录接口
-# ---------------------------------------------------------------------------
-
-
-@router.post("/save", summary="保存学习记录")
-def save_record(body: RecordSave):
+@router.get("/record/list", summary="学习记录列表")
+async def list_records(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    member_id: int | None = None,
+    lesson_id: int | None = None,
+    sign_up_id: int | None = None,
+):
     with get_session() as db:
         try:
-            record = (
-                db.query(Record)
+            q = db.query(LearnRecord)
+            if member_id:
+                q = q.filter(LearnRecord.member_id == member_id)
+            if lesson_id:
+                q = q.filter(LearnRecord.lesson_id == lesson_id)
+            if sign_up_id:
+                q = q.filter(LearnRecord.sign_up_id == sign_up_id)
+            total = q.count()
+            items = q.order_by(LearnRecord.id.desc()).offset((page - 1) * limit).limit(limit).all()
+            return success(
+                [
+                    {
+                        "id": r.id,
+                        "member_id": r.member_id,
+                        "lesson_id": r.lesson_id,
+                        "lesson_chapter_section_id": r.lesson_chapter_section_id,
+                        "sign_up_id": r.sign_up_id,
+                        "learn_time": r.learn_time,
+                        "max_progress_time": r.max_progress_time,
+                        "status": r.status,
+                        "created_at": r.created_at.isoformat() if r.created_at else None,
+                        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                    }
+                    for r in items
+                ],
+                total=total,
+            )
+        except Exception as e:
+            logger.error(f"learn record list error: {e}")
+            return error(str(e))
+
+
+@router.post("/record/upsert", summary="上报学习进度(无则新增,有则更新)")
+async def upsert_record(
+    lesson_id: int = Query(...),
+    lesson_chapter_section_id: int = Query(...),
+    sign_up_id: int = Query(...),
+    learn_time: int = Query(0, ge=0),
+    max_progress_time: int = Query(0, ge=0),
+    member_id: int = Depends(get_member_id_int),
+):
+    with get_session() as db:
+        try:
+            r = (
+                db.query(LearnRecord)
                 .filter(
-                    Record.lesson_id == body.lesson_id,
-                    Record.lesson_chapter_section_id == body.lesson_chapter_section_id,
-                    Record.member_id == body.member_id,
+                    LearnRecord.member_id == member_id,
+                    LearnRecord.lesson_id == lesson_id,
+                    LearnRecord.lesson_chapter_section_id == lesson_chapter_section_id,
+                    LearnRecord.sign_up_id == sign_up_id,
                 )
                 .first()
             )
-            if record:
-                record.learn_time = body.learn_time
-                if body.max_progress_time > record.max_progress_time:
-                    record.max_progress_time = body.max_progress_time
-                if body.progress > record.progress:
-                    record.progress = body.progress
-                if body.progress >= 100:
-                    record.status = 1
+            if r:
+                if learn_time > r.learn_time:
+                    r.learn_time = learn_time
+                if max_progress_time > r.max_progress_time:
+                    r.max_progress_time = max_progress_time
+                if r.status != "completed" and r.status != "progressing":
+                    r.status = "progressing"
             else:
-                record = Record(
-                    lesson_id=body.lesson_id,
-                    lesson_chapter_section_id=body.lesson_chapter_section_id,
-                    member_id=body.member_id,
-                    learn_time=body.learn_time,
-                    sign_up_id=body.sign_up_id,
-                    max_progress_time=body.max_progress_time,
-                    status=1 if body.progress >= 100 else 0,
-                    progress=body.progress,
+                r = LearnRecord(
+                    member_id=member_id,
+                    lesson_id=lesson_id,
+                    lesson_chapter_section_id=lesson_chapter_section_id,
+                    sign_up_id=sign_up_id,
+                    learn_time=learn_time,
+                    max_progress_time=max_progress_time,
+                    status="progressing",
                 )
-                db.add(record)
+                db.add(r)
             db.flush()
-
-            log = RecordLog(
-                lesson_id=body.lesson_id,
-                lesson_chapter_section_id=body.lesson_chapter_section_id,
-                member_id=body.member_id,
-                learn_time=body.learn_time,
-                sign_up_id=body.sign_up_id,
+            # 追加日志
+            db.add(
+                LearnRecordLog(
+                    member_id=member_id,
+                    lesson_id=lesson_id,
+                    lesson_chapter_section_id=lesson_chapter_section_id,
+                    sign_up_id=sign_up_id,
+                    learn_time=learn_time,
+                )
             )
-            db.add(log)
-
-            if body.sign_up_id:
-                signup = db.query(SignUp).filter(SignUp.id == body.sign_up_id).first()
-                if signup:
-                    records = (
-                        db.query(Record)
-                        .filter(
-                            Record.sign_up_id == body.sign_up_id,
-                            Record.member_id == body.member_id,
-                        )
-                        .all()
-                    )
-                    if records:
-                        avg_progress = sum(r.progress for r in records) // len(records)
-                        if avg_progress > signup.progress:
-                            signup.progress = avg_progress
-                        if avg_progress >= 100:
-                            signup.status = 1
-            db.flush()
-            return success(_record_to_dict(record))
+            return success({"id": r.id})
         except Exception as e:
-            logger.exception("save_record error")
+            logger.error(f"learn record upsert error: {e}")
             return error(str(e))
 
 
-@router.get("/member/{member_id}/lesson/{lesson_id}", summary="查询会员课程学习记录")
-def get_member_lesson_records(member_id: int, lesson_id: int):
+@router.put("/record/{rid}/complete", summary="标记章节完成")
+async def complete_record(rid: int):
     with get_session() as db:
         try:
-            records = (
-                db.query(Record)
-                .filter(
-                    Record.member_id == member_id,
-                    Record.lesson_id == lesson_id,
-                )
-                .order_by(Record.id.asc())
-                .all()
-            )
-            total_learn_time = sum(r.learn_time for r in records)
-            max_progress = max((r.progress for r in records), default=0)
-            return success(
-                {
-                    "member_id": member_id,
-                    "lesson_id": lesson_id,
-                    "records": [_record_to_dict(r) for r in records],
-                    "total_learn_time": total_learn_time,
-                    "max_progress": max_progress,
-                    "section_count": len(records),
-                }
-            )
+            r = db.query(LearnRecord).filter(LearnRecord.id == rid).first()
+            if not r:
+                return error("记录不存在", "404")
+            r.status = "completed"
+            return success({"id": r.id})
         except Exception as e:
-            logger.exception("get_member_lesson_records error")
+            logger.error(f"learn record complete error: {e}")
             return error(str(e))
 
 
-@router.get("/member/{member_id}/list", summary="会员所有学习记录")
-def list_member_records(
-    member_id: int,
+@router.get("/record-log/list", summary="学习记录日志列表")
+async def list_record_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    member_id: int | None = None,
     lesson_id: int | None = None,
 ):
     with get_session() as db:
         try:
-            q = db.query(Record).filter(Record.member_id == member_id)
-            if lesson_id is not None:
-                q = q.filter(Record.lesson_id == lesson_id)
+            q = db.query(LearnRecordLog)
+            if member_id:
+                q = q.filter(LearnRecordLog.member_id == member_id)
+            if lesson_id:
+                q = q.filter(LearnRecordLog.lesson_id == lesson_id)
             total = q.count()
-            items = (
-                q.order_by(Record.id.desc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-                .all()
-            )
-            return page_result(
-                [_record_to_dict(i) for i in items], total, page, limit
+            items = q.order_by(LearnRecordLog.id.desc()).offset((page - 1) * limit).limit(limit).all()
+            return success(
+                [
+                    {
+                        "id": l.id,
+                        "member_id": l.member_id,
+                        "lesson_id": l.lesson_id,
+                        "lesson_chapter_section_id": l.lesson_chapter_section_id,
+                        "sign_up_id": l.sign_up_id,
+                        "learn_time": l.learn_time,
+                        "created_at": l.created_at.isoformat() if l.created_at else None,
+                    }
+                    for l in items
+                ],
+                total=total,
             )
         except Exception as e:
-            logger.exception("list_member_records error")
+            logger.error(f"learn record log list error: {e}")
             return error(str(e))

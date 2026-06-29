@@ -1,0 +1,137 @@
+spring.application.name: zhs_server_java
+server.port: 8002
+
+# ====== 动态多数据源配置，兼容 dynamic-datasource-spring-boot-starter ======
+spring.datasource.dynamic.primary=master
+#spring.datasource.dynamic.datasource.master.url=jdbc:mysql://172.21.0.15:3306/zhs_ai_project?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=Asia/Shanghai
+spring.datasource.dynamic.datasource.master.url=jdbc:mysql://47.94.40.108:3306/zhs_ai_project?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=Asia/Shanghai
+spring.datasource.dynamic.datasource.master.username=Raindrop_L
+spring.datasource.dynamic.datasource.master.password=Raindrop_L250604
+spring.datasource.dynamic.datasource.master.driver-class-name=com.mysql.cj.jdbc.Driver
+
+#spring.datasource.dynamic.datasource.center.url=jdbc:mysql://172.21.0.15:3306/zhs_center_project?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=Asia/Shanghai
+spring.datasource.dynamic.datasource.center.url=jdbc:mysql://47.94.40.108:3306/zhs_center_project?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=Asia/Shanghai
+spring.datasource.dynamic.datasource.center.username=Raindrop_L
+spring.datasource.dynamic.datasource.center.password=Raindrop_L250604
+spring.datasource.dynamic.datasource.center.driver-class-name=com.mysql.cj.jdbc.Driver
+
+#spring.datasource.dynamic.datasource.course.url=jdbc:mysql://172.21.0.15:3306/zhs_educational_training?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=Asia/Shanghai
+spring.datasource.dynamic.datasource.course.url=jdbc:mysql://47.94.40.108:3306/zhs_educational_training?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=Asia/Shanghai
+spring.datasource.dynamic.datasource.course.username=Raindrop_L
+spring.datasource.dynamic.datasource.course.password=Raindrop_L250604
+spring.datasource.dynamic.datasource.course.driver-class-name=com.mysql.cj.jdbc.Driver
+
+logging.level.org.mybatis: DEBUG
+logging.level.com.ai.manager.small.mapper: DEBUG
+logging.level.com.ai.manager.app.mapper: DEBUG
+logging.level.com.ai.manager.course.mapper: DEBUG
+
+# MyBatis configuration
+#mybatis.base-package: com.ai.*.mapper
+mybatis.mapper-locations: classpath:mapper/**/*.xml
+wx.appid: wx27028e276ffdbc5d
+wx.secret: 59c25dfdb673f5ef33dc9bd4bf8906b0
+wx.shops.id: 1714645682
+wx.shops.v3Key: L39OWR1HWCLP8VF1VFK7H5V0NRPP7BSR
+#wx.shops.cert.apiclient.path: /ai_zhs/cert/apiclient_key.pem
+#wx.shops.cert.public.path: /ai_zhs/cert/pub_key.pem
+wx.shops.cert.apiclient.path: D:/WXCertUtil/cert/1714645682_20250529_cert/apiclient_key.pem
+wx.shops.cert.public.path: D:/WXCertUtil/cert/1714645682_20250529_cert/pub_key.pem
+wx.shops.public.num: PUB_KEY_ID_0117146456822025042300331684002200
+wx.shops.cert.num: 4D838B03847C244C2677C04023F44CD82E5F2BE5
+wx.jsapi.token_path: https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s
+wx.jsapi.user_phone_number: https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=%s
+# 回调地址
+#wx.jsapi.notify: https://program.aizhs.top/prod-api/ai/fund/notify
+wx.jsapi.notify: https://bsm.aizhs.top/prod-api/ai/fund/notify
+#购买智能体支付回调
+#wx.jsapi.notify2: https://test.aizhs.top/pay/notify
+wx.jsapi.notify2: https://kou.aizhs.top/pay/notify
+#购买课程支付回调
+wx.jsapi.notify3: https://test.aizhs.top/pay/course/notify
+#wx.jsapi.notify3: https://kou.aizhs.top/pay/course/notify
+# 小程序首页位置
+wx.jsapi.home.url: pages/table/tools/index
+
+# 移动端
+#wx.app.notify: https://test.aizhs.top/prod-api/ai/fund/app/notify
+wx.app.notify: https://bsm.aizhs.top/prod-api/ai/fund/app/notify
+
+#coze.private.key.pem.url: /ai_zhs/cert/coze_private_key.pem
+coze.private.key.pem.url: D:/WXCertUtil/cert/1714645682_20250529_cert/coze_private_key.pem
+coze.private.key.pem.num: idDd5jxHsinzD3bh1yfTwEaPjs0MXiHZxssb3d0AwyA
+coze.oauth.app.id: 1130664761434
+coze.oauth.app.aud: api.coze.cn
+coze.ouath.token.url: https://api.coze.cn/api/permission/oauth2/token
+
+# login_cert
+#ai.wx.mini.login.private: /ai_zhs/cert/zhsLogin_private.pem
+#ai.wx.mini.login.public: /ai_zhs/cert/zhsLogin_public.pem
+#ai.wx.mini.login.cert: /ai_zhs/cert/zhsLogin_cert.pem
+ai.wx.mini.login.private: D:/WXCertUtil/cert/1714645682_20250529_cert/zhsLogin_private.pem
+ai.wx.mini.login.public: D:/WXCertUtil/cert/1714645682_20250529_cert/zhsLogin_public.pem
+ai.wx.mini.login.cert: D:/WXCertUtil/cert/1714645682_20250529_cert/zhsLogin_cert.pem
+ai.wx.mini.login.keypass: tgzwb1ux
+ai.wx.mini.login.alias: zhsLogin
+ai.wx.mini.login.password: xmx76o3e
+
+ai.creator.name:AI_ZHS
+ai.commission.day: 0
+
+# release
+ai.default.img.url: https://file.aizhs.top/sys-mini/daixaodiming.png
+
+ai.wx.mini.default.product.activity: https://file.aizhs.top/sys-mini/default/activity.png
+ai.wx.mini.default.product.token: https://file.aizhs.top/sys-mini/default/token.png
+ai.wx.mini.default.product.trader: https://file.aizhs.top/sys-mini/default/trader.png
+ai.wx.mini.default.product.vip: https://file.aizhs.top/sys-mini/default/vip.png
+
+ai.default.team.url: https://bsm.aizhs.top/prod-api/ai/remote/myTeam/%s
+ai.default.margin.url: https://bsm.aizhs.top/prod-api/ai/fund/useToken
+ai.default.product.url: https://bsm.aizhs.top/prod-api/ai/fund/getProduct
+ai.default.statistics.url: https://bsm.aizhs.top/prod-api/ai/fund/getStatistics
+ai.default.role.url: https://bsm.aizhs.top/prod-api/ai/remote/role
+
+# local
+#ai.default.team.url: http://192.168.3.16:8080/ai/remote/myTeam/%s
+#ai.default.margin.url: http://192.168.3.16:8080/ai/fund/useToken
+#ai.default.product.url: http://192.168.3.16:8080/ai/fund/getProduct
+#ai.default.statistics.url: http://192.168.3.16:8080/ai/fund/getStatistics
+#ai.default.role.url: http://192.168.3.16:8080/ai/ai/remote/role
+##ai.default.img.url: http://192.168.3.16:9000/sys-mini/daixaodiming.png
+# dev
+##ai.default.img.url: https://test.aizhs.top/minio/sys-mini/daixaodiming.png
+#ai.default.team.url: https://program.aizhs.top/prod-api/ai/remote/myTeam/%s
+#ai.default.margin.url: https://program.aizhs.top/prod-api/ai/fund/useToken
+#ai.default.product.url: https://program.aizhs.top/prod-api/ai/fund/getProduct
+#ai.default.statistics.url: https://program.aizhs.top/prod-api/ai/fund/getStatistics
+#ai.default.role.url: https://program.aizhs.top/prod-api/ai/remote/role
+
+minio.accessKey: admin
+minio.bucketName: sys-mini
+minio.secretKey: 12345678
+# release
+# dev
+#minio.url: http://47.94.40.108:9000
+#minio.returnUrl: https://test.aizhs.top/minio
+# local
+minio.url: http://127.0.0.1:9000
+minio.returnUrl: http://192.168.3.16:9000
+# release
+#minio.url: http://172.21.0.9:9000
+#minio.returnUrl: https://file.aizhs.top
+#minio.secretKey: imo@;UC^
+
+# app
+app.apply.id: wx85fa429a9331b5c8
+
+## ali云百炼 sk-e7d8ce157f16401785d841762c356b96
+#app.ali.ai.api.key: c2stZTdkOGNlMTU3ZjE2NDAxNzg1ZDg0MTc2MmMzNTZiOTY=
+# ali云百炼 sk-84ee5a834c67446a9125ae85a3e4906d
+app.ali.ai.api.key: c2stODRlZTVhODM0YzY3NDQ2YTkxMjVhZTg1YTNlNDkwNmQ=
+
+n8n.token.counting.unit: 3
+# 简易Sora2 API配置
+sora2.api.key: sk-eu9YjbwjrjL8PFBXHZ2VIu90mUKRMSKApzT3vZJ3Eprq8Vzo
+
+

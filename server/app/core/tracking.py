@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from contextlib import contextmanager, suppress
 from typing import Any
@@ -24,7 +23,6 @@ logger = logging.getLogger(__name__)
 # Prometheus Counter / Histogram (延迟初始化)
 _BUSINESS_COUNTERS: dict[str, Any] = {}
 _BUSINESS_HISTOGRAMS: dict[str, Any] = {}
-_COUNTERS_LOCK = threading.Lock()
 
 # 业务事件类型常量
 EVENT_USER_REGISTER = "user_register"
@@ -46,32 +44,30 @@ FUNNEL_PAYMENT = ("cart_view", "checkout_click", "pay_submit", "pay_success")
 
 def _get_counter(name: str, labels: list[str]):
     """获取/创建业务 Counter (无 prometheus_client 时返回 None)."""
-    with _COUNTERS_LOCK:
-        if name in _BUSINESS_COUNTERS:
-            return _BUSINESS_COUNTERS[name]
-        try:
-            from prometheus_client import Counter
+    if name in _BUSINESS_COUNTERS:
+        return _BUSINESS_COUNTERS[name]
+    try:
+        from prometheus_client import Counter
 
-            c = Counter(name, f"Business event: {name}", labels)
-            _BUSINESS_COUNTERS[name] = c
-            return c
-        except ImportError:
-            return None
+        c = Counter(name, f"Business event: {name}", labels)
+        _BUSINESS_COUNTERS[name] = c
+        return c
+    except ImportError:
+        return None
 
 
 def _get_histogram(name: str, labels: list[str], buckets: tuple = (0.01, 0.05, 0.1, 0.5, 1, 5)):
     """获取/创建业务 Histogram."""
-    with _COUNTERS_LOCK:
-        if name in _BUSINESS_HISTOGRAMS:
-            return _BUSINESS_HISTOGRAMS[name]
-        try:
-            from prometheus_client import Histogram
+    if name in _BUSINESS_HISTOGRAMS:
+        return _BUSINESS_HISTOGRAMS[name]
+    try:
+        from prometheus_client import Histogram
 
-            h = Histogram(name, f"Business latency: {name}", labels, buckets=buckets)
-            _BUSINESS_HISTOGRAMS[name] = h
-            return h
-        except ImportError:
-            return None
+        h = Histogram(name, f"Business latency: {name}", labels, buckets=buckets)
+        _BUSINESS_HISTOGRAMS[name] = h
+        return h
+    except ImportError:
+        return None
 
 
 def track_event(
@@ -91,12 +87,11 @@ def track_event(
     Example:
         track_event(EVENT_PAYMENT_SUCCESS, user_id="u123", amount=99.0, channel="web")
     """
-    # user_id 不作为 Prometheus label (会导致 cardinality 爆炸), 只入日志.
-    label_keys = ["event", *labels.keys()]
+    label_keys = ["event", "user_id", *labels.keys()]
     counter = _get_counter("zhs_business_events_total", label_keys)
     if counter:
         try:
-            counter.labels(event=event, **{k: str(v) for k, v in labels.items()}).inc()
+            counter.labels(event=event, user_id=user_id or "anonymous", **{k: str(v) for k, v in labels.items()}).inc()
         except Exception as e:
             logger.debug(f"track_event prometheus fail: {e}")
 

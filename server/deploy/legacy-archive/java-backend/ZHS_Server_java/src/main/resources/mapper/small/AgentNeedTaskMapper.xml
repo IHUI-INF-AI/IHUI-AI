@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.AgentNeedTaskMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.AgentNeedTask" id="AgentNeedTaskResult">
+        <result property="id" column="id"/>
+        <result property="type" column="type"/>
+        <result property="category" column="category"/>
+        <result property="title" column="title"/>
+        <result property="context" column="context"/>
+        <result property="imgs" column="imgs"/>
+        <result property="lowestPrice" column="lowest_price"/>
+        <result property="peakPrice" column="peak_price"/>
+        <result property="cycle" column="cycle"/>
+        <result property="cycleUnit" column="cycle_unit"/>
+        <result property="closingTime" column="closing_time"/>
+        <result property="status" column="status"/>
+        <result property="isHidden" column="is_hidden"/>
+        <result property="isDel" column="is_del"/>
+        <result property="sort" column="sort"/>
+        <result property="isTop" column="is_top"/>
+        <result property="creator" column="creator"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="reviewer" column="reviewer"/>
+        <result property="reviewerAt" column="reviewer_at"/>
+        <result property="typeName" column="type_name"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="invitationCode" column="invitation_code"/>
+        <result property="remark" column="remark"/>
+        <result property="createdName" column="created_name"/>
+        <result property="avatar" column="avatar"/>
+    </resultMap>
+    <sql id="selectAgentNeedTaskVo">
+        select
+            DISTINCT nt.id, nt.type, nt.category, nt.title, nt.context, nt.imgs, nt.lowest_price, nt.peak_price, nt.cycle, nt.cycle_unit, nt.closing_time, nt.status, nt.is_hidden, nt.is_del, nt.sort, nt.is_top, nt.creator, nt.created_at, nt.reviewer, nt.reviewer_at, nt.invitation_code, nt.remark
+        , (select nickname from zhs_center_project.users u where u.uuid = nt.creator) created_name
+        , (select avatar from zhs_center_project.users u where u.uuid = nt.creator) avatar
+    </sql>
+    <sql id="fromAgentNeedTaskTable">
+        from agent_need_task nt
+    </sql>
+
+    <select id="getList" parameterType="com.ai.manager.small.domain.AgentNeedTask" resultMap="AgentNeedTaskResult">
+        <include refid="selectAgentNeedTaskVo"/>
+        <include refid="fromAgentNeedTaskTable"/>
+        left join zhs_center_project.users u on u.uuid = nt.creator
+        left join agent_task_developer atd on atd.task_id = nt.id
+        LEFT JOIN zhs_center_project.users au ON au.uuid = atd.accept
+        left join agent_category_link acl on acl.agent_id = nt.id
+        left join agent_category ac on ac.id = acl.category_id
+        <where>
+            (atd.id is null or atd.status = 0 or atd.status = 1)
+            <if test="type != null  and type != ''"> and nt.type = #{type}</if>
+            <if test="category != null  and category != ''"> and nt.category = #{category}</if>
+            <if test="title != null  and title != ''"> and nt.title = #{title}</if>
+            <if test="lowestPrice != null "> and nt.lowest_price = #{lowestPrice}</if>
+            <if test="closingTime != null "> and nt.closing_time = #{closingTime}</if>
+            <if test="status != null "> and nt.status = #{status}</if>
+            <if test="creator != null  and creator != ''"> and nt.creator = #{creator}</if>
+            <if test="createdAt != null "> and nt.created_at = #{createdAt}</if>
+            <if test="reviewer != null  and reviewer != ''"> and nt.reviewer = #{reviewer}</if>
+            <if test="reviewerAt != null "> and nt.reviewer_at = #{reviewerAt}</if>
+            <if test="invitationCode != null "> and nt.invitation_code = #{invitationCode}</if>
+            <if test="search != null and search != ''">
+                and (
+                    nt.title like CONCAT('%', #{search}, '%')
+                    or nt.type like CONCAT('%', #{search}, '%')
+                    or u.nickname like CONCAT('%', #{search}, '%')
+                    or au.nickname like CONCAT('%', #{search}, '%')
+                    or ac.name like CONCAT('%', #{search}, '%')
+                )
+            </if>
+            <if test="types != null">
+                and EXISTS(
+                    select 1 from agent_category_link cacl
+                    join agent_category cac on cac.id = cacl.category_id
+                    where cacl.agent_id = nt.id and cac.field2 = '0'
+                    <foreach collection="types" item="typeIds" open="and cac.id in (" separator="," close=")">
+                        #{typeIds}
+                    </foreach>
+                )
+            </if>
+            <if test="categorys != null">
+                and EXISTS(
+                    select 1 from agent_category_link cacl
+                    join agent_category cac on cac.id = cacl.category_id
+                    where cacl.agent_id = nt.id and cac.field2 = '1'
+                    <foreach collection="categorys" item="categoryIds" open="and cac.id in (" separator="," close=")">
+                        #{categoryIds}
+                    </foreach>
+                )
+            </if>
+        </where>
+        order by created_at desc
+    </select>
+    
+    <select id="getById" parameterType="String" resultMap="AgentNeedTaskResult">
+        <include refid="selectAgentNeedTaskVo"/>
+        <include refid="fromAgentNeedTaskTable"/>
+        where nt.id = #{id}
+    </select>
+
+    <insert id="addAgentNeedTask" parameterType="com.ai.manager.small.domain.AgentNeedTask">
+        insert into agent_need_task
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="type != null">type,</if>
+            <if test="category != null">category,</if>
+            <if test="title != null">title,</if>
+            <if test="context != null">`context`,</if>
+            <if test="imgs != null">imgs,</if>
+            <if test="lowestPrice != null">lowest_price,</if>
+            <if test="peakPrice != null">peak_price,</if>
+            <if test="cycle != null">`cycle`,</if>
+            <if test="cycleUnit != null">cycle_unit,</if>
+            <if test="closingTime != null">closing_time,</if>
+            <if test="status != null">`status`,</if>
+            <if test="isHidden != null">is_hidden,</if>
+            <if test="isDel != null">is_del,</if>
+            <if test="sort != null">sort,</if>
+            <if test="isTop != null">is_top,</if>
+            <if test="creator != null">creator,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="reviewer != null">reviewer,</if>
+            <if test="reviewerAt != null">reviewer_at,</if>
+            <if test="invitationCode != null">invitation_code,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="type != null">#{type},</if>
+            <if test="category != null">#{category},</if>
+            <if test="title != null">#{title},</if>
+            <if test="context != null">#{context},</if>
+            <if test="imgs != null">#{imgs},</if>
+            <if test="lowestPrice != null">#{lowestPrice},</if>
+            <if test="peakPrice != null">#{peakPrice},</if>
+            <if test="cycle != null">#{cycle},</if>
+            <if test="cycleUnit != null">#{cycleUnit},</if>
+            <if test="closingTime != null">#{closingTime},</if>
+            <if test="status != null">#{status},</if>
+            <if test="isHidden != null">#{isHidden},</if>
+            <if test="isDel != null">#{isDel},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="isTop != null">#{isTop},</if>
+            <if test="creator != null">#{creator},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="reviewer != null">#{reviewer},</if>
+            <if test="reviewerAt != null">#{reviewerAt},</if>
+            <if test="invitationCode != null">#{invitationCode},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="edit" parameterType="com.ai.manager.small.domain.AgentNeedTask">
+        update agent_need_task
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="type != null">type = #{type},</if>
+            <if test="category != null">category = #{category},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="context != null">`context` = #{context},</if>
+            <if test="imgs != null">imgs = #{imgs},</if>
+            <if test="lowestPrice != null">lowest_price = #{lowestPrice},</if>
+            <if test="peakPrice != null">peak_price = #{peakPrice},</if>
+            <if test="cycle != null">`cycle` = #{cycle},</if>
+            <if test="cycleUnit != null">cycle_unit = #{cycleUnit},</if>
+            <if test="closingTime != null">closing_time = #{closingTime},</if>
+            <if test="status != null">`status` = #{status},</if>
+            <if test="isHidden != null">is_hidden = #{isHidden},</if>
+            <if test="isDel != null">is_del = #{isDel},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="isTop != null">is_top = #{isTop},</if>
+            <if test="creator != null">creator = #{creator},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="reviewer != null">reviewer = #{reviewer},</if>
+            <if test="reviewerAt != null">reviewer_at = #{reviewerAt},</if>
+            <if test="invitationCode != null">invitation_code = #{invitationCode},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="delById" parameterType="String">
+        delete from agent_need_task where id = #{id}
+    </delete>
+
+    <delete id="delByIds" parameterType="String">
+        delete from agent_need_task where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

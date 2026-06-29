@@ -7,7 +7,6 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, St
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
-from app.utils.datetime_helper import utcnow
 
 
 class CourseAudit(TimestampMixin, Base):
@@ -34,7 +33,7 @@ router = APIRouter()
 
 
 @router.post("/submit", operation_id="course_audit_submit", summary="提交课程审核")
-def submit(course_id: int = Query(...), course_title: str | None = None):
+async def submit(course_id: int = Query(...), course_title: str | None = None):
     with get_session() as db:
         try:
             a = CourseAudit(
@@ -50,7 +49,7 @@ def submit(course_id: int = Query(...), course_title: str | None = None):
 
 
 @router.get("/list", summary="审核列表")
-def list_audits(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+async def list_audits(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                        status: int | None = None, course_id: int | None = None):
     with get_session() as db:
         try:
@@ -75,7 +74,7 @@ def list_audits(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)
 
 
 @router.get("/{aid}", summary="审核详情")
-def get_audit(aid: int):
+async def get_audit(aid: int):
     with get_session() as db:
         try:
             a = db.query(CourseAudit).filter(CourseAudit.id == aid).first()
@@ -94,16 +93,17 @@ def get_audit(aid: int):
 
 
 @router.put("/{aid}/audit", summary="审核操作")
-def audit_course(aid: int, status: int = Query(..., ge=1, le=3),
+async def audit_course(aid: int, status: int = Query(..., ge=1, le=3),
                         remark: str | None = None, score: int = 0, is_final: bool = False):
     with get_session() as db:
         try:
+            from datetime import datetime
             a = db.query(CourseAudit).filter(CourseAudit.id == aid).first()
             if not a:
                 return error("审核记录不存在", "404")
             a.status = status
             a.audit_user = "admin"
-            a.audit_time = utcnow()
+            a.audit_time = datetime.utcnow()
             a.audit_remark = remark
             a.score = score
             a.is_final = is_final

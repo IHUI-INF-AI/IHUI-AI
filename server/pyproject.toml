@@ -61,10 +61,6 @@ dependencies = [
     "tencentcloud-sdk-python>=3.0.0",
     "langchain>=1.2.0",
     "langchain-openai>=0.0.5",
-    "langchain-postgres>=0.0.10",
-    "langchain-text-splitters>=0.3.0",
-    # crewai/crewai-tools 移为可选依赖（与 opentelemetry-api 版本冲突）
-    # 详见 [project.optional-dependencies] crewai
     "mcp>=1.13.1",
 
     # Redis
@@ -110,12 +106,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# crewai 为可选依赖（与 opentelemetry-api 版本冲突，项目已设计为 try/except 回退）
-# 安装方式：pip install -e ".[crewai]" 或 pip install crewai crewai-tools
-crewai = [
-    "crewai>=1.14.0,<2",
-    "crewai-tools>=1.14.0,<2",
-]
 dev = [
     "black>=25.9.0",
     "isort>=5.13.0",
@@ -166,11 +156,24 @@ extend-exclude = ["alembic/versions", "build", "dist"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
-ignore = ["E501", "B008", "B905", "RUF001", "RUF002", "RUF003"]
+# N803/N815: FastAPI/Pydantic 项目中 API 参数和模型字段常用 camelCase, 改名会破坏 API 契约
+# N801/N818: 历史异常类名 (require_login/CircuitOpen 等) 全局引用, 不宜重命名
+# N802/N814: 历史函数名和别名, 涉及外部调用方
+# N806: 函数内算法常量 (WHITE/GRAY/BLACK 等) 用大写是算法实现惯例
+ignore = ["E501", "B008", "B905", "RUF001", "RUF002", "RUF003", "N803", "N815", "N801", "N818", "N802", "N814", "N806"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
 "tests/*" = ["B011", "N802", "N803"]
+# 历史代码: 函数内变量名大写 (如 WHITE/GRAY/BLACK 等算法常量)
+"app/utils/data_lineage.py" = ["N806"]
+"app/utils/bug*.py" = ["N806"]
+"app/utils/circuit_breaker.py" = ["N806"]
+# 历史代码: 变量名 l 作为 lesson/list 缩写, 改名涉及多处引用, 风险大
+"app/api/v1/learn/lesson.py" = ["E741"]
+"app/api/v1/learn/record.py" = ["E741"]
+"app/api/v1/live/category.py" = ["E741"]
+"app/api/v1/member/routes.py" = ["E741"]
 
 [tool.coverage.run]
 source = ["app"]
@@ -188,3 +191,18 @@ exclude_lines = [
 ]
 show_missing = true
 precision = 2
+
+[tool.mypy]
+ignore_missing_imports = true
+# SQLAlchemy 2.0+ declarative Base 在 mypy 默认模式下报 "Invalid base class" / "not valid as a type"
+# 项目大量模型继承 Base, 需要专门的插件才能正确推断; 插件引入 1348 个新错误, 暂不启用
+disable_error_code = ["misc", "valid-type"]
+
+[[tool.mypy.overrides]]
+# SQLAlchemy 模型: Column 赋值与 __table_args__ 标注需要插件支持
+module = "app.models.*"
+disable_error_code = ["assignment", "var-annotated", "attr-defined"]
+
+[[tool.mypy.overrides]]
+module = "app.orm.*"
+disable_error_code = ["assignment", "var-annotated", "attr-defined"]

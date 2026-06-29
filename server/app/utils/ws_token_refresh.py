@@ -235,10 +235,9 @@ class WsTokenManager:
             window.append(now)
             sess.msg_count += 1
             sess.last_active_at = now
-            if len(window) >= self._msg_limit:
+            if len(window) >= self._msg_limit and window[-1] - window[0] < 1.0:
                 # 1 秒内超过 msg_limit 则限速
-                if window[-1] - window[0] < 1.0:
-                    return WsAuthResult.RATE_LIMIT
+                return WsAuthResult.RATE_LIMIT
             return WsAuthResult.OK
 
     def revoke(self, conn_id: str, reason: str = "manual") -> bool:

@@ -14,7 +14,7 @@ try:
     _HAS_PIL = True
 except ImportError:
     _HAS_PIL = False
-    Image = ImageDraw = ImageFont = None
+    Image = ImageDraw = ImageFont = None  # type: ignore[assignment]
 
 
 def _load_font(size: int = 18):
@@ -110,7 +110,7 @@ def draw_chat_bubble(
     bubble_h = text_h + 2 * padding
     if avatar is not None:
         try:
-            avatar = avatar.resize((avatar_size, avatar_size), Image.LANCZOS)
+            avatar = avatar.resize((avatar_size, avatar_size), Image.LANCZOS)  # type: ignore[attr-defined]
         except Exception:
             avatar = None
     has_avatar = avatar is not None
@@ -125,7 +125,7 @@ def draw_chat_bubble(
         else:
             avatar_x = 10
             text_x = avatar_size + 20
-        img.paste(avatar, (avatar_x, 10))
+        img.paste(avatar, (avatar_x, 10))  # type: ignore[arg-type]
         bubble_x = text_x - 5
     else:
         bubble_x = 10
@@ -163,10 +163,7 @@ def draw_chat_conversation(
         logger.warning("Pillow 未安装, 无法绘制对话图片")
         return None
     rendered = []
-    if title:
-        title_img_height = 60
-    else:
-        title_img_height = 0
+    title_img_height = 60 if title else 0
     for msg in messages:
         bubble = draw_chat_bubble(
             avatar=msg.get("avatar"),

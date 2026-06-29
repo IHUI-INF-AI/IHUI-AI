@@ -27,7 +27,7 @@ HE_SCHEMES = ["paillier", "bfv", "ckks"]
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

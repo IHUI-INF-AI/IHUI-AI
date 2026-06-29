@@ -9,8 +9,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import timedelta
-from app.utils.datetime_helper import utcnow
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -28,7 +27,7 @@ BUSINESS_METRICS = [
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:
@@ -132,7 +131,7 @@ def get_metric_latest(metric_name: str) -> Optional[Dict[str, Any]]:
 def get_metric_history(metric_name: str, hours: int = 24,
                         limit: int = 1000) -> List[Dict[str, Any]]:
     """获取指标历史"""
-    since = (utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT timestamp, value FROM business_metrics
             WHERE metric_name = ? AND timestamp >= ?
@@ -143,7 +142,7 @@ def get_metric_history(metric_name: str, hours: int = 24,
 
 def calculate_metric_stats(metric_name: str, hours: int = 24) -> Dict[str, Any]:
     """计算指标统计"""
-    since = (utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         row = c.execute("""SELECT COUNT(*) as cnt,
             AVG(value) as avg_v, MIN(value) as min_v, MAX(value) as max_v
@@ -175,7 +174,7 @@ def record_funnel_event(user_id: str, session_id: str, stage: str,
 
 def calculate_funnel(hours: int = 24) -> Dict[str, Any]:
     """计算漏斗转化"""
-    since = (utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
     result = {"window_hours": hours, "stages": []}
     prev_count = 0
     with _conn_lock, _conn() as c:

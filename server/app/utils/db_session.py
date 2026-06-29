@@ -116,7 +116,7 @@ def db_session(
 
     Usage:
         with db_session() as db:
-            users = db.query(User).limit(500).all()
+            users = db.query(User).all()
 
         with db_session(factory=SessionFactory2) as db:
             auth = db.query(AuthInfo).first()
@@ -289,4 +289,4 @@ def get_db_session(factory=None) -> Generator[Session, None, None]:
     """
     if factory is None:
         factory = SessionFactory1
-    return db_session(factory)
+    return db_session(factory)  # type: ignore[return-value]

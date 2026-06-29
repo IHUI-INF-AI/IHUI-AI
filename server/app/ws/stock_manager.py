@@ -23,7 +23,7 @@ class StockAnalyseWSManager:
             "connected_at": time.time(),
             "last_activity": time.time(),
             "message_count": 0,
-            "client_host": websocket.client.host if hasattr(websocket.client, "host") else "unknown",
+            "client_host": websocket.client.host if hasattr(websocket.client, "host") else "unknown",  # type: ignore[union-attr]
         }
         logger.info("Stock WS connected: " + client_id)
 

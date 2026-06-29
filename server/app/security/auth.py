@@ -16,11 +16,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from jwt.exceptions import PyJWTError
 from passlib.context import CryptContext
-from sqlalchemy import func, select
-from starlette.concurrency import run_in_threadpool
+from sqlalchemy import select
 
 from app.config import settings
-from app.database import get_session
 
 
 def _validate_jwt_secret() -> str:
@@ -196,7 +194,7 @@ def decode_access_token(token: str, allow_refresh: bool = False) -> dict | None:
 security_scheme = HTTPBearer(auto_error=False)
 
 
-def get_current_user_uuid(
+async def get_current_user_uuid(
     credentials=Depends(security_scheme),
 ):
     """Extract and validate user UUID from JWT token.
@@ -213,18 +211,10 @@ def get_current_user_uuid(
         return None
 
     # 注入 tenant_id 到 contextvar (建议 102 阶段 1)
-    # 多租户模式下拒绝无 tenant_id 的 token (防止老 token 默认到 tenant_1 越权)
+    # 缺省 = 1 (向后兼容: 单租户模式 / 老 token 无 tenant_id 字段)
     from app.core.tenant import set_current_tenant_id
 
-    tenant_id = payload.get("tenant_id")
-    if tenant_id is None:
-        if getattr(settings, "MULTI_TENANT_ENABLED", False):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token missing tenant_id",
-            )
-        # 单租户模式: 向后兼容, 老 token 无 tenant_id 字段时默认 tenant_1
-        tenant_id = 1
+    tenant_id = payload.get("tenant_id", 1)
     try:
         set_current_tenant_id(int(tenant_id))
     except (ValueError, TypeError):
@@ -233,7 +223,7 @@ def get_current_user_uuid(
     return payload.get("sub")
 
 
-def require_login(
+async def require_login(
     user_uuid=Depends(get_current_user_uuid),
 ):
     """Require a valid login. Returns user UUID or raises 401."""
@@ -263,33 +253,32 @@ def require_role(required_role: str):
     """
 
     async def _check_role(user_uuid=Depends(require_login)):
+        from sqlalchemy import select
+
+        from app.database import get_session
         from app.models.sys_models import SysRole, SysUser, SysUserRole
 
-        def _query():
-            # 同步 session 在 async 上下文中会阻塞事件循环, 用 run_in_threadpool 卸载到线程池
-            with get_session() as db:
-                # Query: admin_user -> admin_user_role -> admin_role
-                stmt = (
-                    select(SysUser.user_id)
-                    .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
-                    .join(SysRole, SysUserRole.role_id == SysRole.role_id)
-                    .where(
-                        SysUser.user_uuid == user_uuid,
-                        SysRole.role_key == required_role,
-                        SysRole.status == "0",  # 0 = active
-                        SysRole.del_flag == "0",  # 0 = not deleted
-                    )
-                    .limit(1)
+        with get_session() as db:
+            # Query: admin_user -> admin_user_role -> admin_role
+            stmt = (
+                select(SysUser.user_id)
+                .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
+                .join(SysRole, SysUserRole.role_id == SysRole.role_id)
+                .where(
+                    SysUser.user_uuid == user_uuid,
+                    SysRole.role_key == required_role,
+                    SysRole.status == "0",  # 0 = active
+                    SysRole.del_flag == "0",  # 0 = not deleted
                 )
-                return db.execute(stmt).scalar()
-
-        result = await run_in_threadpool(_query)
-        if result is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{required_role}' required",
+                .limit(1)
             )
-        return user_uuid
+            result = db.execute(stmt).scalar()
+            if result is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Role '{required_role}' required",
+                )
+            return user_uuid
 
     return _check_role
 
@@ -305,33 +294,30 @@ def require_permission(permission_key: str):
     """
 
     async def _check_perm(user_uuid: str = Depends(require_login)):
+        from app.database import get_session
         from app.models.sys_models import SysMenu, SysRoleMenu, SysUser, SysUserRole
 
-        def _query():
-            # 同步 session 在 async 上下文中会阻塞事件循环, 用 run_in_threadpool 卸载到线程池
-            with get_session() as db:
-                # Query: admin_user -> admin_user_role -> admin_role_menu -> admin_menu
-                stmt = (
-                    select(SysUser.user_id)
-                    .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
-                    .join(SysRoleMenu, SysUserRole.role_id == SysRoleMenu.role_id)
-                    .join(SysMenu, SysRoleMenu.menu_id == SysMenu.menu_id)
-                    .where(
-                        SysUser.user_uuid == user_uuid,
-                        SysMenu.perms == permission_key,
-                        SysMenu.status == "0",  # 0 = active
-                    )
-                    .limit(1)
+        with get_session() as db:
+            # Query: admin_user -> admin_user_role -> admin_role_menu -> admin_menu
+            stmt = (
+                select(SysUser.user_id)
+                .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
+                .join(SysRoleMenu, SysUserRole.role_id == SysRoleMenu.role_id)
+                .join(SysMenu, SysRoleMenu.menu_id == SysMenu.menu_id)
+                .where(
+                    SysUser.user_uuid == user_uuid,
+                    SysMenu.perms == permission_key,
+                    SysMenu.status == "0",  # 0 = active
                 )
-                return db.execute(stmt).scalar()
-
-        result = await run_in_threadpool(_query)
-        if result is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission '{permission_key}' required",
+                .limit(1)
             )
-        return user_uuid
+            result = db.execute(stmt).scalar()
+            if result is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Permission '{permission_key}' required",
+                )
+            return user_uuid
 
     return _check_perm
 
@@ -377,7 +363,7 @@ def _get_dept_ids_with_children(db, dept_id: int) -> list:
     from app.models.sys_models import SysDept
 
     stmt = select(SysDept.dept_id).where(
-        func.concat(",", SysDept.ancestors, ",").like(f"%,{dept_id},%"),
+        SysDept.ancestors.like(f"%{dept_id}%"),
         SysDept.status == "0",
         SysDept.del_flag == "0",
     )
@@ -440,11 +426,7 @@ def build_data_scope_query(db, user_uuid: str, dept_field):
     if not scopes:
         return literal(False)
 
-    # data_scope 按数值比较取最小 (避免字符串字典序问题), 结果转回字符串与常量比较
-    valid_scopes = [s[0] for s in scopes if str(s[0]).isdigit()]
-    if not valid_scopes:
-        return literal(False)
-    best_scope = str(min(int(s) for s in valid_scopes))
+    best_scope = min(s[0] for s in scopes)
 
     # Scope 1: 全量
     if best_scope == DATASCOPE_ALL:

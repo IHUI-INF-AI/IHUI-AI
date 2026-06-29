@@ -6,7 +6,7 @@
     from app.core.current_user import get_current_user_id
 
     @router.post("")
-    def create_item(
+    async def create_item(
         body: ItemCreate,
         user_id: str = Depends(get_current_user_id),
     ):
@@ -20,12 +20,9 @@ dev / 未登录场景下 user_id 自动回退为 "guest", 与历史行为完全�
     优先从 ContextVar 读取 (中间件注入时), 失败则回退 "guest".
 """
 
-import logging
 from contextvars import ContextVar
 
 from fastapi import Request
-
-logger = logging.getLogger(__name__)
 
 # ContextVar: 中间件可注入到当前请求协程的 user_id
 _current_user_ctx: ContextVar[str | None] = ContextVar("current_user_id", default=None)
@@ -65,8 +62,8 @@ def get_current_user_id(request: Request) -> str:
             payload = decode_access_token(token)
             if payload and payload.get("sub"):
                 return str(payload["sub"])
-    except Exception as e:
-        logger.debug("解析 JWT 获取当前用户失败: %s", e)
+    except Exception:
+        pass
 
     return "guest"
 
@@ -77,4 +74,49 @@ def get_optional_user_id(request: Request) -> str | None:
     if state_id:
         return str(state_id)
     return None
+
+
+def get_member_id_int(request: Request) -> int:
+    """历史迁移模块专用: 返回当前登录用户的 int 型 member_id.
+
+    用于 11 个历史 Java 迁移模块 (learn/certificate/checkin/member/news/invoice/
+    exam_ext/live_ext/circle_ext/resource_ext/message_ext), 这些模块的 member_id
+    字段是 BigInteger (历史 MySQL 自增 ID), 与主系统 String(64) UUID 不兼容.
+
+    优先级:
+      1. request.state.user_id (由 auth_middleware 注入), 正整数则返回
+      2. JWT Bearer Token 解码的 sub 字段, 正整数则返回
+      3. 默认 0 (开发 / 未登录 / 负数 / UUID, 与历史 guest 行为一致)
+
+    注意: 主系统 UUID 用户在此返回 0 (因为 UUID 不是数字), 这是设计限制非缺陷.
+    历史迁移模块的用户体系是 int, 与主系统 UUID 不互通, 待用户系统统一后再改.
+    负数 user_id 视为非法, 回退 0 (防止伪造负数 ID 越权).
+    """
+    state_id = getattr(request.state, "user_id", None)
+    if state_id is not None:
+        try:
+            value = int(state_id)
+            if value > 0:
+                return value
+        except (ValueError, TypeError):
+            pass
+
+    try:
+        from app.security import decode_access_token
+
+        auth = request.headers.get("Authorization") or request.headers.get("authorization")
+        if auth and auth.lower().startswith("bearer "):
+            token = auth.split(" ", 1)[1].strip()
+            payload = decode_access_token(token)
+            if payload and payload.get("sub"):
+                try:
+                    value = int(payload["sub"])
+                    if value > 0:
+                        return value
+                except (ValueError, TypeError):
+                    pass
+    except Exception:
+        pass
+
+    return 0
 

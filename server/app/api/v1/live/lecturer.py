@@ -1,151 +1,122 @@
-"""直播功能 - 讲师管理 (迁移自 edu server ihui-ai-edu-live-service)"""
+"""直播系统 - 独立讲师实体管理 (历史 t_lecturer)"""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Depends, Query
 from loguru import logger
-from pydantic import BaseModel
 
 from app.database import get_session
-from app.models.live_models import ChannelLecturer, LiveChannel
+from app.models.live_ext_models import Lecturer
 from app.schemas.common import error, success
+from app.security import require_login
 
 router = APIRouter()
 
 
-class LecturerBody(BaseModel):
-    channel_id: int
-    lecturer_id: int
-
-
-def _lec_to_dict(l: ChannelLecturer) -> dict:
+def _lecturer_to_dict(l: Lecturer) -> dict:
     return {
         "id": l.id,
-        "lecturer_id": l.lecturer_id,
-        "channel_id": l.channel_id,
+        "user_id": l.user_id,
+        "title": l.title,
+        "introduction": l.introduction,
         "create_time": l.created_at.isoformat() if l.created_at else None,
+        "update_time": l.updated_at.isoformat() if l.updated_at else None,
     }
 
 
-@router.post("/lecturer", summary="添加频道讲师关联")
-def add_lecturer(body: LecturerBody):
-    with get_session() as db:
-        try:
-            c = db.query(LiveChannel).filter(
-                LiveChannel.id == body.channel_id, LiveChannel.deleted == False
-            ).first()
-            if not c:
-                return error("直播不存在", "404")
-            existing = (
-                db.query(ChannelLecturer)
-                .filter(
-                    ChannelLecturer.channel_id == body.channel_id,
-                    ChannelLecturer.lecturer_id == body.lecturer_id,
-                )
-                .first()
-            )
-            if existing:
-                return success(_lec_to_dict(existing))
-            lec = ChannelLecturer(channel_id=body.channel_id, lecturer_id=body.lecturer_id)
-            db.add(lec)
-            db.flush()
-            return success(_lec_to_dict(lec))
-        except Exception as e:
-            logger.exception(f"live lecturer add error: {e}")
-            return error(str(e))
-
-
-@router.delete("/lecturer", summary="移除频道讲师关联")
-def remove_lecturer(
-    channel_id: int = Query(...),
-    lecturer_id: int = Query(...),
+@router.get("/lecturer/list", summary="讲师列表")
+async def list_lecturers(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    user_id: int | None = None,
+    user_uuid: str = Depends(require_login),
 ):
     with get_session() as db:
         try:
-            lec = (
-                db.query(ChannelLecturer)
-                .filter(
-                    ChannelLecturer.channel_id == channel_id,
-                    ChannelLecturer.lecturer_id == lecturer_id,
-                )
-                .first()
+            q = db.query(Lecturer)
+            if user_id is not None:
+                q = q.filter(Lecturer.user_id == user_id)
+            total = q.count()
+            items = (
+                q.order_by(Lecturer.id.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+                .all()
             )
-            if not lec:
-                return error("讲师关联不存在", "404")
-            db.delete(lec)
+            return success([_lecturer_to_dict(i) for i in items], total=total)
+        except Exception as e:
+            logger.error(f"lecturer list error: {e}")
+            return error(str(e))
+
+
+@router.get("/lecturer/{lid}", summary="讲师详情")
+async def get_lecturer(lid: int, user_uuid: str = Depends(require_login)):
+    with get_session() as db:
+        try:
+            l = db.query(Lecturer).filter(Lecturer.id == lid).first()
+            if not l:
+                return error("讲师不存在", "404")
+            return success(_lecturer_to_dict(l))
+        except Exception as e:
+            logger.error(f"lecturer get error: {e}")
+            return error(str(e))
+
+
+@router.post("/lecturer/create", summary="创建讲师")
+async def create_lecturer(
+    payload: dict = Body(...),
+    user_uuid: str = Depends(require_login),
+):
+    with get_session() as db:
+        try:
+            user_id = payload.get("user_id")
+            if user_id is None:
+                return error("user_id 必填", "400")
+            title = payload.get("title") or ""
+            introduction = payload.get("introduction") or ""
+            l = Lecturer(
+                user_id=int(user_id),
+                title=str(title)[:100],
+                introduction=str(introduction)[:2000],
+            )
+            db.add(l)
+            db.flush()
+            return success(_lecturer_to_dict(l))
+        except Exception as e:
+            logger.error(f"lecturer create error: {e}")
+            return error(str(e))
+
+
+@router.put("/lecturer/{lid}", summary="修改讲师")
+async def update_lecturer(
+    lid: int,
+    payload: dict = Body(...),
+    user_uuid: str = Depends(require_login),
+):
+    with get_session() as db:
+        try:
+            l = db.query(Lecturer).filter(Lecturer.id == lid).first()
+            if not l:
+                return error("讲师不存在", "404")
+            if "user_id" in payload and payload["user_id"] is not None:
+                l.user_id = int(payload["user_id"])
+            if "title" in payload and payload["title"] is not None:
+                l.title = str(payload["title"])[:100]
+            if "introduction" in payload and payload["introduction"] is not None:
+                l.introduction = str(payload["introduction"])[:2000]
+            return success(_lecturer_to_dict(l))
+        except Exception as e:
+            logger.error(f"lecturer update error: {e}")
+            return error(str(e))
+
+
+@router.delete("/lecturer/{lid}", summary="删除讲师")
+async def delete_lecturer(lid: int, user_uuid: str = Depends(require_login)):
+    with get_session() as db:
+        try:
+            l = db.query(Lecturer).filter(Lecturer.id == lid).first()
+            if not l:
+                return error("讲师不存在", "404")
+            db.delete(l)
             return success()
         except Exception as e:
-            logger.exception(f"live lecturer remove error: {e}")
-            return error(str(e))
-
-
-@router.get("/lecturer/list/by-channel", summary="频道讲师列表")
-def lecturer_list_by_channel(channel_id: int = Query(...)):
-    with get_session() as db:
-        try:
-            items = (
-                db.query(ChannelLecturer)
-                .filter(ChannelLecturer.channel_id == channel_id)
-                .order_by(ChannelLecturer.id.desc())
-                .all()
-            )
-            return success([_lec_to_dict(i) for i in items], total=len(items))
-        except Exception as e:
-            logger.exception(f"live lecturer list by channel error: {e}")
-            return error(str(e))
-
-
-@router.get("/lecturer/list/by-lecturer", summary="讲师频道列表")
-def lecturer_list_by_lecturer(lecturer_id: int = Query(...)):
-    with get_session() as db:
-        try:
-            items = (
-                db.query(ChannelLecturer)
-                .filter(ChannelLecturer.lecturer_id == lecturer_id)
-                .order_by(ChannelLecturer.id.desc())
-                .all()
-            )
-            return success([_lec_to_dict(i) for i in items], total=len(items))
-        except Exception as e:
-            logger.exception(f"live lecturer list by lecturer error: {e}")
-            return error(str(e))
-
-
-@router.get("/lecturer/check", summary="检查讲师是否关联频道")
-def check_lecturer(
-    channel_id: int = Query(...),
-    lecturer_id: int = Query(...),
-):
-    with get_session() as db:
-        try:
-            lec = (
-                db.query(ChannelLecturer)
-                .filter(
-                    ChannelLecturer.channel_id == channel_id,
-                    ChannelLecturer.lecturer_id == lecturer_id,
-                )
-                .first()
-            )
-            return success(
-                {
-                    "channel_id": channel_id,
-                    "lecturer_id": lecturer_id,
-                    "linked": lec is not None,
-                }
-            )
-        except Exception as e:
-            logger.exception(f"live lecturer check error: {e}")
-            return error(str(e))
-
-
-@router.get("/lecturer/count", summary="频道讲师数量")
-def lecturer_count(channel_id: int = Query(...)):
-    with get_session() as db:
-        try:
-            total = (
-                db.query(ChannelLecturer)
-                .filter(ChannelLecturer.channel_id == channel_id)
-                .count()
-            )
-            return success({"channel_id": channel_id, "count": total})
-        except Exception as e:
-            logger.exception(f"live lecturer count error: {e}")
+            logger.error(f"lecturer delete error: {e}")
             return error(str(e))

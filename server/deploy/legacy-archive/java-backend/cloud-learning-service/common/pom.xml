@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.chawind.cloud</groupId>
+        <artifactId>ihui-ai-edu-enterprise</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <artifactId>ihui-ai-edu-common</artifactId>
+    <name>${project.artifactId}</name>
+    <description>公共服务模块</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+            <version>2.4.1</version>
+        </dependency>
+    </dependencies>
+</project>

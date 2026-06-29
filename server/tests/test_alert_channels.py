@@ -282,7 +282,12 @@ class TestPushAlert:
         settings.ALERT_EMAIL_TO = ""
         try:
             result = await push_alert("T", "M")
-            assert result == {"dingtalk": False, "wechat": False, "feishu": False, "email": False}
+            # push_alert 返回全部 8 个渠道键 (含 pagerduty/slack/teams/generic),
+            # 即使未配置也返回 False, 避免下游 KeyError.
+            assert result == {
+                "dingtalk": False, "wechat": False, "feishu": False, "email": False,
+                "pagerduty": False, "slack": False, "teams": False, "generic": False,
+            }
         finally:
             settings.DINGTALK_WEBHOOK = old_d
             settings.WECHAT_WORK_WEBHOOK = old_w

@@ -58,7 +58,7 @@ async def reconcile_wechat_for(bill_date: str) -> dict:
     local_map = {o["out_trade_no"]: o for o in local_orders}
     remote_map = {t["out_trade_no"]: t for t in remote_trades}
     only_remote = [r for r in remote_trades if r["out_trade_no"] not in local_map]
-    only_local = [l for l in local_orders if l["out_trade_no"] not in remote_map]
+    only_local = [o for o in local_orders if o["out_trade_no"] not in remote_map]
     return {
         "date": bill_date,
         "platform": "wechat",

@@ -54,7 +54,7 @@ async def image_edit(
             return success(r.json())
         except Exception as e:
             logger.error(f"doubao image edit error: {e}")
-            return error("图片编辑服务异常,请稍后重试")
+            return error(str(e))
 
 
 @router.post("/image-generate", summary="豆包文生图")
@@ -87,11 +87,11 @@ async def image_generate(
             return success(r.json())
         except Exception as e:
             logger.error(f"doubao image generate error: {e}")
-            return error("图片生成服务异常,请稍后重试")
+            return error(str(e))
 
 
 @router.get("/models", operation_id="doubao_image_edit_list_models", summary="豆包可用模型")
-def list_models():
+async def list_models():
     return success(
         [
             {"id": "doubao-seededit-3-0-i2i-250628", "name": "豆包SeedEdit 3.0 (图生图)", "type": "image-edit"},

@@ -2,16 +2,13 @@
 import json
 from typing import Any
 
-import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
-from sqlalchemy import text
 
-from app.database import get_session
-from app.utils.ai_helpers import bearer_headers
-from app.utils.coze_compat import CozeClient, get_coze_jwt_access_token
+from app.utils.coze_compat import CozeClient
+from app.utils.coze_workflow import run_model_search_workflow
 
 router = APIRouter(prefix="/workflows", tags=["Coze Workflows"])
 
@@ -49,13 +46,13 @@ class ModelSearchReq(BaseModel):
 async def create_workflow_run(req: WorkflowRunReq):
     try:
         async with CozeClient() as coze:
-            body = {"workflow_id": req.workflow_id, "parameters": req.parameters or {}}
+            body: dict[str, Any] = {"workflow_id": req.workflow_id, "parameters": req.parameters or {}}
             if req.is_async:
                 body["is_async"] = True
             return await coze._request("POST", "/v1/workflow/run", json=body)
     except Exception as e:
         logger.error("Workflow run error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def _workflow_stream_gen(coze, workflow_id, parameters=None):
@@ -102,7 +99,7 @@ async def get_run_history(req: WorkflowRunHistoryReq):
             )
     except Exception as e:
         logger.error("Workflow history error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/runs/execute-nodes")
@@ -120,44 +117,21 @@ async def get_node_history(req: WorkflowNodeExecuteReq):
             )
     except Exception as e:
         logger.error("Node history error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/search/model/workflow/run")
 async def search_model_workflow(req: ModelSearchReq):
-    import asyncio
+    """运行 Coze 模型搜索工作流.
 
+    委托 app.utils.coze_workflow.run_model_search_workflow 执行:
+    查询 zhs_ai_model_info 模型列表 -> 获取 Coze 访问令牌 -> 调用工作流 ->
+    解包嵌套 data.data.output. 保留原有请求/响应模型与错误处理.
+    """
     try:
-        def _load_models():
-            with get_session() as db:
-                result = db.execute(text("SELECT id, source, type FROM zhs_ai_model_info WHERE is_del = 0"))
-                return [{"id": r[0], "model_name": r[1], "type": r[2]} for r in result.fetchall()]
-
-        models = await asyncio.to_thread(_load_models)
-        access_token = await get_coze_jwt_access_token()
-        url = "https://api.coze.cn/v1/workflow/run"
-        payload = {
-            "workflow_id": "7575433446743375907",
-            "parameters": {"input": models, "content": req.content},
-        }
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                url,
-                headers=bearer_headers(access_token),
-                json=payload,
-            )
-        if resp.status_code == 200:
-            data = resp.json()
-            output = data.get("data", "")
-            if isinstance(output, str):
-                try:
-                    inner = json.loads(output)
-                    if isinstance(inner, dict):
-                        output = inner.get("output", output)
-                except Exception:
-                    logger.warning("Caught unexpected exception")
-            return {"success": True, "data": output}
-        return {"success": False, "error": "Status: " + str(resp.status_code)}
+        if not req.content:
+            return {"success": False, "error": "content 不能为空"}
+        return await run_model_search_workflow(req.content)
     except Exception as e:
         logger.error("Search model workflow error: " + str(e))
         return {"success": False, "error": str(e)}

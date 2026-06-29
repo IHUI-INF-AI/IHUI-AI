@@ -1,0 +1,63 @@
+package com.ai.manager.course.mapper;
+
+import java.util.List;
+import com.ai.manager.course.domain.ZhsIdentity;
+import com.baomidou.dynamic.datasource.annotation.DS;
+
+/**
+ * 平台身份Mapper接口
+ * 
+ * @author Raindrop_L
+ * @date 2025-08-29
+ */
+@DS("course")
+public interface ZhsIdentityMapper 
+{
+    /**
+     * 查询平台身份
+     * 
+     * @param id 平台身份主键
+     * @return 平台身份
+     */
+    public ZhsIdentity getById(Integer id);
+
+    /**
+     * 查询平台身份列表
+     * 
+     * @param zhsIdentity 平台身份
+     * @return 平台身份集合
+     */
+    public List<ZhsIdentity> getList(ZhsIdentity zhsIdentity);
+
+    /**
+     * 新增平台身份
+     * 
+     * @param zhsIdentity 平台身份
+     * @return 结果
+     */
+    public int addZhsIdentity(ZhsIdentity zhsIdentity);
+
+    /**
+     * 修改平台身份
+     * 
+     * @param zhsIdentity 平台身份
+     * @return 结果
+     */
+    public int edit(ZhsIdentity zhsIdentity);
+
+    /**
+     * 删除平台身份
+     * 
+     * @param id 平台身份主键
+     * @return 结果
+     */
+    public int delById(Integer id);
+
+    /**
+     * 批量删除平台身份
+     * 
+     * @param ids 需要删除的数据主键集合
+     * @return 结果
+     */
+    public int delByIds(Integer[] ids);
+}

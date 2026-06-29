@@ -1,7 +1,7 @@
 """用户上下文 - 用户Agent对话上下文管理"""
 
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Boolean, Column, Index, Integer, String, Text
 
@@ -56,14 +56,14 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("", summary="添加上下文消息")
-def add_context(
+async def add_context(
     agent_id: str = Query(...),
     session_id: str = Query(...),
     role: str = Query(..., pattern="^(user|assistant|system|tool)$"),
-    content: str = Query(..., min_length=1),
     content_type: str = "text",
     tokens: int = 0,
     model: str | None = None,
+    content: str = Body(..., min_length=1),
 ):
     with get_session() as db:
         try:
@@ -87,7 +87,7 @@ def add_context(
 
 
 @router.get("/list", summary="获取上下文")
-def list_context(
+async def list_context(
     agent_id: str = Query(...), session_id: str | None = None, limit: int = Query(50, ge=1, le=200)
 ):
     with get_session() as db:
@@ -121,7 +121,7 @@ def list_context(
 
 
 @router.delete("", summary="清空上下文")
-def clear_context(agent_id: str = Query(...), session_id: str | None = None):
+async def clear_context(agent_id: str = Query(...), session_id: str | None = None):
     with get_session() as db:
         try:
             uid = _uid()
@@ -139,7 +139,7 @@ def clear_context(agent_id: str = Query(...), session_id: str | None = None):
 
 
 @router.post("/summary", summary="总结上下文")
-def summarize_context(
+async def summarize_context(
     agent_id: str = Query(...),
     session_id: str | None = None,
     summary: str = Query(..., min_length=1),
@@ -168,7 +168,7 @@ def summarize_context(
 
 
 @router.get("/summary/list", summary="总结列表")
-def list_summaries(agent_id: str = Query(...), limit: int = Query(10, ge=1, le=50)):
+async def list_summaries(agent_id: str = Query(...), limit: int = Query(10, ge=1, le=50)):
     with get_session() as db:
         try:
             uid = _uid()

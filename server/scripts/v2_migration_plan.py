@@ -58,7 +58,7 @@ MIGRATION_BATCHES = {
     },
     "P3": {
         "description": "低频 - 第四批",
-        "tags": ["Captcha", "Ali Login", "Feishu Auth", "Enterprise WeChat", "Auth: Alipay"],
+        "tags": ["Captcha", "Feishu Auth", "Enterprise WeChat"],
     },
 }
 

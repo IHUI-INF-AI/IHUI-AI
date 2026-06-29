@@ -76,7 +76,7 @@ def _xlsx_to_md(p: Path) -> str:
                 for c in row.iter(f"{{{NS['s']}}}c"):
                     v = c.find(f"{{{NS['s']}}}v")
                     cells.append(v.text if v is not None else "")
-                rows.append(" | ".join(cells))
+                rows.append(" | ".join(cells))  # type: ignore[arg-type]
             out.append("\n".join(rows))
         return "\n\n".join(out)
 

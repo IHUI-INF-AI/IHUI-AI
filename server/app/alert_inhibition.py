@@ -67,11 +67,8 @@ class InhibitionRule:
 
     def equal_labels_match(self, src: dict, tgt: dict) -> bool:
         """判断 source / target 在 equal 字段上是否全部相等."""
-        if self.equal is None:
-            # alertmanager 经典语义: equal 未指定时使用 ['alertname']
-            keys = ["alertname"]
-        else:
-            keys = list(self.equal)
+        # alertmanager 经典语义: equal 未指定时使用 ['alertname']
+        keys = ["alertname"] if self.equal is None else list(self.equal)
         return all(src.get(k) == tgt.get(k) for k in keys)
 
 

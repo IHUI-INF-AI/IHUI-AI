@@ -89,7 +89,7 @@ class AuditChain:
                     return
                 f.seek(max(0, size - 64 * 1024))
                 data = f.read().decode("utf-8", errors="ignore")
-            lines = [l for l in data.splitlines() if l.strip()]
+            lines = [line for line in data.splitlines() if line.strip()]
             for line in lines[-50:]:
                 try:
                     d = json.loads(line)

@@ -19,9 +19,24 @@ import pytest
 
 
 class TestBug1JwtSecretValidation:
+    def _cleanup_security_module(self):
+        """reload 失败后 app.security 可能处于半加载状态, 删除以便后续测试重新 import.
+
+        不清理会导致后续测试 (如 CORS test) import 到残缺模块, create_app() 行为异常.
+        """
+        import sys
+
+        for m in list(sys.modules):
+            if m == "app.security" or m.startswith("app.security."):
+                del sys.modules[m]
+
     def test_weak_default_secret_raises(self, monkeypatch):
-        """默认值 'change-me-to-a-random-256-bit-key' 应当启动失败."""
-        monkeypatch.setenv("ENV", "test")
+        """默认值 'change-me-to-a-random-256-bit-key' 在 production 环境应当启动失败.
+
+        注: _validate_jwt_secret() 仅在 production/staging 环境强制校验,
+        dev/test 放行弱密钥 (便于本地开发); 测试用 ENV=production 验证生产路径.
+        """
+        monkeypatch.setenv("ENV", "production")
         # 修复 (P14-F): 只清空 app.security / app.config, 避免 reload 时触发
         # app.models 重新执行 -> TenantBase 子类重新声明 -> __init_subclass__
         # 把 {'schema': 'public'} 注入 __table_args__, 污染 Base.metadata,
@@ -35,16 +50,24 @@ class TestBug1JwtSecretValidation:
         from app.config import settings
 
         monkeypatch.setattr(settings, "JWT_SECRET_KEY", "change-me-to-a-random-256-bit-key")
-        with pytest.raises(RuntimeError, match="JWT_SECRET_KEY"):
-            # 触发模块顶层校验
-            import importlib
+        try:
+            with pytest.raises(RuntimeError, match="JWT_SECRET_KEY"):
+                # 触发模块顶层校验
+                import importlib
 
-            import app.security as sec_mod
+                import app.security as sec_mod
 
-            importlib.reload(sec_mod)
+                importlib.reload(sec_mod)
+        finally:
+            # reload 抛 RuntimeError 后 app.security 残缺, 清理避免污染后续测试
+            self._cleanup_security_module()
 
     def test_short_secret_raises(self, monkeypatch):
-        """小于 32 字符的密钥必须拒绝."""
+        """小于 32 字符的密钥在 production 环境必须拒绝.
+
+        注: 同 test_weak_default_secret_raises, 用 ENV=production 验证生产路径.
+        """
+        monkeypatch.setenv("ENV", "production")
         from app.config import settings
 
         monkeypatch.setattr(settings, "JWT_SECRET_KEY", "short")
@@ -53,12 +76,15 @@ class TestBug1JwtSecretValidation:
         for m in list(sys.modules):
             if m.startswith("app.security"):
                 del sys.modules[m]
-        with pytest.raises(RuntimeError, match=">=32"):
-            import importlib
+        try:
+            with pytest.raises(RuntimeError, match=">=32"):
+                import importlib
 
-            import app.security
+                import app.security
 
-            importlib.reload(app.security)
+                importlib.reload(app.security)
+        finally:
+            self._cleanup_security_module()
 
     def test_strong_secret_ok(self, monkeypatch):
         """强密钥通过."""

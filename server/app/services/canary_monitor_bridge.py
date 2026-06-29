@@ -184,11 +184,8 @@ async def stop_canary_monitor_bridge() -> None:
         _bridge_task.cancel()
         try:
             await _bridge_task
-        except asyncio.CancelledError:
-            logger.info("任务被取消,正在退出")
-            raise
-        except Exception as e:
-            logger.warning("任务异常: %s", e, exc_info=True)
+        except (asyncio.CancelledError, Exception):
+            logger.warning("Caught unexpected exception")
     _bridge_task = None
     logger.info("canary_monitor_bridge: 停止完成")
 

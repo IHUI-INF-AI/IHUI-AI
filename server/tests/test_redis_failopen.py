@@ -74,11 +74,20 @@ def test_sms_rate_limit_failopen(monkeypatch):
 
 # 3. 业务端点不受 Redis 状态影响 (login API)
 def test_login_works_under_redis_down():
-    """即使 Redis 不可用, 登录 API 仍返回 token (不返回 500)."""
-    url = f"{BASE}/api/v2/auth/login?phone=13800138000&password=admin123"
-    code, body = _http(url, method="POST")
-    # 期望: 200/401/422 (业务校验/凭证错误) 而不是 500
-    assert code != 500, f"Redis fail-open broken: HTTP 500 body={body[:200]}"
+    """即使 Redis 不可用, 登录 API 仍返回 token."""
+    import json as _json
+    url = f"{BASE}/api/v2/auth/login"
+    body = _json.dumps({"username": "admin", "password": "admin123"}).encode()
+    req = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            code, resp = r.status, r.read().decode()
+    except urllib.error.HTTPError as e:
+        code, resp = e.code, e.read().decode()
+    assert code in (200, 401), f"HTTP {code}: {resp[:200]}"
+    j = _json.loads(resp)
+    # admin 用户可能不存在, 只要不是 500 就算 Redis fail-open 生效
+    assert code != 500, f"Redis fail-open broken: HTTP 500"
 
 
 # 4. Redis 不可用时, sms 发送端点不返回 500

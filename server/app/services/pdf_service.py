@@ -2,28 +2,18 @@ import io
 import logging
 import os
 import uuid
-import warnings
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
-
-# 优先使用 pypdf（PyPDF2 的继任者），降级到 PyPDF2 时抑制废弃警告
-try:
-    from pypdf import PdfReader, PdfWriter
-except ImportError:
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        from PyPDF2 import PdfReader, PdfWriter
-
+from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 
 from app.services._legacy_settings import settings as _legacy_settings
-from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +53,8 @@ class CertificateAuthority:
                 .issuer_name(issuer)
                 .public_key(ca_key.public_key())
                 .serial_number(x509.random_serial_number())
-                .not_valid_before(utcnow())
-                .not_valid_after(utcnow() + timedelta(days=3650))
+                .not_valid_before(datetime.utcnow())
+                .not_valid_after(datetime.utcnow() + timedelta(days=3650))
                 .add_extension(
                     x509.BasicConstraints(ca=True, path_length=None),
                     critical=True,
@@ -115,7 +105,7 @@ class CertificateAuthority:
                     backend=default_backend()
                 )
 
-            return ca_cert, ca_key
+            return ca_cert, ca_key  # type: ignore[return-value]
         except Exception as e:
             logger.error(f"加载CA证书失败: {e}")
             return None, None
@@ -157,8 +147,8 @@ class CertificateAuthority:
                 .issuer_name(ca_cert.subject)
                 .public_key(user_key.public_key())
                 .serial_number(x509.random_serial_number())
-                .not_valid_before(utcnow())
-                .not_valid_after(utcnow() + timedelta(days=validity_days))
+                .not_valid_before(datetime.utcnow())
+                .not_valid_after(datetime.utcnow() + timedelta(days=validity_days))
                 .add_extension(
                     x509.BasicConstraints(ca=False, path_length=None),
                     critical=True,
@@ -200,7 +190,7 @@ class CertificateAuthority:
 
             issuer_match = user_cert.issuer == ca_cert.subject
 
-            now = utcnow()
+            now = datetime.utcnow()
             validity_ok = user_cert.not_valid_before <= now <= user_cert.not_valid_after
 
             subject_info = {}
@@ -309,7 +299,7 @@ class PDFSignatureService:
             "/SignatureID": signature_id,
             "/SignatureReason": reason or "",
             "/SignatureLocation": location or "",
-            "/SignerCert": sig_info["certificate_info"]["serial_number"]
+            "/SignerCert": sig_info["certificate_info"]["serial_number"]  # type: ignore[index]
         })
 
         output_path = os.path.join(OUTPUT_DIR, f"signed_{signature_id}.pdf")
@@ -412,12 +402,12 @@ class PDFWatermarkService:
         max_height = page_height * 0.5 * scale
 
         if img_width > max_width:
-            img_width = max_width
-            img_height = img_width * aspect
+            img_width = max_width  # type: ignore[assignment]
+            img_height = img_width * aspect  # type: ignore[assignment]
 
         if img_height > max_height:
-            img_height = max_height
-            img_width = img_height / aspect
+            img_height = max_height  # type: ignore[assignment]
+            img_width = img_height / aspect  # type: ignore[assignment]
 
         if position == "center":
             x = (page_width - img_width) / 2
@@ -526,7 +516,7 @@ class PDFMergeSplitService:
 
 
 class PDFPrintService:
-    PAGE_SIZES = {
+    PAGE_SIZES: ClassVar[dict] = {
         "a4": (595.27, 841.89),
         "a3": (841.89, 1190.55),
         "letter": (612, 792),

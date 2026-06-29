@@ -188,7 +188,7 @@ groups:
           category: shadow-traffic
         annotations:
           summary: "tenant={{ $labels.tenant_id }} 影子流量与主流量差距 > 30%"
-          description: "可能 ShadowRouter 异常注入失败, 查 app/shadow_traffic.py 日志."
+          description: "可能 ShadowRouter 异常注入失败, 查 app/_archived/shadow_traffic.py 日志. (已归档: shadow 子系统未接入生产)"
 
       # ---------- shadow 流量本身异常高 (压垮业务) ----------
       - alert: ZHSShadowTrafficOverhead

@@ -36,7 +36,7 @@ def _c_to_dict(c: Circle) -> dict:
 
 
 @router.get("/list", summary="圈子列表")
-def list_circles(
+async def list_circles(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     category_id: int | None = None,
@@ -63,7 +63,7 @@ def list_circles(
 
 
 @router.get("/{cid}", summary="圈子详情")
-def get_circle(cid: int):
+async def get_circle(cid: int):
     with get_session() as db:
         try:
             c = db.query(Circle).filter(Circle.id == cid, not Circle.deleted).first()
@@ -83,7 +83,7 @@ def get_circle(cid: int):
 
 
 @router.post("", summary="创建圈子")
-def create_circle(
+async def create_circle(
     name: str = Query(..., min_length=1, max_length=100),
     description: str | None = None,
     category_id: int | None = None,
@@ -114,7 +114,7 @@ def create_circle(
                     status=1,
                 )
             )
-            c.member_num = 1
+            c.member_num = 1  # type: ignore[assignment]
             return success(_c_to_dict(c))
         except Exception as e:
             logger.error(f"circle create error: {e}")
@@ -122,7 +122,7 @@ def create_circle(
 
 
 @router.put("/{cid}", summary="修改圈子")
-def update_circle(
+async def update_circle(
     cid: int,
     name: str | None = None,
     description: str | None = None,
@@ -149,7 +149,7 @@ def update_circle(
 
 
 @router.delete("/{cid}", summary="删除圈子")
-def delete_circle(cid: int):
+async def delete_circle(cid: int):
     with get_session() as db:
         try:
             c = db.query(Circle).filter(Circle.id == cid).first()
@@ -164,7 +164,7 @@ def delete_circle(cid: int):
 
 
 @router.post("/{cid}/join", summary="加入圈子")
-def join_circle(cid: int):
+async def join_circle(cid: int):
     with get_session() as db:
         try:
             uid = _uid()
@@ -186,7 +186,7 @@ def join_circle(cid: int):
 
 
 @router.post("/{cid}/quit", summary="退出圈子")
-def quit_circle(cid: int):
+async def quit_circle(cid: int):
     with get_session() as db:
         try:
             uid = _uid()
@@ -206,7 +206,7 @@ def quit_circle(cid: int):
 
 
 @router.get("/{cid}/members", summary="成员列表")
-def list_members(cid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+async def list_members(cid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
             q = db.query(CircleMember).filter(CircleMember.circle_id == cid, CircleMember.status == 1)
@@ -232,7 +232,7 @@ def list_members(cid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge
 
 
 @router.get("/category/list", operation_id="circle_category_list", summary="圈子分类列表")
-def category_list():
+async def category_list():
     with get_session() as db:
         try:
             items = (

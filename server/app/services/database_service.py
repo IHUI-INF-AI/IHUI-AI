@@ -1,13 +1,14 @@
 import logging
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, relationship, sessionmaker
 
 from app.services._legacy_settings import settings
-from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class FileRecord(Base):
     page_count = Column(Integer, nullable=True)
     mime_type = Column(String(128))
     user_id = Column(String(64), nullable=True, index=True)
-    created_at = Column(DateTime, default=utcnow, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     expires_at = Column(DateTime, nullable=True)
     is_processed = Column(Boolean, default=False)
 
@@ -64,7 +65,7 @@ class OperationRecord(Base):
     parameters = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
     processing_time = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
 
     file = relationship("FileRecord", back_populates="operations")
@@ -85,7 +86,7 @@ class SignatureRecord(Base):
     valid_from = Column(DateTime, nullable=True)
     valid_to = Column(DateTime, nullable=True)
     verified = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class CertificateRecord(Base):
@@ -101,7 +102,7 @@ class CertificateRecord(Base):
     valid_from = Column(DateTime)
     valid_to = Column(DateTime)
     is_revoked = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class UploadRecord(Base):
@@ -116,7 +117,7 @@ class UploadRecord(Base):
     uploaded_chunks = Column(JSON, default=list)
     status = Column(String(32), default='pending')
     user_id = Column(String(64), nullable=True, index=True)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
 
 
@@ -132,8 +133,8 @@ class UploadedFileRecord(Base):
     mime_type = Column(String(128))
     user_id = Column(String(64), nullable=True, index=True)
     upload_id = Column(String(64), nullable=True)
-    created_at = Column(DateTime, default=utcnow, index=True)
-    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class ShareRecord(Base):
@@ -149,7 +150,7 @@ class ShareRecord(Base):
     current_downloads = Column(Integer, default=0)
     expires_at = Column(DateTime, nullable=True, index=True)
     created_by = Column(String(64), nullable=True)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class FileVersionRecord(Base):
@@ -165,7 +166,7 @@ class FileVersionRecord(Base):
     change_summary = Column(String(500), nullable=True)
     changed_by = Column(String(64), nullable=True, index=True)
     is_current = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=utcnow, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 class UserRecord(Base):
@@ -181,8 +182,8 @@ class UserRecord(Base):
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     last_login = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=utcnow)
-    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     roles = relationship("UserRoleRecord", back_populates="user")
 
@@ -196,7 +197,7 @@ class RoleRecord(Base):
     display_name = Column(String(128))
     description = Column(String(255), nullable=True)
     is_system = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     permissions = relationship("RolePermissionRecord", back_populates="role")
 
@@ -211,7 +212,7 @@ class PermissionRecord(Base):
     resource = Column(String(64))
     action = Column(String(32))
     description = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class UserRoleRecord(Base):
@@ -221,7 +222,7 @@ class UserRoleRecord(Base):
     user_id = Column(String(64), ForeignKey("user_records.user_id"), index=True)
     role_id = Column(String(64), ForeignKey("role_records.role_id"), index=True)
     assigned_by = Column(String(64), nullable=True)
-    assigned_at = Column(DateTime, default=utcnow)
+    assigned_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("UserRecord", back_populates="roles")
 
@@ -232,7 +233,7 @@ class RolePermissionRecord(Base):
     id = Column(Integer, primary_key=True, index=True)
     role_id = Column(String(64), ForeignKey("role_records.role_id"), index=True)
     permission_id = Column(String(64), ForeignKey("permission_records.permission_id"), index=True)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     role = relationship("RoleRecord", back_populates="permissions")
 
@@ -245,7 +246,7 @@ class FileAccessRecord(Base):
     user_id = Column(String(64), index=True)
     permission = Column(String(32))
     granted_by = Column(String(64), nullable=True)
-    granted_at = Column(DateTime, default=utcnow)
+    granted_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)
 
 
@@ -358,11 +359,11 @@ class DatabaseService:
     ) -> OperationRecord | None:
         op = db.query(OperationRecord).filter(OperationRecord.id == op_id).first()
         if op:
-            op.status = status
-            op.output_file = output_file
-            op.error_message = error_message
-            op.processing_time = processing_time
-            op.completed_at = utcnow()
+            op.status = status  # type: ignore[assignment]
+            op.output_file = output_file  # type: ignore[assignment]
+            op.error_message = error_message  # type: ignore[assignment]
+            op.processing_time = processing_time  # type: ignore[assignment]
+            op.completed_at = datetime.utcnow()  # type: ignore[assignment]
             db.commit()
             db.refresh(op)
         return op
@@ -399,7 +400,7 @@ class DatabaseService:
             CertificateRecord.serial_number == serial_number
         ).first()
         if cert:
-            cert.is_revoked = True
+            cert.is_revoked = True  # type: ignore[assignment]
             db.commit()
             return True
         return False
@@ -407,7 +408,7 @@ class DatabaseService:
     @staticmethod
     def cleanup_expired_files(db: Session, hours: int = 24) -> int:
         from datetime import timedelta
-        cutoff = utcnow() - timedelta(hours=hours)
+        cutoff = datetime.utcnow() - timedelta(hours=hours)
         expired = db.query(FileRecord).filter(FileRecord.created_at < cutoff).all()
         count = len(expired)
         for file_record in expired:
@@ -433,10 +434,10 @@ class UploadService:
     def update_upload_chunks(db: Session, upload_id: str, chunk_index: int) -> UploadRecord | None:
         record = db.query(UploadRecord).filter(UploadRecord.upload_id == upload_id).first()
         if record:
-            chunks = record.uploaded_chunks or []
+            chunks: list[Any] = record.uploaded_chunks or []  # type: ignore[assignment]
             if chunk_index not in chunks:
                 chunks.append(chunk_index)
-                record.uploaded_chunks = chunks
+                record.uploaded_chunks = chunks  # type: ignore[assignment]
                 db.commit()
                 db.refresh(record)
         return record
@@ -445,8 +446,8 @@ class UploadService:
     def complete_upload(db: Session, upload_id: str) -> UploadRecord | None:
         record = db.query(UploadRecord).filter(UploadRecord.upload_id == upload_id).first()
         if record:
-            record.status = 'completed'
-            record.completed_at = utcnow()
+            record.status = 'completed'  # type: ignore[assignment]
+            record.completed_at = datetime.utcnow()  # type: ignore[assignment]
             db.commit()
             db.refresh(record)
         return record
@@ -515,7 +516,7 @@ class ShareService:
     def get_active(db: Session, share_id: str) -> ShareRecord | None:
         record = db.query(ShareRecord).filter(ShareRecord.share_id == share_id).first()
         if record:
-            if record.expires_at and record.expires_at < utcnow():
+            if record.expires_at and record.expires_at < datetime.utcnow():
                 return None
             if record.max_downloads and record.current_downloads >= record.max_downloads:
                 return None
@@ -525,7 +526,7 @@ class ShareService:
     def increment_downloads(db: Session, share_id: str) -> ShareRecord | None:
         record = db.query(ShareRecord).filter(ShareRecord.share_id == share_id).first()
         if record:
-            record.current_downloads += 1
+            record.current_downloads += 1  # type: ignore[assignment]
             db.commit()
             db.refresh(record)
         return record
@@ -548,7 +549,7 @@ class ShareService:
     @staticmethod
     def cleanup_expired(db: Session) -> int:
         expired = db.query(ShareRecord).filter(
-            ShareRecord.expires_at < utcnow()
+            ShareRecord.expires_at < datetime.utcnow()
         ).all()
         count = len(expired)
         for record in expired:
@@ -620,7 +621,7 @@ class FileVersionService:
             FileVersionRecord.file_id == version.file_id
         ).update({"is_current": False})
 
-        version.is_current = True
+        version.is_current = True  # type: ignore[assignment]
         db.commit()
         db.refresh(version)
         return version
@@ -695,7 +696,7 @@ class UserService:
     def update_password(db: Session, user_id: int, password_hash: str) -> UserRecord | None:
         user = db.query(UserRecord).filter(UserRecord.id == user_id).first()
         if user:
-            user.hashed_password = password_hash
+            user.hashed_password = password_hash  # type: ignore[assignment]
             db.commit()
             db.refresh(user)
         return user
@@ -704,7 +705,7 @@ class UserService:
     def update_last_login(db: Session, user_id: str) -> UserRecord | None:
         user = db.query(UserRecord).filter(UserRecord.user_id == user_id).first()
         if user:
-            user.last_login = utcnow()
+            user.last_login = datetime.utcnow()  # type: ignore[assignment]
             db.commit()
             db.refresh(user)
         return user
@@ -769,7 +770,7 @@ class RoleService:
 
     @staticmethod
     def get_all(db: Session) -> list[RoleRecord]:
-        return db.query(RoleRecord).limit(500).all()
+        return db.query(RoleRecord).all()
 
     @staticmethod
     def assign_permission(db: Session, role_id: str, permission_id: str) -> RolePermissionRecord:
@@ -809,7 +810,7 @@ class PermissionService:
 
     @staticmethod
     def get_all(db: Session) -> list[PermissionRecord]:
-        return db.query(PermissionRecord).limit(500).all()
+        return db.query(PermissionRecord).all()
 
     @staticmethod
     def get_by_resource(db: Session, resource: str) -> list[PermissionRecord]:
@@ -846,7 +847,7 @@ class FileAccessService:
         if not record:
             return False
 
-        return not (record.expires_at and record.expires_at < utcnow())
+        return not (record.expires_at and record.expires_at < datetime.utcnow())
 
     @staticmethod
     def get_file_access_list(db: Session, file_id: str) -> list[FileAccessRecord]:

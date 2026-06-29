@@ -37,7 +37,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("", summary="创建预读任务")
-def create_preload(
+async def create_preload(
     video_id: int = Query(...),
     start_time: int = 0,
     end_time: int = 0,
@@ -70,7 +70,7 @@ def create_preload(
 
 
 @router.get("/list", summary="我的预读任务")
-def list_preloads(
+async def list_preloads(
     page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), video_id: int | None = None
 ):
     with get_session() as db:
@@ -102,7 +102,7 @@ def list_preloads(
 
 
 @router.put("/{pid}/complete", summary="标记完成")
-def mark_complete(pid: int):
+async def mark_complete(pid: int):
     with get_session() as db:
         try:
             p = db.query(VideoPreload).filter(VideoPreload.id == pid, VideoPreload.user_id == _uid()).first()
@@ -116,7 +116,7 @@ def mark_complete(pid: int):
 
 
 @router.delete("/{pid}", summary="删除预读任务")
-def delete_preload(pid: int):
+async def delete_preload(pid: int):
     with get_session() as db:
         try:
             p = db.query(VideoPreload).filter(VideoPreload.id == pid, VideoPreload.user_id == _uid()).first()

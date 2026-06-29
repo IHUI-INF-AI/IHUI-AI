@@ -30,14 +30,11 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import logging
 import os
 import random
 import threading
 import time
 from enum import StrEnum
-
-logger = logging.getLogger(__name__)
 
 
 class CanaryVersion(StrEnum):
@@ -63,8 +60,8 @@ def _enabled() -> bool:
 
         if getattr(settings, "ZHS_CANARY_ENABLED", None) is not None:
             return bool(settings.ZHS_CANARY_ENABLED)
-    except Exception as e:
-        logger.debug("读取 canary 开关配置失败: %s", e)
+    except Exception:
+        pass
     return os.getenv("ZHS_CANARY_ENABLED", "0") == "1"
 
 
@@ -74,8 +71,8 @@ def _v2_ratio() -> float:
 
         if getattr(settings, "ZHS_CANARY_V2_RATIO", None) is not None:
             return float(settings.ZHS_CANARY_V2_RATIO)
-    except Exception as e:
-        logger.debug("读取 canary v2 比例配置失败: %s", e)
+    except Exception:
+        pass
     try:
         return float(os.getenv("ZHS_CANARY_V2_RATIO", "0.1"))
     except Exception:
@@ -222,10 +219,7 @@ class CanaryController:
           3. 租户黑名单 (v1_tenants) → v1
           4. 按 strategy 决定
         """
-        try:
-            tid = int(tenant_id) if tenant_id is not None else 1
-        except (ValueError, TypeError):
-            tid = 1
+        tid = int(tenant_id) if tenant_id is not None else 1
 
         with self._lock:
             enabled = self._enabled
@@ -259,7 +253,6 @@ class CanaryController:
         elif strategy == CanaryStrategy.RANDOM:
             v = self._random_decision(v2_ratio)
         elif strategy == CanaryStrategy.STICKY_TENANT:
-            # 当前实现等同 HASH, 一致性哈希环待实现
             v = self._hash_decision(tid, v2_ratio)  # 同 hash
         elif strategy == CanaryStrategy.ROUND_ROBIN:
             v = self._rr_decision(v2_ratio)

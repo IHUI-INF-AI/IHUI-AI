@@ -1,449 +1,214 @@
-"""分类管理 API (迁移自 ihui-ai-edu-learn-service 分类模块)
-
-包含课程分类 (Category) 与专题分类 (TopicCategory) 两套体系,
-以及各自的分类关系表 (CategoryRelation / TopicCategoryRelation)。
-课程分类: 8 个端点; 专题分类: 4 个端点。
-"""
-from fastapi import APIRouter, Query
+"""学习模块 - 课程分类管理"""
+from fastapi import APIRouter, Body, Depends, Path, Query
 from loguru import logger
-from pydantic import BaseModel
 
-from app.core.current_user import current_user_id_or_guest
+from app.core.admin_auth import admin_required
 from app.database import get_session
 from app.models.learn_models import (
-    Category,
-    CategoryRelation,
-    TopicCategory,
-    TopicCategoryRelation,
+    LearnCategory,
+    LearnCategoryRelation,
+    LearnLessonCategoryRelation,
 )
-from app.schemas.common import error, page_result, success
+from app.schemas.common import error, success
 
 router = APIRouter()
 
 
-def _uid() -> str:
-    return current_user_id_or_guest()
-
-
-def _uid_int() -> int | None:
-    try:
-        return int(_uid())
-    except (TypeError, ValueError):
-        return None
-
-
-def _iso(dt) -> str | None:
-    return dt.isoformat() if dt else None
-
-
-def _cat_to_dict(item: Category) -> dict:
-    return {
-        "id": item.id,
-        "name": item.name,
-        "sort_order": item.sort_order,
-        "is_show": item.is_show,
-        "is_show_index": item.is_show_index,
-        "image": item.image,
-        "level": item.level,
-        "create_user_id": item.create_user_id,
-        "company_id": item.company_id,
-        "department_id": item.department_id,
-        "create_time": _iso(item.created_at),
-        "update_time": _iso(item.updated_at),
-    }
-
-
-def _tcat_to_dict(item: TopicCategory) -> dict:
-    return {
-        "id": item.id,
-        "name": item.name,
-        "sort_order": item.sort_order,
-        "is_show": item.is_show,
-        "is_show_index": item.is_show_index,
-        "image": item.image,
-        "level": item.level,
-        "create_user_id": item.create_user_id,
-        "company_id": item.company_id,
-        "department_id": item.department_id,
-        "create_time": _iso(item.created_at),
-        "update_time": _iso(item.updated_at),
-    }
-
-
-# ---------------------------------------------------------------------------
-# 请求体
-# ---------------------------------------------------------------------------
-
-
-class CategoryCreate(BaseModel):
-    name: str
-    sort_order: int = 0
-    is_show: int = 1
-    is_show_index: int = 0
-    image: str | None = None
-    level: int = 1
-    company_id: int | None = None
-    department_id: int | None = None
-
-
-class CategoryUpdate(BaseModel):
-    name: str | None = None
-    sort_order: int | None = None
-    is_show: int | None = None
-    is_show_index: int | None = None
-    image: str | None = None
-    level: int | None = None
-    company_id: int | None = None
-    department_id: int | None = None
-
-
-class CategoryRelationCreate(BaseModel):
-    child_category_id: int
-    father_category_id: int
-    direct_father_category_id: int | None = None
-    is_sub: int = 0
-
-
-# ===========================================================================
-# 课程分类
-# ===========================================================================
-
-
-@router.get("/list", summary="课程分类列表")
-def list_categories(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    is_show: int | None = None,
-    keyword: str | None = None,
-):
+@router.get("/category/list", summary="课程分类列表(树形)")
+async def list_categories(level: int | None = None, is_show: bool | None = None):
     with get_session() as db:
         try:
-            q = db.query(Category)
+            q = db.query(LearnCategory)
+            if level is not None:
+                q = q.filter(LearnCategory.level == level)
             if is_show is not None:
-                q = q.filter(Category.is_show == is_show)
-            if keyword:
-                q = q.filter(Category.name.like(f"%{keyword}%"))
-            total = q.count()
-            items = (
-                q.order_by(Category.sort_order.asc(), Category.id.asc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-                .all()
+                q = q.filter(LearnCategory.is_show == is_show)
+            items = q.order_by(LearnCategory.sort_order.asc(), LearnCategory.id.asc()).all()
+            return success(
+                [
+                    {
+                        "id": c.id,
+                        "name": c.name,
+                        "sort_order": c.sort_order,
+                        "is_show": c.is_show,
+                        "is_show_index": c.is_show_index,
+                        "level": c.level,
+                        "image": c.image,
+                        "company_id": c.company_id,
+                        "department_id": c.department_id,
+                        "create_user_id": c.create_user_id,
+                        "created_at": c.created_at.isoformat() if c.created_at else None,
+                    }
+                    for c in items
+                ],
+                total=len(items),
             )
-            return page_result([_cat_to_dict(i) for i in items], total, page, limit)
         except Exception as e:
-            logger.exception("list_categories error")
+            logger.error(f"learn category list error: {e}")
             return error(str(e))
 
 
-@router.get("/tree", summary="课程分类树")
-def category_tree():
+@router.get("/category/tree", summary="课程分类树(含父子关系)")
+async def category_tree():
     with get_session() as db:
         try:
-            cats = (
-                db.query(Category)
-                .order_by(Category.sort_order.asc(), Category.id.asc())
-                .limit(1000)
-                .all()
-            )
-            relations = db.query(CategoryRelation).limit(1000).all()
-            cat_map = {c.id: _cat_to_dict(c) for c in cats}
-            for c in cat_map.values():
-                c["children"] = []
-            child_ids = set()
-            parent_of: dict[int, list[int]] = {}
-            for r in relations:
-                parent_of.setdefault(r.father_category_id, []).append(
-                    r.child_category_id
-                )
-                child_ids.add(r.child_category_id)
-            for parent_id, child_list in parent_of.items():
-                parent = cat_map.get(parent_id)
-                if parent:
-                    for cid in child_list:
-                        child = cat_map.get(cid)
-                        if child:
-                            parent["children"].append(child)
-            roots = [cat_map[c.id] for c in cats if c.id not in child_ids]
+            rels = db.query(LearnCategoryRelation).all()
+            cats = db.query(LearnCategory).filter(LearnCategory.is_show).order_by(LearnCategory.sort_order.asc()).all()
+            cat_map = {c.id: {"id": c.id, "name": c.name, "level": c.level, "image": c.image, "children": []} for c in cats}
+            for r in rels:
+                if r.father_category_id in cat_map and r.child_category_id in cat_map:
+                    cat_map[r.father_category_id]["children"].append(cat_map[r.child_category_id])
+            roots = [v for v in cat_map.values() if not any(rel.child_category_id == v["id"] and rel.father_category_id != v["id"] for rel in rels)]
             return success(roots)
         except Exception as e:
-            logger.exception("category_tree error")
+            logger.error(f"learn category tree error: {e}")
             return error(str(e))
 
 
-@router.post("", summary="创建课程分类")
-def create_category(body: CategoryCreate):
-    with get_session() as db:
-        try:
-            item = Category(
-                name=body.name,
-                sort_order=body.sort_order,
-                is_show=body.is_show,
-                is_show_index=body.is_show_index,
-                image=body.image,
-                level=body.level,
-                create_user_id=_uid_int(),
-                company_id=body.company_id,
-                department_id=body.department_id,
-            )
-            db.add(item)
-            db.flush()
-            return success(_cat_to_dict(item))
-        except Exception as e:
-            logger.exception("create_category error")
-            return error(str(e))
-
-
-@router.put("/{category_id}", summary="更新课程分类")
-def update_category(category_id: int, body: CategoryUpdate):
-    with get_session() as db:
-        try:
-            item = db.query(Category).filter(Category.id == category_id).first()
-            if not item:
-                return error("分类不存在")
-            if body.name is not None:
-                item.name = body.name
-            if body.sort_order is not None:
-                item.sort_order = body.sort_order
-            if body.is_show is not None:
-                item.is_show = body.is_show
-            if body.is_show_index is not None:
-                item.is_show_index = body.is_show_index
-            if body.image is not None:
-                item.image = body.image
-            if body.level is not None:
-                item.level = body.level
-            if body.company_id is not None:
-                item.company_id = body.company_id
-            if body.department_id is not None:
-                item.department_id = body.department_id
-            db.flush()
-            return success(_cat_to_dict(item))
-        except Exception as e:
-            logger.exception("update_category error")
-            return error(str(e))
-
-
-@router.delete("/{category_id}", summary="删除课程分类")
-def delete_category(category_id: int):
-    with get_session() as db:
-        try:
-            item = db.query(Category).filter(Category.id == category_id).first()
-            if not item:
-                return error("分类不存在")
-            has_child = (
-                db.query(CategoryRelation)
-                .filter(CategoryRelation.father_category_id == category_id)
-                .count()
-                > 0
-            )
-            if has_child:
-                return error("存在子分类, 无法删除")
-            db.query(CategoryRelation).filter(
-                CategoryRelation.child_category_id == category_id
-            ).delete()
-            db.delete(item)
-            db.flush()
-            return success({"id": category_id})
-        except Exception as e:
-            logger.exception("delete_category error")
-            return error(str(e))
-
-
-@router.put("/{category_id}/show", summary="显示课程分类")
-def show_category(category_id: int):
-    with get_session() as db:
-        try:
-            item = db.query(Category).filter(Category.id == category_id).first()
-            if not item:
-                return error("分类不存在")
-            item.is_show = 1
-            db.flush()
-            return success(_cat_to_dict(item))
-        except Exception as e:
-            logger.exception("show_category error")
-            return error(str(e))
-
-
-@router.put("/{category_id}/hide", summary="隐藏课程分类")
-def hide_category(category_id: int):
-    with get_session() as db:
-        try:
-            item = db.query(Category).filter(Category.id == category_id).first()
-            if not item:
-                return error("分类不存在")
-            item.is_show = 0
-            db.flush()
-            return success(_cat_to_dict(item))
-        except Exception as e:
-            logger.exception("hide_category error")
-            return error(str(e))
-
-
-@router.post("/relation", summary="设置课程分类关系")
-def set_category_relation(body: CategoryRelationCreate):
-    with get_session() as db:
-        try:
-            exists = (
-                db.query(CategoryRelation)
-                .filter(
-                    CategoryRelation.child_category_id == body.child_category_id,
-                    CategoryRelation.father_category_id == body.father_category_id,
-                )
-                .first()
-            )
-            if exists:
-                if body.direct_father_category_id is not None:
-                    exists.direct_father_category_id = body.direct_father_category_id
-                exists.is_sub = body.is_sub
-                db.flush()
-                return success(
-                    {
-                        "id": exists.id,
-                        "child_category_id": exists.child_category_id,
-                        "father_category_id": exists.father_category_id,
-                        "direct_father_category_id": exists.direct_father_category_id,
-                        "is_sub": exists.is_sub,
-                    }
-                )
-            item = CategoryRelation(
-                child_category_id=body.child_category_id,
-                father_category_id=body.father_category_id,
-                direct_father_category_id=body.direct_father_category_id,
-                is_sub=body.is_sub,
-            )
-            db.add(item)
-            db.flush()
-            return success(
-                {
-                    "id": item.id,
-                    "child_category_id": item.child_category_id,
-                    "father_category_id": item.father_category_id,
-                    "direct_father_category_id": item.direct_father_category_id,
-                    "is_sub": item.is_sub,
-                }
-            )
-        except Exception as e:
-            logger.exception("set_category_relation error")
-            return error(str(e))
-
-
-# ===========================================================================
-# 专题分类
-# ===========================================================================
-
-
-@router.get("/topic/list", summary="专题分类列表")
-def list_topic_categories(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    is_show: int | None = None,
-    keyword: str | None = None,
+@router.post("/category", summary="创建课程分类", dependencies=[Depends(admin_required)])
+async def create_category(
+    name: str = Body(..., min_length=1, max_length=50),
+    level: int = Body(...),
+    image: str = Body(..., max_length=500),
+    sort_order: int = Body(1),
+    is_show: bool = Body(True),
+    is_show_index: bool = Body(True),
+    company_id: int = Body(0),
+    department_id: int = Body(0),
+    create_user_id: int = Body(0),
 ):
     with get_session() as db:
         try:
-            q = db.query(TopicCategory)
+            c = LearnCategory(
+                name=name,
+                level=level,
+                image=image,
+                sort_order=sort_order,
+                is_show=is_show,
+                is_show_index=is_show_index,
+                company_id=company_id,
+                department_id=department_id,
+                create_user_id=create_user_id,
+            )
+            db.add(c)
+            db.flush()
+            return success({"id": c.id})
+        except Exception as e:
+            logger.error(f"learn category create error: {e}")
+            return error(str(e))
+
+
+@router.put("/category/{cid}", summary="修改课程分类", dependencies=[Depends(admin_required)])
+async def update_category(
+    cid: int,
+    name: str | None = Body(None),
+    image: str | None = Body(None),
+    sort_order: int | None = Body(None),
+    is_show: bool | None = Body(None),
+    is_show_index: bool | None = Body(None),
+):
+    with get_session() as db:
+        try:
+            c = db.query(LearnCategory).filter(LearnCategory.id == cid).first()
+            if not c:
+                return error("分类不存在", "404")
+            if name is not None:
+                c.name = name
+            if image is not None:
+                c.image = image
+            if sort_order is not None:
+                c.sort_order = sort_order
             if is_show is not None:
-                q = q.filter(TopicCategory.is_show == is_show)
-            if keyword:
-                q = q.filter(TopicCategory.name.like(f"%{keyword}%"))
-            total = q.count()
-            items = (
-                q.order_by(TopicCategory.sort_order.asc(), TopicCategory.id.asc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-                .all()
-            )
-            return page_result(
-                [_tcat_to_dict(i) for i in items], total, page, limit
-            )
+                c.is_show = is_show
+            if is_show_index is not None:
+                c.is_show_index = is_show_index
+            return success({"id": c.id})
         except Exception as e:
-            logger.exception("list_topic_categories error")
+            logger.error(f"learn category update error: {e}")
             return error(str(e))
 
 
-@router.post("/topic", summary="创建专题分类")
-def create_topic_category(body: CategoryCreate):
+@router.delete("/category/{cid}", summary="删除课程分类", dependencies=[Depends(admin_required)])
+async def delete_category(cid: int):
     with get_session() as db:
         try:
-            item = TopicCategory(
-                name=body.name,
-                sort_order=body.sort_order,
-                is_show=body.is_show,
-                is_show_index=body.is_show_index,
-                image=body.image,
-                level=body.level,
-                create_user_id=_uid_int(),
-                company_id=body.company_id,
-                department_id=body.department_id,
-            )
-            db.add(item)
-            db.flush()
-            return success(_tcat_to_dict(item))
-        except Exception as e:
-            logger.exception("create_topic_category error")
-            return error(str(e))
-
-
-@router.put("/topic/{category_id}", summary="更新专题分类")
-def update_topic_category(category_id: int, body: CategoryUpdate):
-    with get_session() as db:
-        try:
-            item = (
-                db.query(TopicCategory)
-                .filter(TopicCategory.id == category_id)
-                .first()
-            )
-            if not item:
-                return error("专题分类不存在")
-            if body.name is not None:
-                item.name = body.name
-            if body.sort_order is not None:
-                item.sort_order = body.sort_order
-            if body.is_show is not None:
-                item.is_show = body.is_show
-            if body.is_show_index is not None:
-                item.is_show_index = body.is_show_index
-            if body.image is not None:
-                item.image = body.image
-            if body.level is not None:
-                item.level = body.level
-            if body.company_id is not None:
-                item.company_id = body.company_id
-            if body.department_id is not None:
-                item.department_id = body.department_id
-            db.flush()
-            return success(_tcat_to_dict(item))
-        except Exception as e:
-            logger.exception("update_topic_category error")
-            return error(str(e))
-
-
-@router.delete("/topic/{category_id}", summary="删除专题分类")
-def delete_topic_category(category_id: int):
-    with get_session() as db:
-        try:
-            item = (
-                db.query(TopicCategory)
-                .filter(TopicCategory.id == category_id)
-                .first()
-            )
-            if not item:
-                return error("专题分类不存在")
-            has_child = (
-                db.query(TopicCategoryRelation)
-                .filter(TopicCategoryRelation.father_category_id == category_id)
-                .count()
-                > 0
-            )
-            if has_child:
-                return error("存在子分类, 无法删除")
-            db.query(TopicCategoryRelation).filter(
-                TopicCategoryRelation.child_category_id == category_id
+            c = db.query(LearnCategory).filter(LearnCategory.id == cid).first()
+            if not c:
+                return error("分类不存在", "404")
+            db.delete(c)
+            db.query(LearnCategoryRelation).filter(
+                (LearnCategoryRelation.child_category_id == cid)
+                | (LearnCategoryRelation.father_category_id == cid)
             ).delete()
-            db.delete(item)
-            db.flush()
-            return success({"id": category_id})
+            db.query(LearnLessonCategoryRelation).filter(LearnLessonCategoryRelation.category_id == cid).delete()
+            return success()
         except Exception as e:
-            logger.exception("delete_topic_category error")
+            logger.error(f"learn category delete error: {e}")
+            return error(str(e))
+
+
+@router.post("/category/batch-delete", summary="批量删除课程分类", dependencies=[Depends(admin_required)])
+async def batch_delete_categories(ids: list[int] = Body(..., embed=True)):
+    with get_session() as db:
+        try:
+            if not ids:
+                return error("ids 不能为空", "400")
+            id_list = [int(i) for i in ids if i is not None]
+            db.query(LearnCategory).filter(LearnCategory.id.in_(id_list)).delete(synchronize_session=False)
+            db.query(LearnCategoryRelation).filter(
+                (LearnCategoryRelation.child_category_id.in_(id_list))
+                | (LearnCategoryRelation.father_category_id.in_(id_list))
+            ).delete(synchronize_session=False)
+            db.query(LearnLessonCategoryRelation).filter(
+                LearnLessonCategoryRelation.category_id.in_(id_list)
+            ).delete(synchronize_session=False)
+            return success({"success": len(id_list), "failed": 0})
+        except Exception as e:
+            logger.error(f"learn category batch delete error: {e}")
+            return error(str(e))
+
+
+@router.post("/category/relation", summary="建立分类父子关系", dependencies=[Depends(admin_required)])
+async def create_category_relation(
+    child_category_id: int = Query(...),
+    father_category_id: int = Query(...),
+    direct_father_category_id: int | None = None,
+    is_sub: bool = False,
+):
+    with get_session() as db:
+        try:
+            r = LearnCategoryRelation(
+                child_category_id=child_category_id,
+                father_category_id=father_category_id,
+                direct_father_category_id=direct_father_category_id or father_category_id,
+                is_sub=is_sub,
+            )
+            db.add(r)
+            db.flush()
+            return success({"id": r.id})
+        except Exception as e:
+            logger.error(f"learn category relation create error: {e}")
+            return error(str(e))
+
+
+@router.post("/lesson/{lesson_id}/bind-category", summary="课程绑定分类", dependencies=[Depends(admin_required)])
+async def bind_lesson_category(lesson_id: int = Path(...), category_id: int = Query(...)):
+    with get_session() as db:
+        try:
+            existing = (
+                db.query(LearnLessonCategoryRelation)
+                .filter(
+                    LearnLessonCategoryRelation.lesson_id == lesson_id,
+                    LearnLessonCategoryRelation.category_id == category_id,
+                )
+                .first()
+            )
+            if existing:
+                return success({"id": existing.id, "exists": True})
+            r = LearnLessonCategoryRelation(lesson_id=lesson_id, category_id=category_id)
+            db.add(r)
+            db.flush()
+            return success({"id": r.id})
+        except Exception as e:
+            logger.error(f"learn lesson bind category error: {e}")
             return error(str(e))

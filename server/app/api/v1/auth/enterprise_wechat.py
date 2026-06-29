@@ -26,5 +26,5 @@ async def enterprise_pc_callback(
     logger.info("Enterprise WeChat callback, msg_signature=" + msg_signature)
     ok = await save_suite_ticket(xml_param)
     if ok:
-        return {"code": "200", "message": "Callback processed"}
-    return {"code": "500", "message": "Callback processing failed"}
+        return {"code": "0", "msg": "Callback processed"}
+    return {"code": "500000", "msg": "Callback processing failed"}

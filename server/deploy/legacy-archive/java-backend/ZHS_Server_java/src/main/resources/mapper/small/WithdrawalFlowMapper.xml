@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.WithdrawalFlowMapper">
+
+    <!-- WithdrawalFlow 实体类的 resultMap -->
+    <resultMap id="WithdrawalFlowMap" type="com.ai.manager.small.domain.WithdrawalFlow">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="amount" column="amount"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="partnerTradeNo" column="partner_trade_no"/>
+<!--        <result property="paymentNo" column="payment_no"/>-->
+    </resultMap>
+
+    <!-- TODO: 在这里定义 WithdrawalFlowMapper 接口中方法的 SQL 实现 -->
+
+    <select id="sumAmountByUserIdAndCreatedAtGreaterThanEqual" resultType="java.math.BigDecimal">
+        SELECT SUM(amount)
+        FROM zhs_withdrawal_flow
+        WHERE user_id = #{userId} AND created_at >= #{timeStart}
+    </select>
+
+    <select id="sumAmountByUserId" resultType="java.math.BigDecimal">
+        SELECT SUM(amount)
+        FROM zhs_withdrawal_flow
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectByPartnerTradeNo" resultMap="WithdrawalFlowMap">
+        SELECT * FROM zhs_withdrawal_flow
+        WHERE partner_trade_no = #{partnerTradeNo}
+    </select>
+
+    <insert id="insertWithdrawalFlow" parameterType="com.ai.manager.small.domain.WithdrawalFlow" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO zhs_withdrawal_flow (user_id, amount, status, created_at, updated_at, partner_trade_no)
+        VALUES (#{userId}, #{amount}, #{status}, #{createdAt}, #{updatedAt}, #{partnerTradeNo})
+    </insert>
+
+    <update id="updateWithdrawalFlow" parameterType="com.ai.manager.small.domain.WithdrawalFlow">
+        UPDATE zhs_withdrawal_flow
+        <set>
+            <if test="status != null">status = #{status},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+            <if test="paymentNo != null">payment_no = #{paymentNo},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据用户ID和时间范围统计提现总额 -->
+    <select id="sumAmountByUserIdAndUpdatedAtGreaterThanEqual" resultType="java.math.BigDecimal">
+        SELECT SUM(amount)
+        FROM zhs_withdrawal_flow
+        WHERE user_id = #{userId}
+        <if test="updatedAtGreaterThanEqual != null">
+            AND updated_at &gt;= #{updatedAtGreaterThanEqual}
+        </if>
+    </select>
+
+</mapper> 

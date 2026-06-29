@@ -143,15 +143,14 @@ class ResponseMasker:
             if head not in data:
                 return data, 0
             new_v, n = self._apply_path(data[head], rest, rule)
-            if n:
+            if n and not self._dry_run:
                 # 浅拷贝
-                if not self._dry_run:
-                    new_data = dict(data)
-                    new_data[head] = new_v
-                    return new_data, n
+                new_data = dict(data)
+                new_data[head] = new_v
+                return new_data, n
             return data, n
         if isinstance(data, list):
-            new_data = data
+            new_data = data  # type: ignore[assignment]
             total = 0
             for i, item in enumerate(data):
                 if isinstance(item, dict) and head in item:
@@ -159,7 +158,7 @@ class ResponseMasker:
                     total += n
                     if n and not self._dry_run:
                         if new_data is data:
-                            new_data = list(data)
+                            new_data = list(data)  # type: ignore[assignment]
                         nd = dict(item)
                         nd[head] = nv
                         new_data[i] = nd
@@ -181,13 +180,7 @@ class ResponseMasker:
                     total += n
             return new_data, total
         if isinstance(data, list):
-            new_list = []
-            list_total = 0
-            for v in data:
-                nv, n = self._apply_recursive(v, key, rule)
-                new_list.append(nv)
-                list_total += n
-            return new_list, list_total
+            return [self._apply_recursive(v, key, rule)[0] for v in data], total
         return data, 0
 
     def mask(self, data: Any) -> Any:

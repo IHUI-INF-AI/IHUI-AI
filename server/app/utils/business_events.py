@@ -189,7 +189,7 @@ def emit_login(user_uuid: str, method: str, success: bool, **extra):
 
 def get_event_stats() -> dict:
     """统计已发送的事件数 (按类型)."""
-    stats = {"total": 0, "by_type": {}}
+    stats: dict[str, Any] = {"total": 0, "by_type": {}}
     if not os.path.isfile(EVENT_LOG_FILE):
         return stats
     try:

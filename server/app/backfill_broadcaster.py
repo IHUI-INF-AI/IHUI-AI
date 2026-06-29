@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import queue
 import threading
@@ -131,11 +132,9 @@ class BackfillBroadcaster:
         with self._lock:
             subs = list(self._subscribers)
         for q in subs:
-            try:
+            # 慢消费者, 丢弃此事件, 避免阻塞发布者
+            with contextlib.suppress(queue.Full):
                 q.put_nowait(event)
-            except queue.Full:
-                # 慢消费者, 丢弃此事件, 避免阻塞发布者
-                pass
 
     # ----- 发布 -----
 

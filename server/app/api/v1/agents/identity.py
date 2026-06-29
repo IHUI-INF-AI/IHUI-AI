@@ -12,13 +12,12 @@ from app.models.app_content_models import ProductIdentity
 from app.models.payment_models import Order
 from app.schemas.common import error, success
 from app.security import require_login
-from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
 
 @router.get("/list", summary="身份订单列表")
-def list_identity_orders(
+async def list_identity_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None, description="订单状态 0=待支付 1=已支付 2=已退款 3=已取消"),
@@ -60,7 +59,7 @@ def list_identity_orders(
 
 
 @router.get("/info", summary="获取身份产品详情")
-def get_identity_info(
+async def get_identity_info(
     identity_id: str = Query(..., description="产品身份ID"),
 ):
     with get_session() as db:
@@ -84,7 +83,7 @@ def get_identity_info(
 
 
 @router.post("/create", summary="创建身份订单")
-def create_identity_order(
+async def create_identity_order(
     identity_id: str = Query(..., description="产品身份ID"),
     pay_type: str = Query("wechat", description="支付方式: wechat / alipay"),
     user_uuid: str = Depends(require_login),
@@ -180,7 +179,7 @@ def _serialize_proportion(p) -> dict:
 
 
 @router.get("/proportion/list", summary="身份比例列表")
-def list_proportions(
+async def list_proportions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None, description="0=stopped 1=active"),
@@ -198,7 +197,7 @@ def list_proportions(
 
 
 @router.post("/proportion/create", summary="创建比例配置")
-def create_proportion(
+async def create_proportion(
     body: IdentityProportionBody,
     user_uuid: str = Depends(require_login),
 ):
@@ -228,7 +227,7 @@ def create_proportion(
                 grand_vip_proportion=body.grand_vip_proportion,
                 grand_trader_proportion=body.grand_trader_proportion,
                 creator=user_uuid,
-                created_time=utcnow(),
+                created_time=datetime.utcnow(),
             )
             db.add(p)
             db.commit()
@@ -240,7 +239,7 @@ def create_proportion(
 
 
 @router.put("/proportion/{proportion_id}", summary="修改比例")
-def update_proportion(
+async def update_proportion(
     proportion_id: str,
     body: IdentityProportionBody,
     user_uuid: str = Depends(require_login),
@@ -276,7 +275,7 @@ def update_proportion(
                 if val is not None:
                     setattr(p, field, val)
             p.updator = user_uuid
-            p.updated_time = utcnow()
+            p.updated_time = datetime.utcnow()
             db.commit()
             return success({"id": p.id})
         except Exception as e:

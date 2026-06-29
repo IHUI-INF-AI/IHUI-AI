@@ -38,8 +38,7 @@ async def test_push_notice_broadcast(client):
         )
     assert resp.status_code == 200
     data = resp.json()
-    # 项目设计: code 为字符串 (兼容 Java 后端), 但比较时自动转 int
-    assert int(data["code"]) == 0
+    assert data["code"] == 0
     payload = data["data"]
     assert payload["delivered"] == 3
     assert payload["scope"] == "topic"

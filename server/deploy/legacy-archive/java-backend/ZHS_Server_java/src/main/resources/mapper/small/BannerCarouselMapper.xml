@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.BannerCarouselMapper">
+
+    <!-- BannerCarousel 实体类的 resultMap -->
+    <resultMap id="BannerCarouselMap" type="com.ai.manager.small.domain.BannerCarousel">
+        <id property="id" column="id"/>
+        <result property="img" column="img"/>
+        <result property="type" column="type"/>
+        <result property="centerImg" column="center_img"/>
+        <result property="describe" column="describe"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- TODO: 在这里定义 BannerCarouselMapper 接口中方法的 SQL 实现 -->
+
+    <!-- 获取所有轮播图 -->
+    <select id="selectAll" resultMap="BannerCarouselMap">
+        SELECT id, img, type, created_at, updated_at
+        FROM zhs_banner_carousel
+    </select>
+
+    <!-- 根据类型获取轮播图 -->
+    <select id="selectByType" resultMap="BannerCarouselMap">
+        SELECT id, img, type, created_at, updated_at
+        FROM zhs_banner_carousel
+        WHERE type = #{type}
+          <if test="position != null">
+              and position = #{position}
+          </if>
+    </select>
+
+    <!-- TODO: Add SQL for insert, update, delete if needed based on PHP -->
+
+</mapper> 

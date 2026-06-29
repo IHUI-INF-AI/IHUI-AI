@@ -40,7 +40,7 @@ class Timbre(Base):
 
 
 @router.get("/list", summary="音色列表")
-def list_timbres(
+async def list_timbres(
     language: str = Query(None),
     gender: str = Query(None),
     page: int = Query(1, ge=1),
@@ -72,7 +72,7 @@ def list_timbres(
 
 
 @router.post("/create", summary="新增音色")
-def create_timbre(
+async def create_timbre(
     name: str = Query(...),
     voice_id: str = Query(...),
     language: str = Query("zh"),
@@ -101,7 +101,7 @@ def create_timbre(
 
 
 @router.post("/update", summary="更新音色")
-def update_timbre(
+async def update_timbre(
     timbre_id: str = Query(...),
     name: str = Query(None),
     sample_url: str = Query(None),
@@ -123,7 +123,7 @@ def update_timbre(
 
 
 @router.post("/delete", summary="删除音色")
-def delete_timbre(timbre_id: str = Query(...), user_uuid: str = Depends(require_login)):
+async def delete_timbre(timbre_id: str = Query(...), user_uuid: str = Depends(require_login)):
     with get_session() as db:
         t = db.query(Timbre).filter(Timbre.id == timbre_id).first()
         if not t:

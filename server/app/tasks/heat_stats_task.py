@@ -13,7 +13,7 @@ def aggregate_daily_heat(days: int = 7) -> dict:
     with get_session() as db:
         cutoff = (date.today() - timedelta(days=days)).isoformat()
         rows = db.query(AgentHeatStats).filter(AgentHeatStats.date_str >= cutoff).all()
-        daily = {}
+        daily: dict[str, int] = {}
         for r in rows:
             daily[r.date_str] = daily.get(r.date_str, 0) + int(r.hit_count or 0)
         logger.info(f"Heat aggregation done: {len(daily)} days")

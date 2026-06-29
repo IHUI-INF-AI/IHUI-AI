@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsVipLevelMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.ZhsVipLevel" id="ZhsVipLevelResult">
+        <result property="id"    column="id"    />
+        <result property="title"    column="title"    />
+        <result property="level"    column="level"    />
+        <result property="remark"    column="remark"    />
+        <result property="progress"    column="progress"    />
+        <result property="model1"    column="model1"    />
+        <result property="model2"    column="model2"    />
+        <result property="creator"    column="creator"    />
+        <result property="createdTime"    column="created_time"    />
+        <result property="updator"    column="updator"    />
+        <result property="updatedTime"    column="updated_time"    />
+    </resultMap>
+
+    <sql id="selectZhsVipLevelVo">
+        select id, title, level, remark, progress, model1, model2, creator, created_time, updator, updated_time from zhs_vip_level
+    </sql>
+
+    <select id="selectZhsVipLevelList" parameterType="com.ai.manager.small.domain.ZhsVipLevel" resultMap="ZhsVipLevelResult">
+        <include refid="selectZhsVipLevelVo"/>
+        <where>  
+            <if test="title != null  and title != ''"> and title = #{title}</if>
+            <if test="level != null "> and `level` = #{level}</if>
+            <if test="progress != null  and progress != ''"> and progress = #{progress}</if>
+            <if test="model1 != null  and model1 != ''"> and model1 = #{model1}</if>
+        </where>
+        order by `level` desc
+    </select>
+    
+    <select id="selectZhsVipLevelById" parameterType="String" resultMap="ZhsVipLevelResult">
+        <include refid="selectZhsVipLevelVo"/>
+        where id = #{id}
+    </select>
+    <!--INSERT INTO `zhs_ai_project`.`zhs_user_vip` (`id`, `user_id`, `open_id`, `vip_id`, `progress`, `creator`, `created_time`, `updator`, `updated_time`) VALUES ('1', '1', '1', '1', 1, NULL, '2025-06-09 16:50:39', NULL, NULL);-->
+    <resultMap type="com.ai.manager.small.domain.ZhsUserVip" id="userVipBean">
+        <result property="id"    column="id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="openId"    column="open_id"    />
+        <result property="vipId"    column="vip_id"    />
+        <result property="progress"    column="progress"    />
+        <result property="creator"    column="creator"    />
+        <result property="createdTime"    column="created_time"    />
+        <result property="updator"    column="updator"    />
+        <result property="updatedTime"    column="updated_time"    />
+    </resultMap>
+    <sql id="getUserVip">
+        select `id`, `user_id`, `open_id`, `vip_id`, `progress`, `creator`, `created_time`, `updator`, `updated_time` from zhs_user_vip
+    </sql>
+    <select id="getUserProgeress" resultMap="userVipBean">
+        <include refid="getUserVip"/>
+        <where>
+            <if test="openId != null">AND open_id = #{openId}</if>
+        </where>
+    </select>
+
+    <insert id="insertZhsVipLevel" parameterType="com.ai.manager.small.domain.ZhsVipLevel">
+        insert into zhs_vip_level
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="title != null">title,</if>
+            <if test="level != null">`level`,</if>
+            <if test="remark != null">remark,</if>
+            <if test="progress != null">progress,</if>
+            <if test="model1 != null">model1,</if>
+            <if test="model2 != null">model2,</if>
+            <if test="creator != null">creator,</if>
+            <if test="createdTime != null">created_time,</if>
+            <if test="updator != null">updator,</if>
+            <if test="updatedTime != null">updated_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="title != null">#{title},</if>
+            <if test="level != null">#{level},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="progress != null">#{progress},</if>
+            <if test="model1 != null">#{model1},</if>
+            <if test="model2 != null">#{model2},</if>
+            <if test="creator != null">#{creator},</if>
+            <if test="createdTime != null">#{createdTime},</if>
+            <if test="updator != null">#{updator},</if>
+            <if test="updatedTime != null">#{updatedTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateZhsVipLevel" parameterType="com.ai.manager.small.domain.ZhsVipLevel">
+        update zhs_vip_level
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="title != null">title = #{title},</if>
+            <if test="level != null">`level` = #{level},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="progress != null">progress = #{progress},</if>
+            <if test="model1 != null">model1 = #{model1},</if>
+            <if test="model2 != null">model2 = #{model2},</if>
+            <if test="creator != null">creator = #{creator},</if>
+            <if test="createdTime != null">created_time = #{createdTime},</if>
+            <if test="updator != null">updator = #{updator},</if>
+            <if test="updatedTime != null">updated_time = #{updatedTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+    <update id="editUserVIP">
+        update zhs_user_vip
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="vipId != null">vip_id = #{vipId},</if>
+            <if test="progress != null">`progress` = #{progress},</if>
+            <if test="updator != null">updator = #{openId},</if>
+        </trim>
+        where open_id = #{openId}
+    </update>
+
+    <delete id="deleteZhsVipLevelById" parameterType="String">
+        delete from zhs_vip_level where id = #{id}
+    </delete>
+
+    <delete id="deleteZhsVipLevelByIds" parameterType="String">
+        delete from zhs_vip_level where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

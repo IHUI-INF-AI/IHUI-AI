@@ -298,5 +298,5 @@ def record_cache(key_prefix: str, hit: bool) -> None:
         total = h + m
         if total > 0:
             CACHE_HIT_RATIO.labels(key_prefix=key_prefix).set(h / total)
-    except Exception as e:
-        logger.debug("计算缓存命中率指标失败: %s", e)
+    except Exception:
+        pass

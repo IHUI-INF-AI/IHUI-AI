@@ -13,6 +13,7 @@
 """
 
 import os
+from typing import ClassVar
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -22,7 +23,7 @@ from starlette.responses import JSONResponse
 class ApiVersionMiddleware(BaseHTTPMiddleware):
     """API 版本协商中间件 - 路径重写 (v1 -> v2)."""
 
-    VERSION_MAP = {
+    VERSION_MAP: ClassVar[dict[str, str]] = {
         "application/json": "v1",
         "application/vnd.zhs.v1+json": "v1",
         "application/vnd.zhs.v2+json": "v2",

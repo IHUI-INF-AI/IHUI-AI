@@ -11,15 +11,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..")))
 
 from datetime import UTC
 
-from app.utils.dedup_order import (
+from app.utils.bug131_dedup_order import (
     ConcurrentOrderDeduper,
     OrderState,
     derive_order_token,
 )
-from app.utils.stock_guard import (
+from app.utils.bug132_stock_guard import (
     StockGuard,
 )
-from app.utils.money_precision import (
+from app.utils.bug133_money_precision import (
     Money,
     MoneyError,
     MoneyValidator,
@@ -27,12 +27,12 @@ from app.utils.money_precision import (
     split_money,
     sum_money,
 )
-from app.utils.jwt_boundary import (
+from app.utils.bug134_jwt_boundary import (
     JWTConfig,
     JWTManager,
     TokenState,
 )
-from app.utils.idor_guard import (
+from app.utils.bug135_idor_guard import (
     AccessDecision,
     AccessRequest,
     IDORGuard,
@@ -40,18 +40,18 @@ from app.utils.idor_guard import (
     Resource,
     ResourceScope,
 )
-from app.utils.csrf_guard import (
+from app.utils.bug136_csrf_guard import (
     CSRFGuard,
     CSRFState,
 )
-from app.utils.timezone import (
+from app.utils.bug137_timezone import (
     TimezoneService,
     to_aware_utc,
     to_iso,
     to_unix,
     to_zone,
 )
-from app.utils.calendar_boundary import (
+from app.utils.bug138_calendar_boundary import (
     CalendarService,
     days_in_month,
     is_cross_year,
@@ -60,54 +60,54 @@ from app.utils.calendar_boundary import (
     natural_quarter,
     natural_year,
 )
-from app.utils.overdraft_guard import (
+from app.utils.bug139_overdraft_guard import (
     OverdraftGuard,
     TxResult,
 )
-from app.utils.ws_resilience import (
+from app.utils.bug140_ws_resilience import (
     WSResilience,
     WsState,
 )
-from app.utils.kafka_offset import (
+from app.utils.bug141_kafka_offset import (
     CommitMode,
     KafkaOffsetManager,
 )
-from app.utils.cache_guard import (
+from app.utils.bug142_cache_guard import (
     CacheConfig,
     CacheGuard,
     CacheState,
 )
-from app.utils.prompt_injection import (
+from app.utils.bug143_prompt_injection import (
     PromptInjectionGuard,
     ThreatLevel,
 )
-from app.utils.stream_resilience import (
+from app.utils.bug144_stream_resilience import (
     StreamResilience,
     StreamState,
 )
-from app.utils.token_billing import (
+from app.utils.bug145_token_billing import (
     ChargeResult,
     TokenGuard,
     estimate_messages_tokens,
     estimate_tokens,
 )
-from app.utils.migration_rollback import (
+from app.utils.bug146_migration_rollback import (
     Migration,
     MigrationRunner,
     MigrationState,
     MigrationStep,
 )
-from app.utils.tenant_isolation import (
+from app.utils.bug147_tenant_isolation import (
     IsolationError,
     TenantContext,
     TenantGuard,
     tenant_scope,
 )
-from app.utils.deadlock_detector import (
+from app.utils.bug148_deadlock_detector import (
     DeadlockDetector,
     LockMode,
 )
-from app.utils.deadlock_detector import TxResult as DLTxResult
+from app.utils.bug148_deadlock_detector import TxResult as DLTxResult
 
 
 # =====================================================================
@@ -487,7 +487,7 @@ class TestBug137(unittest.TestCase):
         self.assertTrue(s.startswith("1970-01-01"))
 
     def test_invalid_string(self):
-        from app.utils.timezone import TZError
+        from app.utils.bug137_timezone import TZError
 
         with self.assertRaises(TZError):
             to_aware_utc("not-a-date")
@@ -688,7 +688,7 @@ class TestBug141(unittest.TestCase):
         self.assertGreaterEqual(m.stats()["rebalanced"], 2)
 
     def test_consume_and_complete(self):
-        from app.utils.kafka_offset import KafkaConfig
+        from app.utils.bug141_kafka_offset import KafkaConfig
 
         m = KafkaOffsetManager(KafkaConfig(commit_mode=CommitMode.AUTO_EACH))
         m.add_partition("t1", 0, high_watermark=10)

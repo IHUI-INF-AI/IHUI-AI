@@ -44,7 +44,7 @@ async def deepseek_chat(
     }
     url = "https://api.deepseek.com/chat/completions"
     t0 = time.perf_counter()
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(url, headers=_headers(), json=body, timeout=30)
             track_event(EVENT_CHAT_RECEIVE, user_id=user_uuid, channel="deepseek", model=model)
@@ -58,7 +58,7 @@ async def deepseek_chat(
 
 
 @router.post("/chat/stream", summary="DeepSeek 流式聊天(SSE)")
-def deepseek_chat_stream(
+async def deepseek_chat_stream(
     model: str = Query("deepseek-chat"),
     message: str = Query(...),
     user_uuid: str = Depends(require_login),
@@ -73,7 +73,7 @@ def deepseek_chat_stream(
     url = "https://api.deepseek.com/chat/completions"
 
     async def event_generator():
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient() as client:
             try:
                 async with client.stream(
                     "POST",

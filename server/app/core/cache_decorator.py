@@ -122,7 +122,7 @@ def cached(
                 logger.debug(f"cache set fail key={key}: {e}")
             return value
 
-        wrapper.__cache_stats__ = _STATS  # 暴露给 Prometheus
+        wrapper.__cache_stats__ = _STATS  # type: ignore[attr-defined]  # 暴露给 Prometheus
         return wrapper
 
     return decorator

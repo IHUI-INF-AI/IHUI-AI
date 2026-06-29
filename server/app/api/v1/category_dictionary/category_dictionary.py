@@ -30,7 +30,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="字典列表")
-def list_dict(dict_type: str | None = None,
+async def list_dict(dict_type: str | None = None,
                     page: int = Query(1, ge=1), limit: int = Query(100, ge=1, le=500)):
     with get_session() as db:
         try:
@@ -52,10 +52,10 @@ def list_dict(dict_type: str | None = None,
 
 
 @router.get("/type", summary="字典类型列表")
-def dict_types():
+async def dict_types():
     with get_session() as db:
         try:
-            types = db.query(CategoryDictionary.dict_type).distinct().limit(500).all()
+            types = db.query(CategoryDictionary.dict_type).distinct().all()
             return success([t[0] for t in types if t[0]])
         except Exception as e:
             logger.error(f"dict type error: {e}")
@@ -63,7 +63,7 @@ def dict_types():
 
 
 @router.get("/{did}", summary="字典详情")
-def get_dict(did: int):
+async def get_dict(did: int):
     with get_session() as db:
         try:
             d = db.query(CategoryDictionary).filter(CategoryDictionary.id == did).first()
@@ -81,7 +81,7 @@ def get_dict(did: int):
 
 
 @router.post("", summary="新增字典")
-def create_dict(dict_type: str = Query(...), code: str = Query(...),
+async def create_dict(dict_type: str = Query(...), code: str = Query(...),
                        label: str = Query(...), value: str | None = None,
                        sort_order: int = 0, is_show: bool = True,
                        description: str | None = None,
@@ -102,7 +102,7 @@ def create_dict(dict_type: str = Query(...), code: str = Query(...),
 
 
 @router.put("/{did}", summary="修改字典")
-def update_dict(did: int, label: str | None = None, value: str | None = None,
+async def update_dict(did: int, label: str | None = None, value: str | None = None,
                        sort_order: int | None = None, is_show: bool | None = None,
                        description: str | None = None):
     with get_session() as db:
@@ -110,11 +110,16 @@ def update_dict(did: int, label: str | None = None, value: str | None = None,
             d = db.query(CategoryDictionary).filter(CategoryDictionary.id == did).first()
             if not d:
                 return error("字典不存在", "404")
-            if label: d.label = label
-            if value is not None: d.value = value
-            if sort_order is not None: d.sort_order = sort_order
-            if is_show is not None: d.is_show = is_show
-            if description is not None: d.description = description
+            if label:
+                d.label = label
+            if value is not None:
+                d.value = value
+            if sort_order is not None:
+                d.sort_order = sort_order
+            if is_show is not None:
+                d.is_show = is_show
+            if description is not None:
+                d.description = description
             return success()
         except Exception as e:
             logger.error(f"dict update error: {e}")
@@ -122,7 +127,7 @@ def update_dict(did: int, label: str | None = None, value: str | None = None,
 
 
 @router.delete("/{did}", summary="删除字典")
-def delete_dict(did: int):
+async def delete_dict(did: int):
     with get_session() as db:
         try:
             d = db.query(CategoryDictionary).filter(CategoryDictionary.id == did).first()

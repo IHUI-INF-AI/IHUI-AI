@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+_dc_field = field  # alias to avoid shadowing by dataclass field named "field"
+
 
 class Severity(StrEnum):
     INFO = "INFO"
@@ -54,7 +56,7 @@ class RuleResult:
     rule_id: str
     field: str
     passed: bool
-    errors: list[ValidationError] = field(default_factory=list)
+    errors: list[ValidationError] = _dc_field(default_factory=list)  # noqa: RUF009
     duration_ms: float = 0.0
 
 

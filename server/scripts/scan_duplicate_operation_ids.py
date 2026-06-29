@@ -1,13 +1,9 @@
 """检测 OpenAPI duplicate operation_id — 考虑 router prefix。"""
 import re
-import sys
 from pathlib import Path
 from collections import defaultdict
 
-# 2026-06-25 修复: 改用脚本自身位置计算 ROOT, 避免硬编码 G:\1\server\app
-# server/scripts/scan_duplicate_operation_ids.py -> server/app
-_SERVER_ROOT = Path(__file__).resolve().parent.parent
-ROOT = _SERVER_ROOT / "app"
+ROOT = Path(r"g:\1\server\app")
 ROUTER_FILE = ROOT / "api" / "v1" / "router.py"
 
 text = ROUTER_FILE.read_text(encoding="utf-8", errors="ignore")

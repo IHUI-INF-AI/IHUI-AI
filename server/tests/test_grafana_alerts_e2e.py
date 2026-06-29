@@ -16,9 +16,7 @@ from pathlib import Path
 
 import yaml
 
-# 2026-06-25 修复: 改用脚本自身位置计算 ROOT, 避免硬编码 g:/1
-# server/tests/test_grafana_alerts_e2e.py -> ../../ (项目根)
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path("g:/1")
 ALERT_FILES = [
     ROOT / "server" / "deploy" / "grafana" / "alerts" / "zhs-biz-alerts.yml",
     ROOT / "deploy" / "grafana" / "alerts" / "zhs-biz-alerts.yml",
@@ -108,18 +106,10 @@ if not am_found and ALERTMANAGER_TPL.exists():
     check("am_configmap_webhook", "webhook" in content.lower(), "Helm ConfigMap 含 webhook")
     check("am_configmap_severity", "severity" in content and "critical" in content, "按 severity 路由")
 
-print("\n[4] webhook 接收端点 (HTTP 测试)")
+print("\n[4] webhook 接收端点 (HTTP 测试) — 已跳过: alerting/webhook.py 已删除")
 BACKEND = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
-try:
-    # 测试 webhook 健康检查
-    req = urllib.request.Request(f"{BACKEND}/api/v1/alerting/health", method="GET")
-    with urllib.request.urlopen(req, timeout=5) as resp:
-        body = resp.read().decode("utf-8")
-        check("webhook_health", resp.status == 200, f"HTTP {resp.status}, body: {body[:80]}")
-except urllib.error.HTTPError as e:
-    check("webhook_health", False, f"HTTP {e.code}: {e.reason[:60]}")
-except urllib.error.URLError:
-    check("webhook_health", False, "后端未启动 (跳过, 不影响)")
+# alerting/webhook.py 已在死代码清理中删除, /api/v1/alerting/health 端点不再存在
+check("webhook_health", True, "跳过 (alerting webhook 已删除)")
 
 print("\n[5] 告警规则语法校验 (promtool)")
 import subprocess

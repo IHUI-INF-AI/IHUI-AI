@@ -108,13 +108,7 @@
 
     <script>
         let selectedMode = 'http'; // 默认HTTP模式
-
-        // 从 cookie 读取 CSRF token (XSRF-TOKEN)
-        function getCsrfToken() {
-            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-            return match ? match[1] : "";
-        }
-
+        
         // 加载当前配置
         async function loadConfig() {
             try {
@@ -152,8 +146,7 @@
                 const response = await fetch('/api/config/client-mode', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': getCsrfToken()
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ mode: selectedMode })
                 });

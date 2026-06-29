@@ -281,13 +281,13 @@ def create_commission_flows(parent_users: list, user, order, proportion) -> list
 
     if not parent_is_vip:
         # Normal user: commission by token
-        flow.type = 0
+        flow.type = 0  # type: ignore[assignment]
         token_qty = getattr(user, "token_quantity", 0) or 0
-        flow.token = str(_calc_return_token(token_qty, proportion))
+        flow.token = str(_calc_return_token(token_qty, proportion))  # type: ignore[assignment]
     else:
         # VIP / trader: commission by money
-        flow.type = 1
-        flow.amount = _calc_return_vip(
+        flow.type = 1  # type: ignore[assignment]
+        flow.amount = _calc_return_vip(  # type: ignore[assignment]
             order_amount,
             order_type,
             product_identity_id,

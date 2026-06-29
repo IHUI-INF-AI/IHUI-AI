@@ -1,6 +1,7 @@
 """Coze chat routes (sync + streaming + workflow)."""
 
 import json
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, Query, UploadFile
@@ -45,7 +46,7 @@ async def send_message(
     }
     if conversation_id:
         body["conversation_id"] = conversation_id
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 f"{settings.COZE_API_BASE}/v3/chat",
@@ -63,7 +64,7 @@ async def send_message(
 
 
 @router.post("/message/stream", summary="Send chat message via Coze (SSE stream)")
-def send_message_stream(
+async def send_message_stream(
     bot_id: str = Query(...),
     message: str = Query(...),
     conversation_id: str = Query(None),
@@ -81,7 +82,7 @@ def send_message_stream(
         if conversation_id:
             body["conversation_id"] = conversation_id
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client, client.stream(
+            async with httpx.AsyncClient() as client, client.stream(
                 "POST",
                 f"{settings.COZE_API_BASE}/v3/chat",
                 headers=_headers(),
@@ -104,7 +105,7 @@ async def create_conversation(
     bot_id: str = Query(...),
     user_uuid: str = Depends(require_login),
 ):
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 f"{settings.COZE_API_BASE}/v1/conversation/create",
@@ -131,7 +132,7 @@ async def run_workflow(
     except json.JSONDecodeError:
         return error("parameters 必须是合法 JSON 字符串")
     body = {"workflow_id": workflow_id, "parameters": params}
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 f"{settings.COZE_API_BASE}/v1/workflow/run",
@@ -148,7 +149,7 @@ async def run_workflow(
 
 
 @router.post("/workflow/run/stream", summary="Run Coze workflow (stream)")
-def run_workflow_stream(
+async def run_workflow_stream(
     workflow_id: str = Query(...),
     parameters: str = Query("{}"),
     user_uuid: str = Depends(require_login),
@@ -159,7 +160,7 @@ def run_workflow_stream(
         return error("parameters 必须是合法 JSON 字符串")
 
     async def event_generator():
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient() as client:
             try:
                 async with client.stream(
                     "POST",
@@ -194,7 +195,7 @@ async def resume_workflow(
         "resume_data": resume_data,
         "interrupt_type": interrupt_type,
     }
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 f"{settings.COZE_API_BASE}/v1/workflow/run/resume",
@@ -209,7 +210,7 @@ async def resume_workflow(
 
 
 @router.post("/workflow/run/resume/stream", summary="Resume interrupted Coze workflow (stream)")
-def resume_workflow_stream(
+async def resume_workflow_stream(
     workflow_id: str = Query(...),
     event_id: str = Query(...),
     resume_data: str = Query("{}", description="JSON string"),
@@ -226,7 +227,7 @@ def resume_workflow_stream(
             "interrupt_type": interrupt_type,
         }
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client, client.stream(
+            async with httpx.AsyncClient() as client, client.stream(
                 "POST",
                 f"{settings.COZE_API_BASE}/v1/workflow/run/resume",
                 headers=_headers(),
@@ -251,7 +252,7 @@ async def workflow_history(
     user_uuid: str = Depends(require_login),
 ):
     """获取工作流执行历史."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(
                 f"{settings.COZE_API_BASE}/v1/workflow/run/history",
@@ -273,7 +274,7 @@ async def create_dataset(
 ):
     """创建数据集."""
     body = {"name": name, "space_id": space_id or settings.COZE_ACCOUNT_ID}
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 f"{settings.COZE_API_BASE}/v1/datasets/create",
@@ -295,7 +296,7 @@ async def list_datasets(
     user_uuid: str = Depends(require_login),
 ):
     """获取数据集列表."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(
                 f"{settings.COZE_API_BASE}/v1/datasets/list",
@@ -317,7 +318,7 @@ async def list_documents(
     user_uuid: str = Depends(require_login),
 ):
     """获取数据集下的文档列表."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(
                 f"{settings.COZE_API_BASE}/v1/datasets/documents/list",
@@ -340,7 +341,7 @@ async def list_conversations(
     user_uuid: str = Depends(require_login),
 ):
     """获取对话列表."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(
                 f"{settings.COZE_API_BASE}/v1/conversation/list",
@@ -360,7 +361,7 @@ async def retrieve_conversation(
     user_uuid: str = Depends(require_login),
 ):
     """获取对话详情."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(
                 f"{settings.COZE_API_BASE}/v1/conversation/retrieve",
@@ -383,10 +384,10 @@ async def list_messages(
     user_uuid: str = Depends(require_login),
 ):
     """获取对话消息列表."""
-    params = {"conversation_id": conversation_id, "page_index": page, "page_size": size}
+    params: dict[str, Any] = {"conversation_id": conversation_id, "page_index": page, "page_size": size}
     if bot_id:
         params["bot_id"] = bot_id
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(
                 f"{settings.COZE_API_BASE}/v1/conversation/message/list",
@@ -409,7 +410,7 @@ async def message_feedback(
     user_uuid: str = Depends(require_login),
 ):
     """消息反馈(点赞/点踩)."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 f"{settings.COZE_API_BASE}/v1/conversation/message/feedback",
@@ -437,7 +438,7 @@ async def upload_document(
 ):
     """上传文档到数据集(multipart/form-data)."""
     file_bytes = await upload.read()
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 f"{settings.COZE_API_BASE}/v1/datasets/documents/upload",
@@ -460,7 +461,7 @@ async def chat_with_billing(
     user_uuid: str = Depends(require_login),
 ):
     """带计费的聊天:先扣 token,再转发到 Coze."""
-    bill = deduct_user_token(user_uuid, cost_tokens)
+    bill = deduct_user_token(user_uuid, cost_tokens, bot_id=bot_id)
     if not bill["success"]:
         return error(f"余额不足: {bill.get('reason')}")
     body = {
@@ -468,7 +469,7 @@ async def chat_with_billing(
         "user_id": user_uuid,
         "additional_messages": [{"role": "user", "content": message, "content_type": "text"}],
     }
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 f"{settings.COZE_API_BASE}/v3/chat",

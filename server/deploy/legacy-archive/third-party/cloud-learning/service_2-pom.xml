@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.chawind.cloud</groupId>
+    <artifactId>ihui-ai-edu-enterprise</artifactId>
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+    <name>${project.artifactId}</name>
+    <description>探学在线学习平台</description>
+    <url>https://chawind.com</url>
+
+    <modules>
+        <module>common</module>
+        <module>ihui-ai-edu-ask-service</module>
+        <module>ihui-ai-edu-auth-service</module>
+        <module>ihui-ai-edu-behavior-service</module>
+        <module>ihui-ai-edu-circle-service</module>
+        <module>ihui-ai-edu-content-service</module>
+        <module>ihui-ai-edu-exam-service</module>
+        <module>ihui-ai-edu-gateway-service</module>
+        <module>ihui-ai-edu-learn-service</module>
+        <module>ihui-ai-edu-live-service</module>
+        <module>ihui-ai-edu-member-service</module>
+        <module>ihui-ai-edu-message-service</module>
+        <module>ihui-ai-edu-notification-service</module>
+        <module>ihui-ai-edu-order-service</module>
+        <module>ihui-ai-edu-oss-service</module>
+        <module>ihui-ai-edu-pay-service</module>
+        <module>ihui-ai-edu-point-service</module>
+        <module>ihui-ai-edu-resource-service</module>
+        <module>ihui-ai-edu-schedule-service</module>
+        <module>ihui-ai-edu-search-service</module>
+        <module>ihui-ai-edu-setting-service</module>
+        <module>ihui-ai-edu-usercenter-service</module>
+        <module>ihui-ai-edu-visit-tracking-service</module>
+    </modules>
+
+</project>

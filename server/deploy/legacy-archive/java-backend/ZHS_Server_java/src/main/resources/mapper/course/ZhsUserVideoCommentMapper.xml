@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.course.mapper.ZhsUserVideoCommentMapper">
+    
+    <resultMap type="com.ai.manager.course.domain.ZhsUserVideoComment" id="ZhsUserVideoCommentResult">
+        <result property="id" column="id"/>
+        <result property="videoId" column="video_id"/>
+        <result property="userUuid" column="user_uuid"/>
+        <result property="content" column="content"/>
+        <result property="path" column="path"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="isHidden" column="is_hidden"/>
+        <result property="isDel" column="is_del"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+
+    <sql id="selectZhsUserVideoCommentVo">
+        select uvc.id,uvc.video_id,uvc.user_uuid,uvc.content,uvc.path,uvc.parent_id,uvc.is_hidden,uvc.is_del,uvc.created_at
+    </sql>
+    <sql id="fromZhsUserVideoCommentTable">
+        from zhs_user_video_comment uvc
+    </sql>
+
+    <select id="getList" parameterType="com.ai.manager.course.domain.ZhsUserVideoComment" resultMap="ZhsUserVideoCommentResult">
+        <include refid="selectZhsUserVideoCommentVo"/>
+        ,u.nickname, u.avatar
+        <include refid="fromZhsUserVideoCommentTable"/>
+        left join zhs_center_project.users u on u.uuid = uvc.user_uuid
+        <where>
+            uvc.video_id = #{videoId}
+            and (uvc.parent_id is null or uvc.parent_id = '')
+            <if test="userUuid != null  and userUuid != ''"> and uvc.user_uuid = #{userUuid}</if>
+            <if test="content != null  and content != ''"> and uvc.content = #{content}</if>
+            <!--<if test="parentId != null  and parentId != ''"> and uvc.parent_id = #{parentId}</if>-->
+            <if test="createdAt != null "> and uvc.created_at = #{createdAt}</if>
+            <if test="notQueryIds != null and notQueryIds != ''"> and FIND_IN_SET(id, #{notQueryIds}) = 0</if>
+        </where>
+    </select>
+    
+    <select id="getById" parameterType="String" resultMap="ZhsUserVideoCommentResult">
+        <include refid="selectZhsUserVideoCommentVo"/>
+        <include refid="fromZhsUserVideoCommentTable"/>
+        where uvc.id = #{id}
+    </select>
+    <select id="getListByParentIds" resultMap="ZhsUserVideoCommentResult">
+        SELECT
+        t.id,
+        t.video_id,
+        t.user_uuid,
+        t.content,
+        t.path,
+        t.parent_id,
+        t.is_hidden,
+        t.is_del,
+        t.created_at
+        ,u.nickname, u.avatar
+        FROM (
+                <include refid="selectZhsUserVideoCommentVo"/>
+                <!-- 按pid分组，每组内按id排序（可替换为其他排序字段），生成行号 -->
+                ,ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY id) AS rn
+                <include refid="fromZhsUserVideoCommentTable"/>
+                WHERE parent_id IN
+                <foreach collection="parentIds" item="parentId" separator="," open="(" close=")">
+                    #{parentId}
+                </foreach>
+                <!-- order by -->
+            ) t
+        left join zhs_center_project.users u on u.uuid = t.user_uuid
+        WHERE t.rn <![CDATA[<=]]> 2;
+    </select>
+
+    <insert id="addZhsUserVideoComment" parameterType="com.ai.manager.course.domain.ZhsUserVideoComment">
+        insert into zhs_user_video_comment
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="videoId != null">video_id,</if>
+            <if test="userUuid != null">user_uuid,</if>
+            <if test="content != null">content,</if>
+            <if test="path != null">`path`,</if>
+            <if test="parentId != null">parent_id,</if>
+            <if test="isHidden != null">is_hidden,</if>
+            <if test="isDel != null">is_del,</if>
+            <if test="createdAt != null">created_at,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="videoId != null">#{videoId},</if>
+            <if test="userUuid != null">#{userUuid},</if>
+            <if test="content != null">#{content},</if>
+            <if test="path != null">#{path},</if>
+            <if test="parentId != null">#{parentId},</if>
+            <if test="isHidden != null">#{isHidden},</if>
+            <if test="isDel != null">#{isDel},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+         </trim>
+    </insert>
+
+    <update id="edit" parameterType="com.ai.manager.course.domain.ZhsUserVideoComment">
+        update zhs_user_video_comment
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="videoId != null">video_id = #{videoId},</if>
+            <if test="userUuid != null">user_uuid = #{userUuid},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="path != null">`path` = #{path},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="isHidden != null">is_hidden = #{isHidden},</if>
+            <if test="isDel != null">is_del = #{isDel},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="delById" parameterType="String">
+        delete from zhs_user_video_comment where id = #{id}
+    </delete>
+
+    <delete id="delByIds" parameterType="String">
+        delete from zhs_user_video_comment where
+        user_uuid = #{userId}
+        and id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

@@ -1,13 +1,10 @@
 """带缓存控制的静态资源服务 (Bug-41)."""
 
-import logging
 import os
 
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 from starlette.types import Scope
-
-logger = logging.getLogger(__name__)
 
 
 class CachedStaticFiles(StaticFiles):
@@ -42,7 +39,7 @@ class CachedStaticFiles(StaticFiles):
 
     def file_response(
         self,
-        full_path: str,
+        full_path: str,  # type: ignore[override]
         stat_result: os.stat_result,
         scope: Scope,
         status_code: int = 200,
@@ -52,6 +49,6 @@ class CachedStaticFiles(StaticFiles):
             _, ext = os.path.splitext(full_path.lower())
             if ext in self._CACHEABLE_SUFFIXES:
                 response.headers["Cache-Control"] = f"public, max-age={self.cache_max_age}"
-        except Exception as e:
-            logger.debug("设置静态资源 Cache-Control 失败: %s", e)  # intentionally ignored
+        except Exception:
+            pass  # intentionally ignored
         return response

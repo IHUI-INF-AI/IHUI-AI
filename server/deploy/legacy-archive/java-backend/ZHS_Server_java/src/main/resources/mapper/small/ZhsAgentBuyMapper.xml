@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsAgentBuyMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.ZhsAgentBuy" id="ZhsAgentBuyResult">
+        <result property="id" column="id"/>
+        <result property="agentId" column="agent_id"/>
+        <result property="agentName" column="agent_name"/>
+        <result property="agentOrderUuid" column="agent_order_uuid"/>
+        <result property="bugUuid" column="bug_uuid"/>
+        <result property="bugName" column="bug_name"/>
+        <result property="bugTime" column="bug_time"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="discount" column="discount"/>
+        <result property="realPrice" column="real_price"/>
+        <result property="price" column="price"/>
+        <result property="count" column="count"/>
+        <result property="expirationDate" column="expiration_date"/>
+        <result property="status" column="status"/>
+        <result property="orderNo" column="order_no"/>
+        <result property="settlement" column="settlement"/>
+    </resultMap>
+
+    <sql id="selectZhsAgentBuyVo">
+        select id, agent_id, agent_name, agent_order_uuid, bug_uuid, bug_name, bug_time, category_id, discount, real_price, price, count, expiration_date, status, order_no, settlement from zhs_agent_buy
+    </sql>
+
+    <select id="selectZhsAgentBuyList" parameterType="com.ai.manager.small.domain.ZhsAgentBuy" resultMap="ZhsAgentBuyResult">
+        <include refid="selectZhsAgentBuyVo"/>
+        <where>  
+            <if test="agentId != null and agentId != ''"> and agent_id = #{agentId}</if>
+            <if test="agentName != null and agentName != ''"> and agent_name like concat('%', #{agentName}, '%')</if>
+            <if test="agentOrderUuid != null and agentOrderUuid != ''"> and agent_order_uuid = #{agentOrderUuid}</if>
+            <if test="bugUuid != null and bugUuid != ''"> and bug_uuid = #{bugUuid}</if>
+            <if test="bugName != null and bugName != ''"> and bug_name like concat('%', #{bugName}, '%')</if>
+            <if test="bugTime != null"> and bug_time = #{bugTime}</if>
+            <if test="categoryId != null and categoryId != ''"> and category_id = #{categoryId}</if>
+            <if test="discount != null"> and discount = #{discount}</if>
+            <if test="realPrice != null"> and real_price = #{realPrice}</if>
+            <if test="price != null"> and price = #{price}</if>
+            <if test="count != null"> and count = #{count}</if>
+            <if test="expirationDate != null"> and expiration_date = #{expirationDate}</if>
+            <if test="status != null and status != ''"> and status = #{status}</if>
+            <if test="orderNo != null and orderNo != ''"> and order_no = #{orderNo}</if>
+            <if test="settlement != null and settlement != ''"> and settlement = #{settlement}</if>
+        </where>
+        order by bug_time desc
+    </select>
+    
+    <select id="selectZhsAgentBuyById" parameterType="String" resultMap="ZhsAgentBuyResult">
+        <include refid="selectZhsAgentBuyVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByBugUuidAndAgentId" resultMap="ZhsAgentBuyResult">
+        <include refid="selectZhsAgentBuyVo"/>
+        where bug_uuid = #{bugUuid} and agent_id = #{agentId}
+        order by bug_time desc
+    </select>
+
+    <select id="selectByOrderNo" parameterType="String" resultMap="ZhsAgentBuyResult">
+        <include refid="selectZhsAgentBuyVo"/>
+        where order_no = #{orderNo}
+    </select>
+
+    <select id="selectUnsettledRecords" resultMap="ZhsAgentBuyResult">
+        <include refid="selectZhsAgentBuyVo"/>
+        where settlement = '0'
+        order by bug_time desc
+    </select>
+
+    <select id="selectExpiredRecords" resultMap="ZhsAgentBuyResult">
+        <include refid="selectZhsAgentBuyVo"/>
+        where status = '1' or expiration_date &lt; NOW()
+        order by expiration_date desc
+    </select>
+        
+    <insert id="insertZhsAgentBuy" parameterType="com.ai.manager.small.domain.ZhsAgentBuy">
+        insert into zhs_agent_buy
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="agentId != null">agent_id,</if>
+            <if test="agentName != null">agent_name,</if>
+            <if test="agentOrderUuid != null">agent_order_uuid,</if>
+            <if test="bugUuid != null">bug_uuid,</if>
+            <if test="bugName != null">bug_name,</if>
+            <if test="bugTime != null">bug_time,</if>
+            <if test="categoryId != null">category_id,</if>
+            <if test="discount != null">discount,</if>
+            <if test="realPrice != null">real_price,</if>
+            <if test="price != null">price,</if>
+            <if test="count != null">count,</if>
+            <if test="expirationDate != null">expiration_date,</if>
+            <if test="status != null">status,</if>
+            <if test="orderNo != null">order_no,</if>
+            <if test="settlement != null">settlement,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="agentId != null">#{agentId},</if>
+            <if test="agentName != null">#{agentName},</if>
+            <if test="agentOrderUuid != null">#{agentOrderUuid},</if>
+            <if test="bugUuid != null">#{bugUuid},</if>
+            <if test="bugName != null">#{bugName},</if>
+            <if test="bugTime != null">#{bugTime},</if>
+            <if test="categoryId != null">#{categoryId},</if>
+            <if test="discount != null">#{discount},</if>
+            <if test="realPrice != null">#{realPrice},</if>
+            <if test="price != null">#{price},</if>
+            <if test="count != null">#{count},</if>
+            <if test="expirationDate != null">#{expirationDate},</if>
+            <if test="status != null">#{status},</if>
+            <if test="orderNo != null">#{orderNo},</if>
+            <if test="settlement != null">#{settlement},</if>
+         </trim>
+    </insert>
+
+    <update id="updateZhsAgentBuy" parameterType="com.ai.manager.small.domain.ZhsAgentBuy">
+        update zhs_agent_buy
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="agentId != null">agent_id = #{agentId},</if>
+            <if test="agentName != null">agent_name = #{agentName},</if>
+            <if test="agentOrderUuid != null">agent_order_uuid = #{agentOrderUuid},</if>
+            <if test="bugUuid != null">bug_uuid = #{bugUuid},</if>
+            <if test="bugName != null">bug_name = #{bugName},</if>
+            <if test="bugTime != null">bug_time = #{bugTime},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="discount != null">discount = #{discount},</if>
+            <if test="realPrice != null">real_price = #{realPrice},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="count != null">count = #{count},</if>
+            <if test="expirationDate != null">expiration_date = #{expirationDate},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="orderNo != null">order_no = #{orderNo},</if>
+            <if test="settlement != null">settlement = #{settlement},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteZhsAgentBuyById" parameterType="String">
+        delete from zhs_agent_buy where id = #{id}
+    </delete>
+
+    <delete id="deleteZhsAgentBuyByIds" parameterType="String">
+        delete from zhs_agent_buy where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

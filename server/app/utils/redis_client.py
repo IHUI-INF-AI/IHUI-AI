@@ -26,7 +26,7 @@ class RedisClient:
 
     def get(self, key: str) -> str | None:
         try:
-            return self.client.get(key)
+            return self.client.get(key)  # type: ignore[return-value]
         except Exception as e:
             logger.warning(f"Redis get failed: {e}")
             return None

@@ -8,16 +8,12 @@ K8s probes:
 """
 
 import asyncio
-import logging
-import threading
 import time
 from collections import deque
 from typing import Any
 
 from fastapi import APIRouter, Query
 from sqlalchemy import text
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Health"])
 
@@ -26,7 +22,6 @@ _MAX_HISTORY = 100
 _MAX_HISTORY_AGE_DAYS = 7
 _HISTORY: deque = deque(maxlen=_MAX_HISTORY)
 _HISTORY_TABLE_READY = False
-_HISTORY_TABLE_LOCK = threading.Lock()
 
 
 def _ensure_history_table() -> None:
@@ -34,55 +29,52 @@ def _ensure_history_table() -> None:
     global _HISTORY_TABLE_READY
     if _HISTORY_TABLE_READY:
         return
-    with _HISTORY_TABLE_LOCK:
-        if _HISTORY_TABLE_READY:
-            return
-        try:
-            from app.database import engine1
-            with engine1.begin() as conn:
-                dialect = conn.dialect.name
-                if dialect == "postgresql":
-                    conn.execute(text(
-                        "CREATE TABLE IF NOT EXISTS zhs_health_history ("
-                        "id BIGSERIAL PRIMARY KEY, "
-                        "ts BIGINT NOT NULL, "
-                        "latency_ms REAL NOT NULL, "
-                        "status VARCHAR(16) NOT NULL, "
-                        "db_ok BOOLEAN NOT NULL, "
-                        "redis_ok BOOLEAN NOT NULL)"
-                    ))
-                else:
-                    conn.execute(text(
-                        "CREATE TABLE IF NOT EXISTS zhs_health_history ("
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                        "ts BIGINT NOT NULL, "
-                        "latency_ms REAL NOT NULL, "
-                        "status VARCHAR(16) NOT NULL, "
-                        "db_ok BOOLEAN NOT NULL, "
-                        "redis_ok BOOLEAN NOT NULL)"
-                    ))
-                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_health_history_ts ON zhs_health_history (ts DESC)"))
-                # 清理 > 7 天的数据
-                cutoff_ms = int((time.time() - _MAX_HISTORY_AGE_DAYS * 86400) * 1000)
-                conn.execute(text("DELETE FROM zhs_health_history WHERE ts < :cutoff"), {"cutoff": cutoff_ms})
-                # 加载最近 100 条到内存
-                rows = conn.execute(text(
-                    "SELECT ts, latency_ms, status, db_ok, redis_ok "
-                    "FROM zhs_health_history ORDER BY ts DESC LIMIT :n"
-                ), {"n": _MAX_HISTORY}).fetchall()
-                _HISTORY.clear()
-                for r in reversed(rows):
-                    _HISTORY.append({
-                        "ts": int(r[0]),
-                        "latency_ms": round(float(r[1]), 1),
-                        "status": r[2],
-                        "db_ok": bool(r[3]),
-                        "redis_ok": bool(r[4]),
-                    })
-            _HISTORY_TABLE_READY = True
-        except Exception:
-            # 表创建失败时降级到纯内存模式, 不影响 health 端点工作
-            pass
+    try:
+        from app.database import engine1
+        with engine1.begin() as conn:
+            dialect = conn.dialect.name
+            if dialect == "postgresql":
+                conn.execute(text(
+                    "CREATE TABLE IF NOT EXISTS zhs_health_history ("
+                    "id BIGSERIAL PRIMARY KEY, "
+                    "ts BIGINT NOT NULL, "
+                    "latency_ms REAL NOT NULL, "
+                    "status VARCHAR(16) NOT NULL, "
+                    "db_ok BOOLEAN NOT NULL, "
+                    "redis_ok BOOLEAN NOT NULL)"
+                ))
+            else:
+                conn.execute(text(
+                    "CREATE TABLE IF NOT EXISTS zhs_health_history ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "ts BIGINT NOT NULL, "
+                    "latency_ms REAL NOT NULL, "
+                    "status VARCHAR(16) NOT NULL, "
+                    "db_ok BOOLEAN NOT NULL, "
+                    "redis_ok BOOLEAN NOT NULL)"
+                ))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_health_history_ts ON zhs_health_history (ts DESC)"))
+            # 清理 > 7 天的数据
+            cutoff_ms = int((time.time() - _MAX_HISTORY_AGE_DAYS * 86400) * 1000)
+            conn.execute(text("DELETE FROM zhs_health_history WHERE ts < :cutoff"), {"cutoff": cutoff_ms})
+            # 加载最近 100 条到内存
+            rows = conn.execute(text(
+                "SELECT ts, latency_ms, status, db_ok, redis_ok "
+                "FROM zhs_health_history ORDER BY ts DESC LIMIT :n"
+            ), {"n": _MAX_HISTORY}).fetchall()
+            _HISTORY.clear()
+            for r in reversed(rows):
+                _HISTORY.append({
+                    "ts": int(r[0]),
+                    "latency_ms": round(float(r[1]), 1),
+                    "status": r[2],
+                    "db_ok": bool(r[3]),
+                    "redis_ok": bool(r[4]),
+                })
+        _HISTORY_TABLE_READY = True
+    except Exception:
+        # 表创建失败时降级到纯内存模式, 不影响 health 端点工作
+        pass
 
 
 def _record_history(latency_ms: float, status: str, db_ok: bool, redis_ok: bool) -> None:
@@ -104,8 +96,8 @@ def _record_history(latency_ms: float, status: str, db_ok: bool, redis_ok: bool)
                 text("INSERT INTO zhs_health_history (ts, latency_ms, status, db_ok, redis_ok) VALUES (:ts, :l, :s, :d, :r)"),
                 {"ts": ts, "l": item["latency_ms"], "s": status, "d": db_ok, "r": redis_ok},
             )
-    except Exception as e:
-        logger.debug("持久化健康检查历史失败: %s", e)
+    except Exception:
+        pass
 
 
 def _check_db_sync(engine, timeout: float = 2.0) -> tuple[bool, str]:
@@ -140,7 +132,7 @@ async def _check_db(timeout: float = 2.0) -> dict[str, Any]:
     # 并发检查 3 个引擎, 总耗时不超过 timeout (而不是 3*timeout)
     pairs = await asyncio.gather(*[_check_one(i, e) for i, e in enumerate([engine1, engine2, engine3], 1)])
     results = dict(pairs)
-    results["ok"] = all(r["ok"] for r in results.values())
+    results["ok"] = all(r["ok"] for r in results.values())  # type: ignore[assignment]
     return results
 
 
@@ -198,7 +190,7 @@ async def health():
     overall_ok = db_check.get("ok", False) and redis_check.get("ok", False)
     status = "ok" if overall_ok else "degraded"
     latency_ms = (time.time() - t0) * 1000
-    await asyncio.to_thread(_record_history, latency_ms, status, db_check.get("ok", False), redis_check.get("ok", False))
+    _record_history(latency_ms, status, db_check.get("ok", False), redis_check.get("ok", False))
     return {
         "status": status,
         "uptime_s": round(time.time() - _START_TIME, 1),
@@ -208,7 +200,7 @@ async def health():
 
 
 @router.get("/health/history", summary="健康检查历史 (持久化, 最近 7 天, 默认 100 条)")
-def health_history(limit: int = Query(50, ge=1, le=10000)):
+async def health_history(limit: int = Query(50, ge=1, le=10000)):
     """返回最近 N 条健康检查记录 (新 → 旧), 用于前端趋势图跨页面共享数据.
 
     持久化到 zhs_health_history 表, 保留 7 天, 后端重启不丢失.

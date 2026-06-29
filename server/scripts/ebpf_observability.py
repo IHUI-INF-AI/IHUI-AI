@@ -10,8 +10,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from datetime import timedelta
-from app.utils.datetime_helper import utcnow
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -51,7 +50,7 @@ TRACE_INJECTION_RULES = {
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:
@@ -233,7 +232,7 @@ def register_kprobe(hook: str, function: str,
 
 def get_protocol_stats(minutes: int = 60) -> Dict[str, Any]:
     """协议统计"""
-    since = (utcnow() - timedelta(minutes=minutes)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(minutes=minutes)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT protocol, COUNT(*) as cnt,
             AVG(latency_us) as avg_latency
@@ -247,7 +246,7 @@ def get_protocol_stats(minutes: int = 60) -> Dict[str, Any]:
 
 def get_security_summary(hours: int = 24) -> Dict[str, Any]:
     """安全事件汇总"""
-    since = (utcnow() - timedelta(hours=hours)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT event_type, severity, COUNT(*) as cnt,
             SUM(blocked) as blocked_cnt
@@ -269,7 +268,7 @@ def get_security_summary(hours: int = 24) -> Dict[str, Any]:
 
 def get_top_talkers(minutes: int = 5, limit: int = 10) -> List[Dict[str, Any]]:
     """流量 Top N"""
-    since = (utcnow() - timedelta(minutes=minutes)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(minutes=minutes)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT src_pod, dst_pod, protocol, COUNT(*) as cnt,
             AVG(latency_us) as avg_latency
@@ -315,7 +314,7 @@ def _send_dingtalk(title: str, content: str) -> None:
 
 def detect_anomaly(protocol: str) -> bool:
     """异常检测: 错误率超过 10% 触发告警"""
-    since = (utcnow() - timedelta(minutes=5)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(minutes=5)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         total = c.execute("""SELECT COUNT(*) as cnt FROM l7_events
             WHERE protocol = ? AND timestamp >= ?""", (protocol, since)).fetchone()["cnt"]

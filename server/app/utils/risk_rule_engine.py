@@ -85,7 +85,7 @@ class SafeEvaluator:
         if isinstance(node, ast.UnaryOp):
             op_type = type(node.op)
             if op_type in _UNARY_OPS:
-                return _UNARY_OPS[op_type](self._eval_node(node.operand))
+                return _UNARY_OPS[op_type](self._eval_node(node.operand))  # type: ignore[operator]
         if isinstance(node, ast.BinOp):
             return self._eval_binop(node)
         if isinstance(node, ast.BoolOp):
@@ -115,7 +115,7 @@ class SafeEvaluator:
         if isinstance(node, ast.Tuple):
             return tuple(self._eval_node(elt) for elt in node.elts)
         if isinstance(node, ast.Dict):
-            return {self._eval_node(k): self._eval_node(v) for k, v in zip(node.keys, node.values, strict=True)}
+            return {self._eval_node(k): self._eval_node(v) for k, v in zip(node.keys, node.values, strict=True)}  # type: ignore[arg-type]
         if isinstance(node, ast.Subscript):
             value = self._eval_node(node.value)
             key = self._eval_node(node.slice)
@@ -134,7 +134,7 @@ class SafeEvaluator:
         op_type = type(node.op)
         if op_type in _BIN_OPS:
             try:
-                return _BIN_OPS[op_type](left, right)
+                return _BIN_OPS[op_type](left, right)  # type: ignore[index]
             except TypeError:
                 return False
         if op_type is ast.Add:

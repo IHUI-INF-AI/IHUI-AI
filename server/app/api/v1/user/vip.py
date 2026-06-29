@@ -1,7 +1,7 @@
 """VIP management routes."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -50,7 +50,7 @@ def _serialize_level(level) -> dict:
 
 
 @router.get("/levels", summary="Get all VIP levels")
-def get_vip_levels(user_uuid: str = Depends(require_login)):
+async def get_vip_levels(user_uuid: str = Depends(require_login)):
     """Return the list of all active VIP levels."""
     db = SessionFactory2()
     try:
@@ -69,7 +69,7 @@ def get_vip_levels(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/level/{vip_id}", summary="Get VIP level detail")
-def get_vip_level_detail(vip_id: int, user_uuid: str = Depends(require_login)):
+async def get_vip_level_detail(vip_id: int, user_uuid: str = Depends(require_login)):
     """Return details of a single VIP level by its ID."""
     db = SessionFactory2()
     try:
@@ -84,7 +84,7 @@ def get_vip_level_detail(vip_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.get("/my", summary="Get current user VIP info")
-def get_my_vip(user_uuid: str = Depends(require_login)):
+async def get_my_vip(user_uuid: str = Depends(require_login)):
     """Return the current user's VIP subscription: level, expiration, and benefits."""
     db = SessionFactory2()
     try:
@@ -113,7 +113,7 @@ def get_my_vip(user_uuid: str = Depends(require_login)):
         benefits = None
         if level and level.benefits:
             try:
-                benefits = json.loads(level.benefits)
+                benefits = json.loads(level.benefits)  # type: ignore[arg-type]
             except (json.JSONDecodeError, TypeError):
                 benefits = level.benefits
 
@@ -133,21 +133,18 @@ def get_my_vip(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/subscribe", summary="Subscribe VIP (create order)")
-def subscribe_vip(
+async def subscribe_vip(
     body: SubscribeRequest,
     user_uuid: str = Depends(require_login),
 ):
-    """Create a pending VIP subscription order for the current user.
+    """Create a new VIP subscription for the current user.
 
-    安全修复: 不再直接激活 VIP, 仅创建待支付订单 (status=0, payment_status=0).
-    VIP 状态在支付回调 /api/v1/orders/pay_callback 成功后激活.
-    前端拿到返回的 out_trade_no / amount 后发起支付.
+    If the user already has an active subscription that hasn't expired,
+    the new subscription starts after the existing one ends.
     """
     db = SessionFactory2()
     try:
-        from app.models.payment_models import Order
-        from app.models.user_models import VipLevel
-        from app.utils.order_generator import order_generator
+        from app.models.user_models import UserVip, VipLevel
 
         level = (
             db.query(VipLevel)
@@ -160,41 +157,56 @@ def subscribe_vip(
         if not level:
             return error("VIP level not found or disabled", "404")
 
-        # 生成商户订单号并创建待支付订单 (status=0 pending, payment_status=0 unpaid)
-        # order_type=2 (identity) 表示 VIP 身份订单, product_id 记录 vip_level_id
-        out_trade_no = order_generator.generate()
-        order = Order(
-            user_id=user_uuid,
-            out_trade_no=out_trade_no,
-            amount=level.price,
-            status=0,
-            payment_status=0,
-            product_id=str(level.id),
-            order_type=2,
-            pay_type="wechat",
+        # Determine start time: extend existing active subscription or start now
+        now = datetime.utcnow()
+        existing = (
+            db.query(UserVip)
+            .filter(
+                UserVip.user_uuid == user_uuid,
+                UserVip.status == 1,
+                UserVip.end_time > now,
+            )
+            .order_by(UserVip.end_time.desc())
+            .first()
         )
-        db.add(order)
-        db.commit()
-        db.refresh(order)
+        start_time = existing.end_time if existing else now
+        end_time = start_time + timedelta(days=level.duration_days)  # type: ignore[arg-type]
 
-        # 注意: 此处不创建 UserVip 记录, 也不设置 user.is_vip=1.
-        # VIP 状态在支付回调 /api/v1/orders/pay_callback 成功后激活:
-        #   - 创建 UserVip 记录 (status=1, start_time/end_time 按 duration_days 计算)
-        #   - 更新 User.is_vip=1
+        # Build a simple order ID
+        import uuid as _uuid
+
+        order_id = f"VIP-{_uuid.uuid4().hex[:16].upper()}"
+
+        record = UserVip(
+            user_uuid=user_uuid,
+            vip_level_id=level.id,
+            level_value=level.level_value,
+            start_time=start_time,
+            end_time=end_time,
+            status=1,
+            order_id=order_id,
+        )
+        db.add(record)
+
+        # Update User.is_vip flag
+        from app.models.user_models import User
+
+        db.query(User).filter(User.uuid == user_uuid).update({"is_vip": 1})
+
+        db.commit()
+        db.refresh(record)
 
         return success(
             {
-                "order_id": order.id,
-                "out_trade_no": out_trade_no,
+                "order_id": order_id,
                 "vip_level_id": level.id,
                 "level_name": level.level_name,
-                "amount": level.price,
+                "start_time": str(start_time),
+                "end_time": str(end_time),
                 "price": level.price,
                 "duration_days": level.duration_days,
-                "status": order.status,
-                "payment_status": order.payment_status,
             },
-            msg="VIP 订单已创建, 请完成支付后激活 VIP",
+            msg="VIP subscription created",
         )
     except Exception as e:
         db.rollback()
@@ -204,13 +216,13 @@ def subscribe_vip(
 
 
 @router.get("/check", summary="Check current user VIP status")
-def check_vip(user_uuid: str = Depends(require_login)):
+async def check_vip(user_uuid: str = Depends(require_login)):
     """Quickly check whether the current user is an active VIP and what level."""
     db = SessionFactory2()
     try:
         from app.models.user_models import UserVip, VipLevel
 
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         record = (
             db.query(UserVip)
             .filter(

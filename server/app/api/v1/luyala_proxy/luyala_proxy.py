@@ -2,11 +2,10 @@
 
 
 import httpx
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from loguru import logger
 
 from app.schemas.common import error, success
-from app.security import require_login
 from app.utils.ai_keys import luyala_key
 
 router = APIRouter()
@@ -21,9 +20,8 @@ async def chat(
     temperature: float = Body(0.7, embed=True),
     max_tokens: int = Body(2048, embed=True),
     api_key: str | None = None,
-    _: str = Depends(require_login),
 ):
-    with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if luyala_key(api_key):
@@ -50,9 +48,8 @@ async def completion(
     model: str = Body("luyala-pro", embed=True),
     max_tokens: int = Body(1024, embed=True),
     api_key: str | None = None,
-    _: str = Depends(require_login),
 ):
-    with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if luyala_key(api_key):
@@ -73,9 +70,8 @@ async def embeddings(
     input_text: str = Body(..., embed=True),
     model: str = Body("luyala-embed", embed=True),
     api_key: str | None = None,
-    _: str = Depends(require_login),
 ):
-    with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=60) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if luyala_key(api_key):

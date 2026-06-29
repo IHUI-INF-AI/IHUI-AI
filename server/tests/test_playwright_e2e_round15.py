@@ -36,7 +36,7 @@ class TestConcurrencyMoneyE2E:
     """维度 1 端到端: 并发幂等 + 库存 + 金额精度 + 透支防护."""
 
     def test_bug131_dedup_concurrent(self):
-        from app.utils.dedup_order import (
+        from app.utils.bug131_dedup_order import (
             ConcurrentOrderDeduper,
             DedupConfig,
             derive_order_token,
@@ -63,7 +63,7 @@ class TestConcurrencyMoneyE2E:
         assert token == t2
 
     def test_bug132_stock_no_oversell(self):
-        from app.utils.stock_guard import ReserveState, StockGuard
+        from app.utils.bug132_stock_guard import ReserveState, StockGuard
 
         g = StockGuard()
         g.init_stock("sku-1", total=10)
@@ -77,7 +77,7 @@ class TestConcurrencyMoneyE2E:
         g.commit(g.try_reserve("sku-1", 1, "u1").ticket_id) if False else None
 
     def test_bug133_money_decimal_precision(self):
-        from app.utils.money_precision import (
+        from app.utils.bug133_money_precision import (
             Money,
             MoneyValidator,
             split_money,
@@ -98,7 +98,7 @@ class TestConcurrencyMoneyE2E:
         assert v.validate(Money.from_yuan("0.001")) is False
 
     def test_bug139_overdraft_blocked(self):
-        from app.utils.overdraft_guard import OverdraftGuard, TxResult
+        from app.utils.bug139_overdraft_guard import OverdraftGuard, TxResult
 
         g = OverdraftGuard()
         g.create_account("a1", Decimal("100"))
@@ -124,7 +124,7 @@ class TestSecurityE2E:
     def test_bug134_jwt_expired_and_refresh(self):
         import time as _t
 
-        from app.utils.jwt_boundary import (
+        from app.utils.bug134_jwt_boundary import (
             JWTConfig,
             JWTManager,
             TokenState,
@@ -145,7 +145,7 @@ class TestSecurityE2E:
         assert new is not None
 
     def test_bug135_idor_deny_by_default(self):
-        from app.utils.idor_guard import (
+        from app.utils.bug135_idor_guard import (
             AccessDecision,
             AccessRequest,
             IDORGuard,
@@ -193,7 +193,7 @@ class TestSecurityE2E:
         assert d3 == AccessDecision.DENY
 
     def test_bug136_csrf_double_submit(self):
-        from app.utils.csrf_guard import CSRFGuard, CSRFState
+        from app.utils.bug136_csrf_guard import CSRFGuard, CSRFState
 
         g = CSRFGuard()
         token = g.issue("s1")
@@ -216,7 +216,7 @@ class TestTimeBoundaryE2E:
     """维度 3 端到端: 时区 + 日历边界."""
 
     def test_bug137_timezone_utc_roundtrip(self):
-        from app.utils.timezone import to_aware_utc, to_iso, to_zone
+        from app.utils.bug137_timezone import to_aware_utc, to_iso, to_zone
 
         # 上海时间 -> UTC -> 上海
         sh_dt = to_zone("2024-06-15T10:00:00", "Asia/Shanghai")
@@ -227,7 +227,7 @@ class TestTimeBoundaryE2E:
         assert "2024-06-15" in iso
 
     def test_bug138_leap_year_feb_29(self):
-        from app.utils.calendar_boundary import (
+        from app.utils.bug138_calendar_boundary import (
             days_in_month,
             is_leap_year,
             natural_month,
@@ -245,7 +245,7 @@ class TestTimeBoundaryE2E:
         assert mb.year == 2024 and mb.month == 2 and mb.days == 29
 
     def test_bug138_year_and_quarter_boundary(self):
-        from app.utils.calendar_boundary import natural_quarter, natural_year
+        from app.utils.bug138_calendar_boundary import natural_quarter, natural_year
 
         yb = natural_year("2024-06-15")
         assert yb.days == 366  # 2024 闰年
@@ -262,7 +262,7 @@ class TestNetworkMiddlewareE2E:
     """维度 4 端到端: WS 重连 + Kafka offset."""
 
     def test_bug140_ws_reconnect_backoff(self):
-        from app.utils.ws_resilience import WSResilience, WsState
+        from app.utils.bug140_ws_resilience import WSResilience, WsState
 
         ws = WSResilience()
         sess = ws.connect("u1")
@@ -279,7 +279,7 @@ class TestNetworkMiddlewareE2E:
         assert ws.disconnect(sess.session_id) is True
 
     def test_bug141_kafka_offset_commit(self):
-        from app.utils.kafka_offset import (
+        from app.utils.bug141_kafka_offset import (
             CommitMode,
             KafkaConfig,
             KafkaOffsetManager,
@@ -306,7 +306,7 @@ class TestAICostE2E:
     """维度 5 端到端: 缓存穿透 + 注入防护 + 流式断点续传 + token 计费."""
 
     def test_bug142_cache_negative_and_jitter(self):
-        from app.utils.cache_guard import CacheGuard, CacheState
+        from app.utils.bug142_cache_guard import CacheGuard, CacheState
 
         g = CacheGuard()
         # 负值缓存
@@ -320,7 +320,7 @@ class TestAICostE2E:
         assert s2 == CacheState.HIT and v2 == "v1"
 
     def test_bug143_prompt_injection_block(self):
-        from app.utils.prompt_injection import PromptInjectionGuard
+        from app.utils.bug143_prompt_injection import PromptInjectionGuard
 
         g = PromptInjectionGuard()
         # CRITICAL 注入
@@ -341,7 +341,7 @@ class TestAICostE2E:
             pass
 
     def test_bug144_stream_resume(self):
-        from app.utils.stream_resilience import StreamResilience
+        from app.utils.bug144_stream_resilience import StreamResilience
 
         s = StreamResilience()
         sess = s.start("u1", "gpt-4o-mini")
@@ -357,7 +357,7 @@ class TestAICostE2E:
         assert resumed.resume_token == sess.resume_token
 
     def test_bug145_token_billing(self):
-        from app.utils.token_billing import ChargeResult, TokenGuard
+        from app.utils.bug145_token_billing import ChargeResult, TokenGuard
 
         g = TokenGuard()
         g.set_budget("u1", daily_limit=10.0, monthly_limit=100.0)
@@ -378,7 +378,7 @@ class TestDatabaseMigrationE2E:
     """维度 6 端到端: 迁移回滚 + 租户隔离 + 死锁检测."""
 
     def test_bug146_migration_rollback(self):
-        from app.utils.migration_rollback import (
+        from app.utils.bug146_migration_rollback import (
             Migration,
             MigrationRunner,
             MigrationStep,
@@ -405,7 +405,7 @@ class TestDatabaseMigrationE2E:
         assert ok3 is True
 
     def test_bug147_tenant_isolation(self):
-        from app.utils.tenant_isolation import (
+        from app.utils.bug147_tenant_isolation import (
             TenantContext,
             TenantGuard,
             tenant_scope,
@@ -431,7 +431,7 @@ class TestDatabaseMigrationE2E:
             assert keep[0]["tenant_id"] == "t1"
 
     def test_bug148_deadlock_detection(self):
-        from app.utils.deadlock_detector import (
+        from app.utils.bug148_deadlock_detector import (
             DeadlockDetector,
             LockMode,
             TxResult,

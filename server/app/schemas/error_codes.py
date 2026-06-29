@@ -11,12 +11,13 @@
   5xxxxx  服务端错误 (5xx HTTP)
   9xxxxx  业务特定错误 (任意 HTTP)
 """
+import enum
 
 try:
     from enum import StrEnum
 except ImportError:
-    from enum import Enum
-    class StrEnum(str, Enum):
+
+    class StrEnum(enum.StrEnum):  # type: ignore[no-redef]
         __str__ = str.__str__
 
 
@@ -45,6 +46,9 @@ class ErrorCode(StrEnum):
     SMS_CODE_INVALID = "400101"     # 短信验证码错误
     PHONE_REGISTERED = "400102"     # 手机号已注册
     PASSWORD_WEAK = "400103"        # 密码强度不足
+    EMAIL_CODE_INVALID = "400104"   # 邮箱验证码错误
+    EMAIL_FORMAT_INVALID = "400105" # 邮箱格式无效
+    EMAIL_NOT_CONFIGURED = "500104" # 邮件服务未配置
 
     # 5xxxxx 服务端错误
     INTERNAL_ERROR = "500000"       # 服务器内部错误
@@ -81,6 +85,9 @@ HTTP_STATUS_MAP = {
     ErrorCode.SMS_CODE_INVALID: 400,
     ErrorCode.PHONE_REGISTERED: 400,
     ErrorCode.PASSWORD_WEAK: 400,
+    ErrorCode.EMAIL_CODE_INVALID: 400,
+    ErrorCode.EMAIL_FORMAT_INVALID: 400,
+    ErrorCode.EMAIL_NOT_CONFIGURED: 500,
     ErrorCode.INTERNAL_ERROR: 500,
     ErrorCode.SERVICE_UNAVAILABLE: 503,
     ErrorCode.DB_ERROR: 500,

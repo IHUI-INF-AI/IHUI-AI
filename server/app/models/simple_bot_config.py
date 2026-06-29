@@ -4,6 +4,7 @@
 专门处理 shortcut_commands 循环格式化和 agents_variable 数组存储.
 """
 
+from datetime import datetime
 from typing import Any
 
 from loguru import logger
@@ -11,7 +12,6 @@ from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import Session
 
 from app.database import Base
-from app.utils.datetime_helper import utcnow
 
 
 class SimpleBotConfig(Base):
@@ -27,8 +27,8 @@ class SimpleBotConfig(Base):
     other_config = Column(JSON)
     shortcut_count = Column(Integer, default=0)
     variable_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=utcnow)
-    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -103,7 +103,7 @@ class SimpleBotConfigManager:
         config.variable_count = len(config.agents_variable)
         other = {k: v for k, v in bot_data.items() if k not in ("bot_id", "name", "description", "shortcut_commands", "agents_variable")}
         config.other_config = other
-        config.updated_at = utcnow()
+        config.updated_at = datetime.utcnow()
         session.commit()
         return config
 

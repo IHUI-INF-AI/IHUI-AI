@@ -173,16 +173,14 @@ class CircuitBreaker:
 # ---------------------------------------------------------------------------
 # 熔断器注册中心
 # ---------------------------------------------------------------------------
-_registry_lock = threading.Lock()
 _CIRCUITS: dict = {}
 
 
 def get_circuit(name: str, **kwargs) -> CircuitBreaker:
     """获取或创建熔断器 (单例)."""
-    with _registry_lock:
-        if name not in _CIRCUITS:
-            _CIRCUITS[name] = CircuitBreaker(name=name, **kwargs)
-        return _CIRCUITS[name]
+    if name not in _CIRCUITS:
+        _CIRCUITS[name] = CircuitBreaker(name=name, **kwargs)
+    return _CIRCUITS[name]
 
 
 def circuit(name: str, **cb_kwargs):
@@ -190,7 +188,7 @@ def circuit(name: str, **cb_kwargs):
 
     用法:
         @circuit("payment", failure_threshold=3, reset_timeout=60)
-        def call_payment_api(...):
+        async def call_payment_api(...):
             ...
     """
     cb = get_circuit(name, **cb_kwargs)
@@ -253,13 +251,8 @@ class TokenBucketRateLimit:
             return False
 
     async def aacquire(self, n: int = 1) -> bool:
-        """异步版 (可能短暂阻塞, 内部用 threading.Lock).
-
-        用 run_in_threadpool 包装同步 acquire, 避免在事件循环线程中阻塞。
-        """
-        from starlette.concurrency import run_in_threadpool
-
-        return await run_in_threadpool(self.acquire, n)
+        """异步版 (不阻塞)."""
+        return self.acquire(n)
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -276,10 +269,9 @@ _LIMITERS: dict = {}
 
 
 def get_limiter(name: str, **kwargs) -> TokenBucketRateLimit:
-    with _registry_lock:
-        if name not in _LIMITERS:
-            _LIMITERS[name] = TokenBucketRateLimit(name=name, **kwargs)
-        return _LIMITERS[name]
+    if name not in _LIMITERS:
+        _LIMITERS[name] = TokenBucketRateLimit(name=name, **kwargs)
+    return _LIMITERS[name]
 
 
 def rate_limit(name: str, capacity: int = 100, refill_rate: float = 10.0, on_reject=None):
@@ -293,8 +285,6 @@ def rate_limit(name: str, capacity: int = 100, refill_rate: float = 10.0, on_rej
             async def async_wrapper(*args, **kwargs):
                 if not limiter.acquire():
                     if on_reject:
-                        if asyncio.iscoroutinefunction(on_reject):
-                            return await on_reject()
                         return on_reject()
                     raise RuntimeError(f"rate limit exceeded for '{name}'")
                 return await func(*args, **kwargs)
@@ -325,7 +315,7 @@ def degraded_mode(fallback: Any = None, exceptions: tuple = (Exception,), log: b
 
     用法:
         @degraded_mode(fallback=[], exceptions=(httpx.RequestError,))
-        def fetch_recommendations(user_id):
+        async def fetch_recommendations(user_id):
             ...
     """
 
@@ -367,10 +357,9 @@ _BULKHEADS: dict = {}
 
 def get_bulkhead(name: str, max_concurrent: int = 10) -> asyncio.Semaphore:
     """获取或创建信号量隔离器 (异步)."""
-    with _registry_lock:
-        if name not in _BULKHEADS:
-            _BULKHEADS[name] = asyncio.Semaphore(max_concurrent)
-        return _BULKHEADS[name]
+    if name not in _BULKHEADS:
+        _BULKHEADS[name] = asyncio.Semaphore(max_concurrent)
+    return _BULKHEADS[name]
 
 
 def bulkhead(name: str, max_concurrent: int = 10):
@@ -414,5 +403,5 @@ def with_timeout(timeout_sec: float):
 def all_snapshots() -> dict:
     return {
         "circuits": {n: c.snapshot() for n, c in _CIRCUITS.items()},
-        "limiters": {n: l.snapshot() for n, l in _LIMITERS.items()},
+        "limiters": {n: lim.snapshot() for n, lim in _LIMITERS.items()},
     }

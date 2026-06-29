@@ -153,10 +153,10 @@ class SagaRunner:
         for spec in step_specs:
             s = SagaStep(
                 name=str(spec.get("name", uuid.uuid4().hex[:6])),
-                action=spec.get("action"),
-                compensation=spec.get("compensation"),
-                timeout_sec=float(spec.get("timeout_sec", 30.0)),
-                max_retries=int(spec.get("max_retries", 0)),
+                action=spec.get("action"),  # type: ignore[arg-type]
+                compensation=spec.get("compensation"),  # type: ignore[arg-type]
+                timeout_sec=float(spec.get("timeout_sec", 30.0)),  # type: ignore[arg-type]
+                max_retries=int(spec.get("max_retries", 0)),  # type: ignore[call-overload]
             )
             steps.append(s)
         saga = Saga(

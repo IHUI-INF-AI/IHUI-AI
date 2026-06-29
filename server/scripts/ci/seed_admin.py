@@ -19,6 +19,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import text
@@ -431,7 +432,7 @@ def seed_full(engine: sa.Engine | None = None, admin_user_name: str = DEFAULT_US
     返回每个表插入/跳过的数量, 例如 {"roles": (2, 0), "depts": (4, 0), ...}.
     """
     engine = engine or _engine()
-    result = {}
+    result: dict[str, Any] = {}
     # admin role
     for t in ("admin_role", "admin_dept", "admin_post", "admin_dict_type", "admin_menu"):
         if not _table_exists(engine, t):

@@ -3,6 +3,7 @@
 """
 import logging
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Body, HTTPException
 
@@ -12,7 +13,7 @@ from app.core.customer_service_db import (
 from app.core.customer_service_db import (
     load_tickets,
 )
-from app.utils.datetime_helper import utcnow
+from app.schemas.common import success
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ _replies: dict[str, list[dict]] = {}  # ticket_id -> list of reply
 
 
 def _ok(data, msg: str = "success"):
-    return {"code": 200, "msg": msg, "data": data, "success": True}
+    return success(data, msg)
 
 
 def _ticket_to_response(t: dict) -> dict:
@@ -80,7 +81,7 @@ def _list_tickets_impl(
 
 
 @router.get("/list")
-def list_tickets(
+async def list_tickets(
     page: int = 1,
     pageSize: int = 10,  # noqa: 5
     status: str | None = None,
@@ -91,7 +92,7 @@ def list_tickets(
 
 
 @router.get("")
-def list_tickets_at_root(
+async def list_tickets_at_root(
     page: int = 1,
     pageSize: int = 10,  # noqa: 5
     status: str | None = None,
@@ -102,7 +103,7 @@ def list_tickets_at_root(
 
 
 @router.get("/{id}")
-def get_ticket(id: str):
+async def get_ticket(id: str):
     """工单详情,与前端 getTicket 对齐"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
@@ -110,7 +111,7 @@ def get_ticket(id: str):
 
 
 @router.post("")
-def create_ticket(body: dict = Body(default_factory=dict)):
+async def create_ticket(body: dict = Body(default_factory=dict)):
     """创建工单,与前端 createTicket 对齐(JSON)"""
     title = (body.get("title") or "").strip()
     description = (body.get("description") or "").strip()
@@ -125,7 +126,7 @@ def create_ticket(body: dict = Body(default_factory=dict)):
     if len(description) < 10:
         raise HTTPException(status_code=400, detail="描述至少 10 个字符")
     tid = str(uuid.uuid4())
-    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     t = {
         "id": tid,
         "title": title,
@@ -144,14 +145,14 @@ def create_ticket(body: dict = Body(default_factory=dict)):
 
 
 @router.post("/{id}/replies")
-def reply_ticket(id: str, body: dict = Body(default_factory=dict)):
+async def reply_ticket(id: str, body: dict = Body(default_factory=dict)):
     """回复工单,与前端 replyTicket 对齐(JSON: content, attachments?)"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
     content = (body.get("content") or "").strip()
     if not content:
         raise HTTPException(status_code=400, detail="回复内容不能为空")
-    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     reply = {
         "id": str(uuid.uuid4()),
         "ticketId": id,
@@ -172,11 +173,11 @@ def reply_ticket(id: str, body: dict = Body(default_factory=dict)):
 
 
 @router.post("/{id}/close")
-def close_ticket(id: str):
+async def close_ticket(id: str):
     """关闭工单"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
-    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     _tickets[id]["status"] = "closed"
     _tickets[id]["updatedAt"] = now
     _tickets[id]["closedAt"] = now
@@ -189,11 +190,11 @@ def close_ticket(id: str):
 
 
 @router.post("/{id}/reopen")
-def reopen_ticket(id: str):
+async def reopen_ticket(id: str):
     """重新打开工单"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
-    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     _tickets[id]["status"] = "pending"
     _tickets[id]["updatedAt"] = now
     _tickets[id]["closedAt"] = None
@@ -206,14 +207,14 @@ def reopen_ticket(id: str):
 
 
 @router.post("/{id}/audit")
-def audit_ticket(id: str, body: dict = Body(default_factory=dict)):
+async def audit_ticket(id: str, body: dict = Body(default_factory=dict)):
     """审核工单(管理员)"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
     action = body.get("action")
     if action not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="action 必须是 approve 或 reject")
-    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     _tickets[id]["status"] = "approved" if action == "approve" else "rejected"
     _tickets[id]["updatedAt"] = now
     if _persist_callback:
@@ -225,14 +226,14 @@ def audit_ticket(id: str, body: dict = Body(default_factory=dict)):
 
 
 @router.post("/{id}/assign")
-def assign_ticket(id: str, body: dict = Body(default_factory=dict)):
+async def assign_ticket(id: str, body: dict = Body(default_factory=dict)):
     """分配工单(管理员)"""
     if id not in _tickets:
         raise HTTPException(status_code=404, detail="工单不存在")
     assign_to = (body.get("assignTo") or "").strip()
     if not assign_to:
         raise HTTPException(status_code=400, detail="assignTo 不能为空")
-    now = utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
     _tickets[id]["assignee"] = assign_to
     _tickets[id]["updatedAt"] = now
     if _persist_callback:
@@ -247,5 +248,5 @@ def assign_ticket(id: str, body: dict = Body(default_factory=dict)):
 try:
     _cs_init_db()
     _tickets, _replies = load_tickets()
-except Exception as e:
-    logger.debug("初始化工单 SQLite 持久化失败: %s", e)
+except Exception:
+    pass

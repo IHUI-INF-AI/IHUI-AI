@@ -42,7 +42,7 @@ class FieldRemoveRequest(BaseModel):
 
 
 @router.post("/save", summary="保存用户上下文")
-def save_context(
+async def save_context(
     req: ContextSaveRequest,
     user_uuid: str = Depends(require_login),
 ):
@@ -85,7 +85,7 @@ def save_context(
 
 
 @router.get("/get", summary="获取用户上下文")
-def get_context(
+async def get_context(
     agent_id: str = Query(..., description="Agent ID"),
     context_key: str | None = Query(None, description="Context key (optional filter)"),
     user_uuid: str = Depends(require_login),
@@ -127,7 +127,7 @@ def get_context(
 
 
 @router.get("/field", summary="获取指定字段值")
-def get_field(
+async def get_field(
     agent_id: str = Query(...),
     field_name: str = Query(...),
     user_uuid: str = Depends(require_login),
@@ -166,7 +166,7 @@ def get_field(
 
 
 @router.post("/remove/field", summary="删除指定字段")
-def remove_field(
+async def remove_field(
     req: FieldRemoveRequest,
     user_uuid: str = Depends(require_login),
 ):
@@ -196,7 +196,7 @@ def remove_field(
 
 
 @router.get("/agent/{agent_id}", summary="获取Agent调用(含token扣除)")
-def get_agent_with_deduction(
+async def get_agent_with_deduction(
     agent_id: str,
     user_uuid: str = Depends(require_login),
 ):
@@ -219,7 +219,7 @@ def get_agent_with_deduction(
                 )
 
             # 4. Deduct tokens
-            bill = deduct_user_token(user_uuid, cost_tokens, desc=f"Agent调用:{agent_id}")
+            bill = deduct_user_token(user_uuid, cost_tokens, desc=f"Agent调用:{agent_id}", bot_id=agent.bot_id)
             if not bill.get("success"):
                 return error(bill.get("reason", "Token扣减失败"))
 
@@ -270,7 +270,7 @@ class RawContextRequest(BaseModel):
 
 
 @router.post("/query", summary="Query user agent context (raw SQL)")
-def query_context_raw(
+async def query_context_raw(
     req: RawContextRequest,
     user_uuid: str = Depends(require_login),
 ):
@@ -362,7 +362,7 @@ def query_context_raw(
 
 
 @router.get("/sample", summary="Get sample context data")
-def get_sample_context(
+async def get_sample_context(
     limit: int = Query(5, ge=1, le=20, description="Number of rows"),
     user_uuid: str = Depends(require_login),
 ):
@@ -396,7 +396,7 @@ class HistoryRequest(BaseModel):
 
 
 @router.post("/history", summary="Query usage history")
-def get_usage_history(
+async def get_usage_history(
     req: HistoryRequest,
     user_uuid: str = Depends(require_login),
 ):

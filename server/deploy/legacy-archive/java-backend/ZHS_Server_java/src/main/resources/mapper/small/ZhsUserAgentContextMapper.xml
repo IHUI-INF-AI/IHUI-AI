@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsUserAgentContextMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.ZhsUserAgentContext" id="ZhsUserAgentContextResult">
+        <result property="id"    column="id"    />
+        <result property="agentId"    column="agent_id"    />
+        <result property="userUuid"    column="user_uuid"    />
+        <result property="problem"    column="problem"    />
+        <result property="answer"    column="answer"    />
+        <result property="userUrl"    column="user_url"    />
+        <result property="agentUrl"    column="agent_url"    />
+        <result property="sendTime"    column="send_time"    />
+        <result property="field1"    column="field1"    />
+        <result property="modelName"    column="model_name"    />
+        <result property="videoRatio"    column="video_ratio"    />
+        <result property="chatId"    column="chat_id"    />
+    </resultMap>
+
+    <sql id="selectZhsUserAgentContextVo">
+        select id, agent_id, user_uuid, problem, answer, user_url, agent_url, send_time, field1, model_name, video_ratio, chat_id from zhs_user_agent_context
+    </sql>
+
+    <select id="selectZhsUserAgentContextList" parameterType="com.ai.manager.small.domain.ZhsUserAgentContext" resultMap="ZhsUserAgentContextResult">
+        <include refid="selectZhsUserAgentContextVo"/>
+        <where>  
+            <if test="problem != null  and problem != ''"> and problem = #{problem}</if>
+            <if test="answer != null  and answer != ''"> and answer = #{answer}</if>
+            <if test="agentId != null  and agentId != ''"> and agent_id = #{agentId}</if>
+            <if test="userUuid != null  and userUuid != ''"> and user_uuid = #{userUuid}</if>
+            <if test="field1 != null  and field1 != ''"> and field1 = #{field1}</if>
+        </where>
+        order by send_time asc
+    </select>
+    
+    <select id="selectZhsUserAgentContextById" parameterType="String" resultMap="ZhsUserAgentContextResult">
+        <include refid="selectZhsUserAgentContextVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertZhsUserAgentContext" parameterType="com.ai.manager.small.domain.ZhsUserAgentContext">
+        insert into zhs_user_agent_context
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="agentId != null and agentId != ''">agent_id,</if>
+            <if test="userUuid != null and userUuid != ''">user_uuid,</if>
+            <if test="problem != null">problem,</if>
+            <if test="answer != null">answer,</if>
+            <if test="userUrl != null">user_url,</if>
+            <if test="agentUrl != null">agent_url,</if>
+            <if test="sendTime != null">send_time,</if>
+            <if test="field1 != null">field1,</if>
+            <if test="modelName != null">model_name,</if>
+            <if test="videoRatio != null">video_ratio,</if>
+            <if test="chatId != null">chat_id,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="agentId != null and agentId != ''">#{agentId},</if>
+            <if test="userUuid != null and userUuid != ''">#{userUuid},</if>
+            <if test="problem != null">#{problem},</if>
+            <if test="answer != null">#{answer},</if>
+            <if test="userUrl != null">#{userUrl},</if>
+            <if test="agentUrl != null">#{agentUrl},</if>
+            <if test="sendTime != null">#{sendTime},</if>
+            <if test="field1 != null">#{field1},</if>
+            <if test="modelName != null">#{modelName},</if>
+            <if test="videoRatio != null">#{videoRatio},</if>
+            <if test="chatId != null">#{chatId},</if>
+         </trim>
+    </insert>
+    <insert id="shareCreation">
+        insert into zhs_communal_project.ai_gc
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="title != null and title != ''">title,</if>
+            <if test="subtitle != null">subtitle,</if>
+            <if test="context != null">`context`,</if>
+            <if test="fileUrl != null and fileUrl != ''">file_url,</if>
+            <if test="fileType != null">file_type,</if>
+            <if test="coverUrl != null">cover_url,</if>
+            <if test="type != null">type,</if>
+            <if test="isDeprecated != null">is_deprecated,</if>
+            <if test="field1 != null">field1,</if>
+            <if test="field2 != null">field2,</if>
+            <if test="creator != null and creator != ''">creator,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updator != null">updator,</if>
+            <if test="updatedAt != null">updated_at,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="title != null and title != ''">#{title},</if>
+            <if test="subtitle != null">#{subtitle},</if>
+            <if test="context != null">#{context},</if>
+            <if test="fileUrl != null and fileUrl != ''">#{fileUrl},</if>
+            <if test="fileType != null">#{fileType},</if>
+            <if test="coverUrl != null">#{coverUrl},</if>
+            <if test="type != null">#{type},</if>
+            <if test="isDeprecated != null">#{isDeprecated},</if>
+            <if test="field1 != null">#{field1},</if>
+            <if test="field2 != null">#{field2},</if>
+            <if test="creator != null and creator != ''">#{creator},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updator != null">#{updator},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+        </trim>
+    </insert>
+
+    <update id="updateZhsUserAgentContext" parameterType="com.ai.manager.small.domain.ZhsUserAgentContext">
+        update zhs_user_agent_context
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="agentId != null and agentId != ''">agent_id = #{agentId},</if>
+            <if test="userUuid != null and userUuid != ''">user_uuid = #{userUuid},</if>
+            <if test="problem != null">problem = #{problem},</if>
+            <if test="answer != null">answer = #{answer},</if>
+            <if test="userUrl != null">user_url = #{userUrl},</if>
+            <if test="agentUrl != null">agent_url = #{agentUrl},</if>
+            <if test="sendTime != null">send_time = #{sendTime},</if>
+            <if test="field1 != null">field1 = #{field1},</if>
+            <if test="modelName != null">model_name = #{modelName},</if>
+            <if test="videoRatio != null">video_ratio = #{videoRatio},</if>
+            <if test="chatId != null">chat_id = #{chatId},</if>
+        </trim>
+        where id = #{id}
+    </update>
+    <update id="userConsume">
+        update zhs_center_project.user_margin set token_quantity = token_quantity - (#{token} * 4)  where user_uuid = #{uuid}
+    </update>
+
+    <delete id="deleteZhsUserAgentContextById" parameterType="String">
+        delete from zhs_user_agent_context where id = #{id}
+    </delete>
+
+    <delete id="deleteZhsUserAgentContextByIds" parameterType="String">
+        delete from zhs_user_agent_context where id in 
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    <delete id="removeContextField">
+        delete from zhs_user_agent_context where agent_id = #{agentId} and user_uuid = #{userUuid} and field1 = #{field1}
+    </delete>
+
+    <select id="count" resultType="java.lang.Integer">
+        select count(1) from zhs_user_agent_context where agent_id = #{agentId} and user_uuid = #{userUuid}
+    </select>
+    <select id="getUserContext" resultMap="ZhsUserAgentContextResult">
+        <include refid="selectZhsUserAgentContextVo"/>
+        /*select id from zhs_user_agent_context*/
+        where agent_id = #{agentId} and user_uuid = #{userUuid}
+         <if test="field1 != null and field1 != ''">
+             and field1 = #{field1}
+         </if>
+
+        order by send_time desc
+        <!--    LIMIT 18446744073709551615 OFFSET 10;-->
+        LIMIT 20 OFFSET 10;
+
+    </select>
+    <select id="getUserContextField"  resultMap="ZhsUserAgentContextResult">
+        <include refid="selectZhsUserAgentContextVo"/>
+        where agent_id = #{agentId} and user_uuid = #{userUuid}
+        <if test="field1 != null and field1 != ''">
+            and field1 = #{field1}
+        </if>
+        order by send_time desc
+    </select>
+    <select id="getUserContextByTaskId" resultMap="ZhsUserAgentContextResult">
+        <include refid="selectZhsUserAgentContextVo"/>
+        <where>
+            <if test="id != null">and answer = #{id}</if>
+        </where>
+        limit 1
+    </select>
+    <select id="getUsersVipInfo" resultType="java.lang.Integer">
+        select is_vip from zhs_center_project.users where uuid = #{uuid}
+    </select>
+    <select id="getByAgentId" resultMap="ZhsUserAgentContextResult" >
+        select * from zhs_user_agent_context where 1 = 1
+        <foreach collection="agentIds" item="agentId" separator="," open=" and agent_id in (" close=")">
+            #{agentId}
+        </foreach>
+    </select>
+    <select id="getByType" resultMap="ZhsUserAgentContextResult">
+        select * from zhs_user_agent_context
+        <where>
+            <choose>
+                <when test="type == 4">
+                    REGEXP_LIKE(agent_url, '(^|,)[^,]*\\.(mp3|wav|flac|aac|wma|ogg|m4a|amr|ape|aiff)(,|$)', 'i')
+                </when>
+                <when test="type == 3">
+                    REGEXP_LIKE(agent_url, '(^|,)[^,]*\\.(jpg|jpeg|png|gif|bmp|tiff|tif|webp|svg|ico|psd)(,|$)', 'i')
+                </when>
+                <when test="type == 2">
+                    REGEXP_LIKE(agent_url, '(^|,)[^,]*\\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|mpeg|mpg|ts|3gp)(,|$)', 'i')
+                </when>
+                <otherwise>
+                    (agent_url is null or agent_url = '') and answer is not null
+                </otherwise>
+            </choose>
+            <if test="userUuid != null and userUuid != ''">
+                and user_uuid = #{userUuid}
+            </if>
+        </where>
+    </select>
+    <select id="getContextToImg" resultMap="ZhsUserAgentContextResult">
+        select *
+        from zhs_user_agent_context
+        where user_uuid = #{userUuid}
+          and agent_id = #{agentId}
+        and chat_id = #{chatId}
+        <foreach collection="ids" item="id" open=" and id in (" close=")">
+            #{id}
+        </foreach>
+    </select>
+
+</mapper>

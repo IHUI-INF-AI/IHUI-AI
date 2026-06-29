@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 # =====================================================================
 class TestChaosE2E:
     def test_bug167_inject_and_disable(self):
-        from app.utils.chaos import ChaosInjector, FaultRule, FaultType
+        from app.utils.bug167_chaos import ChaosInjector, FaultRule, FaultType
 
         g = ChaosInjector(seed=1)
         # 默认情况下注入异常
@@ -42,7 +42,7 @@ class TestChaosE2E:
         assert v == 42
 
     def test_bug168_degrade_ladder(self):
-        from app.utils.degrade import DegradeChain
+        from app.utils.bug168_degrade import DegradeChain
 
         # 完整 -> 默认 -> 失败
         g = DegradeChain("svc", cache_get=lambda: None, default="DEF")
@@ -54,7 +54,7 @@ class TestChaosE2E:
         assert r2.value == "DEF"
 
     def test_bug169_retry_with_backoff(self):
-        from app.utils.retry import Retrier, RetryConfig
+        from app.utils.bug169_retry import Retrier, RetryConfig
 
         n = {"c": 0}
 
@@ -76,7 +76,7 @@ class TestChaosE2E:
 # =====================================================================
 class TestDbDR_E2E:
     def test_bug170_failover(self):
-        from app.utils.db_failover import DbRole, FailoverManager
+        from app.utils.bug170_db_failover import DbRole, FailoverManager
 
         g = FailoverManager()
         g.add("m", role=DbRole.MASTER, priority=100)
@@ -90,7 +90,7 @@ class TestDbDR_E2E:
         assert st["m"]["role"] == "OFFLINE"
 
     def test_bug171_router(self):
-        from app.utils.replica_router import QueryType, ReplicaRouter
+        from app.utils.bug171_replica_router import QueryType, ReplicaRouter
 
         g = ReplicaRouter()
         g.set_nodes("m", ["f1", "f2"])
@@ -105,7 +105,7 @@ class TestDbDR_E2E:
         assert cd.is_master
 
     def test_bug172_follower_lag(self):
-        from app.utils.follower_guard import FollowerGuard, FollowerGuardConfig
+        from app.utils.bug172_follower_guard import FollowerGuard, FollowerGuardConfig
 
         g = FollowerGuard(FollowerGuardConfig(max_lag_sec=2, recovery_sec=100))
         assert g.report_lag("f1", 0.5)  # 健康
@@ -118,7 +118,7 @@ class TestDbDR_E2E:
 # =====================================================================
 class TestRedisDR_E2E:
     def test_bug173_singleflight(self):
-        from app.utils.singleflight import SingleFlight
+        from app.utils.bug173_singleflight import SingleFlight
 
         g = SingleFlight()
         n = {"c": 0}
@@ -135,14 +135,14 @@ class TestRedisDR_E2E:
             assert v == "v"
 
     def test_bug174_avalanche_ttl_jitter(self):
-        from app.utils.avalanche import AvalancheConfig, AvalancheGuard
+        from app.utils.bug174_avalanche import AvalancheConfig, AvalancheGuard
 
         g = AvalancheGuard(AvalancheConfig(base_ttl=300, jitter_pct=0.3))
         samples = {g.ttl("k") for _ in range(50)}
         assert len(samples) > 1  # TTL 抖动产生多个不同值
 
     def test_bug175_sentinel_failover(self):
-        from app.utils.redis_sentinel import RedisSentinel
+        from app.utils.bug175_redis_sentinel import RedisSentinel
 
         g = RedisSentinel()
         g.add("m", is_master=True)
@@ -162,7 +162,7 @@ class TestRedisDR_E2E:
 # =====================================================================
 class TestMultiRegionE2E:
     def test_bug176_geo_route(self):
-        from app.utils.geo_router import GeoRouter, Region
+        from app.utils.bug176_geo_router import GeoRouter, Region
 
         g = GeoRouter()
         g.add(Region(id="cn", distance={"us": 12000, "eu": 8000}))
@@ -177,7 +177,7 @@ class TestMultiRegionE2E:
         assert r2.target_region in ("eu", "us")
 
     def test_bug177_replication(self):
-        from app.utils.replication import CrossRegionReplicator, ReplicaLog
+        from app.utils.bug177_replication import CrossRegionReplicator, ReplicaLog
 
         g = CrossRegionReplicator()
         g.write("k1", "v1", region="cn")
@@ -189,7 +189,7 @@ class TestMultiRegionE2E:
         assert st["conflicts"] >= 1
 
     def test_bug178_consistency(self):
-        from app.utils.consistency_window import ConsistencyConfig, ConsistencyWindow
+        from app.utils.bug178_consistency_window import ConsistencyConfig, ConsistencyWindow
 
         g = ConsistencyWindow(ConsistencyConfig(window_sec=5))
         g.mark("k1", region="cn")
@@ -204,7 +204,7 @@ class TestMultiRegionE2E:
 # =====================================================================
 class TestRateLimitE2E:
     def test_bug179_token_bucket_burst(self):
-        from app.utils.token_bucket import TokenBucketConfig, TokenBucketLimiter
+        from app.utils.bug179_token_bucket import TokenBucketConfig, TokenBucketLimiter
 
         g = TokenBucketLimiter(TokenBucketConfig(capacity=5, refill_rate=100))
         # 突发 5 个全过
@@ -218,7 +218,7 @@ class TestRateLimitE2E:
             assert g.acquire("k")
 
     def test_bug180_sliding_window(self):
-        from app.utils.sliding_window import SlidingWindowConfig, SlidingWindowLimiter
+        from app.utils.bug180_sliding_window import SlidingWindowConfig, SlidingWindowLimiter
 
         g = SlidingWindowLimiter(SlidingWindowConfig(window_sec=0.2, max_count=3))
         for _ in range(3):
@@ -228,7 +228,7 @@ class TestRateLimitE2E:
         assert g.acquire("k")
 
     def test_bug181_adaptive(self):
-        from app.utils.adaptive import AdaptiveConfig, AdaptiveLimiter
+        from app.utils.bug181_adaptive import AdaptiveConfig, AdaptiveLimiter
 
         g = AdaptiveLimiter(AdaptiveConfig(initial_qps=10, p99_target_ms=100, step_down=0.5, cooldown_sec=0))
         # 持续高 P99, qps 应下降
@@ -242,7 +242,7 @@ class TestRateLimitE2E:
 # =====================================================================
 class TestLifecycleE2E:
     def test_bug182_graceful_shutdown(self):
-        from app.utils.graceful_shutdown import GracefulShutdown, ShutdownHook, ShutdownState
+        from app.utils.bug182_graceful_shutdown import GracefulShutdown, ShutdownHook, ShutdownState
 
         g = GracefulShutdown(drain_timeout_sec=0.5)
         # 注册 3 个钩子
@@ -261,7 +261,7 @@ class TestLifecycleE2E:
         assert g.state() == ShutdownState.CLOSED
 
     def test_bug183_hot_config_diff(self):
-        from app.utils.hot_config import HotConfigCenter
+        from app.utils.bug183_hot_config import HotConfigCenter
 
         g = HotConfigCenter()
         g.set("rate_limit", 100)
@@ -278,7 +278,7 @@ class TestLifecycleE2E:
         assert received == [(100, 300)]
 
     def test_bug184_startup_probe(self):
-        from app.utils.startup_probe import ProbeState, StartupProbe
+        from app.utils.bug184_startup_probe import ProbeState, StartupProbe
 
         g = StartupProbe()
         g.register("db", lambda: True)

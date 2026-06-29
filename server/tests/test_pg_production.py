@@ -9,18 +9,11 @@
 """
 import os
 import re
-from pathlib import Path
 
-# 2026-06-25 修复: 改用脚本自身位置计算 PROJECT_ROOT, 避免硬编码 g:\1\server / g:\1\client
-# server/tests/test_pg_production.py -> ../../ (项目根)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-SERVER = str(PROJECT_ROOT / "server")
-CLIENT = str(PROJECT_ROOT / "client")
-HELM_PATHS = [
-    str(PROJECT_ROOT / "deploy" / "helm"),
-    str(PROJECT_ROOT / "helm"),
-    str(PROJECT_ROOT / "server" / "deploy"),
-]
+from pathlib import Path
+_ROOT = Path(__file__).resolve().parent.parent
+SERVER = str(_ROOT)
+CLIENT = str(_ROOT.parent / "client")
 
 
 def run_all_checks() -> list:
@@ -122,8 +115,12 @@ def run_all_checks() -> list:
         check(f"{rel}_pg_config", has_pg, "包含 postgresql 配置")
         check(f"{rel}_no_mysql", not has_mysql, "无 MySQL 引用")
 
-    print("=== 5. Helm/部署文件 PostgreSQL 配置 ===")
-    helm_paths = HELM_PATHS
+    print("\n=== 5. Helm/部署文件 PostgreSQL 配置 ===")
+    helm_paths = [
+        str(_ROOT.parent / "deploy" / "helm"),
+        str(_ROOT.parent / "helm"),
+        str(_ROOT / "deploy"),
+    ]
     helm_found = False
     for hp in helm_paths:
         if os.path.exists(hp):

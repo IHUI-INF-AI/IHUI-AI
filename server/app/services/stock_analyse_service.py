@@ -59,109 +59,108 @@ class StockAnalyseClient:
         req_data = self._build_request(prompt, session_id)
         headers = self._headers()
         try:
-            async with httpx.AsyncClient(timeout=None) as client:
-                async with client.stream("POST", self.api_url, headers=headers, json=req_data) as resp:
-                    resp.raise_for_status()
-                    line_count = 0
-                    async for line in resp.aiter_lines():
-                        line_count += 1
-                        if not line:
-                            continue
-                        # Push raw line to dedicated WS
-                        if ws_client_id:
-                            await stock_ws_manager.send_message(
-                                ws_client_id,
-                                {
-                                    "code": 200,
-                                    "msg": "success",
-                                    "data": {
-                                        "type": "stream.data",
-                                        "content": line,
-                                        "chat_id": final_chat_id,
-                                        "created_at": datetime.now().isoformat(),
-                                    },
-                                    "event": "stream.data",
-                                    "urlType": None,
+            async with httpx.AsyncClient(timeout=None) as client, client.stream("POST", self.api_url, headers=headers, json=req_data) as resp:
+                resp.raise_for_status()
+                line_count = 0
+                async for line in resp.aiter_lines():
+                    line_count += 1
+                    if not line:
+                        continue
+                    # Push raw line to dedicated WS
+                    if ws_client_id:
+                        await stock_ws_manager.send_message(
+                            ws_client_id,
+                            {
+                                "code": 200,
+                                "msg": "success",
+                                "data": {
+                                    "type": "stream.data",
+                                    "content": line,
+                                    "chat_id": final_chat_id,
+                                    "created_at": datetime.now().isoformat(),
                                 },
-                            )
-                        # Parse SSE
-                        data = None
-                        try:
-                            if line.startswith("data: "):
-                                data = json.loads(line[6:])
-                            elif line.startswith("event: "):
-                                pass
-                        except json.JSONDecodeError:
+                                "event": "stream.data",
+                                "urlType": None,
+                            },
+                        )
+                    # Parse SSE
+                    data = None
+                    try:
+                        if line.startswith("data: "):
+                            data = json.loads(line[6:])
+                        elif line.startswith("event: "):
                             pass
-                        if data is None:
-                            continue
-                        msg_type = data.get("type")
-                        content = data.get("content", {})
-                        if msg_type == "answer":
-                            if content.get("answer"):
-                                answer_content += content["answer"]
-                                if ws_client_id:
-                                    await stock_ws_manager.send_message(
-                                        ws_client_id,
-                                        {
-                                            "code": 200,
-                                            "msg": "success",
-                                            "data": {
-                                                "type": "answer",
-                                                "content": content["answer"],
-                                                "chat_id": final_chat_id,
-                                                "created_at": datetime.now().isoformat(),
-                                            },
-                                            "event": "conversation.message.delta",
-                                            "urlType": None,
-                                        },
-                                    )
-                            if content.get("thinking"):
-                                reasoning_content += content["thinking"]
-                                if ws_client_id:
-                                    await stock_ws_manager.send_message(
-                                        ws_client_id,
-                                        {
-                                            "code": 200,
-                                            "msg": "success",
-                                            "data": {
-                                                "type": "thinking",
-                                                "content": content["thinking"],
-                                                "chat_id": final_chat_id,
-                                                "created_at": datetime.now().isoformat(),
-                                            },
-                                            "event": "conversation.message.delta",
-                                            "urlType": None,
-                                        },
-                                    )
-                        elif msg_type == "message_end":
-                            me = content.get("message_end", {})
-                            tc = me.get("token_cost", {})
-                            if tc:
-                                usage_info = {
-                                    "input_tokens": tc.get("input_tokens", 0),
-                                    "output_tokens": tc.get("output_tokens", 0),
-                                    "total_tokens": tc.get("total_tokens", 0),
-                                }
+                    except json.JSONDecodeError:
+                        pass
+                    if data is None:
+                        continue
+                    msg_type = data.get("type")
+                    content = data.get("content", {})
+                    if msg_type == "answer":
+                        if content.get("answer"):
+                            answer_content += content["answer"]
                             if ws_client_id:
-                                total_tk = usage_info.get("total_tokens", 0) if usage_info else 0
                                 await stock_ws_manager.send_message(
                                     ws_client_id,
                                     {
                                         "code": 200,
                                         "msg": "success",
                                         "data": {
-                                            "type": "completed",
-                                            "content": "done",
+                                            "type": "answer",
+                                            "content": content["answer"],
                                             "chat_id": final_chat_id,
                                             "created_at": datetime.now().isoformat(),
                                         },
-                                        "total_tokens": total_tk,
-                                        "event": "conversation.chat.completed",
+                                        "event": settings.DOUBAO_STREAM_EVENT_THINKING,
                                         "urlType": None,
                                     },
                                 )
-                    logger.info("Stock stream done, lines=" + str(line_count))
+                        if content.get("thinking"):
+                            reasoning_content += content["thinking"]
+                            if ws_client_id:
+                                await stock_ws_manager.send_message(
+                                    ws_client_id,
+                                    {
+                                        "code": 200,
+                                        "msg": "success",
+                                        "data": {
+                                            "type": "thinking",
+                                            "content": content["thinking"],
+                                            "chat_id": final_chat_id,
+                                            "created_at": datetime.now().isoformat(),
+                                        },
+                                        "event": settings.DOUBAO_STREAM_EVENT_THINKING,
+                                        "urlType": None,
+                                    },
+                                )
+                    elif msg_type == "message_end":
+                        me = content.get("message_end", {})
+                        tc = me.get("token_cost", {})
+                        if tc:
+                            usage_info = {
+                                "input_tokens": tc.get("input_tokens", 0),
+                                "output_tokens": tc.get("output_tokens", 0),
+                                "total_tokens": tc.get("total_tokens", 0),
+                            }
+                        if ws_client_id:
+                            total_tk = usage_info.get("total_tokens", 0) if usage_info else 0
+                            await stock_ws_manager.send_message(
+                                ws_client_id,
+                                {
+                                    "code": 200,
+                                    "msg": "success",
+                                    "data": {
+                                        "type": "completed",
+                                        "content": "done",
+                                        "chat_id": final_chat_id,
+                                        "created_at": datetime.now().isoformat(),
+                                    },
+                                    "total_tokens": total_tk,
+                                    "event": settings.DOUBAO_STREAM_EVENT_COMPLETED,
+                                    "urlType": None,
+                                },
+                            )
+                logger.info("Stock stream done, lines=" + str(line_count))
             return {
                 "success": True,
                 "content": answer_content,
@@ -184,7 +183,7 @@ class StockAnalyseClient:
                             "chat_id": final_chat_id,
                             "created_at": datetime.now().isoformat(),
                         },
-                        "event": "system.error",
+                        "event": settings.COMMON_STREAM_EVENT_ERROR,
                         "urlType": None,
                     },
                 )

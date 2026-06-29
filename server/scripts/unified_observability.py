@@ -9,8 +9,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import timedelta
-from app.utils.datetime_helper import utcnow
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -24,7 +23,7 @@ ALERT_SEVERITIES = ["critical", "warning", "info"]
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

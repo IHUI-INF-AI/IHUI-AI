@@ -82,17 +82,17 @@ jobs:
         shell: bash
         run: |
           cd ${{ env.SERVER_DIR }}
-          python3 tests/scripts/test_orchestrate_pg16.py
-          python3 tests/scripts/test_orchestrate_patroni.py
-          python3 tests/scripts/test_orchestrate_vault.py
-          python3 tests/scripts/test_orchestrate_pgbouncer.py
-          python3 tests/scripts/test_orchestrate_pitr.py
-          python3 tests/scripts/test_orchestrate_cross_az.py
-          python3 tests/scripts/test_orchestrate_pgbouncer_patroni.py
-          python3 tests/scripts/test_deploy_cron_jobs.py
-          python3 tests/scripts/test_alert_e2e.py
-          python3 tests/scripts/test_pg17_staging.py
-          python3 tests/scripts/test_prod_execution_runner.py
+          python3 scripts/test_orchestrate_pg16.py
+          python3 scripts/test_orchestrate_patroni.py
+          python3 scripts/test_orchestrate_vault.py
+          python3 scripts/test_orchestrate_pgbouncer.py
+          python3 scripts/test_orchestrate_pitr.py
+          python3 scripts/test_orchestrate_cross_az.py
+          python3 scripts/test_orchestrate_pgbouncer_patroni.py
+          python3 scripts/test_deploy_cron_jobs.py
+          python3 scripts/test_alert_e2e.py
+          python3 scripts/test_pg17_staging.py
+          python3 scripts/test_prod_execution_runner.py
 
   # ---------- 阶段 3: Staging 部署 ----------
   deploy-staging:

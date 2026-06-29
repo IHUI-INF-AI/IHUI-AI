@@ -32,10 +32,14 @@ except ImportError:
 
 BASE = os.environ.get("ZHS_BASE", "http://127.0.0.1:8888")
 API_BASE = os.environ.get("ZHS_API_BASE", "http://127.0.0.1:8000")
-# 2026-06-25 修复: 原硬编码 G:\1\pw-output 会在 G 盘根目录创建临时目录
-# 改为相对 server/pw-output/ + 环境变量可覆盖 (ZHS_E2E_OUT_DIR)
-_SERVER_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_DIR = os.environ.get("ZHS_E2E_OUT_DIR") or os.path.join(_SERVER_ROOT, "pw-output")
+from pathlib import Path
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if not (_PROJECT_ROOT / "server").is_dir():
+    raise RuntimeError(
+        f"项目根推算失败: {_PROJECT_ROOT} 下不存在 server/ 目录; "
+        f"请检查 test_e2e_login.py 位置或设置 PW_OUTPUT_DIR 环境变量"
+    )
+OUT_DIR = os.environ.get("PW_OUTPUT_DIR") or str(_PROJECT_ROOT / "pw-output")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 

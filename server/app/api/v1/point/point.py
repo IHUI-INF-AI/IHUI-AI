@@ -88,8 +88,8 @@ def _reduce_point(db, user_id: str, point: int, action: str, description: str = 
     acc = _get_or_create_account(db, user_id)
     if (acc.available_point or 0) < point:
         return {"ok": False, "reason": "insufficient_point"}
-    acc.available_point -= point
-    acc.used_point = (acc.used_point or 0) + point
+    acc.available_point -= point  # type: ignore[assignment]
+    acc.used_point = (acc.used_point or 0) + point  # type: ignore[assignment]
     log = PointLog(
         user_id=user_id,
         user_name=acc.user_name,
@@ -108,7 +108,7 @@ def _reduce_point(db, user_id: str, point: int, action: str, description: str = 
 
 
 @router.get("/account", summary="我的积分账户")
-def my_account():
+async def my_account():
     with get_session() as db:
         try:
             uid = _uid()
@@ -130,7 +130,7 @@ def my_account():
 
 
 @router.get("/account/{user_id}", summary="指定用户积分账户")
-def user_account(user_id: str):
+async def user_account(user_id: str):
     with get_session() as db:
         try:
             acc = db.query(PointAccount).filter(PointAccount.user_id == user_id).first()
@@ -156,7 +156,7 @@ def user_account(user_id: str):
 
 
 @router.get("/log/list", summary="积分流水")
-def list_logs(
+async def list_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: str | None = None,
@@ -174,17 +174,17 @@ def list_logs(
             return success(
                 [
                     {
-                        "id": l.id,
-                        "type": l.type,
-                        "action": l.action,
-                        "point": l.point,
-                        "balance": l.balance,
-                        "description": l.description,
-                        "ref_id": l.ref_id,
-                        "ref_type": l.ref_type,
-                        "create_time": l.created_at.isoformat() if l.created_at else None,
+                        "id": item.id,
+                        "type": item.type,
+                        "action": item.action,
+                        "point": item.point,
+                        "balance": item.balance,
+                        "description": item.description,
+                        "ref_id": item.ref_id,
+                        "ref_type": item.ref_type,
+                        "create_time": item.created_at.isoformat() if item.created_at else None,
                     }
-                    for l in items
+                    for item in items
                 ],
                 total=total,
             )
@@ -197,7 +197,7 @@ def list_logs(
 
 
 @router.get("/rule/list", summary="积分规则列表")
-def rule_list(type: str | None = None):
+async def rule_list(type: str | None = None):
     with get_session() as db:
         try:
             q = db.query(PointRule).filter(PointRule.status == 1)
@@ -225,7 +225,7 @@ def rule_list(type: str | None = None):
 
 
 @router.post("/rule", summary="新增规则")
-def create_rule(
+async def create_rule(
     code: str = Query(...),
     name: str = Query(...),
     type: str = "add",
@@ -255,7 +255,7 @@ def create_rule(
 
 
 @router.put("/rule/{rid}", summary="修改规则")
-def update_rule(
+async def update_rule(
     rid: int,
     name: str | None = None,
     point: int | None = None,
@@ -282,7 +282,7 @@ def update_rule(
 
 
 @router.delete("/rule/{rid}", summary="删除规则")
-def delete_rule(rid: int):
+async def delete_rule(rid: int):
     with get_session() as db:
         try:
             r = db.query(PointRule).filter(PointRule.id == rid).first()
@@ -299,7 +299,7 @@ def delete_rule(rid: int):
 
 
 @router.post("/trigger", summary="触发积分行为")
-def trigger(
+async def trigger(
     action: str = Query(..., description="行为code"),
     description: str | None = None,
     ref_id: str | None = None,
@@ -322,7 +322,7 @@ def trigger(
 
 
 @router.post("/signin", summary="每日签到")
-def signin():
+async def signin():
     with get_session() as db:
         try:
             uid = _uid()
@@ -339,7 +339,7 @@ def signin():
 
 
 @router.get("/goods/list", summary="积分商品列表")
-def goods_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), keyword: str | None = None):
+async def goods_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), keyword: str | None = None):
     with get_session() as db:
         try:
             q = db.query(PointGoods).filter(PointGoods.status == 1)
@@ -376,7 +376,7 @@ def goods_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
 
 
 @router.get("/goods/{gid}", summary="积分商品详情")
-def get_goods(gid: int):
+async def get_goods(gid: int):
     with get_session() as db:
         try:
             g = db.query(PointGoods).filter(PointGoods.id == gid).first()
@@ -402,7 +402,7 @@ def get_goods(gid: int):
 
 
 @router.post("/goods", summary="新增积分商品")
-def create_goods(
+async def create_goods(
     name: str = Query(..., min_length=1, max_length=200),
     description: str | None = None,
     image: str | None = None,
@@ -434,7 +434,7 @@ def create_goods(
 
 
 @router.put("/goods/{gid}", summary="修改商品")
-def update_goods(
+async def update_goods(
     gid: int,
     name: str | None = None,
     description: str | None = None,
@@ -464,7 +464,7 @@ def update_goods(
 
 
 @router.delete("/goods/{gid}", summary="删除商品")
-def delete_goods(gid: int):
+async def delete_goods(gid: int):
     with get_session() as db:
         try:
             g = db.query(PointGoods).filter(PointGoods.id == gid).first()
@@ -481,7 +481,7 @@ def delete_goods(gid: int):
 
 
 @router.post("/exchange", summary="兑换商品")
-def exchange(
+async def exchange(
     goods_id: int = Query(...),
     quantity: int = Query(1, ge=1),
     address: str | None = None,
@@ -530,7 +530,7 @@ def exchange(
 
 
 @router.get("/exchange/list", summary="兑换记录")
-def exchange_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status: int | None = None):
+async def exchange_list(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status: int | None = None):
     with get_session() as db:
         try:
             q = db.query(PointExchange).filter(PointExchange.user_id == _uid())

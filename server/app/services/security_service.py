@@ -6,6 +6,7 @@ import time
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -103,12 +104,12 @@ class SecurityHeaders:
 
 
 class InputValidator:
-    SQL_KEYWORDS = [
+    SQL_KEYWORDS: ClassVar[list] = [
         "SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "UNION",
         "OR", "AND", "WHERE", "FROM", "INTO", "VALUES", "SET"
     ]
 
-    XSS_PATTERNS = [
+    XSS_PATTERNS: ClassVar[list] = [
         "<script", "</script>", "javascript:", "onerror=", "onload=",
         "eval(", "document.", "window.", "alert("
     ]

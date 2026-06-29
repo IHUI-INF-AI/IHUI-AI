@@ -1,18 +1,19 @@
 """Content management routes (about_us, news, banners, feedback, app_version)."""
 
-from fastapi import APIRouter, Depends, Query
+from datetime import datetime
+
+from fastapi import APIRouter, Body, Depends, Query
 from loguru import logger
 
 from app.database import get_session
 from app.schemas.common import error, success
 from app.security import require_login
-from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
 
 @router.get("/contact", summary="获取联系信息")
-def get_contact():
+async def get_contact():
     """Return the active contact-us entry."""
     from app.models.app_content_models import AiContact
 
@@ -32,7 +33,7 @@ def get_contact():
 
 
 @router.get("/about", summary="Get about us")
-def get_about():
+async def get_about():
     with get_session() as db:
         from app.models.app_content_models import AiAboutUs
 
@@ -42,7 +43,7 @@ def get_about():
 
 
 @router.get("/news", summary="List news")
-def list_news(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+async def list_news(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         from app.models.app_content_models import AiNews
 
@@ -64,7 +65,7 @@ def list_news(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
 
 
 @router.get("/news/{news_id}", summary="Get news detail")
-def get_news(news_id: int):
+async def get_news(news_id: int):
     with get_session() as db:
         from app.models.app_content_models import AiNews
 
@@ -86,7 +87,7 @@ def get_news(news_id: int):
 
 
 @router.get("/banners", summary="List banners")
-def list_banners(position: str = Query(None)):
+async def list_banners(position: str = Query(None)):
     with get_session() as db:
         from app.models.app_content_models import BannerCarousel
 
@@ -102,11 +103,11 @@ def list_banners(position: str = Query(None)):
 
 
 @router.post("/feedback", summary="Submit feedback")
-def submit_feedback(
-    content: str = Query(...),
+async def submit_feedback(
     images: str = Query(None),
     type: str = Query(None),
     user_uuid: str = Depends(require_login),
+    content: str = Body(...),
 ):
     with get_session() as db:
         try:
@@ -121,7 +122,7 @@ def submit_feedback(
 
 
 @router.get("/version", summary="Get latest app version")
-def get_version(platform: str = Query("android")):
+async def get_version(platform: str = Query("android")):
     with get_session() as db:
         from app.models.app_content_models import AppVersion
 
@@ -150,7 +151,7 @@ def get_version(platform: str = Query("android")):
 
 
 @router.get("/version/list", summary="App 版本列表")
-def list_versions(
+async def list_versions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     platform: str = Query(None),
@@ -181,7 +182,7 @@ def list_versions(
 
 
 @router.post("/version/create", summary="创建 App 版本")
-def create_version(
+async def create_version(
     version_code: str = Query(...),
     version_name: str = Query(...),
     download_url: str = Query(...),
@@ -212,7 +213,7 @@ def create_version(
 
 
 @router.put("/version/update", summary="更新 App 版本")
-def update_version(
+async def update_version(
     version_id: int = Query(...),
     version_code: str = Query(None),
     version_name: str = Query(None),
@@ -252,7 +253,7 @@ def update_version(
 
 
 @router.delete("/version/delete", summary="删除 App 版本")
-def delete_version(
+async def delete_version(
     version_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):
@@ -277,7 +278,7 @@ def delete_version(
 
 
 @router.get("/feedback/list", summary="反馈列表")
-def list_feedbacks(
+async def list_feedbacks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None, description="筛选状态: 0=未处理 1=已处理"),
@@ -308,7 +309,7 @@ def list_feedbacks(
 
 
 @router.put("/feedback/update", summary="更新/回复反馈")
-def update_feedback(
+async def update_feedback(
     feedback_id: int = Query(...),
     status: int = Query(None),
     reply: str = Query(None),
@@ -325,7 +326,7 @@ def update_feedback(
                 fb.status = status
             if reply is not None:
                 fb.reply = reply
-                fb.reply_time = utcnow()
+                fb.reply_time = datetime.utcnow()
             db.commit()
             return success({"id": fb.id, "status": fb.status})
         except Exception as e:
@@ -334,7 +335,7 @@ def update_feedback(
 
 
 @router.delete("/feedback/delete", summary="删除反馈")
-def delete_feedback(
+async def delete_feedback(
     feedback_id: int = Query(...),
     user_uuid: str = Depends(require_login),
 ):

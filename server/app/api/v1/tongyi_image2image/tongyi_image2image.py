@@ -22,12 +22,12 @@ async def image_to_image(
     style: str | None = Body(None, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if dashscope_key(api_key):
                 headers["Authorization"] = f"Bearer {api_key}"
-            parameters = {"strength": strength}
+            parameters: dict[str, float | str | None] = {"strength": strength}
             if style:
                 parameters["style"] = style
             r = await client.post(
@@ -55,7 +55,7 @@ async def style_transfer(
     style_ref_url: str = Body(..., embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if dashscope_key(api_key):
@@ -84,7 +84,7 @@ async def background_generation(
     prompt: str | None = Body(None, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if dashscope_key(api_key):
@@ -114,7 +114,7 @@ async def virtual_try_on(
     bottom_garment_url: str | None = Body(None, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if dashscope_key(api_key):
@@ -136,7 +136,7 @@ async def virtual_try_on(
 
 
 @router.get("/models", operation_id="tongyi_image2image_list_models", summary="通义图生图可用模型")
-def list_models():
+async def list_models():
     return success(
         [
             {"id": "wanx2.1-imageedit", "name": "通义万相2.1图编辑", "type": "image-to-image"},

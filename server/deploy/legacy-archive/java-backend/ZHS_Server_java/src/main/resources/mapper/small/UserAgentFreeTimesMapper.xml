@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.UserAgentFreeTimesMapper">
+
+    <!-- UserAgentFreeTimes 实体类的 resultMap -->
+    <resultMap id="UserAgentFreeTimesMap" type="com.ai.manager.small.domain.UserAgentFreeTimes">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="agentId" column="agent_id"/>
+        <result property="degree" column="degree"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- TODO: 在这里定义 UserAgentFreeTimesMapper 接口中方法的 SQL 实现 -->
+
+    <!-- 根据 userId 和 agentId 查询记录 -->
+    <select id="selectByUserIdAndAgentId" resultMap="UserAgentFreeTimesMap">
+        SELECT id, user_id, agent_id, degree, created_at, updated_at
+        FROM zhs_user_agent_free_times
+        WHERE user_id = #{userId} AND agent_id = #{agentId}
+    </select>
+
+    <!-- 更新记录 -->
+    <update id="update" parameterType="com.ai.manager.small.domain.UserAgentFreeTimes">
+        UPDATE zhs_user_agent_free_times
+        SET degree = #{degree},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 插入记录 -->
+    <insert id="insertUserAgentFreeTimes" parameterType="com.ai.manager.small.domain.UserAgentFreeTimes" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO zhs_user_agent_free_times (user_id, agent_id, degree, created_at, updated_at)
+        VALUES (#{userId}, #{agentId}, #{degree}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <!-- TODO: Add other SQL if needed from PHP analysis -->
+
+</mapper> 

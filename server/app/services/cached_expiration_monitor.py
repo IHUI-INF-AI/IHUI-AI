@@ -18,13 +18,10 @@ from app.database import SessionFactory1, get_session
 from app.models.activity_models import AgentBuy
 from app.models.agent_settlement import AgentSettlement
 
-# 保留后台任务引用，防止被 GC 回收
-_pending_tasks: set = set()
-
 
 def _metric_records_cached(table_name: str, count: int) -> None:
     try:
-        from app.metrics_business import MONITOR_RECORDS_CACHED
+        from app.metrics_business import MONITOR_RECORDS_CACHED  # type: ignore[attr-defined]
 
         MONITOR_RECORDS_CACHED.labels(table_name=table_name).set(count)
     except Exception:
@@ -35,7 +32,7 @@ def _metric_expired_inc(table_name: str, n: int) -> None:
     if n <= 0:
         return
     try:
-        from app.metrics_business import MONITOR_EXPIRED_TOTAL
+        from app.metrics_business import MONITOR_EXPIRED_TOTAL  # type: ignore[attr-defined]
 
         MONITOR_EXPIRED_TOTAL.labels(table_name=table_name).inc(n)
     except Exception:
@@ -44,7 +41,7 @@ def _metric_expired_inc(table_name: str, n: int) -> None:
 
 def _metric_refresh_observe(seconds: float) -> None:
     try:
-        from app.metrics_business import MONITOR_REFRESH_DURATION
+        from app.metrics_business import MONITOR_REFRESH_DURATION  # type: ignore[attr-defined]
 
         MONITOR_REFRESH_DURATION.observe(seconds)
     except Exception:
@@ -53,7 +50,7 @@ def _metric_refresh_observe(seconds: float) -> None:
 
 def _metric_running_set(running: bool) -> None:
     try:
-        from app.metrics_business import MONITOR_RUNNING
+        from app.metrics_business import MONITOR_RUNNING  # type: ignore[attr-defined]
 
         MONITOR_RUNNING.set(1 if running else 0)
     except Exception:
@@ -62,7 +59,7 @@ def _metric_running_set(running: bool) -> None:
 
 def _metric_checks_inc() -> None:
     try:
-        from app.metrics_business import MONITOR_CHECKS_TOTAL
+        from app.metrics_business import MONITOR_CHECKS_TOTAL  # type: ignore[attr-defined]
 
         MONITOR_CHECKS_TOTAL.inc()
     except Exception:
@@ -72,17 +69,17 @@ def _metric_checks_inc() -> None:
 def _metric_app_local_time_tick() -> None:
     """上报 app 内部 time.time(), promql `time() - zhs_biz_app_local_time_seconds` 算漂移."""
     try:
-        from app.metrics_business import APP_LOCAL_TIME
+        from app.metrics_business import APP_LOCAL_TIME  # type: ignore[attr-defined]
 
         APP_LOCAL_TIME.set(time.time())
-    except Exception as e:
-        logger.debug("上报 app 本地时间指标失败: %s", e)  # metrics not available
+    except Exception:
+        pass  # metrics not available
 
 
 def _metric_time_source_set() -> None:
     """打点当前用的时间源 (time.time / datetime.utcnow / monotonic), 便于追溯."""
     try:
-        from app.metrics_business import APP_TIME_SOURCE
+        from app.metrics_business import APP_TIME_SOURCE  # type: ignore[attr-defined]
 
         APP_TIME_SOURCE.labels(source="time.time").set(1)
     except Exception:
@@ -238,7 +235,7 @@ class CachedExpirationMonitor:
         for tname, cfg in self.table_configs.items():
             total += await self._refresh_table_cache(tname, cfg)
         elapsed = time.time() - start
-        self.stats["last_refresh_time"] = datetime.now()
+        self.stats["last_refresh_time"] = datetime.now()  # type: ignore[assignment]
         self.stats["refresh_duration"] = elapsed
         self.stats["cache_size"] = total
         _metric_refresh_observe(elapsed)
@@ -247,42 +244,37 @@ class CachedExpirationMonitor:
     async def _refresh_table_cache(self, table_name: str, config: TableConfig) -> int:
         start = time.time()
         try:
-            now = datetime.now()
-            future = now + timedelta(hours=config.preload_hours)
-            extra_cols = ""
-            if config.uuid_field:
-                extra_cols += f", {config.uuid_field}"
-            if config.order_field:
-                extra_cols += f", {config.order_field}"
-            sql = text(
-                f"SELECT id, {config.expiration_field}, {config.status_field}{extra_cols} "
-                f"FROM {config.table_name} "
-                f"WHERE {config.expiration_field} BETWEEN :now AND :future "
-                f"AND {config.status_field} = :unexpired "
-                f"ORDER BY {config.expiration_field} ASC"
-            )
-            params = {"now": now, "future": future, "unexpired": config.unexpired_value}
-
-            def _load():
-                with get_session() as db:
-                    return db.execute(sql, params).fetchall()
-
-            rows = await asyncio.to_thread(_load)
-            with self.cache_lock:
-                self.cache[table_name].clear()
-                for r in rows:
-                    self.cache[table_name][r.id] = CachedRecord(
-                        id=r.id,
-                        table_name=table_name,
-                        expiration_date=getattr(r, config.expiration_field),
-                        current_status=getattr(r, config.status_field),
-                        uuid=getattr(r, config.uuid_field, None) if config.uuid_field else None,
-                        order_no=getattr(r, config.order_field, None) if config.order_field else None,
-                    )
-            count = len(rows)
-            _metric_records_cached(table_name, count)
-            _metric_refresh_observe(time.time() - start)
-            return count
+            with get_session() as db:
+                now = datetime.now()
+                future = now + timedelta(hours=config.preload_hours)
+                extra_cols = ""
+                if config.uuid_field:
+                    extra_cols += f", {config.uuid_field}"
+                if config.order_field:
+                    extra_cols += f", {config.order_field}"
+                sql = text(
+                    f"SELECT id, {config.expiration_field}, {config.status_field}{extra_cols} "
+                    f"FROM {config.table_name} "
+                    f"WHERE {config.expiration_field} BETWEEN :now AND :future "
+                    f"AND {config.status_field} = :unexpired "
+                    f"ORDER BY {config.expiration_field} ASC"
+                )
+                rows = db.execute(sql, {"now": now, "future": future, "unexpired": config.unexpired_value}).fetchall()
+                with self.cache_lock:
+                    self.cache[table_name].clear()
+                    for r in rows:
+                        self.cache[table_name][r.id] = CachedRecord(
+                            id=r.id,
+                            table_name=table_name,
+                            expiration_date=getattr(r, config.expiration_field),
+                            current_status=getattr(r, config.status_field),
+                            uuid=getattr(r, config.uuid_field, None) if config.uuid_field else None,
+                            order_no=getattr(r, config.order_field, None) if config.order_field else None,
+                        )
+                count = len(rows)
+                _metric_records_cached(table_name, count)
+                _metric_refresh_observe(time.time() - start)
+                return count
         except Exception as e:
             logger.error(f"刷新 {table_name} 缓存失败: {e}")
             return 0
@@ -301,13 +293,11 @@ class CachedExpirationMonitor:
                     if expired:
                         total_expired += len(expired)
                         _metric_expired_inc(tname, len(expired))
-                        _expired_task = asyncio.create_task(self._process_expired(tname, expired))
-                        _pending_tasks.add(_expired_task)
-                        _expired_task.add_done_callback(_pending_tasks.discard)
+                        asyncio.create_task(self._process_expired(tname, expired))  # noqa: RUF006
                     _metric_records_cached(tname, len(records))
-            self.stats["total_checked"] += 1
-            self.stats["total_expired"] += total_expired
-            self.stats["last_check_time"] = datetime.now()
+            self.stats["total_checked"] += 1  # type: ignore[operator]
+            self.stats["total_expired"] += total_expired  # type: ignore[operator]
+            self.stats["last_check_time"] = datetime.now()  # type: ignore[assignment]
             self.stats["check_duration"] = time.time() - start
             _metric_checks_inc()
         except Exception as e:
@@ -318,19 +308,14 @@ class CachedExpirationMonitor:
         if not cfg:
             return
         try:
-            ids = tuple(r.id for r in records)
-            sql = text(
-                f"UPDATE {cfg.table_name} "
-                f"SET {cfg.status_field} = :expired "
-                f"WHERE id IN :ids AND {cfg.status_field} = :unexpired"
-            )
-            params = {"expired": cfg.expired_value, "unexpired": cfg.unexpired_value, "ids": ids}
-
-            def _update():
-                with get_session(factory=self.db_session_factory) as db:
-                    db.execute(sql, params)
-
-            await asyncio.to_thread(_update)
+            with get_session(factory=self.db_session_factory) as db:
+                ids = tuple(r.id for r in records)
+                sql = text(
+                    f"UPDATE {cfg.table_name} "
+                    f"SET {cfg.status_field} = :expired "
+                    f"WHERE id IN :ids AND {cfg.status_field} = :unexpired"
+                )
+                db.execute(sql, {"expired": cfg.expired_value, "unexpired": cfg.unexpired_value, "ids": ids})
             for cb in self.callbacks.get(table_name, []):
                 try:
                     if asyncio.iscoroutinefunction(cb):

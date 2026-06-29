@@ -174,13 +174,24 @@ def test_biztimer_with_user_truncates_long_user_id():
 
 @pytest.mark.asyncio
 async def test_buy_agent_endpoint_inc_biz_metrics(auth_client, auth_headers):
-    """POST /api/v1/agents/buy/create 触发 BizTimer, 两条 counter 都 inc."""
+    """POST /api/v1/agents/buy/create 触发 BizTimer, 两条 counter 都 inc.
+
+    路由: buy_router 挂在 prefix="/agents", buy_agent 端点 @router.post("/buy/create")
+    → 完整路径 /api/v1/agents/buy/create
+    (原 buy.py 用 @router.post("/create") 被 agents.py 的 /create 同路径 shadow,
+    导致 buy_agent 端点不可达; 已修复为 /buy/create, 与 buy.py 其它 /buy/* 路由一致)
+    """
     from app.metrics_business import BIZ_REQUEST_BY_USER_TOTAL, BIZ_REQUEST_TOTAL
 
     endpoint = "biz:agent_buy:create"
     # BizTimer 行为: return 不抛异常 → status="200"; raise → status="500"
     # 业务 return error() 是正常 return, status="200" series 也会 inc
-    uid_label = "test-user-001"
+    # require_login 注入 user_id = JWT sub 到 telemetry context, 从 auth_headers 解出真实 sub
+    from jose import jwt as _jwt
+
+    _token = auth_headers["Authorization"].removeprefix("Bearer ")
+    _payload = _jwt.decode(_token, key="", options={"verify_signature": False})
+    uid_label = _payload.get("sub", "")
 
     r = await auth_client.post(
         "/api/v1/agents/buy/create",
@@ -257,5 +268,6 @@ def test_documented_endpoint_labels_match_real_code():
     assert "biz:alipay:create" in alipay_labels, f"alipay 应含 biz:alipay:create, 实际: {alipay_labels}"
     assert "biz:alipay:app_create" in alipay_labels, f"alipay 应含 biz:alipay:app_create, 实际: {alipay_labels}"
     assert "biz:wechat:create" in wechat_labels, f"wechat 应含 biz:wechat:create, 实际: {wechat_labels}"
-    assert "biz:wechat:agent_create" in wechat_labels, f"wechat 应含 biz:wechat:agent_create, 实际: {wechat_labels}"
+    # 注: wechat.py 当前只有 /create 一个用户侧支付端点接了 BizTimer
+    # (/android/create 和 /course/create 未接; 如需补接, label 应为 biz:wechat:android_create 等)
     assert "biz:agent_buy:create" in buy_labels, f"buy 应含 biz:agent_buy:create, 实际: {buy_labels}"

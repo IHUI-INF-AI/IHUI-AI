@@ -35,7 +35,7 @@ def _a_to_dict(a: AskAnswer) -> dict:
 
 
 @router.post("", summary="提出回答")
-def create_answer(body: AnswerCreate):
+async def create_answer(body: AnswerCreate):
     with get_session() as db:
         try:
             q = db.query(AskQuestion).filter(AskQuestion.id == body.question_id).first()
@@ -58,7 +58,7 @@ def create_answer(body: AnswerCreate):
 
 
 @router.put("", summary="修改回答")
-def update_answer(body: AnswerUpdate):
+async def update_answer(body: AnswerUpdate):
     with get_session() as db:
         try:
             a = db.query(AskAnswer).filter(AskAnswer.id == body.id).first()
@@ -73,7 +73,7 @@ def update_answer(body: AnswerUpdate):
 
 
 @router.delete("", summary="删除回答")
-def delete_answer(id: int = Query(...)):
+async def delete_answer(id: int = Query(...)):
     with get_session() as db:
         try:
             a = db.query(AskAnswer).filter(AskAnswer.id == id).first()
@@ -90,7 +90,7 @@ def delete_answer(id: int = Query(...)):
 
 
 @router.get("/list", summary="回答列表(需权限)")
-def list_answers(
+async def list_answers(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     question_id: int | None = None,
@@ -98,7 +98,7 @@ def list_answers(
 ):
     with get_session() as db:
         try:
-            q = db.query(AskAnswer).filter(AskAnswer.deleted.is_(False))
+            q = db.query(AskAnswer).filter(not AskAnswer.deleted)
             if question_id:
                 q = q.filter(AskAnswer.question_id == question_id)
             if member_id:
@@ -114,14 +114,14 @@ def list_answers(
 
 
 @router.get("/public-api/list", summary="回答列表(公开)")
-def public_list_answers(
+async def public_list_answers(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     question_id: int | None = None,
 ):
     with get_session() as db:
         try:
-            q = db.query(AskAnswer).filter(AskAnswer.deleted.is_(False))
+            q = db.query(AskAnswer).filter(not AskAnswer.deleted)
             if question_id:
                 q = q.filter(AskAnswer.question_id == question_id)
             total = q.count()
@@ -138,10 +138,10 @@ def public_list_answers(
 
 
 @router.get("/public-api", summary="回答详情")
-def get_answer(id: int = Query(...)):
+async def get_answer(id: int = Query(...)):
     with get_session() as db:
         try:
-            a = db.query(AskAnswer).filter(AskAnswer.id == id, AskAnswer.deleted.is_(False)).first()
+            a = db.query(AskAnswer).filter(AskAnswer.id == id, not AskAnswer.deleted).first()
             if not a:
                 return error("回答不存在", "404")
             return success(_a_to_dict(a))
@@ -151,7 +151,7 @@ def get_answer(id: int = Query(...)):
 
 
 @router.get("/public-api/member/count", summary="会员回答数")
-def member_answer_count(member_id: str | None = None):
+async def member_answer_count(member_id: str | None = None):
     with get_session() as db:
         try:
             uid = member_id or _current_user_id()
@@ -159,7 +159,7 @@ def member_answer_count(member_id: str | None = None):
                 db.query(AskAnswer)
                 .filter(
                     AskAnswer.member_id == uid,
-                    AskAnswer.deleted.is_(False),
+                    not AskAnswer.deleted,
                 )
                 .count()
             )
@@ -170,7 +170,7 @@ def member_answer_count(member_id: str | None = None):
 
 
 @router.put("/adopt", summary="采纳回答")
-def adopt_answer(id: int = Query(...)):
+async def adopt_answer(id: int = Query(...)):
     with get_session() as db:
         try:
             a = db.query(AskAnswer).filter(AskAnswer.id == id).first()

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.OfficialInformationMapper">
+
+    <!-- OfficialInformation 实体类的 resultMap -->
+    <resultMap id="OfficialInformationMap" type="com.ai.manager.small.domain.OfficialInformation">
+        <id property="id" column="id"/>
+        <result property="popularCourseId" column="popular_course_id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="img" column="img"/>
+        <result property="tag" column="tag"/>
+        <result property="date" column="date"/>
+        <!-- Add other fields if needed based on your OfficialInformation Domain class -->
+    </resultMap>
+
+    <!-- TODO: 在这里定义 OfficialInformationMapper 接口中方法的 SQL 实现 -->
+
+    <!-- 根据 popular_course_id 查询资讯列表 (Service 层调用) -->
+    <select id="selectByPopularCourseId" resultMap="OfficialInformationMap">
+        SELECT id, popular_course_id, title, content, created_at, updated_at, img, tag, `date`
+        FROM zhs_official_information
+        WHERE popular_course_id = #{popularCourseId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 插入资讯记录 (Service 层调用) -->
+    <insert id="insert" parameterType="com.ai.manager.small.domain.OfficialInformation" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO zhs_official_information (popular_course_id, title, content, created_at, updated_at, img, tag, date)
+        VALUES (#{popularCourseId}, #{title}, #{content}, #{createdAt}, #{updatedAt}, #{img}, #{tag}, #{date})
+    </insert>
+
+    <!-- TODO: Add SQL for selectById, update, delete if needed based on PHP -->
+
+</mapper> 

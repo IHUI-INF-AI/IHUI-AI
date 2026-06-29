@@ -18,14 +18,6 @@ from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
-
-def _mask_phone(phone: str) -> str:
-    """脱敏手机号: 138****5678. 用于日志输出, 避免明文 PII."""
-    if not phone or len(phone) < 7:
-        return "***"
-    return f"{phone[:3]}****{phone[-4:]}"
-
-
 DEFAULT_SMS_PHONES_KEY = "ALERT_SMS_PHONES"
 DEFAULT_EMAILS_KEY = "ALERT_EMAILS"
 SUPPRESS_WINDOW_SEC = 60
@@ -89,7 +81,7 @@ def _send_sms(phones: Iterable[str], body: str) -> bool:
                 if resp.status_code >= 400:
                     ok = False
             except Exception as e:
-                logger.warning(f"alert_sms send fail to {_mask_phone(phone)}: {e}")
+                logger.warning(f"alert_sms send fail to {phone}: {e}")
                 ok = False
         return ok
     except Exception as e:

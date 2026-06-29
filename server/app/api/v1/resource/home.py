@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("/home", summary="首页资源聚合")
-def home_resources(user_uuid: str = Depends(require_login)):
+async def home_resources(user_uuid: str = Depends(require_login)):
     """返回首页所需的全部资源:banner、推荐 Agent、热门课程、公告."""
     with get_session() as db1:
         try:
@@ -26,7 +26,7 @@ def home_resources(user_uuid: str = Depends(require_login)):
             from app.models.course_models import EducationalCourse
             from app.models.sys_models import SysNotice
 
-            hot_agents = db1.query(Agent).filter(Agent.is_deleted == 0).order_by(Agent.usage_count.desc()).limit(6).all()
+            hot_agents = db1.query(Agent).order_by(Agent.usage_count.desc()).limit(6).all()
             hot_courses = db1.query(EducationalCourse).order_by(EducationalCourse.id.desc()).limit(6).all()
             notices = (
                 db1.query(SysNotice).filter(SysNotice.status == "0").order_by(SysNotice.notice_id.desc()).limit(3).all()
@@ -74,7 +74,7 @@ def home_resources(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/token/count", summary="获取用户 token 余量")
-def token_count(user_uuid: str = Depends(require_login)):
+async def token_count(user_uuid: str = Depends(require_login)):
     with get_session() as db2:
         from app.models.user_models import UserMargin
 
@@ -107,7 +107,7 @@ async def file_upload(
 
 
 @router.get("/developer/price", summary="查询 Agent 开发者价格")
-def developer_price(agent_id: str = Query(...)):
+async def developer_price(agent_id: str = Query(...)):
     """返回该 Agent 的开发者列表及价格档位."""
     with get_session() as db1:
         from app.models.activity_models import AgentDeveloper
@@ -128,7 +128,7 @@ def developer_price(agent_id: str = Query(...)):
 
 
 @router.post("/share", summary="生成分享链接")
-def create_share(
+async def create_share(
     target_type: str = Query(..., description="agent/course/chat"),
     target_id: str = Query(...),
     user_uuid: str = Depends(require_login),
@@ -151,7 +151,7 @@ def create_share(
 
 
 @router.get("/goods", summary="商品及汇率列表")
-def goods_list(user_uuid: str = Depends(require_login)):
+async def goods_list(user_uuid: str = Depends(require_login)):
     """查询 zhs_product 表全部商品以及 exchange_rate 汇率表."""
     with get_session() as db1:
         try:
@@ -189,7 +189,7 @@ def goods_list(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/planets/course", summary="课程星球列表")
-def planets_course(user_uuid: str = Depends(require_login)):
+async def planets_course(user_uuid: str = Depends(require_login)):
     """返回 type=course 的知识星球列表."""
     with get_session() as db1:
         from app.models.app_content_models import KnowledgePlanet
@@ -216,7 +216,7 @@ def planets_course(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/planets/knowledge", summary="知识星球列表")
-def planets_knowledge(user_uuid: str = Depends(require_login)):
+async def planets_knowledge(user_uuid: str = Depends(require_login)):
     """返回 type=knowledge 的知识星球列表."""
     with get_session() as db1:
         from app.models.app_content_models import KnowledgePlanet
@@ -243,7 +243,7 @@ def planets_knowledge(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/agent/free-time", summary="添加用户 Agent 免费次数")
-def add_agent_free_time(
+async def add_agent_free_time(
     agent_id: str = Query(..., description="Agent ID"),
     free_count: int = Query(..., description="免费次数"),
     user_uuid: str = Depends(require_login),
@@ -278,7 +278,7 @@ def add_agent_free_time(
 
 
 @router.get("/agent/free-time", summary="获取用户 Agent 免费次数")
-def get_agent_free_time(
+async def get_agent_free_time(
     agent_id: str = Query(..., description="Agent ID"),
     user_uuid: str = Depends(require_login),
 ):
@@ -306,7 +306,7 @@ def get_agent_free_time(
 
 
 @router.get("/recharge", summary="判断是否为会员")
-def recharge_check(user_uuid: str = Depends(require_login)):
+async def recharge_check(user_uuid: str = Depends(require_login)):
     """查询 user_vip 表判断当前用户是否为会员."""
     with get_session() as db2:
         try:

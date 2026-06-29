@@ -1,6 +1,6 @@
 """小程序版本管理"""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Boolean, Column, Index, Integer, String, Text
 
@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="版本列表")
-def list_versions(platform: str | None = None,
+async def list_versions(platform: str | None = None,
                         page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
@@ -58,7 +58,7 @@ def list_versions(platform: str | None = None,
 
 
 @router.get("/check", summary="检查更新")
-def check_update(platform: str = Query(...), current_version: str = Query(...),
+async def check_update(platform: str = Query(...), current_version: str = Query(...),
                         build: int = Query(0)):
     with get_session() as db:
         try:
@@ -88,11 +88,12 @@ def check_update(platform: str = Query(...), current_version: str = Query(...),
 
 
 @router.post("", summary="新增版本")
-def create_version(platform: str = Query(...), version: str = Query(...),
-                          build: int = 1, title: str = Query(...), content: str = Query(...),
+async def create_version(platform: str = Query(...), version: str = Query(...),
+                          build: int = 1, title: str = Query(...),
                           download_url: str | None = None, is_force: bool = False,
                           is_silent: bool = False, min_version: str | None = None,
-                          gray_ratio: int = 0, file_size: int = 0, md5: str | None = None):
+                          gray_ratio: int = 0, file_size: int = 0, md5: str | None = None,
+                          content: str = Body(...)):
     with get_session() as db:
         try:
             v = AppVersion(
@@ -111,7 +112,7 @@ def create_version(platform: str = Query(...), version: str = Query(...),
 
 
 @router.put("/{vid}", summary="修改版本")
-def update_version(vid: int, title: str | None = None, content: str | None = None,
+async def update_version(vid: int, title: str | None = None, content: str | None = None,
                           status: int | None = None, is_force: bool | None = None,
                           download_url: str | None = None, gray_ratio: int | None = None):
     with get_session() as db:
@@ -119,12 +120,18 @@ def update_version(vid: int, title: str | None = None, content: str | None = Non
             v = db.query(AppVersion).filter(AppVersion.id == vid).first()
             if not v:
                 return error("版本不存在", "404")
-            if title: v.title = title
-            if content: v.content = content
-            if status is not None: v.status = status
-            if is_force is not None: v.is_force = is_force
-            if download_url: v.download_url = download_url
-            if gray_ratio is not None: v.gray_ratio = gray_ratio
+            if title:
+                v.title = title
+            if content:
+                v.content = content
+            if status is not None:
+                v.status = status
+            if is_force is not None:
+                v.is_force = is_force
+            if download_url:
+                v.download_url = download_url
+            if gray_ratio is not None:
+                v.gray_ratio = gray_ratio
             return success()
         except Exception as e:
             logger.error(f"app version update error: {e}")
@@ -132,7 +139,7 @@ def update_version(vid: int, title: str | None = None, content: str | None = Non
 
 
 @router.delete("/{vid}", summary="删除版本")
-def delete_version(vid: int):
+async def delete_version(vid: int):
     with get_session() as db:
         try:
             v = db.query(AppVersion).filter(AppVersion.id == vid).first()

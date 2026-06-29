@@ -165,7 +165,7 @@ def adaptive_circuit_breaker(
             # 覆盖 half_open_max_calls (仅本次过渡)
             cb.half_open_max_calls = max(1, dec.actual)
             logger.info(f"adaptive[{name}] transition→HALF_OPEN probes={dec.actual} reason={dec.reason}")
-        last_state[0] = cur
+        last_state[0] = cur  # type: ignore[call-overload]
         return original_allow()
 
     cb.allow_request = adaptive_allow  # type: ignore[assignment]

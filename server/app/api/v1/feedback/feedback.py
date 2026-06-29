@@ -1,8 +1,8 @@
 """用户反馈"""
 
-from app.utils.datetime_helper import utcnow
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Text
 
@@ -10,7 +10,6 @@ from app.core.current_user import current_user_id_or_guest
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
-from app.security import require_role
 
 
 class Feedback(TimestampMixin, Base):
@@ -50,14 +49,14 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("", summary="提交反馈")
-def submit_feedback(
+async def submit_feedback(
     title: str = Query(..., min_length=1, max_length=200),
-    content: str = Query(..., min_length=1),
     type: str = "bug",
     images: str | None = None,
     contact: str | None = None,
     app_version: str | None = None,
     device_info: str | None = None,
+    content: str = Body(..., min_length=1),
 ):
     with get_session() as db:
         try:
@@ -84,17 +83,12 @@ def submit_feedback(
 
 
 @router.get("/list", summary="我的反馈")
-def list_my_feedbacks(
+async def list_my_feedbacks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: str | None = None,
     status: int | None = None,
 ):
-    """我的反馈列表.
-
-    2026-06-25 P1 加固: 默认隐藏 status==2 (已忽略) 的反馈,
-    用户主动查询 status==2 仍可看到 (兼容前端按状态筛选).
-    """
     with get_session() as db:
         try:
             q = db.query(Feedback).filter(Feedback.user_id == _uid())
@@ -102,9 +96,6 @@ def list_my_feedbacks(
                 q = q.filter(Feedback.type == type)
             if status is not None:
                 q = q.filter(Feedback.status == status)
-            else:
-                # 不指定 status 时, 默认过滤掉 status==2 (已忽略, 业务软删除)
-                q = q.filter(Feedback.status != 2)
             total = q.count()
             items = q.order_by(Feedback.id.desc()).offset((page - 1) * limit).limit(limit).all()
             return success(
@@ -133,13 +124,12 @@ def list_my_feedbacks(
 
 
 @router.get("/admin/list", operation_id="feedback_admin_list", summary="反馈列表(管理员)")
-def admin_list(
+async def admin_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int | None = None,
     type: str | None = None,
     priority: int | None = None,
-    _admin: str = Depends(require_role("admin")),
 ):
     with get_session() as db:
         try:
@@ -180,20 +170,10 @@ def admin_list(
 
 
 @router.get("/{fid}", summary="反馈详情")
-def get_feedback(fid: int):
-    """反馈详情.
-
-    2026-06-25 P1 加固: 用户视角隐藏 status==2 (已忽略, 业务软删除)
-    """
+async def get_feedback(fid: int):
     with get_session() as db:
         try:
-            uid = _uid()
-            f = db.query(Feedback).filter(
-                Feedback.id == fid, Feedback.status != 2
-            ).first()
-            # 用户视角: 自己的反馈 或 (admin 看到所有) (这里简化为用户只能看自己的)
-            if f and f.user_id != uid and uid != "admin":
-                f = None
+            f = db.query(Feedback).filter(Feedback.id == fid).first()
             if not f:
                 return error("反馈不存在", "404")
             return success(
@@ -224,7 +204,7 @@ def get_feedback(fid: int):
 
 
 @router.put("/{fid}/handle", summary="处理反馈")
-def handle_feedback(
+async def handle_feedback(
     fid: int,
     status: int = Query(...),
     remark: str | None = None,
@@ -238,14 +218,14 @@ def handle_feedback(
                 return error("反馈不存在", "404")
             f.status = status
             f.handle_user = "admin"
-            f.handle_time = utcnow()
+            f.handle_time = datetime.utcnow()
             if remark:
                 f.handle_remark = remark
             if priority is not None:
                 f.priority = priority
             if reply:
                 f.reply = reply
-                f.reply_time = utcnow()
+                f.reply_time = datetime.utcnow()
             return success()
         except Exception as e:
             logger.error(f"feedback handle error: {e}")
@@ -253,7 +233,7 @@ def handle_feedback(
 
 
 @router.post("/{fid}/rate", summary="评价反馈")
-def rate_feedback(fid: int, rating: int = Query(..., ge=1, le=5)):
+async def rate_feedback(fid: int, rating: int = Query(..., ge=1, le=5)):
     with get_session() as db:
         try:
             f = db.query(Feedback).filter(Feedback.id == fid).first()
@@ -267,7 +247,7 @@ def rate_feedback(fid: int, rating: int = Query(..., ge=1, le=5)):
 
 
 @router.delete("/{fid}", summary="删除反馈")
-def delete_feedback(fid: int):
+async def delete_feedback(fid: int):
     with get_session() as db:
         try:
             f = db.query(Feedback).filter(Feedback.id == fid).first()

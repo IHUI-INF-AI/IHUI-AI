@@ -66,10 +66,7 @@ class LiveChannelCategory(TimestampMixin, Base):
     name = Column(String(100), nullable=False)
     sort_order = Column(Integer, default=0)
     is_show = Column(Boolean, default=True)
-    is_show_index = Column(Boolean, default=False, comment="是否首页显示")
-    icon = Column(String(500), nullable=True, comment="分类图片")
-    type = Column(String(50), nullable=True, comment="分类类型")
-    level = Column(Integer, default=1, comment="类目级别")
+    icon = Column(String(500), nullable=True)
 
 class LiveSubscribe(TimestampMixin, Base):
     """直播订阅"""
@@ -118,51 +115,3 @@ class LiveGift(TimestampMixin, Base):
     gift_name = Column(String(100), nullable=True, comment="礼物名称")
     gift_count = Column(Integer, default=1, comment="礼物数量")
     total_price = Column(Integer, default=0, comment="总价值(分)")
-
-
-class ChannelLecturer(TimestampMixin, Base):
-    """频道讲师 (迁移自 edu server t_channel_lecturer)"""
-
-    __tablename__ = "t_channel_lecturer"
-    __table_args__ = (
-        Index("idx_cl_channel", "channel_id"),
-        Index("idx_cl_lecturer", "lecturer_id"),
-    )
-
-    id = id_column(comment="主键id")
-    lecturer_id = Column(BigInteger, nullable=False, comment="讲师id")
-    channel_id = Column(BigInteger, nullable=False, comment="频道id")
-
-
-class Lecturer(TimestampMixin, Base):
-    """讲师 (迁移自 edu server t_lecturer).
-
-    字段来源: H:\\edu client\\fix_lecturer_table.sql 修复脚本中添加的字段.
-    - job_title / mobile / description / image / user_id 为修复脚本补全字段
-    - name 为讲师基础标识字段
-    """
-
-    __tablename__ = "t_lecturer"
-    __table_args__ = (
-        Index("idx_lecturer_user", "user_id"),
-    )
-
-    id = id_column(comment="主键id")
-    name = Column(String(100), nullable=True, comment="讲师姓名")
-    job_title = Column(String(255), nullable=True, comment="头衔")
-    mobile = Column(String(50), nullable=True, comment="联系电话")
-    description = Column(Text, nullable=True, comment="介绍")
-    image = Column(String(500), nullable=True, comment="头像")
-    user_id = Column(BigInteger, nullable=True, comment="用户ID")
-
-
-class TencentCloudLiveStream(TimestampMixin, Base):
-    """腾讯云直播流信息 (迁移自 edu server t_tencent_cloud_live_stream)"""
-
-    __tablename__ = "t_tencent_cloud_live_stream"
-    __table_args__ = (Index("idx_tcls_channel", "channel_id"),)
-
-    id = id_column(comment="主键id")
-    channel_id = Column(BigInteger, nullable=False, comment="频道id")
-    stream_name = Column(String(200), nullable=False, comment="流名称")
-    app_name = Column(String(200), nullable=False, default="live", comment="应用名称")

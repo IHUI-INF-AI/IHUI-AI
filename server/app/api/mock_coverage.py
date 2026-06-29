@@ -57,7 +57,7 @@ def _collect_routes(app_or_router) -> list[tuple[str, str]]:
 
 
 @router.get("/api/mock/coverage", summary="Mock 路由覆盖率报告", include_in_schema=False)
-def mock_coverage():
+async def mock_coverage():
     """对比 v1 路由 vs mock 路由, 输出覆盖率报告.
 
     设计:

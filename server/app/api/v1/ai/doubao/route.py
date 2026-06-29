@@ -49,6 +49,7 @@ class VideoGenerateRequest(BaseModel):
 
     prompt: str = Field(..., description="Text prompt for video generation")
     images: list = Field(default_factory=list, description="Reference image URLs")
+    user_uuid: str = Field(..., description="User UUID (passed by client)")
     chat_id: str | None = Field(None, description="Chat context ID")
     # Custom parameters (zidingyican array format)
     zidingyican: list | None = Field(None, description="Custom parameter list")
@@ -66,6 +67,7 @@ class DoubaoImageRequest(BaseModel):
     """Request body for doubao image generation (jimeng_t2i_v40 via Volcengine signed API)."""
 
     prompt: str
+    user_uuid: str
     chat_id: str | None = None
     zidingyican: list[CustomParameter] = Field(default_factory=list, description="Custom parameters")
 
@@ -74,6 +76,7 @@ class SeedreamImageRequest(BaseModel):
     """Request body for Seedream image generation (via Doubao Bearer token API)."""
 
     prompt: str = Field(..., description="Generation prompt, supports Chinese/English")
+    user_uuid: str = Field(..., description="User UUID")
     chat_id: str | None = Field(None, description="Chat context ID")
     images: str | None = Field(None, description="Image URL or Base64 for image-to-image")
     zidingyican: list[CustomParameter] = Field(default_factory=list, description="Custom parameters")
@@ -102,7 +105,7 @@ async def _poll_task(task_id: str, headers: dict) -> dict:
 
 def _build_video_payload(req: VideoGenerateRequest) -> dict:
     """Build the submission payload from request, handling zidingyican params."""
-    content = [{"type": "text", "text": req.prompt}]
+    content: list[dict[str, Any]] = [{"type": "text", "text": req.prompt}]
     for img in req.images:
         content.append({"type": "image_url", "image_url": {"url": img}})
 
@@ -237,7 +240,7 @@ async def doubao_chat(
         "model": model,
         "messages": [{"role": "user", "content": message}],
     }
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(settings.DOUBAO_MODEL_URL, headers=headers, json=body, timeout=30)
             data = resp.json()
@@ -258,11 +261,10 @@ async def doubao_stream(
     body = {"model": model, "messages": [{"role": "user", "content": message}], "stream": True}
 
     async def generate():
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            async with client.stream("POST", settings.DOUBAO_MODEL_URL, headers=headers, json=body, timeout=60) as resp:
-                async for line in resp.aiter_lines():
-                    if line.startswith("data:"):
-                        yield f"{line}\n\n"
+        async with httpx.AsyncClient() as client, client.stream("POST", settings.DOUBAO_MODEL_URL, headers=headers, json=body, timeout=60) as resp:
+            async for line in resp.aiter_lines():
+                if line.startswith("data:"):
+                    yield f"{line}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -271,7 +273,7 @@ async def doubao_stream(
 # NEW: Video generation (async submit + poll)
 # ---------------------------------------------------------------------------
 @router.post("/video/generate", summary="豆包视频生成 (Seedance, async)")
-async def doubao_video_generate(request: VideoGenerateRequest, user_uuid: str = Depends(require_login)):
+async def doubao_video_generate(request: VideoGenerateRequest):
     """
     Submit a Doubao Seedance video-generation task, poll until complete,
     persist the resulting video, deduct tokens, and return the video URL.
@@ -322,7 +324,7 @@ async def doubao_video_generate(request: VideoGenerateRequest, user_uuid: str = 
         # 6. Deduct tokens
         yuan_cost = 0.5
         deduction = await calculate_and_deduct_tokens_by_cost(
-            user_uuid=user_uuid,
+            user_uuid=request.user_uuid,
             yuan_cost=yuan_cost,
             service_name="豆包图生视频",
             success=True,
@@ -333,7 +335,7 @@ async def doubao_video_generate(request: VideoGenerateRequest, user_uuid: str = 
         final_chat_id = request.chat_id or str(_uuid.uuid4())
         try:
             await save_conversation_to_db(
-                user_uuid=user_uuid,
+                user_uuid=request.user_uuid,
                 model_name=DOUBAO_SEEDANCE_DB_NAME,
                 agent_id=DOUBAO_SEEDANCE_DB_NAME,
                 problem=request.prompt,
@@ -354,13 +356,13 @@ async def doubao_video_generate(request: VideoGenerateRequest, user_uuid: str = 
         )
 
     except httpx.HTTPStatusError as e:
-        logger.error("Doubao video HTTP error: %s - %s", e.response.status_code, e.response.text)
-        raise HTTPException(status_code=e.response.status_code, detail="服务异常,请稍后重试") from e
+        logger.error("Doubao video HTTP error: %s", e.response.text)
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text) from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Doubao video error: %s", e)
-        raise HTTPException(status_code=500, detail="服务异常,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +377,7 @@ def _doubao_image_headers() -> dict:
 
 
 @router.post("/image/generate", summary="豆包图片生成 (即梦 jimeng_t2i_v40)")
-async def doubao_image_generate(request: DoubaoImageRequest, user_uuid: str = Depends(require_login)):
+async def doubao_image_generate(request: DoubaoImageRequest):
     """
     Submit a JiMeng text-to-image task via Volcengine CVSync2Async API,
     poll until complete, persist the image, deduct tokens, and return the URL.
@@ -493,7 +495,7 @@ async def doubao_image_generate(request: DoubaoImageRequest, user_uuid: str = De
         # 7. Deduct tokens
         yuan_cost = 0.2
         deduction = await calculate_and_deduct_tokens_by_cost(
-            user_uuid=user_uuid,
+            user_uuid=request.user_uuid,
             yuan_cost=yuan_cost,
             service_name="火山CV文生图",
             success=True,
@@ -504,7 +506,7 @@ async def doubao_image_generate(request: DoubaoImageRequest, user_uuid: str = De
         try:
             answer_content = f"图像生成完成,图片链接:{persistent_url}"
             await save_conversation_to_db(
-                user_uuid=user_uuid,
+                user_uuid=request.user_uuid,
                 agent_id=DOUBAO_SEEDREAM_DB_MODEL,
                 model_name=DOUBAO_SEEDREAM_DB_MODEL,
                 problem=request.prompt,
@@ -531,16 +533,16 @@ async def doubao_image_generate(request: DoubaoImageRequest, user_uuid: str = De
 
     except httpx.HTTPStatusError as e:
         logger.error("Volcengine API HTTP error: %s - %s", e.response.status_code, e.response.text)
-        raise HTTPException(status_code=e.response.status_code, detail="服务异常,请稍后重试") from e
+        raise HTTPException(status_code=e.response.status_code, detail=f"Upstream error: {e.response.text}") from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Image generation error: %s", e)
-        raise HTTPException(status_code=500, detail="服务异常,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/image/seedream", summary="Seedream 图片生成")
-async def doubao_seedream(request: SeedreamImageRequest, user_uuid: str = Depends(require_login)):
+async def doubao_seedream(request: SeedreamImageRequest):
     """
     Call Doubao Seedream model for image generation via /v3/images/generations
     with Bearer token auth.  Mirrors the original doubao_image_proxy.py
@@ -630,7 +632,7 @@ async def doubao_seedream(request: SeedreamImageRequest, user_uuid: str = Depend
         image_count = len(images)
         yuan_cost = 0.25 * image_count
         deduction = await calculate_and_deduct_tokens_by_cost(
-            user_uuid=user_uuid,
+            user_uuid=request.user_uuid,
             yuan_cost=yuan_cost,
             service_name="豆包Seedream图像生成",
             success=True,
@@ -643,7 +645,7 @@ async def doubao_seedream(request: SeedreamImageRequest, user_uuid: str = Depend
             agent_url = ", ".join(images)
             user_image_url = request.images if request.images else ""
             await save_conversation_to_db(
-                user_uuid=user_uuid,
+                user_uuid=request.user_uuid,
                 agent_id=DOUBAO_SEEDREAM_DB_MODEL,
                 model_name=DOUBAO_SEEDREAM_DB_MODEL,
                 problem=request.prompt,
@@ -671,12 +673,12 @@ async def doubao_seedream(request: SeedreamImageRequest, user_uuid: str = Depend
 
     except httpx.HTTPStatusError as e:
         logger.error("Seedream HTTP error: %s - %s", e.response.status_code, e.response.text)
-        raise HTTPException(status_code=e.response.status_code, detail="服务异常,请稍后重试") from e
+        raise HTTPException(status_code=e.response.status_code, detail=f"Upstream error: {e.response.text}") from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Seedream error: %s", e)
-        raise HTTPException(status_code=500, detail="服务异常,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/image/edit", summary="豆包图片编辑")
@@ -716,7 +718,7 @@ async def doubao_image_edit(
 
     auth_headers = {"Authorization": f"Bearer {settings.DOUBAO_API_KEY}"}
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(
                 url,

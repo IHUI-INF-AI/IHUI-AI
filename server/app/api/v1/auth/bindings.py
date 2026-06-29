@@ -15,7 +15,7 @@ router = APIRouter(prefix="/auth/bindings", tags=["Account Bindings"])
 
 
 @router.get("/", summary="List all third-party bindings")
-def list_bindings(user_uuid: str = Depends(require_login)):
+async def list_bindings(user_uuid: str = Depends(require_login)):
     """Get all third-party account bindings for the current user.
 
     Matches Java: AuthorizationManagementServlet.getList(uuid)
@@ -29,7 +29,6 @@ def list_bindings(user_uuid: str = Depends(require_login)):
             db.query(UserThirdPartyAccount)
             .filter(
                 UserThirdPartyAccount.user_uuid == user_uuid,
-                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .all()
         )
@@ -49,7 +48,7 @@ def list_bindings(user_uuid: str = Depends(require_login)):
 
 
 @router.delete("/{binding_id}", summary="Unbind third-party account by ID")
-def unbind(binding_id: int, user_uuid: str = Depends(require_login)):
+async def unbind(binding_id: int, user_uuid: str = Depends(require_login)):
     """Remove a third-party account binding by ID."""
     from app.database import SessionFactory2
     from app.models.user_models import UserThirdPartyAccount
@@ -78,9 +77,9 @@ def unbind(binding_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/remove", summary="Unbind third-party account by platform")
-def remove_by_platform(
+async def remove_by_platform(
     uuid: str = Body(..., embed=True, description="User UUID"),
-    platform: str = Body(..., embed=True, description="Platform name (wechat, google, alipay, feishu)"),
+    platform: str = Body(..., embed=True, description="Platform name (wechat, google, feishu)"),
 ):
     """Remove a third-party account binding by uuid + platform.
 
@@ -111,7 +110,6 @@ def remove_by_platform(
             db.query(UserThirdPartyAccount)
             .filter(
                 UserThirdPartyAccount.user_uuid == uuid,
-                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .all()
         )

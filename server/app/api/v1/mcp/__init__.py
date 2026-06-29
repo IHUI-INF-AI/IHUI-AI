@@ -12,7 +12,6 @@
 
 import json
 import time
-from typing import Dict
 
 import httpx
 from fastapi import APIRouter, Depends, Query
@@ -69,7 +68,7 @@ MCP_TOOLS: dict[str, dict] = {
 
 
 @router.get("/list", summary="列出所有 MCP 工具")
-def list_tools(user_uuid: str = Depends(require_login)):
+async def list_tools(user_uuid: str = Depends(require_login)):
     return success([{"name": name, **cfg, "key_loaded": bool(cfg["key"]())} for name, cfg in MCP_TOOLS.items()])
 
 
@@ -105,7 +104,7 @@ async def invoke_tool(
 
 
 @router.get("/{tool}/health", summary="工具健康检查")
-def tool_health(tool: str, user_uuid: str = Depends(require_login)):
+async def tool_health(tool: str, user_uuid: str = Depends(require_login)):
     cfg = MCP_TOOLS.get(tool)
     if not cfg:
         return error(f"未知工具: {tool}")

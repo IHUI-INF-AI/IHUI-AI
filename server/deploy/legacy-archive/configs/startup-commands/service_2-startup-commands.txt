@@ -1,0 +1,79 @@
+# 探学在线学习平台 - 服务启动命令
+# 部署路径: /ai_zhs/edu
+# 日志路径: /ai_zhs/edu/logs/
+# 使用方式: 手动复制以下命令到Linux服务器执行
+
+# 首先创建日志目录
+mkdir -p /ai_zhs/edu/logs
+
+# 1. 问答服务 (ask-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-ask-service-2.4.1.jar > /ai_zhs/edu/logs/ask-service.log 2>&1 &
+
+# 2. 认证授权服务 (auth-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-auth-service-2.4.1.jar > /ai_zhs/edu/logs/auth-service.log 2>&1 &
+
+# 3. 行为分析服务 (behavior-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-behavior-service-2.4.1.jar > /ai_zhs/edu/logs/behavior-service.log 2>&1 &
+
+# 4. 圈子社交服务 (circle-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-circle-service-2.4.1.jar > /ai_zhs/edu/logs/circle-service.log 2>&1 &
+
+# 5. 内容管理服务 (content-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-content-service-2.4.1.jar > /ai_zhs/edu/logs/content-service.log 2>&1 &
+
+# 6. 考试服务 (exam-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-exam-service-2.4.1.jar > /ai_zhs/edu/logs/exam-service.log 2>&1 &
+
+# 7. 网关服务 (gateway-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-gateway-service-2.4.1.jar > /ai_zhs/edu/logs/gateway-service.log 2>&1 &
+
+# 8. 学习服务 (learn-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-learn-service-2.4.1.jar > /ai_zhs/edu/logs/learn-service.log 2>&1 &
+
+# 9. 直播服务 (live-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-live-service-2.4.1.jar > /ai_zhs/edu/logs/live-service.log 2>&1 &
+
+# 10. 会员服务 (member-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-member-service-2.4.1.jar > /ai_zhs/edu/logs/member-service.log 2>&1 &
+
+# 11. 消息服务 (message-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-message-service-2.4.1.jar > /ai_zhs/edu/logs/message-service.log 2>&1 &
+
+# 12. 订单服务 (order-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-order-service-2.4.1.jar > /ai_zhs/edu/logs/order-service.log 2>&1 &
+
+# 13. 对象存储服务 (oss-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-oss-service-2.4.1.jar > /ai_zhs/edu/logs/oss-service.log 2>&1 &
+
+# 14. 支付服务 (pay-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-pay-service-2.4.1.jar > /ai_zhs/edu/logs/pay-service.log 2>&1 &
+
+# 15. 积分服务 (point-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-point-service-2.4.1.jar > /ai_zhs/edu/logs/point-service.log 2>&1 &
+
+# 16. 资源服务 (resource-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-resource-service-2.4.1.jar > /ai_zhs/edu/logs/resource-service.log 2>&1 &
+
+# 17. 调度服务 (schedule-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-schedule-service-2.4.1.jar > /ai_zhs/edu/logs/schedule-service.log 2>&1 &
+
+# 18. 搜索服务 (search-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-search-service-2.4.1.jar > /ai_zhs/edu/logs/search-service.log 2>&1 &
+
+# 19. 配置服务 (setting-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-setting-service-2.4.1.jar > /ai_zhs/edu/logs/setting-service.log 2>&1 &
+
+# 20. 用户中心服务 (usercenter-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-usercenter-service-2.4.1.jar > /ai_zhs/edu/logs/usercenter-service.log 2>&1 &
+
+# 21. 访问跟踪服务 (visit-tracking-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-visit-tracking-service-2.4.1.jar > /ai_zhs/edu/logs/visit-tracking-service.log 2>&1 &
+
+# 22. 通知服务 (notification-service)
+nohup java -Xms256m -Xmx512m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=128m -jar /ai_zhs/edu/ihui-ai-edu-notification-service-2.4.1.jar > /ai_zhs/edu/logs/notification-service.log 2>&1 &
+
+# 查看服务进程
+# ps -ef | grep ihui-ai-edu
+
+# 查看日志
+# tail -f /ai_zhs/edu/logs/xxx-service.log

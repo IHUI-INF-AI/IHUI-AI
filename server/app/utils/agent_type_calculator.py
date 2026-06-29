@@ -4,7 +4,7 @@
 """
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -74,7 +74,7 @@ class AgentTypeCalculator:
             if user_db and user_uuid:
                 user = user_db.query(User).filter(User.uuid == user_uuid).first()
                 if user:
-                    is_vip = user.is_vip if user.is_vip is not None else 0
+                    is_vip = user.is_vip if user.is_vip is not None else 0  # type: ignore[assignment]
 
             account = getattr(category, "account", 0) or 0
             type_child = str(getattr(category, "type_child", "") or "")
@@ -107,7 +107,7 @@ class AgentTypeCalculator:
 class OptimizedAgentTypeCalculator(AgentTypeCalculator):
     """优化版智能体类型计算器:减少重复查询."""
 
-    _category_cache: dict[str, dict[str, Any]] = {}
+    _category_cache: ClassVar[dict[str, dict[str, Any]]] = {}
 
     @classmethod
     def calculate_batch(

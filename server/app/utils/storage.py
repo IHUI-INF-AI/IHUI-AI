@@ -33,23 +33,14 @@ class LocalStorage(BaseStorage):
     """本地磁盘回退 -- 适合开发 / 单机部署."""
 
     def __init__(self, base_dir: str):
-        self.base = Path(base_dir).resolve()
+        self.base = Path(base_dir)
         self.base.mkdir(parents=True, exist_ok=True)
 
     def _abs(self, key: str) -> Path:
-        # 防止路径穿越: 拒绝 ".."、反斜杠、绝对路径
-        if not key or ".." in key or key.startswith("/") or key.startswith("\\"):
+        # 防止路径穿越: 拒绝 ".."
+        if ".." in key or key.startswith("/"):
             raise ValueError(f"非法 key: {key}")
-        # Windows 绝对路径检测 (如 C:\)
-        if len(key) >= 2 and key[1] == ":":
-            raise ValueError(f"非法 key: {key}")
-        resolved = (self.base / key).resolve()
-        # 校验解析后路径仍在 base 子树内
-        try:
-            resolved.relative_to(self.base)
-        except ValueError as e:
-            raise ValueError(f"非法 key (路径穿越): {key}") from e
-        return resolved
+        return self.base / key
 
     def upload_bytes(self, key: str, data: bytes) -> bool:
         try:

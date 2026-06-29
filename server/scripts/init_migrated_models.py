@@ -53,7 +53,7 @@ def init_migrated_models():
 
     # 收集需要新建的表
     target_tables = {
-        "ai_bot_sites",
+        "aibot_sites",
         "payment_callbacks",
         "transfer_infos",
         "user_agent_free_times",

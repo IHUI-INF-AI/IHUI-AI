@@ -5,6 +5,7 @@
 """
 
 import asyncio
+import contextlib
 import io
 import json
 import time
@@ -33,17 +34,13 @@ def _pcm_to_wav(pcm_data: bytes) -> bytes:
 
 
 async def _send(websocket: WebSocket, payload: dict[str, Any]) -> None:
-    try:
+    with contextlib.suppress(Exception):
         await websocket.send_text(json.dumps(payload, ensure_ascii=False))
-    except Exception as e:
-        # 2026-06-25 P2 加固: 记录异常
-        logger.debug(f"tts _send failed: {e}")
 
 
 async def _stream_synthesize(text: str, voice: str = "Cherry", model: str = "qwen3-tts-flash-realtime") -> bytes:
     """调用 qwen3-tts-flash-realtime SDK 合成 TTS, 返回完整 PCM 字节流."""
     try:
-        import dashscope
         from dashscope.audio.tts import SpeechSynthesizer
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
@@ -127,8 +124,5 @@ async def tts_stream_ws(websocket: WebSocket):
     except Exception as e:
         logger.error(f"TTS WebSocket 异常: {e}")
     finally:
-        try:
+        with contextlib.suppress(Exception):
             await websocket.close()
-        except Exception as e:
-            # 2026-06-25 P2 加固: 记录异常
-            logger.debug(f"tts websocket close failed: {e}")

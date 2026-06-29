@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.database import SessionFactory2
+from app.schemas.common import success, error
+from app.schemas.error_codes import ErrorCode
 from app.security import require_role
 
 router = APIRouter(prefix="/contact", tags=["Contact (About Us)"])
@@ -25,7 +27,7 @@ class ContactIn(BaseModel):
 
 
 @router.get("/list")
-def contact_list(pageNum: int = 1, pageSize: int = 10):  # noqa: 42
+async def contact_list(pageNum: int = 1, pageSize: int = 10):  # noqa: 42
     """List contacts with pagination."""
     db = SessionFactory2()
     try:
@@ -36,32 +38,32 @@ def contact_list(pageNum: int = 1, pageSize: int = 10):  # noqa: 42
             {"limit": pageSize, "offset": offset},
         ).fetchall()
         data = [dict(r._mapping) for r in rows]
-        return {"code": 200, "msg": "success", "rows": data, "total": total}
+        return success({"rows": data, "total": total})
     except Exception as e:
         logger.error("contact list error: " + str(e))
-        return {"code": 500, "msg": str(e)}
+        return error(str(e), ErrorCode.INTERNAL_ERROR)
     finally:
         db.close()
 
 
 @router.get("/{item_id}")
-def contact_get_info(item_id: int):
+async def contact_get_info(item_id: int):
     """Get contact detail by ID."""
     db = SessionFactory2()
     try:
         row = db.execute(text("SELECT * FROM ai_contact WHERE id = :id"), {"id": item_id}).fetchone()
         if row:
-            return {"code": 200, "msg": "success", "data": dict(row._mapping)}
-        return {"code": 404, "msg": "Not found"}
+            return success(dict(row._mapping))
+        return error("Not found", ErrorCode.NOT_FOUND)
     except Exception as e:
         logger.error(f"contact get error: {e}")
-        return {"code": 500, "msg": str(e)}
+        return error(str(e), ErrorCode.INTERNAL_ERROR)
     finally:
         db.close()
 
 
 @router.post("")
-def contact_add(item: ContactIn, user_uuid: str = Depends(require_role("admin"))):
+async def contact_add(item: ContactIn, user_uuid: str = Depends(require_role("admin"))):
     """Create new contact."""
     db = SessionFactory2()
     try:
@@ -79,17 +81,17 @@ def contact_add(item: ContactIn, user_uuid: str = Depends(require_role("admin"))
             },
         )
         db.commit()
-        return {"code": 200, "msg": "Created"}
+        return success(None, "Created")
     except Exception as e:
         db.rollback()
         logger.error(f"contact add error: {e}")
-        return {"code": 500, "msg": str(e)}
+        return error(str(e), ErrorCode.INTERNAL_ERROR)
     finally:
         db.close()
 
 
 @router.put("")
-def contact_edit(
+async def contact_edit(
     item: ContactIn, item_id: int = Query(..., alias="id"), user_uuid: str = Depends(require_role("admin"))
 ):
     """Update contact."""
@@ -110,17 +112,17 @@ def contact_edit(
             },
         )
         db.commit()
-        return {"code": 200, "msg": "Updated"}
+        return success(None, "Updated")
     except Exception as e:
         db.rollback()
         logger.error(f"contact edit error: {e}")
-        return {"code": 500, "msg": str(e)}
+        return error(str(e), ErrorCode.INTERNAL_ERROR)
     finally:
         db.close()
 
 
 @router.delete("/{item_ids}")
-def contact_remove(item_ids: str, user_uuid: str = Depends(require_role("admin"))):
+async def contact_remove(item_ids: str, user_uuid: str = Depends(require_role("admin"))):
     """Delete contacts by comma-separated IDs.
 
     Fixed: Use parameterized queries to prevent SQL injection.
@@ -138,17 +140,17 @@ def contact_remove(item_ids: str, user_uuid: str = Depends(require_role("admin")
                 continue
 
         if not ids:
-            return {"code": 400, "msg": "No valid IDs"}
+            return error("No valid IDs", ErrorCode.BAD_REQUEST)
 
         params = {f"id_{i}": id_val for i, id_val in enumerate(ids)}
         placeholders = ", ".join(f":id_{i}" for i in range(len(ids)))
 
         db.execute(text(f"DELETE FROM ai_contact WHERE id IN ({placeholders})"), params)
         db.commit()
-        return {"code": 200, "msg": f"Deleted {len(ids)} items"}
+        return success(None, f"Deleted {len(ids)} items")
     except Exception as e:
         db.rollback()
         logger.error(f"contact delete error: {e}")
-        return {"code": 500, "msg": str(e)}
+        return error(str(e), ErrorCode.INTERNAL_ERROR)
     finally:
         db.close()

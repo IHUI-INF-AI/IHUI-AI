@@ -225,8 +225,8 @@ class PromptCache:
                 self._renders.clear()
                 return n
             target_hashes: set = set()
-            for (n, v), tpl in self._templates.items():
-                if n == name and (version is None or v == version):
+            for (tpl_name, v), tpl in self._templates.items():
+                if tpl_name == name and (version is None or v == version):
                     target_hashes.add(tpl.template_hash)
             n = 0
             for k in list(self._renders.keys()):

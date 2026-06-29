@@ -6,35 +6,24 @@ import httpx
 from loguru import logger
 
 from app.config import settings
-from app.utils.minio_util import _is_safe_url
 
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB limit
 
 
 async def download_file_from_url(url: str) -> bytes | None:
-    # SSRF 防护: 校验 URL scheme 与目标 IP
-    if not _is_safe_url(url):
-        logger.warning("download_file_from_url 拒绝不安全 URL: " + url)
-        return None
     try:
         logger.info("Downloading file: " + url)
         headers = {"User-Agent": "Mozilla/5.0", "Accept": "*/*"}
         timeout = httpx.Timeout(60.0)
         async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
-            # 流式下载, 预检 Content-Length 防止 OOM
-            async with client.stream("GET", url) as resp:
-                resp.raise_for_status()
-                content_length = resp.headers.get("content-length")
-                if content_length and int(content_length) > MAX_FILE_SIZE:
-                    logger.warning("File too large (pre-check): " + str(content_length) + " bytes, max: " + str(MAX_FILE_SIZE))
-                    return None
-                data = await resp.aread()
-        content_length = len(data)
+            resp = await client.get(url)
+            resp.raise_for_status()
+        content_length = len(resp.content)
         if content_length > MAX_FILE_SIZE:
             logger.warning("File too large: " + str(content_length) + " bytes, max: " + str(MAX_FILE_SIZE))
             return None
         logger.info("Download OK: " + str(content_length) + " bytes")
-        return data
+        return resp.content
     except httpx.TimeoutException:
         logger.error("Download timeout: " + url)
         return None

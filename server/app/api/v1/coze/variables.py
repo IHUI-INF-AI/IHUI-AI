@@ -33,7 +33,7 @@ async def retrieve_variable(connector_id: str, variable_id: str):
             return await coze.retrieve_variable(connector_id, variable_id)
     except Exception as e:
         logger.error("Retrieve variable error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/list")
@@ -43,7 +43,7 @@ async def list_variables(connector_id: str, page: int = 1, size: int = 20):
             return await coze.list_variables(connector_id, page, size)
     except Exception as e:
         logger.error("List variables error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/update")
@@ -55,7 +55,7 @@ async def update_variable(req: UpdateVarReq):
             )
     except Exception as e:
         logger.error("Update variable error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/create")
@@ -67,7 +67,7 @@ async def create_variable(req: CreateVarReq):
             )
     except Exception as e:
         logger.error("Create variable error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/delete")
@@ -77,4 +77,4 @@ async def delete_variable(req: DeleteVarReq):
             return await coze.delete_variable(req.connector_id, req.variable_id)
     except Exception as e:
         logger.error("Delete variable error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e

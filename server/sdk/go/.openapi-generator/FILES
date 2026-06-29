@@ -36,7 +36,6 @@ api_ai_voiceprint.go
 api_ai_volc_engine.go
 api_aigc.go
 api_ain8_n.go
-api_ali_login.go
 api_alipay.go
 api_alipay_fund.go
 api_apiv2_experimental.go
@@ -45,7 +44,6 @@ api_ask.go
 api_ask_answer.go
 api_ask_category.go
 api_ask_question.go
-api_auth_alipay.go
 api_auth_enterprise_we_chat.go
 api_auth_feishu.go
 api_auth_identity.go
@@ -207,7 +205,6 @@ docs/AgentsAPI.md
 docs/AiGcCreate.md
 docs/AiGcUpdate.md
 docs/AlertIn.md
-docs/AliLoginAPI.md
 docs/AlipayAPI.md
 docs/AlipayFundAPI.md
 docs/AnswerCreate.md
@@ -228,7 +225,6 @@ docs/AsyncWorkflowReq.md
 docs/AsyncWorkflowStreamReq.md
 docs/AudioChatRequest.md
 docs/AudioRecognizeRequest.md
-docs/AuthAlipayAPI.md
 docs/AuthEnterpriseWeChatAPI.md
 docs/AuthFeishuAPI.md
 docs/AuthIdentityAPI.md
@@ -712,7 +708,6 @@ test/api_ai_voiceprint_test.go
 test/api_ai_volc_engine_test.go
 test/api_aigc_test.go
 test/api_ain8_n_test.go
-test/api_ali_login_test.go
 test/api_alipay_fund_test.go
 test/api_alipay_test.go
 test/api_apiv2_experimental_test.go
@@ -721,7 +716,6 @@ test/api_ask_answer_test.go
 test/api_ask_category_test.go
 test/api_ask_question_test.go
 test/api_ask_test.go
-test/api_auth_alipay_test.go
 test/api_auth_enterprise_we_chat_test.go
 test/api_auth_feishu_test.go
 test/api_auth_identity_test.go

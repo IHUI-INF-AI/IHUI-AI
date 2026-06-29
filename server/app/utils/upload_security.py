@@ -10,10 +10,7 @@
 """
 
 import io
-import logging
 import re
-
-logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 扩展名白名单 (按业务可扩展)
@@ -88,8 +85,8 @@ def detect_mime_from_bytes(data: bytes) -> str | None:
         mime = magic.from_buffer(data, mime=True)
         if mime:
             return mime
-    except Exception as e:
-        logger.debug("python-magic 检测 MIME 失败 (回退手写检测): %s", e)  # intentionally ignored
+    except Exception:
+        pass  # intentionally ignored
     # 兜底: 手写 magic 检测
     for sig, mime in _MAGIC_SIGNATURES:
         if data.startswith(sig):

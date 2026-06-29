@@ -282,7 +282,7 @@ class DbRouter:
                 "total_failover_events": len(self._failover_events),
             }
             for name, nodes in self._nodes.items():
-                out["groups"][name] = [{"role": n.role, "url": n.url, **n.health.to_dict()} for n in nodes]
+                out["groups"][name] = [{"role": n.role, "url": n.url, **n.health.to_dict()} for n in nodes]  # type: ignore[index]
         return out
 
 

@@ -1,5 +1,7 @@
 """操作日志 / 登录信息审计路由."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import desc
@@ -8,13 +10,12 @@ from app.database import get_session
 from app.models.sys_models import SysLoginInfo, SysOperLog
 from app.schemas.common import error, success
 from app.security import require_login
-from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
 
 @router.get("/operlog/list", summary="操作日志列表")
-def list_oper_logs(
+async def list_oper_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     title: str = Query(None),
@@ -52,7 +53,7 @@ def list_oper_logs(
 
 
 @router.post("/operlog/create", summary="写入一条操作日志(内部调用)")
-def create_oper_log(
+async def create_oper_log(
     title: str = Query(...),
     business_type: int = Query(0, description="0 其它 1 新增 2 修改 3 删除 4 查询"),
     method: str = Query(""),
@@ -75,7 +76,7 @@ def create_oper_log(
                 oper_ip=oper_ip,
                 status=status,
                 error_msg=error_msg,
-                oper_time=utcnow(),
+                oper_time=datetime.utcnow(),
             )
             db.add(log)
             db.commit()
@@ -85,11 +86,11 @@ def create_oper_log(
 
 
 @router.post("/operlog/clean", summary="清理 N 天前的操作日志")
-def clean_oper_log(days: int = Query(90, description="保留天数")):
+async def clean_oper_log(days: int = Query(90, description="保留天数")):
     with get_session() as db:
         from datetime import timedelta
 
-        cutoff = utcnow() - timedelta(days=days)
+        cutoff = datetime.utcnow() - timedelta(days=days)
         deleted = db.query(SysOperLog).filter(SysOperLog.oper_time < cutoff).delete()
         db.commit()
         return success({"deleted": deleted})
@@ -101,7 +102,7 @@ def clean_oper_log(days: int = Query(90, description="保留天数")):
 
 
 @router.get("/logininfor/list", summary="登录日志列表")
-def list_login_info(
+async def list_login_info(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_name: str = Query(None),
@@ -134,7 +135,7 @@ def list_login_info(
 
 
 @router.post("/logininfor/create", summary="记录一条登录日志")
-def create_login_info(
+async def create_login_info(
     user_name: str = Query(...),
     ipaddr: str = Query(""),
     login_location: str = Query(""),
@@ -153,7 +154,7 @@ def create_login_info(
                 os=os,
                 status=status,
                 msg=msg,
-                login_time=utcnow(),
+                login_time=datetime.utcnow(),
             )
             db.add(info)
             db.commit()
@@ -163,11 +164,11 @@ def create_login_info(
 
 
 @router.post("/logininfor/clean", summary="清理登录日志")
-def clean_login_info(days: int = Query(90)):
+async def clean_login_info(days: int = Query(90)):
     with get_session() as db:
         from datetime import timedelta
 
-        cutoff = utcnow() - timedelta(days=days)
+        cutoff = datetime.utcnow() - timedelta(days=days)
         deleted = db.query(SysLoginInfo).filter(SysLoginInfo.login_time < cutoff).delete()
         db.commit()
         return success({"deleted": deleted})
@@ -206,7 +207,7 @@ _LOGININFO_COLUMNS = [
 
 
 @router.get("/operlog/export", summary="导出操作日志到Excel")
-def export_oper_logs(
+async def export_oper_logs(
     title: str = Query(None),
     oper_name: str = Query(None),
     business_type: int = Query(None),
@@ -247,7 +248,7 @@ def export_oper_logs(
 
 
 @router.get("/logininfor/export", summary="导出登录日志到Excel")
-def export_login_info(
+async def export_login_info(
     user_name: str = Query(None),
     status: str = Query(None),
     user_uuid: str = Depends(require_login),

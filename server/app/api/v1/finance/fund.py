@@ -1,10 +1,8 @@
 # Fund management endpoints -- token operations, product info, payment callbacks, file streaming.
 # Ported from P2 FundController.java
 
-import json
-
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from loguru import logger
 from sqlalchemy import text
 
@@ -32,7 +30,7 @@ async def use_token(request: Request, platform: str = "WEB"):
 
 
 @router.get("/getInfo")
-def get_info(token: str = Query(..., description="user uuid")):
+async def get_info(token: str = Query(..., description="user uuid")):
     # Get product identity order info for a user
     try:
         with get_session() as db:
@@ -50,7 +48,7 @@ def get_info(token: str = Query(..., description="user uuid")):
 
 
 @router.get("/getProduct")
-def get_product():
+async def get_product():
     # Get product list and active activity
     try:
         with get_session() as db1:
@@ -70,34 +68,6 @@ def get_product():
         return {"code": "500", "msg": str(e)}
 
 
-async def _verify_and_decrypt_wx_notify(
-    body: str, serial: str, signature: str, timestamp: str, nonce: str
-) -> dict:
-    """微信支付 V3 回调验签 + 解密 (使用 wechat_pay_util 真实函数).
-
-    返回 {"ok": bool, "msg": str, "resource": dict, "raw": dict}.
-    原 fund.py 直接 import 不存在的 handle_pay_notify 导致 ImportError, 此处改为
-    调用真实存在的 verify_callback_signature + decrypt_callback.
-    """
-    from app.utils.wechat_pay_util import decrypt_callback, verify_callback_signature
-
-    if not verify_callback_signature(timestamp, nonce, body, signature):
-        logger.warning("WX callback signature verify failed")
-        return {"ok": False, "msg": "签名校验失败"}
-    try:
-        payload = json.loads(body)
-    except (json.JSONDecodeError, TypeError) as e:
-        logger.error("WX callback body parse error: " + str(e))
-        return {"ok": False, "msg": "回调内容解析失败"}
-    resource = payload.get("resource", {}) or {}
-    decrypted = decrypt_callback(
-        resource.get("ciphertext", ""),
-        resource.get("nonce", ""),
-        resource.get("associated_data", ""),
-    )
-    return {"ok": True, "msg": "OK", "resource": decrypted, "raw": payload}
-
-
 @router.post("/notify")
 async def fund_notify(request: Request):
     # WeChat payment callback
@@ -107,15 +77,12 @@ async def fund_notify(request: Request):
     timestamp = request.headers.get("Wechatpay-Timestamp", "")
     nonce = request.headers.get("Wechatpay-Nonce", "")
     logger.info("Fund notify received, serial=" + serial)
+    # Delegate to wechat pay service
     try:
-        result = await _verify_and_decrypt_wx_notify(
-            body.decode("utf-8"), serial, signature, timestamp, nonce
-        )
-        if not result.get("ok"):
-            return {"code": "FAIL", "message": result.get("msg", "verify failed")}
-        # NOTE: 订单支付状态更新逻辑待接入, 此处仅完成验签 + 解密
-        logger.info("Fund notify decrypted resource: " + str(result.get("resource")))
-        return {"code": "SUCCESS", "message": "成功"}
+        from app.utils.wechat_pay_util import handle_pay_notify  # type: ignore[attr-defined]
+
+        result = await handle_pay_notify(body.decode("utf-8"), serial, signature, timestamp, nonce)
+        return result
     except Exception as e:
         logger.error("Fund notify error: " + str(e))
         return {"code": "FAIL", "message": str(e)}
@@ -131,14 +98,10 @@ async def fund_app_notify(request: Request):
     nonce = request.headers.get("Wechatpay-Nonce", "")
     logger.info("Fund app notify received")
     try:
-        result = await _verify_and_decrypt_wx_notify(
-            body.decode("utf-8"), serial, signature, timestamp, nonce
-        )
-        if not result.get("ok"):
-            return {"code": "FAIL", "message": result.get("msg", "verify failed")}
-        # NOTE: 订单支付状态更新逻辑待接入, 此处仅完成验签 + 解密
-        logger.info("Fund app notify decrypted resource: " + str(result.get("resource")))
-        return {"code": "SUCCESS", "message": "成功"}
+        from app.utils.wechat_pay_util import handle_pay_notify  # type: ignore[attr-defined]
+
+        result = await handle_pay_notify(body.decode("utf-8"), serial, signature, timestamp, nonce)
+        return result
     except Exception as e:
         logger.error("Fund app notify error: " + str(e))
         return {"code": "FAIL", "message": str(e)}
@@ -187,7 +150,7 @@ async def agent_transfer_notify(request: Request):
     serial = request.headers.get("Wechatpay-Serial", "")
     logger.info("Agent transfer notify received")
     try:
-        from app.utils.wechat_pay_util import handle_transfer_notify  # noqa: F401
+        from app.utils.wechat_pay_util import handle_transfer_notify  # type: ignore[attr-defined]
 
         result = await handle_transfer_notify(
             body.decode("utf-8"),
@@ -197,13 +160,6 @@ async def agent_transfer_notify(request: Request):
             request.headers.get("Wechatpay-Nonce", ""),
         )
         return result
-    except ImportError:
-        # handle_transfer_notify 不存在, 转账回调处理未配置, 返回 503 而非 500 ImportError
-        logger.warning("handle_transfer_notify not implemented, transfer callback unavailable")
-        return JSONResponse(
-            status_code=503,
-            content={"code": "FAIL", "message": "转账回调处理未配置"},
-        )
     except Exception as e:
         logger.error("Agent transfer notify error: " + str(e))
         return {"code": "FAIL", "message": str(e)}

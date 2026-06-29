@@ -24,7 +24,7 @@ class CaptchaVerifyRequest(BaseModel):
 
 
 @router.get("/captcha", summary="获取验证码图片")
-def get_captcha():
+async def get_captcha():
     """Generate a new image captcha.
 
     Returns a ``captcha_key`` (to send back on login) and a base64-encoded
@@ -35,15 +35,15 @@ def get_captcha():
 
 
 @router.post("/captcha/verify", summary="校验验证码")
-def verify_captcha_endpoint(body: CaptchaVerifyRequest):
+async def verify_captcha_endpoint(body: CaptchaVerifyRequest):
     """Verify a captcha submission.
 
     Returns success/failure.  Each captcha can only be verified once.
     """
     if not body.captcha_key or not body.code:
-        return fail(msg="captcha_key and code are required")
+        return fail(message="captcha_key and code are required")
 
     ok = verify_captcha(body.captcha_key, body.code)
     if ok:
-        return success(msg="验证码正确")
-    return fail(msg="验证码错误或已过期")
+        return success(message="验证码正确")
+    return fail(message="验证码错误或已过期")

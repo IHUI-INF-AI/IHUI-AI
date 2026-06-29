@@ -9,8 +9,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import timedelta
-from app.utils.datetime_helper import utcnow
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -26,7 +25,7 @@ MATCH_TYPES = ["header", "uri", "method", "source_label", "source_namespace"]
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:
@@ -265,7 +264,7 @@ def issue_certificate(serial: str, service_identity: str,
                       validity_days: int = 90) -> str:
     """签发 SPIFFE 证书 (Stub)"""
     cid = str(uuid.uuid4())
-    now = utcnow()
+    now = datetime.utcnow()
     not_before = now.isoformat() + "Z"
     not_after = (now + timedelta(days=validity_days)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
@@ -278,7 +277,7 @@ def issue_certificate(serial: str, service_identity: str,
 
 def get_telemetry_summary(minutes: int = 60) -> Dict[str, Any]:
     """遥测汇总"""
-    since = (utcnow() - timedelta(minutes=minutes)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(minutes=minutes)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         rows = c.execute("""SELECT source_service, dest_service,
             COUNT(*) as cnt, AVG(rtt_ms) as avg_rtt,
@@ -329,7 +328,7 @@ def _send_dingtalk(title: str, content: str) -> None:
 
 def check_mtls_compliance(window_minutes: int = 60) -> bool:
     """检查 mTLS 合规性"""
-    since = (utcnow() - timedelta(minutes=window_minutes)).isoformat() + "Z"
+    since = (datetime.utcnow() - timedelta(minutes=window_minutes)).isoformat() + "Z"
     with _conn_lock, _conn() as c:
         total = c.execute("""SELECT COUNT(*) as cnt FROM mesh_telemetry
             WHERE timestamp >= ?""", (since,)).fetchone()["cnt"]

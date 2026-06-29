@@ -8,7 +8,6 @@ P15-C2 新增: assert_user_has_role(user_uuid, required_role) -> bool
 实现真实数据库查询, 替代之前的异常降级.
 """
 
-import secrets as _secrets
 import uuid as _uuid
 
 from fastapi import HTTPException
@@ -22,13 +21,6 @@ from app.security import (
     hash_password,
     verify_password,
 )
-
-
-def _mask_phone(phone: str) -> str:
-    """脱敏手机号: 138****1234. 用于日志输出, 避免明文 PII."""
-    if not phone or len(phone) < 7:
-        return "***"
-    return f"{phone[:3]}****{phone[-4:]}"
 
 
 def check_phone_exists(phone: str) -> dict:
@@ -96,6 +88,8 @@ def _generate_user_uuid() -> str:
 
 def _build_token_data(user) -> dict:
     """构建登录成功后的返回数据."""
+    from app.config import settings
+
     access_token = create_access_token(subject=user.uuid)
     refresh_token, _jti, _fid = create_refresh_token(subject=user.uuid)
     return {
@@ -107,10 +101,14 @@ def _build_token_data(user) -> dict:
         "refreshToken": refresh_token,
         "token_type": "Bearer",
         "tokenType": "Bearer",
-        "expires_in": 7200,
+        # 2026-06-28 联调修复: expires_in 用 settings.JWT_EXPIRE_MINUTES*60
+        # 原写死 7200(2h) 与 JWT 实际 60min 不符, 与 refresh 端点(3600) 也不一致
+        "expires_in": settings.JWT_EXPIRE_MINUTES * 60,
+        "refresh_expires_in": 7 * 24 * 60 * 60,
         "user": {
             "uuid": user.uuid,
             "phone": user.phone or "",
+            "email": getattr(user, "email", "") or "",
             "nickname": user.nickname or "",
             "avatar": user.avatar or "",
             "is_vip": getattr(user, "is_vip", 0),
@@ -145,10 +143,10 @@ def login_by_password(phone: str, password: str) -> dict:
             if not verify_password(password, user.password_hash):
                 return {"success": False, "msg": "用户不存在或密码错误"}
 
-            logger.info("login_by_password success: phone={}", _mask_phone(phone))
+            logger.info("login_by_password success: phone={}", phone)
             return {"success": True, "msg": "登录成功", "data": _build_token_data(user)}
-    except Exception as e:
-        logger.exception("login_by_password error: phone={}", _mask_phone(phone))
+    except Exception:
+        logger.exception("login_by_password error: phone={}", phone)
         return {"success": False, "msg": "用户不存在或密码错误"}
 
 
@@ -190,19 +188,84 @@ def login_by_sms(phone: str, code: str) -> dict:
                 db.add(user)
                 db.commit()
                 db.refresh(user)
-                logger.info("login_by_sms auto-registered: phone={}, uuid={}", _mask_phone(phone), user_uuid)
+                logger.info("login_by_sms auto-registered: phone={}, uuid={}", phone, user_uuid)
             else:
                 if user.status != 1:
                     return {"success": False, "msg": "账号已被禁用"}
-                logger.info("login_by_sms success: phone={}", _mask_phone(phone))
+                logger.info("login_by_sms success: phone={}", phone)
 
             return {"success": True, "msg": "登录成功", "data": _build_token_data(user)}
-    except Exception as e:
-        logger.exception("login_by_sms error: phone={}", _mask_phone(phone))
+    except Exception:
+        logger.exception("login_by_sms error: phone={}", phone)
         return {"success": False, "msg": "登录失败, 请重试"}
 
 
-def register_user(phone: str, password: str, nickname: str = None) -> dict:
+def login_by_email(email: str, code: str) -> dict:
+    """邮箱验证码登录: 验证验证码, 查询或创建用户.
+
+    登录逻辑:
+      1. 校验邮箱格式 + 验证码
+      2. 查 users 表 (按 email 字段)
+      3. 用户不存在则自动注册 (uuid 生成, email 字段写入, nickname 从邮箱前缀生成)
+      4. 用户存在则检查 status == 1
+      5. 颁发 JWT token
+
+    Returns:
+        {"success": bool, "msg": str, "data": dict}
+    """
+    if not email or not code:
+        return {"success": False, "msg": "邮箱和验证码不能为空"}
+
+    email = email.strip().lower()
+
+    try:
+        from app.utils.email_util import is_valid_email, verify_email_code
+
+        if not is_valid_email(email):
+            return {"success": False, "msg": "邮箱格式不正确"}
+
+        if not verify_email_code(email, code):
+            return {"success": False, "msg": "验证码错误或已过期"}
+    except Exception:
+        logger.exception("login_by_email verify error: email={}", email)
+        return {"success": False, "msg": "验证码验证失败"}
+
+    try:
+        with get_session() as db:
+            from sqlalchemy import select
+
+            from app.models.user_models import User
+
+            stmt = select(User).where(User.email == email).limit(1)
+            user = db.execute(stmt).scalar_one_or_none()
+
+            if user is None:
+                # 自动注册新用户 (邮箱登录)
+                user_uuid = _generate_user_uuid()
+                # nickname 取邮箱 @ 前缀, 截断到 20 字符
+                email_prefix = email.split("@", 1)[0][:20]
+                user = User(
+                    uuid=user_uuid,
+                    email=email,
+                    nickname=f"用户{email_prefix}",
+                    status=1,
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+                logger.info("login_by_email auto-registered: email={}, uuid={}", email, user_uuid)
+            else:
+                if user.status != 1:
+                    return {"success": False, "msg": "账号已被禁用"}
+                logger.info("login_by_email success: email={}", email)
+
+            return {"success": True, "msg": "登录成功", "data": _build_token_data(user)}
+    except Exception:
+        logger.exception("login_by_email error: email={}", email)
+        return {"success": False, "msg": "登录失败, 请重试"}
+
+
+def register_user(phone: str, password: str, nickname: str | None = None) -> dict:
     """注册新用户: 检查手机号是否已注册, 创建新用户.
 
     Returns:
@@ -235,10 +298,10 @@ def register_user(phone: str, password: str, nickname: str = None) -> dict:
             db.add(user)
             db.commit()
             db.refresh(user)
-            logger.info("register_user success: phone={}, uuid={}", _mask_phone(phone), user_uuid)
+            logger.info("register_user success: phone={}, uuid={}", phone, user_uuid)
             return {"success": True, "msg": "注册成功", "data": _build_token_data(user)}
-    except Exception as e:
-        logger.exception("register_user error: phone={}", _mask_phone(phone))
+    except Exception:
+        logger.exception("register_user error: phone={}", phone)
         return {"success": False, "msg": "注册失败, 请重试"}
 
 
@@ -275,7 +338,7 @@ def refresh_token(refresh_token: str) -> dict:
 
             logger.info("refresh_token success: uuid={}", user_uuid)
             return {"success": True, "msg": "刷新成功", "data": _build_token_data(user)}
-    except Exception as e:
+    except Exception:
         logger.exception("refresh_token error")
         return {"success": False, "msg": "Invalid refresh token"}
 
@@ -313,6 +376,6 @@ def get_user_info(user_uuid: str) -> dict:
                     "status": getattr(user, "status", 1),
                 },
             }
-    except Exception as e:
+    except Exception:
         logger.exception("get_user_info error: uuid={}", user_uuid)
         return {"success": False, "msg": "获取用户信息失败"}

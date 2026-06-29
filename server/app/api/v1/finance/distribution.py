@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/subordinates", summary="我的下级用户列表")
-def list_subordinates(
+async def list_subordinates(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -42,8 +42,11 @@ def list_subordinates(
             return error(str(e))
 
 
+_SORT_WHITELIST = {"created_at": "created_at", "is_vip": "is_vip"}
+
+
 @router.get("/team", summary="我的团队(下属列表+搜索排序)")
-def list_team(
+async def list_team(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     keyword: str | None = Query(None, description="搜索关键词(昵称/UUID)"),
@@ -59,19 +62,81 @@ def list_team(
             if keyword:
                 pattern = f"%{keyword}%"
                 q = q.filter((User.nickname.like(pattern)) | (User.uuid.like(pattern)))
+
+            total = q.count()
+            sort_field = _SORT_WHITELIST.get(sort_by, "created_at")
+            order_col = getattr(User, sort_field)
+            order_expr = order_col.desc() if sort_order.lower() == "desc" else order_col.asc()
+            items = q.order_by(order_expr).offset((page - 1) * limit).limit(limit).all()
+            data = [
+                {
+                    "uuid": u.uuid,
+                    "nickname": u.nickname,
+                    "avatar": u.avatar,
+                    "is_vip": u.is_vip,
+                    "created_at": u.created_at.isoformat() if u.created_at else None,
+                }
+                for u in items
+            ]
+            return success(data, total=total)
         except Exception as e:
             logger.error(f"Error: {e}")
             return error(str(e))
 
 
 @router.get("/team/center", summary="个人中心我的团队(概要)")
-def team_center(user_uuid: str = Depends(require_login)):
-    """Unimplemented. Use /invitee-stats instead."""
-    return error("Not implemented")
+async def team_center(user_uuid: str = Depends(require_login)):
+    """个人中心我的团队概要: 邀请总数 / VIP 数 / 本月新增 / 佣金总额 / 提现总额."""
+    from datetime import datetime
+
+    from app.models.payment_models import CommissionFlow, WithdrawalFlow
+    from app.models.user_models import User
+
+    with get_session() as db:
+        try:
+            total = db.query(func.count(User.uuid)).filter(User.parent_id == user_uuid).scalar() or 0
+            vip_count = (
+                db.query(func.count(User.uuid))
+                .filter(User.parent_id == user_uuid, User.is_vip == 1)
+                .scalar()
+                or 0
+            )
+            now = datetime.utcnow()
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            month_new = (
+                db.query(func.count(User.uuid))
+                .filter(User.parent_id == user_uuid, User.created_at >= month_start)
+                .scalar()
+                or 0
+            )
+            commission_total = (
+                db.query(func.sum(CommissionFlow.amount))
+                .filter(CommissionFlow.user_id == user_uuid, CommissionFlow.status == 1)
+                .scalar()
+                or 0
+            )
+            withdrawal_total = (
+                db.query(func.sum(WithdrawalFlow.amount))
+                .filter(WithdrawalFlow.user_id == user_uuid, WithdrawalFlow.status == 2)
+                .scalar()
+                or 0
+            )
+            return success(
+                {
+                    "total_invitees": total,
+                    "vip_invitees": vip_count,
+                    "month_new": month_new,
+                    "commission_total": commission_total,
+                    "withdrawal_total": withdrawal_total,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            return error(str(e))
 
 
 @router.get("/invitee-stats", summary="邀请统计")
-def invitee_stats(user_uuid: str = Depends(require_login)):
+async def invitee_stats(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         try:
             from app.models.user_models import User
@@ -88,7 +153,7 @@ def invitee_stats(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/commission-detail", summary="佣金明细")
-def commission_detail(
+async def commission_detail(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -126,20 +191,82 @@ def commission_detail(
 
 
 @router.get("/operator-card", summary="操盘手数据卡片统计")
-def operator_data_card(user_uuid: str = Depends(require_login)):
-    """Mirrors Java getOperatorDataCardData.
+async def operator_data_card(user_uuid: str = Depends(require_login)):
+    """操盘手数据卡片: 今日/本月/总佣金 + 下级订单统计 + 邀请数 + 提现统计."""
+    from datetime import datetime
 
-    Returns commission stats (today/month/total), order stats of invitees,
-    invited user counts, and withdrawal stats.
-    """
+    from app.models.payment_models import CommissionFlow, Order, WithdrawalFlow
+    from app.models.user_models import User
 
+    with get_session() as db:
+        try:
+            now = datetime.utcnow()
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    # Stub: function body is empty - variables computed but never used, no return value
-    return error("Not implemented")
+            def _sum_commission(start: datetime | None) -> int:
+                q = db.query(func.sum(CommissionFlow.amount)).filter(
+                    CommissionFlow.user_id == user_uuid, CommissionFlow.status == 1
+                )
+                if start is not None:
+                    q = q.filter(CommissionFlow.time >= int(start.timestamp()))
+                return q.scalar() or 0
+
+            commission_today = _sum_commission(today_start)
+            commission_month = _sum_commission(month_start)
+            commission_total = _sum_commission(None)
+
+            invitee_count = (
+                db.query(func.count(User.uuid)).filter(User.parent_id == user_uuid).scalar() or 0
+            )
+            child_uuids = [
+                u[0]
+                for u in db.query(User.uuid).filter(User.parent_id == user_uuid).all()
+            ]
+            all_uuids = [user_uuid, *child_uuids]
+            order_count = (
+                db.query(func.count(Order.id))
+                .filter(Order.user_id.in_(all_uuids), Order.status == 1)
+                .scalar()
+                or 0
+            )
+            order_amount = (
+                db.query(func.sum(Order.amount))
+                .filter(Order.user_id.in_(all_uuids), Order.status == 1)
+                .scalar()
+                or 0
+            )
+            withdrawal_pending = (
+                db.query(func.sum(WithdrawalFlow.amount))
+                .filter(WithdrawalFlow.user_id == user_uuid, WithdrawalFlow.status.in_([0, 1]))
+                .scalar()
+                or 0
+            )
+            withdrawal_done = (
+                db.query(func.sum(WithdrawalFlow.amount))
+                .filter(WithdrawalFlow.user_id == user_uuid, WithdrawalFlow.status == 2)
+                .scalar()
+                or 0
+            )
+            return success(
+                {
+                    "commission_today": commission_today,
+                    "commission_month": commission_month,
+                    "commission_total": commission_total,
+                    "invitee_count": invitee_count,
+                    "order_count": order_count,
+                    "order_amount": order_amount,
+                    "withdrawal_pending": withdrawal_pending,
+                    "withdrawal_done": withdrawal_done,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            return error(str(e))
 
 
 @router.get("/invitee-order-stats", summary="下级用户订单统计")
-def invitee_order_stats(
+async def invitee_order_stats(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -154,24 +281,21 @@ def invitee_order_stats(
     with get_session() as db:
         try:
             invitees = db.query(User).filter(User.parent_id == user_uuid).all()
-            inv_uuids = [inv.uuid for inv in invitees]
-            agg_map = {}
-            if inv_uuids:
-                agg_rows = (
-                    db.query(
-                        Order.user_id,
-                        func.count(Order.id).label("cnt"),
-                        func.sum(Order.amount).label("total"),
-                        func.max(Order.created_at).label("latest"),
-                    )
-                    .filter(Order.user_id.in_(inv_uuids), Order.status == 1)
-                    .group_by(Order.user_id)
-                    .all()
-                )
-                agg_map = {r.user_id: (r.cnt or 0, r.total or 0, r.latest) for r in agg_rows}
             result = []
             for inv in invitees:
-                cnt, total, latest = agg_map.get(inv.uuid, (0, 0, None))
+                inv_uuid = inv.uuid
+                order_count = (
+                    db.query(func.count(Order.id)).filter(Order.user_id == inv_uuid, Order.status == 1).scalar() or 0
+                )
+                total_amount = (
+                    db.query(func.sum(Order.amount)).filter(Order.user_id == inv_uuid, Order.status == 1).scalar() or 0
+                )
+                latest_order = (
+                    db.query(Order)
+                    .filter(Order.user_id == inv_uuid, Order.status == 1)
+                    .order_by(Order.id.desc())
+                    .first()
+                )
                 result.append(
                     {
                         "uuid": inv.uuid,
@@ -179,19 +303,22 @@ def invitee_order_stats(
                         "avatar": inv.avatar,
                         "is_vip": inv.is_vip,
                         "created_at": inv.created_at.isoformat() if inv.created_at else None,
-                        "order_count": cnt,
-                        "total_amount": total,
-                        "latest_time": latest.isoformat() if latest else None,
+                        "order_count": order_count,
+                        "total_amount": total_amount,
+                        "latest_time": (
+                            latest_order.created_at.isoformat() if latest_order and latest_order.created_at else None
+                        ),
                     }
                 )
 
+            return success(result, total=len(result))
         except Exception as e:
             logger.error(f"Error: {e}")
             return error(str(e))
 
 
 @router.get("/user-and-children-orders", summary="用户及下级的订单列表")
-def user_and_children_orders(
+async def user_and_children_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -205,28 +332,27 @@ def user_and_children_orders(
 
     with get_session() as db:
         try:
-            pass
+            # Collect self + children UUIDs
+            child_uuids = [u[0] for u in db.query(User.uuid).filter(User.parent_id == user_uuid).all()]
+            all_uuids = [user_uuid, *child_uuids]
+
+            q = db.query(Order).filter(Order.user_id.in_(all_uuids))
+            total = q.count()
+            items = q.order_by(Order.id.desc()).offset((page - 1) * limit).limit(limit).all()
+            data = [
+                {
+                    "id": o.id,
+                    "out_trade_no": o.out_trade_no,
+                    "amount": o.amount,
+                    "status": o.status,
+                    "payment_status": o.payment_status,
+                    "order_type": o.order_type,
+                    "product_id": o.product_id,
+                    "created_at": o.created_at.isoformat() if o.created_at else None,
+                }
+                for o in items
+            ]
+            return success(data, total=total)
         except Exception as e:
             logger.error(f"Error: {e}")
             return error(str(e))
-        # Collect self + children UUIDs
-        child_uuids = [u[0] for u in db.query(User.uuid).filter(User.parent_id == user_uuid).all()]
-        all_uuids = [user_uuid, *child_uuids]
-
-        q = db.query(Order).filter(Order.user_id.in_(all_uuids))
-        total = q.count()
-        items = q.order_by(Order.id.desc()).offset((page - 1) * limit).limit(limit).all()
-        data = [
-            {
-                "id": o.id,
-                "out_trade_no": o.out_trade_no,
-                "amount": o.amount,
-                "status": o.status,
-                "payment_status": o.payment_status,
-                "order_type": o.order_type,
-                "product_id": o.product_id,
-                "created_at": o.created_at.isoformat() if o.created_at else None,
-            }
-            for o in items
-        ]
-        return success(data, total=total)

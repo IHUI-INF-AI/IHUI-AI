@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 class TestTxPatternE2E:
     def test_bug185_saga_compensation_chain(self):
         """订单支付 + 库存扣减 + 物流下单, 中间失败回滚已成功步骤."""
-        from app.utils.saga import SagaOrchestrator, SagaStep
+        from app.utils.bug185_saga import SagaOrchestrator, SagaStep
 
         log: list = []
         orch = SagaOrchestrator()
@@ -53,7 +53,7 @@ class TestTxPatternE2E:
 
     def test_bug186_tcc_try_confirm_cancel(self):
         """账户扣款 + 红包扣减 + 积分扣减, TCC 三阶段全流程."""
-        from app.utils.tcc import TCCBranch, TCCTransaction
+        from app.utils.bug186_tcc import TCCBranch, TCCTransaction
 
         log: list = []
         branches = [
@@ -78,7 +78,7 @@ class TestTxPatternE2E:
 
     def test_bug187_outbox_atomic(self):
         """下单事务 outbox, 异步发送, 失败重试到 FAILED."""
-        from app.utils.outbox import OutboxRelay
+        from app.utils.bug187_outbox import OutboxRelay
 
         sent: list = []
 
@@ -108,7 +108,7 @@ class TestTxPatternE2E:
 class TestLockIdempotentE2E:
     def test_bug188_dist_lock_mutual_exclusion(self):
         """分布式锁互斥 + 续约 + watchdog."""
-        from app.utils.dist_lock import DistributedLock
+        from app.utils.bug188_dist_lock import DistributedLock
 
         lock = DistributedLock()
         s1, o1, t1 = lock.try_acquire("order:1:process")
@@ -126,7 +126,7 @@ class TestLockIdempotentE2E:
 
     def test_bug189_idempotent_msg_exactly_once(self):
         """消息幂等: 同 key 多次处理只执行 1 次, 失败可重试."""
-        from app.utils.idempotent_msg import IdempotentConsumer
+        from app.utils.bug189_idempotent_msg import IdempotentConsumer
 
         consumer = IdempotentConsumer(max_attempts=3)
         n = {"c": 0}
@@ -150,7 +150,7 @@ class TestLockIdempotentE2E:
 
     def test_bug190_ordered_per_key(self):
         """顺序保证: 同 partition 串行, 不同 partition 并行."""
-        from app.utils.ordered import OrderedProcessor
+        from app.utils.bug190_ordered import OrderedProcessor
 
         proc = OrderedProcessor()
         # 同一 partition 提交 3 个
@@ -177,7 +177,7 @@ class TestLockIdempotentE2E:
 class TestCompensationE2E:
     def test_bug191_comp_scheduler_lifecycle(self):
         """补偿调度: 失败重试 + 死信队列."""
-        from app.utils.comp_scheduler import CompensationScheduler
+        from app.utils.bug191_comp_scheduler import CompensationScheduler
 
         sched = CompensationScheduler(base_delay_sec=0.001, max_delay_sec=0.01)
         # 永远失败的任务 -> 应进入 DEAD
@@ -191,7 +191,7 @@ class TestCompensationE2E:
 
     def test_bug192_retry_comp_with_compensation(self):
         """重试补偿链: 第 1 步成功, 第 2 步失败, 反向补偿第 1 步."""
-        from app.utils.retry_comp import CompAction, RetryCompensator
+        from app.utils.bug192_retry_comp import CompAction, RetryCompensator
 
         log: list = []
         actions = [
@@ -212,7 +212,7 @@ class TestCompensationE2E:
 
     def test_bug193_backoff_jitter(self):
         """退避补偿: 指数退避 + jitter, max_attempts 进 DEAD."""
-        from app.utils.backoff_comp import BackoffCompensator, BackoffConfig
+        from app.utils.bug193_backoff_comp import BackoffCompensator, BackoffConfig
 
         cfg = BackoffConfig(max_attempts=3, base_ms=1, max_ms=10, jitter_pct=0.0)
         bc = BackoffCompensator(cfg)
@@ -231,7 +231,7 @@ class TestCompensationE2E:
 class TestDataSyncE2E:
     def test_bug194_cdc_publish_subscribe(self):
         """CDC 事件: 业务表 INSERT/UPDATE/DELETE 推送给订阅者."""
-        from app.utils.cdc import CDCBus, CDCEventType
+        from app.utils.bug194_cdc import CDCBus, CDCEventType
 
         bus = CDCBus()
         received: list = []
@@ -247,7 +247,7 @@ class TestDataSyncE2E:
 
     def test_bug195_binlog_position_checkpoint(self):
         """binlog 位点推进 + checkpoint + replay."""
-        from app.utils.binlog import BinlogSubscriber
+        from app.utils.bug195_binlog import BinlogSubscriber
 
         bs = BinlogSubscriber()
         bs.produce("orders", "INSERT", "o1", {"amount": 100})
@@ -266,7 +266,7 @@ class TestDataSyncE2E:
 
     def test_bug196_shadow_reconcile(self):
         """影子表: 双写 + 校验 + 自动修复."""
-        from app.utils.shadow import ShadowTable
+        from app.utils.bug196_shadow import ShadowTable
 
         st = ShadowTable()
         # 写入 3 行
@@ -291,7 +291,7 @@ class TestDataSyncE2E:
 class TestLockRetryE2E:
     def test_bug197_optimistic_cas_retry(self):
         """乐观锁: CAS 更新 + 失败重试."""
-        from app.utils.optimistic import OptimisticLock
+        from app.utils.bug197_optimistic import OptimisticLock
 
         ol = OptimisticLock(max_attempts=5)
         ol.put("stock:item1", 100)
@@ -309,7 +309,7 @@ class TestLockRetryE2E:
 
     def test_bug198_pessimistic_deadlock_detect(self):
         """悲观锁: 加锁 + 死锁检测 + 释放."""
-        from app.utils.pessimistic import PessimisticLocker
+        from app.utils.bug198_pessimistic import PessimisticLocker
 
         pl = PessimisticLocker(lease_sec=10.0)
         owner1 = pl.acquire("k1", owner="worker1")
@@ -322,7 +322,7 @@ class TestLockRetryE2E:
 
     def test_bug199_deadlock_retry(self):
         """死锁重试: 异常码匹配 + 退避 + 抖动."""
-        from app.utils.deadlock_retry import DeadlockRetrier, DeadlockRetryConfig
+        from app.utils.bug199_deadlock_retry import DeadlockRetrier, DeadlockRetryConfig
 
         cfg = DeadlockRetryConfig(max_attempts=5, base_delay_ms=1, max_delay_ms=5)
         dr = DeadlockRetrier(cfg)
@@ -354,7 +354,7 @@ class TestLockRetryE2E:
 class TestConsistencyE2E:
     def test_bug200_read_your_write(self):
         """read-your-write: 写后窗口内强制主读."""
-        from app.utils.ryw import ReadYourWrite, RYWConfig
+        from app.utils.bug200_ryw import ReadYourWrite, RYWConfig
 
         ryw = ReadYourWrite(RYWConfig(window_sec=10.0))
         # 写入 user:1
@@ -369,7 +369,7 @@ class TestConsistencyE2E:
 
     def test_bug201_async_lookup_lifecycle(self):
         """异步回查: 5 态生命周期 PENDING/RUNNING/SUCCESS/FAILED/TIMEOUT."""
-        from app.utils.async_lookup import AsyncLookup, AsyncState
+        from app.utils.bug201_async_lookup import AsyncLookup, AsyncState
 
         al = AsyncLookup()
         # 1) PENDING
@@ -397,7 +397,7 @@ class TestConsistencyE2E:
 
     def test_bug202_dual_write_strategies(self):
         """双写一致性: PRIMARY_FIRST / PARALLEL / ASYNC_VERIFY 三策略."""
-        from app.utils.dual_write import DualWriter, DualWriteStrategy
+        from app.utils.bug202_dual_write import DualWriter, DualWriteStrategy
 
         log: list = []
         # PRIMARY_FIRST

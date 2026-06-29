@@ -7,7 +7,7 @@ Migrates from P1's R class and P2's AjaxResult to unified Pydantic models.
 
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.schemas.error_codes import ErrorCode, http_status_for
 
@@ -38,7 +38,7 @@ class PageRequest(BaseModel):
     """Pagination query parameters."""
 
     page: int = 1
-    limit: int = Field(default=20, ge=1, le=200)
+    limit: int = 20
 
 
 # ---------------------------------------------------------------------------
@@ -46,11 +46,33 @@ class PageRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def success(data: Any = None, msg: str = "success", total: int | None = None) -> dict:
-    """Create a success response dict."""
+def success(
+    data: Any = None,
+    msg: str = "success",
+    total: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> dict:
+    """Create a success response dict.
+
+    Args:
+        data: 业务数据 (任意类型).
+        msg: 成功消息 (默认 "success").
+        total: 列表总数 (仅列表场景使用, 默认 None 不输出).
+        page: 当前页码 (分页场景, 默认 None 不输出).
+        page_size: 每页数量 (分页场景, 默认 None 不输出).
+
+    Returns:
+        标准响应 dict. 仅当对应参数非 None 时才包含 total/page/page_size 字段,
+        保证对原有调用方完全向后兼容.
+    """
     result: dict[str, Any] = {"code": ErrorCode.SUCCESS.value, "msg": msg, "data": data}
     if total is not None:
         result["total"] = total
+    if page is not None:
+        result["page"] = page
+    if page_size is not None:
+        result["page_size"] = page_size
     return result
 
 

@@ -16,10 +16,9 @@
 """
 
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
-
-from app.utils.datetime_helper import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -138,11 +137,11 @@ _CATEGORIES = [
 
 def _ok(data: dict) -> dict:
     """统一返回 ApiResponse 格式"""
-    return {"code": 200, "data": data, "message": "ok"}
+    return {"code": "0", "msg": "success", "data": data}
 
 
 @router.get("/zhsAgent/list", summary="智能体列表")
-def list_zhs_agents(
+async def list_zhs_agents(
     categoryId: str | None = Query(None, description="分类 ID"),  # noqa: 5
     page: int = Query(1, ge=1),
     pageSize: int = Query(20, ge=1, le=100),  # noqa: 5
@@ -159,21 +158,21 @@ def list_zhs_agents(
         "total": total,
         "page": page,
         "pageSize": pageSize,
-        "timestamp": utcnow().isoformat() + "Z",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
     })
 
 
 @router.get("/zhsAgent/{agent_id}", summary="智能体详情")
-def get_zhs_agent(agent_id: str):
+async def get_zhs_agent(agent_id: str):
     """获取单个智汇智能体详情"""
     agent = next((a for a in _ZHS_AGENTS if a["id"] == agent_id), None)
     if not agent:
         raise HTTPException(status_code=404, detail=f"智能体 {agent_id} 不存在")
-    return _ok({**agent, "timestamp": utcnow().isoformat() + "Z"})
+    return _ok({**agent, "timestamp": datetime.utcnow().isoformat() + "Z"})
 
 
 @router.get("/categories", summary="智能体分类")
-def list_categories():
+async def list_categories():
     """获取全部分类"""
     return _ok({
         "list": _CATEGORIES,

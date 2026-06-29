@@ -1,9 +1,8 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.security import hash_password
 from app.services.database_service import (
     FileAccessService,
     PermissionService,
@@ -13,7 +12,6 @@ from app.services.database_service import (
     get_db,
     init_default_roles_and_permissions,
 )
-from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -47,13 +45,13 @@ class FileAccessGrant(BaseModel):
 
 
 @router.post("/init")
-def initialize_rbac(db: Session = Depends(get_db)):
+async def initialize_rbac(db: Session = Depends(get_db)):
     init_default_roles_and_permissions(db)
     return {"success": True, "message": "RBAC initialized"}
 
 
 @router.post("/user/create")
-def create_user(data: UserCreate, db: Session = Depends(get_db)):
+async def create_user(data: UserCreate, db: Session = Depends(get_db)):
     existing = UserService.get_by_username(db, data.username)
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
@@ -63,7 +61,8 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)):
 
     hashed_password = None
     if data.password:
-        hashed_password = hash_password(data.password)
+        import hashlib
+        hashed_password = hashlib.sha256(data.password.encode()).hexdigest()
 
     user = UserService.create(
         db, user_id, data.username, data.email, hashed_password, data.display_name
@@ -83,7 +82,7 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/user/{user_id}")
-def get_user(user_id: str, db: Session = Depends(get_db)):
+async def get_user(user_id: str, db: Session = Depends(get_db)):
     user = UserService.get(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -108,7 +107,7 @@ def get_user(user_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/user/{user_id}/role/{role_id}")
-def assign_role(user_id: str, role_id: str, assigned_by: str | None = None, db: Session = Depends(get_db)):
+async def assign_role(user_id: str, role_id: str, assigned_by: str | None = None, db: Session = Depends(get_db)):
     user = UserService.get(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -123,7 +122,7 @@ def assign_role(user_id: str, role_id: str, assigned_by: str | None = None, db: 
 
 
 @router.get("/user/{user_id}/permissions")
-def get_user_permissions(user_id: str, db: Session = Depends(get_db)):
+async def get_user_permissions(user_id: str, db: Session = Depends(get_db)):
     permissions = UserService.get_user_permissions(db, user_id)
 
     return {
@@ -142,7 +141,7 @@ def get_user_permissions(user_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/roles")
-def list_roles(db: Session = Depends(get_db)):
+async def list_roles(db: Session = Depends(get_db)):
     roles = RoleService.get_all(db)
 
     return {
@@ -161,7 +160,7 @@ def list_roles(db: Session = Depends(get_db)):
 
 
 @router.post("/role/create")
-def create_role(data: RoleCreate, db: Session = Depends(get_db)):
+async def create_role(data: RoleCreate, db: Session = Depends(get_db)):
     import uuid
     role_id = str(uuid.uuid4())
 
@@ -178,7 +177,7 @@ def create_role(data: RoleCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/role/{role_id}/permissions")
-def get_role_permissions(role_id: str, db: Session = Depends(get_db)):
+async def get_role_permissions(role_id: str, db: Session = Depends(get_db)):
     permissions = RoleService.get_role_permissions(db, role_id)
 
     return {
@@ -197,7 +196,7 @@ def get_role_permissions(role_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/role/{role_id}/permission/{permission_id}")
-def assign_permission(role_id: str, permission_id: str, db: Session = Depends(get_db)):
+async def assign_permission(role_id: str, permission_id: str, db: Session = Depends(get_db)):
     role = RoleService.get(db, role_id)
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -208,7 +207,7 @@ def assign_permission(role_id: str, permission_id: str, db: Session = Depends(ge
 
 
 @router.get("/permissions")
-def list_permissions(db: Session = Depends(get_db)):
+async def list_permissions(db: Session = Depends(get_db)):
     permissions = PermissionService.get_all(db)
 
     return {
@@ -227,10 +226,10 @@ def list_permissions(db: Session = Depends(get_db)):
 
 
 @router.post("/access/grant")
-def grant_file_access(data: FileAccessGrant, granted_by: str | None = None, db: Session = Depends(get_db)):
+async def grant_file_access(data: FileAccessGrant, granted_by: str | None = None, db: Session = Depends(get_db)):
     expires_at = None
     if data.expires_in_hours:
-        expires_at = utcnow() + timedelta(hours=data.expires_in_hours)
+        expires_at = datetime.utcnow() + timedelta(hours=data.expires_in_hours)
 
     access = FileAccessService.grant_access(
         db, data.file_id, data.user_id, data.permission, granted_by, expires_at
@@ -248,7 +247,7 @@ def grant_file_access(data: FileAccessGrant, granted_by: str | None = None, db: 
 
 
 @router.get("/access/check")
-def check_file_access(
+async def check_file_access(
     file_id: str,
     user_id: str,
     permission: str,
@@ -269,7 +268,7 @@ def check_file_access(
 
 
 @router.get("/access/file/{file_id}")
-def get_file_access_list(file_id: str, db: Session = Depends(get_db)):
+async def get_file_access_list(file_id: str, db: Session = Depends(get_db)):
     access_list = FileAccessService.get_file_access_list(db, file_id)
 
     return {
@@ -288,7 +287,7 @@ def get_file_access_list(file_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/access/file/{file_id}/user/{user_id}")
-def revoke_file_access(file_id: str, user_id: str, db: Session = Depends(get_db)):
+async def revoke_file_access(file_id: str, user_id: str, db: Session = Depends(get_db)):
     revoked = FileAccessService.revoke_access(db, file_id, user_id)
 
     return {"success": revoked, "message": "Access revoked" if revoked else "No access found"}

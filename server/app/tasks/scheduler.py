@@ -96,6 +96,27 @@ def start_scheduler():
         id="alert_noise_inhibit_ticket_daily",
         replace_existing=True,
     )
+    # Round 25: OAuth 授权码会话清理 - 每日 04:30 跑
+    # 清理 oauth_sessions 表中 is_used=1 或 expires_at < now 的记录, 避免长期累积
+    scheduler.add_job(
+        task_cleanup_oauth_sessions,
+        "cron",
+        hour=4,
+        minute=30,
+        id="oauth_session_cleanup_daily",
+        replace_existing=True,
+    )
+    # Round 31-A: OAuth 审计日志老化清理 - 每日 04:45 跑
+    # 清理 oauth_audit_logs 表中 90 天前的历史记录, 避免审计日志表无限膨胀
+    # 保留近 90 天审计日志足够做安全运营分析, 历史日志归档后可删除
+    scheduler.add_job(
+        task_cleanup_oauth_audit_logs,
+        "cron",
+        hour=4,
+        minute=45,
+        id="oauth_audit_log_cleanup_daily",
+        replace_existing=True,
+    )
     scheduler.start()
     logger.info("APScheduler started with scheduled jobs")
 
@@ -106,7 +127,7 @@ def stop_scheduler():
         logger.info("APScheduler stopped")
 
 
-def task_update_heat_stats():
+async def task_update_heat_stats():
     """Aggregate agent heat stats."""
     from app.services.heat_stats_service import aggregate_heat_stats
 
@@ -117,7 +138,7 @@ def task_update_heat_stats():
         logger.error(f"Heat stats task error: {e}")
 
 
-def task_aggregate_daily_heat():
+async def task_aggregate_daily_heat():
     from app.tasks.heat_stats_task import aggregate_daily_heat
 
     try:
@@ -127,7 +148,7 @@ def task_aggregate_daily_heat():
         logger.error(f"Aggregate daily heat error: {e}")
 
 
-def task_cleanup_old_heat():
+async def task_cleanup_old_heat():
     from app.tasks.heat_stats_task import cleanup_old_heat
 
     try:
@@ -137,7 +158,7 @@ def task_cleanup_old_heat():
         logger.error(f"Cleanup old heat error: {e}")
 
 
-def task_sync_agents():
+async def task_sync_agents():
     """Sync agent data from Coze."""
     from app.tasks.agent_sync import sync_agent_counters
 
@@ -148,7 +169,7 @@ def task_sync_agents():
         logger.error(f"Agent sync error: {e}")
 
 
-def task_sync_agent_counters():
+async def task_sync_agent_counters():
     from app.tasks.agent_sync import sync_agent_counters
 
     try:
@@ -158,7 +179,7 @@ def task_sync_agent_counters():
         logger.error(f"Agent counter sync error: {e}")
 
 
-def task_expire_agents():
+async def task_expire_agents():
     from app.tasks.expiration_monitor import expire_agents
 
     try:
@@ -168,7 +189,7 @@ def task_expire_agents():
         logger.error(f"Expire agents error: {e}")
 
 
-def task_check_expired_orders():
+async def task_check_expired_orders():
     """Cancel expired unpaid orders."""
     from datetime import timedelta
 
@@ -214,7 +235,7 @@ async def task_close_expired_orders():
         logger.error(f"Close expired orders error: {e}")
 
 
-def task_alert_noise_inhibit_ticket():
+async def task_alert_noise_inhibit_ticket():
     """Phase 9 建议 2: 每日告警噪音分析 + 抑制建议工单 (dry-run).
 
     复用 scripts/ops/analyze_alert_noise + generate_inhibit_ticket 链路.
@@ -245,3 +266,80 @@ def task_alert_noise_inhibit_ticket():
             logger.error(f"Alert noise inhibit ticket failed rc={result.returncode}, stderr: {result.stderr[-500:]}")
     except Exception as e:
         logger.error(f"Alert noise inhibit ticket error: {e}")
+
+
+async def task_cleanup_oauth_sessions():
+    """Round 25: 每日清理 oauth_sessions 表中已使用/过期的授权码会话.
+
+    清理条件 (任一满足即删除):
+    - is_used=1 (已使用, 一次性授权码, 不再需要保留)
+    - expires_at < now (已过期, TTL=300s, 超时未换 token 的废码)
+
+    保留:
+    - is_used=0 且 expires_at >= now (有效未使用的授权码, 客户端可能正在换 token)
+
+    幂等: 重复执行无副作用, 删除的是历史废数据.
+    """
+    import datetime as dt
+
+    from sqlalchemy import delete
+
+    from app.database import get_session
+    from app.models.oauth_models import OAuthSession
+
+    with get_session() as db:
+        try:
+            now = dt.datetime.now()
+            # 删除 is_used=1 或 expires_at < now 的记录
+            stmt = delete(OAuthSession).where(
+                (OAuthSession.is_used == 1) | (OAuthSession.expires_at < now)
+            )
+            result = db.execute(stmt)
+            deleted = result.rowcount or 0
+            db.commit()
+            if deleted > 0:
+                logger.info(f"OAuth sessions cleaned: {deleted} (used or expired)")
+        except Exception as e:
+            db.rollback()
+            logger.error(f"OAuth session cleanup error: {e}")
+
+
+async def task_cleanup_oauth_audit_logs():
+    """Round 31-A: 每日清理 oauth_audit_logs 表中 90 天前的历史审计日志.
+
+    清理条件:
+    - created_at < now - 90 days (超过 90 天的历史审计日志)
+
+    保留:
+    - 近 90 天审计日志 (足够做安全运营分析 + 趋势统计)
+
+    幂等: 重复执行无副作用, 删除的是历史归档数据.
+    """
+    import datetime as dt
+
+    from sqlalchemy import delete, func, select
+
+    from app.database import get_session
+    from app.models.oauth_models import OAuthAuditLog
+
+    with get_session() as db:
+        try:
+            now = dt.datetime.now()
+            cutoff = now - dt.timedelta(days=90)
+            # 先统计待删除条数 (用于日志, 不影响删除逻辑)
+            count_stmt = select(func.count(OAuthAuditLog.id)).where(
+                OAuthAuditLog.created_at < cutoff
+            )
+            total = db.execute(count_stmt).scalar() or 0
+            # 删除 90 天前的审计日志
+            stmt = delete(OAuthAuditLog).where(OAuthAuditLog.created_at < cutoff)
+            result = db.execute(stmt)
+            deleted = result.rowcount or 0
+            db.commit()
+            if deleted > 0:
+                logger.info(
+                    f"OAuth audit logs cleaned: {deleted}/{total} (older than 90 days)"
+                )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"OAuth audit log cleanup error: {e}")

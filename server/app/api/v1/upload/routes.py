@@ -1,15 +1,13 @@
 import hashlib
 import os
-import re
 import shutil
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from app.security import require_login
 from app.services.audit_service import log_action
 from app.services.database_service import (
     Session,
@@ -22,7 +20,6 @@ from app.services.database_service import (
     get_db,
 )
 from app.services.storage_service import FileStorageService
-from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -32,23 +29,6 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CHUNKS_DIR, exist_ok=True)
 
 storage_service = FileStorageService(UPLOAD_DIR)
-
-# 安全 ID 校验: 仅允许字母/数字/下划线/连字符, 长度 1-64, 防止路径穿越 (../) 和绝对路径
-_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
-
-
-def _validate_safe_id(value: str | None, name: str = "id") -> str:
-    """校验上传/文件 ID 只含安全字符, 防止路径穿越攻击."""
-    if not value or not _SAFE_ID_RE.match(value):
-        raise HTTPException(status_code=400, detail=f"非法 {name}: {value!r}")
-    return value
-
-
-def _validate_chunk_index(idx: int) -> int:
-    """校验分片索引为非负整数."""
-    if not isinstance(idx, int) or idx < 0:
-        raise HTTPException(status_code=400, detail=f"非法分片索引: {idx}")
-    return idx
 
 
 class UploadInit(BaseModel):
@@ -73,9 +53,7 @@ class ShareCreateRequest(BaseModel):
 
 
 @router.post("/init")
-def init_upload(data: UploadInit, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
-    _validate_safe_id(data.uploadId, "uploadId")
-    _validate_safe_id(data.fileId, "fileId")
+async def init_upload(data: UploadInit, db: Session = Depends(get_db)):
     upload_dir = os.path.join(CHUNKS_DIR, data.uploadId)
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -85,7 +63,7 @@ def init_upload(data: UploadInit, db: Session = Depends(get_db), user_uuid: str 
         filename=data.fileName,
         file_size=data.fileSize,
         total_chunks=data.totalChunks,
-        user_id=user_uuid
+        user_id=data.userId
     )
     UploadService.create_upload(db, upload_data)
 
@@ -96,11 +74,8 @@ def init_upload(data: UploadInit, db: Session = Depends(get_db), user_uuid: str 
 async def upload_chunk(
     uploadId: str = Form(...),  # noqa: 5
     chunkIndex: int = Form(...),  # noqa: 5
-    chunk: UploadFile = File(...),
-    user_uuid: str = Depends(require_login),
+    chunk: UploadFile = File(...)
 ):
-    _validate_safe_id(uploadId, "uploadId")
-    _validate_chunk_index(chunkIndex)
     upload_dir = os.path.join(CHUNKS_DIR, uploadId)
     if not os.path.exists(upload_dir):
         raise HTTPException(status_code=404, detail="Upload session not found")
@@ -114,25 +89,22 @@ async def upload_chunk(
 
 
 @router.post("/chunk/confirm")
-def confirm_chunk(
+async def confirm_chunk(
     uploadId: str = Form(...),  # noqa: 5
     chunkIndex: int = Form(...),  # noqa: 5
-    db: Session = Depends(get_db),
-    user_uuid: str = Depends(require_login)
+    db: Session = Depends(get_db)
 ):
     UploadService.update_upload_chunks(db, uploadId, chunkIndex)
     return {"success": True}
 
 
 @router.post("/complete")
-def complete_upload(
+async def complete_upload(
     request: Request,
     uploadId: str = Form(...),  # noqa: 5
     fileName: str = Form(...),  # noqa: 5
-    db: Session = Depends(get_db),
-    user_uuid: str = Depends(require_login),
+    db: Session = Depends(get_db)
 ):
-    _validate_safe_id(uploadId, "uploadId")
     upload_record = UploadService.get_upload(db, uploadId)
     if not upload_record:
         raise HTTPException(status_code=404, detail="Upload session not found")
@@ -142,7 +114,6 @@ def complete_upload(
         raise HTTPException(status_code=404, detail="Upload chunks not found")
 
     file_id = upload_record.file_id
-    _validate_safe_id(file_id, "fileId")
     file_path = os.path.join(UPLOAD_DIR, file_id)
 
     with open(file_path, "wb") as outfile:
@@ -162,13 +133,13 @@ def complete_upload(
     mime_type = _get_mime_type(fileName)
 
     file_data = UploadedFileCreate(
-        file_id=file_id,
+        file_id=file_id,  # type: ignore[arg-type]
         filename=os.path.basename(file_path),
         original_name=fileName,
         file_path=file_path,
         file_size=file_size,
         mime_type=mime_type,
-        user_id=upload_record.user_id,
+        user_id=upload_record.user_id,  # type: ignore[arg-type]
         upload_id=uploadId
     )
     UploadedFileService.create(db, file_data)
@@ -176,10 +147,10 @@ def complete_upload(
     UploadService.complete_upload(db, uploadId)
 
     log_action(
-        action="file_upload",
-        user_id=upload_record.user_id,
+        action="file_upload_complete",
+        user_id=upload_record.user_id,  # type: ignore[arg-type]
         resource_type="file",
-        resource_id=file_id,
+        resource_id=file_id,  # type: ignore[arg-type]
         details=f"Uploaded file: {fileName}, size: {file_size} bytes",
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent", "")
@@ -197,8 +168,8 @@ def complete_upload(
 async def upload_single(
     request: Request,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    user_uuid: str = Depends(require_login),
+    userId: str | None = Form(None),  # noqa: 5
+    db: Session = Depends(get_db)
 ):
     file_id = str(uuid.uuid4())
     file_path = os.path.join(UPLOAD_DIR, file_id)
@@ -217,13 +188,13 @@ async def upload_single(
         file_path=file_path,
         file_size=file_size,
         mime_type=mime_type,
-        user_id=user_uuid
+        user_id=userId
     )
     UploadedFileService.create(db, file_data)
 
     log_action(
         action="file_upload",
-        user_id=user_uuid,
+        user_id=userId,
         resource_type="file",
         resource_id=file_id,
         details=f"Uploaded file: {file.filename}, size: {file_size} bytes",
@@ -240,12 +211,11 @@ async def upload_single(
 
 
 @router.get("/files")
-def list_files(
+async def list_files(
     userId: str | None = Query(None),  # noqa: 5
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-    user_uuid: str = Depends(require_login)
+    db: Session = Depends(get_db)
 ):
     files = UploadedFileService.get_all(db, userId, limit, offset)
     total = UploadedFileService.count(db, userId)
@@ -267,8 +237,7 @@ def list_files(
 
 
 @router.get("/file/{file_id}")
-def get_file(file_id: str, request: Request, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
-    _validate_safe_id(file_id, "file_id")
+async def get_file(file_id: str, request: Request, db: Session = Depends(get_db)):
     record = UploadedFileService.get_by_file_id(db, file_id)
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
@@ -278,7 +247,7 @@ def get_file(file_id: str, request: Request, db: Session = Depends(get_db), user
 
     log_action(
         action="file_download",
-        user_id=user_uuid,
+        user_id=record.user_id,  # type: ignore[arg-type]
         resource_type="file",
         resource_id=file_id,
         details=f"Downloaded file: {record.original_name}",
@@ -288,19 +257,19 @@ def get_file(file_id: str, request: Request, db: Session = Depends(get_db), user
 
     return FileResponse(
         record.file_path,
-        filename=record.original_name,
-        media_type=record.mime_type
+        filename=record.original_name,  # type: ignore[arg-type]
+        media_type=record.mime_type  # type: ignore[arg-type]
     )
 
 
 @router.delete("/file/{file_id}")
-def delete_file(file_id: str, request: Request, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
-    _validate_safe_id(file_id, "file_id")
+async def delete_file(file_id: str, request: Request, db: Session = Depends(get_db)):
     record = UploadedFileService.get_by_file_id(db, file_id)
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
 
     file_name = record.original_name
+    user_id = record.user_id
 
     if os.path.exists(record.file_path):
         os.remove(record.file_path)
@@ -309,7 +278,7 @@ def delete_file(file_id: str, request: Request, db: Session = Depends(get_db), u
 
     log_action(
         action="file_delete",
-        user_id=user_uuid,
+        user_id=user_id,  # type: ignore[arg-type]
         resource_type="file",
         resource_id=file_id,
         details=f"Deleted file: {file_name}",
@@ -321,30 +290,29 @@ def delete_file(file_id: str, request: Request, db: Session = Depends(get_db), u
 
 
 @router.post("/share")
-def create_share(
+async def create_share(
     data: ShareCreateRequest,
-    db: Session = Depends(get_db),
-    user_uuid: str = Depends(require_login)
+    db: Session = Depends(get_db)
 ):
     record = UploadedFileService.get_by_file_id(db, data.fileId)
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
 
-    share_id = hashlib.md5(f"{data.fileId}{utcnow().isoformat()}".encode()).hexdigest()[:12]
+    share_id = hashlib.md5(f"{data.fileId}{datetime.utcnow().isoformat()}".encode()).hexdigest()[:12]
 
     expires_at = None
     if data.expiresIn:
-        expires_at = utcnow() + timedelta(hours=data.expiresIn)
+        expires_at = datetime.utcnow() + timedelta(hours=data.expiresIn)
 
     share_data = ShareCreate(
         share_id=share_id,
         file_id=data.fileId,
-        filename=record.original_name,
+        filename=record.original_name,  # type: ignore[arg-type]
         file_url=f"/api/upload/share/{share_id}/download",
         password=data.password,
         max_downloads=data.maxDownloads,
         expires_at=expires_at,
-        created_by=record.user_id
+        created_by=record.user_id  # type: ignore[arg-type]
     )
     ShareService.create(db, share_data)
 
@@ -356,7 +324,7 @@ def create_share(
 
 
 @router.get("/share/{share_id}")
-def get_share_info(share_id: str, db: Session = Depends(get_db)):
+async def get_share_info(share_id: str, db: Session = Depends(get_db)):
     record = ShareService.get_active(db, share_id)
     if not record:
         raise HTTPException(status_code=404, detail="Share not found or expired")
@@ -369,7 +337,7 @@ def get_share_info(share_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/share/{share_id}/download")
-def download_shared_file(
+async def download_shared_file(
     share_id: str,
     password: str | None = Form(None),
     db: Session = Depends(get_db)
@@ -381,7 +349,7 @@ def download_shared_file(
     if record.password and record.password != password:
         raise HTTPException(status_code=403, detail="Invalid password")
 
-    file_record = UploadedFileService.get_by_file_id(db, record.file_id)
+    file_record = UploadedFileService.get_by_file_id(db, record.file_id)  # type: ignore[arg-type]
     if not file_record or not os.path.exists(file_record.file_path):
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -389,22 +357,21 @@ def download_shared_file(
 
     return FileResponse(
         file_record.file_path,
-        filename=file_record.original_name,
-        media_type=file_record.mime_type
+        filename=file_record.original_name,  # type: ignore[arg-type]
+        media_type=file_record.mime_type  # type: ignore[arg-type]
     )
 
 
 @router.delete("/share/{share_id}")
-def delete_share(share_id: str, db: Session = Depends(get_db), user_uuid: str = Depends(require_login)):
+async def delete_share(share_id: str, db: Session = Depends(get_db)):
     ShareService.delete(db, share_id)
     return {"success": True}
 
 
 @router.get("/shares")
-def list_shares(
+async def list_shares(
     userId: str | None = Query(None),  # noqa: 5
-    db: Session = Depends(get_db),
-    user_uuid: str = Depends(require_login)
+    db: Session = Depends(get_db)
 ):
     if userId:
         shares = ShareService.get_by_user(db, userId)

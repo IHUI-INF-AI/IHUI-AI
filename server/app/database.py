@@ -24,6 +24,11 @@ def _resolve_db_url(url: str, fallback_db_index: int) -> str:
     """如果 PostgreSQL 不可用, 自动降级到 SQLite 本地文件 (仅本地开发).
 
     生产环境 (ENV=production/prod/staging) 不允许降级, 直接抛出 RuntimeError.
+
+    2026-06-28 联调修复: dev SQLite 模式下三个 engine 共享同一文件
+    (.zhs_db_fallback.sqlite), 避免跨 engine 查询数据丢失.
+    原实现用 fallback_db_index 生成 3 个独立文件, 导致 engine1 写入的数据
+    engine2 查不到 (例如 register_user 写 engine1, get_profile 读 engine2).
     """
     if not url.startswith("postgres"):
         return url
@@ -31,41 +36,34 @@ def _resolve_db_url(url: str, fallback_db_index: int) -> str:
     env = os.getenv("ENV", "dev").lower()
     if env in ("production", "prod", "staging"):
         # 生产环境必须连 PostgreSQL, 不降级
-        from sqlalchemy import text
-
         try:
+            from sqlalchemy import text
+
             test_engine = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 2})
             with test_engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
+            test_engine.dispose()
             return url
         except Exception as e:
             raise RuntimeError(
                 f"[DB] 生产环境 (ENV={env}) PostgreSQL 不可用, 拒绝降级到 SQLite. "
                 f"请检查 PostgreSQL 连接: {e}"
             ) from e
-        finally:
-            try:
-                test_engine.dispose()
-            except Exception as e:
-                logger.debug("销毁测试 engine 失败: %s", e)
     # dev/test 环境: 尝试快速 ping 数据库, 失败则降级到 SQLite
-    from sqlalchemy import text
-
     try:
+        from sqlalchemy import text
+
         test_engine = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 2})
         with test_engine.connect() as conn:
             conn.execute(text("SELECT 1"))
+        test_engine.dispose()
         return url
     except Exception:
         # 降级到 SQLite (仅 dev/test 环境)
-        sqlite_path = os.path.abspath(f".zhs_db_fallback_{fallback_db_index}.sqlite")
+        # 关键: 三个 engine 共享同一文件, 跨 engine 读写才一致
+        sqlite_path = os.path.abspath(".zhs_db_fallback.sqlite")
         logger.warning(f"[DB Fallback] postgresql unavailable, using SQLite: {sqlite_path}")
         return f"sqlite:///{sqlite_path}"
-    finally:
-        try:
-            test_engine.dispose()
-        except Exception as e:
-            logger.debug("销毁测试 engine 失败: %s", e)
 
 
 def _build_engine(url: str, pool_size: int, max_overflow: int, pool_recycle: int, pre_ping: bool, fallback_idx: int):
@@ -189,10 +187,6 @@ AI_PROJECT_TABLES = {
     "ai_user_feedback",
     "ai_gc",
     "ai_gc_user_log",
-    # Multi-Agent Crew
-    "zhs_crew_session",
-    "zhs_crew_task",
-    "zhs_crew_message",
     # Code generation
     "gen_table",
     "gen_table_column",
@@ -214,7 +208,6 @@ AI_PROJECT_TABLES = {
     "admin_notice",
     "admin_job",
     "admin_job_log",
-    "admin_sms_template",
     # App content
     "ai_about_us",
     "ai_contact",
@@ -229,39 +222,6 @@ AI_PROJECT_TABLES = {
     # VIP system
     "vip_level",
     "user_vip",
-    # Chat room (migrated from coze_zhs_py chat_room_socket)
-    "zhs_station_room",
-    "zhs_station_user",
-    "zhs_station_letter",
-    # Live (migrated from edu server)
-    "t_channel_lecturer",
-    "t_tencent_cloud_live_stream",
-    # Learn (migrated from edu server ihui-ai-edu-learn-service)
-    "t_lesson",
-    "t_lesson_chapter",
-    "t_lesson_chapter_section",
-    "t_lesson_category_relation",
-    "t_sign_up",
-    "t_record",
-    "t_record_log",
-    "lesson_task",
-    "t_rate",
-    "t_topic",
-    "t_topic_lesson",
-    "t_topic_topic_category_relation",
-    "t_topic_category",
-    "t_topic_category_relation",
-    "t_category",
-    "t_category_relation",
-    "homework",
-    "t_homework_record",
-    "t_certificate",
-    "t_certificate_template",
-    "t_certificate_serial_number",
-    "t_learn_map",
-    "t_learn_map_topic",
-    "lesson_access",
-    "t_exam_paper_record",
 }
 
 CENTER_TABLES = {
@@ -361,7 +321,7 @@ def get_session(factory: object | None = None):
     """
     if factory is None:
         factory = SessionFactory1
-    db = factory()
+    db = factory()  # type: ignore[operator]
     try:
         yield db
         db.commit()
@@ -403,11 +363,9 @@ def _register_tenant_routing_if_enabled() -> None:
     from app.core.tenant_filter import register_tenant_routing
 
     for eng in (engine1, engine2, engine3):
-        try:
+        # Registration failure doesn't affect engine usage, single-tenant also bypasses
+        with suppress(Exception):
             register_tenant_routing(eng)
-        except Exception:
-            # Registration failure doesn't affect engine usage, single-tenant also bypasses
-            pass
 
 
 _register_tenant_routing_if_enabled()

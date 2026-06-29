@@ -1,6 +1,5 @@
 # SMS proxy module - CORS fix for frontend.
 # Ported from P3 coze_zhs_py/api/sms_proxy.py
-import asyncio
 import logging
 from typing import Any
 
@@ -44,16 +43,6 @@ class SmsCodeVerifyRequest(BaseModel):
 class RegisterRequest(BaseModel):
     phone: str
     code: str
-
-
-def _query_user_uuid_by_phone(phone: str) -> str | None:
-    """根据手机号查询 user_uuid (同步, 由 asyncio.to_thread 调用)."""
-    with get_session() as db:
-        query = text(
-            "SELECT user_uuid FROM user_auth_info WHERE phone = :phone AND user_uuid IS NOT NULL AND user_uuid != '' LIMIT 1"
-        )
-        row = db.execute(query, {"phone": phone}).fetchone()
-        return row[0] if row and row[0] else None
 
 
 @router.post("/send")
@@ -157,13 +146,16 @@ async def quick_register(request: RegisterRequest):
                 )
 
             try:
-                # P0 修复: 同步 DB 调用放到 threadpool, 避免阻塞事件循环
-                user_uuid = await asyncio.to_thread(_query_user_uuid_by_phone, request.phone)
-                if user_uuid:
-                    return _sms_resp(
-                        True, "200", "Register success", uuid=user_uuid, phone=request.phone, register_success=True
+                with get_session() as db:
+                    query = text(
+                        "SELECT user_uuid FROM user_auth_info WHERE phone = :phone AND user_uuid IS NOT NULL AND user_uuid != '' LIMIT 1"
                     )
-                return _sms_resp(False, "USER_NOT_FOUND", "Processing, retry later")
+                    row = db.execute(query, {"phone": request.phone}).fetchone()
+                    if row and row[0]:
+                        return _sms_resp(
+                            True, "200", "Register success", uuid=row[0], phone=request.phone, register_success=True
+                        )
+                    return _sms_resp(False, "USER_NOT_FOUND", "Processing, retry later")
             except Exception as db_err:
                 return _sms_resp(False, "DB_ERROR", "DB error", str(db_err))
     except httpx.TimeoutException:
@@ -176,7 +168,7 @@ async def quick_register(request: RegisterRequest):
 
 
 @router.get("/config")
-def get_proxy_config():
+async def get_proxy_config():
     """Return SMS proxy configuration."""
     config_data = {
         "sms_verify_url": "/api/sms-proxy/send",

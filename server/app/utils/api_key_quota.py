@@ -95,7 +95,7 @@ class ApiKeyQuota:
             if st is None:
                 return None
             return {
-                "tier": st.tier,
+                "tier": st.tier,  # type: ignore[dict-item]
                 "daily_used": st.daily_used,
                 "monthly_used": st.monthly_used,
                 "qps_window": len(st.qps_used),

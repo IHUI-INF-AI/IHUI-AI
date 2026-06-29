@@ -40,7 +40,7 @@ class AgentUpload(TimestampMixin, Base):
     """Agent file upload record (zhs_ai_project.agent_upload)."""
 
     __tablename__ = "agent_upload"
-    __table_args__ = (Index("ix_agent_upload_status", "status"), {"extend_existing": True})  # noqa: RUF012
+    __table_args__ = (Index("ix_agent_upload_status", "status"), {"extend_existing": True})
 
     id = id_column(comment="ID")
     user_uuid = Column(String(64), nullable=False, comment="User UUID")

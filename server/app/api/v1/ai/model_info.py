@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="AI 模型列表")
-def list_models(
+async def list_models(
     source: str = Query(None),
     status: int = Query(1),
     page: int = Query(1, ge=1),
@@ -46,7 +46,7 @@ def list_models(
 
 
 @router.post("/create", summary="新增模型")
-def create_model(
+async def create_model(
     vendor: str = Query(...),
     model_name: str = Query(...),
     description: str = Query(""),
@@ -69,7 +69,7 @@ def create_model(
 
 
 @router.post("/update", summary="更新模型")
-def update_model(
+async def update_model(
     model_id: int = Query(...),
     display_name: str = Query(None),
     status: int = Query(None),
@@ -91,7 +91,7 @@ def update_model(
 
 
 @router.delete("/{model_id}", summary="删除AI模型")
-def delete_model(
+async def delete_model(
     model_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -112,7 +112,7 @@ def delete_model(
 
 
 @router.get("/vendors", summary="支持的厂商统计")
-def vendor_stats(user_uuid: str = Depends(require_login)):
+async def vendor_stats(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         try:
             rows = (
@@ -122,7 +122,7 @@ def vendor_stats(user_uuid: str = Depends(require_login)):
                 )
                 .all()
             )
-            stats = {}
+            stats: dict[str, int] = {}
             for (s,) in rows:
                 if s:
                     stats[s] = stats.get(s, 0) + 1
@@ -138,7 +138,7 @@ def vendor_stats(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/compat/create", summary="[兼容] 新增模型 (前端 aiModelInfo.add)")
-def compat_create_model(
+async def compat_create_model(
     name: str = Query(...),
     source: str = Query(""),
     img: str = Query(""),
@@ -175,7 +175,7 @@ def compat_create_model(
 
 
 @router.post("/compat/update", summary="[兼容] 更新模型 (前端 aiModelInfo.update)")
-def compat_update_model(
+async def compat_update_model(
     id: str = Query(...),
     name: str = Query(None),
     source: str = Query(None),
@@ -211,7 +211,7 @@ def compat_update_model(
 
 
 @router.get("/compat/delete", summary="[兼容] 删除模型 (前端 aiModelInfo.delete)")
-def compat_delete_model(
+async def compat_delete_model(
     id: str = Query(...),
     updator: str = Query(""),
     user_uuid: str = Depends(require_login),

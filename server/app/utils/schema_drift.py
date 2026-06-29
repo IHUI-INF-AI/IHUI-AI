@@ -141,9 +141,9 @@ async def detect_drift(
         try:
             from app.database import get_engine_for_table
         except Exception:
-            get_engine_for_table = None
+            get_engine_for_table = None  # type: ignore[assignment]
     else:
-        get_engine_for_table = None
+        get_engine_for_table = None  # type: ignore[assignment]
 
     table_diffs: list[TableDiff] = []
     total_columns = 0
@@ -152,7 +152,7 @@ async def detect_drift(
 
     for model in models:
         try:
-            tbl = model.__table__
+            tbl = model.__table__  # type: ignore[attr-defined]
             tbl_name = tbl.name
             # 选 engine
             if get_engine_for_table is not None:
@@ -246,8 +246,8 @@ def _types_compatible(expected: str, actual: str) -> bool:
     expected = expected.lower().strip()
     actual = actual.lower().strip()
     # 去掉括号参数 (varchar(255) -> varchar)
-    expected_base = re.split(r"[\(\s]", expected, 1)[0]
-    actual_base = re.split(r"[\(\s]", actual, 1)[0]
+    expected_base = re.split(r"[\(\s]", expected, maxsplit=1)[0]
+    actual_base = re.split(r"[\(\s]", actual, maxsplit=1)[0]
     if expected_base == actual_base:
         return True
     # 数字家族

@@ -52,7 +52,7 @@ async def list_voices(filter_type: str | None = None):
             return await coze._request("GET", "/v1/audio/voices", params=params)
     except Exception as e:
         logger.error("List voices error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/speech")
@@ -68,7 +68,7 @@ async def create_speech(req: SpeechReq):
             return await coze._request("POST", "/v1/audio/speech", json=body)
     except Exception as e:
         logger.error("Create speech error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/chat-audio")
@@ -84,7 +84,7 @@ async def chat_audio(req: ChatAudioReq):
             return await coze.chat(payload)
     except Exception as e:
         logger.error("Chat audio error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/voiceprints")
@@ -94,7 +94,7 @@ async def list_voiceprints():
             return await coze._request("GET", "/v1/audio/voiceprints")
     except Exception as e:
         logger.error("List voiceprints error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/voiceprints")
@@ -109,7 +109,7 @@ async def create_voiceprint(req: VoiceprintCreateReq):
             return await coze._request("POST", "/v1/audio/voiceprints", json=body)
     except Exception as e:
         logger.error("Create voiceprint error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/voiceprints")
@@ -124,7 +124,7 @@ async def update_voiceprint(req: VoiceprintUpdateReq):
             return await coze._request("PUT", "/v1/audio/voiceprints", json=body)
     except Exception as e:
         logger.error("Update voiceprint error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/voiceprints")
@@ -134,4 +134,4 @@ async def delete_voiceprint(req: VoiceprintDeleteReq):
             return await coze._request("DELETE", "/v1/audio/voiceprints", json={"voiceprint_id": req.voiceprint_id})
     except Exception as e:
         logger.error("Delete voiceprint error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e

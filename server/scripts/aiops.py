@@ -68,11 +68,11 @@ def detect_anomaly(values: list[float], threshold: float = ANOMALY_THRESHOLD) ->
     mean = statistics.mean(historical)
     std = statistics.stdev(historical) if len(historical) > 1 else 0.0
 
-    # Z-score (std 接近 0 时用相对均值的偏差归一化)
+    # Z-score (std 接近 0 时用绝对偏差)
     if std < 1e-6:
-        # 稳定数据: 用相对均值的偏差代替 Z-score
+        # 稳定数据: 用绝对偏差代替 Z-score
         abs_dev = abs(current - mean)
-        z_score = abs_dev / (abs(mean) + 1.0) if mean != 0 else abs_dev
+        z_score = abs_dev / 10.0  # 归一化
     else:
         z_score = (current - mean) / std
 
@@ -300,8 +300,8 @@ def cmd_serve(args) -> int:
         def log_message(self, format, *args):
             pass
 
-    server = HTTPServer(("127.0.0.1", args.port), Handler)
-    log(f"aiops HTTP 服务已启动: 127.0.0.1:{args.port}")
+    server = HTTPServer(("0.0.0.0", args.port), Handler)
+    log(f"aiops HTTP 服务已启动: 0.0.0.0:{args.port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

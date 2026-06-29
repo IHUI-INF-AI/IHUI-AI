@@ -93,21 +93,21 @@ jobs:
         run: |
           if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P0-1" ]; then
             echo "=== P0-1 ==="
-            python tests/scripts/test_tenant_fastapi_integration.py
+            python scripts/test_tenant_fastapi_integration.py
           fi
 
       - name: "[P0-2] 告警链路实际部署"
         run: |
           if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P0-2" ]; then
             echo "=== P0-2 ==="
-            python tests/scripts/test_alert_link_deploy.py
+            python scripts/test_alert_link_deploy.py
           fi
 
       - name: "[P0-3] ArgoCD 部署"
         run: |
           if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P0-3" ]; then
             echo "=== P0-3 ==="
-            python tests/scripts/test_argo_deploy.py
+            python scripts/test_argo_deploy.py
           fi
 
   # -------------------------------------------------------------------------
@@ -136,21 +136,21 @@ jobs:
         run: |
           if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P1-4" ]; then
             echo "=== P1-4 ==="
-            python tests/scripts/test_canary_drill.py
+            python scripts/test_canary_drill.py
           fi
 
       - name: "[P1-5] 告警历史面板"
         run: |
           if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P1-5" ]; then
             echo "=== P1-5 ==="
-            python tests/scripts/test_alert_history_dashboard.py
+            python scripts/test_alert_history_dashboard.py
           fi
 
       - name: "[P1-6] 多租户压测报告"
         run: |
           if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P1-6" ]; then
             echo "=== P1-6 ==="
-            python tests/scripts/test_loadtest_report_gen.py
+            python scripts/test_loadtest_report_gen.py
           fi
 
   # -------------------------------------------------------------------------
@@ -200,7 +200,7 @@ jobs:
               cd "$GITHUB_WORKSPACE"
             done
             echo "=== P2-7 测试 ==="
-            python tests/scripts/test_terraform_aliyun.py
+            python scripts/test_terraform_aliyun.py
           fi
 
       - name: "[P2-8] 故障切换剧本"
@@ -208,7 +208,7 @@ jobs:
           if [ "${{ needs.init.outputs.task_filter }}" = "all" ] || [ "${{ needs.init.outputs.task_filter }}" = "P2-8" ]; then
             echo "=== P2-8 ==="
             bash scripts/failover_runbook_test.sh --dry-run
-            python tests/scripts/test_failover_runbook.py
+            python scripts/test_failover_runbook.py
           fi
 
       - name: "[P2-9] Alertmanager 集成"
@@ -227,7 +227,7 @@ jobs:
             print(f'  receivers: {len(cfg[\"receivers\"])}')
             print(f'  routes: {len(cfg[\"route\"][\"routes\"])}')
             "
-            python tests/scripts/test_alertmanager_integration.py
+            python scripts/test_alertmanager_integration.py
           fi
 
   # -------------------------------------------------------------------------
@@ -255,7 +255,7 @@ jobs:
       - name: "[P2-10] Round 9 端到端回归"
         run: |
           echo "=== P2-10 ==="
-          python tests/scripts/test_round9_e2e.py
+          python scripts/test_round9_e2e.py
 
   # -------------------------------------------------------------------------
   # Job: 汇总报告

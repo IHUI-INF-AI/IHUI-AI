@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsCommissionFlowMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.CommissionFlow" id="ZhsCommissionFlowResult">
+        <result property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="orderId" column="order_id"/>
+        <result property="openId" column="open_id"/>
+        <result property="amount" column="amount"/>
+        <result property="type" column="type"/>
+        <result property="status" column="status"/>
+        <result property="token" column="token"/>
+        <result property="time" column="time"/>
+        <result property="remark" column="remark"/>
+        <result property="belongersOpenId" column="belongers_open_id"/>
+        <result property="orderStatus" column="order_status"/>
+        <result property="nickname" column="nickname"/>
+        <result property="productName" column="product_name"/>
+        <result property="activityName" column="activity_name"/>
+        <result property="productIdentityName" column="product_identity_name"/>
+        <result property="images" column="images"/>
+        <result property="orderAmount" column="order_amount"/>
+        <result property="outTradeNo" column="out_trade_no"/>
+
+        <result property="orderType" column="order_type"/>
+        <result property="productIdentityId" column="product_identity_id"/>
+    </resultMap>
+
+    <sql id="selectZhsCommissionFlowVo">
+        select id, user_id, order_id, open_id, amount, `type`, status, token, `time`, remark, belongers_open_id, order_status from zhs_commission_flow
+    </sql>
+
+    <select id="selectZhsCommissionFlowList" parameterType="com.ai.manager.small.domain.CommissionFlow" resultMap="ZhsCommissionFlowResult">
+        select f.id, f.user_id, f.order_id, f.open_id, if(f.amount is not null, f.amount, 0) amount, f.`type`, f.status, f.token, f.`time`, f.remark, f.belongers_open_id, f.order_status
+        /*,u.nickname*/
+        ,o.order_type
+        , o.product_identity_id
+        ,o.`out_trade_no` out_trade_no
+
+        /*p.`name` product_name,
+        a.activity_name,
+        pi.remark product_identity_name,*/
+        ,IF(p.`name` IS NOT NULL,p.`name`, IF(a.activity_name IS NOT NULL,a.activity_name,IF(pi.remark IS NOT NULL,pi.remark,''))) product_name
+
+        ,o.amount order_amount
+        ,p.images
+        from zhs_commission_flow f
+        /*left join zhs_user u on f.open_id = u.token*/
+        left join zhs_order o on f.order_id = o.id
+        left join zhs_product p on o.product_id = p.id
+        left join zhs_activity a on o.activity_id = a.id
+        left join zhs_product_identity pi on o.product_identity_id = pi.id
+        <where>
+            <if test="search != null and search != ''">
+                and
+                    (
+                        p.`name` like CONCAT("%", #{search}, "%")
+                        or a.activity_name like CONCAT("%", #{search}, "%")
+                        or pi.remark like CONCAT("%", #{search}, "%")
+                        or o.out_trade_no like CONCAT("%", #{search}, "%")
+                    )
+            </if>
+            <if test="userId != null "> and f.user_id = #{userId}</if>
+            <if test="orderId != null  and orderId != ''"> and f.order_id = #{orderId}</if>
+            <if test="openId != null  and openId != ''"> and f.open_id = #{openId}</if>
+            <if test="amount != null "> and f.amount = #{amount}</if>
+            <if test="type != null "> and f.`type` = #{type}</if>
+            <if test="status != null "> and f.status = #{status}</if>
+            <if test="token != null  and token != ''"> and f.token = #{token}</if>
+            <if test="time != null "> and f.`time` = #{time}</if>
+            <if test="belongersOpenId != null "> and f.`belongers_open_id` = #{belongersOpenId}</if>
+            <if test="orderStatus != null "> and f.`order_status` = #{orderStatus}</if>
+            <if test="tokenUuid != null and tokenUuid != ''"> and f.`belongers_open_id` = #{tokenUuid}</if>
+        </where>
+        order by `time` desc
+#         LIMIT 10
+    </select>
+
+    <select id="selectZhsCommissionFlowById" parameterType="Integer" resultMap="ZhsCommissionFlowResult">
+        <include refid="selectZhsCommissionFlowVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertZhsCommissionFlow" parameterType="com.ai.manager.small.domain.CommissionFlow" useGeneratedKeys="true" keyProperty="id">
+        insert into zhs_commission_flow
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="orderId != null">order_id,</if>
+            <if test="openId != null">open_id,</if>
+            <if test="amount != null">amount,</if>
+            <if test="type != null">`type`,</if>
+            <if test="status != null">status,</if>
+            <if test="token != null">token,</if>
+            <if test="time != null">`time`,</if>
+            <if test="remark != null">remark,</if>
+            <if test="belongersOpenId != null">belongers_open_id,</if>
+            <if test="orderStatus != null">order_status,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="orderId != null">#{orderId},</if>
+            <if test="openId != null">#{openId},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="type != null">#{type},</if>
+            <if test="status != null">#{status},</if>
+            <if test="token != null">#{token},</if>
+            <if test="time != null">#{time},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="belongersOpenId != null">#{belongersOpenId},</if>
+            <if test="orderStatus != null">#{orderStatus},</if>
+         </trim>
+    </insert>
+
+    <update id="updateZhsCommissionFlow" parameterType="com.ai.manager.small.domain.CommissionFlow">
+        update zhs_commission_flow
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="orderId != null">order_id = #{orderId},</if>
+            <if test="openId != null">open_id = #{openId},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="type != null">`type` = #{type},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="token != null">token = #{token},</if>
+            <if test="time != null">`time` = #{time},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="belongersOpenId != null">belongers_open_id = #{belongersOpenId},</if>
+            <if test="orderStatus != null">order_status = #{orderStatus},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteZhsCommissionFlowById" parameterType="Integer">
+        delete from zhs_commission_flow where id = #{id}
+    </delete>
+
+    <delete id="deleteZhsCommissionFlowByIds" parameterType="String">
+        delete from zhs_commission_flow where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <resultMap id="CommissionFlowResult" type="com.ai.manager.small.domain.vo.CommissionFlowResult">
+        <result property="totalIncome"    column="total_income"    />
+        <result property="currentAmount"    column="current_amount"    />
+    </resultMap>
+
+    <select id="getStatisticsAmount" resultMap="CommissionFlowResult">
+        SELECT
+            SUM(f.amount) total_income,
+            SUM(IF(f.`status` = 0,f.amount,0)) current_amount
+        FROM
+            `zhs_commission_flow` f
+            /*left join `zhs_order` o on o.id = f.order_id*/
+        WHERE
+            f.order_status = 2
+            AND f.`status` != 1
+            AND f.belongers_open_id = #{token}
+            AND f.`time` <![CDATA[<=]]> #{endOfDay}
+            /*and o.`status` = 3*/
+    </select>
+    <select id="getStatistics" resultType="com.ai.manager.small.domain.vo.CommissionFlowStatistics">
+        SELECT
+            SUM(f.amount) amount,
+            SUM(IF(f.`order_status` = 0,f.amount,0)) incomplete,
+            SUM(IF(f.`order_status` = 2 AND f.`status` != 1,f.amount,0)) finish,
+            (
+                 SELECT COUNT(1) FROM zhs_commission_flow f1
+                 <where>
+                     f1.belongers_open_id = #{token}
+                     AND f1.`status` != 1
+                     <if test="nowBeginTime != null">
+                         AND f1.`time` >= #{nowBeginTime}
+                     </if>
+                     <if test="nowEndTime != null">
+                         AND f1.`time` <![CDATA[<=]]> #{nowEndTime}
+                     </if>
+                 </where>
+            ) `order`,
+            <!--(
+                &lt;!&ndash; todo 需要查询用户 &ndash;&gt;
+                (
+                    SELECT COUNT(1) FROM zhs_user u
+                    LEFT JOIN zhs_user pu ON u.parent_id = pu.invite_code
+                    <where>
+                        pu.token = #{token}
+                        <if test="nowBeginTime != null">
+                            AND u.`created_at` >= #{nowBeginTime}
+                        </if>
+                        <if test="nowEndTime != null">
+                            AND u.`created_at` <![CDATA[<=]]> #{nowEndTime}
+                        </if>
+                    </where>
+                )
+                +
+                (
+                    SELECT COUNT(1) FROM zhs_user u
+                    LEFT JOIN zhs_user pu ON u.parent_id = pu.invite_code
+                    LEFT JOIN zhs_user gu ON pu.parent_id = gu.invite_code
+                    <where>
+                        gu.token = #{token}
+                        <if test="nowBeginTime != null">
+                            AND u.`created_at` >= #{nowBeginTime}
+                        </if>
+                        <if test="nowEndTime != null">
+                            AND u.`created_at` <![CDATA[<=]]> #{nowEndTime}
+                        </if>
+                    </where>
+
+                )
+            ) strength,-->
+            (select sum(wd.`Withdrawal_amount`) from zhs_withdrawal_detail wd
+            <where>
+                wd.open_id = #{token}
+                <if test="beginTime != null">
+                    AND wd.`Payment_time` >= #{nowBeginTime}
+                </if>
+                <if test="endTime != null">
+                    AND wd.`Payment_time` <![CDATA[<=]]> #{nowEndTime}
+                </if>
+            </where>) endAmount
+        FROM
+            zhs_commission_flow f
+        <where>
+            f.order_status = 2
+             and f.belongers_open_id = #{token}
+            <if test="beginTime != null">
+                AND f.`time` >= #{beginTime}
+            </if>
+            <if test="endTime != null">
+                AND f.`time` <![CDATA[<=]]> #{endTime}
+            </if>
+        </where>
+    </select>
+    <select id="count" resultType="java.lang.Integer">
+        SELECT
+            (SELECT
+                COUNT(1)
+            FROM
+                zhs_user u
+                LEFT JOIN zhs_user pu ON u.parent_id = pu.invite_code
+            <where>
+                <if test="token != null">
+                    AND pu.token = #{token}
+                </if>
+                <if test="search != null and search != ''">
+                    AND (u.nickname LIKE CONCAT('%',#{search},'%') or u.phone LIKE CONCAT(#{search},'%'))
+                </if>
+                <if test="beginTime != null">
+                    AND u.`created_at` <![CDATA[<=]]> #{beginTime}
+                </if>
+                <if test="endTime != null">
+                    AND u.`created_at` <![CDATA[>=]]> #{endTime}
+                </if>
+            </where>)
+            +
+            (SELECT
+                COUNT(1)
+            FROM
+                zhs_user u
+                LEFT JOIN zhs_user pu ON u.parent_id = pu.invite_code
+                LEFT JOIN zhs_user gu ON pu.parent_id = gu.invite_code
+            <where>
+                <if test="token != null">
+                    AND gu.token = #{token}
+                </if>
+                <if test="search != null and search != ''">
+                    AND (u.nickname LIKE CONCAT('%',#{search},'%') or u.phone LIKE CONCAT(#{search},'%'))
+                </if>
+                <if test="beginTime != null">
+                    AND u.`created_at` <![CDATA[<=]]> #{beginTime}
+                </if>
+                <if test="endTime != null">
+                    AND u.`created_at` <![CDATA[>=]]> #{endTime}
+                </if>
+            </where>)
+    </select>
+
+
+    <update id="editOrderStatus">
+        update
+            zhs_commission_flow f
+            left join zhs_order o on f.order_id = o.id
+        set
+            o.status = 6
+            ,o.payment_status = 3
+            ,f.`status` = 1
+        where
+        <foreach collection="ids" open="o.id in (" separator="," close=")" item="id">
+            #{id}
+        </foreach>
+    </update>
+
+</mapper>

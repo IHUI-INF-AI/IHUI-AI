@@ -297,7 +297,7 @@ class ContextFormatter:
     @staticmethod
     def _truncate_by_tokens(messages: list[dict[str, Any]], max_tokens: int) -> list[dict[str, Any]]:
         total_chars = 0
-        result = []
+        result: list[dict[str, Any]] = []
         for msg in reversed(messages):
             content = msg.get("content", "")
             chars = len(content)

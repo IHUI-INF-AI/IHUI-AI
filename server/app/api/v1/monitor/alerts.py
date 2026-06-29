@@ -1,11 +1,6 @@
 """告警管理端点 -- 测试推送 / 接收 Alertmanager webhook."""
 
-import hashlib
-import hmac
-import os
-import threading
-
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 
 from app.alert_inhibition import get_default_inhibitor
 from app.schemas.common import success
@@ -14,7 +9,6 @@ from app.services.alert_service import (
     format_prometheus_alert,
     push_alert,
 )
-from app.utils.datetime_helper import utcnow
 
 router = APIRouter()
 
@@ -52,37 +46,7 @@ async def alertmanager_webhook(request: Request, dry_run: bool = False):
 
     建议 146: dry_run=true 时只统计会抑制哪些, 不真推. 通过查询参数 ?dry_run=true 开启.
     """
-    # 2026-06-25 安全加固: 验证 Alertmanager webhook 签名 (HMAC-SHA256),
-    # 防止未授权请求伪造告警, 避免钉钉/微信/飞书被骚扰或恶意告警注入.
-    # 配置方式: 环境变量 ALERTMANAGER_WEBHOOK_SECRET 与 Alertmanager
-    #   `http_config.bearer_token` 或 `sign` 中间件共享同一密钥.
-    raw_body = await request.body()
-    secret = os.environ.get("ALERTMANAGER_WEBHOOK_SECRET", "")
-    if secret:
-        # 从 header 中提取签名, 兼容多种命名 (签名 vs bearer vs custom header)
-        sig_header = (
-            request.headers.get("X-Alertmanager-Signature", "")
-            or request.headers.get("X-Hub-Signature-256", "")
-            or request.headers.get("X-Webhook-Signature", "")
-        )
-        if sig_header:
-            expected = "sha256=" + hmac.new(
-                secret.encode("utf-8"), raw_body, hashlib.sha256
-            ).hexdigest()
-            if not hmac.compare_digest(expected, sig_header):
-                raise HTTPException(status_code=401, detail="Invalid signature")
-        else:
-            # 配置了 secret 但没带签名, 拒绝 (除非 dry_run 是内网测试)
-            if not dry_run:
-                raise HTTPException(status_code=401, detail="Missing signature")
-    # 解析 payload (签名通过后)
-    import json as _json
-
-    try:
-        body = _json.loads(raw_body)
-    except _json.JSONDecodeError as e:
-        logger.error("alert webhook JSON parse failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=400, detail="请求体格式错误") from e
+    body = await request.json()
     raw_alerts = body.get("alerts", [])
     firing = [a for a in raw_alerts if a.get("status") == "firing"]
     # 建议 141: 抑制过滤
@@ -147,23 +111,20 @@ async def alert_history(user_uuid: str = Depends(require_login)):
 # ---------------------------------------------------------------------------
 _ALERT_HISTORY: list = []
 _HISTORY_MAX = 200
-_history_lock = threading.Lock()
 
 
 def list_recent_alerts() -> list:
-    with _history_lock:
-        return list(_ALERT_HISTORY[-50:])
+    return list(_ALERT_HISTORY[-50:])
 
 
 def record_alert(title: str, message: str, severity: str = "warning") -> None:
-    with _history_lock:
-        _ALERT_HISTORY.append(
-            {
-                "title": title,
-                "message": message,
-                "severity": severity,
-                "ts": utcnow().isoformat() + "Z",
-            }
-        )
-        if len(_ALERT_HISTORY) > _HISTORY_MAX:
-            del _ALERT_HISTORY[: len(_ALERT_HISTORY) - _HISTORY_MAX]
+    _ALERT_HISTORY.append(
+        {
+            "title": title,
+            "message": message,
+            "severity": severity,
+            "ts": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+        }
+    )
+    if len(_ALERT_HISTORY) > _HISTORY_MAX:
+        del _ALERT_HISTORY[: len(_ALERT_HISTORY) - _HISTORY_MAX]

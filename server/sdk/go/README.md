@@ -245,8 +245,6 @@ Class | Method | HTTP request | Description
 *AgentsAPI* | [**DeleteApiV1AgentsAgentIdDelete**](docs/AgentsAPI.md#deleteapiv1agentsagentiddelete) | **Delete** /api/v1/agents/{agent_id} | Delete agent
 *AgentsAPI* | [**GetDetailApiV1AgentsAgentIdGet**](docs/AgentsAPI.md#getdetailapiv1agentsagentidget) | **Get** /api/v1/agents/{agent_id} | Get agent detail
 *AgentsAPI* | [**UpdateApiV1AgentsAgentIdPut**](docs/AgentsAPI.md#updateapiv1agentsagentidput) | **Put** /api/v1/agents/{agent_id} | Update agent
-*AliLoginAPI* | [**AliPcWxCodeApiV1AuthLoginAliPcWxCodeGet**](docs/AliLoginAPI.md#alipcwxcodeapiv1authloginalipcwxcodeget) | **Get** /api/v1/auth/login/ali/pc/wxCode | Ali Pc Wx Code
-*AliLoginAPI* | [**AliWebWxCodeApiV1AuthLoginAliWebWxCodeGet**](docs/AliLoginAPI.md#aliwebwxcodeapiv1authloginaliwebwxcodeget) | **Get** /api/v1/auth/login/ali/web/wxCode | Ali Web Wx Code
 *AlipayAPI* | [**AlipayQueryApiV1PaymentsAlipayQueryPost**](docs/AlipayAPI.md#alipayqueryapiv1paymentsalipayquerypost) | **Post** /api/v1/payments/alipay/query | Query Alipay order
 *AlipayAPI* | [**AlipayRefundApiV1PaymentsAlipayRefundPost**](docs/AlipayAPI.md#alipayrefundapiv1paymentsalipayrefundpost) | **Post** /api/v1/payments/alipay/refund | Alipay 退款（调用 alipay.trade.refund）
 *AlipayAPI* | [**CreateAlipayApiV1PaymentsAlipayCreatePost**](docs/AlipayAPI.md#createalipayapiv1paymentsalipaycreatepost) | **Post** /api/v1/payments/alipay/create | Create Alipay PC / H5 page pay
@@ -325,8 +323,6 @@ Class | Method | HTTP request | Description
 *AskQuestionAPI* | [**MemberQuestionCountApiV1AskQuestionPublicApiMemberCountGet**](docs/AskQuestionAPI.md#memberquestioncountapiv1askquestionpublicapimembercountget) | **Get** /api/v1/ask/question/public-api/member/count | 会员问题数
 *AskQuestionAPI* | [**PublicListQuestionsApiV1AskQuestionPublicApiListGet**](docs/AskQuestionAPI.md#publiclistquestionsapiv1askquestionpublicapilistget) | **Get** /api/v1/ask/question/public-api/list | 问题列表(公开)
 *AskQuestionAPI* | [**UpdateQuestionApiV1AskQuestionPut**](docs/AskQuestionAPI.md#updatequestionapiv1askquestionput) | **Put** /api/v1/ask/question | 修改问题
-*AuthAlipayAPI* | [**AliPcWxCodeApiV1AuthLoginAliPcWxCodeGet**](docs/AuthAlipayAPI.md#alipcwxcodeapiv1authloginalipcwxcodeget) | **Get** /api/v1/auth/login/ali/pc/wxCode | Ali Pc Wx Code
-*AuthAlipayAPI* | [**AliWebWxCodeApiV1AuthLoginAliWebWxCodeGet**](docs/AuthAlipayAPI.md#aliwebwxcodeapiv1authloginaliwebwxcodeget) | **Get** /api/v1/auth/login/ali/web/wxCode | Ali Web Wx Code
 *AuthEnterpriseWeChatAPI* | [**EnterprisePcCallbackApiV1AuthLoginEnterprisePcCallbackPost**](docs/AuthEnterpriseWeChatAPI.md#enterprisepccallbackapiv1authloginenterprisepccallbackpost) | **Post** /api/v1/auth/login/enterprise/pc/callback | Enterprise Pc Callback
 *AuthEnterpriseWeChatAPI* | [**EnterprisePcWxCodeApiV1AuthLoginEnterprisePcWxCodeGet**](docs/AuthEnterpriseWeChatAPI.md#enterprisepcwxcodeapiv1authloginenterprisepcwxcodeget) | **Get** /api/v1/auth/login/enterprise/pc/wxCode | Enterprise Pc Wx Code
 *AuthFeishuAPI* | [**FeishuPcTestApiV1AuthLoginFeishuPcTestGet**](docs/AuthFeishuAPI.md#feishupctestapiv1authloginfeishupctestget) | **Get** /api/v1/auth/login/feishu/pc/test | Feishu Pc Test

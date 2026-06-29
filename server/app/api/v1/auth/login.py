@@ -2,7 +2,7 @@
 
 import time
 
-from fastapi import APIRouter, Body, Depends, File, Query, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
 from loguru import logger
 
 from app.core.tracking import (
@@ -14,50 +14,22 @@ from app.core.tracking import (
 from app.schemas.common import error, success
 from app.security import decode_access_token, hash_password, require_login, verify_password
 from app.services import auth_service
+from app.utils.email_util import is_valid_email, send_email_code
 from app.utils.sms_util import send_sms_code
 
-# 2026-06-25 修复#I: prefix 设计意图说明 (核实无冲突, 加注释避免后续维护误改).
-#   auth 模块各 router 的 prefix 设计:
-#   - login_router:      自带 prefix="/auth",  router.py 注册无 prefix  -> /api/v1/auth/{login,register,refresh,exist/{phone}}
-#   - sms_router:        自带 prefix="/sms",    router.py 注册加 /auth    -> /api/v1/auth/sms/{send,verify}
-#   - oauth_router:      自带 prefix="/oauth",  router.py 注册加 /auth    -> /api/v1/auth/oauth/{wechat,qq,alipay}
-#   - coze_oauth_router: 自带 prefix="/coze/oauth", router.py 注册无 prefix -> /api/v1/coze/oauth/{authorize,callback}
-#   - username_login_router: 自带 prefix="/login", router.py 注册加 ""  -> /api/v1/login/{username,pwd}
-#   - ali_login_router:  自带 prefix="/login/ali", router.py 注册加 /auth -> /api/v1/auth/login/ali/{authorize,callback}
-#   设计原则: 登录/注册/刷新/手机号校验 统一在 /auth 下; SMS/OAuth 子模块用 /auth/{sms,oauth} 二级前缀;
-#   用户名登录(若依 demo)独立 /login; Coze OAuth 独立 /coze/oauth; 支付宝登录用 /auth/login/ali 三级前缀.
-#   无冗余无冲突, router.py 注册时的 prefix 与 router 自带 prefix 是叠加关系 (FastAPI 行为).
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-def _mask_phone(phone: str) -> str:
-    """脱敏手机号: 138****5678. 用于日志输出, 避免明文 PII."""
-    if not phone or len(phone) < 7:
-        return "***"
-    return f"{phone[:3]}****{phone[-4:]}"
-
-
-async def _json_body(request: Request) -> dict:
-    """从 request 解析 JSON body, 失败返回空 dict.
-
-    用于让认证端点同时兼容 Query 参数与 JSON Body 两种传参方式
-    (前端统一发 JSON Body, 后端历史签名只收 Query).
-    """
-    try:
-        return await request.json()
-    except Exception:
-        return {}
-
-
 @router.post("/login", summary="Password login")
-async def login(request: Request, phone: str = Query(None), password: str = Query(None)):
-    body = await _json_body(request)
-    phone = phone or body.get("phone")
-    password = password or body.get("password")
-    # 兼容前端传 username 字段: 若无 phone 但有 username, 用 username 作为登录标识
-    username = body.get("username") if not phone else None
-    if not phone and username:
-        phone = username  # login_by_password 查 phone 字段, 前端 username 可能是手机号
+async def login(
+    phone: str = Body(..., embed=True),
+    password: str = Body(None, embed=True),
+):
+    """密码登录 (JSON Body, embed=True 支持 {phone,password,code}).
+
+    2026-06-28 联调: 改 Query→Body, 对齐前端 LOGIN_PWD_PATHS.login 调用方式
+    (前端发送 JSON body, 不再用 query string).
+    """
     if not phone:
         return error("Phone number required", "400")
     track_funnel("login", "login_submit", channel="password")
@@ -65,7 +37,7 @@ async def login(request: Request, phone: str = Query(None), password: str = Quer
     try:
         result = auth_service.login_by_password(phone, password or "")
     except Exception as _exc:  # service 异常 (DB/Redis 不可用) 降级为 401
-        logger.exception("login_by_password failed: phone={}", _mask_phone(phone))
+        logger.exception("login_by_password failed: phone={}", phone)
         result = {"success": False, "msg": "用户不存在或密码错误"}
     duration = time.perf_counter() - t0
     if not result["success"]:
@@ -80,10 +52,14 @@ async def login(request: Request, phone: str = Query(None), password: str = Quer
 
 
 @router.post("/login/sms", summary="SMS code login")
-async def login_sms(request: Request, phone: str = Query(None), code: str = Query(None)):
-    body = await _json_body(request)
-    phone = phone or body.get("phone")
-    code = code or body.get("code")
+async def login_sms(
+    phone: str = Body(..., embed=True),
+    code: str = Body(..., embed=True),
+):
+    """短信验证码登录 (JSON Body, embed=True 支持 {phone,code}).
+
+    2026-06-28 联调: 改 Query→Body, 对齐前端 LOGIN_PWD_PATHS.smsVerify 调用方式.
+    """
     if not phone or not code:
         return error("Phone and code required", "400")
     track_funnel("login", "login_submit", channel="sms")
@@ -97,22 +73,125 @@ async def login_sms(request: Request, phone: str = Query(None), code: str = Quer
     return success(result["data"])
 
 
+@router.post("/login/email", summary="Email code login")
+async def login_email(email: str = Body(..., embed=True), code: str = Body(..., embed=True)):
+    """邮箱验证码登录: 自动注册未注册用户.
+
+    请求体 JSON 格式 (embed=True 支持):
+        {"email": "user@example.com", "code": "123456"}
+    """
+    if not email or not code:
+        return error("Email and code required", "400")
+    email = email.strip().lower()
+    if not is_valid_email(email):
+        return error("邮箱格式不正确", "400105")
+    track_funnel("login", "login_submit", channel="email")
+    t0 = time.perf_counter()
+    try:
+        result = auth_service.login_by_email(email, code)
+    except Exception:
+        logger.exception("login_by_email failed: email={}", email)
+        result = {"success": False, "msg": "登录失败, 请重试"}
+    duration = time.perf_counter() - t0
+    if not result["success"]:
+        track_event("user_login_failed", user_id=email, channel="email", reason=result.get("msg", "unknown"))
+        return error(result["msg"], "401")
+    user_id = (result.get("data") or {}).get("user_id", email) or email
+    track_event(EVENT_USER_LOGIN, user_id=str(user_id), channel="email")
+    track_funnel("login", "login_success", user_id=str(user_id), channel="email")
+    from app.core.tracking import track_latency as _tl
+    _tl(EVENT_USER_LOGIN, duration, user_id=str(user_id), channel="email")
+    return success(result["data"])
+
+
+@router.post("/email/code", summary="Send email verification code")
+async def send_email_code_endpoint(email: str = Body(..., embed=True)):
+    """发送邮箱验证码.
+
+    请求体 JSON 格式 (embed=True 支持):
+        {"email": "user@example.com"}
+
+    发送策略:
+      - SMTP 已配置 → 发送真实邮件
+      - SMTP 未配置 → 开发模式 (验证码输出到后端日志, 不发真实邮件)
+    """
+    if not email:
+        return error("Email required", "400")
+    email = email.strip().lower()
+    if not is_valid_email(email):
+        return error("邮箱格式不正确", "400105")
+    logger.info(f"Email code requested for: {email}")
+    result = await send_email_code(email)
+    if not result["success"]:
+        return error(result["msg"], "429")
+    return success(msg=result["msg"] or "Code sent")
+
+
+@router.get("/email/inbox", summary="Get email inbox (local SMTP dev mode)")
+async def get_email_inbox(email: str):
+    """查询本地 SMTP 服务器捕获的邮件 (开发模式专用, 免费无账号).
+
+    查询参数:
+        email: 邮箱地址
+
+    返回该邮箱收到的所有邮件 (含验证码). 仅在本地 SMTP 模式下可用,
+    生产环境配置 SMTP_HOST 后此接口返回空列表.
+    """
+    if not email:
+        return error("Email required", "400")
+    email = email.strip().lower()
+    if not is_valid_email(email):
+        return error("邮箱格式不正确", "400105")
+    try:
+        from app.utils.local_smtp_server import get_inbox, is_running
+
+        if not is_running():
+            return success(data={"running": False, "inbox": [], "msg": "本地 SMTP 服务器未运行"})
+        inbox = get_inbox(email)
+        return success(data={
+            "running": True,
+            "email": email,
+            "count": len(inbox),
+            "inbox": inbox,
+        })
+    except Exception as e:
+        logger.exception("get_email_inbox failed: email={}", email)
+        return error(f"查询失败: {e}", "500")
+
+
+@router.delete("/email/inbox", summary="Clear email inbox (local SMTP dev mode)")
+async def clear_email_inbox(email: str = Body(None, embed=True)):
+    """清空本地 SMTP 服务器捕获的邮件 (开发模式专用).
+
+    请求体 JSON 格式 (embed=True 支持):
+        {"email": "user@example.com"}  # 清空指定邮箱
+        {}                              # 清空所有邮箱
+    """
+    try:
+        from app.utils.local_smtp_server import clear_inbox
+
+        cleared = clear_inbox(email)
+        return success(msg=f"已清空 {cleared} 封邮件", data={"cleared": cleared})
+    except Exception as e:
+        logger.exception("clear_email_inbox failed")
+        return error(f"清空失败: {e}", "500")
+
+
 @router.post("/register", summary="Register new user")
 async def register(
-    request: Request,
-    phone: str = Query(None),
-    password: str = Query(None),
-    nickname: str = Query(None),
+    phone: str = Body(..., embed=True),
+    password: str = Body(..., embed=True),
+    nickname: str = Body(None, embed=True),
 ):
-    body = await _json_body(request)
-    phone = phone or body.get("phone")
-    password = password or body.get("password")
-    nickname = nickname or body.get("nickname")
+    """注册新用户 (JSON Body, embed=True 支持 {phone,password,nickname}).
+
+    2026-06-28 联调: 改 Query→Body, 对齐前端 LOGIN_PWD_PATHS.registerLogin 调用方式.
+    """
     track_event("user_register_attempt", user_id=phone, channel="password")
     try:
         result = auth_service.register_user(phone, password, nickname)
     except Exception as _exc:  # service 异常降级
-        logger.exception("register_user failed: phone={}", _mask_phone(phone))
+        logger.exception("register_user failed: phone={}", phone)
         result = {"success": False, "msg": "注册失败, 请重试"}
     if not result["success"]:
         track_event("user_register_failed", user_id=phone, reason=result.get("msg", "unknown"))
@@ -124,8 +203,12 @@ async def register(
 
 
 @router.post("/refresh", summary="Refresh access token (rotate)")
-async def refresh_token(request: Request, refresh_token: str = Query(None)):
-    """使用 refresh token 轮转颁发新 access + refresh.
+async def refresh_token(
+    refresh_token: str = Body(..., embed=True, alias="refreshToken"),
+):
+    """使用 refresh token 轮转颁发新 access + refresh (JSON Body).
+
+    请求体 (兼容前端 camelCase): {"refreshToken": "..."} 或 {"refresh_token": "..."}
 
     安全机制 (Bug-53 rotate_refresh):
       - 旧 refresh 立即进入黑名单 (Redis SET, 7 天 TTL)
@@ -136,13 +219,15 @@ async def refresh_token(request: Request, refresh_token: str = Query(None)):
       - 每次 refresh 都颁发新的 access + refresh (family_id 保持)
       - refresh 有效期 7 天, access 有效期 JWT_EXPIRE_MINUTES
       - 客户端应监控 access 剩余时间, 提前 ~5 分钟调用 refresh
+
+    2026-06-28 联调: alias=refreshToken 对齐前端 utils/request.ts:760 的请求字段
+      (前端发送 {refreshToken, uuid}, 后端原期望 refresh_token 不匹配).
+      响应同时返回 camelCase + snake_case 双字段, 兼容新旧前端.
     """
-    body = await _json_body(request)
-    refresh_token = refresh_token or body.get("refresh_token") or body.get("refreshToken")
     from app.config import settings
     from app.utils.refresh_rotation import rotate_refresh
 
-    payload = decode_access_token(refresh_token, allow_refresh=True)
+    payload = decode_access_token(refresh_token)
     if not payload:
         return error("Invalid refresh token", "401")
 
@@ -151,23 +236,26 @@ async def refresh_token(request: Request, refresh_token: str = Query(None)):
         return error("Refresh token rejected (revoked or replay)", "401")
 
     new_access, new_refresh, _new_jti, _new_fid = result
+    expires_in = settings.JWT_EXPIRE_MINUTES * 60
+    refresh_expires_in = 7 * 24 * 60 * 60
     return success({
-        "access_token": new_access,
-        "refresh_token": new_refresh,
-        "token_type": "Bearer",
-        "expires_in": settings.JWT_EXPIRE_MINUTES * 60,
-        "refresh_expires_in": 7 * 24 * 60 * 60,
-        # camelCase 别名: 前端 axios 拦截器期望 camelCase 字段名
+        # camelCase (前端 utils/request.ts:813-815 读取)
         "accessToken": new_access,
         "refreshToken": new_refresh,
         "tokenType": "Bearer",
-        "expiresIn": settings.JWT_EXPIRE_MINUTES * 60,
-        "refreshExpiresIn": 7 * 24 * 60 * 60,
+        "expiresIn": expires_in,
+        "refreshExpiresIn": refresh_expires_in,
+        # snake_case (后端规范, 兼容其他客户端)
+        "access_token": new_access,
+        "refresh_token": new_refresh,
+        "token_type": "Bearer",
+        "expires_in": expires_in,
+        "refresh_expires_in": refresh_expires_in,
     })
 
 
 @router.get("/info", summary="Get current user info")
-def get_user_info(
+async def get_user_info(
     user_uuid: str = Depends(__import__("app.security", fromlist=["require_login"]).require_login),
 ):
     from app.services.user_service import get_user_by_uuid
@@ -179,7 +267,7 @@ def get_user_info(
 
 
 @router.post("/logout", summary="Logout")
-def logout(request: Request, user_uuid: str = Depends(require_login)):
+async def logout(request: Request):
     """登出 - 把当前 token 加入黑名单, 立即失效."""
     from app.core.jwt_blacklist import revoke_token
     auth_header = request.headers.get("authorization", "")
@@ -190,16 +278,18 @@ def logout(request: Request, user_uuid: str = Depends(require_login)):
 
 
 @router.get("/exist/{phone}", summary="Check if phone is registered")
-def check_phone_exists(phone: str):
+async def check_phone_exists(phone: str):
     exists = auth_service.check_phone_exists(phone)
     return success({"exists": exists})
 
 
 @router.post("/sms/code", summary="Send SMS verification code")
-async def send_code(request: Request, phone: str = Query(None)):
-    body = await _json_body(request)
-    phone = phone or body.get("phone")
-    logger.info(f"SMS code requested for: {_mask_phone(phone)}")
+async def send_code(phone: str = Body(..., embed=True)):
+    """发送短信验证码 (JSON Body, embed=True 支持 {phone}).
+
+    2026-06-28 联调: 改 Query→Body, 对齐前端 LOGIN_PWD_PATHS.sendBatchSms 调用方式.
+    """
+    logger.info(f"SMS code requested for: {phone}")
     result = await send_sms_code(phone)
     if not result["success"]:
         return error(result["msg"], "429")
@@ -207,7 +297,7 @@ async def send_code(request: Request, phone: str = Query(None)):
 
 
 @router.delete("/cancel", summary="User account cancellation (soft delete)")
-def cancel_account(user_uuid: str = Depends(require_login)):
+async def cancel_account(user_uuid: str = Depends(require_login)):
     """Cancel user account -- soft delete user and mask phone.
 
     Matches Java SQL:
@@ -226,12 +316,12 @@ def cancel_account(user_uuid: str = Depends(require_login)):
         if not user:
             return error("User not found", "404")
         # Soft delete: status=3 matches Java cancelUser (not 0)
-        user.status = 3
+        user.status = 3  # type: ignore[assignment]
         # Mask phone in auth_info (save to cancel_phone, clear phone)
         auth = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user_uuid).first()
         if auth and auth.phone:
-            auth.cancel_phone = auth.phone
-            auth.phone = None
+            auth.cancel_phone = auth.phone  # type: ignore[assignment]
+            auth.phone = None  # type: ignore[assignment]
         db.commit()
         return success(msg="Account cancelled")
     except Exception as e:
@@ -243,16 +333,18 @@ def cancel_account(user_uuid: str = Depends(require_login)):
 
 
 @router.put("/profile", summary="Update personal profile")
-def update_profile(
+async def update_profile(
     nickname: str = Body(None),
     email: str = Body(None),
     gender: int = Body(None),
     user_uuid: str = Depends(require_login),
 ):
     """Update user profile fields (nickname, email, gender)."""
+    from typing import Any
+
     from app.services.user_service import update_user
 
-    update_data = {}
+    update_data: dict[str, Any] = {}
     if nickname is not None:
         update_data["nickname"] = nickname
     if email is not None:
@@ -273,8 +365,6 @@ async def upload_avatar(
     user_uuid: str = Depends(require_login),
 ):
     """Upload avatar image to MinIO and update user record."""
-    import asyncio
-
     from app.database import SessionFactory2
     from app.models.user_models import User
     from app.utils.minio_util import upload_file
@@ -291,22 +381,15 @@ async def upload_avatar(
             file_name=file.filename or "avatar.jpg",
             content_type=file.content_type,
         )
-
-        def _save_avatar() -> bool:
-            db = SessionFactory2()
-            try:
-                user = db.query(User).filter(User.uuid == user_uuid).first()
-                if not user:
-                    return False
-                user.avatar = avatar_url
-                db.commit()
-                return True
-            finally:
-                db.close()
-
-        ok = await asyncio.to_thread(_save_avatar)
-        if not ok:
-            return error("User not found", "404")
+        db = SessionFactory2()
+        try:
+            user = db.query(User).filter(User.uuid == user_uuid).first()
+            if not user:
+                return error("User not found", "404")
+            user.avatar = avatar_url  # type: ignore[assignment]
+            db.commit()
+        finally:
+            db.close()
         return success({"avatar": avatar_url})
     except Exception as e:
         logger.error(f"Avatar upload error: {e}")
@@ -314,7 +397,7 @@ async def upload_avatar(
 
 
 @router.put("/profile/password", summary="Change password")
-def change_password(
+async def change_password(
     old_password: str = Body(...),
     new_password: str = Body(...),
     user_uuid: str = Depends(require_login),
@@ -331,9 +414,9 @@ def change_password(
         user = db.query(User).filter(User.uuid == user_uuid).first()
         if not user:
             return error("User not found", "404")
-        if not user.password_hash or not verify_password(old_password, user.password_hash):
+        if not user.password_hash or not verify_password(old_password, user.password_hash):  # type: ignore[arg-type]
             return error("Old password is incorrect", "400")
-        user.password_hash = hash_password(new_password)
+        user.password_hash = hash_password(new_password)  # type: ignore[assignment]
         db.commit()
         return success(msg="Password changed")
     except Exception as e:
@@ -344,81 +427,13 @@ def change_password(
         db.close()
 
 
-@router.put("/profile/phone", summary="Change phone number (rebind)")
-def change_phone(
-    new_phone: str = Body(...),
-    code: str = Body(...),
-    user_uuid: str = Depends(require_login),
-):
-    """换绑手机号: 校验短信验证码后更新手机号."""
-    from app.database import SessionFactory2
-    from app.models.user_models import User, UserAuthInfo
-    from app.utils.sms_util import verify_sms_code
-
-    if not verify_sms_code(new_phone, code):
-        return error("短信验证码错误或已过期", "400")
-
-    db = SessionFactory2()
-    try:
-        user = db.query(User).filter(User.uuid == user_uuid).first()
-        if not user:
-            return error("User not found", "404")
-        auth = db.query(UserAuthInfo).filter(UserAuthInfo.user_uuid == user_uuid).first()
-        if auth:
-            auth.phone = new_phone
-        else:
-            auth = UserAuthInfo(user_uuid=user_uuid, phone=new_phone)
-            db.add(auth)
-        db.commit()
-        return success(msg="手机号已更新")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Change phone error: {e}")
-        return error("手机号更新失败", "500")
-    finally:
-        db.close()
-
-
-@router.put("/profile/email", summary="Set or update email")
-def set_email(
-    email: str = Body(...),
-    user_uuid: str = Depends(require_login),
-):
-    """设置或更新邮箱地址."""
-    from app.database import SessionFactory2
-    from app.models.user_models import User
-
-    if "@" not in email or len(email) < 5:
-        return error("邮箱格式不正确", "400")
-
-    db = SessionFactory2()
-    try:
-        user = db.query(User).filter(User.uuid == user_uuid).first()
-        if not user:
-            return error("User not found", "404")
-        user.email = email
-        db.commit()
-        return success(msg="邮箱已更新")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Set email error: {e}")
-        return error("邮箱更新失败", "500")
-    finally:
-        db.close()
-
-
-@router.get("/health", summary="Auth service health check")
-def auth_health():
-    """认证服务健康检查端点."""
-    return success({"status": "ok", "service": "auth"})
-
-
 @router.get("/profile", summary="Get personal profile with roles and posts")
-def get_profile(user_uuid: str = Depends(require_login)):
+async def get_profile(user_uuid: str = Depends(require_login)):
     """Get detailed profile including roles and posts."""
     from app.database import SessionFactory2, get_session
     from app.models.sys_models import SysRole, SysUser, SysUserRole
     from app.models.user_models import User, UserAuthInfo, UserMargin
+
     # Fetch center-db user info
     with get_session(factory=SessionFactory2) as db2:
         user = db2.query(User).filter(User.uuid == user_uuid).first()

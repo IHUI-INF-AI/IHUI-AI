@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import SessionFactory1, SessionFactory2, SessionFactory3
-# 2026-06-24: decode_access_token 已不再使用 (get_current_user_uuid 已移除, 统一到 app.security)
+from app.security import decode_access_token
 
 # ---------------------------------------------------------------------------
 # Database session generators (for FastAPI Depends)
@@ -90,18 +90,55 @@ get_ai_session = get_ai_db_session
 get_center_session = get_center_db_session
 get_course_session = get_course_db_session
 
+
+def get_default_db_session(
+    db1: Session | None = None,
+    db2: Session | None = None,
+    db3: Session | None = None,
+) -> Generator[Session, None, None]:
+    """
+    Smart session generator - picks the right engine based on caller context.
+
+    DEPRECATED: Use get_ai_db_session(), get_center_db_session(), or get_course_db_session()
+    instead for explicit database selection.
+
+    Defaults to AI engine (engine1) for backward compatibility.
+    """
+    db = db1 or SessionFactory1()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 # Legacy alias - will be removed in future version
-# 2026-06-24: 原 get_default_db_session 智能路由因参数无 Depends() 永不生效 (死代码), 已删除。
-# get_session 保留为 get_ai_db_session 的别名, 仅供旧测试/调用方兼容。
-get_session = get_ai_db_session
+get_session = get_default_db_session
 
 
 # ---------------------------------------------------------------------------
 # Auth helpers
 # ---------------------------------------------------------------------------
-# 2026-06-24 联调: get_current_user_uuid 已统一到 app.security.get_current_user_uuid
-# 该处实现包含 tenant_id 注入 (多租户 ContextVar), 此处旧实现已删除以避免不一致.
-# 如需鉴权依赖, 请使用: from app.security import get_current_user_uuid
+
+
+async def get_current_user_uuid(authorization: str | None = None) -> str | None:
+    """
+    Extract user UUID from Bearer token or settings (dev mode).
+    Returns None for public endpoints.
+    """
+    if not authorization:
+        return None
+
+    token = authorization[7:] if authorization.startswith("Bearer ") else authorization
+
+    payload = decode_access_token(token)
+    if payload is None:
+        return None
+
+    return payload.get("sub")
 
 
 # ---------------------------------------------------------------------------
@@ -117,13 +154,13 @@ app_settings = settings
 # ---------------------------------------------------------------------------
 
 _deprecated_notice = """
-DEPRECATED: 'get_session' is now an alias of get_ai_db_session.
+DEPRECATED: 'get_session' has been renamed to 'get_default_db_session'.
 Please update your code to use the explicit database session generators:
   - get_ai_db_session()     -> zhs_ai_project
   - get_center_db_session()  -> zhs_center_project
   - get_course_db_session()  -> zhs_educational_training
 
 Migration example:
-  BEFORE: def endpoint(db: Session = Depends(get_session))
-  AFTER:  def endpoint(db: Session = Depends(get_ai_db_session))
+  BEFORE: async def endpoint(db: Session = Depends(get_session))
+  AFTER:  async def endpoint(db: Session = Depends(get_ai_db_session))
 """

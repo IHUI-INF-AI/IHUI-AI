@@ -41,7 +41,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.get("/list", summary="我的日程")
-def list_schedules(
+async def list_schedules(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: str | None = None,
@@ -86,7 +86,7 @@ def list_schedules(
 
 
 @router.post("", summary="创建日程")
-def create_schedule(
+async def create_schedule(
     title: str = Query(..., min_length=1),
     description: str | None = None,
     start_time: datetime = Query(...),
@@ -125,7 +125,7 @@ def create_schedule(
 
 
 @router.put("/{sid}", summary="修改日程")
-def update_schedule(
+async def update_schedule(
     sid: int,
     title: str | None = None,
     description: str | None = None,
@@ -158,7 +158,7 @@ def update_schedule(
 
 
 @router.delete("/{sid}", summary="删除日程")
-def delete_schedule(sid: int):
+async def delete_schedule(sid: int):
     with get_session() as db:
         try:
             s = db.query(Schedule).filter(Schedule.id == sid, Schedule.user_id == _uid()).first()

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.course.mapper.ZhsCoursePlatformLogMapper">
+    
+    <resultMap type="com.ai.manager.course.domain.ZhsCoursePlatformLog" id="ZhsCoursePlatformLogResult">
+        <result property="id"    column="id"    />
+        <result property="platformId"    column="platform_id"    />
+        <result property="courseId"    column="course_id"    />
+        <result property="videoId"    column="video_id"    />
+        <result property="type"    column="type"    />
+        <result property="creator"    column="creator"    />
+        <result property="sysCreator"    column="sys_creator"    />
+        <result property="createdAt"    column="created_at"    />
+    </resultMap>
+
+    <sql id="selectZhsCoursePlatformLogVo">
+        select id, platform_id, course_id, video_id, type, creator, sys_creator, created_at
+    </sql>
+    <sql id="fromZhsCoursePlatformLogTable">
+        from zhs_course_platform_log
+    </sql>
+
+    <select id="getList" parameterType="com.ai.manager.course.domain.ZhsCoursePlatformLog" resultMap="ZhsCoursePlatformLogResult">
+        <include refid="selectZhsCoursePlatformLogVo"/>
+        <include refid="fromZhsCoursePlatformLogTable"/>
+        <where>
+            <if test="platformId != null  and platformId != ''"> and platform_id = #{platformId}</if>
+            <if test="courseId != null  and courseId != ''"> and course_id = #{courseId}</if>
+            <if test="videoId != null  and videoId != ''"> and video_id = #{videoId}</if>
+            <if test="type != null "> and type = #{type}</if>
+            <if test="creator != null  and creator != ''"> and creator = #{creator}</if>
+            <if test="sysCreator != null  and sysCreator != ''"> and sys_creator = #{sysCreator}</if>
+        </where>
+    </select>
+    
+    <select id="getById" parameterType="String" resultMap="ZhsCoursePlatformLogResult">
+        <include refid="selectZhsCoursePlatformLogVo"/>
+        <include refid="fromZhsCoursePlatformLogTable"/>
+        where id = #{id}
+    </select>
+
+    <insert id="addZhsCoursePlatformLog" parameterType="com.ai.manager.course.domain.ZhsCoursePlatformLog">
+        insert into zhs_course_platform_log
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="platformId != null and platformId != ''">platform_id,</if>
+            <if test="courseId != null">course_id,</if>
+            <if test="videoId != null">video_id,</if>
+            <if test="type != null">type,</if>
+            <if test="creator != null">creator,</if>
+            <if test="sysCreator != null">sys_creator,</if>
+            <if test="createdAt != null">created_at,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="platformId != null and platformId != ''">#{platformId},</if>
+            <if test="courseId != null">#{courseId},</if>
+            <if test="videoId != null">#{videoId},</if>
+            <if test="type != null">#{type},</if>
+            <if test="creator != null">#{creator},</if>
+            <if test="sysCreator != null">#{sysCreator},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+         </trim>
+    </insert>
+
+    <update id="edit" parameterType="com.ai.manager.course.domain.ZhsCoursePlatformLog">
+        update zhs_course_platform_log
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="platformId != null and platformId != ''">platform_id = #{platformId},</if>
+            <if test="courseId != null">course_id = #{courseId},</if>
+            <if test="videoId != null">video_id = #{videoId},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="creator != null">creator = #{creator},</if>
+            <if test="sysCreator != null">sys_creator = #{sysCreator},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="delById" parameterType="String">
+        delete from zhs_course_platform_log where id = #{id}
+    </delete>
+
+    <delete id="delByIds" parameterType="String">
+        delete from zhs_course_platform_log where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    <delete id="delByCourseIds">
+        delete from zhs_course_platform_log where
+        type = 1
+        <foreach item="id" collection="courseIds" open="and course_id in (" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

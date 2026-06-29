@@ -10,7 +10,6 @@ import threading
 import time
 import uuid
 from datetime import datetime
-from app.utils.datetime_helper import utcnow
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -26,7 +25,7 @@ PLUGIN_TYPES = ["rate_limit", "auth", "cors", "log", "transform", "security"]
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

@@ -39,7 +39,7 @@ def _ensure_broadcaster_with_persister():
 
 
 @router.get("/status", summary="Backfill 状态快照")
-def backfill_status(_user: str = Depends(require_login)):
+async def backfill_status(_user: str = Depends(require_login)):
     bc = _ensure_broadcaster_with_persister()
     return {"ok": True, "data": bc.get_snapshot()}
 
@@ -50,7 +50,7 @@ def backfill_status(_user: str = Depends(require_login)):
 
 
 @router.get("/history", summary="Backfill 最近历史事件")
-def backfill_history(limit: int = 50, _user: str = Depends(require_login)):
+async def backfill_history(limit: int = 50, _user: str = Depends(require_login)):
     bc = _ensure_broadcaster_with_persister()
     items = bc.get_history(limit=limit)
     return {"ok": True, "data": items, "count": len(items)}
@@ -62,7 +62,7 @@ def backfill_history(limit: int = 50, _user: str = Depends(require_login)):
 
 
 @router.post("/reset", summary="重置 backfill 状态")
-def backfill_reset(_user: str = Depends(require_login)):
+async def backfill_reset(_user: str = Depends(require_login)):
     bc = _ensure_broadcaster_with_persister()
     bc.reset()
     return {"ok": True, "data": bc.get_snapshot()}
@@ -74,7 +74,7 @@ def backfill_reset(_user: str = Depends(require_login)):
 
 
 @router.get("/progress", summary="Backfill 实时进度 (SSE)")
-def backfill_progress(request: Request):
+async def backfill_progress(request: Request):
     """Server-Sent Events: 实时推送 backfill 进度.
 
     数据格式 (每行一条 SSE 事件):
@@ -105,7 +105,7 @@ def backfill_progress(request: Request):
                     break
                 try:
                     # 阻塞取, 1s 超时
-                    event = await asyncio.get_running_loop().run_in_executor(None, lambda: q.get(timeout=0.5))
+                    event = await asyncio.get_event_loop().run_in_executor(None, lambda: q.get(timeout=0.5))
                     yield event.to_sse()
                 except Exception:
                     # 超时: 推送 heartbeat (5s 一次, 防止代理断开)

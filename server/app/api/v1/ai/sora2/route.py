@@ -28,9 +28,6 @@ from app.utils.file_transfer import upload_file_to_server
 
 logger = logging.getLogger(__name__)
 
-# 保留后台任务引用，防止被 GC 回收
-_pending_tasks: set = set()
-
 router = APIRouter()
 
 # Upstream video generation endpoint (yunwu.ai proxy for Sora2/Veo)
@@ -233,16 +230,14 @@ async def generate_video(request: GenerateVideoRequest, user_uuid: str = Depends
         except Exception as e:
             logger.error("Background poll error: %s", e)
 
-    _bg_task = asyncio.create_task(_background_follow_up())
-    _pending_tasks.add(_bg_task)
-    _bg_task.add_done_callback(_pending_tasks.discard)
+    asyncio.create_task(_background_follow_up())  # noqa: RUF006
 
     # Return pending response immediately
     return success(
         {
             "task_id": str(task_id),
             "status": "pending",
-            "message": "任务执行中,请稍后查询结果",
+            "msg": "任务执行中,请稍后查询结果",
         },
         msg="视频生成任务已提交,执行中",
     )

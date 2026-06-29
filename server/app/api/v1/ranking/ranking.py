@@ -1,6 +1,6 @@
 """排行榜"""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Query
 from loguru import logger
@@ -10,7 +10,6 @@ from app.core.current_user import current_user_id_or_guest
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
-from app.utils.datetime_helper import utcnow
 
 
 class RankingList(TimestampMixin, Base):
@@ -35,7 +34,7 @@ def _uid() -> str:
 def _get_user_score(db, period: str) -> list:
     """获取用户积分排行(模拟实现)"""
     cutoff = None
-    now = utcnow()
+    now = datetime.utcnow()
     if period == "day":
         cutoff = now - timedelta(days=1)
     elif period == "week":
@@ -58,7 +57,7 @@ def _get_user_score(db, period: str) -> list:
 
 
 @router.get("/list", summary="排行榜列表")
-def list_rankings():
+async def list_rankings():
     with get_session() as db:
         try:
             items = db.query(RankingList).filter(RankingList.status == 1).all()
@@ -81,7 +80,7 @@ def list_rankings():
 
 
 @router.get("/user", summary="用户积分排行榜")
-def user_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
+async def user_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
     with get_session() as db:
         try:
             from app.models.point_models import PointAccount
@@ -118,13 +117,13 @@ def user_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
 
 
 @router.get("/agent", summary="Agent排行榜")
-def agent_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
+async def agent_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
     with get_session() as db:
         try:
             from app.models.agent_models import Agent
             from app.models.agents_models_legacy import Agent as _A
 
-            items = db.query(_A).filter(_A.is_deleted == 0).order_by(_A.heat.desc()).limit(limit).all() if db.query(_A).filter(_A.is_deleted == 0).first() is not None else []
+            items = db.query(_A).order_by(_A.heat.desc()).limit(limit).all() if db.query(_A).first() is not None else []
             return success(
                 [
                     {
@@ -138,7 +137,7 @@ def agent_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
             )
         except Exception as e:
             try:
-                items = db.query(Agent).filter(Agent.is_deleted == 0).order_by(Agent.heat.desc()).limit(limit).all()
+                items = db.query(Agent).order_by(Agent.heat.desc()).limit(limit).all()
                 return success(
                     [
                         {
@@ -156,10 +155,10 @@ def agent_ranking(period: str = "all", limit: int = Query(50, ge=1, le=200)):
 
 
 @router.get("/course", summary="课程排行榜")
-def course_ranking(limit: int = Query(50, ge=1, le=200)):
+async def course_ranking(limit: int = Query(50, ge=1, le=200)):
     with get_session() as db:
         try:
-            from app.models.course_models import ZhsCourse
+            from app.models.course_models import ZhsCourse  # type: ignore[attr-defined]
 
             items = db.query(ZhsCourse).order_by(ZhsCourse.view_num.desc()).limit(limit).all()
             return success(
@@ -180,7 +179,7 @@ def course_ranking(limit: int = Query(50, ge=1, le=200)):
 
 
 @router.post("", summary="创建榜单")
-def create_ranking(
+async def create_ranking(
     name: str = Query(...),
     code: str = Query(...),
     type: str = "agent",

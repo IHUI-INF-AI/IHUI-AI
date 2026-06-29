@@ -4,7 +4,7 @@ import asyncio
 import json
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import Iterator
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
@@ -51,7 +51,7 @@ async def tts_ws(ws: WebSocket, user_uuid: str = Query(""), voice: str = Query("
         await connection_manager.disconnect(conn_id)
 
 
-def _fake_audio_chunks(text: str, voice: str) -> AsyncIterator[str]:
+def _fake_audio_chunks(text: str, voice: str) -> Iterator[str]:
     """生成 fake 音频块(生产应替换为真实 TTS 流)."""
     import base64
 

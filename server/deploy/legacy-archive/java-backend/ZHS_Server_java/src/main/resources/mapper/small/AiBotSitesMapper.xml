@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.AiBotSitesMapper">
+    <!-- 定义resultMap，映射数据库字段和Java实体属性 -->
+    <resultMap id="AibotSitesResultMap" type="com.ai.manager.small.domain.AiBotSites">
+        <!-- 主键字段映射 -->
+        <id column="id" property="id"/>
+        <!-- 普通字段映射 -->
+        <result column="name" property="name"/>
+        <result column="short_desc" property="shortDesc"/>
+        <result column="section" property="section"/>
+        <result column="sub_section" property="subSection"/>
+        <result column="icon_url" property="iconUrl"/>
+        <result column="detail_url" property="detailUrl"/>
+        <result column="official_url" property="officialUrl"/>
+        <result column="panel_html" property="panelHtml"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+    <select id="groupSubSection" resultMap="AibotSitesResultMap">
+        select `section`, `sub_section` from aibot_sites
+        <where>
+            <if test="section != null and section != ''">
+                and `section` = #{section}
+            </if>
+            <if test="subSection !=null and subSection != ''">
+                and sub_section = #{subSection}
+            </if>
+            <if test="type !=null">
+                and type = #{type}
+            </if>
+        </where>
+        group by section, sub_section
+    </select>
+    <select id="get" resultMap="AibotSitesResultMap" >
+        select * from aibot_sites
+        <where>
+            <if test="data.section !=null and data.section != ''">
+                and section = #{data.section}
+            </if>
+            <if test="data.subSection !=null and data.subSection != ''">
+                and sub_section = #{data.subSection}
+            </if>
+            <if test="type !=null">
+                and type = #{type}
+            </if>
+        </where>
+    </select>
+</mapper>

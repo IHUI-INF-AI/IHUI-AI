@@ -90,7 +90,7 @@ class LogRedactor:
         self.add_rule(RedactRule("bank_card", _BANK_CARD_RE, "[BANK_CARD]"))
         self.add_rule(RedactRule("email", _EMAIL_RE, "[EMAIL]"))
         self.add_rule(RedactRule("jwt", _JWT_RE, "[JWT]"))
-        self.add_rule(RedactRule("token_kv", _TOKEN_RE, lambda m: m.group(0).replace(m.group(1), "[TOKEN]")))
+        self.add_rule(RedactRule("token_kv", _TOKEN_RE, lambda m: m.group(0).replace(m.group(1), "[TOKEN]")))  # type: ignore[arg-type]
 
     def add_rule(
         self,

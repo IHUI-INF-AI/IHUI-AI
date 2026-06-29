@@ -7,9 +7,7 @@ TBoxAgentContentBean.java、TBoxAgentCustomBean.java.
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
-
-from app.utils.datetime_helper import utcnow
+from pydantic import BaseModel
 
 
 class TBoxAgentContentBean(BaseModel):
@@ -48,7 +46,8 @@ class TBoxBean(BaseModel):
     payload: dict[str, Any] | None = None
     created_at: datetime | None = None
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class TBoxEventLog:
@@ -65,7 +64,7 @@ class TBoxEventLog:
             "bot_id": event.bot_id,
             "content": event.content.dict() if event.content else None,
             "custom": [c.dict() for c in event.custom] if event.custom else None,
-            "received_at": utcnow().isoformat(),
+            "received_at": datetime.utcnow().isoformat(),
         })
 
     def recent(self, limit: int = 50) -> list[dict[str, Any]]:

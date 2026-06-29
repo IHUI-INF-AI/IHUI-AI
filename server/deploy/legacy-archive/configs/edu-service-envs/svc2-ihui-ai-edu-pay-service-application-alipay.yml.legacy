@@ -1,0 +1,26 @@
+# 支付宝 配置类
+alipay:
+    # schema https/http
+    protocol: https
+    # 网关地址
+    gateway-host: openapi.alipaydev.com
+    # 加密方式
+    sign-type: RSA2
+    # appId
+    app-id: 2021000116659167
+    # 私钥
+    merchant-private-key: MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCDKGMtV/G8/5MF71st7JoAnOT4Y/9stlbzBaxihEgRNBdZqTh0eWyV/yD1LE14i+rEJpKHAHKtPfw9eQS+VnstSAmx2E82wysA/0Ajk+/MXHUOGYHNQBEV+3dF5w0b6A9z66YgbAZsGXMfEOqKDaLB4rwIV6WFOQe8f7R0jJx3VY3ZgUGsxZkSBMhb+qV/rWNRArZNJILYRVz/Ig82NGen7Cq5i2IHoXck0QDzjp1pBhF4NbFB8xp1dfhhMeGq+I3LiAjV6QFNAUJPuPJSsn+3YIX9UwzrNwapkPDzDsRlBHpLjuGmIjW5b1P3VmxHRxVrOjslQp+pd1E4JFFk94Q/AgMBAAECggEAIHHZNtpOfoZqhElVsOKaphQpwBhckzP4Bl4c6rH2cesE67UktgtjhSd7q6qt72gNR0CTdrnxpFF1GG/bcIpMJkNvwoLT9aQJ+1EpOKPb6h3lBvvgVDnJADsYoj4pzAF38SEWE2cln5AcHk889bGx1WyVPysPUwlslICyzzIJcqtnsi0qrdjgWoI/4nSMYDcKeuJmBs8FtW1WzaeZy9oxuWGiQgzH0CUOdpOAxfIR53H3qjMUqubxqEmPphcHzRdGl2AE9xR6A+FCEZPS+U85EXeWOVxRd/8TkCd4fd8sl4WlqFn3snLhGAg3choF+LbKMZ9V60OqEZsTI7D7R5MGAQKBgQDT4RqTPaMYSEj6RCFOsH0dAqbP3Vys882rjPukb58+5kVHClu5kb+UGWMhEJHbQNxdaCU/iQMReLHb3y1YNAnj73wRh2ekW4XBFJReOiuw8Niok4cptokpYWqsKNSg4NLIOInjdas/kOCjst6Zcb5QAUiKstBKObJ9YQONg6SWfwKBgQCeeCqZiu79i3oT4JMOmhPfMYrxN+2JJGdUjIOnjBgCG3re02TP3BEHTlnctKTWeLKnrh47TsRBFpyy129hCc0Q1jHLnK2vrmoq16GRzdVIKgCTDit4xWCPSZ4UMkMRqWzMMTemIiYu5WTyLFEKT639z917+wsarMQvIWfnLfeyQQKBgAbXSchfQRjTnKeX84ta329EWqZzez6KUKWtU6Knh/i77piwmO2Q6yKY/z5eDpeJrJPHfQxkHBlAUF3NAuXKKFeXr+XQ/WOtINBvHas9LZP08snemYqbPip73rnYR6U6HRQh3zHc5r6Squ4eJFnH9mEW6YSw6VC8NCsgKsEy8ul5AoGAA5OEqphnElO+eopb5z1061mL4Cu58Zlft5nAMtzHgeyq1jKBGOvHepm7D28INUreBUi5p+78INfoy2RvQApflVywHP85MDjIbpUVMVwqzwkboDX2pzAVIMaxiZUkzFY9fVIzBk3I/M/yekCjx47Kx2qUfgLJWl3Bw6qGVMJFz8ECgYB2gHx8SFaHeYO+j7ORVNy1WaeGTscu2FqJAOLw4Q93AlKxK1g9Rrga23aLtxEIDFQGL5xVTAaZVwN2YHljgItO/F4LhnI/TVxISO89Fam2LedNUV7x42iadGablo7gW2Rb5VC0HqH2HBDwqfOABLacmPGXIsl+YhXKqEQmGVBKOw==
+    # 注：证书文件路径支持设置为文件系统中的路径或CLASS_PATH中的路径，优先从文件系统中加载，加载失败后会继续尝试从CLASS_PATH中加载
+    # 请填写您的应用公钥证书文件路径，例如：/foo/appCertPublicKey_2019051064521003.crt
+    merchant-cert-path:
+    # 请填写您的支付宝公钥证书文件路径，例如：/foo/alipayCertPublicKey_RSA2.crt:
+    aliPay-cert-path:
+    # 请填写您的支付宝根证书文件路径，例如：/foo/alipayRootCert.crt
+    aliPay-root-cert-path:
+    # 注：如果采用非证书模式，则无需赋值上面的三个证书路径，改为赋值如下的支付宝公钥字符串即可
+    # alipay-public-key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgyhjLVfxvP+TBe9bLeyaAJzk+GP/bLZW8wWsYoRIETQXWak4dHlslf8g9SxNeIvqxCaShwByrT38PXkEvlZ7LUgJsdhPNsMrAP9AI5PvzFx1DhmBzUARFft3RecNG+gPc+umIGwGbBlzHxDqig2iweK8CFelhTkHvH+0dIycd1WN2YFBrMWZEgTIW/qlf61jUQK2TSSC2EVc/yIPNjRnp+wquYtiB6F3JNEA846daQYReDWxQfMadXX4YTHhqviNy4gI1ekBTQFCT7jyUrJ/t2CF/VMM6zcGqZDw8w7EZQR6S47hpiI1uW9T91ZsR0cVazo7JUKfqXdROCRRZPeEPwIDAQAB
+    alipay-public-key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs6Ob6izWvt9FXSmzL3ERf0Kwt6XLWVU5JRsTDfmtsOEdwH/gHPfgx5EuwMFs8SsBeCKaj0awElmWQ3oPGxDMAGvDLx//TcvZKYdNUOVZWNHfy1Bz9iGNK6LTLeP7OAai9leG60IxaoS7JxaPASMzqK0X4AN7OTObX8a3cZsSMe2ML1IpfBVZDNvRHBALlKQyR32Vjz1LVLZDM4GWXjpYDGFsI7ps+6TOgCxRHmyvTAAJhxUzXryb/y3CBE5xyDzIGQWQ0QhCK/DhSFL5hgzRpDHjSQDLdA+kzmaBrV7KuKTbv//IwKpTJyhsrNcfqgc8hPGQu8JxlorB2f8o5pKAWQIDAQAB
+    # 可设置异步通知接收服务地址
+    notify-url: http://127.0.0.1:6600/pay/public-api/alipay/notify
+    # 可设置AES密钥，调用AES加解密相关接口时需要（可选）
+    encrypt-key:

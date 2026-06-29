@@ -5,13 +5,13 @@ echo   ZHS Platform - 全栈启动
 echo ========================================
 echo.
 echo [1/3] 启动后端 (端口 8000)...
-cd /d "%~dp0"
-start /B python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --env-file local_data/dev-config.ini --log-level info
+cd /d G:\IHUI-AI\server
+start /B python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level info
 timeout /t 15 /nobreak >nul
 echo      后端已启动 ✓
 echo.
 echo [2/3] 启动前端 (端口 8888)...
-cd /d "%~dp0..\client\dist\web"
+cd /d G:\IHUI-AI\client
 start /B node node_modules\vite\bin\vite.js --port 8888
 timeout /t 10 /nobreak >nul
 echo      前端已启动 ✓

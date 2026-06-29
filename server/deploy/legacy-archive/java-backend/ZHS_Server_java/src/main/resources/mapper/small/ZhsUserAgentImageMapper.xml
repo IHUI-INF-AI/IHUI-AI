@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsUserAgentImageMapper">
+
+    <resultMap type="com.ai.manager.small.domain.ZhsUserAgentImage" id="ZhsUserAgentImageResult">
+        <result property="id"    column="id"    />
+        <result property="imageId"    column="image_id"    />
+        <result property="userUuid"    column="user_uuid"    />
+        <result property="imagePath"    column="image_path"    />
+        <result property="imageName"    column="image_name"    />
+        <result property="type"    column="type"    />
+        <result property="platform"    column="platform"    />
+        <result property="modelName"    column="model_name"    />
+        <result property="createdAt"    column="created_at"    />
+        <result property="updatedAt"    column="updated_at"    />
+    </resultMap>
+
+    <sql id="selectZhsUserAgentImageVo">
+        select distinct uai.`id`, uai.`user_uuid`, uai.`image_id`, uai.`image_path`, uai.`image_name`, uai.`type`, uai.`platform`, uai.`model_name`, uai.`created_at`, uai.`updated_at`
+    </sql>
+    <sql id="fromZhsUserAgentImageTable">
+        from zhs_user_agent_image uai
+    </sql>
+
+    <select id="getList" parameterType="com.ai.manager.small.domain.ZhsUserAgentImage" resultMap="ZhsUserAgentImageResult">
+        <include refid="selectZhsUserAgentImageVo"/>
+        <include refid="fromZhsUserAgentImageTable"/>
+        <where>
+            <if test="userUuid != null  and userUuid != ''"> and uai.user_uuid = #{userUuid}</if>
+            <if test="imageId != null  and imageId != ''"> and uai.image_id = #{imageId}</if>
+            <if test="imageName != null  and imageName != ''"> and uai.image_name like concat('%', #{imageName}, '%')</if>
+            <if test="type != null "> and uai.type = #{type}</if>
+            <if test="platform != null  and platform != ''"> and uai.platform = #{platform}</if>
+            <if test="modelName != null  and modelName != ''"> and uai.model_name like concat('%', #{modelName}, '%')</if>
+        </where>
+    </select>
+
+    <select id="getById" parameterType="Long" resultMap="ZhsUserAgentImageResult">
+        <include refid="selectZhsUserAgentImageVo"/>
+        <include refid="fromZhsUserAgentImageTable"/>
+        where id = #{id}
+    </select>
+    <select id="getByUuidAndType" resultType="com.ai.manager.small.domain.ZhsUserAgentImage">
+        <include refid="selectZhsUserAgentImageVo"/>
+        <include refid="fromZhsUserAgentImageTable"/>
+        <where>
+            /*uai.created_at = (select max(i.created_at) from zhs_user_agent_image i and i.user_uuid = #{userUuid} and i.type = #{type} )
+            and */uai.user_uuid = #{userUuid}
+            and uai.type = #{type}
+        </where>
+
+    </select>
+
+    <insert id="addZhsUserAgentImage" parameterType="com.ai.manager.small.domain.ZhsUserAgentImage" useGeneratedKeys="true" keyProperty="id">
+        insert into zhs_user_agent_image
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userUuid != null and userUuid != ''">user_uuid,</if>
+            <if test="imageId != null  and imageId != ''">image_id,</if>
+            <if test="imagePath != null">image_path,</if>
+            <if test="imageName != null">image_name,</if>
+            <if test="type != null">type,</if>
+            <if test="platform != null">platform,</if>
+            <if test="modelName != null">model_name,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updatedAt != null">updated_at,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userUuid != null and userUuid != ''">#{userUuid},</if>
+            <if test="imageId != null  and imageId != ''">#{imageId},</if>
+            <if test="imagePath != null">#{imagePath},</if>
+            <if test="imageName != null">#{imageName},</if>
+            <if test="type != null">#{type},</if>
+            <if test="platform != null">#{platform},</if>
+            <if test="modelName != null">#{modelName},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+        </trim>
+    </insert>
+    <insert id="addOrUpdate">
+        insert into zhs_user_agent_image
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userUuid != null and userUuid != ''">user_uuid,</if>
+            <if test="imageId != null  and imageId != ''">image_id,</if>
+            <if test="imagePath != null">image_path,</if>
+            <if test="imageName != null">image_name,</if>
+            <if test="type != null">type,</if>
+            <if test="platform != null">platform,</if>
+            <if test="modelName != null">model_name,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updatedAt != null">updated_at,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userUuid != null and userUuid != ''">#{userUuid},</if>
+            <if test="imageId != null  and imageId != ''">#{imageId},</if>
+            <if test="imagePath != null">#{imagePath},</if>
+            <if test="imageName != null">#{imageName},</if>
+            <if test="type != null">#{type},</if>
+            <if test="platform != null">#{platform},</if>
+            <if test="modelName != null">#{modelName},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+        </trim>
+        <trim prefix="ON DUPLICATE KEY UPDATE" suffixOverrides=",">
+            <!-- 移除user_uuid的更新：它是触发冲突的唯一键，更新无意义且易报错 -->
+            <if test="imageId != null  and imageId != ''">image_id = VALUES(image_id),</if>
+            <if test="imagePath != null">image_path = VALUES(image_path),</if>
+            <if test="imageName != null">image_name = VALUES(image_name),</if>
+            <if test="type != null">type = VALUES(type),</if>
+            <if test="platform != null">platform = VALUES(platform),</if>
+            <if test="modelName != null">model_name = VALUES(model_name),</if>
+            <if test="createdAt != null">created_at = VALUES(created_at),</if>
+            <if test="updatedAt != null">updated_at = VALUES(updated_at),</if>
+        </trim>
+    </insert>
+
+    <update id="edit" parameterType="com.ai.manager.small.domain.ZhsUserAgentImage">
+        update zhs_user_agent_image
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userUuid != null and userUuid != ''">user_uuid = #{userUuid},</if>
+            <if test="imageId != null  and imageId != ''">image_id = #{imageId},</if>
+            <if test="imagePath != null">image_path = #{imagePath},</if>
+            <if test="imageName != null">image_name = #{imageName},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="platform != null">platform = #{platform},</if>
+            <if test="modelName != null">model_name = #{modelName},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="delById" parameterType="Long">
+        delete from zhs_user_agent_image where id = #{id}
+    </delete>
+
+    <delete id="delByIds" parameterType="String">
+        delete from zhs_user_agent_image where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

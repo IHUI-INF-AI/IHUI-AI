@@ -127,7 +127,7 @@
 
 ```cmd
 :: 后端
-cd G:\1\zhs-platform
+cd g:\IHUI-AI\zhs-platform
 start /B python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --env-file local_data/dev-config.ini
 
 :: 前端
@@ -135,9 +135,9 @@ cd G:\officialsite
 start /B node node_modules\vite\bin\vite.js --port 8888
 
 :: 验证
-python G:\1\zhs-platform\local_data\final_verify.py
-python G:\1\zhs-platform\local_data\test_system.py
-python G:\1\zhs-platform\local_data\e2e_smoke_test.py
+python g:\IHUI-AI\zhs-platform\local_data\final_verify.py
+python g:\IHUI-AI\zhs-platform\local_data\test_system.py
+python g:\IHUI-AI\zhs-platform\local_data\e2e_smoke_test.py
 
 :: 默认账号: admin / admin123
 ```

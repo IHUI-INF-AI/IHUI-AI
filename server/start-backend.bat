@@ -4,9 +4,9 @@ echo ========================================
 echo   ZHS Platform - 后端启动
 echo ========================================
 echo.
-cd /d "%~dp0"
+cd /d G:\IHUI-AI\server
 echo [1/2] 启动 uvicorn (端口 8000)...
-start /B python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --env-file local_data/dev-config.ini --log-level info
+start /B python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level info
 echo [2/2] 等待启动...
 timeout /t 15 /nobreak >nul
 echo.

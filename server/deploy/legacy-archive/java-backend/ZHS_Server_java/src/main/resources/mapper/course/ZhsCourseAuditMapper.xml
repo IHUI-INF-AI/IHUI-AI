@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.course.mapper.ZhsCourseAuditMapper">
+    
+    <resultMap type="com.ai.manager.course.domain.ZhsCourseAudit" id="ZhsCourseAuditResult">
+        <result property="id"    column="id"    />
+        <result property="type"    column="type"    />
+        <result property="operate"    column="operate"    />
+        <result property="sourceId"    column="source_id"    />
+        <result property="targetId"    column="target_id"    />
+        <result property="status"    column="status"    />
+        <result property="remark"    column="remark"    />
+        <result property="creator"    column="creator"    />
+        <result property="createdAt"    column="created_at"    />
+        <result property="updator"    column="updator"    />
+        <result property="updatedAt"    column="updated_at"    />
+    </resultMap>
+
+    <sql id="selectZhsCourseAuditVo">
+        select distinct `id`, `type`, `operate`, `source_id`, `target_id`, `status`, `remark`, `creator`, `created_at`, `updator`, `updated_at`
+    </sql>
+    <sql id="fromZhsCourseAuditTable">
+        from zhs_course_audit
+    </sql>
+
+    <select id="getList" parameterType="com.ai.manager.course.domain.ZhsCourseAudit" resultMap="ZhsCourseAuditResult">
+        <include refid="selectZhsCourseAuditVo"/>
+        <include refid="fromZhsCourseAuditTable"/>
+        <where>
+            <if test="type != null "> and type = #{type}</if>
+            <if test="operate != null "> and operate = #{operate}</if>
+            <if test="sourceId != null  and sourceId != ''"> and source_id = #{sourceId}</if>
+            <if test="status != null "> and status = #{status}</if>
+            <if test="creator != null  and creator != ''"> and creator = #{creator}</if>
+        </where>
+    </select>
+    
+    <select id="getById" parameterType="String" resultMap="ZhsCourseAuditResult">
+        <include refid="selectZhsCourseAuditVo"/>
+        <include refid="fromZhsCourseAuditTable"/>
+        where id = #{id}
+    </select>
+
+    <insert id="addZhsCourseAudit" parameterType="com.ai.manager.course.domain.ZhsCourseAudit">
+        insert into zhs_course_audit
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="type != null">type,</if>
+            <if test="operate != null">operate,</if>
+            <if test="sourceId != null">source_id,</if>
+            <if test="targetId != null">target_id,</if>
+            <if test="status != null">status,</if>
+            <if test="remark != null">remark,</if>
+            <if test="creator != null">creator,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updator != null">updator,</if>
+            <if test="updatedAt != null">updated_at,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="type != null">#{type},</if>
+            <if test="operate != null">#{operate},</if>
+            <if test="sourceId != null">#{sourceId},</if>
+            <if test="targetId != null">#{targetId},</if>
+            <if test="status != null">#{status},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="creator != null">#{creator},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updator != null">#{updator},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+         </trim>
+    </insert>
+    <insert id="addZhsCourseAudits">
+        insert into zhs_course_audit (source_id, target_id, `type`, operate, creator)
+        values
+            <foreach collection="audits" item="audit" separator=",">
+                (#{audit.sourceId}, #{audit.targetId}, #{audit.type}, #{audit.operate}, #{audit.creator})
+            </foreach>
+    </insert>
+
+    <update id="edit" parameterType="com.ai.manager.course.domain.ZhsCourseAudit">
+        update zhs_course_audit
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="type != null">type = #{type},</if>
+            <if test="operate != null">operate = #{operate},</if>
+            <if test="sourceId != null">source_id = #{sourceId},</if>
+            <if test="targetId != null">target_id = #{targetId},</if>
+            <if test="status != null">`status` = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="creator != null">creator = #{creator},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updator != null">updator = #{updator},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="delById" parameterType="String">
+        delete from zhs_course_audit where id = #{id}
+    </delete>
+
+    <delete id="delByIds" parameterType="String">
+        delete from zhs_course_audit where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

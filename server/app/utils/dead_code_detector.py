@@ -163,7 +163,7 @@ class DeadCodeScanner:
             elif isinstance(node, ast.Assign) and isinstance(node.value, (ast.Constant,)):
                 # 模块级常量赋值
                 try:
-                    col = node.coloffset
+                    col = node.coloffset  # type: ignore[attr-defined]
                 except AttributeError:
                     col = 0
                 if col == 0 and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
@@ -185,7 +185,7 @@ class DeadCodeScanner:
                 elif isinstance(fn, ast.Attribute):
                     cur = fn
                     while isinstance(cur, ast.Attribute):
-                        cur = cur.value
+                        cur = cur.value  # type: ignore[assignment]
                     if isinstance(cur, ast.Name):
                         self._called_names.add(cur.id)
             elif isinstance(node, ast.Attribute):
@@ -199,7 +199,7 @@ class DeadCodeScanner:
                     elif isinstance(d, ast.Attribute):
                         cur = d
                         while isinstance(cur, ast.Attribute):
-                            cur = cur.value
+                            cur = cur.value  # type: ignore[assignment]
                         if isinstance(cur, ast.Name):
                             self._decorator_uses.add(cur.id)
 

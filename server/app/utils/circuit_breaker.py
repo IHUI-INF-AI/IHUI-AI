@@ -16,7 +16,7 @@
 
     cb = circuit_breaker("llm.chat", failure_threshold=3, recovery_timeout=30)
 
-    def chat():
+    async def chat():
         try:
             return await call_llm()
         except Exception:
@@ -112,7 +112,7 @@ class CircuitBreaker:
     def _init_half_open_lock(self):
         """延迟创建 asyncio.Lock, 避免在无 event loop 线程中初始化失败."""
         try:
-            asyncio.get_running_loop()
+            asyncio.get_event_loop()
             return asyncio.Lock()
         except RuntimeError:
             return None
@@ -147,9 +147,8 @@ class CircuitBreaker:
             self._stats.half_open_success = 0
 
     def _maybe_half_open(self) -> None:
-        if self._stats.state == CircuitState.OPEN and self._stats.opened_at is not None:
-            if time.time() - self._stats.opened_at >= self.recovery_timeout:
-                self._transition(CircuitState.HALF_OPEN)
+        if self._stats.state == CircuitState.OPEN and self._stats.opened_at is not None and time.time() - self._stats.opened_at >= self.recovery_timeout:
+            self._transition(CircuitState.HALF_OPEN)
 
     def allow_request(self) -> bool:
         with self._lock:

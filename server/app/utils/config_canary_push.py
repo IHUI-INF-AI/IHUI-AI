@@ -155,7 +155,7 @@ class ConfigCanaryPush:
                 arr = self._versions.get(t.namespace, [])
                 cv = next((v for v in arr if v.version == t.version), None)
                 if cv is not None:
-                    self._previous[t.namespace] = self._current.get(t.namespace)
+                    self._previous[t.namespace] = self._current.get(t.namespace)  # type: ignore[assignment]
                     self._current[t.namespace] = cv
             t.updated_at = time.time()
             self._audit.append({"event": "advance", "id": task_id, "ratio": ratio, "ts": time.time()})

@@ -18,6 +18,8 @@ except ImportError:
     _HAS_PYDUB = False
     AudioSegment = None
 
+import contextlib
+
 from app.services.agent_upload.agent_json_helper import normalize, parse_array
 
 
@@ -37,10 +39,8 @@ def _analyze_audio_duration(audio_url: str) -> float:
             audio = AudioSegment.from_file(tmp_path)
             return len(audio) / 1000.0
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 os.unlink(tmp_path)
-            except Exception as e:
-                logger.debug("删除临时音频文件失败: %s", e)
     except Exception as e:
         logger.warning(f"分析音频时长失败: {e}")
         return 0.0

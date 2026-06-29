@@ -23,6 +23,8 @@ from enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
+_dc_field = field  # alias to avoid shadowing by dataclass field named "field"
+
 
 class EraseScope(StrEnum):
     USER = "user"  # 用户级 (按 user_id 抹除所有相关字段)
@@ -44,7 +46,7 @@ class EraseTarget:
     field: str
     redact_fn: Callable[[object], object] | None = None
     description: str = ""
-    extra: dict = field(default_factory=dict)
+    extra: dict = _dc_field(default_factory=dict)  # noqa: RUF009
 
     def to_dict(self) -> dict:
         return {

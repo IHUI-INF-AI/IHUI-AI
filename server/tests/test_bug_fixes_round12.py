@@ -767,8 +767,7 @@ class TestBug112BackupSnapshot:
         backup_coordinator.clear()
 
         def runner():
-            # 2026-06-25 修复: 用 mock:// 协议占位符代替 /tmp/x, 避免在 Windows 上被误解释为 G:\tmp\x
-            return {"path": "mock://backup/x", "size": 1024, "checksum": "abc"}
+            return {"path": "/tmp/x", "size": 1024, "checksum": "abc"}
 
         backup_coordinator.register_target("r1", "fs", runner=runner, interval_sec=10.0, jitter_sec=0.0)
         rec = backup_coordinator.run("r1")

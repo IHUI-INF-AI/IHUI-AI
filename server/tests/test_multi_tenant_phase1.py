@@ -335,17 +335,13 @@ def test_design_doc_documents_decision():
 
 
 def test_alembic_migration_005_exists():
-    """alembic 迁移链根节点 (016_add_refund_tables) 必须存在.
-
-    NOTE: 迁移链已重构, 005_create_tenant_metadata 已合并/移除,
-    当前迁移链根节点为 016_add_refund_tables (down_revision=None).
-    """
-    mig = ROOT / "alembic" / "versions" / "016_add_refund_tables.py"
+    """alembic/versions/005_create_tenant_metadata.py 必须存在."""
+    mig = ROOT / "alembic" / "versions" / "005_create_tenant_metadata.py"
     assert mig.exists(), f"迁移文件不存在: {mig}"
     text = mig.read_text(encoding="utf-8")
+    assert "admin_tenant" in text
     assert "down_revision" in text
-    # 016 是迁移链根节点, down_revision 应为 None
-    assert "down_revision = None" in text or "down_revision=None" in text
+    assert "'004_add_user_uuid'" in text or "004_add_user_uuid" in text
 
 
 def test_docker_compose_has_postgres():

@@ -17,7 +17,7 @@ Java 端 11 个端点:
 
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, status
+from fastapi import APIRouter, Header, Path, Query
 from pydantic import BaseModel
 
 from app.config import settings
@@ -26,7 +26,6 @@ from app.models.activity_models import AgentBuy, AgentCategory
 from app.models.agent_models import Agent
 from app.models.app_content_models import ProductIdentity
 from app.models.user_models import User, UserThirdPartyAccount
-from app.security import require_login
 from app.utils.pagination import paginate
 from app.utils.response import fail, success
 
@@ -36,29 +35,6 @@ router = APIRouter(prefix="/remote", tags=["Remote Device"])
 
 # 子路由, 避免在主 router 上重复 prefix
 third_router = APIRouter(prefix="/remote/third", tags=["Remote Third"])
-
-
-def _is_admin(user_uuid: str) -> bool:
-    """检查指定用户是否拥有 admin 角色 (用于跨用户查询的归属校验)."""
-    from sqlalchemy import select
-
-    from app.database import get_session
-    from app.models.sys_models import SysRole, SysUser, SysUserRole
-
-    with get_session() as db:
-        stmt = (
-            select(SysUser.user_id)
-            .join(SysUserRole, SysUser.user_id == SysUserRole.user_id)
-            .join(SysRole, SysUserRole.role_id == SysRole.role_id)
-            .where(
-                SysUser.user_uuid == user_uuid,
-                SysRole.role_key == "admin",
-                SysRole.status == "0",
-                SysRole.del_flag == "0",
-            )
-            .limit(1)
-        )
-        return db.execute(stmt).scalar() is not None
 
 
 # ---------------------------------------------------------------------------
@@ -88,11 +64,10 @@ class MyTeamQuery(BaseModel):
 
 
 @router.post("/myTeam/{uuid}")
-def my_team(
+async def my_team(
     uuid: str = Path(...),
     platform: str = Header(default="unknown", alias="X-Device-Type"),
     body: MyTeamQuery | None = None,
-    user_uuid: str = Depends(require_login),
 ):
     """对应 Java: POST /remote/myTeam/{uuid} -- 查询我的团队 (邀请树子节点)."""
     if not uuid:
@@ -133,21 +108,11 @@ def my_team(
 
 
 @router.get("/info/{uuid}")
-def get_info(
+async def get_info(
     uuid: str = Path(...),
     platform: str = Header(default="unknown", alias="X-Device-Type"),
-    user_uuid: str = Depends(require_login),
 ):
-    """对应 Java: GET /remote/info/{uuid} -- 用户基本信息 + 第三方账号绑定.
-
-    安全: 查询其他用户信息要求 admin 角色, 查询本人信息仅需登录.
-    """
-    # 跨用户查询归属校验: 非本人查询需 admin
-    if uuid != user_uuid and not _is_admin(user_uuid):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="无权查询其他用户信息",
-        )
+    """对应 Java: GET /remote/info/{uuid} -- 用户基本信息 + 第三方账号绑定."""
     with SessionFactory2() as db:
         user = db.query(User).filter(User.uuid == uuid).first()
         if not user:
@@ -157,7 +122,6 @@ def get_info(
             .filter(
                 UserThirdPartyAccount.user_uuid == uuid,
                 UserThirdPartyAccount.platform == platform,
-                UserThirdPartyAccount.deleted_at.is_(None),
             )
             .first()
         )
@@ -187,10 +151,9 @@ def get_info(
 
 
 @router.post("/uploadBusinessCard")
-def upload_business_card(
+async def upload_business_card(
     body: BusinessCardReq,
     platform: str = Header(default="unknown", alias="X-Device-Type"),
-    user_uuid: str = Depends(require_login),
 ):
     """对应 Java: POST /remote/uploadBusinessCard -- 上传 base64 名片到 MinIO."""
     if not body.id or not body.card:
@@ -218,7 +181,7 @@ def upload_business_card(
 
 
 @router.get("/role")
-def get_role(user_uuid: str = Depends(require_login)):
+async def get_role():
     """对应 Java: GET /remote/role -- 列出所有可购买的 ZhsProductIdentity."""
     with SessionFactory2() as db:
         items = db.query(ProductIdentity).filter(ProductIdentity.status == 1).order_by(ProductIdentity.sort.asc()).all()
@@ -244,15 +207,10 @@ def get_role(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/agent/category")
-def agent_category(
-    type: str | None = Query(default=None, alias="type"),
-    user_uuid: str = Depends(require_login),
-):
+async def agent_category(type: str | None = Query(default=None, alias="type")):
     """对应 Java: GET /remote/agent/category?type=xxx -- ResponseResultInfo 包装."""
     with SessionFactory2() as db:
         q = db.query(AgentCategory)
-        if type:
-            q = q.filter(AgentCategory.type == type)
         items = q.all()
         return success(
             [
@@ -271,12 +229,9 @@ def agent_category(
 
 
 @router.get("/agent/category2")
-async def agent_category2(
-    type: str | None = Query(default=None, alias="type"),
-    user_uuid: str = Depends(require_login),
-):
+async def agent_category2(type: str | None = Query(default=None, alias="type")):
     """对应 Java: GET /remote/agent/category2 -- AjaxResult 包装 (与上同结构)."""
-    return await agent_category(type=type, user_uuid=user_uuid)
+    return await agent_category(type=type)
 
 
 # ---------------------------------------------------------------------------
@@ -285,12 +240,11 @@ async def agent_category2(
 
 
 @router.get("/agent/by/type")
-def agent_by_type(
+async def agent_by_type(
     search: str | None = None,
     code: str | None = None,
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, le=100),
-    user_uuid: str = Depends(require_login),
 ):
     """对应 Java: GET /remote/agent/by/type?search=&code="""
     with SessionFactory2() as db:
@@ -326,12 +280,11 @@ def agent_by_type(
 
 
 @router.get("/agent/by/collect/{uuid}")
-def agent_by_collect(
+async def agent_by_collect(
     uuid: str = Path(...),
     search: str | None = None,
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, le=100),
-    user_uuid: str = Depends(require_login),
 ):
     """对应 Java: GET /remote/agent/by/collect/{uuid}?search= (查收藏表, 此处简化)."""
     # 收藏通常存 Redis set: zhs:collect:{user_uuid} → [agent_id]
@@ -375,14 +328,13 @@ def agent_by_collect(
 
 
 @router.get("/agent/by/pay")
-def agent_by_pay(
+async def agent_by_pay(
     uuid: str = Query(...),
     search: str | None = None,
     type: int | None = None,
     date: str | None = None,
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, le=100),
-    user_uuid: str = Depends(require_login),
 ):
     """对应 Java: GET /remote/agent/by/pay?uuid=&search=&type=&date="""
     from datetime import datetime
@@ -429,7 +381,7 @@ def agent_by_pay(
 
 
 @router.post("/get/tencent/sentence")
-def tencent_asr(body: TencentAsrReq, user_uuid: str = Depends(require_login)):
+async def tencent_asr(body: TencentAsrReq):
     """对应 Java: POST /remote/get/tencent/sentence -- 调用腾讯云一句话识别.
 
     Java 端直接用腾讯云 SDK.
@@ -478,7 +430,7 @@ def tencent_asr(body: TencentAsrReq, user_uuid: str = Depends(require_login)):
 
 
 @router.get("/get/true")
-def get_withdrawal_open(user_uuid: str = Depends(require_login)):
+async def get_withdrawal_open():
     """对应 Java: GET /remote/get/true -- 查 ZhsWithdrawalFlow id=1.status==1 → true."""
     from app.models.payment_models import WithdrawalFlow
 
@@ -493,9 +445,9 @@ def get_withdrawal_open(user_uuid: str = Depends(require_login)):
 
 
 @third_router.get("/group/list")
-def third_group_list(user_uuid: str = Depends(require_login)):
+async def third_group_list():
     """对应 Java: GET /remote/third/group/list -- 不同榜单数据 (按 group 分组的排行)."""
-    # TODO: 接入真实排行榜数据，当前为占位 mock
+    # 简化: 返回一些 mock 榜单结构
     return success(
         {
             "groups": [

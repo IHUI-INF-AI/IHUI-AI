@@ -95,7 +95,6 @@ def main() -> int:
     # 4. 服务模块
     print("\n[4] 关键服务模块加载")
     service_modules = [
-        "app.services.avatar_sync_service",
         "app.services.cached_expiration_monitor",
         "app.services.monitor_startup",
         "app.services.heat_stats_service",

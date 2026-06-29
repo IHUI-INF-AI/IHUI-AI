@@ -6,7 +6,7 @@ v1 → v2 迁移策略:
   - v1 调用方无需修改 (header 协商 Accept: application/vnd.zhs.v2+json)
 
 v2 已实现:
-  - 暂无 (仅占位, 待后续版本实现)
+  - 暂无 (仅占位)
 
 v2 计划:
   - 统一 GraphQL 入口 (单 endpoint 查所有数据)
@@ -17,26 +17,22 @@ v2 计划:
 
 from fastapi import APIRouter, Request
 
-# v2 API 占位, 待后续版本实现具体业务逻辑 (当前仅提供元数据探测端点)
+# v2 暂未实现具体业务, 仅提供元数据
 router = APIRouter(tags=["API v2 (Experimental)"])
 
 
 @router.get("/api/v2/info", summary="v2 API 元数据")
-def v2_info(request: Request):
-    """返回 v2 API 元信息 (供客户端探测).
-
-    注意: v2 API 占位, 待后续版本实现, 当前 endpoints 为空.
-    """
+async def v2_info(request: Request):
+    """返回 v2 API 元信息 (供客户端探测)."""
     return {
         "version": "v2",
         "status": "experimental",
         "compatible_from": "v1",
-        "endpoints": [],  # v2 占位, 待后续版本实现
+        "endpoints": [],  # 待补充
         "docs_url": "/openapi/tag/API v2 (Experimental)",
     }
 
 
 @router.get("/api/v2/ping", summary="v2 API ping")
-def v2_ping():
-    # v2 占位端点, 待后续版本实现
+async def v2_ping():
     return {"code": "0", "msg": "pong", "data": {"version": "v2"}}

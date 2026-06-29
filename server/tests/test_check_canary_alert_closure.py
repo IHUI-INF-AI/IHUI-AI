@@ -39,7 +39,7 @@ class TestExtractMetrics:
         from scripts.ci.check_canary_alert_closure import extract_metrics_from_app
 
         names = extract_metrics_from_app()
-        # 这些 metric 在 shadow_compare / shadow_ratio_controller 等模块声明
+        # 这些 metric 在 app/_archived/shadow_compare.py / shadow_ratio_controller.py 等模块声明 (已归档)
         assert "zhs_shadow_compare_total" in names
         assert "zhs_shadow_compare_mismatch_total" in names
         assert "zhs_canary_rollback_active" in names

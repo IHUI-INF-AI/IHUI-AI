@@ -52,7 +52,6 @@ __all__ = [
     "AgentUseDetailApi",
     "AgentWithdrawalApi",
     "AgentsApi",
-    "AliLoginApi",
     "AlipayApi",
     "AlipayFundApi",
     "AppVersionApi",
@@ -61,7 +60,6 @@ __all__ = [
     "AskCategoryApi",
     "AskQuestionApi",
     "AuthIdentityApi",
-    "AuthAlipayApi",
     "AuthEnterpriseWeChatApi",
     "AuthFeishuApi",
     "AuthenticationApi",
@@ -412,7 +410,6 @@ from zhs_api.api.agent_upload_api import AgentUploadApi as AgentUploadApi
 from zhs_api.api.agent_use_detail_api import AgentUseDetailApi as AgentUseDetailApi
 from zhs_api.api.agent_withdrawal_api import AgentWithdrawalApi as AgentWithdrawalApi
 from zhs_api.api.agents_api import AgentsApi as AgentsApi
-from zhs_api.api.ali_login_api import AliLoginApi as AliLoginApi
 from zhs_api.api.alipay_api import AlipayApi as AlipayApi
 from zhs_api.api.alipay_fund_api import AlipayFundApi as AlipayFundApi
 from zhs_api.api.app_version_api import AppVersionApi as AppVersionApi
@@ -421,7 +418,6 @@ from zhs_api.api.ask_answer_api import AskAnswerApi as AskAnswerApi
 from zhs_api.api.ask_category_api import AskCategoryApi as AskCategoryApi
 from zhs_api.api.ask_question_api import AskQuestionApi as AskQuestionApi
 from zhs_api.api.auth_identity_api import AuthIdentityApi as AuthIdentityApi
-from zhs_api.api.auth_alipay_api import AuthAlipayApi as AuthAlipayApi
 from zhs_api.api.auth_enterprise_we_chat_api import AuthEnterpriseWeChatApi as AuthEnterpriseWeChatApi
 from zhs_api.api.auth_feishu_api import AuthFeishuApi as AuthFeishuApi
 from zhs_api.api.authentication_api import AuthenticationApi as AuthenticationApi

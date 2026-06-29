@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsActivityMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.ZhsActivity" id="ZhsActivityResult">
+        <result property="id"    column="id"    />
+        <result property="activityName"    column="activity_name"    />
+        <result property="activityRule"    column="activity_rule"    />
+        <result property="activityRecharge"    column="activity_recharge"    />
+        <result property="multiple"    column="multiple"    />
+        <result property="computing"    column="computing"    />
+        <result property="beginTime"    column="begin_time"    />
+        <result property="endTime"    column="end_time"    />
+        <result property="status"    column="status"    />
+        <result property="creator"    column="creator"    />
+        <result property="createdTime"    column="created_time"    />
+        <result property="updator"    column="updator"    />
+        <result property="updatedTime"    column="updated_time"    />
+        <result property="beginAmount"    column="begin_amount"    />
+    </resultMap>
+
+    <sql id="selectZhsActivityVo">
+        select id, activity_name, activity_rule, activity_recharge, multiple, computing, begin_time, end_time, status, creator, created_time, updator, updated_time
+        , begin_amount
+        from zhs_activity
+    </sql>
+
+    <select id="selectZhsActivityList" parameterType="com.ai.manager.small.domain.ZhsActivity" resultMap="ZhsActivityResult">
+        <include refid="selectZhsActivityVo"/>
+        <where>
+            status = 1
+            <if test="activityName != null  and activityName != ''"> and activity_name like concat('%', #{activityName}, '%')</if>
+            <if test="beginTime != null "> and begin_time = #{beginTime}</if>
+            <if test="endTime != null "> and end_time = #{endTime}</if>
+        </where>
+        limit  1
+    </select>
+    
+    <select id="selectZhsActivityById" parameterType="String" resultMap="ZhsActivityResult">
+        <include refid="selectZhsActivityVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertZhsActivity" parameterType="com.ai.manager.small.domain.ZhsActivity">
+        insert into zhs_activity
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="activityName != null">activity_name,</if>
+            <if test="activityRule != null">activity_rule,</if>
+            <if test="activityRecharge != null">activity_recharge,</if>
+            <if test="multiple != null">multiple,</if>
+            <if test="computing != null">computing,</if>
+            <if test="beginTime != null">begin_time,</if>
+            <if test="endTime != null">end_time,</if>
+            <if test="status != null">status,</if>
+            <if test="creator != null">creator,</if>
+            <if test="createdTime != null">created_time,</if>
+            <if test="updator != null">updator,</if>
+            <if test="updatedTime != null">updated_time,</if>
+            <if test="beginAmount != null">begin_amount,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="activityName != null">#{activityName},</if>
+            <if test="activityRule != null">#{activityRule},</if>
+            <if test="activityRecharge != null">#{activityRecharge},</if>
+            <if test="multiple != null">#{multiple},</if>
+            <if test="computing != null">#{computing},</if>
+            <if test="beginTime != null">#{beginTime},</if>
+            <if test="endTime != null">#{endTime},</if>
+            <if test="status != null">#{status},</if>
+            <if test="creator != null">#{creator},</if>
+            <if test="createdTime != null">#{createdTime},</if>
+            <if test="updator != null">#{updator},</if>
+            <if test="updatedTime != null">#{updatedTime},</if>
+            <if test="beginAmount != null">#{beginAmount},</if>
+         </trim>
+    </insert>
+
+    <update id="updateZhsActivity" parameterType="com.ai.manager.small.domain.ZhsActivity">
+        update zhs_activity
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="activityName != null">activity_name = #{activityName},</if>
+            <if test="activityRule != null">activity_rule = #{activityRule},</if>
+            <if test="activityRecharge != null">activity_recharge = #{activityRecharge},</if>
+            <if test="multiple != null">multiple = #{multiple},</if>
+            <if test="computing != null">computing = #{computing},</if>
+            <if test="beginTime != null">begin_time = #{beginTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="creator != null">creator = #{creator},</if>
+            <if test="createdTime != null">created_time = #{createdTime},</if>
+            <if test="updator != null">updator = #{updator},</if>
+            <if test="updatedTime != null">updated_time = #{updatedTime},</if>
+            <if test="beginAmount != null">begin_amount = #{beginAmount},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteZhsActivityById" parameterType="String">
+        delete from zhs_activity where id = #{id}
+    </delete>
+
+    <delete id="deleteZhsActivityByIds" parameterType="String">
+        delete from zhs_activity where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

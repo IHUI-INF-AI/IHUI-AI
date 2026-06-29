@@ -280,7 +280,7 @@ class AlertmanagerEmulator:
             return self.base_url
         self._setup()
         self._thread = threading.Thread(
-            target=self._server.serve_forever,
+            target=self._server.serve_forever,  # type: ignore[attr-defined]
             daemon=True,
             name="alertmanager-emu",
         )
@@ -339,7 +339,7 @@ class AlertmanagerEmulator:
         try:
             data = json.dumps([alert], ensure_ascii=False).encode("utf-8")
             req = urlrequest.Request(
-                self._webhook_url,
+                self._webhook_url,  # type: ignore[arg-type]
                 data=data,
                 headers={"Content-Type": "application/json"},
                 method="POST",

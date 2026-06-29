@@ -51,12 +51,13 @@ NETWORK_ERROR_PATTERNS = [
 
 
 def get_log_root() -> Path:
-    """优先 LOG_ROOT_VAR, 否则本地 logs/."""
+    """优先 /var/log, 否则本地 logs/."""
     try:
-        LOG_ROOT_VAR.mkdir(parents=True, exist_ok=True)
-        return LOG_ROOT_VAR
-    except (OSError, PermissionError):
-        return LOCAL_LOG_ROOT
+        if os.access("/var/log", os.W_OK):
+            return LOG_ROOT_VAR
+    except Exception:
+        pass
+    return LOCAL_LOG_ROOT
 
 
 def now_iso() -> str:

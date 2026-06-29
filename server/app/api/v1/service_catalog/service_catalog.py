@@ -1,5 +1,7 @@
 """实时服务目录 - 服务注册与发现"""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, String, Text
@@ -7,7 +9,6 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, St
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
-from app.utils.datetime_helper import utcnow
 
 
 class ServiceNode(TimestampMixin, Base):
@@ -65,7 +66,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="服务列表")
-def service_list(
+async def service_list(
     group: str | None = None, type: str | None = None, status: int | None = None, keyword: str | None = None
 ):
     with get_session() as db:
@@ -109,7 +110,7 @@ def service_list(
 
 
 @router.get("/{sid}", summary="服务详情")
-def get_service(sid: int):
+async def get_service(sid: int):
     with get_session() as db:
         try:
             s = db.query(ServiceNode).filter(ServiceNode.id == sid).first()
@@ -140,7 +141,7 @@ def get_service(sid: int):
 
 
 @router.post("", summary="注册服务")
-def register(
+async def register(
     code: str = Query(...),
     name: str = Query(...),
     type: str = "api",
@@ -173,7 +174,7 @@ def register(
                 health_url=health_url,
                 weight=weight,
                 config=config,
-                last_heartbeat=utcnow(),
+                last_heartbeat=datetime.utcnow(),
             )
             db.add(s)
             db.flush()
@@ -184,7 +185,7 @@ def register(
 
 
 @router.put("/{sid}", summary="更新服务")
-def update_service(
+async def update_service(
     sid: int,
     name: str | None = None,
     host: str | None = None,
@@ -217,7 +218,7 @@ def update_service(
 
 
 @router.delete("/{sid}", summary="下线服务")
-def delete_service(sid: int):
+async def delete_service(sid: int):
     with get_session() as db:
         try:
             s = db.query(ServiceNode).filter(ServiceNode.id == sid).first()
@@ -231,13 +232,13 @@ def delete_service(sid: int):
 
 
 @router.post("/{sid}/heartbeat", summary="心跳上报")
-def heartbeat(sid: int, is_healthy: bool = True, error_msg: str | None = None):
+async def heartbeat(sid: int, is_healthy: bool = True, error_msg: str | None = None):
     with get_session() as db:
         try:
             s = db.query(ServiceNode).filter(ServiceNode.id == sid).first()
             if not s:
                 return error("服务不存在", "404")
-            s.last_heartbeat = utcnow()
+            s.last_heartbeat = datetime.utcnow()
             s.is_healthy = is_healthy
             if not is_healthy:
                 s.error_count = (s.error_count or 0) + 1
@@ -248,7 +249,7 @@ def heartbeat(sid: int, is_healthy: bool = True, error_msg: str | None = None):
 
 
 @router.get("/log/list", summary="服务调用日志")
-def call_log_list(
+async def call_log_list(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     service_code: str | None = None,
@@ -266,18 +267,18 @@ def call_log_list(
             return success(
                 [
                     {
-                        "id": l.id,
-                        "service_code": l.service_code,
-                        "node_id": l.node_id,
-                        "method": l.method,
-                        "path": l.path,
-                        "status": l.status,
-                        "cost_time": l.cost_time,
-                        "error_msg": l.error_msg,
-                        "user_id": l.user_id,
-                        "create_time": l.created_at.isoformat() if l.created_at else None,
+                        "id": item.id,
+                        "service_code": item.service_code,
+                        "node_id": item.node_id,
+                        "method": item.method,
+                        "path": item.path,
+                        "status": item.status,
+                        "cost_time": item.cost_time,
+                        "error_msg": item.error_msg,
+                        "user_id": item.user_id,
+                        "create_time": item.created_at.isoformat() if item.created_at else None,
                     }
-                    for l in items
+                    for item in items
                 ],
                 total=total,
             )

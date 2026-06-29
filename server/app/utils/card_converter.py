@@ -5,9 +5,6 @@
 """
 
 import json
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 def convert_card_to_simple_format(card_data):
@@ -48,8 +45,8 @@ def convert_card_to_simple_format(card_data):
                     card_json = card_json.replace(r'\"', '"')
                     card_json = card_json.replace(r'\\\"', '"')
                     card_data = json.loads(card_json)
-        except Exception as e:
-            logger.debug("解析 verbose 卡片数据失败: %s", e)
+        except Exception:
+            pass
 
     result = {
         "type": "text",

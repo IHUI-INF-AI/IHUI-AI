@@ -10,7 +10,7 @@ from app.models.base import TimestampMixin, id_column
 
 class AiAboutUs(TimestampMixin, Base):
     __tablename__ = "ai_about_us"
-    __table_args__ = (Index("ix_ai_about_us_status", "status"), {"extend_existing": True})  # noqa: RUF012
+    __table_args__ = (Index("ix_ai_about_us_status", "status"), {"extend_existing": True})
 
     id = id_column(comment="ID")
     title = Column(String(200), nullable=True)
@@ -22,7 +22,7 @@ class AiAboutUs(TimestampMixin, Base):
 
 class AiContact(TimestampMixin, Base):
     __tablename__ = "ai_contact"
-    __table_args__ = (Index("ix_ai_contact_status", "status"), {"extend_existing": True})  # noqa: RUF012
+    __table_args__ = (Index("ix_ai_contact_status", "status"), {"extend_existing": True})
 
     id = id_column(comment="ID")
     name = Column(String(100), nullable=True)
@@ -68,7 +68,7 @@ class AiFileStorage(TimestampMixin, Base):
 
 class BannerCarousel(TimestampMixin, Base):
     __tablename__ = "zhs_banner_carousel"
-    __table_args__ = (Index("ix_zhs_banner_carousel_status", "status"), {"extend_existing": True})  # noqa: RUF012
+    __table_args__ = (Index("ix_zhs_banner_carousel_status", "status"), {"extend_existing": True})
 
     id = id_column(comment="ID")
     title = Column(String(200), nullable=True)
@@ -96,7 +96,7 @@ class Information(TimestampMixin, Base):
 
 class AppVersion(TimestampMixin, Base):
     __tablename__ = "app_version"
-    __table_args__ = (Index("ix_app_version_status", "status"), {"extend_existing": True})  # noqa: RUF012
+    __table_args__ = (Index("ix_app_version_status", "status"), {"extend_existing": True})
 
     id = id_column(comment="ID")
     version_code = Column(String(50), nullable=True)
@@ -165,7 +165,7 @@ class CategoryDictionary(TimestampMixin, Base):
 
 class ZhsProduct(TimestampMixin, Base):
     __tablename__ = "zhs_product"
-    __table_args__ = (Index("ix_zhs_product_status", "status"), {"extend_existing": True})  # noqa: RUF012
+    __table_args__ = (Index("ix_zhs_product_status", "status"), {"extend_existing": True})
 
     id = Column(String(64), primary_key=True)
     name = Column(String(200), nullable=True)

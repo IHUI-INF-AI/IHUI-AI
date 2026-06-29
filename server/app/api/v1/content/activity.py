@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="活动列表")
-def list_activities(
+async def list_activities(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: int = Query(None, description="筛选状态: 0=关闭 1=开启"),
@@ -48,7 +48,7 @@ def list_activities(
 
 
 @router.get("/{activity_id}", summary="活动详情")
-def get_activity(activity_id: str):
+async def get_activity(activity_id: str):
     """根据活动 ID 返回详情."""
     with get_session() as db:
         try:

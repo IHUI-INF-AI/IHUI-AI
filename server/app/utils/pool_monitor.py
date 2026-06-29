@@ -230,14 +230,13 @@ class PoolMonitor:
                 stats = self.get_stats(name, eng)
                 new_size, new_overflow = self._decide_target(stats)
                 action = "noop"
-                if new_size != stats.pool_size or new_overflow != stats.max_overflow:
-                    if not self._in_cooldown(name):
-                        self._apply(eng, new_size, new_overflow)
-                        with self._lock:
-                            stats.target_size = new_size
-                            stats.target_overflow = new_overflow
-                            self._last_scale_at[name] = time.time()
-                        action = "scale" if new_size > stats.pool_size else "shrink"
+                if (new_size != stats.pool_size or new_overflow != stats.max_overflow) and not self._in_cooldown(name):
+                    self._apply(eng, new_size, new_overflow)
+                    with self._lock:
+                        stats.target_size = new_size
+                        stats.target_overflow = new_overflow
+                        self._last_scale_at[name] = time.time()
+                    action = "scale" if new_size > stats.pool_size else "shrink"
                 out[name] = {
                     **stats.to_dict(),
                     "action": action,

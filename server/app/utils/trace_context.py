@@ -241,7 +241,7 @@ class span:
         self._ctx = new_span(self._parent, self._name)
         return self._ctx
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> None:
         if self._ctx is not None:
             if exc_type is not None:
                 self._ctx.attrs["error"] = "1"
@@ -250,7 +250,6 @@ class span:
         # 显式还原回 enter 之前的 current
         if self._prev is not None:
             _current_ctx.set(self._prev)
-        return False
 
 
 # ----- 全局统计 -----

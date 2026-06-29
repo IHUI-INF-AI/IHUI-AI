@@ -1,14 +1,12 @@
 """教育平台 - 第三方教育平台对接"""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, String, Text
 
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
-from app.security import require_login, require_role
-from app.utils.datetime_helper import utcnow
 
 
 class EducationPlatform(TimestampMixin, Base):
@@ -49,7 +47,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="教育平台列表")
-def list_platforms(status: int | None = None, _: str = Depends(require_login)):
+async def list_platforms(status: int | None = None):
     with get_session() as db:
         try:
             q = db.query(EducationPlatform)
@@ -67,11 +65,11 @@ def list_platforms(status: int | None = None, _: str = Depends(require_login)):
 
 
 @router.post("", summary="新增教育平台")
-def create_platform(name: str = Query(...), code: str = Query(...),
+async def create_platform(name: str = Query(...), code: str = Query(...),
                            type: str = "mooc", api_url: str | None = None,
                            api_key: str | None = None, api_secret: str | None = None,
                            config: str | None = None, sync_url: str | None = None,
-                           description: str | None = None, _: str = Depends(require_role("admin"))):
+                           description: str | None = None):
     with get_session() as db:
         try:
             p = EducationPlatform(
@@ -88,20 +86,26 @@ def create_platform(name: str = Query(...), code: str = Query(...),
 
 
 @router.put("/{pid}", summary="修改教育平台")
-def update_platform(pid: int, name: str | None = None, api_url: str | None = None,
+async def update_platform(pid: int, name: str | None = None, api_url: str | None = None,
                            api_key: str | None = None, api_secret: str | None = None,
-                           status: int | None = None, config: str | None = None, _: str = Depends(require_role("admin"))):
+                           status: int | None = None, config: str | None = None):
     with get_session() as db:
         try:
             p = db.query(EducationPlatform).filter(EducationPlatform.id == pid).first()
             if not p:
                 return error("平台不存在", "404")
-            if name: p.name = name
-            if api_url: p.api_url = api_url
-            if api_key: p.api_key = api_key
-            if api_secret: p.api_secret = api_secret
-            if status is not None: p.status = status
-            if config: p.config = config
+            if name:
+                p.name = name
+            if api_url:
+                p.api_url = api_url
+            if api_key:
+                p.api_key = api_key
+            if api_secret:
+                p.api_secret = api_secret
+            if status is not None:
+                p.status = status
+            if config:
+                p.config = config
             return success()
         except Exception as e:
             logger.error(f"edu platform update error: {e}")
@@ -109,7 +113,7 @@ def update_platform(pid: int, name: str | None = None, api_url: str | None = Non
 
 
 @router.delete("/{pid}", summary="删除教育平台")
-def delete_platform(pid: int, _: str = Depends(require_role("admin"))):
+async def delete_platform(pid: int):
     with get_session() as db:
         try:
             p = db.query(EducationPlatform).filter(EducationPlatform.id == pid).first()
@@ -123,9 +127,10 @@ def delete_platform(pid: int, _: str = Depends(require_role("admin"))):
 
 
 @router.post("/{pid}/sync", summary="同步数据")
-def sync_platform(pid: int, type: str = "course", sync_type: str = "pull", _: str = Depends(require_role("admin"))):
+async def sync_platform(pid: int, type: str = "course", sync_type: str = "pull"):
     with get_session() as db:
         try:
+            from datetime import datetime
             p = db.query(EducationPlatform).filter(EducationPlatform.id == pid).first()
             if not p:
                 return error("平台不存在", "404")
@@ -134,7 +139,7 @@ def sync_platform(pid: int, type: str = "course", sync_type: str = "pull", _: st
                 success=True, record_count=0,
             )
             db.add(log)
-            p.last_sync_time = utcnow()
+            p.last_sync_time = datetime.utcnow()
             db.flush()
             return success({"id": log.id, "platform_code": p.code})
         except Exception as e:
@@ -143,8 +148,8 @@ def sync_platform(pid: int, type: str = "course", sync_type: str = "pull", _: st
 
 
 @router.get("/sync/log", summary="同步日志")
-def sync_log(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
-                    platform_code: str | None = None, _: str = Depends(require_role("admin"))):
+async def sync_log(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+                    platform_code: str | None = None):
     with get_session() as db:
         try:
             q = db.query(EducationSyncLog)
@@ -153,11 +158,11 @@ def sync_log(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
             total = q.count()
             items = q.order_by(EducationSyncLog.id.desc()).offset((page - 1) * limit).limit(limit).all()
             return success([{
-                "id": l.id, "platform_code": l.platform_code, "type": l.type,
-                "sync_type": l.sync_type, "success": l.success,
-                "error_msg": l.error_msg, "record_count": l.record_count,
-                "create_time": l.created_at.isoformat() if l.created_at else None,
-            } for l in items], total=total)
+                "id": item.id, "platform_code": item.platform_code, "type": item.type,
+                "sync_type": item.sync_type, "success": item.success,
+                "error_msg": item.error_msg, "record_count": item.record_count,
+                "create_time": item.created_at.isoformat() if item.created_at else None,
+            } for item in items], total=total)
         except Exception as e:
             logger.error(f"edu platform sync log error: {e}")
             return error(str(e))

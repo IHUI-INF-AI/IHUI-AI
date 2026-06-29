@@ -39,7 +39,7 @@ async def list_conversations(req: ListConvReq):
             return await coze.list_conversations(req.bot_id, req.user_id, req.offset, req.limit)
     except Exception as e:
         logger.error("List conversations error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/messages")
@@ -49,7 +49,7 @@ async def list_messages(req: ListMsgReq):
             return await coze.list_messages(req.conversation_id, req.offset, req.limit)
     except Exception as e:
         logger.error("List messages error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/messages/feedback")
@@ -61,7 +61,7 @@ async def create_feedback(req: FeedbackReq):
             )
     except Exception as e:
         logger.error("Feedback error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/retrieve")
@@ -71,4 +71,4 @@ async def retrieve_conversation(req: RetrieveReq):
             return await coze.retrieve_conversation(req.conversation_id)
     except Exception as e:
         logger.error("Retrieve conversation error: " + str(e))
-        raise HTTPException(status_code=500, detail="服务内部错误,请稍后重试") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e

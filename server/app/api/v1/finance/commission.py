@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="List commission flows")
-def list_commissions(
+async def list_commissions(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -43,7 +43,7 @@ def list_commissions(
 
 
 @router.get("/summary", summary="Get commission summary (today/month/total)")
-def get_summary(user_uuid: str = Depends(require_login)):
+async def get_summary(user_uuid: str = Depends(require_login)):
     """Mirrors Java getStatistics. Returns day/month/total commission stats
     considering the commissionDay window.
     """
@@ -140,7 +140,7 @@ def get_summary(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/orders", summary="我的订单列表(分页+筛选)")
-def list_orders(
+async def list_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     order_type: int | None = Query(None, description="订单类型:0=token 1=activity 2=identity 3=agent"),
@@ -177,7 +177,7 @@ def list_orders(
 
 
 @router.post("/settle/{commission_id}", summary="手动结算佣金流水")
-def settle_commission(
+async def settle_commission(
     commission_id: int,
     user_uuid: str = Depends(require_login),
 ):
@@ -202,48 +202,3 @@ def settle_commission(
         except Exception as e:
             logger.error(f"Settle commission error: {e}")
             return error(str(e))
-
-
-# ---------------------------------------------------------------------------
-# 接入 commission_service (按订单触发分润 + 比例缓存管理)
-# ---------------------------------------------------------------------------
-
-@router.post("/feedback-invite/{out_trade_no}", summary="按订单号触发邀请分润")
-def feedback_invite_by_order(out_trade_no: str, _user: str = Depends(require_login)):
-    """按订单号触发邀请分润 (commission_service.feedback_invite_by_order).
-
-    通常由支付成功回调自动调用, 此端点用于:
-    1. 补偿: 支付成功但分润失败时手工触发
-    2. 调试: 联调环境验证
-    """
-    try:
-        from app.services.commission_service import feedback_invite_by_order as _feedback
-
-        _feedback(out_trade_no)
-        return success({"out_trade_no": out_trade_no, "status": "processed"})
-    except Exception as e:
-        logger.error(f"feedback_invite_by_order failed: {e}")
-        return error(str(e))
-
-
-@router.post("/invalidate-proportion-cache", summary="失效分润比例缓存")
-def invalidate_proportion_cache(_user: str = Depends(require_login)):
-    """手动失效 _get_cached_active_proportion 的 lru_cache.
-
-    当运营修改 IdentityProportion 表后, 调用此接口让下次分润生效.
-    """
-    from app.services.commission_service import invalidate_proportion_cache as _inv
-
-    _inv()
-    return success({"status": "invalidated"})
-
-
-@router.get("/active-proportion", summary="查询当前生效的分润比例")
-def get_active_proportion(_user: str = Depends(require_login)):
-    """读取当前生效的 IdentityProportion (含缓存版本)."""
-    from app.services.commission_service import _get_cached_active_proportion
-
-    p = _get_cached_active_proportion()
-    if not p:
-        return error("当前没有生效的分润比例")
-    return success(p)

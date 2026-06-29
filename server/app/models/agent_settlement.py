@@ -21,7 +21,7 @@ class AgentSettlement(TimestampMixin, Base):
             "schema": "public",
         },
     )
-    id = Column(String(64), primary_key=True)
+    id = Column(String(36), primary_key=True)
     uuid = Column(String(36), nullable=True, comment="Developer UUID (agent owner)")
     order_no = Column(String(64), nullable=True, comment="Order number from zhs_agent_buy")
     create_time = Column(DateTime, nullable=True, comment="Record creation time")
@@ -46,8 +46,8 @@ class AgentWithdrawalDetail(TimestampMixin, Base):
         Index("idx_w_bill", "out_bill_no"),
         Index("ix_zhs_agent_withdrawal_detail_status", "status"),
     )
-    id = Column(String(64), primary_key=True)
-    user_id = Column(String(64), nullable=True)
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), nullable=True)
     amount = Column(BigInteger, nullable=True)
     type = Column(Integer, nullable=True)
     initiate_at = Column(BigInteger, nullable=True)
@@ -56,13 +56,9 @@ class AgentWithdrawalDetail(TimestampMixin, Base):
     reviewer_time = Column(BigInteger, nullable=True)
     payment_time = Column(BigInteger, nullable=True)
     out_bill_no = Column(String(255), nullable=True)
+    # Round 22 扩展: 第三方支付交易流水号 (022 迁移同步建列)
+    transaction_id = Column(String(64), nullable=True, comment="第三方支付平台交易流水号")
     user_name = Column(String(50), nullable=True)
     open_id = Column(String(255), nullable=True)
     order_ids = Column(Text, nullable=True)
     wechat_msg = Column(Text, nullable=True)
-    # 2026-06-26 补字段: 历史项目迁移完整性, 原以 JSON 存入 wechat_msg, 现拆为独立列提升查询效率
-    review_remark = Column(String(500), nullable=True, comment="审核备注 (review 阶段)")
-    process_remark = Column(String(500), nullable=True, comment="处理备注 (process 阶段)")
-    transaction_id = Column(String(64), nullable=True, comment="微信付款交易号 (process 阶段回填)")
-    failure_reason = Column(String(500), nullable=True, comment="失败原因 (process 失败时回填)")
-    deleted_at = Column(DateTime, nullable=True, comment="软删除时间 (NULL=未删除)")

@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 try:
     from loguru import logger as _loguru_logger
 except Exception:
-    _loguru_logger = None
+    _loguru_logger = None  # type: ignore[assignment]
 
 try:
-    from app.utils.log_mask import SENSITIVE_KEYS, _mask_value
+    from app.utils.log_mask import SENSITIVE_KEYS, _mask_value  # type: ignore[attr-defined]
 except Exception:
-    SENSITIVE_KEYS = {
+    SENSITIVE_KEYS = {  # type: ignore[assignment]
         "password",
         "passwd",
         "pwd",

@@ -30,9 +30,6 @@ from app.utils.file_transfer import download_file_from_url, upload_file_to_serve
 
 logger = logging.getLogger(__name__)
 
-# 保留后台任务引用，防止被 GC 回收
-_pending_tasks: set = set()
-
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
@@ -326,9 +323,7 @@ async def submit_hunyuan3d(
         )
 
         # Schedule background polling
-        _bg_task = asyncio.create_task(_poll_job_status(job_id, user_uuid, request.Prompt, request.ImageUrl))
-        _pending_tasks.add(_bg_task)
-        _bg_task.add_done_callback(_pending_tasks.discard)
+        asyncio.create_task(_poll_job_status(job_id, user_uuid, request.Prompt, request.ImageUrl))  # type: ignore[arg-type]  # noqa: RUF006
         logger.info("Background poll scheduled for job %s", job_id)
 
         return success({"JobId": job_id}, msg="任务提交成功,系统将在5分钟后开始检查任务状态")

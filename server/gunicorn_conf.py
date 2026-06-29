@@ -36,9 +36,6 @@ keepalive = int(os.getenv("GUNICORN_KEEPALIVE", "5"))
 # ============================ 进程管理 ============================
 
 # 预加载 app, 减少 worker fork 后初始化时间 (但要小心 db session 复用问题)
-# 注意: preload_app=True 会在 master 进程预加载应用
-# 必须确保不在模块级别创建 db session, 或在 post_fork hook 中重建连接池
-# 否则 fork 出的 worker 会共享连接池导致并发问题
 preload_app = os.getenv("GUNICORN_PRELOAD", "true").lower() == "true"
 
 # ============================ 日志 ============================

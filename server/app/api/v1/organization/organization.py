@@ -58,7 +58,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.get("/list", summary="组织列表")
-def list_organizations(pid: int | None = None, status: int | None = None, keyword: str | None = None):
+async def list_organizations(pid: int | None = None, status: int | None = None, keyword: str | None = None):
     with get_session() as db:
         try:
             q = db.query(Organization)
@@ -96,7 +96,7 @@ def list_organizations(pid: int | None = None, status: int | None = None, keywor
 
 
 @router.get("/tree", summary="组织树")
-def org_tree():
+async def org_tree():
     with get_session() as db:
         try:
             items = (
@@ -130,7 +130,7 @@ def org_tree():
 
 
 @router.get("/{oid}", summary="组织详情")
-def get_organization(oid: int):
+async def get_organization(oid: int):
     with get_session() as db:
         try:
             o = db.query(Organization).filter(Organization.id == oid).first()
@@ -160,7 +160,7 @@ def get_organization(oid: int):
 
 
 @router.post("", summary="创建组织")
-def create_organization(
+async def create_organization(
     name: str = Query(..., min_length=1, max_length=100),
     pid: int = 0,
     type: str = "company",
@@ -199,7 +199,7 @@ def create_organization(
 
 
 @router.put("/{oid}", summary="修改组织")
-def update_organization(
+async def update_organization(
     oid: int,
     name: str | None = None,
     short_name: str | None = None,
@@ -235,7 +235,7 @@ def update_organization(
 
 
 @router.delete("/{oid}", summary="删除组织")
-def delete_organization(oid: int):
+async def delete_organization(oid: int):
     with get_session() as db:
         try:
             o = db.query(Organization).filter(Organization.id == oid).first()
@@ -253,7 +253,7 @@ def delete_organization(oid: int):
 
 
 @router.get("/{oid}/members", summary="组织成员")
-def list_members(oid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+async def list_members(oid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
             q = db.query(OrganizationMember).filter(OrganizationMember.org_id == oid, OrganizationMember.status == 1)
@@ -278,7 +278,7 @@ def list_members(oid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge
 
 
 @router.post("/{oid}/member", summary="添加成员")
-def add_member(oid: int, user_id: str = Query(...), role: str = "member", position: str | None = None):
+async def add_member(oid: int, user_id: str = Query(...), role: str = "member", position: str | None = None):
     with get_session() as db:
         try:
             exist = (
@@ -308,7 +308,7 @@ def add_member(oid: int, user_id: str = Query(...), role: str = "member", positi
 
 
 @router.delete("/{oid}/member/{user_id}", summary="移除成员")
-def remove_member(oid: int, user_id: str):
+async def remove_member(oid: int, user_id: str):
     with get_session() as db:
         try:
             m = (

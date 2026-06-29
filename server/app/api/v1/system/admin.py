@@ -4,6 +4,7 @@
 """
 
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -31,7 +32,7 @@ router = APIRouter()
 
 
 def _paginate(db: Session, model: type, page: int, limit: int, **filters):
-    q = db.query(model)
+    q: Any = db.query(model)
     for k, v in filters.items():
         if v is not None and hasattr(model, k):
             # 支持模糊匹配 (传入 key 以 "_like" 结尾时用 like,否则精确匹配)
@@ -63,11 +64,11 @@ def _serialize(obj) -> dict:
 
 
 @router.get("/role/list", summary="角色列表")
-def list_roles(
+async def list_roles(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     role_name: str = Query(None),
-    user_uuid: str = Depends(require_role("admin")),
+    user_uuid: str = Depends(require_login),
 ):
     with get_session() as db:
         items, total = _paginate(db, SysRole, page, limit, role_name_like=role_name)
@@ -75,7 +76,7 @@ def list_roles(
 
 
 @router.post("/role/create", summary="创建角色")
-def create_role(
+async def create_role(
     role_name: str = Query(...),
     role_key: str = Query(...),
     role_sort: int = Query(0),
@@ -95,7 +96,7 @@ def create_role(
 
 
 @router.post("/role/update", summary="更新角色")
-def update_role(
+async def update_role(
     role_id: int = Query(...),
     role_name: str = Query(None),
     role_sort: int = Query(None),
@@ -114,7 +115,7 @@ def update_role(
 
 
 @router.post("/role/delete", summary="删除角色")
-def delete_role(role_id: int = Query(...), user_uuid: str = Depends(require_role("admin"))):
+async def delete_role(role_id: int = Query(...), user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         r = db.query(SysRole).filter(SysRole.role_id == role_id).first()
         if not r:
@@ -130,7 +131,7 @@ def delete_role(role_id: int = Query(...), user_uuid: str = Depends(require_role
 
 
 @router.get("/menu/list", summary="菜单列表")
-def list_menus(
+async def list_menus(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     menu_name: str = Query(None),
@@ -144,7 +145,7 @@ def list_menus(
 
 
 @router.get("/menu/getRouters", summary="获取路由菜单树 (Admin 兼容)")
-def get_routers(user_uuid: str = Depends(require_login)):
+async def get_routers(user_uuid: str = Depends(require_login)):
     """返回前端路由所需的菜单树结构.Admin 前端调用 /system/menu/getRouters."""
     with get_session() as db:
         menus = db.query(SysMenu).filter(SysMenu.status == "0").order_by(SysMenu.menu_id).all()
@@ -174,7 +175,7 @@ def get_routers(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/menu/treeselect", summary="菜单树选择 (Admin 兼容)")
-def menu_treeselect(user_uuid: str = Depends(require_login)):
+async def menu_treeselect(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         menus = db.query(SysMenu).filter(SysMenu.status == "0").order_by(SysMenu.menu_id).all()
         menu_dict = {}
@@ -190,7 +191,7 @@ def menu_treeselect(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/menu/roleMenuTreeselect/{role_id}", summary="角色菜单树")
-def role_menu_treeselect(role_id: int, user_uuid: str = Depends(require_login)):
+async def role_menu_treeselect(role_id: int, user_uuid: str = Depends(require_login)):
     with get_session() as db:
         menus = db.query(SysMenu).filter(SysMenu.status == "0").order_by(SysMenu.menu_id).all()
         menu_dict = {}
@@ -209,7 +210,7 @@ def role_menu_treeselect(role_id: int, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/menu/create", summary="创建菜单")
-def create_menu(
+async def create_menu(
     menu_name: str = Query(...),
     parent_id: int = Query(0),
     path: str = Query(""),
@@ -233,7 +234,7 @@ def create_menu(
 
 
 @router.post("/menu/delete", summary="删除菜单")
-def delete_menu(menu_id: int = Query(...), user_uuid: str = Depends(require_role("admin"))):
+async def delete_menu(menu_id: int = Query(...), user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         m = db.query(SysMenu).filter(SysMenu.menu_id == menu_id).first()
         if not m:
@@ -249,7 +250,7 @@ def delete_menu(menu_id: int = Query(...), user_uuid: str = Depends(require_role
 
 
 @router.get("/dept/list", summary="部门列表")
-def list_depts(
+async def list_depts(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     dept_name: str = Query(None),
@@ -263,7 +264,7 @@ def list_depts(
 
 
 @router.post("/dept/create", summary="创建部门")
-def create_dept(
+async def create_dept(
     dept_name: str = Query(...),
     parent_id: int = Query(0),
     leader: str = Query(""),
@@ -285,7 +286,7 @@ def create_dept(
 
 
 @router.post("/dept/delete", summary="删除部门")
-def delete_dept(dept_id: int = Query(...), user_uuid: str = Depends(require_role("admin"))):
+async def delete_dept(dept_id: int = Query(...), user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         d = db.query(SysDept).filter(SysDept.dept_id == dept_id).first()
         if not d:
@@ -301,7 +302,7 @@ def delete_dept(dept_id: int = Query(...), user_uuid: str = Depends(require_role
 
 
 @router.get("/post/list", summary="岗位列表")
-def list_posts(
+async def list_posts(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     user_uuid: str = Depends(require_login),
@@ -312,7 +313,7 @@ def list_posts(
 
 
 @router.post("/post/create", summary="创建岗位")
-def create_post(
+async def create_post(
     post_code: str = Query(...),
     post_name: str = Query(...),
     post_sort: int = Query(0),
@@ -331,7 +332,7 @@ def create_post(
 
 
 @router.get("/config/list", summary="参数配置列表")
-def list_configs(
+async def list_configs(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     config_key: str = Query(None),
@@ -345,7 +346,7 @@ def list_configs(
 
 
 @router.get("/config/key/{config_key}", summary="按 key 查配置")
-def get_config_by_key(config_key: str, user_uuid: str = Depends(require_login)):
+async def get_config_by_key(config_key: str, user_uuid: str = Depends(require_login)):
     with get_session() as db:
         c = db.query(SysConfig).filter(SysConfig.config_key == config_key).first()
         if not c:
@@ -354,7 +355,7 @@ def get_config_by_key(config_key: str, user_uuid: str = Depends(require_login)):
 
 
 @router.post("/config/create", summary="新增配置")
-def create_config(
+async def create_config(
     config_name: str = Query(...),
     config_key: str = Query(...),
     config_value: str = Query(""),
@@ -374,7 +375,7 @@ def create_config(
 
 
 @router.post("/config/update", summary="更新配置值")
-def update_config(
+async def update_config(
     config_id: int = Query(...),
     config_value: str = Query(...),
     user_uuid: str = Depends(require_role("admin")),
@@ -394,7 +395,7 @@ def update_config(
 
 
 @router.get("/dict/type/list", summary="字典类型列表")
-def list_dict_types(
+async def list_dict_types(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     user_uuid: str = Depends(require_login),
@@ -405,7 +406,7 @@ def list_dict_types(
 
 
 @router.post("/dict/type/create", summary="新增字典类型")
-def create_dict_type(
+async def create_dict_type(
     dict_name: str = Query(...),
     dict_type: str = Query(..., description="字典编码,如 sys_user_sex"),
     user_uuid: str = Depends(require_role("admin")),
@@ -418,7 +419,7 @@ def create_dict_type(
 
 
 @router.get("/dict/data/list", summary="字典数据列表")
-def list_dict_data(
+async def list_dict_data(
     page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=200),
     dict_type: str = Query(..., description="字典编码"),
@@ -430,7 +431,7 @@ def list_dict_data(
 
 
 @router.get("/dict/data/type/{dict_type}", summary="按字典类型获取数据 (Admin 兼容)")
-def get_dict_data_by_type(dict_type: str, user_uuid: str = Depends(require_login)):
+async def get_dict_data_by_type(dict_type: str, user_uuid: str = Depends(require_login)):
     """前端 /system/dict/data/type/{dict_type} 调用此端点."""
     with get_session() as db:
         items = db.query(SysDictData).filter(SysDictData.dict_type == dict_type).all()
@@ -438,7 +439,7 @@ def get_dict_data_by_type(dict_type: str, user_uuid: str = Depends(require_login
 
 
 @router.post("/dict/data/create", summary="新增字典数据")
-def create_dict_data(
+async def create_dict_data(
     dict_type: str = Query(...),
     dict_label: str = Query(...),
     dict_value: str = Query(...),
@@ -543,36 +544,36 @@ def _export_helper(db: Session, model, columns: list, filename: str, filters: di
 
 
 @router.get("/role/export", summary="导出角色列表到Excel")
-def export_roles(user_uuid: str = Depends(require_role("admin"))):
+async def export_roles(user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         return _export_helper(db, SysRole, _ROLE_COLUMNS, "角色数据.xlsx")
 
 
 @router.get("/menu/export", summary="导出菜单列表到Excel")
-def export_menus(user_uuid: str = Depends(require_role("admin"))):
+async def export_menus(user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         return _export_helper(db, SysMenu, _MENU_COLUMNS, "菜单数据.xlsx")
 
 
 @router.get("/dept/export", summary="导出部门列表到Excel")
-def export_depts(user_uuid: str = Depends(require_role("admin"))):
+async def export_depts(user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         return _export_helper(db, SysDept, _DEPT_COLUMNS, "部门数据.xlsx")
 
 
 @router.get("/post/export", summary="导出岗位列表到Excel")
-def export_posts(user_uuid: str = Depends(require_role("admin"))):
+async def export_posts(user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         return _export_helper(db, SysPost, _POST_COLUMNS, "岗位数据.xlsx")
 
 
 @router.get("/config/export", summary="导出参数配置到Excel")
-def export_configs(user_uuid: str = Depends(require_role("admin"))):
+async def export_configs(user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         return _export_helper(db, SysConfig, _CONFIG_COLUMNS, "参数配置.xlsx")
 
 
 @router.get("/dict/type/export", summary="导出字典类型到Excel")
-def export_dict_types(user_uuid: str = Depends(require_role("admin"))):
+async def export_dict_types(user_uuid: str = Depends(require_role("admin"))):
     with get_session() as db:
         return _export_helper(db, SysDictType, _DICT_TYPE_COLUMNS, "字典类型.xlsx")

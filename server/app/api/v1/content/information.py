@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/dictionary", summary="资讯分类字典")
-def list_dictionary(
+async def list_dictionary(
     type: str = Query(None, description="字典类型筛选"),
 ):
     """返回 zhs_category_dictionary 中的分类字典列表."""
@@ -50,7 +50,7 @@ def list_dictionary(
 
 
 @router.post("/create", summary="创建资讯")
-def create_information(
+async def create_information(
     title: str = Query(...),
     content: str = Query(""),
     type: int = Query(None, description="资讯分类 type"),
@@ -72,7 +72,7 @@ def create_information(
 
 
 @router.get("/list", summary="资讯列表")
-def list_information(
+async def list_information(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: int = Query(None, description="按分类筛选"),

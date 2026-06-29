@@ -32,10 +32,7 @@ def build_input_params(agent: Any, raw_problems: str | None) -> dict[str, Any]:
         if normalized is None or normalized == "":
             default = variable_obj.get("default") if variable_obj else None
             if default is not None:
-                if isinstance(default, list) and default:
-                    normalized = normalize(default[0])
-                else:
-                    normalized = normalize(default)
+                normalized = normalize(default[0]) if isinstance(default, list) and default else normalize(default)
         if normalized is None:
             normalized = None
         param_value_map[target_param].append(normalized)

@@ -138,7 +138,7 @@ class CacheBreakdownGuard:
         if ev is not None:
             ev.wait(timeout=ttl_sec or self._default_ttl)
             with self._lock:
-                call = self._inflight.get(key)
+                call = self._inflight.get(key)  # type: ignore[assignment]
             if call is not None and call.finished:
                 if call.error is not None:
                     return self._serve_stale_or_raise(key, call.error)
@@ -150,7 +150,7 @@ class CacheBreakdownGuard:
             value = loader()
             with self._lock:
                 self._store_loaded(key, value, ttl_sec or self._default_ttl)
-                call = self._inflight.pop(key, None)
+                call = self._inflight.pop(key, None)  # type: ignore[arg-type]
                 if call is not None:
                     call.result = value
                     call.finished = True
@@ -159,7 +159,7 @@ class CacheBreakdownGuard:
         except Exception as e:
             with self._lock:
                 self._total_error += 1
-                call = self._inflight.pop(key, None)
+                call = self._inflight.pop(key, None)  # type: ignore[arg-type]
                 if call is not None:
                     call.error = e
                     call.finished = True

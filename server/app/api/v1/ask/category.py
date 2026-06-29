@@ -1,14 +1,13 @@
 """问答社区 - 分类管理"""
 
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from loguru import logger
 
 from app.database import get_session
 from app.models.ask_models import AskCategory
 from app.schemas.ask import CategoryCreate, CategoryUpdate
 from app.schemas.common import error, success
-from app.security import require_role
 
 router = APIRouter()
 
@@ -29,10 +28,9 @@ def _to_dict(c: AskCategory) -> dict:
 
 
 @router.get("/admin/list", operation_id="ask_category_admin_list", summary="分类列表(管理员)")
-def admin_list(
+async def admin_list(
     is_show: bool | None = None,
     is_show_index: bool | None = None,
-    _admin: str = Depends(require_role("admin")),
 ):
     with get_session() as db:
         try:
@@ -49,7 +47,7 @@ def admin_list(
 
 
 @router.get("/public-api/list", summary="分类列表(公开)")
-def public_list(
+async def public_list(
     is_show: bool | None = None,
     is_show_index: bool | None = None,
 ):
@@ -68,7 +66,7 @@ def public_list(
 
 
 @router.get("/{cat_id}", summary="分类详情")
-def get_category(cat_id: int):
+async def get_category(cat_id: int):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == cat_id).first()
@@ -81,7 +79,7 @@ def get_category(cat_id: int):
 
 
 @router.post("", summary="添加分类")
-def add_category(body: CategoryCreate):
+async def add_category(body: CategoryCreate):
     with get_session() as db:
         try:
             level = 1
@@ -107,7 +105,7 @@ def add_category(body: CategoryCreate):
 
 
 @router.put("", summary="修改分类")
-def update_category(body: CategoryUpdate):
+async def update_category(body: CategoryUpdate):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == body.id).first()
@@ -132,7 +130,7 @@ def update_category(body: CategoryUpdate):
 
 
 @router.delete("/{cat_id}", summary="删除分类")
-def delete_category(cat_id: int):
+async def delete_category(cat_id: int):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == cat_id).first()
@@ -149,7 +147,7 @@ def delete_category(cat_id: int):
 
 
 @router.put("/is-show", summary="修改显示状态")
-def change_show(id: int = Query(...), is_show: bool = Query(...)):
+async def change_show(id: int = Query(...), is_show: bool = Query(...)):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == id).first()
@@ -163,7 +161,7 @@ def change_show(id: int = Query(...), is_show: bool = Query(...)):
 
 
 @router.put("/is-show-index", summary="修改首页显示状态")
-def change_show_index(id: int = Query(...), is_show_index: bool = Query(...)):
+async def change_show_index(id: int = Query(...), is_show_index: bool = Query(...)):
     with get_session() as db:
         try:
             c = db.query(AskCategory).filter(AskCategory.id == id).first()

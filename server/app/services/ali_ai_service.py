@@ -148,7 +148,7 @@ def get_ali_ai_service(db: Session | None = None) -> AliAIService:
         aks = ""
         app_key = ""
         try:
-            db = db or next(get_session())
+            db = db or next(get_session())  # type: ignore[call-overload]
             row = db.execute(text("""
                 SELECT config_key, config_value
                 FROM admin_config

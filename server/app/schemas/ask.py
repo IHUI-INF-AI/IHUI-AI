@@ -3,9 +3,8 @@
 """
 
 from datetime import datetime
-from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class CategoryCreate(BaseModel):
@@ -65,26 +64,7 @@ class QuestionPageRequest(BaseModel):
     member_id: str | None = None
     id_list: list[int] | None = None
     order_column: str | None = "create_time"
-    order_direction: Literal["asc", "desc"] | None = "desc"
-
-    @field_validator("order_column")
-    @classmethod
-    def validate_order_column(cls, v: str | None) -> str | None:
-        if v is None:
-            return v
-        allowed = {
-            "id",
-            "create_time",
-            "update_time",
-            "favorite_num",
-            "like_num",
-            "comment_num",
-            "watch_num",
-            "answer_num",
-        }
-        if v not in allowed:
-            raise ValueError(f"order_column 不允许: {v}")
-        return v
+    order_direction: str | None = "desc"
 
 
 class QuestionOut(BaseModel):

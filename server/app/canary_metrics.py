@@ -24,12 +24,9 @@
 from __future__ import annotations
 
 import contextlib
-import logging
 import threading
 import time
 from collections import defaultdict
-
-logger = logging.getLogger(__name__)
 
 try:
     from prometheus_client import Counter, Gauge
@@ -96,21 +93,20 @@ try:
         "zhs_canary_audit_rows",
         "Current canary audit table row count (sampled)",
     )
-except Exception as e:
-    logger.warning(f"prometheus_client init failed: {e}")
-    CANARY_DECISIONS = None
-    CANARY_ERRORS = None
-    CANARY_RATIO_GAUGE = None
-    CANARY_ROLLBACK_GAUGE = None
-    CANARY_STAGE_RATIO_GAUGE = None
-    SHADOW_RATIO_GAUGE = None
-    BACKFILL_PERSISTER_WRITES = None
-    BACKFILL_PERSISTER_READS_FAILED = None
-    BACKFILL_PERSISTER_TAIL_COUNT = None
-    BACKFILL_PERSISTER_DB_BYTES = None
-    CANARY_AUDIT_WRITES = None
-    CANARY_AUDIT_RETENTION_CLEANED = None
-    CANARY_AUDIT_ROWS = None
+except Exception:
+    CANARY_DECISIONS = None  # type: ignore[assignment]
+    CANARY_ERRORS = None  # type: ignore[assignment]
+    CANARY_RATIO_GAUGE = None  # type: ignore[assignment]
+    CANARY_ROLLBACK_GAUGE = None  # type: ignore[assignment]
+    CANARY_STAGE_RATIO_GAUGE = None  # type: ignore[assignment]
+    SHADOW_RATIO_GAUGE = None  # type: ignore[assignment]
+    BACKFILL_PERSISTER_WRITES = None  # type: ignore[assignment]
+    BACKFILL_PERSISTER_READS_FAILED = None  # type: ignore[assignment]
+    BACKFILL_PERSISTER_TAIL_COUNT = None  # type: ignore[assignment]
+    BACKFILL_PERSISTER_DB_BYTES = None  # type: ignore[assignment]
+    CANARY_AUDIT_WRITES = None  # type: ignore[assignment]
+    CANARY_AUDIT_RETENTION_CLEANED = None  # type: ignore[assignment]
+    CANARY_AUDIT_ROWS = None  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------
@@ -120,11 +116,9 @@ except Exception as e:
 _DECISION_COUNTS: dict[tuple[str, str], int] = defaultdict(int)
 _ERROR_COUNTS: dict[tuple[str, str, str], int] = defaultdict(int)
 _LOCK = threading.RLock()
-# get_error_rate 的 window_sec 暂未生效, 仅警告一次
-_WINDOW_SEC_WARNED = False
 
 
-def _trim_label(value: str, max_len: int = 64) -> str:
+def _trim_label(value: str | int | None, max_len: int = 64) -> str:
     if value is None:
         return "anonymous"
     s = str(value)
@@ -159,20 +153,11 @@ def record_canary_error(version: str, tenant_id: int | None = None, endpoint: st
             CANARY_ERRORS.labels(version=v, tenant_id=tid, endpoint=ep).inc()
 
 
-def get_error_rate(version: str, tenant_id: int | None = None, window_sec: float = 300.0) -> float:
+def get_error_rate(version: str, tenant_id: int | str | None = None, window_sec: float = 300.0) -> float:
     """计算某 version / tenant 的错误率 (近 window_sec 窗口).
 
-    注意: 当前实现为全期累计, window_sec 暂未生效.
-    内存计数器 (_DECISION_COUNTS / _ERROR_COUNTS) 未保留时间戳, 无法按窗口过滤;
-    实际生产用 Prometheus rate() 更精确.
-    TODO: 为计数器增加时间戳维度后, 按 window_sec 过滤.
+    注意: 当前实现是 in-memory 累计, 不带时间窗; 实际生产用 Prometheus rate() 更精确.
     """
-    global _WINDOW_SEC_WARNED
-    if not _WINDOW_SEC_WARNED:
-        _WINDOW_SEC_WARNED = True
-        logger.warning(
-            "get_error_rate: window_sec not effective, current impl is full-period cumulative"
-        )
     v = str(version)
     tid = _trim_label(tenant_id if tenant_id is not None else "anonymous")
     with _LOCK:
@@ -235,8 +220,8 @@ def sync_canary_gauges(controller) -> None:
             rb = getattr(controller, "rollback", None)
             rb_val = 0.0 if callable(rb) else 1.0 if rb else 0.0
             CANARY_ROLLBACK_GAUGE.set(rb_val)
-        except Exception as e:
-            logger.debug("同步 canary rollback gauge 失败: %s", e)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -266,8 +251,8 @@ def sync_canary_stage_gauges(controller) -> None:
                 CANARY_STAGE_RATIO_GAUGE.labels(stage=stage_value).set(cur_ratio)
             else:
                 CANARY_STAGE_RATIO_GAUGE.labels(stage=stage_value).set(0.0)
-    except Exception as e:
-        logger.debug("同步 canary stage ratio gauge 失败: %s", e)
+    except Exception:
+        pass
 
 
 def sync_shadow_gauges(shadow_or_link) -> None:
@@ -282,8 +267,8 @@ def sync_shadow_gauges(shadow_or_link) -> None:
         # CanaryShadowLink 有 .shadow 属性; ShadowRouter 本身就是 router
         ratio = shadow_or_link.shadow.ratio if hasattr(shadow_or_link, "shadow") else shadow_or_link.ratio
         SHADOW_RATIO_GAUGE.set(ratio)
-    except Exception as e:
-        logger.debug("同步 shadow ratio gauge 失败: %s", e)
+    except Exception:
+        pass
 
 
 def sync_canary_shadow_all(controller, link=None) -> None:

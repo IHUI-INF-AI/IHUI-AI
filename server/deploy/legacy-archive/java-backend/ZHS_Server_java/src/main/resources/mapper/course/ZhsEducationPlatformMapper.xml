@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.course.mapper.ZhsEducationPlatformMapper">
+    
+    <resultMap type="com.ai.manager.course.domain.ZhsEducationPlatform" id="ZhsEducationPlatformResult">
+        <result property="id"    column="id"    />
+        <result property="code"    column="code"    />
+        <result property="name"    column="name"    />
+        <result property="domain"    column="domain"    />
+        <result property="remark"    column="remark"    />
+        <result property="binding"    column="binding"    />
+        <result property="filePath"    column="file_path"    />
+        <result property="type"    column="type"    />
+        <result property="status"    column="status"    />
+        <result property="sort"    column="sort"    />
+        <result property="isHidden"    column="is_hidden"    />
+        <result property="isDel"    column="is_del"    />
+        <result property="field1"    column="field1"    />
+        <result property="field2"    column="field2"    />
+        <result property="creator"    column="creator"    />
+        <result property="createdAt"    column="created_at"    />
+        <result property="updator"    column="updator"    />
+        <result property="updatedAt"    column="updated_at"    />
+    </resultMap>
+
+    <sql id="selectZhsEducationPlatformVo">
+        select id, code, name, domain, remark, binding, file_path, type, status, sort, is_hidden, is_del, field1, field2, creator, created_at, updator, updated_at
+    </sql>
+    <sql id="fromZhsEducationPlatformTable">
+        from zhs_education_platform
+    </sql>
+
+    <select id="getList" parameterType="com.ai.manager.course.domain.ZhsEducationPlatform" resultMap="ZhsEducationPlatformResult">
+        <include refid="selectZhsEducationPlatformVo"/>
+        <include refid="fromZhsEducationPlatformTable"/>
+        <where>
+            <if test="code != null  and code != ''"> and `code` = #{code}</if>
+            <if test="name != null  and name != ''"> and `name` like concat('%', #{name}, '%')</if>
+            <if test="domain != null  and domain != ''"> and domain = #{domain}</if>
+            <if test="type != null "> and type = #{type}</if>
+            <if test="status != null "> and `status` = #{status}</if>
+            <if test="creator != null  and creator != ''"> and creator = #{creator}</if>
+            <if test="createdAt != null "> and created_at = #{createdAt}</if>
+            <if test="updator != null  and updator != ''"> and updator = #{updator}</if>
+        </where>
+    </select>
+    
+    <select id="getBySort" parameterType="Integer" resultMap="ZhsEducationPlatformResult">
+        <include refid="selectZhsEducationPlatformVo"/>
+        <include refid="fromZhsEducationPlatformTable"/>
+        where sort = #{sort}
+    </select>
+    <select id="getByCode" resultType="com.ai.manager.course.domain.ZhsEducationPlatform">
+        <include refid="selectZhsEducationPlatformVo"/>
+        <include refid="fromZhsEducationPlatformTable"/>
+        where `code` = #{code}
+        limit 1
+    </select>
+
+    <insert id="addZhsEducationPlatform" parameterType="com.ai.manager.course.domain.ZhsEducationPlatform" useGeneratedKeys="true" keyProperty="sort">
+        insert into zhs_education_platform
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null and id != ''">id,</if>
+            <if test="code != null">`code`,</if>
+            <if test="name != null">`name`,</if>
+            <if test="domain != null">domain,</if>
+            <if test="remark != null">remark,</if>
+            <if test="binding != null">binding,</if>
+            <if test="filePath != null">file_path,</if>
+            <if test="type != null">type,</if>
+            <if test="status != null">`status`,</if>
+            <if test="isHidden != null">is_hidden,</if>
+            <if test="isDel != null">is_del,</if>
+            <if test="field1 != null">field1,</if>
+            <if test="field2 != null">field2,</if>
+            <if test="creator != null">creator,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updator != null">updator,</if>
+            <if test="updatedAt != null">updated_at,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null and id != ''">#{id},</if>
+            <if test="code != null">#{code},</if>
+            <if test="name != null">#{name},</if>
+            <if test="domain != null">#{domain},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="binding != null">#{binding},</if>
+            <if test="filePath != null">#{filePath},</if>
+            <if test="type != null">#{type},</if>
+            <if test="status != null">#{status},</if>
+            <if test="isHidden != null">#{isHidden},</if>
+            <if test="isDel != null">#{isDel},</if>
+            <if test="field1 != null">#{field1},</if>
+            <if test="field2 != null">#{field2},</if>
+            <if test="creator != null">#{creator},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updator != null">#{updator},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+         </trim>
+    </insert>
+
+    <update id="edit" parameterType="com.ai.manager.course.domain.ZhsEducationPlatform">
+        update zhs_education_platform
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="id != null and id != ''">id = #{id},</if>
+            <if test="code != null">`code` = #{code},</if>
+            <if test="name != null">`name` = #{name},</if>
+            <if test="domain != null">domain = #{domain},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="binding != null">binding = #{binding},</if>
+            <if test="filePath != null">file_path = #{filePath},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="status != null">`status` = #{status},</if>
+            <if test="isHidden != null">is_hidden = #{isHidden},</if>
+            <if test="isDel != null">is_del = #{isDel},</if>
+            <if test="field1 != null">field1 = #{field1},</if>
+            <if test="field2 != null">field2 = #{field2},</if>
+            <if test="creator != null">creator = #{creator},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updator != null">updator = #{updator},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+        </trim>
+        where sort = #{sort}
+    </update>
+
+    <delete id="delBySort" parameterType="Integer">
+        delete from zhs_education_platform where id = #{id}
+    </delete>
+
+    <delete id="delBySorts" parameterType="String">
+        delete from zhs_education_platform where id in
+        <foreach item="ids" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

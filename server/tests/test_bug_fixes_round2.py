@@ -13,43 +13,58 @@ import pytest
 
 
 class TestBug2CorsConfig:
+    """CORS 配置测试.
+
+    注意 sys.modules 污染:
+    - app.main 顶部用 `from app.config import settings` 缓存 settings 引用,
+      reload app.config 会产生新的 settings 对象, 但 app.main 仍引用旧对象.
+    - JWT 测试 (test_bug_fixes_p0_p1.py) reload app.security 抛 RuntimeError 后,
+      app.security 残留半加载状态, 影响后续 import.
+    - 修复: 每个测试都清理 app.config / app.security / app.main / app.api.* 等链路模块,
+      让 create_app() 重新绑定到当前 settings 对象.
+    """
+
+    @staticmethod
+    def _purge_app_modules():
+        """清理 app.* 链路模块, 避免 sys.modules 缓存导致测试相互污染."""
+        import sys
+
+        for m in list(sys.modules):
+            if m == "app" or m.startswith("app."):
+                # 保留 app.utils.* / app.services.* 等无状态工具模块,
+                # 只清理会引用 settings 的核心链路
+                if m in (
+                    "app",
+                    "app.config",
+                    "app.main",
+                    "app.security",
+                ) or m.startswith("app.api.") or m.startswith("app.middleware."):
+                    del sys.modules[m]
+
     def test_production_without_origins_raises(self, monkeypatch):
         """生产环境 CORS_ORIGINS 为空时, create_app 必须 fail-fast."""
         monkeypatch.setenv("ENV", "production")
         monkeypatch.setenv("JWT_SECRET_KEY", "a" * 64)
-        import sys
-        from importlib import reload
+        self._purge_app_modules()
 
-
-        for m in list(sys.modules):
-            if m == "app.config":
-                del sys.modules[m]
         import app.config as cfg
 
-        reload(cfg)
         monkeypatch.setattr(cfg.settings, "CORS_ORIGINS", "")
         monkeypatch.setattr(cfg.settings, "ENV", "production")
-
 
         with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
             from app.main import create_app
 
-            app = create_app()
+            create_app()
 
     def test_wildcard_with_credentials_rejected(self, monkeypatch):
         """通配符 + 凭据互斥, 生产环境应拒绝."""
         monkeypatch.setenv("ENV", "production")
         monkeypatch.setenv("JWT_SECRET_KEY", "a" * 64)
-        import sys
-        from importlib import reload
+        self._purge_app_modules()
 
-
-        for m in list(sys.modules):
-            if m == "app.config":
-                del sys.modules[m]
         import app.config as cfg
 
-        reload(cfg)
         monkeypatch.setattr(cfg.settings, "CORS_ORIGINS", "*")
         monkeypatch.setattr(cfg.settings, "ENV", "production")
 
@@ -62,16 +77,10 @@ class TestBug2CorsConfig:
         """开发环境空配置 → 默认 loopback, 不抛错."""
         monkeypatch.setenv("ENV", "dev")
         monkeypatch.setenv("JWT_SECRET_KEY", "a" * 64)
-        import sys
-        from importlib import reload
+        self._purge_app_modules()
 
-
-        for m in list(sys.modules):
-            if m == "app.config":
-                del sys.modules[m]
         import app.config as cfg
 
-        reload(cfg)
         monkeypatch.setattr(cfg.settings, "CORS_ORIGINS", "")
         monkeypatch.setattr(cfg.settings, "ENV", "dev")
         # dev 环境不抛错
@@ -251,7 +260,8 @@ class TestBug21SmsRateLimit:
 
         mock_redis = MagicMock()
         pipeline = MagicMock()
-        # 1 分钟档: limit=1, count=2 (已发第 2 条, 超过上限 1) 触发拒绝
+        # 1 分钟档: limit=1, count=2 (已发 1 条, 本次再发 → count=2 > limit=1 触发拒绝)
+        # check_rate_limit 用 count > limit (严格大于), 所以 count=2 才是 over-threshold
         pipeline.execute.return_value = [0, 2]
         mock_redis.pipeline.return_value = pipeline
         with patch.object(sms_util, "get_redis", return_value=mock_redis):

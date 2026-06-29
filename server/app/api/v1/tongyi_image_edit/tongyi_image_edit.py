@@ -23,7 +23,7 @@ async def image_edit(
     n: int = Body(1, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             if not image_url and not image_base64:
                 return error("请提供 image_url 或 image_base64", "400")
@@ -62,7 +62,7 @@ async def text_to_image(
     style: str | None = Body(None, embed=True),
     api_key: str | None = None,
 ):
-    with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         try:
             headers = {"Content-Type": "application/json"}
             if dashscope_key(api_key):
@@ -89,7 +89,7 @@ async def text_to_image(
 
 
 @router.get("/models", operation_id="tongyi_image_edit_list_models", summary="通义可用模型")
-def list_models():
+async def list_models():
     return success(
         [
             {"id": "qwen-image", "name": "通义千问文生图", "type": "text-to-image"},

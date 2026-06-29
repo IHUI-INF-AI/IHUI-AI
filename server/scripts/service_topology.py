@@ -22,7 +22,7 @@ NODE_STATUSES = ["active", "inactive", "degraded", "maintenance"]
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

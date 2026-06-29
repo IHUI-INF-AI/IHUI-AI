@@ -1,7 +1,7 @@
 """圈子社区 - 帖子管理"""
 
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 from loguru import logger
 
 from app.core.current_user import current_user_id_or_guest
@@ -38,7 +38,7 @@ def _p_to_dict(p: CirclePost, liked: bool = False) -> dict:
 
 
 @router.get("/list", summary="帖子列表")
-def list_posts(
+async def list_posts(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     circle_id: int | None = None,
@@ -72,17 +72,13 @@ def list_posts(
                 )
             uid = _uid()
             data = []
-            pids = [it.id for it in items]
-            liked_pids = set()
-            if pids:
-                liked_rows = (
-                    db.query(CirclePostLike.post_id)
-                    .filter(CirclePostLike.post_id.in_(pids), CirclePostLike.user_id == uid)
-                    .all()
-                )
-                liked_pids = {r[0] for r in liked_rows}
             for it in items:
-                liked = it.id in liked_pids
+                liked = (
+                    db.query(CirclePostLike)
+                    .filter(CirclePostLike.post_id == it.id, CirclePostLike.user_id == uid)
+                    .first()
+                    is not None
+                )
                 data.append(_p_to_dict(it, liked))
             return success(data, total=total)
         except Exception as e:
@@ -91,7 +87,7 @@ def list_posts(
 
 
 @router.get("/{pid}", summary="帖子详情")
-def get_post(pid: int):
+async def get_post(pid: int):
     with get_session() as db:
         try:
             p = db.query(CirclePost).filter(CirclePost.id == pid, not CirclePost.deleted).first()
@@ -109,11 +105,11 @@ def get_post(pid: int):
 
 
 @router.post("", summary="发布帖子")
-def create_post(
+async def create_post(
     circle_id: int = Query(...),
-    content: str = Query(..., min_length=1),
     images: str | None = None,
     video: str | None = None,
+    content: str = Body(..., min_length=1),
 ):
     with get_session() as db:
         try:
@@ -140,7 +136,7 @@ def create_post(
 
 
 @router.put("/{pid}", summary="修改帖子")
-def update_post(
+async def update_post(
     pid: int, content: str | None = None, images: str | None = None, video: str | None = None
 ):
     with get_session() as db:
@@ -161,7 +157,7 @@ def update_post(
 
 
 @router.delete("/{pid}", summary="删除帖子")
-def delete_post(pid: int):
+async def delete_post(pid: int):
     with get_session() as db:
         try:
             p = db.query(CirclePost).filter(CirclePost.id == pid).first()
@@ -179,7 +175,7 @@ def delete_post(pid: int):
 
 
 @router.post("/{pid}/like", summary="点赞/取消点赞")
-def toggle_like(pid: int):
+async def toggle_like(pid: int):
     with get_session() as db:
         try:
             uid = _uid()
@@ -200,7 +196,7 @@ def toggle_like(pid: int):
 
 
 @router.get("/{pid}/comments", summary="评论列表")
-def list_comments(pid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
+async def list_comments(pid: int, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100)):
     with get_session() as db:
         try:
             q = db.query(CirclePostComment).filter(CirclePostComment.post_id == pid)
@@ -230,12 +226,12 @@ def list_comments(pid: int, page: int = Query(1, ge=1), limit: int = Query(20, g
 
 
 @router.post("/{pid}/comment", summary="发表评论")
-def add_comment(
+async def add_comment(
     pid: int,
-    content: str = Query(..., min_length=1),
     pid_parent: int = Query(0, alias="pid"),
     reply_user_id: str | None = None,
     reply_user_name: str | None = None,
+    content: str = Body(..., min_length=1),
 ):
     with get_session() as db:
         try:

@@ -43,7 +43,6 @@ docs/AiVoiceprintApi.md
 docs/AiVolcEngineApi.md
 docs/AigcApi.md
 docs/AlertIn.md
-docs/AliLoginApi.md
 docs/AlipayApi.md
 docs/AlipayFundApi.md
 docs/AnswerCreate.md
@@ -64,7 +63,6 @@ docs/AsyncWorkflowReq.md
 docs/AsyncWorkflowStreamReq.md
 docs/AudioChatRequest.md
 docs/AudioRecognizeRequest.md
-docs/AuthAlipayApi.md
 docs/AuthEnterpriseWeChatApi.md
 docs/AuthFeishuApi.md
 docs/AuthIdentityApi.md
@@ -396,7 +394,6 @@ src/main/java/org/openapitools/client/api/AiVideoTasksApi.java
 src/main/java/org/openapitools/client/api/AiVoiceprintApi.java
 src/main/java/org/openapitools/client/api/AiVolcEngineApi.java
 src/main/java/org/openapitools/client/api/AigcApi.java
-src/main/java/org/openapitools/client/api/AliLoginApi.java
 src/main/java/org/openapitools/client/api/AlipayApi.java
 src/main/java/org/openapitools/client/api/AlipayFundApi.java
 src/main/java/org/openapitools/client/api/ApiV2ExperimentalApi.java
@@ -405,7 +402,6 @@ src/main/java/org/openapitools/client/api/AskAnswerApi.java
 src/main/java/org/openapitools/client/api/AskApi.java
 src/main/java/org/openapitools/client/api/AskCategoryApi.java
 src/main/java/org/openapitools/client/api/AskQuestionApi.java
-src/main/java/org/openapitools/client/api/AuthAlipayApi.java
 src/main/java/org/openapitools/client/api/AuthEnterpriseWeChatApi.java
 src/main/java/org/openapitools/client/api/AuthFeishuApi.java
 src/main/java/org/openapitools/client/api/AuthIdentityApi.java
@@ -736,7 +732,6 @@ src/test/java/org/openapitools/client/api/AiVideoTasksApiTest.java
 src/test/java/org/openapitools/client/api/AiVoiceprintApiTest.java
 src/test/java/org/openapitools/client/api/AiVolcEngineApiTest.java
 src/test/java/org/openapitools/client/api/AigcApiTest.java
-src/test/java/org/openapitools/client/api/AliLoginApiTest.java
 src/test/java/org/openapitools/client/api/AlipayApiTest.java
 src/test/java/org/openapitools/client/api/AlipayFundApiTest.java
 src/test/java/org/openapitools/client/api/ApiV2ExperimentalApiTest.java
@@ -745,7 +740,6 @@ src/test/java/org/openapitools/client/api/AskAnswerApiTest.java
 src/test/java/org/openapitools/client/api/AskApiTest.java
 src/test/java/org/openapitools/client/api/AskCategoryApiTest.java
 src/test/java/org/openapitools/client/api/AskQuestionApiTest.java
-src/test/java/org/openapitools/client/api/AuthAlipayApiTest.java
 src/test/java/org/openapitools/client/api/AuthEnterpriseWeChatApiTest.java
 src/test/java/org/openapitools/client/api/AuthFeishuApiTest.java
 src/test/java/org/openapitools/client/api/AuthIdentityApiTest.java

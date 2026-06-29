@@ -1,1 +1,1 @@
-# 标记 tests 为 pytest 包
+"""Tests package."""

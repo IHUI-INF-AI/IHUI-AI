@@ -9,9 +9,7 @@
 用法:
     from app.backfill_persister import SQLiteBackfillPersister
 
-    # 2026-06-25 修复: 文档示例改用跨平台路径 (原 /var/lib/zhs/ 在 Windows 上不可用)
-    import tempfile, os
-    persister = SQLiteBackfillPersister(os.path.join(tempfile.gettempdir(), "zhs_backfill.db"))
+    persister = SQLiteBackfillPersister("/var/lib/zhs/backfill.db")
     broadcaster = BackfillBroadcaster(persister=persister)
     # 启动时自动恢复
     broadcaster.load_from_persister()
@@ -39,10 +37,10 @@ try:
         BACKFILL_PERSISTER_WRITES,
     )
 except Exception:  # prometheus_client 不可用时 None
-    BACKFILL_PERSISTER_WRITES = None
-    BACKFILL_PERSISTER_READS_FAILED = None
-    BACKFILL_PERSISTER_TAIL_COUNT = None
-    BACKFILL_PERSISTER_DB_BYTES = None
+    BACKFILL_PERSISTER_WRITES = None  # type: ignore[assignment]
+    BACKFILL_PERSISTER_READS_FAILED = None  # type: ignore[assignment]
+    BACKFILL_PERSISTER_TAIL_COUNT = None  # type: ignore[assignment]
+    BACKFILL_PERSISTER_DB_BYTES = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +72,8 @@ def _set_db_bytes(path: Path) -> None:
     try:
         if path.exists():
             BACKFILL_PERSISTER_DB_BYTES.set(path.stat().st_size)
-    except Exception as e:
-        logger.debug("读取 backfill 持久化 DB 字节数失败: %s", e)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------

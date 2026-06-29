@@ -8,7 +8,7 @@ import os
 import sys
 import threading
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -25,7 +25,6 @@ from sqlalchemy import create_engine
 from app.database import Base
 from app.main import create_app
 from app.security import create_access_token
-from app.utils.datetime_helper import utcnow
 
 # 建表
 eng = create_engine("sqlite:///./zhs_prod_drill.db", connect_args={"check_same_thread": False})
@@ -48,7 +47,7 @@ for _ in range(40):
     except Exception:
         time.sleep(0.2)
 
-print(f"[drill] app started on 127.0.0.1:18802 at {utcnow().isoformat()}Z")
+print(f"[drill] app started on 127.0.0.1:18802 at {datetime.utcnow().isoformat()}Z")
 
 # 验证 token
 token = create_access_token("drill-admin", expires_delta=timedelta(hours=1))

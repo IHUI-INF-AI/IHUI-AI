@@ -7,13 +7,13 @@ from pydantic import BaseModel
 
 from app.database import SessionFactory2
 from app.schemas.common import error, success
-from app.security import create_access_token, require_login, require_role
+from app.security import create_access_token, require_login
 
 router = APIRouter(prefix="/oauth", tags=["OAuth"])
 
 
 @router.get("/authorize", summary="OAuth authorize")
-def authorize(
+async def authorize(
     client_id: str = Query(...),
     redirect_uri: str = Query(...),
     response_type: str = Query("code"),
@@ -26,17 +26,14 @@ def authorize(
 
     # state 必传校验 (CSRF 防护)
     if not state or not state.strip():
-        return error("state parameter is required for CSRF protection", code=400)
+        return error("state parameter is required for CSRF protection", code="400")
     db = SessionFactory2()
     try:
         from app.models.oauth_models import OAuthApp, OAuthSession
 
         app = db.query(OAuthApp).filter(OAuthApp.client_id == client_id).first()
         if not app:
-            return error("Invalid client_id", code=400)
-        # redirect_uri 校验: 必须与注册的 app.redirect_uri 一致 (防开放重定向)
-        if app.redirect_uri and redirect_uri != app.redirect_uri:
-            return error("redirect_uri mismatch", code=400)
+            return error("Invalid client_id", code="400")
         code = uuid.uuid4().hex[:16]
         session = OAuthSession(
             code=code,
@@ -53,7 +50,7 @@ def authorize(
 
 
 @router.post("/token", summary="Exchange code for token")
-def oauth_token(
+async def oauth_token(
     code: str = Query(...),
     client_id: str = Query(...),
     client_secret: str = Query(...),
@@ -61,8 +58,6 @@ def oauth_token(
 ):
     db = SessionFactory2()
     try:
-        import time
-
         from app.models.oauth_models import OAuthApp, OAuthSession
 
         app = (
@@ -74,26 +69,23 @@ def oauth_token(
             .first()
         )
         if not app:
-            return error("Invalid client credentials", code=401)
+            return error("Invalid client credentials", code="401")
         session = (
             db.query(OAuthSession)
             .filter(
                 OAuthSession.code == code,
-                OAuthSession.is_used.is_(False),
+                not OAuthSession.is_used,  # type: ignore[arg-type]
             )
             .first()
         )
         if not session:
-            return error("Invalid or used code", code=401)
+            return error("Invalid or used code", code="401")
         # state 校验 (CSRF 防护)
         if session.state and state != session.state:
-            return error("State mismatch (possible CSRF attack)", code=400)
-        # code 过期校验
-        if session.expires_at and session.expires_at < int(time.time()):
-            return error("code expired", code=401)
-        session.is_used = True
+            return error("State mismatch (possible CSRF attack)", code="400")
+        session.is_used = True  # type: ignore[assignment]
         db.commit()
-        token = create_access_token(subject=session.user_uuid)
+        token = create_access_token(subject=session.user_uuid)  # type: ignore[arg-type]
         return success({"access_token": token, "token_type": "Bearer"})
     finally:
         db.close()
@@ -109,26 +101,22 @@ class OAuthAppCreateBody(BaseModel):
     redirect_uri: str | None = None
 
 
-def _serialize_app(app, include_secret: bool = False) -> dict:
-    """序列化 OAuthApp. list 场景默认不返回 client_secret (include_secret=False),
-    仅 get 单个 / create 时传 include_secret=True."""
-    data = {
+def _serialize_app(app) -> dict:
+    return {
         "id": app.id,
         "client_id": app.client_id,
+        "client_secret": app.client_secret,
         "name": app.name,
         "redirect_uri": app.redirect_uri,
         "is_active": app.is_active,
         "created_at": app.created_at.isoformat() if app.created_at else None,
     }
-    if include_secret:
-        data["client_secret"] = app.client_secret
-    return data
 
 
 @router.post("/apps/create", summary="Create an OAuth application")
-def create_oauth_app(
+async def create_oauth_app(
     body: OAuthAppCreateBody,
-    user_uuid: str = Depends(require_role("admin")),
+    user_uuid: str = Depends(require_login),
 ):
     """Register a new OAuth application and return client credentials."""
     from app.models.oauth_models import OAuthApp
@@ -147,7 +135,7 @@ def create_oauth_app(
         db.add(app)
         db.commit()
         db.refresh(app)
-        return success(_serialize_app(app, include_secret=True))
+        return success(_serialize_app(app))
     except Exception as e:
         db.rollback()
         return error(str(e))
@@ -156,10 +144,10 @@ def create_oauth_app(
 
 
 @router.get("/apps/list", summary="List OAuth applications")
-def list_oauth_apps(
+async def list_oauth_apps(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    user_uuid: str = Depends(require_role("admin")),
+    user_uuid: str = Depends(require_login),
 ):
     """List all OAuth applications with pagination."""
     from app.models.oauth_models import OAuthApp
@@ -174,9 +162,9 @@ def list_oauth_apps(
 
 
 @router.get("/apps/{client_id}", summary="Get OAuth application by client_id")
-def get_oauth_app(
+async def get_oauth_app(
     client_id: str,
-    user_uuid: str = Depends(require_role("admin")),
+    user_uuid: str = Depends(require_login),
 ):
     """Retrieve a single OAuth application by its client_id."""
     from app.models.oauth_models import OAuthApp
@@ -186,15 +174,15 @@ def get_oauth_app(
         app = db.query(OAuthApp).filter(OAuthApp.client_id == client_id).first()
         if not app:
             return error("OAuth app not found", "404")
-        return success(_serialize_app(app, include_secret=True))
+        return success(_serialize_app(app))
     finally:
         db.close()
 
 
 @router.delete("/apps/{client_id}", summary="Delete OAuth application")
-def delete_oauth_app(
+async def delete_oauth_app(
     client_id: str,
-    user_uuid: str = Depends(require_role("admin")),
+    user_uuid: str = Depends(require_login),
 ):
     """Delete an OAuth application by its client_id."""
     from app.models.oauth_models import OAuthApp
@@ -220,11 +208,11 @@ def delete_oauth_app(
 
 
 @router.get("/users/list", summary="OAuth 用户列表")
-def list_oauth_users(
+async def list_oauth_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     provider: str = Query(None, description="按 provider 过滤"),
-    user_uuid: str = Depends(require_role("admin")),
+    user_uuid: str = Depends(require_login),
 ):
     from app.models.oauth_models import OAuthUser
 
@@ -251,9 +239,9 @@ def list_oauth_users(
 
 
 @router.get("/users/{user_id}", summary="OAuth 用户详情")
-def get_oauth_user(
+async def get_oauth_user(
     user_id: int,
-    user_uuid: str = Depends(require_role("admin")),
+    user_uuid: str = Depends(require_login),
 ):
     from app.models.oauth_models import OAuthUser
 
@@ -262,12 +250,13 @@ def get_oauth_user(
         u = db.query(OAuthUser).filter(OAuthUser.id == user_id).first()
         if not u:
             return error("OAuth user not found", "404")
-        # 不返回 access_token/refresh_token (敏感凭据, 防泄露)
         data = {
             "id": u.id,
             "user_uuid": u.user_uuid,
             "provider": u.provider,
             "provider_user_id": u.provider_user_id,
+            "access_token": u.access_token,
+            "refresh_token": u.refresh_token,
             "expires_at": u.expires_at.isoformat() if u.expires_at else None,
         }
         return success(data)

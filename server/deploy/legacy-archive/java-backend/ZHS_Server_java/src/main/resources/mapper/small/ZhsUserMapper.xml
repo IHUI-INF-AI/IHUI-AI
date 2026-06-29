@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsUserMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.ZhsUser" id="ZhsUserResult">
+        <result property="id" column="id"/>
+        <result property="token" column="token"/>
+        <result property="openId" column="open_id"/>
+        <result property="nickname" column="nickname"/>
+        <result property="userName" column="user_name"/>
+        <result property="userPassword" column="user_password"/>
+        <result property="avatar" column="avatar"/>
+        <result property="card" column="card"/>
+        <result property="phone" column="phone"/>
+        <result property="inviteCode" column="invite_code"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="balance" column="balance"/>
+        <result property="totalEarnings" column="total_earnings"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="isVip" column="is_VIP"/>
+        <result property="isVipTime" column="is_vip_time"/>
+        <result property="identityTypy" column="identity_typy"/>
+        <result property="identityTypyTime" column="identity_typy_time"/>
+        <result property="commissionRatio" column="commission_ratio"/>
+        <result property="tokenQuantity" column="token_quantity"/>
+        <result property="tokenFree" column="token_free"/>
+        <result property="appId" column="app_id"/>
+    </resultMap>
+
+    <sql id="selectZhsUserVo">
+        select id, token, open_id, nickname, user_name, user_password, avatar, card, phone, invite_code, parent_id, balance, total_earnings, created_at, updated_at, is_VIP, is_vip_time, identity_typy, identity_typy_time, commission_ratio, token_quantity, token_free, app_id from zhs_user
+    </sql>
+
+    <select id="selectZhsUserList" parameterType="com.ai.manager.small.domain.ZhsUser" resultMap="ZhsUserResult">
+        <include refid="selectZhsUserVo"/>
+        <where>  
+            <if test="token != null  and token != ''"> and token = #{token}</if>
+            <if test="nickname != null  and nickname != ''"> and nickname like concat('%', #{nickname}, '%')</if>
+            <if test="userName != null  and userName != ''"> and user_name like concat('%', #{userName}, '%')</if>
+            <if test="phone != null  and phone != ''"> and phone = #{phone}</if>
+            <if test="parentId != null  and parentId != ''"> and parent_id = #{parentId}</if>
+            <if test="createdAt != null "> and created_at = #{createdAt}</if>
+            <if test="updatedAt != null "> and updated_at = #{updatedAt}</if>
+            <if test="isVip != null "> and is_VIP = #{isVip}</if>
+            <if test="identityTypy != null "> and identity_typy = #{identityTypy}</if>
+            <if test="identityTypyTime != null "> and identity_typy_time = #{identityTypyTime}</if>
+            <if test="appId != null  and appId != ''"> and app_id = #{appId}</if>
+        </where>
+    </select>
+    
+    <select id="selectZhsUserById" parameterType="Integer" resultMap="ZhsUserResult">
+        <include refid="selectZhsUserVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertZhsUser" parameterType="com.ai.manager.small.domain.ZhsUser" useGeneratedKeys="true" keyProperty="id">
+        insert into zhs_user
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="token != null">token,</if>
+            <if test="openId != null and openId != ''">open_id,</if>
+            <if test="nickname != null and nickname != ''">nickname,</if>
+            <if test="userName != null">user_name,</if>
+            <if test="userPassword != null">user_password,</if>
+            <if test="avatar != null">avatar,</if>
+            <if test="card != null">card,</if>
+            <if test="phone != null">phone,</if>
+            <if test="inviteCode != null and inviteCode != ''">invite_code,</if>
+            <if test="parentId != null">parent_id,</if>
+            <if test="balance != null">balance,</if>
+            <if test="totalEarnings != null">total_earnings,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updatedAt != null">updated_at,</if>
+            <if test="isVip != null">is_VIP,</if>
+            <if test="isVipTime != null">is_vip_time,</if>
+            <if test="identityTypy != null">identity_typy,</if>
+            <if test="identityTypyTime != null">identity_typy_time,</if>
+            <if test="commissionRatio != null">commission_ratio,</if>
+            <if test="tokenQuantity != null">token_quantity,</if>
+            <if test="tokenFree != null">token_free,</if>
+            <if test="appId != null">app_id,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="token != null">#{token},</if>
+            <if test="openId != null and openId != ''">#{openId},</if>
+            <if test="nickname != null and nickname != ''">#{nickname},</if>
+            <if test="userName != null">#{userName},</if>
+            <if test="userPassword != null">#{userPassword},</if>
+            <if test="avatar != null">#{avatar},</if>
+            <if test="card != null">#{card},</if>
+            <if test="phone != null">#{phone},</if>
+            <if test="inviteCode != null and inviteCode != ''">#{inviteCode},</if>
+            <if test="parentId != null">#{parentId},</if>
+            <if test="balance != null">#{balance},</if>
+            <if test="totalEarnings != null">#{totalEarnings},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+            <if test="isVip != null">#{isVip},</if>
+            <if test="isVipTime != null">#{isVipTime},</if>
+            <if test="identityTypy != null">#{identityTypy},</if>
+            <if test="identityTypyTime != null">#{identityTypyTime},</if>
+            <if test="commissionRatio != null">#{commissionRatio},</if>
+            <if test="tokenQuantity != null">#{tokenQuantity},</if>
+            <if test="tokenFree != null">#{tokenFree},</if>
+            <if test="appId != null">#{appId},</if>
+         </trim>
+    </insert>
+
+    <update id="updateZhsUser" parameterType="com.ai.manager.small.domain.ZhsUser">
+        update zhs_user
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="token != null">token = #{token},</if>
+            <if test="openId != null and openId != ''">open_id = #{openId},</if>
+            <if test="nickname != null and nickname != ''">nickname = #{nickname},</if>
+            <if test="userName != null">user_name = #{userName},</if>
+            <if test="userPassword != null">user_password = #{userPassword},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="card != null">card = #{card},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="inviteCode != null and inviteCode != ''">invite_code = #{inviteCode},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="balance != null">balance = #{balance},</if>
+            <if test="totalEarnings != null">total_earnings = #{totalEarnings},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+            <if test="isVip != null">is_VIP = #{isVip},</if>
+            <if test="isVipTime != null">is_vip_time = #{isVipTime},</if>
+            <if test="identityTypy != null">identity_typy = #{identityTypy},</if>
+            <if test="identityTypyTime != null">identity_typy_time = #{identityTypyTime},</if>
+            <if test="commissionRatio != null">commission_ratio = #{commissionRatio},</if>
+            <if test="tokenQuantity != null">token_quantity = #{tokenQuantity},</if>
+            <if test="tokenFree != null">token_free = #{tokenFree},</if>
+            <if test="appId != null">app_id = #{appId},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteZhsUserById" parameterType="Integer">
+        delete from zhs_user where id = #{id}
+    </delete>
+
+    <delete id="deleteZhsUserByIds" parameterType="String">
+        delete from zhs_user where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+
+    <!-- zhs_user 实体类的 resultMap -->
+    <resultMap id="UserMap" type="com.ai.manager.small.domain.User">
+        <id property="id" column="id"/>
+        <result property="openId" column="open_id"/>
+        <result property="nickname" column="nickname"/>
+        <result property="userPassword" column="user_password"/>
+        <result property="avatar" column="avatar"/>
+        <result property="inviteCode" column="invite_code"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="phone" column="phone"/>
+        <result property="totalEarnings" column="total_earnings"/>
+        <result property="balance" column="balance"/>
+        <result property="isVIP" column="is_vip"/>
+        <result property="tokenQuantity" column="token_quantity"/>
+        <result property="identityTypy" column="identity_typy"/>
+        <result property="tokenFree" column="token_free"/>
+        <result property="userName" column="user_name"/>
+        <result property="token" column="token"/>
+
+        <result property="title" column="title"/>
+        <result property="progress" column="progress"/>
+
+        <association property="vipLevel" javaType="com.ai.manager.small.domain.ZhsVipLevel">
+            <id property="id" column="vip_id"/>
+            <result property="title" column="vip_title"/>
+            <result property="level" column="vip_level"/>
+            <result property="remark" column="vip_remark"/>
+            <result property="progress" column="vip_progress"/>
+            <result property="model1" column="vip_model1"/>
+        </association>
+    </resultMap>
+    <select id="getByUuid" resultMap="UserMap">
+        SELECT
+            u.*
+             , uv.progress
+             , vl.id vip_id
+             , vl.title vip_title
+             , vl.level  vip_level
+             , vl.remark vip_remark
+             , vl.progress vip_progress
+             , vl.model1 vip_model1
+        FROM zhs_user u
+                 left join zhs_user_vip uv on uv.open_id = u.open_id
+                 left join zhs_vip_level vl on vl.id = uv.vip_id
+        WHERE u.token = #{uuid}
+    </select>
+
+</mapper>

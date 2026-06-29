@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.post("/apply", summary="申请提现")
-def apply_withdrawal(
+async def apply_withdrawal(
     amount: int = Query(..., description="提现金额(分)"),
     user_uuid: str = Depends(require_login),
 ):
@@ -51,7 +51,7 @@ def apply_withdrawal(
 
 
 @router.get("/list", summary="我的提现记录")
-def list_withdrawals(
+async def list_withdrawals(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),
@@ -77,7 +77,7 @@ def list_withdrawals(
 
 
 @router.get("/summary", summary="提现详情面板数据(总提现/待审核/已到账)")
-def withdrawal_summary(user_uuid: str = Depends(require_login)):
+async def withdrawal_summary(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.payment_models import WithdrawalFlow
 
@@ -138,7 +138,7 @@ def withdrawal_summary(user_uuid: str = Depends(require_login)):
 
 
 @router.get("/available", summary="个人可收款查询")
-def available_balance(user_uuid: str = Depends(require_login)):
+async def available_balance(user_uuid: str = Depends(require_login)):
     with get_session() as db:
         from app.models.payment_models import CommissionFlow
 
@@ -186,7 +186,7 @@ def available_balance(user_uuid: str = Depends(require_login)):
 
 
 @router.post("/agent/apply", summary="Agent 收益提现申请")
-def apply_agent_withdrawal(
+async def apply_agent_withdrawal(
     amount: int = Query(..., description="提现金额(分)"),
     user_uuid: str = Depends(require_login),
 ):
@@ -217,7 +217,7 @@ def apply_agent_withdrawal(
 
 
 @router.get("/agent/list", summary="Agent 提现记录")
-def list_agent_withdrawals(
+async def list_agent_withdrawals(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_uuid: str = Depends(require_login),

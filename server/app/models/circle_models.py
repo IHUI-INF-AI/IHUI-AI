@@ -126,39 +126,3 @@ class CirclePostComment(TimestampMixin, Base):
     reply_user_id = Column(String(64), nullable=True)
     reply_user_name = Column(String(100), nullable=True)
     like_num = Column(Integer, default=0)
-
-
-class CircleCategoryRelation(TimestampMixin, Base):
-    """圈子分类父子关系表
-
-    - 迁移自 H:\\edu client\\service\\service\\ihui-ai-edu-circle-service\\t_category_relation
-    """
-
-    __tablename__ = "circle_category_relation"
-    __table_args__ = (
-        Index("idx_ccr_child", "child_category_id"),
-        Index("idx_ccr_father", "father_category_id"),
-    )
-
-    id = id_column(comment="ID")
-    child_category_id = Column(BigInteger, nullable=False, comment="子分类ID")
-    father_category_id = Column(BigInteger, nullable=False, comment="父分类ID")
-    direct_father_category_id = Column(BigInteger, default=0, comment="直接父分类ID")
-    is_sub = Column(Integer, default=0, comment="是否子分类")
-
-
-class CircleCategoryBind(TimestampMixin, Base):
-    """圈子-分类多对多关联表
-
-    - 迁移自 H:\\edu client\\service\\service\\ihui-ai-edu-circle-service\\t_circle_category_relation
-    """
-
-    __tablename__ = "circle_category_bind"
-    __table_args__ = (
-        Index("idx_ccb_circle", "circle_id"),
-        Index("idx_ccb_category", "category_id"),
-    )
-
-    id = id_column(comment="ID")
-    circle_id = Column(BigInteger, nullable=False, comment="圈子ID")
-    category_id = Column(BigInteger, nullable=False, comment="分类ID")

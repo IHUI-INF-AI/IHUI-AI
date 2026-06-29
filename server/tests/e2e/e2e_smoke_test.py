@@ -72,30 +72,16 @@ def api(method, url, data=None, token=None, timeout=15, retries=2, params=None):
 
 
 # ─── Pytest Fixture ───
+# 注意: pytest_addoption 已移至 tests/e2e/conftest.py
+# (pytest_addoption 必须在 conftest.py 中定义, 不能在测试模块中)
 
 import pytest
-
-
-def pytest_addoption(parser):
-    parser.addoption(
-        "--base",
-        action="store",
-        default=DEFAULT_BASE,
-        help="后端 base URL",
-    )
-    parser.addoption(
-        "--skip-network",
-        action="store_true",
-        default=False,
-        help="跳过所有需要网络的测试 (代码检查类测试仍执行)",
-    )
 
 
 @pytest.fixture
 def base(request):
     """后端 base URL fixture."""
     return request.config.getoption("--base").rstrip("/")
-
 
 @pytest.fixture
 def skip_network(request):
@@ -169,20 +155,15 @@ def test_agents_list(base, skip_network):
 
 
 def test_chat_endpoints(base, skip_network):
-    """T9: Chat 相关端点可达 (不发真实消息, 仅检查 404 vs 端点存在).
-
-    2026-06-26 端点路径修正: 原 /api/v1/chat/history/query 在 047 迁移后
-    改为 /api/v1/chat/query. 实际端点已在 OpenAPI 列表中验证存在.
-    """
+    """T9: Chat 相关端点可达 (不发真实消息, 仅检查 404 vs 端点存在)."""
     if skip_network:
         pytest.skip("skip-network mode")
     code, body = api("POST", f"{base}/api/v1/login/username", params={"username": ADMIN_USER, "password": ADMIN_PASS})
     token = (body.get("data") or {}).get("access_token")
     if not token:
         pytest.skip("登录失败无法继续")
-    # 端点路径: chat/query (迁移后实际路径)
-    code, _ = api("GET", f"{base}/api/v1/chat/query", token=token)
-    assert code in (200, 401, 405, 422, 404), f"chat/query 异常 status={code}"
+    code, _ = api("GET", f"{base}/api/v1/chat/history/query", token=token)
+    assert code in (200, 401, 405, 422), f"chat/history/query 异常 status={code}"
 
 
 def test_agents_categories(base, skip_network):
@@ -237,15 +218,13 @@ def main():
 
             code, body = api("GET", f"{base}/api/v1/llm/models-unify", token=token)
             data = body.get("data") or []
-            # 2026-06-26 修正: mock 模式下 data 可能为空, 仅验证端点可达 200
-            results.append(("T4 models-unify 列表", code == 200, f"status={code} count={len(data)}"))
+            results.append(("T4 models-unify 列表", code == 200 and len(data) >= 1, f"status={code} count={len(data)}"))
 
             code, _ = api("GET", f"{base}/api/v1/agents/list", token=token)
             results.append(("T5 agents/list", code in (200, 404), f"status={code}"))
 
-            # 端点路径: chat/query (迁移后实际路径, 2026-06-26 修正)
-            code, _ = api("GET", f"{base}/api/v1/chat/query", token=token)
-            results.append(("T9 chat/query", code in (200, 401, 405, 422, 404), f"status={code}"))
+            code, _ = api("GET", f"{base}/api/v1/chat/history/query", token=token)
+            results.append(("T9 chat/history/query", code in (200, 401, 405, 422), f"status={code}"))
 
             code, _ = api("GET", f"{base}/api/v1/agents/categories/list", token=token)
             results.append(("T10 agents/categories/list", code in (200, 404), f"status={code}"))

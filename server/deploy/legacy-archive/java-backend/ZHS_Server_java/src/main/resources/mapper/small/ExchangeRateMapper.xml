@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ExchangeRateMapper">
+
+    <!-- ExchangeRate 实体类的 resultMap -->
+    <resultMap id="ExchangeRateMap" type="com.ai.manager.small.domain.ExchangeRate">
+        <id property="id" column="id"/>
+        <result property="currency" column="currency"/>
+        <result property="rate" column="rate"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <!-- Add other fields if needed -->
+    </resultMap>
+
+    <!-- TODO: 在这里定义 ExchangeRateMapper 接口中方法的 SQL 实现 -->
+
+    <!-- 获取所有汇率记录 (Service 层调用) -->
+    <select id="selectAll" resultMap="ExchangeRateMap">
+        SELECT *
+        FROM zhs_exchange_rate
+    </select>
+
+    <!-- TODO: Add SQL for selectById, insert, update, delete if needed based on PHP -->
+
+    <select id="selectByCurrency" resultMap="ExchangeRateMap">
+        SELECT * FROM zhs_exchange_rate
+        WHERE currency = #{currency}
+        LIMIT 1
+    </select>
+
+</mapper> 

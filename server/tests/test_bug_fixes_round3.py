@@ -189,11 +189,10 @@ class TestBug31SoftDeleteMixin:
 
         inst = T()
         # 直接调用 set_deleted, 检查其内部行为
-        # set_deleted 内部用 utcnow() 返回 naive UTC datetime (与 DB schema 兼容)
         before = datetime.utcnow() - timedelta(seconds=1)
         inst.set_deleted()
         after = datetime.utcnow() + timedelta(seconds=1)
-        # deleted_at 必须在 before..after 之间 (naive datetime 比较)
+        # deleted_at 必须在 before..after 之间
         assert inst.deleted_at is not None
         assert before <= inst.deleted_at <= after
         assert inst.is_deleted is True

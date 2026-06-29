@@ -105,9 +105,6 @@ def _is_public_path(path: str) -> bool:
         "/api/v1/auth/wechat/phone",
         "/api/v1/auth/google/authorize",
         "/api/v1/auth/google/callback",
-        "/api/v1/auth/alipay/url",
-        "/api/v1/auth/alipay/token",
-        "/api/v1/auth/feishu/authorize",
         "/api/v1/auth/wecom/init",
         "/api/v1/auth/oauth/token",
         "/api/v1/auth/oauth/callback",
@@ -235,8 +232,8 @@ class TenantRoutingMiddleware:
                 set_current_tenant_id(_DEFAULT_TENANT_ID)
                 if _set_request_context is not None:
                     _set_request_context(tenant_id=str(_DEFAULT_TENANT_ID))
-            except Exception as e:
-                _loguru_logger.debug("设置公开端点默认租户失败: %s", e)
+            except Exception:
+                pass
             try:
                 await self.app(scope, receive, send)
             finally:
@@ -266,20 +263,14 @@ class TenantRoutingMiddleware:
         if tid is None:
             # scope.get("state") 在 starlette 内部是 dict-like, 但裸 ASGI 不一定有
             state = scope.get("state")
-            jwt_payload = None
-            user_tenant_id = None
-            if state is not None:
-                if isinstance(state, dict):
-                    jwt_payload = state.get("jwt_payload")
-                    user_tenant_id = state.get("user_tenant_id")
-                else:
-                    jwt_payload = getattr(state, "jwt_payload", None)
-                    user_tenant_id = getattr(state, "user_tenant_id", None)
-            if isinstance(jwt_payload, dict):
-                tid = _parse_tid(jwt_payload.get("tid"))
-            if tid is None:
-                if isinstance(user_tenant_id, int) and user_tenant_id >= 1:
-                    tid = user_tenant_id
+            if isinstance(state, dict):
+                jwt_payload = state.get("jwt_payload")
+                if isinstance(jwt_payload, dict):
+                    tid = _parse_tid(jwt_payload.get("tid"))
+                if tid is None:
+                    utid = state.get("user_tenant_id")
+                    if isinstance(utid, int) and utid >= 1:
+                        tid = utid
 
         # 4) 严格模式: 缺 header → 400
         if tid is None:

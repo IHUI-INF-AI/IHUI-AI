@@ -29,6 +29,7 @@ class User(TenantBase):
 
     uuid = Column(String(64), primary_key=True, comment="User UUID")
     phone = Column(String(32), nullable=True, comment="手机号")
+    email = Column(String(100), nullable=True, index=True, comment="邮箱")
     password_hash = Column(String(255), nullable=True, comment="BCrypt hashed password")
     password_salt = Column(String(64), nullable=True, comment="Password salt")
     nickname = Column(String(100), nullable=True, comment="Nickname")
@@ -43,7 +44,7 @@ class User(TenantBase):
     is_vip = Column(Integer, default=0, comment="VIP status: 0=no, 1=yes")
 
 
-class UserMargin(TenantBase, TimestampMixin):
+class UserMargin(TenantBase):
     """User token/margin balance (zhs_center_project.user_margin).
 
     建议 132: 第二个迁移到 TenantBase 的业务表.
@@ -77,7 +78,7 @@ class UserThirdPartyAccount(TimestampMixin, SoftDeleteMixin, Base):
     user_uuid = Column(String(64), nullable=False, comment="User UUID")
     open_id = Column(String(100), nullable=True, comment="Open ID")
     union_id = Column(String(100), nullable=True, comment="Union ID")
-    platform = Column(String(20), nullable=True, comment="Platform: wechat, google, alipay, feishu")
+    platform = Column(String(20), nullable=True, comment="Platform: wechat, google")
     access_token = Column(Text, nullable=True, comment="Access token")
     refresh_token = Column(Text, nullable=True, comment="Refresh token")
     expire_time = Column(DateTime, nullable=True, comment="Token expiry")

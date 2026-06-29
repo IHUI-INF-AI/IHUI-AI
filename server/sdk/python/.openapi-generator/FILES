@@ -42,7 +42,6 @@ docs/AgentsApi.md
 docs/AiGcCreate.md
 docs/AiGcUpdate.md
 docs/AlertIn.md
-docs/AliLoginApi.md
 docs/AlipayApi.md
 docs/AlipayFundApi.md
 docs/AnswerCreate.md
@@ -63,7 +62,6 @@ docs/AsyncWorkflowReq.md
 docs/AsyncWorkflowStreamReq.md
 docs/AudioChatRequest.md
 docs/AudioRecognizeRequest.md
-docs/AuthAlipayApi.md
 docs/AuthEnterpriseWeChatApi.md
 docs/AuthFeishuApi.md
 docs/AuthIdentityApi.md
@@ -396,7 +394,6 @@ test/test_ai_volc_engine_api.py
 test/test_aigc_api.py
 test/test_ain8_n_api.py
 test/test_alert_in.py
-test/test_ali_login_api.py
 test/test_alipay_api.py
 test/test_alipay_fund_api.py
 test/test_answer_create.py
@@ -418,7 +415,6 @@ test/test_async_workflow_req.py
 test/test_async_workflow_stream_req.py
 test/test_audio_chat_request.py
 test/test_audio_recognize_request.py
-test/test_auth_alipay_api.py
 test/test_auth_enterprise_we_chat_api.py
 test/test_auth_feishu_api.py
 test/test_auth_identity_api.py
@@ -730,7 +726,6 @@ zhs_api/api/ai_voiceprint_api.py
 zhs_api/api/ai_volc_engine_api.py
 zhs_api/api/aigc_api.py
 zhs_api/api/ain8_n_api.py
-zhs_api/api/ali_login_api.py
 zhs_api/api/alipay_api.py
 zhs_api/api/alipay_fund_api.py
 zhs_api/api/apiv2_experimental_api.py
@@ -739,7 +734,6 @@ zhs_api/api/ask_answer_api.py
 zhs_api/api/ask_api.py
 zhs_api/api/ask_category_api.py
 zhs_api/api/ask_question_api.py
-zhs_api/api/auth_alipay_api.py
 zhs_api/api/auth_enterprise_we_chat_api.py
 zhs_api/api/auth_feishu_api.py
 zhs_api/api/auth_identity_api.py

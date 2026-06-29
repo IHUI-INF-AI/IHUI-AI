@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.AgentCategoryMapper">
+    
+    <resultMap type="com.ai.manager.small.domain.AgentCategory" id="AgentCategoryResult">
+        <result property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="code" column="code"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="isHidden" column="is_hidden"/>
+        <result property="isUse" column="is_use"/>
+        <result property="status" column="status"/>
+        <result property="field1" column="field1"/>
+        <result property="field2" column="field2"/>
+        <result property="creator" column="creator"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updator" column="updator"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="showName" column="show_name"/>
+        <result property="butUrl" column="but_url"/>
+    </resultMap>
+    <resultMap type="com.ai.manager.small.domain.vo.AgentCategoryVO" id="AgentCategoryResultVO" extends="AgentCategoryResult">
+        <result property="agentId" column="agent_id"/>
+    </resultMap>
+
+    <sql id="selectAgentCategoryVo">
+        select ac.id, ac.name, ac.code, ac.parent_id, ac.is_hidden, ac.is_use, ac.status, ac.field1, ac.field2, ac.creator, ac.created_at, ac.updator, ac.updated_at, ac.show_name, ac.but_url
+    </sql>
+    <sql id="fromAgentCategoryTable">
+        from agent_category ac
+    </sql>
+
+    <select id="selectAgentCategoryList" parameterType="com.ai.manager.small.domain.AgentCategory" resultMap="AgentCategoryResult">
+        <include refid="selectAgentCategoryVo"/>
+        <include refid="fromAgentCategoryTable"/>
+        <where>
+            is_hidden = 0
+            <if test="name != null  and name != ''"> and ac.`name` like concat('%', #{name}, '%')</if>
+            <if test="showName != null  and showName != ''"> and ac.`show_name` like concat('%', #{showName}, '%')</if>
+            <if test="code != null  and code != ''"> and ac.`code` = #{code}</if>
+            <if test="parentId != null  and parentId != ''"> and ac.parent_id = #{parentId}</if>
+            <if test="status != null "> and ac.`status` = #{status}</if>
+            <if test="field2 != null "> and ac.`field2` = #{field2}</if>
+        </where>
+    </select>
+    
+    <select id="selectAgentCategoryById" parameterType="String" resultMap="AgentCategoryResult">
+        <include refid="selectAgentCategoryVo"/>
+        <include refid="fromAgentCategoryTable"/>
+        where ac.id = #{id}
+    </select>
+    <select id="getByLinkIds" resultMap="AgentCategoryResultVO" >
+        <include refid="selectAgentCategoryVo"/>
+        , acl.agent_id
+        <include refid="fromAgentCategoryTable"/>
+        left join agent_category_link acl on ac.id = category_id
+        <where>
+            acl.field2 = '0'
+            <foreach collection="ids" item="id" open="and acl.agent_id in (" close=")" separator=",">
+                #{id}
+            </foreach>
+        </where>
+    </select>
+
+    <insert id="insertAgentCategory" parameterType="com.ai.manager.small.domain.AgentCategory">
+        insert into agent_category
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="name != null">`name`,</if>
+            <if test="showName != null">`show_name`,</if>
+            <if test="code != null">`code`,</if>
+            <if test="parentId != null">parent_id,</if>
+            <if test="isHidden != null">is_hidden,</if>
+            <if test="isUse != null">is_use,</if>
+            <if test="status != null">`status`,</if>
+            <if test="field1 != null">field1,</if>
+            <if test="field2 != null">field2,</if>
+            <if test="creator != null">creator,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updator != null">updator,</if>
+            <if test="updatedAt != null">updated_at,</if>
+            <if test="butUrl != null">but_url,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="name != null">#{name},</if>
+            <if test="showName != null">#{showName},</if>
+            <if test="code != null">#{code},</if>
+            <if test="parentId != null">#{parentId},</if>
+            <if test="isHidden != null">#{isHidden},</if>
+            <if test="isUse != null">#{isUse},</if>
+            <if test="status != null">#{status},</if>
+            <if test="field1 != null">#{field1},</if>
+            <if test="field2 != null">#{field2},</if>
+            <if test="creator != null">#{creator},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updator != null">#{updator},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+            <if test="butUrl != null">#{butUrl},</if>
+         </trim>
+    </insert>
+
+    <update id="updateAgentCategory" parameterType="com.ai.manager.small.domain.AgentCategory">
+        update agent_category
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null">`name` = #{name},</if>
+            <if test="showName != null">`show_name` = #{showName},</if>
+            <if test="code != null">`code` = #{code},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="isHidden != null">is_hidden = #{isHidden},</if>
+            <if test="isUse != null">is_use = #{isUse},</if>
+            <if test="status != null">`status` = #{status},</if>
+            <if test="field1 != null">field1 = #{field1},</if>
+            <if test="field2 != null">field2 = #{field2},</if>
+            <if test="creator != null">creator = #{creator},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updator != null">updator = #{updator},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+            <if test="butUrl != null">but_url = #{butUrl},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAgentCategoryById" parameterType="String">
+        delete from agent_category where id = #{id}
+    </delete>
+
+    <delete id="deleteAgentCategoryByIds" parameterType="String">
+        delete from agent_category where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

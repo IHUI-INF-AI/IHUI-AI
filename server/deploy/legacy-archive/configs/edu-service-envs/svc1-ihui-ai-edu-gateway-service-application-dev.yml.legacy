@@ -1,0 +1,12 @@
+spring:
+    security:
+        oauth2:
+            resourceserver:
+                jwt:
+                    jwk-set-uri: http://localhost:6601/auth/jwt/publicKey
+    cloud:
+        nacos:
+            discovery:
+                server-addr: localhost:8848
+                namespace: dev
+                group: dev

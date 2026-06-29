@@ -117,8 +117,6 @@ type APIClient struct {
 
 	AgentsAPI *AgentsAPIService
 
-	AliLoginAPI *AliLoginAPIService
-
 	AlipayAPI *AlipayAPIService
 
 	AlipayFundAPI *AlipayFundAPIService
@@ -132,8 +130,6 @@ type APIClient struct {
 	AskCategoryAPI *AskCategoryAPIService
 
 	AskQuestionAPI *AskQuestionAPIService
-
-	AuthAlipayAPI *AuthAlipayAPIService
 
 	AuthEnterpriseWeChatAPI *AuthEnterpriseWeChatAPIService
 
@@ -428,7 +424,6 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.AgentUseDetailAPI = (*AgentUseDetailAPIService)(&c.common)
 	c.AgentWithdrawalAPI = (*AgentWithdrawalAPIService)(&c.common)
 	c.AgentsAPI = (*AgentsAPIService)(&c.common)
-	c.AliLoginAPI = (*AliLoginAPIService)(&c.common)
 	c.AlipayAPI = (*AlipayAPIService)(&c.common)
 	c.AlipayFundAPI = (*AlipayFundAPIService)(&c.common)
 	c.AppVersionAPI = (*AppVersionAPIService)(&c.common)
@@ -436,7 +431,6 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.AskAnswerAPI = (*AskAnswerAPIService)(&c.common)
 	c.AskCategoryAPI = (*AskCategoryAPIService)(&c.common)
 	c.AskQuestionAPI = (*AskQuestionAPIService)(&c.common)
-	c.AuthAlipayAPI = (*AuthAlipayAPIService)(&c.common)
 	c.AuthEnterpriseWeChatAPI = (*AuthEnterpriseWeChatAPIService)(&c.common)
 	c.AuthFeishuAPI = (*AuthFeishuAPIService)(&c.common)
 	c.AuthIdentityAPI = (*AuthIdentityAPIService)(&c.common)

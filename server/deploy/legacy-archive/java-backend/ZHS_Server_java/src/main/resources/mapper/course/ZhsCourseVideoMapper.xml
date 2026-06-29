@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.course.mapper.ZhsCourseVideoMapper">
+    
+    <resultMap type="com.ai.manager.course.domain.ZhsCourseVideo" id="ZhsCourseVideoResult">
+        <result property="id" column="id"/>
+        <result property="courseId" column="course_id"/>
+        <result property="binding" column="binding"/>
+        <result property="videoPath" column="video_path"/>
+        <result property="title" column="title"/>
+        <result property="subtitle" column="subtitle"/>
+        <result property="content" column="content"/>
+        <result property="remark" column="remark"/>
+        <result property="duration" column="duration"/>
+        <result property="adjunctUrl" column="adjunct_url"/>
+        <result property="isPay" column="is_pay"/>
+        <result property="amount" column="amount"/>
+        <result property="status" column="status"/>
+        <result property="sort" column="sort"/>
+        <result property="creator" column="creator"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updator" column="updator"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="lecturer" column="lecturer"/>
+        <result property="label" column="label"/>
+        <result property="auditStatus" column="audit_status"/>
+
+        <result property="endorse" column="endorse"/>
+        <result property="favorite" column="favorite"/>
+
+        <result property="nickname" column="nickname"/>
+        <result property="avatar" column="avatar"/>
+        <result property="agentIds" column="agent_ids"/>
+        <result property="stage" column="stage"/>
+    </resultMap>
+
+    <sql id="selectZhsCourseVideoVo">
+        select distinct zcv.id,zcv.course_id,zcv.binding,zcv.video_path,zcv.title,zcv.subtitle,zcv.content,zcv.remark,zcv.duration,zcv.adjunct_url,zcv.is_pay,zcv.amount,zcv.status,zcv.sort,zcv.creator,zcv.created_at,zcv.updator,zcv.updated_at, zcv.lecturer, zcv.label, zcv.agent_ids, zcv.audit_status, zcv.stage
+    </sql>
+    <sql id="fromZhsCourseVideoTable">
+        from zhs_course_video zcv
+    </sql>
+
+    <select id="getList" parameterType="com.ai.manager.course.domain.ZhsCourseVideo" resultMap="ZhsCourseVideoResult">
+        <include refid="selectZhsCourseVideoVo"/>
+        <!-- ,(select sum(1) zhs_user_video_log uvl where zcv.id = uvl.video_id and type = 1 and uvl.platform_id = #{platform}) -->
+
+        <if test="userUuid != null  and userUuid != ''">
+            ,(select uvl.id from zhs_user_video_log uvl where zcv.id = uvl.video_id and type = 1 and uvl.user_uuid = #{userUuid} and uvl.platform_id = #{platform}) endorse
+        </if>
+        <if test="userUuid != null  and userUuid != ''">
+            ,(select uvl.id from zhs_user_video_log uvl where zcv.id = uvl.video_id and type = 2 and uvl.user_uuid = #{userUuid} and uvl.platform_id = #{platform}) favorite
+        </if>
+        ,u.nickname, u.avatar
+        <include refid="fromZhsCourseVideoTable"/>
+        left join zhs_center_project.users u on u.uuid = zcv.creator
+        left join zhs_course zc on zc.id = zcv.course_id
+        <where>
+            <if test="courseId != null  and courseId != ''"> and zcv.course_id = #{courseId}</if>
+            <if test="title != null  and title != ''"> and
+            (
+                (zcv.title like  concat('%', #{title}, '%'))
+                or (zcv.label like concat('%', #{title}, '%'))
+                )
+            </if>
+            <if test="status != null "> and zcv.`status` = #{status}</if>
+            <!--<if test="stage != null "> and zcv.`stage` = #{stage}</if>-->
+            <if test="stage != null "> and zc.`stage` = #{stage}</if>
+            <if test="creator != null  and creator != ''"> and zcv.creator = #{creator}</if>
+            <if test="creator == null or creator == ''"> and zcv.audit_status = 4</if>
+            <if test="createdAt != null "> and zcv.created_at = #{createdAt}</if>
+            <if test="updator != null  and updator != ''"> and zcv.updator = #{updator}</if>
+            <if test="label != null  and label != ''"> and zcv.label like concat('%', #{label}, '%')</if>
+            <if test="types != null and types != ''">
+                and EXISTS(
+                select 1 from zhs_ai_project.agent_category_link cacl
+                join zhs_ai_project.agent_category cac on cac.id = cacl.category_id
+                where cacl.agent_id = zcv.id and cac.field2 = '0'
+                <foreach collection="typeArray" item="typeIds" open="and cac.id in (" separator="," close=")">
+                    #{typeIds}
+                </foreach>
+                )
+            </if>
+        </where>
+        order by sort asc, created_at desc
+    </select>
+    
+    <select id="getById" parameterType="String" resultMap="ZhsCourseVideoResult">
+        <include refid="selectZhsCourseVideoVo"/>
+        <if test="userUuid != null  and userUuid != ''">
+            ,(select uvl.id from zhs_user_video_log uvl where zcv.id = uvl.video_id and type = 1 and uvl.user_uuid = #{userUuid} and uvl.platform_id = #{platform}) endorse
+        </if>
+        <if test="userUuid != null  and userUuid != ''">
+            ,(select uvl.id from zhs_user_video_log uvl where zcv.id = uvl.video_id and type = 2 and uvl.user_uuid = #{userUuid} and uvl.platform_id = #{platform}) favorite
+        </if>
+        ,u.nickname, u.avatar
+        <include refid="fromZhsCourseVideoTable"/>
+        left join zhs_center_project.users u on u.uuid = zcv.creator
+        where zcv.id = #{id}
+    </select>
+    <select id="getLogList" resultMap="ZhsCourseVideoResult">
+        <include refid="selectZhsCourseVideoVo"/>
+
+        <if test="userUuid != null  and userUuid != ''">
+            ,(select uvl.id from zhs_user_video_log uvl where zcv.id = uvl.video_id and type = 1 and uvl.user_uuid = #{userUuid} and uvl.platform_id = #{platform}) endorse
+        </if>
+        <if test="userUuid != null  and userUuid != ''">
+            ,(select uvl.id from zhs_user_video_log uvl where zcv.id = uvl.video_id and type = 2 and uvl.user_uuid = #{userUuid} and uvl.platform_id = #{platform}) favorite
+        </if>
+        ,u.nickname, u.avatar
+        <include refid="fromZhsCourseVideoTable"/>
+        left join zhs_user_video_log uvl on uvl.video_id = zcv.id
+        left join zhs_center_project.users u on u.uuid = zcv.creator
+        <where>
+            <if test="platformId != null  and platformId != ''"> and uvl.platform_id = (select ep.`id` from zhs_education_platform ep where ep.`code` = #{platformId})</if>
+            <if test="userUuid != null  and userUuid != ''"> and uvl.user_uuid = #{userUuid}</if>
+            <if test="type != null  and type != ''"> and uvl.`type` = #{type}</if>
+        </where>
+    </select>
+    <select id="getMaxSort" resultType="java.lang.Integer">
+        select MAX(sort) from zhs_course_video where course_id = #{courseId}
+    </select>
+    <select id="getNeedStickyList" resultMap="ZhsCourseVideoResult">
+        <include refid="selectZhsCourseVideoVo"/>
+        <include refid="fromZhsCourseVideoTable"/>
+        where zcv.course_id = (
+            select zcv2.course_id from zhs_course_video zcv2 where zcv2id = #{videoId}
+        )
+        and zcv.sort <![CDATA[<=]]> (
+            select zcv2.sort from zhs_course_video zcv2 where zcv2id = #{videoId}
+        )
+        and zcv.creator = #{userUuid}
+    </select>
+    <select id="getNeedMoveList" resultType="com.ai.manager.course.domain.ZhsCourseVideo">
+        <include refid="selectZhsCourseVideoVo"/>
+        <include refid="fromZhsCourseVideoTable"/>
+        where zcv.course_id = (
+            select zcv2.course_id from zhs_course_video zcv2 where zcv2id = #{videoId}
+        )
+        and zcv.sort
+        <if test="type == 1">
+            <![CDATA[<=]]>
+        </if>
+        <if test="type == 2">
+            <![CDATA[>=]]>
+        </if>
+         (
+            select zcv2.sort from zhs_course_video zcv2 where zcv2id = #{videoId}
+        )
+        and zcv.creator = #{userUuid}
+        <if test="type == 1">
+            order by sort desc
+        </if>
+        <if test="type == 2">
+            order by sort asc
+        </if>
+        limit 2
+    </select>
+    <select id="getByIds" resultMap="ZhsCourseVideoResult" >
+        <include refid="selectZhsCourseVideoVo"/>
+        <include refid="fromZhsCourseVideoTable"/>
+        <where>
+            zcv.creator = #{uuid}
+            <foreach collection="ids" item="id" open="and zcv.id in (" close=")" separator=",">
+                #{id}
+            </foreach>
+        </where>
+
+    </select>
+
+    <insert id="addZhsCourseVideo" parameterType="com.ai.manager.course.domain.ZhsCourseVideo">
+        insert into zhs_course_video
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="stage != null">stage,</if>
+            <if test="courseId != null and courseId != ''">course_id,</if>
+            <if test="binding != null">binding,</if>
+            <if test="videoPath != null and videoPath != ''">video_path,</if>
+            <if test="title != null">title,</if>
+            <if test="subtitle != null">subtitle,</if>
+            <if test="content != null">content,</if>
+            <if test="remark != null">remark,</if>
+            <if test="duration != null">duration,</if>
+            <if test="adjunctUrl != null">adjunct_url,</if>
+            <if test="isPay != null">is_pay,</if>
+            <if test="amount != null">amount,</if>
+            <if test="status != null">`status`,</if>
+            <if test="sort != null">sort,</if>
+            <if test="creator != null and creator != ''">creator,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updator != null">updator,</if>
+            <if test="updatedAt != null">updated_at,</if>
+            <if test="lecturer != null">lecturer,</if>
+            <if test="label != null">label,</if>
+            <if test="agentIds != null">agent_ids,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="stage != null">#{stage},</if>
+            <if test="courseId != null and courseId != ''">#{courseId},</if>
+            <if test="binding != null">#{binding},</if>
+            <if test="videoPath != null and videoPath != ''">#{videoPath},</if>
+            <if test="title != null">#{title},</if>
+            <if test="subtitle != null">#{subtitle},</if>
+            <if test="content != null">#{content},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="duration != null">#{duration},</if>
+            <if test="adjunctUrl != null">#{adjunctUrl},</if>
+            <if test="isPay != null">#{isPay},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="creator != null and creator != ''">#{creator},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updator != null">#{updator},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+            <if test="lecturer != null">#{lecturer},</if>
+            <if test="label != null">#{label},</if>
+            <if test="agentIds != null">#{agentIds},</if>
+         </trim>
+    </insert>
+    <insert id="addBatch">
+        insert into zhs_course_video
+        (course_id, binding, video_path, title, subtitle, content, remark, duration, adjunct_url, is_pay, amount, status, creator, lecturer,label,agent_ids, stage)
+        <foreach collection="zhsCourseVideos" item="item" separator="," close=";">
+            (#{item.courseId}, #{item.binding}, #{item.viderPath}, #{item.title}, #{item.subtitle}, #{item.content}, #{item.remark}, #{item.duration}, #{item.adjunctUrl}, #{item.isPay}, #{item.amount}, #{item.status}, #{item.creator}, #{item.lecturer}, #{item.label}, #{item.agentIds}, #{item.stage})
+        </foreach>
+    </insert>
+    <insert id="addTemp">
+        insert into zhs_course_video
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="stage != null">stage,</if>
+            <if test="videoId != null and videoId != ''">videoId,</if>
+            <if test="courseId != null and courseId != ''">course_id,</if>
+            <if test="binding != null">binding,</if>
+            <if test="videoPath != null and videoPath != ''">video_path,</if>
+            <if test="title != null">title,</if>
+            <if test="subtitle != null">subtitle,</if>
+            <if test="content != null">content,</if>
+            <if test="remark != null">remark,</if>
+            <if test="duration != null">duration,</if>
+            <if test="adjunctUrl != null">adjunct_url,</if>
+            <if test="isPay != null">is_pay,</if>
+            <if test="amount != null">amount,</if>
+            <if test="status != null">`status`,</if>
+            <if test="sort != null">sort,</if>
+            <if test="creator != null and creator != ''">creator,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updator != null">updator,</if>
+            <if test="updatedAt != null">updated_at,</if>
+            <if test="lecturer != null">lecturer,</if>
+            <if test="label != null">label,</if>
+            <if test="agentIds != null">agent_ids,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="stage != null">#{stage},</if>
+            <if test="videoId != null and videoId != ''">#{videoId},</if>
+            <if test="courseId != null and courseId != ''">#{courseId},</if>
+            <if test="binding != null">#{binding},</if>
+            <if test="videoPath != null and videoPath != ''">#{videoPath},</if>
+            <if test="title != null">#{title},</if>
+            <if test="subtitle != null">#{subtitle},</if>
+            <if test="content != null">#{content},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="duration != null">#{duration},</if>
+            <if test="adjunctUrl != null">#{adjunctUrl},</if>
+            <if test="isPay != null">#{isPay},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="creator != null and creator != ''">#{creator},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updator != null">#{updator},</if>
+            <if test="updatedAt != null">#{updatedAt},</if>
+            <if test="lecturer != null">#{lecturer},</if>
+            <if test="label != null">#{label},</if>
+            <if test="agentIds != null">#{agentIds},</if>
+        </trim>
+        <trim prefix="ON DUPLICATE KEY UPDATE" suffixOverrides=",">
+            <if test="courseId != null and courseId != ''">course_id = VALUES(course_id),</if>
+            <if test="stage != null'">stage = VALUES(stage),</if>
+            <if test="binding != null">binding = VALUES(binding),</if>
+            <if test="videoPath != null and videoPath != ''">video_path = VALUES(video_path),</if>
+            <if test="title != null">title = VALUES(title),</if>
+            <if test="subtitle != null">subtitle = VALUES(subtitle),</if>
+            <if test="content != null">content = VALUES(content),</if>
+            <if test="remark != null">remark = VALUES(remark),</if>
+            <if test="duration != null">duration = VALUES(duration),</if>
+            <if test="adjunctUrl != null">adjunct_url = VALUES(adjunct_url),</if>
+            <if test="isPay != null">is_pay = VALUES(is_pay),</if>
+            <if test="amount != null">amount = VALUES(amount),</if>
+            <if test="status != null">`status`= VALUES(`status`), </if>
+            <if test="sort != null">sort = VALUES(sort),</if>
+            <if test="creator != null and creator != ''">creator = VALUES(creator),</if>
+            <if test="createdAt != null">created_at = VALUES(created_at),</if>
+            <if test="updator != null">updator = VALUES(updator),</if>
+            <if test="updatedAt != null">updated_at = VALUES(updated_at),</if>
+            <if test="lecturer != null">lecturer = VALUES(lecturer),</if>
+            <if test="label != null">label = VALUES(label),</if>
+            <if test="agentIds != null">agent_ids = VALUES(agent_ids),</if>
+        </trim>
+    </insert>
+
+    <update id="edit" parameterType="com.ai.manager.course.domain.ZhsCourseVideo">
+        update zhs_course_video
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="binding != null">binding = #{binding},</if>
+            <if test="stage != null">stage = #{stage},</if>
+            <if test="videoPath != null and videoPath != ''">video_path = #{videoPath},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="subtitle != null">subtitle = #{subtitle},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="duration != null">duration = #{duration},</if>
+            <if test="adjunctUrl != null">adjunct_url = #{adjunctUrl},</if>
+            <if test="isPay != null">is_pay = #{isPay},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="status != null">`status` = #{status},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="creator != null and creator != ''">creator = #{creator},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updator != null">updator = #{updator},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+            <if test="lecturer != null">lecturer = #{lecturer},</if>
+            <if test="label != null">label = #{label},</if>
+            <if test="agentIds != null">agent_ids = #{agentIds},</if>
+            <if test="auditStatus != null">audit_status = #{auditStatus},</if>
+        </trim>
+        <where>
+            <if test="id != null">and id = #{id}</if>
+            <if test="courseId != null and courseId != ''">and course_id = #{courseId}</if>
+        </where>
+    </update>
+    <update id="moveList">
+        update zhs_course_video set
+        <foreach collection="list" item="item" open="sort = case" close="else sort end">
+            WHEN id = #{item.id} THEN #{item.sort}
+        </foreach>
+        where id in
+        <foreach collection="list" item="item" separator="," open="(" close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <delete id="delById" parameterType="String">
+        delete from zhs_course_video where id = #{id}
+    </delete>
+
+    <delete id="delByIds" parameterType="String">
+        delete from zhs_course_video where creator = #{uuid}
+         and id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    <delete id="delByCourseIds">
+        delete from zhs_course_video where agent_id in
+        <foreach item="agentId" collection="agentIds" open="(" separator="," close=")">
+            #{agentId}
+        </foreach>
+    </delete>
+    <update id="delByIds2">
+        update zhs_course_video set audit_status = 1 where creator = #{uuid} and id in
+        <foreach item="ids" collection="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+</mapper>

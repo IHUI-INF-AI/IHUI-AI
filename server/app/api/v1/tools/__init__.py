@@ -1,6 +1,6 @@
 """Tools routes (file upload, list, categories)."""
 
-from typing import List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from pydantic import BaseModel
@@ -44,7 +44,7 @@ TOOL_CATEGORIES = [
     {"key": "course", "name": "课程学习", "icon": "🎓"},
 ]
 
-TOOLS = [
+TOOLS: list[dict[str, Any]] = [
     {
         "id": "t1",
         "name": "通用对话",
@@ -373,7 +373,7 @@ TOOLS = [
 
 
 @router.get("/list", summary="获取工具列表")
-def list_tools(
+async def list_tools(
     category: str | None = Query(None, description="分类过滤"),
     keyword: str | None = Query(None, description="搜索关键词"),
     sort: str | None = Query("default", description="排序: default/name/hot"),
@@ -396,7 +396,7 @@ def list_tools(
 
 
 @router.get("/categories", summary="获取工具分类列表")
-def list_categories():
+async def list_categories():
     """获取工具分类及每个分类的工具数量"""
     categories = []
     for c in TOOL_CATEGORIES:
@@ -414,5 +414,5 @@ async def upload_file(
     from app.utils.minio_util import upload_file as minio_upload
 
     content = await file.read()
-    url = minio_upload(content, file.filename, file.content_type or "application/octet-stream")
+    url = minio_upload(content, file.filename, file.content_type or "application/octet-stream")  # type: ignore[arg-type]
     return success({"url": url, "file_name": file.filename})

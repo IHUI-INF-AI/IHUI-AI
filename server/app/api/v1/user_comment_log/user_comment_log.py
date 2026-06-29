@@ -1,6 +1,6 @@
 """用户评论日志 - 系统级评论记录"""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 from loguru import logger
 from sqlalchemy import BigInteger, Column, Index, String, Text
 
@@ -34,9 +34,10 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("/record", summary="记录评论日志")
-def record_log(target_type: str = Query(...), target_id: int = Query(...),
-                      comment_id: int = Query(...), content: str = Query(...),
-                      action: str = "add", ip: str | None = None):
+async def record_log(target_type: str = Query(...), target_id: int = Query(...),
+                      comment_id: int = Query(...),
+                      action: str = "add", ip: str | None = None,
+                      content: str = Body(...)):
     with get_session() as db:
         try:
             log = UserCommentLog(
@@ -54,7 +55,7 @@ def record_log(target_type: str = Query(...), target_id: int = Query(...),
 
 
 @router.get("/list", operation_id="user_comment_log_list", summary="评论日志")
-def list_logs(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+async def list_logs(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                     user_id: str | None = None, target_type: str | None = None,
                     action: str | None = None):
     with get_session() as db:
@@ -69,12 +70,12 @@ def list_logs(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
             total = q.count()
             items = q.order_by(UserCommentLog.id.desc()).offset((page - 1) * limit).limit(limit).all()
             return success([{
-                "id": l.id, "user_id": l.user_id, "user_name": l.user_name,
-                "target_type": l.target_type, "target_id": l.target_id,
-                "comment_id": l.comment_id, "content": l.content[:100] if l.content else "",
-                "action": l.action, "ip": l.ip,
-                "create_time": l.created_at.isoformat() if l.created_at else None,
-            } for l in items], total=total)
+                "id": item.id, "user_id": item.user_id, "user_name": item.user_name,
+                "target_type": item.target_type, "target_id": item.target_id,
+                "comment_id": item.comment_id, "content": item.content[:100] if item.content else "",
+                "action": item.action, "ip": item.ip,
+                "create_time": item.created_at.isoformat() if item.created_at else None,
+            } for item in items], total=total)
         except Exception as e:
             logger.error(f"comment log list error: {e}")
             return error(str(e))

@@ -1,8 +1,8 @@
 """SQLAlchemy model for the docs module (migrated from client/backend-docs/Document.java)."""
+from datetime import datetime
+
 from sqlalchemy import BigInteger, Column, DateTime, Index, String, Text
 from sqlalchemy.orm import DeclarativeBase
-
-from app.utils.datetime_helper import utcnow
 
 
 class Base(DeclarativeBase):
@@ -21,12 +21,12 @@ class Document(Base):
     size_bytes = Column(BigInteger, default=0)
     mime_type = Column(String(100), nullable=True)
     created_by = Column(String(100), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=utcnow)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=utcnow,
-        onupdate=utcnow,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
     __table_args__ = (

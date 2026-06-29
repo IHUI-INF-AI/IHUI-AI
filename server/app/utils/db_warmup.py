@@ -126,7 +126,7 @@ class DbWarmup:
                     if name in self._status:
                         self._status[name].warmup_attempts += 1
                 try:
-                    with engine.connect() as conn:
+                    with engine.connect() as conn:  # type: ignore[attr-defined]
                         from sqlalchemy import text
 
                         conn.execute(text("SELECT 1"))
@@ -162,7 +162,7 @@ class DbWarmup:
             return False
         st.total_probes += 1
         try:
-            with engine.connect() as conn:
+            with engine.connect() as conn:  # type: ignore[attr-defined]
                 conn.execute(text("SELECT 1"))
             now = time.time()
             was_unhealthy = not st.healthy

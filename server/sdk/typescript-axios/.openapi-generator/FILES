@@ -43,7 +43,6 @@ docs/AgentsApi.md
 docs/AiGcCreate.md
 docs/AiGcUpdate.md
 docs/AlertIn.md
-docs/AliLoginApi.md
 docs/AlipayApi.md
 docs/AlipayFundApi.md
 docs/AnswerCreate.md
@@ -64,7 +63,6 @@ docs/AsyncWorkflowReq.md
 docs/AsyncWorkflowStreamReq.md
 docs/AudioChatRequest.md
 docs/AudioRecognizeRequest.md
-docs/AuthAlipayApi.md
 docs/AuthEnterpriseWeChatApi.md
 docs/AuthFeishuApi.md
 docs/AuthIdentityApi.md

@@ -14,12 +14,12 @@ import threading
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
 
-class NodeKind(str, Enum):
+class NodeKind(StrEnum):
     TABLE = "table"
     COLUMN = "column"
     JOB = "job"
@@ -28,7 +28,7 @@ class NodeKind(str, Enum):
     METRIC = "metric"
 
 
-class EdgeKind(str, Enum):
+class EdgeKind(StrEnum):
     READS = "reads"  # 上游被读
     WRITES = "writes"  # 上游被写
     DERIVES = "derives"  # 派生
@@ -213,7 +213,7 @@ class DataLineage:
                 if color.get(v, WHITE) == GRAY:
                     # 找到环
                     idx = path.index(v)
-                    cycles.append(path[idx:] + [v])
+                    cycles.append([*path[idx:], v])
                 elif color.get(v, WHITE) == WHITE:
                     dfs(v)
             path.pop()

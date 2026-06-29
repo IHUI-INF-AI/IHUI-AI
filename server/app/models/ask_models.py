@@ -126,28 +126,6 @@ class AskFavorite(TimestampMixin, Base):
     target_id = Column(BigInteger, nullable=False, comment="目标ID")
 
 
-class AskWatch(TimestampMixin, Base):
-    """观看/订阅表(通用:问题/回答/圈子).
-
-    迁移自 H:\\edu server\\ihui-ai-edu-ask-service\\WatchController
-    字段:
-    - topic_type: question/answer/circle
-    - topic_id: 目标对象 ID
-    - member_id: 观看者 UUID
-    """
-
-    __tablename__ = "ask_watch"
-    __table_args__ = (
-        Index("idx_aw_topic", "topic_type", "topic_id"),
-        Index("idx_aw_member", "member_id"),
-    )
-
-    id = id_column(comment="ID")
-    topic_type = Column(String(20), nullable=False, comment="question/answer/circle")
-    topic_id = Column(BigInteger, nullable=False, comment="目标对象ID")
-    member_id = Column(String(64), nullable=False, comment="观看者UUID")
-
-
 class AskComment(TimestampMixin, Base):
     """评论表(对问题/回答评论)"""
 
@@ -164,77 +142,3 @@ class AskComment(TimestampMixin, Base):
     user_name = Column(String(100), nullable=True)
     content = Column(Text, nullable=False, comment="评论内容")
     pid = Column(BigInteger, default=0, comment="父评论ID")
-
-
-class AskCategoryRelation(TimestampMixin, Base):
-    """分类父子关系表（多级分类树）
-
-    - 迁移自 H:\\edu client\\service\\service\\ihui-ai-edu-ask-service\\t_category_relation
-    - 与 AskCategory 配合支持多级分类层级
-    """
-
-    __tablename__ = "ask_category_relation"
-    __table_args__ = (
-        Index("idx_acr_child", "child_category_id"),
-        Index("idx_acr_father", "father_category_id"),
-    )
-
-    id = id_column(comment="ID")
-    child_category_id = Column(BigInteger, nullable=False, comment="子分类ID")
-    father_category_id = Column(BigInteger, nullable=False, comment="父分类ID")
-    direct_father_category_id = Column(BigInteger, default=0, comment="直接父分类ID")
-    is_sub = Column(Integer, default=0, comment="是否子分类 0=否 1=是")
-
-
-# ======================================================================
-# H 盘 t_answer / t_question 字段对齐补全 (兼容旧 Java 微服务 H 字段命名)
-# ======================================================================
-
-
-class AskAnswerExt(TimestampMixin, Base):
-    """回答扩展表 (对齐 H 盘 t_answer 字段冗余).
-
-    - 旧 Java 端把 favorite_num/like_num/comment_num/is_adopted/is_top
-      直接冗余到 t_answer, Python 端拆出通用 AskLike/AskFavorite 表
-    - 这里保留一份"原始 H 字段名"列, 兼容旧业务接口/数据迁移
-    """
-
-    __tablename__ = "ask_answer_ext"
-    __table_args__ = (
-        Index("idx_aae_answer", "answer_id"),
-        Index("idx_aae_member", "member_id"),
-    )
-
-    id = id_column(comment="ID")
-    answer_id = Column(BigInteger, nullable=False, unique=True, comment="回答ID")
-    member_id = Column(BigInteger, nullable=True, comment="回答者旧H主键 (兼容迁移)")
-    favorite_num = Column(Integer, default=0, comment="收藏数(冗余)")
-    like_num = Column(Integer, default=0, comment="点赞数(冗余)")
-    comment_num = Column(Integer, default=0, comment="评论数(冗余)")
-    is_adopted = Column(Boolean, default=False, comment="是否被采纳")
-    is_top = Column(Boolean, default=False, comment="是否置顶")
-    deleted = Column(Boolean, default=False, comment="逻辑删除")
-
-
-class AskQuestionExt(TimestampMixin, Base):
-    """问题扩展表 (对齐 H 盘 t_question 字段冗余).
-
-    - view_num/collect_num/answer_num/comment_num 等冗余字段
-    """
-
-    __tablename__ = "ask_question_ext"
-    __table_args__ = (
-        Index("idx_aqe_question", "question_id"),
-        Index("idx_aqe_member", "member_id"),
-    )
-
-    id = id_column(comment="ID")
-    question_id = Column(BigInteger, nullable=False, unique=True, comment="问题ID")
-    member_id = Column(BigInteger, nullable=True, comment="提问者旧H主键")
-    view_num = Column(Integer, default=0, comment="浏览数 (H 字段名)")
-    collect_num = Column(Integer, default=0, comment="收藏数 (H 字段名)")
-    answer_num = Column(Integer, default=0, comment="回答数")
-    comment_num = Column(Integer, default=0, comment="评论数")
-    is_top = Column(Boolean, default=False, comment="是否置顶")
-    is_essence = Column(Boolean, default=False, comment="是否精华")
-    deleted = Column(Boolean, default=False, comment="逻辑删除")

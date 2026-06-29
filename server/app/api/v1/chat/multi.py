@@ -12,6 +12,7 @@
 
 import json
 import time
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, Query
@@ -96,7 +97,7 @@ def _build_payload(vendor: str, model: str, message: str) -> dict:
 
 
 @router.get("/vendors", summary="列出支持的 AI 厂商")
-def list_vendors(user_uuid: str = Depends(require_login)):
+async def list_vendors(user_uuid: str = Depends(require_login)):
     return success({"vendors": list(VENDOR_ENDPOINTS.keys())})
 
 
@@ -132,7 +133,7 @@ async def vendor_chat(
 
 
 @router.post("/{vendor}/chat/stream", summary="多厂商流式聊天(SSE)")
-def vendor_chat_stream(
+async def vendor_chat_stream(
     vendor: str,
     model: str = Query(...),
     message: str = Query(...),
@@ -174,7 +175,7 @@ async def multi_vendor_chat(
     track_event(EVENT_CHAT_SEND, user_id=user_uuid, vendor="multi", vendors=",".join(vendor_list), model=model)
     track_funnel("chat", "send_multi", user_id=user_uuid, count=len(vendor_list))
     async with httpx.AsyncClient(timeout=30) as client:
-        results = []
+        results: list[dict[str, Any]] = []
         for v in vendor_list:
             cfg = VENDOR_ENDPOINTS.get(v)
             if not cfg:

@@ -9,7 +9,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from app.utils.datetime_helper import utcnow
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -24,7 +24,7 @@ SAMPLING_STRATEGIES = ["always_on", "always_off", "probabilistic", "rate_limitin
 
 
 def _now() -> str:
-    return utcnow().isoformat() + "Z"
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:

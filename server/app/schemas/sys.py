@@ -12,11 +12,11 @@ SysUserOut = AdminUserOut
 SysMenuOut = AdminMenuOut
 
 __all__ = [
-    "SysUserCreate",
-    "SysUserOut",
-    "SysMenuOut",
+    "AdminMenuOut",
     # 新名称也导出, 方便渐进迁移
     "AdminUserCreate",
     "AdminUserOut",
-    "AdminMenuOut",
+    "SysMenuOut",
+    "SysUserCreate",
+    "SysUserOut",
 ]

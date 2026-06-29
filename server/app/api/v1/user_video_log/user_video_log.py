@@ -38,7 +38,7 @@ def _uid() -> str:
     return current_user_id_or_guest()
 
 @router.post("/record", summary="记录视频观看")
-def record_watch(
+async def record_watch(
     video_id: int = Query(...),
     duration: int = 0,
     watched: int = 0,
@@ -73,7 +73,7 @@ def record_watch(
 
 
 @router.get("/list", operation_id="user_video_log_list", summary="我的观看记录")
-def list_logs(
+async def list_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     video_id: int | None = None,
@@ -91,18 +91,18 @@ def list_logs(
             return success(
                 [
                     {
-                        "id": l.id,
-                        "video_id": l.video_id,
-                        "video_title": l.video_title,
-                        "duration": l.duration,
-                        "watched": l.watched,
-                        "progress": l.progress,
-                        "device": l.device,
-                        "is_completed": l.is_completed,
-                        "is_finished": l.is_finished,
-                        "create_time": l.created_at.isoformat() if l.created_at else None,
+                        "id": item.id,
+                        "video_id": item.video_id,
+                        "video_title": item.video_title,
+                        "duration": item.duration,
+                        "watched": item.watched,
+                        "progress": item.progress,
+                        "device": item.device,
+                        "is_completed": item.is_completed,
+                        "is_finished": item.is_finished,
+                        "create_time": item.created_at.isoformat() if item.created_at else None,
                     }
-                    for l in items
+                    for item in items
                 ],
                 total=total,
             )
@@ -112,7 +112,7 @@ def list_logs(
 
 
 @router.get("/stats", summary="观看统计")
-def stats():
+async def stats():
     with get_session() as db:
         try:
             uid = _uid()

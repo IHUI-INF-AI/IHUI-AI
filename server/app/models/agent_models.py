@@ -60,8 +60,6 @@ class Agent(TimestampMixin, Base):
     sort = Column(Integer, default=0, comment="Sort order")
     coze_account_id = Column(String(64), nullable=True)
     type = Column(Integer, default=0, comment="Agent type")
-    agent_main_category = Column(String(500), nullable=True, comment="智能体主分类 (冗余字段, 同步自 zhs_agent_category)")
-    agent_category = Column(String(500), nullable=True, comment="智能体分类 (冗余字段, 同步自 zhs_agent_category)")
 
 
 class AgentHeatStats(TimestampMixin, Base):

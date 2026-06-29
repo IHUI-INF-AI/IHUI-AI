@@ -54,7 +54,7 @@ def revoke_token(token: str, ttl_seconds: int | None = None) -> bool:
         try:
             from app.security import decode_access_token
 
-            payload = decode_access_token(token, allow_refresh=True) or {}
+            payload = decode_access_token(token) or {}
             exp = int(payload.get("exp", 0))
             now = int(time.time())
             ttl_seconds = max(60, exp - now) if exp > now else 60
@@ -73,7 +73,7 @@ def revoke_token(token: str, ttl_seconds: int | None = None) -> bool:
     # 内存兜底
     _FALLBACK_STORE[fp] = time.time() + float(ttl_seconds)
     # 顺手清理过期项, 避免内存膨胀
-    now = time.time()
+    now = time.time()  # type: ignore[assignment]
     for k in list(_FALLBACK_STORE.keys()):
         if _FALLBACK_STORE[k] < now:
             _FALLBACK_STORE.pop(k, None)

@@ -80,8 +80,8 @@ def save_conversations(data: dict[str, list[dict]]):
 
 def load_tickets() -> tuple[dict[str, dict], dict[str, list[dict]]]:
     """返回 (tickets dict, replies dict)"""
-    tickets = {}
-    replies = {}
+    tickets: dict[str, dict] = {}
+    replies: dict[str, list[dict]] = {}
     try:
         conn = sqlite3.connect(DB_PATH)
         try:

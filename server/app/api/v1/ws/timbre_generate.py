@@ -5,6 +5,7 @@
 """
 
 import asyncio
+import contextlib
 import json
 import time
 from typing import Any
@@ -21,11 +22,8 @@ ACTIVE_TIMBRE_TASKS: dict[str, dict[str, Any]] = {}
 
 
 async def _send(websocket: WebSocket, payload: dict[str, Any]) -> None:
-    try:
+    with contextlib.suppress(Exception):
         await websocket.send_text(json.dumps(payload, ensure_ascii=False))
-    except Exception as e:
-        # 2026-06-25 P2 加固: 记录异常便于排查, 不再静默吞噬
-        logger.debug(f"_send to {websocket.client} failed: {e}")
 
 
 @router.websocket("/ws/timbre/generate")
@@ -60,7 +58,7 @@ async def timbre_generate_ws(websocket: WebSocket):
                     continue
                 try:
                     payload = decode_access_token(token)
-                    user_uuid = payload.get("sub") or payload.get("user_uuid")
+                    user_uuid = payload.get("sub") or payload.get("user_uuid")  # type: ignore[union-attr]
                     if not user_uuid:
                         await _send(websocket, {"code": 401, "event": "auth.fail", "message": "token 无效"})
                         continue
@@ -100,8 +98,5 @@ async def timbre_generate_ws(websocket: WebSocket):
     finally:
         if task_id and task_id in ACTIVE_TIMBRE_TASKS:
             ACTIVE_TIMBRE_TASKS[task_id]["closed"] = True
-        try:
+        with contextlib.suppress(Exception):
             await websocket.close()
-        except Exception as e:
-            # 2026-06-25 P2 加固: 记录异常便于排查
-            logger.debug(f"websocket close failed (timbre): {e}")

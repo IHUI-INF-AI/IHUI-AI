@@ -10,6 +10,7 @@ Java 端:
 import base64
 import json
 import logging
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Query
@@ -26,7 +27,7 @@ router = APIRouter(prefix="/google", tags=["Google 鉴权"])
 # ---------------------------------------------------------------------------
 # JWKS 本地验签缓存
 # ---------------------------------------------------------------------------
-_GOOGLE_JWKS_CACHE = {"keys": []}
+_GOOGLE_JWKS_CACHE: dict[str, Any] = {"keys": []}
 _GOOGLE_JWKS_TTL = 3600  # 1 小时
 
 
@@ -230,7 +231,7 @@ async def android_wx_code(id_token: str = Query(..., alias="id_token", descripti
 
 
 @router.get("/config", summary="返回当前 Google OAuth 配置 (脱敏)")
-def google_config_status():
+async def google_config_status():
     """运维端点, 用于确认配置是否加载."""
     cfg = _google_config()
     audiences = list(cfg["app_ids"]) or ([cfg["app_id"]] if cfg["app_id"] else [])

@@ -65,7 +65,7 @@ def _import_all_models():
             __import__(f"app.models.{m}", fromlist=["*"])
             imported += 1
         except Exception as e:
-            logger.warning(f"skip model module {m}: {e}")
+            logger.debug(f"skip model {m}: {e}")
     # 也 import 所有 v1 模块的模型类
     try:
         from app.api.v1 import router as v1_router

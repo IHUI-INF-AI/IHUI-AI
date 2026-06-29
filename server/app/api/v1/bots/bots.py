@@ -1,5 +1,7 @@
 """Coze Bot 完整 CRUD 路由(基于 coze_compat.CozeClient)."""
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 
 from app.schemas.common import error, success
@@ -63,7 +65,7 @@ async def update_bot(
     persona: str = Query(None),
     user_uuid: str = Depends(require_login),
 ):
-    payload = {}
+    payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
     if description is not None:

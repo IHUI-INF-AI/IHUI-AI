@@ -6,7 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **uuid** | **string** | User UUID | [default to undefined]
-**platform** | **string** | Platform name (wechat, google, alipay, feishu) | [default to undefined]
+**platform** | **string** | Platform name (wechat, google, alipay) | [default to undefined]
 
 ## Example
 

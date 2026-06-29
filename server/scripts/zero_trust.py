@@ -12,8 +12,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -29,7 +28,7 @@ POLICY_EFFECTS = ["allow", "deny"]
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.utcnow().isoformat() + "Z"
 
 
 def _init_db() -> None:
@@ -101,30 +100,14 @@ def _init_db() -> None:
     conn.close()
 
 
+_init_db()
 _conn_lock = threading.Lock()
-_db_ready = False
 
 
-def _ensure_db() -> None:
-    global _db_ready
-    if not _db_ready:
-        _init_db()
-        _db_ready = True
-
-
-@contextmanager
-def _conn():
-    _ensure_db()
+def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
-    try:
-        yield c
-        c.commit()
-    except Exception:
-        c.rollback()
-        raise
-    finally:
-        c.close()
+    return c
 
 
 def _fingerprint(data: bytes) -> str:
@@ -138,8 +121,8 @@ def issue_identity(spiffe_id: str, workload_type: str = "service",
         trust_level = "medium"
     if not spiffe_id.startswith("spiffe://"):
         spiffe_id = "spiffe://default/" + spiffe_id
-    expires = (datetime.now(timezone.utc).timestamp() + ttl_seconds)
-    expires_str = datetime.fromtimestamp(expires, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    expires = (datetime.utcnow().timestamp() + ttl_seconds)
+    expires_str = datetime.utcfromtimestamp(expires).isoformat() + "Z"
     key_bytes = secrets.token_bytes(32)
     fp = _fingerprint(key_bytes)
     iid = str(uuid.uuid4())
@@ -189,7 +172,7 @@ def evaluate_access(spiffe_id: str, resource: str, action: str = "read",
                      verifications: Optional[List[str]] = None) -> Dict:
     """评估访问请求"""
     verifications = verifications or []
-    with _conn_lock, _conn() as c:
+    with _conn() as c:
         identity = c.execute("""SELECT * FROM identities WHERE spiffe_id=?""",
                               (spiffe_id,)).fetchone()
         policies = c.execute("""SELECT * FROM policies""").fetchall()
@@ -259,10 +242,11 @@ def rotate_key(spiffe_id: str, reason: str = "scheduled") -> str:
     """轮换密钥"""
     new_bytes = secrets.token_bytes(32)
     new_fp = _fingerprint(new_bytes)
-    with _conn_lock, _conn() as c:
+    with _conn() as c:
         old = c.execute("""SELECT public_key_fingerprint FROM identities WHERE spiffe_id=?""",
                          (spiffe_id,)).fetchone()
-        old_fp = old["public_key_fingerprint"] if old else ""
+    old_fp = old["public_key_fingerprint"] if old else ""
+    with _conn_lock, _conn() as c:
         c.execute("""UPDATE identities SET public_key_fingerprint=? WHERE spiffe_id=?""",
                    (new_fp, spiffe_id))
         hid = str(uuid.uuid4())
@@ -275,7 +259,7 @@ def rotate_key(spiffe_id: str, reason: str = "scheduled") -> str:
 
 def get_security_report() -> Dict:
     """安全报告"""
-    with _conn_lock, _conn() as c:
+    with _conn() as c:
         total_id = c.execute("""SELECT COUNT(*) as c FROM identities""").fetchone()["c"]
         revoked = c.execute("""SELECT COUNT(*) as c FROM identities WHERE revoked=1""").fetchone()["c"]
         total_logs = c.execute("""SELECT COUNT(*) as c FROM access_logs""").fetchone()["c"]
@@ -377,7 +361,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def start_server() -> None:
-    s = HTTPServer(("127.0.0.1", HTTP_PORT), _Handler)
+    s = HTTPServer(("0.0.0.0", HTTP_PORT), _Handler)
     t = threading.Thread(target=s.serve_forever, daemon=True)
     t.start()
 

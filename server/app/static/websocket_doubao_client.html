@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>豆包 WebSocket 测试客户端</title>
+    <style>
+        /* 扁平化设计：禁止 text-shadow、禁止 box-shadow，用 border 分隔 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #f5f7fa;
+            color: #303133;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            padding: 24px;
+        }
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #ebeef5;
+        }
+        .desc {
+            font-size: 13px;
+            color: #909399;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+        label {
+            font-size: 13px;
+            color: #606266;
+            min-width: 100px;
+        }
+        input, select, textarea {
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #303133;
+            background: #fff;
+            outline: none;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #409eff;
+        }
+        input { flex: 1; }
+        textarea {
+            width: 100%;
+            min-height: 80px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        button {
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            padding: 8px 20px;
+            font-size: 13px;
+            cursor: pointer;
+            background: #fff;
+            color: #606266;
+        }
+        button:hover {
+            border-color: #409eff;
+            color: #409eff;
+        }
+        button.primary {
+            background: #409eff;
+            border-color: #409eff;
+            color: #fff;
+        }
+        button.primary:hover {
+            background: #66b1ff;
+            border-color: #66b1ff;
+            color: #fff;
+        }
+        button.danger {
+            border-color: #f56c6c;
+            color: #f56c6c;
+        }
+        button.danger:hover {
+            background: #f56c6c;
+            color: #fff;
+        }
+        button:disabled {
+            background: #f5f7fa;
+            border-color: #e4e7ed;
+            color: #c0c4cc;
+            cursor: not-allowed;
+        }
+        .status-bar {
+            font-size: 13px;
+            padding: 8px 12px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            background: #f5f7fa;
+        }
+        .status-bar.connected {
+            border-color: #67c23a;
+            color: #67c23a;
+            background: #f0f9eb;
+        }
+        .status-bar.disconnected {
+            border-color: #909399;
+            color: #909399;
+        }
+        .status-bar.connecting {
+            border-color: #e6a23c;
+            color: #e6a23c;
+            background: #fdf6ec;
+        }
+        .log-area {
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            background: #fafafa;
+            padding: 12px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid #f0f0f0;
+            word-break: break-all;
+        }
+        .log-line.recv { color: #67c23a; }
+        .log-line.send { color: #409eff; }
+        .log-line.error { color: #f56c6c; }
+        .log-line.info { color: #909399; }
+        .log-time { color: #c0c4cc; margin-right: 8px; }
+        .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>豆包 WebSocket 测试客户端</h1>
+        <div class="desc">
+            用于本地调试豆包格式消息通道。连接 <code>/ws/user/{user_uuid}</code> 私有通道，<br>
+            后端通过 <code>send_doubao_message</code> 推送豆包格式响应（含 status 字段）。
+        </div>
+
+        <div class="form-row">
+            <label>服务地址：</label>
+            <input type="text" id="wsUrl" value="ws://localhost:8000/ws/user/" placeholder="ws://host:port/ws/user/">
+        </div>
+        <div class="form-row">
+            <label>User UUID：</label>
+            <input type="text" id="userUuid" placeholder="用户唯一标识">
+        </div>
+        <div class="form-row">
+            <label>认证 Token：</label>
+            <input type="text" id="token" placeholder="Bearer Token（ws_require_auth）">
+        </div>
+
+        <div class="actions">
+            <button class="primary" id="connectBtn" onclick="connect()">连接</button>
+            <button class="danger" id="disconnectBtn" onclick="disconnect()" disabled>断开</button>
+            <button onclick="clearLog()">清空日志</button>
+        </div>
+
+        <div class="status-bar disconnected" id="statusBar">● 未连接</div>
+
+        <div class="form-row" style="margin-top: 20px;">
+            <label>消息内容：</label>
+        </div>
+        <textarea id="msgInput" placeholder='{"text":"你好","type":"text","role":"user"}'></textarea>
+        <div class="actions">
+            <button class="primary" id="sendBtn" onclick="sendMessage()" disabled>发送</button>
+            <button onclick="fillTemplate()">填充模板</button>
+        </div>
+
+        <div class="log-area" id="logArea"></div>
+    </div>
+
+    <script>
+        let ws = null;
+
+        function log(msg, type) {
+            const area = document.getElementById('logArea');
+            const time = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.className = 'log-line ' + (type || 'info');
+            line.innerHTML = '<span class="log-time">[' + time + ']</span>' + msg;
+            area.appendChild(line);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logArea').innerHTML = '';
+        }
+
+        function setStatus(text, cls) {
+            const bar = document.getElementById('statusBar');
+            bar.textContent = text;
+            bar.className = 'status-bar ' + cls;
+        }
+
+        function fillTemplate() {
+            document.getElementById('msgInput').value = JSON.stringify({
+                text: '你好，这是测试消息',
+                type: 'text',
+                role: 'user'
+            }, null, 2);
+        }
+
+        function connect() {
+            const baseUrl = document.getElementById('wsUrl').value.trim();
+            const uuid = document.getElementById('userUuid').value.trim();
+            const token = document.getElementById('token').value.trim();
+
+            if (!baseUrl || !uuid) {
+                log('请填写服务地址和 User UUID', 'error');
+                return;
+            }
+
+            const url = baseUrl + uuid + (token ? '?token=' + encodeURIComponent(token) : '');
+            setStatus('● 连接中...', 'connecting');
+            log('正在连接: ' + url, 'info');
+
+            try {
+                ws = new WebSocket(url);
+            } catch (e) {
+                log('连接异常: ' + e.message, 'error');
+                setStatus('● 连接失败', 'disconnected');
+                return;
+            }
+
+            ws.onopen = function() {
+                log('连接已建立', 'recv');
+                setStatus('● 已连接', 'connected');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            };
+
+            ws.onmessage = function(event) {
+                log('收到: ' + event.data, 'recv');
+            };
+
+            ws.onerror = function(event) {
+                log('连接错误', 'error');
+                setStatus('● 连接错误', 'disconnected');
+            };
+
+            ws.onclose = function(event) {
+                log('连接已关闭 (code=' + event.code + ', reason=' + event.reason + ')', 'info');
+                setStatus('● 未连接', 'disconnected');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                ws = null;
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+
+        function sendMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('未连接，无法发送', 'error');
+                return;
+            }
+            const text = document.getElementById('msgInput').value;
+            if (!text.trim()) {
+                log('消息不能为空', 'error');
+                return;
+            }
+            let payload = text;
+            try {
+                const obj = JSON.parse(text);
+                payload = JSON.stringify(obj);
+            } catch (e) {
+                // 非JSON，作为纯文本发送
+            }
+            ws.send(payload);
+            log('发送: ' + payload, 'send');
+        }
+
+        // 页面加载提示
+        log('豆包 WebSocket 测试客户端已就绪', 'info');
+        log('端点: /ws/user/{user_uuid} （需 ws_require_auth 认证）', 'info');
+    </script>
+</body>
+</html>

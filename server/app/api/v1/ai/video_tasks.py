@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/list", summary="视频任务列表")
-def list_video_tasks(
+async def list_video_tasks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     status: str = Query(None, description="任务状态过滤: accepted / processing / completed / failed"),
@@ -40,7 +40,7 @@ def list_video_tasks(
 
 
 @router.get("/{task_id}", summary="任务详情")
-def get_video_task(
+async def get_video_task(
     task_id: str,
     user_uuid: str = Depends(require_login),
 ):

@@ -39,7 +39,7 @@ def _load_platform_cert() -> object | None:
     """加载平台公钥证书."""
     try:
         with open(settings.WX_PAY_PLATFORM_CERT_PATH, "rb") as f:
-            return serialization.load_pem_x509_certificate(f.read(), default_backend()).public_key()
+            return serialization.load_pem_x509_certificate(f.read(), default_backend()).public_key()  # type: ignore[attr-defined]
     except Exception as e:
         logger.warning(f"Load WX platform cert failed: {e}")
         return None
@@ -55,7 +55,7 @@ def build_authorization(method: str, url: str, body: str) -> str:
     if not private_key:
         return f'WECHATPAY2-SHA256-RSA2048 mchid="{settings.WX_SHOP_ID}"'
     signature = base64.b64encode(
-        private_key.sign(
+        private_key.sign(  # type: ignore[attr-defined]
             sign_str.encode("utf-8"),
             padding.PKCS1v15(),
             hashes.SHA256(),
@@ -79,7 +79,7 @@ def verify_callback_signature(timestamp: str, nonce: str, body: str, signature: 
         logger.warning("WX platform cert missing, skip verify (DEV only)")
         return True
     try:
-        public_key.verify(
+        public_key.verify(  # type: ignore[attr-defined]
             base64.b64decode(signature),
             sign_str.encode("utf-8"),
             padding.PKCS1v15(),
@@ -175,7 +175,7 @@ def build_jsapi_sign(prepay_id: str) -> dict:
     if not private_key:
         return {"timestamp": timestamp, "nonceStr": nonce, "package": package, "signType": "RSA", "paySign": ""}
     signature = base64.b64encode(
-        private_key.sign(sign_str.encode("utf-8"), padding.PKCS1v15(), hashes.SHA256())
+        private_key.sign(sign_str.encode("utf-8"), padding.PKCS1v15(), hashes.SHA256())  # type: ignore[attr-defined]
     ).decode("utf-8")
     return {
         "timestamp": timestamp,

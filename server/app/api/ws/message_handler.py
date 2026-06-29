@@ -8,7 +8,7 @@ from typing import Any
 
 from loguru import logger
 
-from app.api.ws.public_socket import send_message_to_user_model
+from app.api.ws.public_socket import send_message_to_user_model  # type: ignore[attr-defined]
 
 
 async def send_formatted_message(

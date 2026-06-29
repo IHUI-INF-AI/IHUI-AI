@@ -7,7 +7,6 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, St
 from app.database import Base, get_session
 from app.models.base import TimestampMixin
 from app.schemas.common import error, success
-from app.utils.datetime_helper import utcnow
 
 
 class TboxDevice(TimestampMixin, Base):
@@ -60,7 +59,7 @@ router = APIRouter()
 
 
 @router.get("/device/list", summary="设备列表")
-def list_devices(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+async def list_devices(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                         user_id: str | None = None, device_type: str | None = None,
                         status: int | None = None, is_online: bool | None = None):
     with get_session() as db:
@@ -92,7 +91,7 @@ def list_devices(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100
 
 
 @router.get("/device/{device_no}", summary="设备详情")
-def get_device(device_no: str):
+async def get_device(device_no: str):
     with get_session() as db:
         try:
             d = db.query(TboxDevice).filter(TboxDevice.device_no == device_no).first()
@@ -112,7 +111,7 @@ def get_device(device_no: str):
 
 
 @router.post("/device", summary="注册设备")
-def register_device(device_no: str = Query(...), device_name: str | None = None,
+async def register_device(device_no: str = Query(...), device_name: str | None = None,
                            device_type: str = "tbox", model: str | None = None,
                            brand: str | None = None, iccid: str | None = None,
                            imei: str | None = None, firmware: str | None = None):
@@ -136,17 +135,18 @@ def register_device(device_no: str = Query(...), device_name: str | None = None,
 
 
 @router.post("/device/{device_no}/activate", summary="激活设备")
-def activate_device(device_no: str, user_id: str = Query(...),
+async def activate_device(device_no: str, user_id: str = Query(...),
                             user_name: str | None = None):
     with get_session() as db:
         try:
+            from datetime import datetime
             d = db.query(TboxDevice).filter(TboxDevice.device_no == device_no).first()
             if not d:
                 return error("设备不存在", "404")
             d.user_id = user_id
             d.user_name = user_name or "匿名用户"
             d.status = 1
-            d.activated_at = utcnow()
+            d.activated_at = datetime.utcnow()
             return success()
         except Exception as e:
             logger.error(f"tbox device activate error: {e}")
@@ -154,12 +154,13 @@ def activate_device(device_no: str, user_id: str = Query(...),
 
 
 @router.post("/device/heartbeat", summary="设备心跳")
-def heartbeat(device_no: str = Query(...),
+async def heartbeat(device_no: str = Query(...),
                      is_online: bool = True,
                      signal_strength: int = 0, battery: int = 0,
                      location: str | None = None):
     with get_session() as db:
         try:
+            from datetime import datetime
             d = db.query(TboxDevice).filter(TboxDevice.device_no == device_no).first()
             if not d:
                 return error("设备不存在", "404")
@@ -168,9 +169,9 @@ def heartbeat(device_no: str = Query(...),
             d.battery = battery
             d.location = location
             if is_online:
-                d.last_online_time = utcnow()
+                d.last_online_time = datetime.utcnow()
             else:
-                d.last_offline_time = utcnow()
+                d.last_offline_time = datetime.utcnow()
             return success()
         except Exception as e:
             logger.error(f"tbox heartbeat error: {e}")
@@ -178,16 +179,17 @@ def heartbeat(device_no: str = Query(...),
 
 
 @router.post("/device/{device_no}/command", summary="下发指令")
-def send_command(device_no: str, command: str = Query(...),
+async def send_command(device_no: str, command: str = Query(...),
                         params: str | None = None):
     with get_session() as db:
         try:
+            from datetime import datetime
             d = db.query(TboxDevice).filter(TboxDevice.device_no == device_no).first()
             if not d:
                 return error("设备不存在", "404")
             c = TboxCommand(
                 device_no=device_no, command=command, params=params,
-                status=0, send_time=utcnow(),
+                status=0, send_time=datetime.utcnow(),
             )
             db.add(c)
             db.flush()
@@ -198,7 +200,7 @@ def send_command(device_no: str, command: str = Query(...),
 
 
 @router.get("/command/list", summary="指令列表")
-def list_commands(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
+async def list_commands(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
                         device_no: str | None = None, status: int | None = None):
     with get_session() as db:
         try:

@@ -57,9 +57,9 @@ try:
         CANARY_AUDIT_WRITES,
     )
 except Exception:
-    CANARY_AUDIT_WRITES = None
-    CANARY_AUDIT_RETENTION_CLEANED = None
-    CANARY_AUDIT_ROWS = None
+    CANARY_AUDIT_WRITES = None  # type: ignore[assignment]
+    CANARY_AUDIT_RETENTION_CLEANED = None  # type: ignore[assignment]
+    CANARY_AUDIT_ROWS = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 DEFAULT_DB_PATH = os.environ.get("ZHS_CANARY_AUDIT_DB", "canary_audit.db")
@@ -161,8 +161,8 @@ class CanaryAuditStore:
                     try:
                         cnt = conn.execute("SELECT COUNT(*) FROM canary_audit").fetchone()[0]
                         _set_rows(int(cnt))
-                    except Exception as e:
-                        logger.debug("统计 canary_audit 行数失败: %s", e)
+                    except Exception:
+                        pass
                 finally:
                     conn.close()
         except Exception as e:
@@ -258,8 +258,8 @@ class CanaryAuditStore:
                     try:
                         cnt = conn.execute("SELECT COUNT(*) FROM canary_audit").fetchone()[0]
                         _set_rows(int(cnt))
-                    except Exception as e:
-                        logger.debug("清理后统计 canary_audit 行数失败: %s", e)
+                    except Exception:
+                        pass
                     _inc_retention(deleted)
                     return deleted
                 finally:

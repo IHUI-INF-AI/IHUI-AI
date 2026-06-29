@@ -1784,43 +1784,11 @@ class ZHSAutoUser(HttpUser):
         )
 
     @task(1)
-    def task_213(self):  # # [Ali Login/Auth: Alipay] Ali Pc Wx Code
-        self.client.get(
-            "/api/v1/auth/login/ali/pc/wxCode",
-            headers=self.headers,
-            name="/api/v1/auth/login/ali/pc/wxCode",
-        )
-
-    @task(1)
-    def task_214(self):  # # [Ali Login/Auth: Alipay] Ali Web Wx Code
-        self.client.get(
-            "/api/v1/auth/login/ali/web/wxCode",
-            headers=self.headers,
-            name="/api/v1/auth/login/ali/web/wxCode",
-        )
-
-    @task(1)
     def task_215(self):  # # [Enterprise WeChat/Auth: Enterprise WeChat] Enterprise Pc Wx Code
         self.client.get(
             "/api/v1/auth/login/enterprise/pc/wxCode",
             headers=self.headers,
             name="/api/v1/auth/login/enterprise/pc/wxCode",
-        )
-
-    @task(1)
-    def task_216(self):  # # [Feishu Auth/Auth: Feishu] Feishu Pc Wx Code
-        self.client.get(
-            "/api/v1/auth/login/feishu/pc/wxCode",
-            headers=self.headers,
-            name="/api/v1/auth/login/feishu/pc/wxCode",
-        )
-
-    @task(1)
-    def task_217(self):  # # [Feishu Auth/Auth: Feishu] Feishu Pc Test
-        self.client.get(
-            "/api/v1/auth/login/feishu/pc/test",
-            headers=self.headers,
-            name="/api/v1/auth/login/feishu/pc/test",
         )
 
     @task(1)

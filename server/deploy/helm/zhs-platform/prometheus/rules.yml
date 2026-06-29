@@ -1,7 +1,45 @@
 # Prometheus 告警规则 (8 大类: 实例/连接/死锁/回滚/缓存/复制/膨胀/长事务)
 # 项目硬约束要求覆盖 8 类场景, 本文件已实现.
+# 建议 117: 新增业务指标多租户聚合告警 (zhs_biz_requests_total + sum by (tenant))
 
 groups:
+  # 0. 业务指标多租户告警 (建议 117)
+  - name: zhs-biz-tenant-traffic
+    interval: 30s
+    rules:
+      - alert: BizTenantTrafficSpike
+        expr: sum by (tenant) (rate(zhs_biz_requests_total[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: biz-tenant
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 业务 QPS {{ $value }}"
+          description: "某租户 5 分钟内业务请求速率 > 10 req/s, 可能是异常流量或限流未生效"
+
+      - alert: BizTenantErrorRateHigh
+        expr: |
+          sum by (tenant) (rate(zhs_biz_requests_total{status="500"}[5m]))
+          /
+          clamp_min(sum by (tenant) (rate(zhs_biz_requests_total[5m])), 1) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: biz-tenant
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 业务错误率 {{ $value | humanizePercentage }}"
+          description: "某租户 5xx 错误率 > 10%, 检查业务逻辑/下游依赖"
+
+      - alert: BizTenantNoTraffic
+        expr: sum by (tenant) (zhs_biz_requests_total) == 0
+        for: 30m
+        labels:
+          severity: info
+          category: biz-tenant
+        annotations:
+          summary: "租户 {{ $labels.tenant }} 30 分钟无业务流量"
+          description: "某租户长时间无业务请求, 可能是租户停用或接入故障"
+
   # 1. 实例存活
   - name: zhs-pg-instance
     interval: 30s

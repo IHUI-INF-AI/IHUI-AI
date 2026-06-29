@@ -30,7 +30,7 @@ async def chat_with_bot(
     if conversation_id:
         body["conversation_id"] = conversation_id
     url = f"{settings.COZE_API_BASE}/v3/chat"
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(url, headers=headers, json=body, timeout=30)
             data = resp.json()

@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.ZhsInformationMapper">
+
+    <resultMap type="com.ai.manager.small.domain.ZhsInformation" id="ZhsInformationResult">
+        <result property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="type" column="type"/>
+        <result property="url" column="url"/>
+        <result property="sourceName" column="source_name"/>
+        <result property="sourceUrl" column="source_url"/>
+        <result property="sourceCreator" column="source_creator"/>
+        <result property="sourceTime" column="source_time"/>
+        <result property="insertTime" column="insert_time"/>
+        <result property="browse" column="browse"/>
+        <result property="creator" column="creator"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="update" column="update"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="creatorName" column="creator_name"/>
+    </resultMap>
+
+    <sql id="selectZhsInformationVo">
+        select id, title, content, type, url, source_name, source_url, source_creator, source_time, insert_time, browse, creator, created_time, `update`, update_time from zhs_information
+    </sql>
+
+    <select id="selectZhsInformationList" parameterType="com.ai.manager.small.domain.ZhsInformation" resultMap="ZhsInformationResult">
+        <include refid="selectZhsInformationVo"/>
+        <where>
+            <if test="title != null  and title != ''"> and title = #{title}</if>
+            <if test="content != null  and content != ''"> and content = #{content}</if>
+            <if test="type != null  and type != ''"> and type = #{type}</if>
+            <if test="url != null  and url != ''"> and url = #{url}</if>
+            <if test="sourceName != null  and sourceName != ''"> and source_name like concat('%', #{sourceName}, '%')</if>
+            <if test="sourceUrl != null  and sourceUrl != ''"> and source_url = #{sourceUrl}</if>
+            <if test="sourceCreator != null  and sourceCreator != ''"> and source_creator = #{sourceCreator}</if>
+            <if test="sourceTime != null "> and source_time = #{sourceTime}</if>
+            <if test="insertTime != null "> and insert_time <![CDATA[ <= ]]> #{insertTime}</if>
+            <if test="browse != null "> and browse = #{browse}</if>
+        </where>
+    </select>
+
+    <select id="selectZhsInformationById" parameterType="String" resultMap="ZhsInformationResult">
+        <include refid="selectZhsInformationVo"/>
+        where id = #{id}
+    </select>
+
+
+    <insert id="insertZhsInformation" parameterType="com.ai.manager.small.domain.ZhsInformation">
+        insert into zhs_information
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="title != null and title != ''">title,</if>
+            <if test="content != null">content,</if>
+            <if test="type != null and type != ''">`type`,</if>
+            <if test="url != null">url,</if>
+            <if test="sourceName != null and sourceName != ''">source_name,</if>
+            <if test="sourceUrl != null and sourceUrl != ''">source_url,</if>
+            <if test="sourceCreator != null">source_creator,</if>
+            <if test="sourceTime != null">source_time,</if>
+            <if test="insertTime != null">insert_time,</if>
+            <if test="browse != null">browse,</if>
+            <if test="creator != null">creator,</if>
+            <if test="createdTime != null">created_time,</if>
+            <if test="update != null">`update`,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="title != null and title != ''">#{title},</if>
+            <if test="content != null">#{content},</if>
+            <if test="type != null and type != ''">#{type},</if>
+            <if test="url != null">#{url},</if>
+            <if test="sourceName != null and sourceName != ''">#{sourceName},</if>
+            <if test="sourceUrl != null and sourceUrl != ''">#{sourceUrl},</if>
+            <if test="sourceCreator != null">#{sourceCreator},</if>
+            <if test="sourceTime != null">#{sourceTime},</if>
+            <if test="insertTime != null">#{insertTime},</if>
+            <if test="browse != null">#{browse},</if>
+            <if test="creator != null">#{creator},</if>
+            <if test="createdTime != null">#{createdTime},</if>
+            <if test="update != null">#{update},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+    <insert id="insertList">
+        insert into zhs_information (id, title, content, `type`, source_name, source_url, source_creator, source_time, insert_time, browse, creator_name, creator)
+        <foreach collection="zhsInformationList" item="item" open="value" separator=",">
+            (#{item.id}, #{item.title}, #{item.content}, #{item.type}, #{item.sourceName}, #{item.sourceUrl}, #{item.sourceCreator}, #{item.sourceTime}, #{item.insertTime}, #{item.browse}, #{item.creatorName}, #{item.creator})
+        </foreach>
+    </insert>
+
+    <update id="updateZhsInformation" parameterType="com.ai.manager.small.domain.ZhsInformation">
+        update zhs_information
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="type != null and type != ''">`type` = #{type},</if>
+            <if test="url != null">url = #{url},</if>
+            <if test="sourceName != null and sourceName != ''">source_name = #{sourceName},</if>
+            <if test="sourceUrl != null and sourceUrl != ''">source_url = #{sourceUrl},</if>
+            <if test="sourceCreator != null">source_creator = #{sourceCreator},</if>
+            <if test="sourceTime != null">source_time = #{sourceTime},</if>
+            <if test="insertTime != null">insert_time = #{insertTime},</if>
+            <if test="browse != null">browse = #{browse},</if>
+            <if test="creator != null">creator = #{creator},</if>
+            <if test="createdTime != null">created_time = #{createdTime},</if>
+            <if test="update != null">`update` = #{update},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteZhsInformationById" parameterType="String">
+        delete from zhs_information where id = #{id}
+    </delete>
+
+    <delete id="deleteZhsInformationByIds" parameterType="String">
+        delete from zhs_information where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+
+
+    <resultMap type="com.ai.manager.small.domain.ZhsDictionary" id="ZhsDictionaryResult">
+        <result property="id"    column="id"    />
+        <result property="code"    column="code"    />
+        <result property="name"    column="name"    />
+        <result property="prentId"    column="prent_id"    />
+        <result property="typeId"    column="type_id"    />
+        <result property="isInvalid"    column="is_invalid"    />
+        <result property="creator"    column="creator"    />
+        <result property="createdTime"    column="created_time"    />
+        <result property="update"    column="update"    />
+        <result property="updatedTime"    column="updated_time"    />
+    </resultMap>
+    <sql id="selectZhsDictionaryVo">
+        select id, code, name, prent_id, type_id, is_invalid, creator, created_time, `update`, updated_time from zhs_dictionary
+    </sql>
+    <select id="getDictionary" resultMap="ZhsDictionaryResult">
+        <include refid="selectZhsDictionaryVo"/>
+        <where>
+            type_id = 'd5b312f8-bbca-4943-b4f7-944cad20f905'
+            <if test="code != null  and code != ''"> and code = #{code}</if>
+            <if test="name != null  and name != ''"> and `name` like concat('%', #{name}, '%')</if>
+            <if test="prentId != null  and prentId != ''"> and prent_id = #{prentId}</if>
+            <if test="isInvalid != null "> and is_invalid = #{isInvalid}</if>
+        </where>
+        order by created_time
+    </select>
+    <select id="selectList" parameterType="com.ai.manager.small.domain.ZhsInformation" resultMap="ZhsInformationResult">
+        SELECT
+        i.id, i.title, i.content, i.type, i.url, i.source_name, i.source_url, i.source_creator, i.source_time, i.insert_time, i.browse, i.creator, i.created_time, i.`update`, i.update_time
+        <!-- d.`code` -->
+        FROM
+        zhs_information i
+        LEFT JOIN zhs_dictionary d ON i.`type` = d.`name`
+        <where>
+            d.`name` IS NOT NULL
+            and d.type_id = 'd5b312f8-bbca-4943-b4f7-944cad20f905'
+            <if test="insertTime != null">
+                and FROM_UNIXTIME(insert_time /1000,'%Y-%m-%d') <![CDATA[ < ]]> FROM_UNIXTIME(#{insertTime} /1000,'%Y-%m-%d')
+            </if>
+            <if test="insertTime == null">
+                and FROM_UNIXTIME(insert_time /1000,'%Y-%m-%d') <![CDATA[ = ]]>  FROM_UNIXTIME((
+                    SELECT
+                MAX(i2.insert_time)
+                    FROM
+                    zhs_information i2
+                    LEFT JOIN zhs_dictionary d2 ON i2.`type` = d2.`name`
+                    <where>
+                        <if test="type != null  and type != ''">and d2.`code` = #{type}</if>
+                    </where>
+                )/1000, '%Y-%m-%d')
+            </if>
+
+
+
+        <!--(
+                    SELECT
+                    MAX(i2.insert_time)
+                    FROM
+                    zhs_information i2
+                    LEFT JOIN zhs_dictionary d2 ON i2.`type` = d2.`name`
+                    <where>
+                        <if test="type != null  and type != ''">and d2.`code` = #{type}</if>
+                        <if test="insertTime != null ">and i2.`insert_time` <![CDATA[<]]> #{insertTime} </if>
+                    </where>
+                )-->
+            <!--<if test="insertTime != null "> and insert_time <![CDATA[ = ]]> (SELECT MAX(insert_time) FROM zhs_information  WHERE insert_time <![CDATA[<]]> #{insertTime}  )</if>-->
+            <if test="type != null  and type != ''"> and d.`code` = #{type}</if>
+        </where>
+        ORDER BY
+        insert_time DESC
+        /*limit 10*/
+    </select>
+    <select id="selectNewsList" resultMap="ZhsInformationResult">
+        SELECT
+        i.id, i.title, i.content, i.type, i.url, i.source_name, i.source_url, i.source_creator, i.source_time, i.insert_time, i.browse, i.creator, i.created_time, i.`update`, i.update_time
+        <!-- d.`code` -->
+        FROM
+        zhs_information i
+        <where>
+            `type` NOT LIKE '%赛道'
+            <if test="insertTime == null ">
+                AND insert_time <![CDATA[ = ]]> (SELECT MAX(i2.insert_time) FROM zhs_information i2 WHERE i2.`type` NOT LIKE '%赛道' <!-- i2.insert_time / 1000 <![CDATA[<]]> UNIX_TIMESTAMP(NOW()) - 86400  -->)
+            </if>
+            <if test="insertTime != null "> AND insert_time <![CDATA[ = ]]> (SELECT MAX(i3.insert_time) FROM zhs_information i3 WHERE i3.`type` NOT LIKE '%赛道' and i3.insert_time <![CDATA[<]]> #{insertTime}  )</if>
+        </where>
+        ORDER BY insert_time DESC
+        limit 10
+    </select>
+</mapper>

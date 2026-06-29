@@ -260,7 +260,7 @@ def run_fixtures() -> dict:
     inh = AlertInhibitor(ZHS_INHIBITION_PRESETS)
     results = []
     for sc in FIXTURE_SCENARIOS:
-        actual = inh.apply(sc["alerts"])
+        actual = inh.apply(sc["alerts"])  # type: ignore[arg-type]
         # 构造 surviving 集合 (用 (alertname, severity) 元组)
         surviving_keys = set()
         for a in actual:
@@ -269,7 +269,7 @@ def run_fixtures() -> dict:
         # 验证
         all_passed = True
         mismatches = []
-        for (an, sv), expected_role in sc["expected"].items():
+        for (an, sv), expected_role in sc["expected"].items():  # type: ignore[attr-defined]
             in_surviving = (an, sv) in surviving_keys
             if expected_role == "suppressed":
                 if in_surviving:

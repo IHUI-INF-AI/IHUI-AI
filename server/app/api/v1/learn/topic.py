@@ -1,322 +1,333 @@
-"""专题管理 API (迁移自 ihui-ai-edu-learn-service 专题模块)
-
-提供专题的增删改查、发布/取消发布/推荐, 以及专题课程关系管理。
-专题状态: 0=未发布 1=已发布 2=已删除。
-"""
-from fastapi import APIRouter, Query
+"""学习模块 - 专题学习/学习地图"""
+from fastapi import APIRouter, Body, Depends, Path, Query
 from loguru import logger
-from pydantic import BaseModel
 
-from app.core.current_user import current_user_id_or_guest
+from app.core.admin_auth import admin_required
 from app.database import get_session
-from app.models.learn_models import Topic, TopicLesson
-from app.schemas.common import error, page_result, success
+from app.models.learn_models import (
+    LearnTopic,
+    LearnTopicCategory,
+    LearnTopicCategoryRelation,
+    LearnTopicLesson,
+    LearnTopicTopicCategoryRelation,
+)
+from app.schemas.common import error, success
 
 router = APIRouter()
 
 
-def _uid() -> str:
-    return current_user_id_or_guest()
+# ============ 专题 ============
 
 
-def _uid_int() -> int | None:
-    """将当前用户 UUID 转为整数, 失败返回 None (兼容 BigInteger 列)."""
-    try:
-        return int(_uid())
-    except (TypeError, ValueError):
-        return None
-
-
-def _iso(dt) -> str | None:
-    return dt.isoformat() if dt else None
-
-
-def _to_dict(item: Topic) -> dict:
-    return {
-        "id": item.id,
-        "title": item.title,
-        "description": item.description,
-        "image": item.image,
-        "status": item.status,
-        "price": item.price,
-        "original_price": item.original_price,
-        "create_user_id": item.create_user_id,
-        "company_id": item.company_id,
-        "department_id": item.department_id,
-        "create_time": _iso(item.created_at),
-        "update_time": _iso(item.updated_at),
-    }
-
-
-def _lesson_to_dict(item: TopicLesson) -> dict:
-    return {
-        "id": item.id,
-        "lesson_id": item.lesson_id,
-        "topic_id": item.topic_id,
-        "create_time": _iso(item.created_at),
-    }
-
-
-class TopicCreate(BaseModel):
-    title: str
-    description: str | None = None
-    image: str | None = None
-    status: int = 0
-    price: int = 0
-    original_price: int = 0
-    company_id: int | None = None
-    department_id: int | None = None
-
-
-class TopicUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    image: str | None = None
-    status: int | None = None
-    price: int | None = None
-    original_price: int | None = None
-    company_id: int | None = None
-    department_id: int | None = None
-
-
-class TopicLessonCreate(BaseModel):
-    lesson_id: int
-
-
-@router.get("/list", summary="专题列表")
-def list_topics(
+@router.get("/topic/list", summary="专题列表")
+async def list_topics(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    status: int | None = None,
+    status: str | None = None,
     keyword: str | None = None,
 ):
     with get_session() as db:
         try:
-            q = db.query(Topic).filter(Topic.status != 2)
-            if status is not None:
-                q = q.filter(Topic.status == status)
+            q = db.query(LearnTopic)
+            if status:
+                q = q.filter(LearnTopic.status == status)
             if keyword:
-                q = q.filter(Topic.title.like(f"%{keyword}%"))
+                q = q.filter(LearnTopic.title.like(f"%{keyword}%"))
             total = q.count()
-            items = (
-                q.order_by(Topic.id.desc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-                .all()
+            items = q.order_by(LearnTopic.id.desc()).offset((page - 1) * limit).limit(limit).all()
+            return success(
+                [
+                    {
+                        "id": t.id,
+                        "title": t.title,
+                        "image": t.image,
+                        "status": t.status,
+                        "description": t.description,
+                        "price": float(t.price) if t.price is not None else 0,
+                        "original_price": float(t.original_price) if t.original_price is not None else 0,
+                    }
+                    for t in items
+                ],
+                total=total,
             )
-            return page_result([_to_dict(i) for i in items], total, page, limit)
         except Exception as e:
-            logger.exception("list_topics error")
+            logger.error(f"learn topic list error: {e}")
             return error(str(e))
 
 
-@router.get("/{topic_id}", summary="专题详情")
-def get_topic(topic_id: int):
+@router.get("/topic/{tid}", summary="专题详情")
+async def get_topic(tid: int):
     with get_session() as db:
         try:
-            item = db.query(Topic).filter(Topic.id == topic_id).first()
-            if not item:
-                return error("专题不存在")
-            return success(_to_dict(item))
-        except Exception as e:
-            logger.exception("get_topic error")
-            return error(str(e))
-
-
-@router.post("", summary="创建专题")
-def create_topic(body: TopicCreate):
-    with get_session() as db:
-        try:
-            item = Topic(
-                title=body.title,
-                description=body.description,
-                image=body.image,
-                status=body.status,
-                price=body.price,
-                original_price=body.original_price,
-                create_user_id=_uid_int(),
-                company_id=body.company_id,
-                department_id=body.department_id,
+            t = db.query(LearnTopic).filter(LearnTopic.id == tid).first()
+            if not t:
+                return error("专题不存在", "404")
+            lesson_ids = [r.lesson_id for r in db.query(LearnTopicLesson).filter(LearnTopicLesson.topic_id == tid).all()]
+            return success(
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "image": t.image,
+                    "status": t.status,
+                    "description": t.description,
+                    "price": float(t.price) if t.price is not None else 0,
+                    "lesson_ids": lesson_ids,
+                }
             )
-            db.add(item)
-            db.flush()
-            return success(_to_dict(item))
         except Exception as e:
-            logger.exception("create_topic error")
+            logger.error(f"learn topic get error: {e}")
             return error(str(e))
 
 
-@router.put("/{topic_id}", summary="更新专题")
-def update_topic(topic_id: int, body: TopicUpdate):
-    with get_session() as db:
-        try:
-            item = db.query(Topic).filter(Topic.id == topic_id).first()
-            if not item:
-                return error("专题不存在")
-            if body.title is not None:
-                item.title = body.title
-            if body.description is not None:
-                item.description = body.description
-            if body.image is not None:
-                item.image = body.image
-            if body.status is not None:
-                item.status = body.status
-            if body.price is not None:
-                item.price = body.price
-            if body.original_price is not None:
-                item.original_price = body.original_price
-            if body.company_id is not None:
-                item.company_id = body.company_id
-            if body.department_id is not None:
-                item.department_id = body.department_id
-            db.flush()
-            return success(_to_dict(item))
-        except Exception as e:
-            logger.exception("update_topic error")
-            return error(str(e))
-
-
-@router.delete("/{topic_id}", summary="删除专题")
-def delete_topic(topic_id: int):
-    with get_session() as db:
-        try:
-            item = db.query(Topic).filter(Topic.id == topic_id).first()
-            if not item:
-                return error("专题不存在")
-            item.status = 2
-            db.flush()
-            return success({"id": topic_id})
-        except Exception as e:
-            logger.exception("delete_topic error")
-            return error(str(e))
-
-
-@router.put("/{topic_id}/publish", summary="发布专题")
-def publish_topic(topic_id: int):
-    with get_session() as db:
-        try:
-            item = db.query(Topic).filter(Topic.id == topic_id).first()
-            if not item:
-                return error("专题不存在")
-            item.status = 1
-            db.flush()
-            return success(_to_dict(item))
-        except Exception as e:
-            logger.exception("publish_topic error")
-            return error(str(e))
-
-
-@router.put("/{topic_id}/unpublish", summary="取消发布专题")
-def unpublish_topic(topic_id: int):
-    with get_session() as db:
-        try:
-            item = db.query(Topic).filter(Topic.id == topic_id).first()
-            if not item:
-                return error("专题不存在")
-            item.status = 0
-            db.flush()
-            return success(_to_dict(item))
-        except Exception as e:
-            logger.exception("unpublish_topic error")
-            return error(str(e))
-
-
-@router.get("/recommend", summary="推荐专题列表")
-def list_recommend_topics(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+@router.post("/topic", summary="创建专题", dependencies=[Depends(admin_required)])
+async def create_topic(
+    title: str = Body(..., min_length=1, max_length=100),
+    image: str = Body(..., max_length=1000),
+    description: str = Body(""),
+    status: str = Body("draft"),
+    price: float = Body(0),
+    original_price: float = Body(0),
+    company_id: int | None = Body(None),
+    department_id: int | None = Body(None),
+    create_user_id: int | None = Body(None),
 ):
     with get_session() as db:
         try:
-            q = db.query(Topic).filter(Topic.status == 1)
-            total = q.count()
-            items = q.order_by(Topic.id.desc()).offset((page - 1) * limit).limit(limit).all()
-            return page_result([_to_dict(i) for i in items], total, page, limit)
-        except Exception as e:
-            logger.exception("list_recommend_topics error")
-            return error(str(e))
-
-
-@router.put("/{topic_id}/recommend", summary="推荐专题")
-def recommend_topic(topic_id: int):
-    with get_session() as db:
-        try:
-            item = db.query(Topic).filter(Topic.id == topic_id).first()
-            if not item:
-                return error("专题不存在")
-            # 推荐专题需先发布, 确保对学员可见
-            item.status = 1
+            t = LearnTopic(
+                title=title,
+                image=image,
+                description=description,
+                status=status,
+                price=price,
+                original_price=original_price,
+                company_id=company_id,
+                department_id=department_id,
+                create_user_id=create_user_id,
+            )
+            db.add(t)
             db.flush()
-            return success(_to_dict(item))
+            return success({"id": t.id})
         except Exception as e:
-            logger.exception("recommend_topic error")
+            logger.error(f"learn topic create error: {e}")
             return error(str(e))
 
 
-@router.get("/{topic_id}/lessons", summary="专题课程列表")
-def list_topic_lessons(
-    topic_id: int,
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+@router.put("/topic/{tid}", summary="修改专题", dependencies=[Depends(admin_required)])
+async def update_topic(
+    tid: int,
+    title: str | None = Body(None),
+    image: str | None = Body(None),
+    description: str | None = Body(None),
+    status: str | None = Body(None),
+    price: float | None = Body(None),
 ):
     with get_session() as db:
         try:
-            q = db.query(TopicLesson).filter(TopicLesson.topic_id == topic_id)
-            total = q.count()
+            t = db.query(LearnTopic).filter(LearnTopic.id == tid).first()
+            if not t:
+                return error("专题不存在", "404")
+            if title is not None:
+                t.title = title
+            if image is not None:
+                t.image = image
+            if description is not None:
+                t.description = description
+            if status is not None:
+                t.status = status
+            if price is not None:
+                t.price = price
+            return success({"id": t.id})
+        except Exception as e:
+            logger.error(f"learn topic update error: {e}")
+            return error(str(e))
+
+
+@router.delete("/topic/{tid}", summary="删除专题", dependencies=[Depends(admin_required)])
+async def delete_topic(tid: int):
+    with get_session() as db:
+        try:
+            t = db.query(LearnTopic).filter(LearnTopic.id == tid).first()
+            if not t:
+                return error("专题不存在", "404")
+            db.delete(t)
+            db.query(LearnTopicLesson).filter(LearnTopicLesson.topic_id == tid).delete()
+            db.query(LearnTopicTopicCategoryRelation).filter(LearnTopicTopicCategoryRelation.topic_id == tid).delete()
+            return success()
+        except Exception as e:
+            logger.error(f"learn topic delete error: {e}")
+            return error(str(e))
+
+
+@router.post("/topic/batch-delete", summary="批量删除专题", dependencies=[Depends(admin_required)])
+async def batch_delete_topics(ids: list[int] = Body(..., embed=True)):
+    with get_session() as db:
+        try:
+            if not ids:
+                return error("ids 不能为空", "400")
+            id_list = [int(i) for i in ids if i is not None]
+            db.query(LearnTopic).filter(LearnTopic.id.in_(id_list)).delete(synchronize_session=False)
+            db.query(LearnTopicLesson).filter(LearnTopicLesson.topic_id.in_(id_list)).delete(synchronize_session=False)
+            db.query(LearnTopicTopicCategoryRelation).filter(
+                LearnTopicTopicCategoryRelation.topic_id.in_(id_list)
+            ).delete(synchronize_session=False)
+            return success({"success": len(id_list), "failed": 0})
+        except Exception as e:
+            logger.error(f"learn topic batch delete error: {e}")
+            return error(str(e))
+
+
+@router.post("/topic/{tid}/bind-lesson", summary="专题绑定课程", dependencies=[Depends(admin_required)])
+async def bind_topic_lesson(tid: int = Path(...), lesson_id: int = Query(...)):
+    with get_session() as db:
+        try:
+            existing = (
+                db.query(LearnTopicLesson)
+                .filter(LearnTopicLesson.topic_id == tid, LearnTopicLesson.lesson_id == lesson_id)
+                .first()
+            )
+            if existing:
+                return success({"id": existing.id, "exists": True})
+            r = LearnTopicLesson(topic_id=tid, lesson_id=lesson_id)
+            db.add(r)
+            db.flush()
+            return success({"id": r.id})
+        except Exception as e:
+            logger.error(f"learn topic bind lesson error: {e}")
+            return error(str(e))
+
+
+# ============ 专题分类 ============
+
+
+@router.get("/topic-category/list", summary="专题分类列表")
+async def list_topic_categories():
+    with get_session() as db:
+        try:
             items = (
-                q.order_by(TopicLesson.id.desc())
-                .offset((page - 1) * limit)
-                .limit(limit)
+                db.query(LearnTopicCategory)
+                .filter(LearnTopicCategory.is_show)
+                .order_by(LearnTopicCategory.sort_order.asc())
                 .all()
             )
-            return page_result(
-                [_lesson_to_dict(i) for i in items], total, page, limit
+            return success(
+                [
+                    {
+                        "id": c.id,
+                        "name": c.name,
+                        "level": c.level,
+                        "image": c.image,
+                        "sort_order": c.sort_order,
+                    }
+                    for c in items
+                ]
             )
         except Exception as e:
-            logger.exception("list_topic_lessons error")
+            logger.error(f"learn topic category list error: {e}")
             return error(str(e))
 
 
-@router.post("/{topic_id}/lessons", summary="添加专题课程关系")
-def add_topic_lesson(topic_id: int, body: TopicLessonCreate):
+@router.post("/topic-category", summary="创建专题分类", dependencies=[Depends(admin_required)])
+async def create_topic_category(
+    name: str = Body(..., min_length=1, max_length=50),
+    level: int = Body(...),
+    image: str = Body(..., max_length=500),
+    sort_order: int = Body(1),
+    is_show: bool = Body(True),
+    is_show_index: bool = Body(True),
+    company_id: int = Body(0),
+    department_id: int = Body(0),
+    create_user_id: int = Body(0),
+):
     with get_session() as db:
         try:
-            exists = (
-                db.query(TopicLesson)
-                .filter(
-                    TopicLesson.topic_id == topic_id,
-                    TopicLesson.lesson_id == body.lesson_id,
-                )
-                .first()
+            c = LearnTopicCategory(
+                name=name,
+                level=level,
+                image=image,
+                sort_order=sort_order,
+                is_show=is_show,
+                is_show_index=is_show_index,
+                company_id=company_id,
+                department_id=department_id,
+                create_user_id=create_user_id,
             )
-            if exists:
-                return error("该课程已添加到专题")
-            item = TopicLesson(topic_id=topic_id, lesson_id=body.lesson_id)
-            db.add(item)
+            db.add(c)
             db.flush()
-            return success(_lesson_to_dict(item))
+            return success({"id": c.id})
         except Exception as e:
-            logger.exception("add_topic_lesson error")
+            logger.error(f"learn topic category create error: {e}")
             return error(str(e))
 
 
-@router.delete("/{topic_id}/lessons/{lesson_id}", summary="移除专题课程关系")
-def remove_topic_lesson(topic_id: int, lesson_id: int):
+@router.post("/topic-category/batch-delete", summary="批量删除专题分类", dependencies=[Depends(admin_required)])
+async def batch_delete_topic_categories(ids: list[int] = Body(..., embed=True)):
     with get_session() as db:
         try:
-            item = (
-                db.query(TopicLesson)
-                .filter(
-                    TopicLesson.topic_id == topic_id,
-                    TopicLesson.lesson_id == lesson_id,
-                )
-                .first()
+            if not ids:
+                return error("ids 不能为空", "400")
+            id_list = [int(i) for i in ids if i is not None]
+            db.query(LearnTopicCategory).filter(LearnTopicCategory.id.in_(id_list)).delete(
+                synchronize_session=False
             )
-            if not item:
-                return error("专题课程关系不存在")
-            db.delete(item)
-            db.flush()
-            return success({"topic_id": topic_id, "lesson_id": lesson_id})
+            db.query(LearnTopicCategoryRelation).filter(
+                (LearnTopicCategoryRelation.child_category_id.in_(id_list))
+                | (LearnTopicCategoryRelation.father_category_id.in_(id_list))
+            ).delete(synchronize_session=False)
+            db.query(LearnTopicTopicCategoryRelation).filter(
+                LearnTopicTopicCategoryRelation.category_id.in_(id_list)
+            ).delete(synchronize_session=False)
+            return success({"success": len(id_list), "failed": 0})
         except Exception as e:
-            logger.exception("remove_topic_lesson error")
+            logger.error(f"learn topic category batch delete error: {e}")
+            return error(str(e))
+
+
+@router.put("/topic-category/{cid}", summary="修改专题分类", dependencies=[Depends(admin_required)])
+async def update_topic_category(
+    cid: int,
+    name: str | None = Body(None),
+    image: str | None = Body(None),
+    sort_order: int | None = Body(None),
+    is_show: bool | None = Body(None),
+    is_show_index: bool | None = Body(None),
+):
+    with get_session() as db:
+        try:
+            c = db.query(LearnTopicCategory).filter(LearnTopicCategory.id == cid).first()
+            if not c:
+                return error("专题分类不存在", "404")
+            if name is not None:
+                c.name = name
+            if image is not None:
+                c.image = image
+            if sort_order is not None:
+                c.sort_order = sort_order
+            if is_show is not None:
+                c.is_show = is_show
+            if is_show_index is not None:
+                c.is_show_index = is_show_index
+            return success({"id": c.id})
+        except Exception as e:
+            logger.error(f"learn topic category update error: {e}")
+            return error(str(e))
+
+
+@router.delete("/topic-category/{cid}", summary="删除专题分类", dependencies=[Depends(admin_required)])
+async def delete_topic_category(cid: int):
+    with get_session() as db:
+        try:
+            c = db.query(LearnTopicCategory).filter(LearnTopicCategory.id == cid).first()
+            if not c:
+                return error("专题分类不存在", "404")
+            db.delete(c)
+            db.query(LearnTopicCategoryRelation).filter(
+                (LearnTopicCategoryRelation.child_category_id == cid)
+                | (LearnTopicCategoryRelation.father_category_id == cid)
+            ).delete()
+            db.query(LearnTopicTopicCategoryRelation).filter(
+                LearnTopicTopicCategoryRelation.category_id == cid
+            ).delete()
+            return success()
+        except Exception as e:
+            logger.error(f"learn topic category delete error: {e}")
             return error(str(e))

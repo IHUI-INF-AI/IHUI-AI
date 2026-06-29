@@ -64,16 +64,6 @@ def ws_require_auth(func: Callable) -> Callable:
         # 鉴权
         from app.ws.manager import authenticate_token
 
-        # 测试环境旁路: 通过 WS_AUTH_BYPASS=1 环境变量跳过鉴权
-        # 测试中用 query 中的 userId/user_uuid 显式指定身份
-        import os as _os
-        if _os.environ.get("WS_AUTH_BYPASS") == "1" and not token:
-            user_uuid = ws.query_params.get("userId") or ws.query_params.get("user_uuid") or "test-user"
-            kwargs["user_uuid"] = user_uuid
-            if "token_exp" in sig.parameters:
-                kwargs["token_exp"] = 0
-            return await func(*args, **kwargs)
-
         user_uuid = authenticate_token(token) if token else None
         if not user_uuid:
             await ws.close(code=1008, reason="Authentication required")
@@ -98,9 +88,8 @@ def ws_require_auth(func: Callable) -> Callable:
                     if payload and payload.get("exp"):
                         exp = payload["exp"]
                         token_exp = exp.timestamp() if hasattr(exp, "timestamp") else float(exp)
-                except Exception as e:
-                    # 2026-06-25 P2 加固: 记录异常, 便于排查 token 解析失败
-                    logger.debug(f"ws token decode failed: {e}")
+                except Exception:
+                    pass
             kwargs["token_exp"] = token_exp
 
         return await func(*args, **kwargs)

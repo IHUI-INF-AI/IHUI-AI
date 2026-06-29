@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ai.manager.small.mapper.OperateTokenFlowMapper">
+
+    <!-- OperateTokenFlow 实体类的 resultMap -->
+    <resultMap id="OperateTokenFlowMap" type="com.ai.manager.small.domain.OperateTokenFlow">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="tokenQuantity" column="token_quantity"/>
+        <result property="type" column="type"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="operateDesc" column="operate_desc"/>
+        <result property="tokenFree" column="token_free"/>
+        <result property="userUuid" column="user_uuid"/>
+    </resultMap>
+
+    <!-- TODO: 在这里定义 OperateTokenFlowMapper 接口中方法的 SQL 实现 -->
+
+    <!-- 插入 token 流水记录 (Service 层调用) -->
+    <insert id="insert" parameterType="com.ai.manager.small.domain.OperateTokenFlow" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO zhs_operate_token_flow (token_quantity, type, created_at, operate_desc, token_free, user_uuid)
+        VALUES (#{tokenQuantity}, #{type}, #{createdAt}, #{operateDesc}, #{tokenFree}, #{userUuid})
+    </insert>
+    <select id="getById" resultMap="OperateTokenFlowMap">
+        select id, user_id, token_quantity, token_free, user_uuid
+        from zhs_operate_token_flow
+        where id = #{id}
+             and `type` = 1
+          <!-- 判断时间在当天内的可以退换 -->
+             and created_at <![CDATA[ > ]]> UNIX_TIMESTAMP(NOW()) - 86400
+    </select>
+
+    <!-- TODO: Add SQL for selectById, selectByUserId, etc. if needed based on PHP -->
+
+</mapper> 

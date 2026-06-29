@@ -44,7 +44,7 @@ async def qwen_chat(
     }
     url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
     t0 = time.perf_counter()
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(url, headers=_headers(), json=body, timeout=30)
             track_event(EVENT_CHAT_RECEIVE, user_id=user_uuid, channel="qwen", model=model)
@@ -58,7 +58,7 @@ async def qwen_chat(
 
 
 @router.post("/chat/stream", summary="Qwen 流式聊天(SSE)")
-def qwen_chat_stream(
+async def qwen_chat_stream(
     model: str = Query("qwen-turbo"),
     message: str = Query(...),
     user_uuid: str = Depends(require_login),
@@ -73,7 +73,7 @@ def qwen_chat_stream(
     url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
 
     async def event_generator():
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient() as client:
             try:
                 async with client.stream(
                     "POST",

@@ -106,23 +106,12 @@ def _patch_record_extra(record) -> None:
         record["message"] = safe_log(msg)
 
 
-def install(extra_keys_to_mask: Iterable[str] = ()) -> None:
+def install(extra_keys_to_mask: Iterable[str] = SENSITIVE_KEYS) -> None:
     """接管 loguru 默认 sink, 任何日志自动脱敏.
 
     建议在 create_app 启动早期调用一次.
-
-    Args:
-        extra_keys_to_mask: 额外需要脱敏的字段名, 会合并到 SENSITIVE_KEYS 后重新编译正则.
     """
     from loguru import logger
-
-    # 合并额外脱敏 key, 重新编译 URL query 脱敏正则, 使 extra_keys_to_mask 实际生效.
-    global _SENSITIVE_KEY_PATTERN
-    keys = set(SENSITIVE_KEYS) | set(extra_keys_to_mask)
-    _SENSITIVE_KEY_PATTERN = re.compile(
-        r"(?P<key>(?:" + "|".join(re.escape(k) for k in keys) + r"))\s*=\s*" r"(?P<val>[^&\s]+)",
-        re.IGNORECASE,
-    )
 
     # 1. 添加脱敏 sink (stderr, 与默认行为一致)
     logger.add(
@@ -134,13 +123,11 @@ def install(extra_keys_to_mask: Iterable[str] = ()) -> None:
             "<level>{message}</level>"
         ),
         level="INFO",
-        filter=_patch_record_extra,
+        filter=_patch_record_extra,  # type: ignore[arg-type]
         enqueue=False,  # 测试时可关 enqueue
     )
     # 2. 替换默认 stderr handler (id=0), 让其也走脱敏
     try:
         logger.remove(0)
-    except Exception as e:
-        # 不用 loguru 记录: 此处脱敏 sink 已 add, loguru 日志会再次触发 _patch_record_extra,
-        # remove 失败路径下可能递归. 改用标准 stderr 输出.
-        print(f"log_mask.install: remove default handler failed: {e!r}", file=sys.stderr)
+    except Exception:
+        logger.warning("Caught unexpected exception")

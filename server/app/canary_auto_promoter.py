@@ -485,8 +485,8 @@ class CanaryAutoPromoter:
                 detail={"until_ts": until_ts, "paused_at": paused_at},
                 ts=paused_at,
             )
-        except Exception as e:
-            logger.debug("记录 canary pause 审计日志失败: %s", e)
+        except Exception:
+            pass
         return {
             "paused": True,
             "actor": actor,
@@ -532,8 +532,8 @@ class CanaryAutoPromoter:
                 detail={"was_paused": was_paused, "resumed_at": resumed_at},
                 ts=resumed_at,
             )
-        except Exception as e:
-            logger.debug("记录 canary resume 审计日志失败: %s", e)
+        except Exception:
+            pass
         return {
             "paused": False,
             "actor": actor,
@@ -568,8 +568,8 @@ class CanaryAutoPromoter:
                         reason="已 100% 全量",
                         ts=action_ts,
                     )
-                except Exception as e:
-                    logger.debug("记录 canary promote 审计日志失败: %s", e)
+                except Exception:
+                    pass
                 return {
                     "promoted": False,
                     "from": cur_value,
@@ -601,8 +601,8 @@ class CanaryAutoPromoter:
                         reason=str(e),
                         ts=action_ts,
                     )
-                except Exception as exc:
-                    logger.debug("记录 canary force_promote 失败审计日志失败: %s", exc)
+                except Exception:
+                    pass
                 return {
                     "promoted": False,
                     "from": cur_value,
@@ -639,8 +639,8 @@ class CanaryAutoPromoter:
                 detail={"override_was_paused": override_was_paused},
                 ts=action_ts,
             )
-        except Exception as e:
-            logger.debug("记录 canary force_promote 成功审计日志失败: %s", e)
+        except Exception:
+            pass
         return {
             "promoted": True,
             "from": ev.from_stage,
@@ -676,8 +676,8 @@ class CanaryAutoPromoter:
                         reason="已在最低阶段",
                         ts=action_ts,
                     )
-                except Exception as e:
-                    logger.debug("记录 canary force_rollback 失败审计日志失败: %s", e)
+                except Exception:
+                    pass
                 return {
                     "rolled_back": False,
                     "from": cur_value,
@@ -709,8 +709,8 @@ class CanaryAutoPromoter:
                         reason=str(e),
                         ts=action_ts,
                     )
-                except Exception as exc:
-                    logger.debug("记录 canary force_rollback 失败审计日志失败: %s", exc)
+                except Exception:
+                    pass
                 return {
                     "rolled_back": False,
                     "from": cur_value,
@@ -746,8 +746,8 @@ class CanaryAutoPromoter:
                 reason=reason or "人工紧急回滚",
                 ts=action_ts,
             )
-        except Exception as e:
-            logger.debug("记录 canary force_rollback 成功审计日志失败: %s", e)
+        except Exception:
+            pass
         return {
             "rolled_back": True,
             "from": ev.from_stage,
@@ -806,8 +806,8 @@ class CanaryAutoPromoter:
                 },
                 ts=decision["ts"],
             )
-        except Exception as e:
-            logger.debug("记录 canary 决策审计日志失败: %s", e)
+        except Exception:
+            pass
 
     def get_decision_log(self) -> list[dict]:
         with self._lock:

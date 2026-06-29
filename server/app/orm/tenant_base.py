@@ -33,7 +33,7 @@ import threading
 from typing import Any, ClassVar
 
 from sqlalchemy import MetaData
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 
 from app.core.tenant import get_current_tenant_id
 
@@ -236,7 +236,7 @@ class TenantBase(Base):
             from app.core.tenant import get_tenant_schema_name
 
             schema = get_tenant_schema_name(tid)
-        except Exception:
+        except (ValueError, Exception):
             schema = "public"
         new_meta = MetaData()
         with _tenant_models_lock:

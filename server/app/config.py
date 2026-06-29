@@ -3,11 +3,13 @@ Unified configuration using Pydantic Settings.
 Reads from .env files and environment variables.
 """
 
-import os
-import tempfile
-from typing import Any
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+try:
+    from pydantic import BaseSettings, Field
+    from pydantic import validator as _validator
+except ImportError:
+    from pydantic import Field, field_validator as _validator
+    from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -71,6 +73,27 @@ class Settings(BaseSettings):
     COZE_ACCOUNT_ID: str = ""
     DOUBAO_IMAGE_API_URL: str = ""
     COZE_PRIVATE_KEY: str = ""
+    # Coze 模型搜索工作流 ID (供 coze_workflow.run_model_search_workflow 使用)
+    COZE_MODEL_SEARCH_WORKFLOW_ID: str = "7575433446743375907"
+
+    # -------------------------------------------------------------------
+    # COZE OAuth 多模式 (设备端 / Web / PKCE / JWT 独立凭证)
+    # 参考: 历史 coze_zhs_py/config.py 第 116-124 行
+    # -------------------------------------------------------------------
+    COZE_DEVICE_OAUTH_CLIENT_ID: str = Field(default="", description="设备端 OAuth 客户端 ID")
+    COZE_WEB_OAUTH_CLIENT_ID: str = Field(default="", description="Web OAuth 客户端 ID")
+    COZE_WEB_OAUTH_CLIENT_SECRET: str = Field(default="", description="Web OAuth 客户端密钥")
+    COZE_WEB_OAUTH_REDIRECT_URI: str = Field(default="", description="Web OAuth 重定向 URI")
+    COZE_PKCE_OAUTH_CLIENT_ID: str = Field(default="", description="PKCE OAuth 客户端 ID")
+    COZE_JWT_OAUTH_CLIENT_ID: str = Field(default="", description="JWT OAuth 客户端 ID（独立于 COZE_OAUTH_APP_ID）")
+    COZE_JWT_OAUTH_PRIVATE_KEY: str = Field(default="", description="JWT OAuth 私钥（独立于 COZE_PRIVATE_KEY）")
+    COZE_JWT_OAUTH_PRIVATE_KEY_FILE_PATH: str = Field(default="", description="JWT OAuth 私钥文件路径")
+    COZE_JWT_OAUTH_PUBLIC_KEY_ID: str = Field(default="", description="JWT OAuth 公钥 ID（独立于 COZE_PUBLIC_KEY_ID）")
+
+    # ===================================================================
+    # SPECIAL BOT (特殊 bot 缓存配置, 对应历史 SpecialBotCache)
+    # ===================================================================
+    SPECIAL_BOT_IDS: str = ""  # 逗号分隔的特殊智能体 ID 列表
 
     # ===================================================================
     # WECHAT
@@ -102,6 +125,14 @@ class Settings(BaseSettings):
     LANGCHAIN_API_KEY: str = ""
 
     # ===================================================================
+    # 火山引擎实时语音
+    # ===================================================================
+    VOLC_APP_ID: str = Field(default="", description="火山引擎应用 ID")
+    VOLC_ACCESS_KEY: str = Field(default="", description="火山引擎访问密钥")
+    VOLC_RESOURCE_ID: str = Field(default="volc.speech.dialog", description="火山引擎资源 ID")
+    VOLC_APP_KEY: str = Field(default="", description="火山引擎应用密钥")
+
+    # ===================================================================
     # MCP 工具
     # ===================================================================
     MINIO_ENDPOINT: str = "http://minio:9000"
@@ -113,10 +144,6 @@ class Settings(BaseSettings):
     ALIPAY_GATEWAY: str = "https://openapi.alipay.com/gateway.do"
     ALIPAY_PRIVATE_KEY_PATH: str = "/ai_zhs/cert/appSecretRSA2048.txt"
     ALIPAY_PUBLIC_KEY_PATH: str = "/ai_zhs/cert/alipayPublicKey_RSA2.txt"
-    # 支持直接配置密钥字符串 (历史 edu server 迁移, 优先于文件路径)
-    ALIPAY_MERCHANT_PRIVATE_KEY: str = ""
-    ALIPAY_PUBLIC_KEY: str = ""
-    ALIPAY_SIGN_TYPE: str = "RSA2"
     ALIPAY_NOTIFY_URL: str = ""
     ALIPAY_RETURN_URL: str = ""
 
@@ -168,35 +195,18 @@ class Settings(BaseSettings):
     LUYALA_API_KEY: str = ""
     TENCENT_SECRET_ID: str = ""
     TENCENT_SECRET_KEY: str = ""
-    # TBox 事件通知 HMAC 签名密钥 (用于校验 X-Signature 头)
-    TBOX_NOTIFY_SECRET: str = ""
     BAIDU_API_KEY: str = ""
     SUNO_API_KEY: str = ""
     SORA2_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     BAILIAN_APP_ID: str = ""
-    # 智谱 API Key (兼容 GLM_API_KEY)
-    ZHIPU_API_KEY: str = ""
-    # 火山引擎 Volc App Key (豆包实时语音)
-    VOLC_APP_KEY: str = ""
-    # 特殊智能体ID列表 (逗号分隔, 使用特殊扣费规则)
-    SPECIAL_BOT_IDS: str = ""
-    # 聊天室系统管理员UUID
-    CHAT_ROOM_ADMIN_UUID: str = ""
-    # n8n Token 计算单位
-    N8N_TOKEN_COUNTING_UNIT: int = 3
-    # AI 智能体历史记录数
-    AI_AGENT_USE_HISTORY: int = 10
-    # AI 水印图片路径
-    AI_WATERMARK_PATH: str = ""
-    # 豆包图像生成 API URL
-    DOUBAO_IMAGE_API_URL: str = ""
-    # 短信API基础URL (历史 coze_zhs_py 迁移)
-    SMS_API_BASE_URL: str = ""
-    # 文件上传基础URL
-    FILE_UPLOAD_BASE_URL: str = ""
-    # 文件上传URL
-    FILE_UPLOAD_URL: str = ""
+
+    # ===================================================================
+    # DOUBAO STREAM EVENTS (豆包流式事件配置)
+    # ===================================================================
+    DOUBAO_STREAM_EVENT_THINKING: str = "conversation.message.delta"  # 思考过程事件
+    DOUBAO_STREAM_EVENT_COMPLETED: str = "conversation.chat.completed"  # 结果完成事件
+    COMMON_STREAM_EVENT_ERROR: str = "system.error"  # 通用错误事件 (WebSocket/LangChain 通用)
 
     # Google OAuth
     # Google OAuth 客户端 ID (支持多 client, 逗号分隔, 校验 aud 用)
@@ -213,74 +223,12 @@ class Settings(BaseSettings):
     VIDEO_ROOT: str = "/data/videos"
 
     # ===================================================================
-    # OBJECT STORAGE (OSS / S3 / Tencent COS)
+    # OBJECT STORAGE (OSS / S3)
     # ===================================================================
     OSS_ENDPOINT: str = ""
     OSS_ACCESS_KEY_ID: str = ""
     OSS_ACCESS_KEY_SECRET: str = ""
     OSS_BUCKET: str = ""
-    OSS_VISIT_PATH: str = ""  # 阿里云 OSS 访问域名 (如 https://yjs-learning.oss-cn-guangzhou.aliyuncs.com/)
-
-    # 腾讯云 COS 对象存储 (历史 ihui-ai-edu-oss-service 迁移)
-    TENCENT_COS_SECRET_ID: str = ""
-    TENCENT_COS_SECRET_KEY: str = ""
-    TENCENT_COS_BUCKET: str = ""  # 如 learning-1331526801
-    TENCENT_COS_REGION: str = ""  # 如 ap-shanghai
-    TENCENT_COS_VISIT_PATH: str = ""  # https://learning-1331526801.cos.ap-shanghai.myqcloud.com
-    TENCENT_COS_CDN_VISIT_PATH: str = ""  # https://lcdn.space-iot.net
-
-    # 文件存储模式: Local / AliYun / Minio / TencentCOS
-    OSS_FILE_MODE: str = "AliYun"
-    OSS_FILE_ROOT_PATH: str = "cloud-learning"
-    # 2026-06-25 修复: 原硬编码 /tmp/filetmp 在 Windows 上会创建到当前盘根
-    # 改用 tempfile.gettempdir() 跨平台; 也可由环境变量 LOCAL_FILE_DIR 覆盖
-    LOCAL_FILE_DIR: str = os.path.join(tempfile.gettempdir(), "zhs_local_files")
-
-    # ===================================================================
-    # TENCENT LIVE (腾讯云直播 - 历史 ihui-ai-edu-live-service 迁移)
-    # ===================================================================
-    TENCENT_LIVE_SECRET_ID: str = ""
-    TENCENT_LIVE_SECRET_KEY: str = ""
-    TENCENT_LIVE_ENDPOINT: str = "live.ap-guangzhou.tencentcloudapi.com"
-    TENCENT_LIVE_REGION: str = "ap-guangzhou"
-    TENCENT_LIVE_PUSH_DOMAIN: str = ""  # 如 push.chawind.com
-    TENCENT_LIVE_PULL_DOMAIN: str = ""  # 如 http://pull.chawind.com
-    TENCENT_LIVE_CALLBACK_KEY: str = ""  # 如 learningLive
-
-    # ===================================================================
-    # NOTIFICATION EMAIL (业务通知邮件 - 历史 ihui-ai-edu-notification-service 迁移)
-    # 与告警 SMTP 分开, 用于业务通知 (注册/订单/课程等)
-    # ===================================================================
-    NOTIFY_SMTP_HOST: str = ""  # 如 smtp.exmail.qq.com
-    NOTIFY_SMTP_PORT: int = 465
-    NOTIFY_SMTP_USER: str = ""  # 如 notice@chawind.com
-    NOTIFY_SMTP_PASSWORD: str = ""
-    NOTIFY_SMTP_PROTOCOL: str = "smtps"
-    NOTIFY_SMTP_DEFAULT_ENCODING: str = "utf-8"
-    NOTIFY_EMAIL_FROM: str = ""  # 发件人地址, 默认同 NOTIFY_SMTP_USER
-
-    # ===================================================================
-    # 253 SMS PLATFORM (253短信平台 - 历史 ihui-ai-edu-notification-service 迁移)
-    # ===================================================================
-    SMS_253_URL: str = "http://smssh1.253.com/msg/send/json"
-    SMS_253_ACCOUNT: str = ""
-    SMS_253_PASSWORD: str = ""
-    SMS_253_TEMPLATE: str = "Your verification code is: "
-    # 无锡物业短信 (备用通道)
-    SMS_WUXI_API_HOST: str = ""
-    SMS_WUXI_CLIENT_ID: str = ""
-    SMS_WUXI_CLIENT_SECRET: str = ""
-    SMS_WUXI_PREFIX: str = "[Notice]"
-    SMS_WUXI_REGISTER_TEMPLATE: str = "Your verification code is %s, valid for 5 minutes."
-
-    # ===================================================================
-    # MESSAGE QUEUE (消息队列 - 历史 RocketMQ 替代方案)
-    # 使用 Redis Stream 作为轻量消息队列 (无需额外部署 RabbitMQ)
-    # ===================================================================
-    MQ_ENABLED: bool = False  # 是否启用消息队列
-    MQ_BACKEND: str = "redis_stream"  # redis_stream / rabbitmq
-    MQ_REDIS_STREAM_PREFIX: str = "learning_"  # 历史 topic.prefix
-    MQ_RABBIT_URL: str = ""  # RabbitMQ 连接串 (如使用 rabbitmq 后端)
 
     # ===================================================================
     # ALIYUN SMS
@@ -298,9 +246,6 @@ class Settings(BaseSettings):
     # ===================================================================
     # THIRD PARTY
     # ===================================================================
-    FEISHU_SECRET: str = ""
-    FEISHU_OAUTH: str = ""
-    FEISHU_INFO: str = ""
     WECOM_SUITE_SECRET: str = ""
 
     # ===================================================================
@@ -317,28 +262,76 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 60
     SESSION_SECRET_KEY: str = ""
     CHAT_ROOM_ADMIN_UUID: str = ""
-    # 内网调用签名密钥 (用于校验 SSO uuid_login 等内部端点的 X-Internal-Auth 头)
-    INTERNAL_AUTH_KEY: str = ""
+
+    # ===================================================================
+    # SSL / HTTPS
+    # ===================================================================
+    SSL_ENABLED: bool = Field(default=False, description="是否启用 SSL")
+    SSL_CERT_FILE: str = Field(default="", description="SSL 证书文件路径")
+    SSL_KEY_FILE: str = Field(default="", description="SSL 私钥文件路径")
+    HTTPS_PORT: int = Field(default=8443, description="HTTPS 端口")
 
     # ===================================================================
     # SMS
     # ===================================================================
-    # SMS_API_BASE_URL 已在 AI Providers 部分定义
+    SMS_API_BASE_URL: str = ""
     SMS_VERIFY_ENDPOINT: str = "/ai/login/pwd/smsVerify"
     SMS_CODE_VERIFY_ENDPOINT: str = "/ai/login/pwd/verify"
+
+    # -------------------------------------------------------------------
+    # SMS 扩展 (模板 / 验证码 / 代理)
+    # -------------------------------------------------------------------
+    SMS_TEMP_ID: int = Field(default=1, description="短信模板 ID")
+    SMS_TEMP_CODE: str = Field(default="", description="短信验证码模板")
+    SMS_CODE_EXPIRE_SECONDS: int = Field(default=300, description="短信验证码过期秒数")
+    SMS_SEND_INTERVAL_SECONDS: int = Field(default=60, description="短信发送间隔秒数")
+    SMS_API_USE_PROXY: bool = Field(default=False, description="短信 API 是否使用代理")
+    SMS_API_ALLOW_INSECURE: bool = Field(default=False, description="短信 API 是否允许不安全连接")
+    SMS_PROXY_ENDPOINT: str = Field(default="", description="短信 API 代理端点")
+
+    # ===================================================================
+    # 邮箱验证码登录 (EMAIL LOGIN)
+    # 复用 SMTP_HOST/PORT/USER/PASSWORD 配置; 此处为验证码业务配置
+    # ===================================================================
+    EMAIL_CODE_EXPIRE_SECONDS: int = Field(default=300, description="邮箱验证码过期秒数")
+    EMAIL_SEND_INTERVAL_SECONDS: int = Field(default=60, description="邮箱发送间隔秒数")
+    EMAIL_CODE_LENGTH: int = Field(default=6, description="邮箱验证码长度")
+    EMAIL_LOGIN_ENABLED: bool = Field(default=True, description="是否启用邮箱验证码登录")
+    EMAIL_FROM_NAME: str = Field(default="智汇AI", description="发件人显示名称")
+
+    # ===================================================================
+    # EMAIL API Providers (免费邮件 API 服务, 用于生产环境发送真实邮件)
+    # 优先级: BREVO_API_KEY > RESEND_API_KEY > SMTP > 本地 SMTP (开发模式)
+    # 注册指南见 .env 文件注释
+    # ===================================================================
+    BREVO_API_KEY: str = Field(default="", description="Brevo API Key (免费300封/天)")
+    BREVO_SENDER_EMAIL: str = Field(default="", description="Brevo 发件人邮箱 (需在 Brevo 验证)")
+    BREVO_SENDER_NAME: str = Field(default="智汇AI", description="Brevo 发件人显示名称")
+    RESEND_API_KEY: str = Field(default="", description="Resend API Key (免费100封/天)")
+    RESEND_SENDER_EMAIL: str = Field(default="", description="Resend 发件人邮箱 (需在 Resend 验证)")
 
     # ===================================================================
     # FILE UPLOAD
     # ===================================================================
-    # FILE_UPLOAD_BASE_URL 和 FILE_UPLOAD_URL 已在 AI Providers 部分定义
+    FILE_UPLOAD_BASE_URL: str = ""
+    FILE_UPLOAD_URL: str = ""
     FILE_UPLOAD_NETWORK_URL: str = ""
 
     # ===================================================================
     # SRS MEDIA SERVER
     # ===================================================================
+    # 历史项目中仅定义未使用（srs_manager.py 缺失），保留供未来扩展
+    # 适用字段: SRS_HOST/SRS_RTMP_PORT/SRS_HTTP_API_PORT/SRS_BIN_PATH/SRS_CONF_PATH/START_SRS_WITH_APP/FFMPEG_BIN
+    # 注: STOP_SRS_ON_SHUTDOWN 历史中有调用, 不在此列; SRS_RTC_UDP_RANGE 仅供文档参考
     SRS_HOST: str = "127.0.0.1"
     SRS_RTMP_PORT: int = 1935
     SRS_HTTP_API_PORT: int = 1985
+    SRS_RTC_UDP_RANGE: str = "8000-8100"  # WebRTC UDP 端口区间 (仅文档用途)
+    FFMPEG_BIN: str = "ffmpeg"  # ffmpeg 可执行文件路径
+    SRS_BIN_PATH: str = "srs/trunk/objs/srs"  # SRS 二进制路径 (相对项目根)
+    SRS_CONF_PATH: str = "srs/conf/srs_rtc.conf"  # SRS 配置路径 (相对项目根)
+    START_SRS_WITH_APP: bool = True  # 启动应用时自动启动 SRS
+    STOP_SRS_ON_SHUTDOWN: bool = True  # 关闭应用时自动停止 SRS
 
     # ===================================================================
     # TOKEN PRICING
@@ -368,6 +361,26 @@ class Settings(BaseSettings):
     AI_FIRST_GIFT_TOKENS: int = 18888
     AI_COMMISSION_DAY: int = 7
 
+    # ===================================================================
+    # MODEL LIST (模型列表配置, 对应历史 modelList)
+    # ===================================================================
+    # 历史项目中仅定义未使用（死配置），保留供未来扩展
+    MODEL_LIST: dict = Field(
+        default_factory=lambda: {
+            "qianwen": [
+                {"Qwen-Image-Edit": "图片编辑"},
+                {"Qwen-Image": "文生图"},
+                {"wan2.2-t2v-plus": "文生视频"},
+                {"wan2.2-i2v-flash": "图生视频"},
+            ],
+            "即梦": [
+                {"jimeng_t2i_v31": "即梦文生图"},
+                {"jimeng_ti2v_v30_pro": "即梦图生视频"},
+            ],
+            "混元3D": [{"ai3d.tencentcloudapi.com": "混元3D"}],
+        }
+    )
+
     CORS_ORIGINS: str = ""  # 逗号分隔的域名列表,空则允许所有
 
     # ===================================================================
@@ -384,124 +397,87 @@ class Settings(BaseSettings):
     PERSONALITY_N8N_TOKEN: str = ""
 
     # ===================================================================
-    # ENTERPRISE WECHAT / FEISHU / ALI LOGIN
+    # ENTERPRISE WECHAT
     # ===================================================================
     WECOM_CORP_ID: str = ""
     WECOM_AGENT_ID: str = ""
     WECOM_SECRET: str = ""
-    FEISHU_APP_ID: str = ""
-    FEISHU_APP_SECRET: str = ""
-    ALI_LOGIN_APP_ID: str = ""
-    ALI_LOGIN_APP_SECRET: str = ""
-    ALI_LOGIN_PRIVATE_KEY: str = ""  # PEM 格式的 RSA2 应用私钥, 用于支付宝登录签名
-
-    # ===================================================================
-    # DINGTALK LOGIN (钉钉登录)
-    # ===================================================================
-    DINGTALK_API_HOST: str = "https://oapi.dingtalk.com"
-    DINGTALK_CORP_ID: str = ""
-    DINGTALK_APP_KEY: str = ""
-    DINGTALK_APP_SECRET: str = ""
-    DINGTALK_LOGIN_APP_ID: str = ""
-    DINGTALK_LOGIN_APP_SECRET: str = ""
-    DINGTALK_AGENT_ID: str = ""
-
-    # ===================================================================
-    # NOTIFICATION (站内信 - P1 封版 047)
-    # ===================================================================
-    # admin 接收方 UUID (站内信推送统一进他的 inbox, 多副本必须一致)
-    # 默认值: 00000000-0000-0000-0000-000000000001 (固定 admin UUID)
-    NOTIFY_RECIPIENT_UUID: str = "00000000-0000-0000-0000-000000000001"
-    # 站内信最大保留数 (FIFO 淘汰, 默认 1000)
-    NOTIFY_MAX: int = 1000
-
-    # ===================================================================
-    # SEED PASSWORDS (初始化种子密码 - 2026-06-26 历史项目迁移补全)
-    # ===================================================================
-    # 初始化管理员密码 (首次启动 seed_admin 脚本使用)
-    SEED_ADMIN_PWD: str = ""
-    # 初始化运营账号密码 (首次启动 seed_admin 脚本使用)
-    SEED_RY_PWD: str = ""
-
-    # ===================================================================
-    # WECHAT JSAPI (微信公众号/小程序 API - 2026-06-26 历史项目迁移补全)
-    # ===================================================================
-    # 公众号/小程序 access_token 获取地址
-    WX_JSAPI_TOKEN_URL: str = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s"
-    # 小程序手机号获取地址
-    WX_JSAPI_PHONE_URL: str = "https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=%s"
-    # 小程序首页路径
-    WX_JSAPI_HOME_URL: str = "pages/table/tools/index"
-
-    # ===================================================================
-    # SRS PROCESS MANAGEMENT (SRS 进程管理 - 2026-06-26 历史项目迁移补全)
-    # ===================================================================
-    SRS_BIN_PATH: str = "srs/trunk/objs/srs"
-    SRS_CONF_PATH: str = "srs/conf/srs_rtc.conf"
-    SRS_RTC_UDP_RANGE: str = "8000-8100"
-    START_SRS_WITH_APP: bool = True
-    STOP_SRS_ON_SHUTDOWN: bool = True
-    FFMPEG_BIN: str = "ffmpeg"
-
-    # ===================================================================
-    # KLING MODEL DOMAIN (可灵模型域名 - 2026-06-26 历史项目迁移补全)
-    # ===================================================================
-    KLING_MODEL_DOMAIN: str = "https://api-beijing.klingai.com"
-
-    # ===================================================================
-    # STREAM EVENT & TIMEOUT (流式响应事件名与超时 - 2026-06-26 历史项目迁移补全)
-    # ===================================================================
-    DOUBAO_STREAM_EVENT_THINKING: str = "conversation.message.delta"
-    DOUBAO_STREAM_EVENT_COMPLETED: str = "conversation.chat.completed"
-    COMMON_STREAM_EVENT_ERROR: str = "system.error"
-    WEBSOCKET_TIMEOUT: int = 900
-    DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
-    DASHSCOPE_TIMEOUT: int = 30
-    DASHSCOPE_MAX_RETRIES: int = 3
-    REQUEST_TIMEOUT: float = 600.0
-    CONNECT_TIMEOUT: float = 5.0
-    MAX_CONNECTIONS: int = 1000
-    MAX_KEEPALIVE_CONNECTIONS: int = 100
-    OAUTH_SESSION_EXPIRE_SECONDS: int = 1800
-    SMS_CODE_EXPIRE_SECONDS: int = 300
-    SMS_SEND_INTERVAL_SECONDS: int = 60
-
-    # ===================================================================
-    # DEFAULT RESOURCE URLS (默认资源 URL - 2026-06-26 历史项目迁移补全)
-    # ===================================================================
-    AI_DEFAULT_IMG_URL: str = ""
-    AI_DEFAULT_TEAM_URL: str = ""
-    AI_DEFAULT_MARGIN_URL: str = ""
-    AI_DEFAULT_PRODUCT_URL: str = ""
-    AI_DEFAULT_STATISTICS_URL: str = ""
-    AI_DEFAULT_ROLE_URL: str = ""
-    AI_WX_MINI_DEFAULT_PRODUCT_ACTIVITY: str = ""
-    AI_WX_MINI_DEFAULT_PRODUCT_TOKEN: str = ""
-    AI_WX_MINI_DEFAULT_PRODUCT_TRADER: str = ""
-    AI_WX_MINI_DEFAULT_PRODUCT_VIP: str = ""
-    AI_CREATOR_NAME: str = "AI_ZHS"
 
     model_config = SettingsConfigDict(
-        env_file=".env.production" if os.getenv("ENV", "").lower() in ("production", "prod") else ".env",
+        env_file=(".env.production", ".env"),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
     )
 
-    def model_post_init(self, __context: Any) -> None:
-        """启动后校验: SESSION_SECRET_KEY 为空时回退到 JWT_SECRET_KEY.
-
-        避免会话签名密钥默认空字符串导致的安全风险。
-        生产环境应由 .env 显式配置; 此处仅作兜底, 防止启动后 SESSION_SECRET_KEY 仍为空。
-        """
-        super().model_post_init(__context)
-        if not self.SESSION_SECRET_KEY:
-            self.SESSION_SECRET_KEY = self.JWT_SECRET_KEY
-        # 2026-06-25 修复: .env 中空字符串 LOCAL_FILE_DIR= 会被 Pydantic 视作有效值覆盖默认值
-        # 兜底回退到 tempfile.gettempdir() 跨平台默认目录, 避免在 Windows 上创建 G:\tmp\zhs_local_files
-        if not self.LOCAL_FILE_DIR:
-            self.LOCAL_FILE_DIR = os.path.join(tempfile.gettempdir(), "zhs_local_files")
+    @_validator("JWT_SECRET_KEY")
+    def _validate_jwt_secret(cls, v: str) -> str:  # type: ignore[no-redef]
+        """Validate JWT secret is not empty or placeholder."""
+        if not v or v == "YOUR_JWT_SECRET_KEY_HERE":
+            import os
+            import warnings
+            fallback = os.environ.get("JWT_SECRET_KEY", "")
+            if fallback and fallback != "YOUR_JWT_SECRET_KEY_HERE":
+                return fallback
+            warnings.warn("JWT_SECRET_KEY 未配置或为占位符, 使用默认开发密钥")
+            return "dev-only-insecure-key-do-not-use-in-production"
+        return v
 
 
 # Global settings instance
 settings = Settings()
+
+
+class SpecialBotCache:
+    """特殊智能体缓存管理器 (ported from historical config.py).
+
+    维护一份从 SPECIAL_BOT_IDS 解析出的特殊智能体 ID 集合，支持懒加载。
+    """
+
+    def __init__(self) -> None:
+        self._special_bot_ids: set = set()
+        self._initialized: bool = False
+
+    def initialize(self) -> None:
+        """从 settings.SPECIAL_BOT_IDS 解析并填充缓存。"""
+        raw = getattr(settings, "SPECIAL_BOT_IDS", "") or ""
+        ids = [s.strip() for s in raw.split(",") if s.strip()]
+        self._special_bot_ids = set(ids)
+        self._initialized = True
+
+    def is_special_bot(self, bot_id: str) -> bool:
+        """检查是否为特殊智能体。"""
+        if not self._initialized:
+            self.initialize()
+        return bot_id in self._special_bot_ids
+
+    def add_special_bot(self, bot_id: str) -> None:
+        """添加特殊智能体。
+
+        注: 历史项目 (coze_zhs_py) 中也未调用该方法, 保留供未来运行时动态注册特殊智能体扩展。
+        """
+        if not self._initialized:
+            self.initialize()
+        self._special_bot_ids.add(bot_id)
+
+    def remove_special_bot(self, bot_id: str) -> None:
+        """移除特殊智能体。
+
+        注: 历史项目 (coze_zhs_py) 中也未调用该方法, 保留供未来运行时动态注销特殊智能体扩展。
+        """
+        if not self._initialized:
+            self.initialize()
+        self._special_bot_ids.discard(bot_id)
+
+    def get_all_special_bots(self) -> set:
+        """获取所有特殊智能体 ID (副本)。
+
+        注: 历史项目 (coze_zhs_py) 中也未调用该方法, 保留供未来调试 / 运维查询场景扩展。
+        """
+        if not self._initialized:
+            self.initialize()
+        return set(self._special_bot_ids)
+
+
+# Global special bot cache instance (lazy-initialized on first use)
+special_bot_cache = SpecialBotCache()

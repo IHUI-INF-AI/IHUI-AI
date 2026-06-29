@@ -64,7 +64,7 @@ def generate_captcha(length: int = 4) -> tuple:
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
         except OSError:
-            font = ImageFont.load_default()
+            font = ImageFont.load_default()  # type: ignore[assignment]
 
     # Draw each character at a random position/angle
     for i, char in enumerate(code):

@@ -25,12 +25,12 @@ from loguru import logger
 
 try:
     from app.utils.elk_formatter import elk_format
-    from app.utils.log_mask import _mask_value
+    from app.utils.log_mask import _mask_value  # type: ignore[attr-defined]
     from app.utils.logstash_jsonl import record_to_jsonl
 except Exception:
     _mask_value = None
-    elk_format = None
-    record_to_jsonl = None
+    elk_format = None  # type: ignore[assignment]
+    record_to_jsonl = None  # type: ignore[assignment]
 
 
 class LogstashSink:
@@ -63,7 +63,7 @@ class LogstashSink:
             return
         # 用 jsonl codec 序列化 (兼容 Logstash json_lines)
         try:
-            payload = record_to_jsonl(record) if record_to_jsonl else (elk_format(record) if elk_format else str(message))
+            payload = record_to_jsonl(record) if record_to_jsonl else (elk_format(record) if elk_format else str(message))  # type: ignore[truthy-function]
         except Exception:
             payload = str(message)
         with self._lock:
@@ -104,13 +104,13 @@ class LogstashSink:
                 continue
             # 推送
             try:
-                self._sock.sendall((payload + "\n").encode("utf-8"))
+                self._sock.sendall((payload + "\n").encode("utf-8"))  # type: ignore[union-attr]
                 self._sent += 1
             except Exception as e:
                 logger.debug(f"Logstash send error: {e}")
                 self._errors += 1
                 with contextlib.suppress(Exception):
-                    self._sock.close()
+                    self._sock.close()  # type: ignore[union-attr]
                 self._sock = None
 
     def stats(self) -> dict:

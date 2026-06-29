@@ -52,7 +52,7 @@ router = APIRouter()
 
 
 @router.get("/position/list", summary="广告位列表")
-def position_list():
+async def position_list():
     with get_session() as db:
         try:
             items = db.query(AdvertisePosition).filter(AdvertisePosition.status == 1).all()
@@ -75,7 +75,7 @@ def position_list():
 
 
 @router.post("/position", summary="新增广告位")
-def create_position(
+async def create_position(
     name: str = Query(...), code: str = Query(...), description: str | None = None, width: int = 0, height: int = 0
 ):
     with get_session() as db:
@@ -90,7 +90,7 @@ def create_position(
 
 
 @router.get("/list", summary="广告列表")
-def list_advertises(
+async def list_advertises(
     position_id: int | None = None,
     status: int | None = None,
     page: int = Query(1, ge=1),
@@ -138,7 +138,7 @@ def list_advertises(
 
 
 @router.get("/{aid}", summary="广告详情")
-def get_advertise(aid: int):
+async def get_advertise(aid: int):
     with get_session() as db:
         try:
             a = db.query(Advertise).filter(Advertise.id == aid).first()
@@ -163,7 +163,7 @@ def get_advertise(aid: int):
 
 
 @router.post("", summary="新增广告")
-def create_advertise(
+async def create_advertise(
     title: str = Query(..., min_length=1, max_length=200),
     position_id: int = Query(...),
     image: str | None = None,
@@ -199,7 +199,7 @@ def create_advertise(
 
 
 @router.put("/{aid}", summary="修改广告")
-def update_advertise(
+async def update_advertise(
     aid: int,
     title: str | None = None,
     image: str | None = None,
@@ -229,7 +229,7 @@ def update_advertise(
 
 
 @router.delete("/{aid}", summary="删除广告")
-def delete_advertise(aid: int):
+async def delete_advertise(aid: int):
     with get_session() as db:
         try:
             a = db.query(Advertise).filter(Advertise.id == aid).first()
@@ -243,7 +243,7 @@ def delete_advertise(aid: int):
 
 
 @router.post("/{aid}/click", summary="记录广告点击")
-def record_click(aid: int):
+async def record_click(aid: int):
     with get_session() as db:
         try:
             a = db.query(Advertise).filter(Advertise.id == aid).first()

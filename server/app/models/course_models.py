@@ -2,7 +2,7 @@
 Course models (from zhs_educational_training).
 """
 
-from sqlalchemy import BigInteger, Column, DateTime, Float, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Column, Float, Index, Integer, String, Text
 
 from app.database import Base
 from app.models.base import TimestampMixin, id_column
@@ -52,7 +52,7 @@ class CourseVideo(TimestampMixin, Base):
     duration = Column(Integer, nullable=True, comment="Duration in seconds")
     adjunct_url = Column(String(500), nullable=True, comment="Adjunct/attachment URL")
     is_pay = Column(Integer, default=0, comment="0=free, 1=paid")
-    amount = Column(BigInteger, nullable=True, comment="Price (分)")
+    amount = Column(Float, nullable=True, comment="Price")
     status = Column(Integer, default=1, comment="0=disabled, 1=active")
     sort = Column(Integer, default=0, comment="Sort order")
     creator = Column(String(100), nullable=True, comment="Creator")
@@ -73,7 +73,7 @@ class EducationalCourse(TimestampMixin, Base):
     subtitle = Column(Text, nullable=True, comment="Subtitle")
     cover = Column(String(500), nullable=True, comment="Cover image URL")
     content = Column(Text, nullable=True, comment="Content/HTML")
-    price = Column(BigInteger, nullable=True, comment="Price (分)")
+    price = Column(Float, nullable=True, comment="Price")
     category = Column(String(100), nullable=True, comment="Category")
     stage = Column(String(50), nullable=True, comment="Stage/level")
     status = Column(Integer, default=1, comment="0=disabled, 1=active")

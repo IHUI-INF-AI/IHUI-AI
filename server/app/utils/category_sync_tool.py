@@ -26,17 +26,17 @@ class CategorySyncTool:
         should_close = db is None
         try:
             if db is None:
-                db = next(get_session())
-            categories = db.query(AgentCategory).limit(500).all()
+                db = next(get_session())  # type: ignore[call-overload]
+            categories = db.query(AgentCategory).all()
             result["total"] = len(categories)
             for category in categories:
                 try:
                     agent = db.query(Agent).filter(Agent.agent_id == category.agent_id).first()
                     if agent:
                         agent.category_synced_at = datetime.now()
-                        result["success"] += 1
+                        result["success"] += 1  # type: ignore[operator]
                 except Exception as e:
-                    result["errors"] += 1
+                    result["errors"] += 1  # type: ignore[operator]
                     logger.error(f"同步智能体 {category.agent_id} 失败: {e}")
             db.commit()
             result["message"] = f"成功 {result['success']}, 失败 {result['errors']}"
@@ -54,7 +54,7 @@ class CategorySyncTool:
         should_close = db is None
         try:
             if db is None:
-                db = next(get_session())
+                db = next(get_session())  # type: ignore[call-overload]
             total = db.query(AgentCategory).count()
             synced = db.execute(text("SELECT COUNT(DISTINCT agent_id) FROM agents WHERE category_synced_at IS NOT NULL")).scalar() or 0
             return {"total": total, "synced": synced, "unsynced": total - synced}

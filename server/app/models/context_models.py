@@ -1,5 +1,7 @@
 """User Agent Context models (zhs_ai_project)."""
 
+from typing import ClassVar
+
 from sqlalchemy import Column, DateTime, Integer, String, Text, func
 
 from app.database import Base
@@ -10,7 +12,7 @@ class UserAgentContext(TimestampMixin, Base):
     """User agent context key-value store."""
 
     __tablename__ = "zhs_user_agent_context"
-    __table_args__ = {"extend_existing": True}
+    __table_args__: ClassVar[dict] = {"extend_existing": True}
 
     id = id_column(comment="ID")
     user_uuid = Column(String(64), nullable=False, index=True, comment="User UUID")
@@ -32,7 +34,7 @@ class UserAgentAudio(TimestampMixin, Base):
     """User agent audio records."""
 
     __tablename__ = "zhs_user_agent_audio"
-    __table_args__ = {"extend_existing": True}
+    __table_args__: ClassVar[dict] = {"extend_existing": True}
 
     id = id_column(comment="ID")
     user_uuid = Column(String(64), nullable=False, index=True, comment="User UUID")
@@ -46,7 +48,7 @@ class UserAgentImage(TimestampMixin, Base):
     """User agent image records."""
 
     __tablename__ = "zhs_user_agent_image"
-    __table_args__ = {"extend_existing": True}
+    __table_args__: ClassVar[dict] = {"extend_existing": True}
 
     id = id_column(comment="ID")
     user_uuid = Column(String(64), nullable=False, index=True, comment="User UUID")

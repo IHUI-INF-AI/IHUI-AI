@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from app.schemas.common import success
 from app.services.stock_analyse_service import check_token_balance, stock_analyse_client
 from app.services.token_utils_service import calculate_and_deduct_tokens_by_cost, save_conversation_to_db
 from app.ws.manager import connection_manager
@@ -66,14 +67,14 @@ async def ws_stock_analyse(
         await stock_ws_manager.send_message(
             client_id,
             {
-                "code": 200,
-                "msg": "success",
-                "data": {
-                    "type": "connected",
-                    "content": "WebSocket connected",
-                    "chat_id": "",
-                    "created_at": datetime.now().isoformat(),
-                },
+                **success(
+                    {
+                        "type": "connected",
+                        "content": "WebSocket connected",
+                        "chat_id": "",
+                        "created_at": datetime.now().isoformat(),
+                    }
+                ),
                 "event": "system.connected",
                 "urlType": None,
             },
@@ -107,7 +108,7 @@ async def ws_stock_analyse(
                 await stock_ws_manager.send_message(
                     client_id,
                     {
-                        "code": 400,
+                        "code": "400000",
                         "msg": "error",
                         "data": {
                             "type": "error",
@@ -124,9 +125,10 @@ async def ws_stock_analyse(
                 await stock_ws_manager.send_message(
                     client_id,
                     {
-                        "code": 200,
-                        "msg": "heartbeat",
-                        "data": {"type": "pong", "content": "pong", "created_at": datetime.now().isoformat()},
+                        **success(
+                            {"type": "pong", "content": "pong", "created_at": datetime.now().isoformat()},
+                            msg="heartbeat",
+                        ),
                         "event": "connection.heartbeat",
                     },
                 )
@@ -136,7 +138,7 @@ async def ws_stock_analyse(
                 await stock_ws_manager.send_message(
                     client_id,
                     {
-                        "code": 400,
+                        "code": "400000",
                         "msg": "error",
                         "data": {
                             "type": "error",
@@ -158,7 +160,7 @@ async def ws_stock_analyse(
                 await stock_ws_manager.send_message(
                     client_id,
                     {
-                        "code": 400,
+                        "code": "400000",
                         "msg": "error",
                         "data": {
                             "type": "error",
@@ -177,19 +179,19 @@ async def ws_stock_analyse(
                     await stock_ws_manager.send_message(
                         client_id,
                         {
-                            "code": 400,
-                            "msg": "error",
-                            "data": {
-                                "type": "error",
-                                "content": tchk["reason"],
-                                "chat_id": chat_data.get("chat_id", ""),
-                                "created_at": datetime.now().isoformat(),
-                            },
-                            "detail": {
-                                "current_balance": tchk.get("current_balance"),
-                                "min_token": tchk.get("min_token"),
-                            },
-                            "event": "conversation.chat.failed",
+                        "code": "400000",
+                        "msg": "error",
+                        "data": {
+                            "type": "error",
+                            "content": tchk["reason"],
+                            "chat_id": chat_data.get("chat_id", ""),
+                            "created_at": datetime.now().isoformat(),
+                        },
+                        "detail": {
+                            "current_balance": tchk.get("current_balance"),
+                            "min_token": tchk.get("min_token"),
+                        },
+                        "event": "conversation.chat.failed",
                         },
                     )
                     continue
@@ -199,14 +201,14 @@ async def ws_stock_analyse(
                 client_id,
                 {
                     "type": "stream_start",
-                    "code": 200,
-                    "msg": "success",
-                    "data": {
-                        "type": "conversation_created",
-                        "content": "Chat created",
-                        "chat_id": final_chat_id or "",
-                        "created_at": datetime.now().isoformat(),
-                    },
+                    **success(
+                        {
+                            "type": "conversation_created",
+                            "content": "Chat created",
+                            "chat_id": final_chat_id or "",
+                            "created_at": datetime.now().isoformat(),
+                        }
+                    ),
                     "event": "conversation.chat.created",
                 },
             )
@@ -259,16 +261,16 @@ async def stock_analyse_post(request: StockAnalyseRequest):
     # Token check
     tchk = await check_token_balance(request.user_uuid)
     if not tchk["sufficient"]:
-        return StockAnalyseResponse(success=False, message=tchk["reason"])
+        return StockAnalyseResponse(success=False, message=tchk["reason"])  # type: ignore[call-arg]
     if not request.prompt:
-        return StockAnalyseResponse(success=False, message="prompt is required")
+        return StockAnalyseResponse(success=False, message="prompt is required")  # type: ignore[call-arg]
     final_chat_id = request.chat_id or str(uuid.uuid4())
     # Call streaming API
     result = await stock_analyse_client.stream_chat(
         prompt=request.prompt, user_uuid=request.user_uuid, chat_id=final_chat_id
     )
     if not result.get("success"):
-        return StockAnalyseResponse(success=False, message=result.get("error", "Unknown error"), chat_id=final_chat_id)
+        return StockAnalyseResponse(success=False, message=result.get("error", "Unknown error"), chat_id=final_chat_id)  # type: ignore[call-arg]
     # Billing
     usage = result.get("usage") or {}
     _total_tk = usage.get("total_tokens", 0) or (len(request.prompt) + len(result.get("content", "")))
@@ -292,7 +294,7 @@ async def stock_analyse_post(request: StockAnalyseRequest):
         logger.error("Save conversation error: " + str(e))
     return {
         "success": True,
-        "message": "done",
+        "msg": "done",
         "chat_id": final_chat_id,
         "user_uuid": request.user_uuid,
         "model_id": STOCK_MODEL_ID,
