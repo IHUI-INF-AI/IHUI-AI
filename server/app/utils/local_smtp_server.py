@@ -46,7 +46,7 @@ _controller = None
 class _EmailHandler:
     """aiosmtpd 邮件处理器: 捕获邮件并提取验证码."""
 
-    async def handle_DATA(self, server, session, envelope):  # noqa: ANN001
+    async def handle_DATA(self, server, session, envelope):
         """收到邮件时调用."""
         try:
             raw_bytes = envelope.content

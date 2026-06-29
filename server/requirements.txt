@@ -117,7 +117,7 @@ multidict==6.6.4
 mypy_extensions==1.1.0
 nodeenv==1.10.0
 notify-bridge==0.3.0
-numpy==2.4.2
+numpy>=2.2,<2.3
 openai==1.108.0
 openpyxl==3.1.5
 opentelemetry-api==1.42.1
@@ -242,7 +242,6 @@ xmltodict==1.0.4
 xxhash==3.6.0
 yarl==1.24.2
 zhipuai==2.1.5.20250825
-zhs-platform==1.0.0
 zope.event==6.2
 zope.interface==8.5
 zstandard==0.25.0

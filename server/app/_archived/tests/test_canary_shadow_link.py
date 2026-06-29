@@ -13,8 +13,9 @@ class TestCanaryShadowLink:
 
     def test_initial_at_stage_0_shadow_off(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -25,8 +26,9 @@ class TestCanaryShadowLink:
 
     def test_promote_to_stage_1_enables_shadow(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -40,8 +42,9 @@ class TestCanaryShadowLink:
 
     def test_promote_to_stage_2_increases_shadow(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -55,8 +58,9 @@ class TestCanaryShadowLink:
 
     def test_promote_to_stage_3_disables_shadow(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -71,8 +75,9 @@ class TestCanaryShadowLink:
 
     def test_promote_to_stage_4_disables_shadow(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -84,8 +89,9 @@ class TestCanaryShadowLink:
 
     def test_rollback_to_stage_1_re_enables_shadow(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -112,8 +118,9 @@ class TestLinkEvents:
 
     def test_event_recorded_on_init(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -127,8 +134,9 @@ class TestLinkEvents:
 
     def test_event_recorded_on_sync(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -143,8 +151,9 @@ class TestLinkEvents:
 
     def test_events_bounded(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -166,8 +175,9 @@ class TestCustomLinkStages:
 
     def test_only_stage_1(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController, Stage
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController, Stage
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -180,8 +190,9 @@ class TestCustomLinkStages:
 
     def test_no_stages(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -193,8 +204,9 @@ class TestCustomLinkStages:
 
     def test_all_stages(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController, Stage
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController, Stage
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -249,8 +261,9 @@ class TestEndToEndLinking:
 
     def test_full_journey_1pct_10pct_50pct_100pct(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController, Stage
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController, Stage
 
         ctrl = CanaryStageController(cooldown_seconds=0)
         shadow = ShadowRouter(ratio=0.0)
@@ -278,8 +291,9 @@ class TestEndToEndLinking:
 
     def test_auto_rollback_disables_shadow(self):
         from app.canary_shadow_link import CanaryShadowLink
-        from app.canary_stages import CanaryStageController
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_stages import CanaryStageController
 
         ctrl = CanaryStageController(cooldown_seconds=0, failure_threshold=2)
         shadow = ShadowRouter(ratio=0.0)

@@ -4290,13 +4290,18 @@
     "messageStatsTotal": "Message Statistics: {count} messages in total",
     "pleaseEnterContentOrUploadFile": "Please enter content or upload a file",
     "uploadFile": "Upload File",
-    "inputPlaceholder": "Enter message...",
+    "inputPlaceholder": "Help me organize paper reviews, build PPTs, analyze Excel sheets, and produce professional work output.",
     "send": "Send",
     "enterToSend": "Press Enter to send, Shift+Enter for new line",
     "VoiceStarted": "Voice Started",
     "openChat": "Expand AI Chat",
     "voiceInput": "Voice Input",
-    "voiceStarted": "Voice已开始"
+    "voiceStarted": "Voice已开始",
+    "selectModel": "Select model",
+    "selectAgent": "Select agent",
+    "selectMode": "Select mode",
+    "modelLabel": "Model",
+    "agentLabel": "Agent"
   },
   "chatMode": {
     "agentMode": "Agent Mode",

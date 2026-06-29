@@ -21,9 +21,6 @@ export type {
   CapabilityItemData,
 } from './AICapabilitySelector'
 
-// 虚拟滚动消息列表 - 文件不存在，已移除导出
-// export { default as VirtualMessageList } from './VirtualMessageList.vue'
-
 // 核心AI对话组件
 export { default as AIChat } from './AIChat.vue'
 export { default as AIChatLegacy } from './AIChatLegacy.vue'

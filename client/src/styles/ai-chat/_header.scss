@@ -206,4 +206,37 @@
     z-index: var(--z-base); // 始终在 header-center 之上，保证搜索等按钮可点
     // 按钮样式已在统一按钮系统中定义
   }
+
+  // ── 面板标题前缀（embedded 模式专用）──
+  // 由外层 App 传入 panelTitle 时渲染，替代原 ai-side-panel-header，
+  // 避免双标题栏堆叠。floating 模式不渲染。
+  .panel-title-prefix {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 0 4px;
+    min-width: 0;
+  }
+
+  .panel-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: var(--el-color-primary);
+    flex-shrink: 0;
+  }
+
+  .panel-title-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    line-height: 1.4;
+  }
 }

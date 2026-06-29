@@ -74,10 +74,6 @@ export class RouteDiagnostics {
     }
 
     // 已禁用控制台日志输出，避免控制台噪音
-    // if (import.meta.env.DEV) {
-    //   const emoji = this.getEmoji(type)
-    //   console.log(`[RouteDiagnostics] ${emoji} ${type}:`, data)
-    // }
   }
 
   /**

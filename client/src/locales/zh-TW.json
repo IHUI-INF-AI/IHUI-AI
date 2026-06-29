@@ -1987,11 +1987,15 @@
   "aiChatInput": {
     "openChat": "展開 AI 對話",
     "selectModel": "選擇模型",
+    "selectAgent": "選擇智能體",
+    "selectMode": "選擇模式",
+    "modelLabel": "模型",
+    "agentLabel": "智能體",
     "voiceInput": "語音輸入",
     "messageStatsTotal": "消息統計: 共 {count} 條消息",
     "pleaseEnterContentOrUploadFile": "請輸入內容或上傳文件",
     "uploadFile": "上傳文件",
-    "inputPlaceholder": "輸入消息...",
+    "inputPlaceholder": "幫你整理論文綜述、編寫 PPT、分析 Excel 等日常工作，輸出專業級工作成果。",
     "send": "發送",
     "enterToSend": "按 Enter 發送，Shift+Enter 換行",
     "voiceStarted": "Voice已開始"

@@ -4,6 +4,18 @@
     @mousedown="handleMouseDown"
     @dblclick="handleDblClick">
     <div class="header-left">
+      <!-- 面板标题前缀（仅 embedded 模式由外层 App 传入时显示，与原 ai-side-panel-header 合并） -->
+      <div v-if="panelTitle" class="panel-title-prefix" :title="panelTitle">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="panel-title-icon" aria-hidden="true">
+          <path d="M12 8V4H8"></path>
+          <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+          <path d="M2 14h2"></path>
+          <path d="M20 14h2"></path>
+          <path d="M15 13v2"></path>
+          <path d="M9 13v2"></path>
+        </svg>
+        <span class="panel-title-text">{{ panelTitle }}</span>
+      </div>
       <!-- 展开会话列表按钮（仅非最小化时显示） -->
       <el-button v-if="!isMinimized" link size="small" class="header-btn session-list-btn"
         :title="t('floatingChat.history')" @click="emit('toggle-session-list')" @mousedown.stop>
@@ -246,6 +258,13 @@ interface Props {
   selectedAgent: Agent | null
   /** 是否显示工单入口 */
   effectiveShowTickets: boolean
+  /**
+   * 面板标题前缀（仅 embedded 模式由外层 App 传入）。
+   * 非空时在 header-left 最左侧渲染图标+文本，
+   * 用于替代原 ai-side-panel-header，避免双标题栏堆叠。
+   * floating 模式不传，保持原 dialog-header 行为。
+   */
+  panelTitle?: string
 }
 
 const props = defineProps<Props>()

@@ -161,7 +161,8 @@ async def lifespan(app: FastAPI):
     # Email login: 给 users 表添加 email 列 (idempotent, 无 Alembic 时的轻量迁移)
     # User 表在 center db (engine2), create_all 不会修改已存在表的列, 需手动 ALTER
     try:
-        from sqlalchemy import inspect as _sa_inspect, text as _sa_text
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
 
         from app.database import engine2 as _engine2
 
@@ -367,7 +368,7 @@ def create_app() -> FastAPI:
     _legacy_ok = 0
     for _mod, _prefix, _tag in _legacy_routers:
         try:
-            _r = getattr(_importlib.import_module(_mod), "router")
+            _r = _importlib.import_module(_mod).router
             if _prefix:
                 app.include_router(_r, prefix=_prefix, tags=[_tag])
             else:

@@ -245,9 +245,9 @@
         <Notification v-if="isLoggedIn" :is-dark-mode="isDark" />
       </div>
 
-      <!-- 登录按钮: 单独一排, Trae Work 风格 -->
+      <!-- 登录按钮: 单独一排, Trae Work 风格 (临时调试: 强制显示) -->
       <div
-        v-if="!isLoggedIn"
+        v-if="true"
         class="sidebar-login-row"
         :class="{ 'is-collapsed': isCollapsed }"
       >

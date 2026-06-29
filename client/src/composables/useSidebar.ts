@@ -3,7 +3,7 @@
  *
  * 整合 Sidebar/WorkspaceHeader/App.vue 共享的侧边栏状态：
  *   - isCollapsed：折叠状态（localStorage 持久化，key: 'sidebar-collapsed'）
- *   - width：展开态宽度（localStorage 持久化，key: 'sidebar-width'，范围 120-360）
+ *   - width：展开态宽度（localStorage 持久化，key: 'sidebar-width'，范围 100-360）
  *   - isMobile：移动端检测（window.innerWidth < 768，防抖 resize）
  *   - isMobileOpen：移动端抽屉开关
  *   - toggleCollapse / openMobile / closeMobile / setWidth：状态变更方法
@@ -21,12 +21,12 @@ const STORAGE_KEY_WIDTH = 'sidebar-width'
 const MOBILE_BREAKPOINT = 768
 
 // ── 宽度范围（展开态可拖拽缩放）──
-// min 120: 允许用户拖到默认宽度 133 附近（text-overflow: ellipsis 已保证不破版）；
+// min 100: 与默认宽度一致，允许拖回到默认；text-overflow: ellipsis 已保证不破版
 // max 360: 避免占用过多工作区空间
-const MIN_WIDTH = 120
+const MIN_WIDTH = 100
 const MAX_WIDTH = 360
-// 默认 133 = 200 的 2/3，更紧凑的初始宽度
-const DEFAULT_WIDTH = 133
+// 默认 100px：紧凑布局
+const DEFAULT_WIDTH = 100
 // 拖拽折叠阈值：向左拖到此处以下自动进入折叠态（图标-only 60px），
 // 向右拖超过此处自动展开。120 = 折叠宽度 60 + 缓冲 60，避免误触。
 const COLLAPSE_THRESHOLD = 120

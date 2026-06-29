@@ -2261,11 +2261,15 @@
   "aiChatInput": {
     "openChat": "AI 채팅 열기",
     "selectModel": "모델 선택",
+    "selectAgent": "에이전트 선택",
+    "selectMode": "모드 선택",
+    "modelLabel": "모델",
+    "agentLabel": "에이전트",
     "voiceInput": "음성 입력",
     "messageStatsTotal": "메시지 통계: 총 {count}개의 메시지",
     "pleaseEnterContentOrUploadFile": "내사용을 입력하거나 파일을 업로드하세요",
     "uploadFile": "파일 업로드",
-    "inputPlaceholder": "메시지 입력...",
+    "inputPlaceholder": "논문 리뷰 정리, PPT 작성, Excel 분석 등 일상 업무를 정리하고 전문적인 업무 성과를 출력합니다.",
     "send": "전송",
     "enterToSend": "Enter 키로 전송, Shift+Enter로 줄바꿈",
     "voiceStarted": "Voice완료시작"

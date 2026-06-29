@@ -8,7 +8,6 @@
 """
 
 from datetime import datetime, timedelta
-from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Query
 from loguru import logger
@@ -30,36 +29,36 @@ router = APIRouter()
 class AgentExamineSubmitRequest(BaseModel):
     """提交审核请求体。所有字段可选, 兼容旧的无 body 调用。"""
 
-    agent_name: Optional[str] = None
-    agent_avatar: Optional[str] = None
-    prologue: Optional[str] = None
-    category_id: Optional[str] = None
+    agent_name: str | None = None
+    agent_avatar: str | None = None
+    prologue: str | None = None
+    category_id: str | None = None
     status: int = 1  # 默认审核中
-    start_user: Optional[str] = None
-    start_phone: Optional[str] = None
-    start_name: Optional[str] = None
-    desc: Optional[str] = None
-    follow: Optional[str] = None
+    start_user: str | None = None
+    start_phone: str | None = None
+    start_name: str | None = None
+    desc: str | None = None
+    follow: str | None = None
 
 
 class AgentExamineBatchSyncAvatarRequest(BaseModel):
     """批量头像同步请求体。agent_ids 缺省时走自动模式。"""
 
-    agent_ids: Optional[List[str]] = None
+    agent_ids: list[str] | None = None
 
 
 class AgentExamineUpdateRequest(BaseModel):
     """审核记录更新请求体。所有字段可选, 仅允许白名单字段。"""
 
-    agent_name: Optional[str] = None
-    agent_avatar: Optional[str] = None
-    prologue: Optional[str] = None
-    category_id: Optional[str] = None
-    status: Optional[int] = None
-    examine_user: Optional[str] = None
-    examine_user_id: Optional[str] = None
-    desc: Optional[str] = None
-    follow: Optional[str] = None
+    agent_name: str | None = None
+    agent_avatar: str | None = None
+    prologue: str | None = None
+    category_id: str | None = None
+    status: int | None = None
+    examine_user: str | None = None
+    examine_user_id: str | None = None
+    desc: str | None = None
+    follow: str | None = None
 
 
 def _serialize_examine(ex) -> dict:
@@ -93,23 +92,23 @@ def _serialize_examine(ex) -> dict:
 async def list_examine(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    agent_id: Optional[str] = Query(None, description="按智能体ID筛选"),
-    agent_name: Optional[str] = Query(None, description="智能体名称模糊搜索"),
-    category_id: Optional[str] = Query(None, description="按收费配置ID筛选"),
-    status: Optional[int] = Query(
+    agent_id: str | None = Query(None, description="按智能体ID筛选"),
+    agent_name: str | None = Query(None, description="智能体名称模糊搜索"),
+    category_id: str | None = Query(None, description="按收费配置ID筛选"),
+    status: int | None = Query(
         None,
         description="审核状态: 0=待提交,1=审核中,2=通过,3=拒绝(coze),4=退回,5=下架",
     ),
-    status_list: Optional[str] = Query(None, description="多状态筛选,逗号分隔,如: 0,1,2"),
-    start_user: Optional[str] = Query(None, description="发起用户UUID筛选"),
-    start_name: Optional[str] = Query(None, description="发起用户名称模糊搜索"),
-    examine_user_id: Optional[str] = Query(None, description="审核人ID筛选"),
-    examine_user: Optional[str] = Query(None, description="审核人名称模糊搜索"),
-    start_date: Optional[datetime] = Query(None, description="发起开始时间"),
-    end_date: Optional[datetime] = Query(None, description="发起结束时间"),
-    examine_start_date: Optional[datetime] = Query(None, description="审核开始时间"),
-    examine_end_date: Optional[datetime] = Query(None, description="审核结束时间"),
-    keyword: Optional[str] = Query(None, description="关键词搜索(名称/描述/发起名/审核人)"),
+    status_list: str | None = Query(None, description="多状态筛选,逗号分隔,如: 0,1,2"),
+    start_user: str | None = Query(None, description="发起用户UUID筛选"),
+    start_name: str | None = Query(None, description="发起用户名称模糊搜索"),
+    examine_user_id: str | None = Query(None, description="审核人ID筛选"),
+    examine_user: str | None = Query(None, description="审核人名称模糊搜索"),
+    start_date: datetime | None = Query(None, description="发起开始时间"),
+    end_date: datetime | None = Query(None, description="发起结束时间"),
+    examine_start_date: datetime | None = Query(None, description="审核开始时间"),
+    examine_end_date: datetime | None = Query(None, description="审核结束时间"),
+    keyword: str | None = Query(None, description="关键词搜索(名称/描述/发起名/审核人)"),
     sort_by: str = Query(
         "start_time", description="排序字段: start_time,examine_time,status,agent_name"
     ),
@@ -211,8 +210,8 @@ async def list_examine(
 # ---------------------------------------------------------------------------
 @router.get("/examine/stats/summary", summary="Examination statistics")
 async def examine_stats(
-    start_date: Optional[datetime] = Query(None, description="统计开始时间"),
-    end_date: Optional[datetime] = Query(None, description="统计结束时间"),
+    start_date: datetime | None = Query(None, description="统计开始时间"),
+    end_date: datetime | None = Query(None, description="统计结束时间"),
     user_uuid: str = Depends(require_login),
 ):
     """审核统计: 状态分布 + 近7天提交数 + 审核效率(平均审批时长, 小时)。"""
@@ -319,7 +318,7 @@ async def examine_stats(
 @router.post("/examine/submit", summary="Submit agent for examination")
 async def submit_examine(
     agent_id: str = Query(..., description="智能体ID"),
-    body: Optional[AgentExamineSubmitRequest] = Body(default=None),
+    body: AgentExamineSubmitRequest | None = Body(default=None),
     user_uuid: str = Depends(require_login),
 ):
     """提交审核。
@@ -389,7 +388,7 @@ async def submit_examine(
 # ---------------------------------------------------------------------------
 @router.post("/examine/batch-sync-avatar", summary="Batch sync agent avatars")
 async def batch_sync_agent_avatars(
-    body: Optional[AgentExamineBatchSyncAvatarRequest] = Body(default=None),
+    body: AgentExamineBatchSyncAvatarRequest | None = Body(default=None),
     user_uuid: str = Depends(require_login),
 ):
     """批量同步头像。
@@ -561,7 +560,7 @@ async def sync_agent_avatar(
 @router.put("/examine/{record_id}", summary="Update examination record")
 async def update_agent_examine(
     record_id: int,
-    body: Optional[AgentExamineUpdateRequest] = Body(default=None),
+    body: AgentExamineUpdateRequest | None = Body(default=None),
     user_uuid: str = Depends(require_login),
 ):
     """通用更新审核记录。

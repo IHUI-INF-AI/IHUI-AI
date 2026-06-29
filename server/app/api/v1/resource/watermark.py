@@ -7,7 +7,7 @@
 
 from fastapi import APIRouter, Body
 
-from app.schemas.common import success, error
+from app.schemas.common import error, success
 from app.schemas.error_codes import ErrorCode
 from app.utils.image_watermark import add_image_watermark, add_text_watermark
 from app.utils.video_watermark import add_image_watermark_video, add_text_watermark_video

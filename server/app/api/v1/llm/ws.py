@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import get_session
-from app.schemas.common import success, error
+from app.schemas.common import error, success
 from app.schemas.error_codes import ErrorCode
 from app.services.token_service import check_user_token as check_user_token_sufficient
 

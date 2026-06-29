@@ -162,8 +162,9 @@ class TestShadowRatioSync:
         assert SHADOW_RATIO_GAUGE._value.get() == 0.0
 
     def test_sync_with_shadow_router_directly(self):
-        from app.canary_metrics import SHADOW_RATIO_GAUGE, sync_shadow_gauges
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_metrics import SHADOW_RATIO_GAUGE, sync_shadow_gauges
 
         router = ShadowRouter(ratio=0.15)
         sync_shadow_gauges(router)
@@ -237,8 +238,9 @@ class TestSnapshot:
         assert snap["source"] == "CanaryShadowLink"
 
     def test_shadow_snapshot_from_router(self):
-        from app.canary_metrics import get_shadow_ratio_snapshot
         from app.shadow_traffic import ShadowRouter
+
+        from app.canary_metrics import get_shadow_ratio_snapshot
 
         router = ShadowRouter(ratio=0.0)
         snap = get_shadow_ratio_snapshot(router)

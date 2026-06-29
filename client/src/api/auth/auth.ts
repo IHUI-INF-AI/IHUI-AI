@@ -4,8 +4,6 @@
 import { request } from '@/utils/request'
 import { logger } from '@/utils/logger'
 import { AUTH_PATHS, LOGIN_PWD_PATHS } from '@/config/backend-paths'
-// shared-logic: cross-platform utilities available for use
-// import { request as sharedRequest } from '@aizhs/shared-logic'
 
 // 用户接口定义
 export interface User {

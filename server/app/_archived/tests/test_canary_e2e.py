@@ -204,6 +204,7 @@ class TestE2EShadowLink:
 
         importlib.reload(canary_routes)
         from app.canary_shadow_link import CanaryShadowLink, reset_linked_router
+
         from app.canary_stages import get_default_controller, reset_default_controller
 
         # 重置全部单例
@@ -234,8 +235,9 @@ class TestE2EShadowLink:
 
     def test_shadow_off_at_50pct(self, fresh_state_file, monkeypatch):
         monkeypatch.setenv("ZHS_CANARY_STATE_FILE", fresh_state_file)
-        from app.api.v1 import canary_routes
         from app.canary_shadow_link import CanaryShadowLink, reset_linked_router
+
+        from app.api.v1 import canary_routes
         from app.canary_stages import CanaryStageController
 
         canary_routes._CTRL = None

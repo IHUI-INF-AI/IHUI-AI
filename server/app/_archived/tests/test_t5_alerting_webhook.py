@@ -17,10 +17,10 @@ import json
 import time
 
 import pytest
+from app.api.v1.alerting.webhook import _reset_state_for_tests
+from app.api.v1.alerting.webhook import router as webhook_router
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app.api.v1.alerting.webhook import router as webhook_router, _reset_state_for_tests
 
 
 @pytest.fixture

@@ -6,7 +6,7 @@
 
 import uuid as uuid_module
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query
 from loguru import logger
@@ -38,7 +38,7 @@ _settlement_cache: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 
 
-def _format_account_type(type_child: Optional[str], account: Optional[int]) -> str:
+def _format_account_type(type_child: str | None, account: int | None) -> str:
     """根据 type_child (1=月, 2=年, 3=永久) 和 account (分) 拼接 accountType 字段."""
     if not type_child or not account:
         return ""
@@ -52,7 +52,7 @@ def _format_account_type(type_child: Optional[str], account: Optional[int]) -> s
     return f"{amount_yuan} 元"
 
 
-def _format_discount_month(discount_month: Optional[str]) -> str:
+def _format_discount_month(discount_month: str | None) -> str:
     """转换 discount_month 字段为描述文字."""
     if not discount_month:
         return ""
@@ -83,7 +83,7 @@ def _serialize_settlement(s) -> dict:
     }
 
 
-def _parse_datetime(value: Any) -> Optional[datetime]:
+def _parse_datetime(value: Any) -> datetime | None:
     """从 str/datetime 解析为 datetime."""
     if not value:
         return None

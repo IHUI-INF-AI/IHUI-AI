@@ -19,8 +19,9 @@ from __future__ import annotations
 import threading
 from collections.abc import Iterable
 
-from app.canary_stages import CanaryStageController, Stage
 from app.shadow_traffic import ShadowRouter
+
+from app.canary_stages import CanaryStageController, Stage
 
 # ---------------------------------------------------------------------------
 # 联动策略

@@ -259,13 +259,13 @@ class TestCanaryFullE2E:
 
     def test_full_lifecycle_with_metrics(self, tmp_path):
         """完整生命周期, 所有 metric 正确更新."""
+        from app.canary_shadow_link import CanaryShadowLink
         from prometheus_client import REGISTRY, generate_latest
 
         from app.canary_metrics import (
             CANARY_ROLLBACK_GAUGE,
             sync_canary_stage_gauges,
         )
-        from app.canary_shadow_link import CanaryShadowLink
         from app.canary_stages import CanaryStageController
 
         state_file = str(tmp_path / "e2e_state.json")
@@ -502,12 +502,13 @@ class TestFullLifecycleWithoutExternalDeps:
 
     def test_promote_traffic_failure_rollback_state(self, tmp_path):
         """业务流: promote → traffic → failure → rollback, 状态机正确."""
+        from app.canary_shadow_link import CanaryShadowLink
+
         from app.canary_metrics import (
             CANARY_ROLLBACK_GAUGE,
             sync_canary_stage_gauges,
             sync_shadow_gauges,
         )
-        from app.canary_shadow_link import CanaryShadowLink
         from app.canary_stages import CanaryStageController
 
         state_file = str(tmp_path / "lifecycle.json")

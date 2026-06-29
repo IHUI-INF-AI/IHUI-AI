@@ -1,38 +1,48 @@
 # 目标驱动模式状态记录
 
 ## 目标
-实现之前跳过的 4 项范围外事项：客服 WS 端点、DeepSeek WS 端点、一键视频生成真实管线、miniapp 21 处 TODO 接入后端 API。
+合并 AI 面板中堆叠的两个标题栏（ai-side-panel-header + dialog-header），按最优建议只保留一个统一标题栏
 
 ## 起始时间
-2026-06-29
+2026-06-29 19:10
 
 ## 最大迭代轮次
 20
 
 ## 当前轮次
-3 (已完成)
+1
 
 ## 目标状态
-COMPLETED
+ACTIVE
 
 ## 硬性必达指标
-1. ✅ 客服 WS 端点新增（/api/customer-service/chat WebSocket）
-2. ✅ DeepSeek WS 端点新增（/api/v1/chat/ws/deepseek WebSocket）
-3. ✅ 一键视频生成接入真实管线（豆包 Seedance + Sora2 降级）
-4. ✅ miniapp 21 处 TODO 全部接入后端 API（17 个文件 TODO 残留=0）
-5. ✅ 新增 plaza 列表端点和资讯评论端点
-6. ✅ 后端 ruff check 通过（All checks passed）
-7. ✅ 后端 pytest collect 0 errors（e2e 7 tests collected）
-8. ✅ 无回归（所有已修复功能不受影响）
+1. ✅ AI 面板（embedded 模式）只渲染一个标题栏，不再堆叠
+2. ✅ 单个标题栏包含"AI智能助手"作为左侧前缀
+3. ✅ 单个标题栏仍包含：会话列表按钮、模型/模式标签、搜索、更多、关闭按钮
+4. ✅ floating 模式不受影响（不显示"AI智能助手"前缀，正常 dialog-header 行为）
+5. ✅ 空态（is-empty）行为不变，关闭按钮仍可正常关闭面板
+6. ✅ 浏览器验证：截图确认面板顶部只显示一行标题栏，"AI智能助手"前缀在 header-left
+7. ✅ 无回归：侧边栏、首页、登录、ChatHistory 等其他页面不受影响
+8. ✅ 暗色模式适配保持
+9. ✅ vue-tsc / 现有测试无新增错误
 
-## 执行日志
-### Round 3: 范围外事项实现
-- 新增客服 WS 端点 (customer_service_ws.py + ConnectionManager)
-- 新增 DeepSeek WS 端点 (deepseek_ws.py, SSE→WS 代理)
-- 接入视频生成真实管线 (豆包 Seedance + Sora2 降级)
-- 新增 plaza 列表端点 + 资讯评论端点
-- miniapp 21 处 TODO 全部替换为真实 API 调用 (17 个文件)
-- 全量验证通过 (ruff + 语法 + pytest collect + SFC 结构)
+## 软性指标
+- 代码简洁、复用 ChatHeaderBar 已有结构
+- 清理无用样式代码
+- 不引入新的全局副作用
 
-## 结论
-全部范围外事项实现完成, 项目收尾工作 100% 完成。
+## 优先级
+- 硬性指标 1-5 优先级最高，先达成
+- 6-7 用于验证，7-9 收尾
+
+## 异常处理
+- 若 vue-tsc 出现新错误且非本目标相关，记录后跳过
+- 浏览器 HMR 失败时手动 reload 验证
+
+## 执行计划
+- Round 1: chatheaderbar.vue 增加 panelTitle prop + 渲染逻辑
+- Round 2: AIChat.vue 透传 panelTitle prop 给 ChatHeaderBar
+- Round 3: App.vue 移除 ai-side-panel-header，给 AIChat 加 :panel-title
+- Round 4: 清理 _sidebar-layout.scss 中 ai-side-panel-header 相关样式（保留空态相关）
+- Round 5: 浏览器验证截图 + 暗色模式验证
+- Round 6: 收尾检查与文档

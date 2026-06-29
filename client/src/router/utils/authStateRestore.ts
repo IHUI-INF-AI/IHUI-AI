@@ -5,8 +5,6 @@
  * 提供可靠的状态恢复机制
  */
 
-// ⚠️ 启动优化：延迟加载 useAuthStore
-// import { useAuthStore } from '@/stores/auth'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { isExpiryTimePassed } from '@/utils/login-duration'
 import { deepEqual } from '@/utils/object-utils'

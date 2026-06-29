@@ -23,23 +23,23 @@
 @layer base {
   /* 侧边栏布局 CSS 变量 */
   :root {
-    /* 默认展开宽度 133px（原 200px 的 2/3，更紧凑） */
-    --sidebar-width: 133px;
+    /* 默认展开宽度 100px（更紧凑的初始宽度） */
+    --sidebar-width: 100px;
     --sidebar-collapsed-width: 60px;
 
     /* 拖拽缩放范围（与 useSidebar.ts MIN_WIDTH/MAX_WIDTH 一致） */
-    --sidebar-min-width: 120px;
+    --sidebar-min-width: 100px;
     --sidebar-max-width: 360px;
     --sidebar-header-height: 52px;
     --workspace-header-height: 48px;
     --nav-item-height: 40px;
 
-    /* gap 8px: 图标与文字的视觉间距（icon 容器内 SVG 居中已有 1px 空白，总视觉间距 9px） */
-    --nav-item-gap: 8px;
+    /* gap 6px: 图标与文字的视觉间距（窄宽度下节省横向空间） */
+    --nav-item-gap: 6px;
 
-    /* pad-x 16px: 图标左缘距屏幕左边 = margin 6 + padding 16 + icon 容器内 1px = 23px，留出合适边距 */
-    --nav-item-pad-x: 16px;
-    --nav-item-margin-x: 6px;
+    /* pad-x 10px: 紧凑布局，让文字在 100px 侧边栏里有更多可用空间 */
+    --nav-item-pad-x: 10px;
+    --nav-item-margin-x: 4px;
     --sidebar-transition-duration: 0.2s;
 
     /* 统一缓动曲线：Material Design 标准缓动，比 ease 更顺滑 */
@@ -322,7 +322,7 @@
   /* 折叠箭头图标 —— 绝对定位到按钮右侧，尺寸紧凑，颜色继承父级 */
   :where(.nav-group-chevron) {
     position: absolute;
-    right: 8px;
+    right: 6px;
     top: 50%;
     width: 14px;
     height: 14px;
@@ -1281,44 +1281,10 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
   }
 
   /* ── 面板顶部标题栏 ──
-   * 与 workspace-header 等高，视觉对齐 */
-  :where(.ai-side-panel-header) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: var(--ai-panel-header-height);
-    min-height: var(--ai-panel-header-height);
-    padding: 0 12px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
-    background-color: var(--sidebar-bg-color);
-    flex-shrink: 0;
-    gap: 8px;
-  }
-
-  :where(.ai-side-panel-title) {
-    flex: 1;
-    min-width: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    line-height: 1.4;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  :where(.ai-side-panel-title-icon) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    color: var(--el-color-primary);
-    flex-shrink: 0;
-  }
+   * 注意：原 .ai-side-panel-header/.ai-side-panel-title/.ai-side-panel-title-icon
+   * 已废弃。面板标题由 AIChat 内嵌的 ChatHeaderBar 通过 panelTitle prop 渲染，
+   * 见 styles/ai-chat/_header.scss 中的 .panel-title-prefix/.panel-title-icon/.panel-title-text。
+   * 保留 .ai-side-panel-close 基础样式供空态浮动关闭按钮复用。 */
 
   :where(.ai-side-panel-close) {
     display: inline-flex;

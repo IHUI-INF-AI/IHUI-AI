@@ -8,7 +8,8 @@ try:
     from pydantic import BaseSettings, Field
     from pydantic import validator as _validator
 except ImportError:
-    from pydantic import Field, field_validator as _validator
+    from pydantic import Field
+    from pydantic import field_validator as _validator
     from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

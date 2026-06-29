@@ -6,7 +6,7 @@
 <template>
   <div class="user-menu">
     <button
-      v-if="!isLoggedIn"
+      v-if="showLoginBtn"
       type="button"
       class="login-button"
       :aria-label="t('auth.login_register')"
@@ -42,6 +42,8 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
+
+const showLoginBtn = computed(() => true)
 
 // 反馈按钮白名单手机号(沿用原逻辑)
 const FEEDBACK_PHONES = new Set(['19944894487', '18643389808', '19944895160', '17549549976'])

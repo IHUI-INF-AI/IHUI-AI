@@ -47,7 +47,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-// import { useThemeStore } from '@/stores/theme' // Theme store not available
 
 interface ThirdPartyMethod {
   key: string

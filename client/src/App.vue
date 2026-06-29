@@ -71,37 +71,10 @@
                 </el-button>
               </div>
             </div>
-            <!-- 工作区已进入：显示标题栏 + AIChat -->
+            <!-- 工作区已进入：AIChat embedded 模式内置 dialog-header（含 AI智能助手 前缀 + 模型标签 + 搜索/更多/关闭），
+                 避免与外层标题栏重复堆叠 -->
             <template v-else>
-              <!-- 面板顶部标题栏 -->
-              <div class="ai-side-panel-header">
-                <div class="ai-side-panel-title">
-                  <span class="ai-side-panel-title-icon" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M12 8V4H8" />
-                      <rect width="16" height="12" x="4" y="8" rx="2" />
-                      <path d="M2 14h2" />
-                      <path d="M20 14h2" />
-                      <path d="M15 13v2" />
-                      <path d="M9 13v2" />
-                    </svg>
-                  </span>
-                  <span>{{ aiPanelTitle }}</span>
-                </div>
-                <button
-                  class="ai-side-panel-close"
-                  @click="aiPanelClose"
-                  :aria-label="t('common.close')"
-                  :title="t('common.close')"
-                  type="button"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                </button>
-              </div>
-              <!-- 面板主体：AIChat embedded 模式 -->
+              <!-- 面板主体：AIChat embedded 容器（dialog-header 充任面板标题栏） -->
               <div class="ai-side-panel-body">
                 <AIChat
                   v-if="aiPanelLoaded"
@@ -109,7 +82,7 @@
                   mode="embedded"
                   :show-toggle="false"
                   :show-minimize="false"
-                  :show-close="false"
+                  :show-close="true"
                   :draggable="false"
                   :resizable="false"
                   :enable-voice="true"
@@ -117,7 +90,9 @@
                   :enable-search="true"
                   :show-model-selector="true"
                   :show-header="true"
+                  :panel-title="aiPanelTitle"
                   :dialog-title="aiPanelTitle"
+                  @close="aiPanelClose"
                   @message-sent="onGlobalMessageSent"
                   @message-received="onGlobalMessageSent"
                 />

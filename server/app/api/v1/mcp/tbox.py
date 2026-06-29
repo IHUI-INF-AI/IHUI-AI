@@ -8,7 +8,7 @@ from fastapi import APIRouter, Body, Header
 from loguru import logger
 
 from app.models.tbox_models import TBoxBean, get_tbox_event_log
-from app.schemas.common import success, error
+from app.schemas.common import error, success
 from app.schemas.error_codes import ErrorCode
 
 router = APIRouter(prefix="/api/tbox", tags=["TBox 智能体发布"])

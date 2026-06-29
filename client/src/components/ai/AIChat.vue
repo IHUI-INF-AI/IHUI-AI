@@ -40,6 +40,7 @@
             :selected-model="selectedModel"
             :selected-agent="selectedAgent"
             :effective-show-tickets="effectiveShowTickets"
+            :panel-title="panelTitle"
             @toggle-session-list="showSessionList = !showSessionList"
             @toggle-search="toggleSearch"
             @menu-command="handleMenuCommand"
@@ -1699,6 +1700,7 @@ import {
   AlertCircle,
   Cpu,
   Brain,
+  ChevronDown,
 } from '@/lib/lucide-fallback'
 // Settings/MoreHorizontal/Ticket/Headset 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
 
@@ -1837,6 +1839,13 @@ const props = withDefaults(
     showClose?: boolean  // 是否显示关闭按钮
     draggable?: boolean  // 是否可拖拽
     resizable?: boolean  // 是否可调整大小
+    /**
+     * 面板标题前缀（embedded 模式专用）。
+     * 由外层 App 传入，用于在 header-left 渲染"AI智能助手"等面板名，
+     * 替代原 ai-side-panel-header，避免双标题栏堆叠。
+     * floating 模式不传。
+     */
+    panelTitle?: string
     // AI 模式相关 props
     aiMode?: 'model' | 'agent' | 'agentic' | 'mcp' | 'hybrid' | 'auto' | 'generation'  // 初始 AI 模式
     agentId?: string  // 指定的 Agent ID（用于 Agent 模式）
@@ -1863,6 +1872,8 @@ const props = withDefaults(
     showClose: true,
     draggable: true,
     resizable: true,
+    // 面板标题前缀默认为空，floating 模式不显示，embedded 模式由 App 传入
+    panelTitle: '',
     // AI 模式默认值
     aiMode: undefined,
     agentId: undefined,
@@ -8966,17 +8977,33 @@ cleanup.add(() => {
       --el-button-disabled-bg-color: var(--el-fill-color-light);
       --el-button-disabled-border-color: var(--el-border-color-lighter);
       --el-button-disabled-text-color: var(--el-text-color-placeholder);
+    }
 
-      // 暗色模式：使用深色背景 + 清晰可见的浅色文字，保证对比度
-      :where(html.dark) & {
-        background: rgba(255, 255, 255, 0.12);
-        border-color: rgba(255, 255, 255, 0.18);
-        color: rgba(255, 255, 255, 0.85);
-        --el-button-disabled-bg-color: rgba(255, 255, 255, 0.12);
-        --el-button-disabled-border-color: rgba(255, 255, 255, 0.18);
-        --el-button-disabled-text-color: rgba(255, 255, 255, 0.85);
+    // 暗色模式：使用深色背景 + 清晰可见的浅色文字，保证对比度
+    // 使用 html.dark 直接匹配（不用 :where()），确保特异性可正确覆盖
+    html.dark &.is-empty,
+    html.dark &.is-empty.is-disabled,
+    html.dark &.is-empty:disabled {
+      background: rgba(255, 255, 255, 0.18) !important;
+      border-color: rgba(255, 255, 255, 0.25) !important;
+      color: rgba(255, 255, 255, 0.95) !important;
+      --el-button-disabled-bg-color: rgba(255, 255, 255, 0.18) !important;
+      --el-button-disabled-border-color: rgba(255, 255, 255, 0.25) !important;
+      --el-button-disabled-text-color: rgba(255, 255, 255, 0.95) !important;
+
+      .el-icon,
+      .send-btn-text {
+        color: rgba(255, 255, 255, 0.95) !important;
       }
 
+      svg {
+        fill: currentColor !important;
+      }
+    }
+
+    &.is-empty,
+    &.is-empty.is-disabled,
+    &.is-empty:disabled {
       .el-icon,
       .send-btn-text {
         color: inherit;
@@ -8993,12 +9020,20 @@ cleanup.add(() => {
         color: var(--el-text-color-placeholder);
         transform: none;
         box-shadow: none;
+      }
+    }
 
-        :where(html.dark) & {
-          background: rgba(255, 255, 255, 0.16);
-          border-color: rgba(255, 255, 255, 0.22);
-          color: rgba(255, 255, 255, 0.95);
-        }
+    // 暗色模式 hover 态 - 提升对比度
+    html.dark &.is-empty:hover,
+    html.dark &.is-empty.is-disabled:hover,
+    html.dark &.is-empty:disabled:hover {
+      background: rgba(255, 255, 255, 0.24) !important;
+      border-color: rgba(255, 255, 255, 0.32) !important;
+      color: #ffffff !important;
+
+      .el-icon,
+      .send-btn-text {
+        color: #ffffff !important;
       }
     }
 

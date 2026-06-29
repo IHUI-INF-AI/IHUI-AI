@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.database import SessionFactory2
-from app.schemas.common import success, error
+from app.schemas.common import error, success
 from app.schemas.error_codes import ErrorCode
 from app.security import require_role
 

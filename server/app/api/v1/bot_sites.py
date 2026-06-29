@@ -54,7 +54,7 @@ async def get_sites_by_kind(
             return success(data=[])
 
         # 2. 整理父子层级: 按 section 分组, 同一 section 下可能有多个 sub_section
-        grouped: "OrderedDict[str, list[str]]" = OrderedDict()
+        grouped: OrderedDict[str, list[str]] = OrderedDict()
         for sec, sub in combos:
             if sec not in grouped:
                 grouped[sec] = []

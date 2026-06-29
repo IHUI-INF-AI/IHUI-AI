@@ -2093,11 +2093,15 @@
   "aiChatInput": {
     "openChat": "AIチャットを開く",
     "selectModel": "モデルを選択",
+    "selectAgent": "エージェントを選択",
+    "selectMode": "モードを選択",
+    "modelLabel": "モデル",
+    "agentLabel": "エージェント",
     "voiceInput": "音声入力",
     "messageStatsTotal": "メッセージ統計: 合計 {count} 件のメッセージ",
     "pleaseEnterContentOrUploadFile": "コンテンツを入力するか、ファイルをアップロードしてください",
     "uploadFile": "ファイルをアップロード",
-    "inputPlaceholder": "メッセージを入力...",
+    "inputPlaceholder": "論文のレビュー、PPTの作成、Excel分析など、日常業務を整理し、プロレベルの成果を出力します。",
     "send": "送信",
     "enterToSend": "Enterキーで送信、Shift+Enterで改行",
     "voiceStarted": "Voice済み開始"
