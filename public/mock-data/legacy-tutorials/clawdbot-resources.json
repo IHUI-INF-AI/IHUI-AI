@@ -1,0 +1,532 @@
+{
+  "metadata": {
+    "topic": "Clawdbot/Moltbot AI助手",
+    "description": "开源自托管AI个人助手教程资源",
+    "crawlDate": "2026-01-28",
+    "totalResources": 35
+  },
+  "videoResources": [
+    {
+      "title": "【白嫖教程】教你用 Gemini CLI 免费运行 Clawdbot，零成本实现 AI 自由！",
+      "type": "video",
+      "platform": "Bilibili",
+      "url": "https://www.bilibili.com/video/BV15QzaBLEod/",
+      "thumbnail": "",
+      "duration": 0,
+      "format": "mp4",
+      "description": "使用 Gemini CLI 免费运行 Clawdbot 的详细教程，零成本实现个人AI助手",
+      "tags": ["Clawdbot", "Gemini", "免费", "部署教程", "AI助手"],
+      "author": "B站UP主",
+      "source": "Bilibili",
+      "language": "zh-CN",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "一文讲清Clawdbot：从安装到Claude Code中转配置详细教程",
+      "type": "video",
+      "platform": "Bilibili",
+      "url": "https://www.bilibili.com/opus/1162026096598712343",
+      "thumbnail": "",
+      "duration": 0,
+      "format": "mp4",
+      "description": "完整的 Clawdbot 安装教程，包括 Claude Code 中转 API 配置方法",
+      "tags": ["Clawdbot", "Claude", "安装教程", "API配置", "中转"],
+      "author": "B站UP主",
+      "source": "Bilibili",
+      "language": "zh-CN",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "How To Use Clawdbot/Moltbot as a Beginner",
+      "type": "video",
+      "platform": "YouTube",
+      "url": "https://youtube.com/watch?v=NhJxxv3f7lI",
+      "thumbnail": "",
+      "duration": 0,
+      "format": "mp4",
+      "description": "Beginner tutorial for Clawdbot/Moltbot, covering installation, OpenAI connection, and Telegram chat setup",
+      "tags": ["Clawdbot", "Moltbot", "Beginner", "Tutorial", "OpenAI", "Telegram"],
+      "author": "YouTube Creator",
+      "source": "YouTube",
+      "language": "en",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "ClawdBot 零基礎入門教程 1：入門介紹和安裝 (1/3)",
+      "type": "video",
+      "platform": "YouTube",
+      "url": "https://youtube.com/watch?v=OSK9RiohGHo",
+      "thumbnail": "",
+      "duration": 0,
+      "format": "mp4",
+      "description": "ClawdBot 零基础入门系列教程第一集，介绍基础概念和安装步骤",
+      "tags": ["Clawdbot", "入门教程", "安装", "零基础", "系列教程"],
+      "author": "YouTube Creator",
+      "source": "YouTube",
+      "language": "zh-TW",
+      "difficulty": "beginner"
+    }
+  ],
+  "articleResources": [
+    {
+      "title": "Clawdbot 全面指南：功能解析、应用场景与安装部署教程",
+      "type": "article",
+      "platform": "博客",
+      "url": "https://blog.wenhaofree.com/posts/articles/2026-01-26-clawdbot-guide-analysis/",
+      "cover": "",
+      "summary": "详细介绍 Clawdbot 的核心功能、适用场景以及完整的安装部署流程",
+      "content": "",
+      "tags": ["Clawdbot", "功能解析", "部署教程", "应用场景"],
+      "author": "wenhaofree",
+      "source": "个人博客",
+      "isOriginal": true,
+      "language": "zh-CN",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "Clawdbot：你的永不休息的 AI 助手 - 完整部署与使用指南",
+      "type": "article",
+      "platform": "博客",
+      "url": "http://onefly.top/posts/260126.html",
+      "cover": "",
+      "summary": "介绍如何部署一个 24/7 在线的 AI 助手，包括各种部署方案对比",
+      "content": "",
+      "tags": ["Clawdbot", "AI助手", "部署指南", "24/7在线"],
+      "author": "onefly",
+      "source": "个人博客",
+      "isOriginal": true,
+      "language": "zh-CN",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "免费开源、可本地部署的AI私人助理Clawdbot，保姆级搭建教程来了",
+      "type": "article",
+      "platform": "腾讯新闻",
+      "url": "https://news.qq.com/rain/a/20260126A063G600",
+      "cover": "",
+      "summary": "保姆级教程，手把手教你搭建开源免费的 Clawdbot AI 私人助理",
+      "content": "",
+      "tags": ["Clawdbot", "开源", "本地部署", "保姆级教程", "AI助理"],
+      "author": "腾讯新闻",
+      "source": "腾讯新闻",
+      "isOriginal": false,
+      "language": "zh-CN",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "主权个人必看的 Clawdbot 本地部署完全指南（2026版）",
+      "type": "article",
+      "platform": "社区论坛",
+      "url": "https://brave2049.com/groups/artificial-intelligence-learning/forum/discussion/zhu-quan-ge-ren-bi-kan-de-clawdbot-ben-di-bu-shu-wan-quan-zhi-nan/",
+      "cover": "",
+      "summary": "面向注重隐私的用户，详解如何本地部署 Clawdbot 保护数据主权",
+      "content": "",
+      "tags": ["Clawdbot", "本地部署", "数据隐私", "主权个人", "2026"],
+      "author": "brave2049社区",
+      "source": "Brave2049",
+      "isOriginal": true,
+      "language": "zh-CN",
+      "difficulty": "advanced"
+    },
+    {
+      "title": "5 分钟掌握 Clawdbot：打造专属 AI 助手的完整新手指南",
+      "type": "article",
+      "platform": "技术文档",
+      "url": "https://help.apiyi.com/clawdbot-beginner-guide-personal-ai-assistant-2026.html",
+      "cover": "",
+      "summary": "快速入门指南，5分钟内完成 Clawdbot 基础配置",
+      "content": "",
+      "tags": ["Clawdbot", "快速入门", "5分钟", "新手指南", "AI助手"],
+      "author": "apiyi",
+      "source": "APIyi帮助中心",
+      "isOriginal": true,
+      "language": "zh-CN",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "Clawdbot 安装教程：打造 24 小时在线的 AI 助手",
+      "type": "article",
+      "platform": "博客",
+      "url": "https://xwuxl.com/2026/01/25/clawdbot-telegram-ai-assistant-tutorial/",
+      "cover": "",
+      "summary": "详细介绍如何配置 Clawdbot 与 Telegram 连接，实现移动端随时访问",
+      "content": "",
+      "tags": ["Clawdbot", "Telegram", "安装教程", "24小时在线"],
+      "author": "xwuxl",
+      "source": "个人博客",
+      "isOriginal": true,
+      "language": "zh-CN",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "Clawdbot国内使用全攻略与平替方案推荐",
+      "type": "article",
+      "platform": "AI资讯站",
+      "url": "https://www.ai-indeed.com/encyclopedia/15139.html",
+      "cover": "",
+      "summary": "针对国内用户的 Clawdbot 使用攻略，包括网络问题解决和国内替代方案",
+      "content": "",
+      "tags": ["Clawdbot", "国内使用", "平替方案", "网络配置"],
+      "author": "AI Indeed",
+      "source": "AI Indeed",
+      "isOriginal": true,
+      "language": "zh-CN",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "2026 Clawdbot 最詳細圖文教學：Clawdbot 是什麼？30 分鐘啟動最強 AI 助理",
+      "type": "article",
+      "platform": "媒体",
+      "url": "https://abmedia.io/what-is-clawdbot-2026-guide",
+      "cover": "",
+      "summary": "最详细的图文教程，30分钟内启动属于你的最强AI助理",
+      "content": "",
+      "tags": ["Clawdbot", "图文教程", "30分钟", "2026", "AI助理"],
+      "author": "ABMedia",
+      "source": "ABMedia",
+      "isOriginal": true,
+      "language": "zh-TW",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "How to Install Clawdbot on Windows, Mac, and Linux in 2026 (Complete Guide)",
+      "type": "article",
+      "platform": "技术博客",
+      "url": "https://www.aifreeapi.com/en/posts/install-clawdbot-windows-mac-linux",
+      "cover": "",
+      "summary": "Complete installation guide for Clawdbot on all major operating systems",
+      "content": "",
+      "tags": ["Clawdbot", "Installation", "Windows", "Mac", "Linux", "2026"],
+      "author": "AI Free API",
+      "source": "aifreeapi.com",
+      "isOriginal": true,
+      "language": "en",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "Getting Started with Clawdbot: The Complete Step-by-Step Guide",
+      "type": "article",
+      "platform": "Dev.to",
+      "url": "https://dev.to/ajeetraina/getting-started-with-clawdbot-the-complete-step-by-step-guide-2ffj",
+      "cover": "",
+      "summary": "Comprehensive step-by-step guide for getting started with Clawdbot",
+      "content": "",
+      "tags": ["Clawdbot", "Getting Started", "Step-by-Step", "Guide"],
+      "author": "ajeetraina",
+      "source": "Dev.to",
+      "isOriginal": true,
+      "language": "en",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "Clawdbot Showed Me What the Future of Personal AI Assistants Looks Like",
+      "type": "article",
+      "platform": "MacStories",
+      "url": "https://www.macstories.net/stories/clawdbot-showed-me-what-the-future-of-personal-ai-assistants-looks-like/",
+      "cover": "",
+      "summary": "Federico Viticci's comprehensive review of building a custom AI assistant with Notion, Todoist, Spotify integrations",
+      "content": "",
+      "tags": ["Clawdbot", "Review", "Personal AI", "Future", "Integrations"],
+      "author": "Federico Viticci",
+      "source": "MacStories",
+      "isOriginal": true,
+      "language": "en",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "Everything You Want To Know About Clawdbot",
+      "type": "article",
+      "platform": "OfficeChai",
+      "url": "https://officechai.com/ai/everything-you-want-to-know-about-clawdbot-the-viral-personal-ai-assistant",
+      "cover": "",
+      "summary": "Complete overview of Clawdbot's features, capabilities, and why it became the viral AI assistant of 2026",
+      "content": "",
+      "tags": ["Clawdbot", "Overview", "Features", "Viral", "2026"],
+      "author": "OfficeChai",
+      "source": "OfficeChai",
+      "isOriginal": true,
+      "language": "en",
+      "difficulty": "beginner"
+    }
+  ],
+  "officialDocumentation": [
+    {
+      "title": "Clawdbot 官方文档 - Getting Started",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/getting-started",
+      "description": "官方入门指南，包含基础概念和快速开始步骤",
+      "tags": ["官方文档", "入门指南", "Getting Started"]
+    },
+    {
+      "title": "Clawdbot 官方文档 - CLI Onboarding Wizard",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/wizard",
+      "description": "交互式命令行向导，引导完成 Clawdbot 配置",
+      "tags": ["官方文档", "CLI", "Wizard", "配置向导"]
+    },
+    {
+      "title": "Clawdbot 官方文档 - macOS App Onboarding",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/onboarding",
+      "description": "macOS 原生应用的设置指南，包含菜单栏集成",
+      "tags": ["官方文档", "macOS", "App", "菜单栏"]
+    },
+    {
+      "title": "Clawdbot 官方文档 - Setup & Installation",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/start/setup",
+      "description": "完整安装指南，支持 Docker、Homebrew、Nix、Ansible 等多种方式",
+      "tags": ["官方文档", "安装", "Docker", "Homebrew"]
+    },
+    {
+      "title": "Clawdbot 官方文档 - WhatsApp Integration",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/channels/whatsapp",
+      "description": "WhatsApp 消息渠道集成配置指南",
+      "tags": ["官方文档", "WhatsApp", "集成", "消息渠道"]
+    },
+    {
+      "title": "Clawdbot 官方文档 - Telegram Integration",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/channels/telegram",
+      "description": "Telegram Bot 集成配置指南",
+      "tags": ["官方文档", "Telegram", "Bot", "集成"]
+    },
+    {
+      "title": "Clawdbot 官方文档 - Docker Deployment",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/install/docker",
+      "description": "Docker 容器化部署完整指南",
+      "tags": ["官方文档", "Docker", "部署", "容器"]
+    },
+    {
+      "title": "Clawdbot 官方文档 - Railway Deployment",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/railway",
+      "description": "Railway 平台一键云端部署指南",
+      "tags": ["官方文档", "Railway", "云部署", "一键部署"]
+    },
+    {
+      "title": "Clawdbot 官方文档 - Configuration Examples",
+      "type": "documentation",
+      "url": "https://docs.clawd.bot/gateway/configuration-examples",
+      "description": "真实世界配置示例，包含常见场景和 MCP 工具配置",
+      "tags": ["官方文档", "配置示例", "MCP", "最佳实践"]
+    }
+  ],
+  "communityResources": [
+    {
+      "title": "Clawbots - Complete Clawdbot Resource Hub",
+      "type": "resource_hub",
+      "url": "https://clawbots.com",
+      "description": "社区资源聚合站，包含所有 Clawdbot 相关的文档、教程和指南",
+      "tags": ["社区", "资源聚合", "教程", "指南"]
+    },
+    {
+      "title": "Zeabur Moltbot Template",
+      "type": "deployment_template",
+      "url": "https://zeabur.com/zh-CN/templates/VTZ4FX",
+      "description": "Zeabur 平台的 Moltbot(Clawdbot) 一键部署模板",
+      "tags": ["Zeabur", "部署模板", "一键部署", "国内友好"]
+    }
+  ],
+  "courseStructure": {
+    "courseName": "Clawdbot/Moltbot AI助手完全指南",
+    "courseDescription": "从零开始学习部署和使用开源AI个人助手Clawdbot，掌握本地部署、云端部署、消息渠道集成、MCP工具配置等核心技能",
+    "targetAudience": "对AI助手感兴趣的开发者和技术爱好者",
+    "prerequisites": "基础的命令行操作能力，了解基本的Web概念",
+    "chapters": [
+      {
+        "chapterNo": 1,
+        "chapterName": "认识Clawdbot",
+        "description": "了解Clawdbot是什么，它能做什么，以及为什么选择自托管AI助手",
+        "lessons": [
+          {
+            "lessonNo": 1,
+            "lessonName": "什么是Clawdbot",
+            "type": "video",
+            "duration": 600,
+            "resourceUrl": "https://youtube.com/watch?v=NhJxxv3f7lI"
+          },
+          {
+            "lessonNo": 2,
+            "lessonName": "Clawdbot vs 其他AI助手对比",
+            "type": "article",
+            "resourceUrl": "https://officechai.com/ai/everything-you-want-to-know-about-clawdbot-the-viral-personal-ai-assistant"
+          }
+        ]
+      },
+      {
+        "chapterNo": 2,
+        "chapterName": "环境准备与安装",
+        "description": "准备开发环境，学习多种安装方式",
+        "lessons": [
+          {
+            "lessonNo": 1,
+            "lessonName": "系统要求与环境检查",
+            "type": "document",
+            "resourceUrl": "https://docs.clawd.bot/getting-started"
+          },
+          {
+            "lessonNo": 2,
+            "lessonName": "Windows/Mac/Linux安装指南",
+            "type": "article",
+            "resourceUrl": "https://www.aifreeapi.com/en/posts/install-clawdbot-windows-mac-linux"
+          },
+          {
+            "lessonNo": 3,
+            "lessonName": "使用Homebrew安装(Mac/Linux)",
+            "type": "document",
+            "resourceUrl": "https://docs.clawd.bot/start/setup#homebrew"
+          },
+          {
+            "lessonNo": 4,
+            "lessonName": "保姆级安装教程",
+            "type": "article",
+            "resourceUrl": "https://news.qq.com/rain/a/20260126A063G600"
+          }
+        ]
+      },
+      {
+        "chapterNo": 3,
+        "chapterName": "配置AI模型",
+        "description": "学习如何配置不同的AI模型提供商",
+        "lessons": [
+          {
+            "lessonNo": 1,
+            "lessonName": "配置Claude API",
+            "type": "video",
+            "resourceUrl": "https://www.bilibili.com/opus/1162026096598712343"
+          },
+          {
+            "lessonNo": 2,
+            "lessonName": "使用Gemini免费运行",
+            "type": "video",
+            "resourceUrl": "https://www.bilibili.com/video/BV15QzaBLEod/"
+          },
+          {
+            "lessonNo": 3,
+            "lessonName": "国内API中转配置",
+            "type": "article",
+            "resourceUrl": "https://www.ai-indeed.com/encyclopedia/15139.html"
+          }
+        ]
+      },
+      {
+        "chapterNo": 4,
+        "chapterName": "消息渠道集成",
+        "description": "连接各种消息平台，实现跨平台访问",
+        "lessons": [
+          {
+            "lessonNo": 1,
+            "lessonName": "Telegram Bot集成",
+            "type": "document",
+            "resourceUrl": "https://docs.clawd.bot/channels/telegram"
+          },
+          {
+            "lessonNo": 2,
+            "lessonName": "WhatsApp集成",
+            "type": "document",
+            "resourceUrl": "https://docs.clawd.bot/channels/whatsapp"
+          },
+          {
+            "lessonNo": 3,
+            "lessonName": "打造24小时在线助手",
+            "type": "article",
+            "resourceUrl": "https://xwuxl.com/2026/01/25/clawdbot-telegram-ai-assistant-tutorial/"
+          }
+        ]
+      },
+      {
+        "chapterNo": 5,
+        "chapterName": "云端部署方案",
+        "description": "学习各种云端部署方式，实现7x24小时在线",
+        "lessons": [
+          {
+            "lessonNo": 1,
+            "lessonName": "Docker容器部署",
+            "type": "document",
+            "resourceUrl": "https://docs.clawd.bot/install/docker"
+          },
+          {
+            "lessonNo": 2,
+            "lessonName": "Railway一键部署",
+            "type": "document",
+            "resourceUrl": "https://docs.clawd.bot/railway"
+          },
+          {
+            "lessonNo": 3,
+            "lessonName": "Zeabur部署(国内友好)",
+            "type": "document",
+            "resourceUrl": "https://zeabur.com/zh-CN/templates/VTZ4FX"
+          },
+          {
+            "lessonNo": 4,
+            "lessonName": "完整部署指南",
+            "type": "article",
+            "resourceUrl": "https://blog.wenhaofree.com/posts/articles/2026-01-26-clawdbot-guide-analysis/"
+          }
+        ]
+      },
+      {
+        "chapterNo": 6,
+        "chapterName": "MCP工具与高级功能",
+        "description": "扩展Clawdbot能力，集成各种服务",
+        "lessons": [
+          {
+            "lessonNo": 1,
+            "lessonName": "MCP工具介绍",
+            "type": "article",
+            "resourceUrl": "https://clawbots.com"
+          },
+          {
+            "lessonNo": 2,
+            "lessonName": "配置示例与最佳实践",
+            "type": "document",
+            "resourceUrl": "https://docs.clawd.bot/gateway/configuration-examples"
+          },
+          {
+            "lessonNo": 3,
+            "lessonName": "个人AI助手的未来",
+            "type": "article",
+            "resourceUrl": "https://www.macstories.net/stories/clawdbot-showed-me-what-the-future-of-personal-ai-assistants-looks-like/"
+          }
+        ]
+      }
+    ]
+  },
+  "platformApiMapping": {
+    "description": "数据字段与平台API的映射关系",
+    "resourceService": {
+      "endpoint": "POST /auth-api/resource/upload",
+      "fieldMapping": {
+        "title": "title",
+        "type": "type (video/audio/document)",
+        "url": "从上传后获取",
+        "description": "description",
+        "tags": "tags",
+        "duration": "duration (视频时长秒数)",
+        "format": "format"
+      }
+    },
+    "contentService": {
+      "articleEndpoint": "POST /auth-api/article",
+      "fieldMapping": {
+        "title": "title",
+        "summary": "summary",
+        "content": "content (需要爬取原文)",
+        "cover": "cover",
+        "tags": "tags",
+        "isOriginal": "isOriginal",
+        "originalUrl": "url (非原创时)",
+        "author": "author",
+        "source": "source"
+      }
+    },
+    "learnService": {
+      "courseEndpoint": "POST /auth-api/course",
+      "chapterEndpoint": "POST /auth-api/course/{courseId}/chapter",
+      "lessonEndpoint": "POST /auth-api/course/{courseId}/chapter/{chapterId}/lesson"
+    }
+  }
+}

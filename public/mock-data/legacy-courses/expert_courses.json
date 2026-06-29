@@ -1,0 +1,322 @@
+{
+  "metadata": {
+    "description": "行业大佬、专业博主、专家及国家公开课程资源清单",
+    "created": "2026-01-28",
+    "categories": ["名校公开课", "行业专家", "国家平台", "框架工具"]
+  },
+
+  "courses": [
+    {
+      "category": "吴恩达系列（DeepLearning.AI）",
+      "expert": "Andrew Ng (吴恩达)",
+      "affiliation": "斯坦福大学/DeepLearning.AI",
+      "videos": [
+        {
+          "id": "andrew_001",
+          "title": "2025公认最好的【吴恩达大模型】教程",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1Bq421A74G/",
+          "content": "生成式AI、提示词工程、大语言模型微调、RAG、LangChain、MCP、智能体AI",
+          "features": "中英字幕、附课件代码",
+          "local_path": "courses/andrew_ng/andrew_llm_2025"
+        },
+        {
+          "id": "andrew_002",
+          "title": "吴恩达机器学习经典名课【中英字幕】",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV164411S78V/",
+          "content": "112课时，监督学习、无监督学习、神经网络、深度学习",
+          "features": "经典课程、中英字幕",
+          "local_path": "courses/andrew_ng/andrew_ml_classic"
+        },
+        {
+          "id": "andrew_003",
+          "title": "【吴恩达机器学习】全套教程 Machine Learning Specialization",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1Hi421i74D/",
+          "content": "100课时，机器学习专项课程",
+          "features": "2024版、中英字幕",
+          "local_path": "courses/andrew_ng/andrew_ml_specialization"
+        }
+      ]
+    },
+
+    {
+      "category": "李宏毅系列（台湾大学）",
+      "expert": "李宏毅",
+      "affiliation": "国立台湾大学",
+      "videos": [
+        {
+          "id": "lee_001",
+          "title": "（2025版）李宏毅机器学习深度学习系列课程全集",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1TAtwzTE1S/",
+          "content": "CNN、RNN、LSTM、Transformer、GAN、强化学习、元学习、RAG、AI Agent",
+          "features": "公认体验感最好的入门课程、15个实验作业",
+          "local_path": "courses/lee_hungyi/lee_ml_dl_2025"
+        },
+        {
+          "id": "lee_002",
+          "title": "【2025版】李宏毅强化学习系列课程",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV15hw9euExZ/",
+          "content": "深度Q网络(DQN)、Actor-Critic方法",
+          "features": "强化学习专项",
+          "local_path": "courses/lee_hungyi/lee_rl_2025"
+        }
+      ]
+    },
+
+    {
+      "category": "李沐系列（亚马逊）",
+      "expert": "李沐",
+      "affiliation": "亚马逊科学家",
+      "videos": [
+        {
+          "id": "limu_001",
+          "title": "【李沐】动手学深度学习",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV18h411r7Z7/",
+          "content": "PyTorch实现、从基础到进阶",
+          "features": "配套教材d2l.ai",
+          "local_path": "courses/li_mu/limu_d2l"
+        },
+        {
+          "id": "limu_002",
+          "title": "【2025版】李沐深度学习系列课程",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1daQAYuEYm/",
+          "content": "191集、CNN、RNN、LSTM、GAN、DQN、Transformer、自编码器、注意力机制",
+          "features": "逐行精讲、工业级应用",
+          "local_path": "courses/li_mu/limu_dl_2025"
+        }
+      ]
+    },
+
+    {
+      "category": "斯坦福名校课程",
+      "expert": "Stanford CS",
+      "affiliation": "斯坦福大学",
+      "videos": [
+        {
+          "id": "stanford_001",
+          "title": "Stanford CS229 机器学习",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1JE411w7Ub/",
+          "content": "吴恩达讲授、研究生课程",
+          "features": "中文字幕、100小时",
+          "local_path": "courses/stanford/cs229_ml"
+        },
+        {
+          "id": "stanford_002",
+          "title": "Stanford CS231n 深度学习与计算机视觉",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1nJ411z7fe/",
+          "content": "李飞飞领衔、CNN视觉入门",
+          "features": "Spring 2017版、中文字幕",
+          "local_path": "courses/stanford/cs231n_cv"
+        }
+      ]
+    },
+
+    {
+      "category": "3Blue1Brown数学基础",
+      "expert": "Grant Sanderson",
+      "affiliation": "3Blue1Brown",
+      "videos": [
+        {
+          "id": "3b1b_001",
+          "title": "3Blue1Brown线性代数本质系列",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1TE411k7qg/",
+          "content": "向量、矩阵变换、特征值、15集",
+          "features": "可视化数学、中文字幕",
+          "local_path": "courses/3b1b/linear_algebra"
+        },
+        {
+          "id": "3b1b_002",
+          "title": "3Blue1Brown神经网络系列",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1As411o7Px/",
+          "content": "神经网络基础、反向传播",
+          "features": "直观动画讲解",
+          "local_path": "courses/3b1b/neural_networks"
+        }
+      ]
+    },
+
+    {
+      "category": "Andrej Karpathy系列",
+      "expert": "Andrej Karpathy",
+      "affiliation": "前OpenAI/Tesla",
+      "videos": [
+        {
+          "id": "karpathy_001",
+          "title": "Neural Networks: Zero to Hero系列",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1GN4y1w7kU/",
+          "content": "micrograd、makemore、GPT从零实现",
+          "features": "手写神经网络、深度讲解",
+          "local_path": "courses/karpathy/nn_zero_to_hero"
+        }
+      ]
+    },
+
+    {
+      "category": "fast.ai实战课程",
+      "expert": "Jeremy Howard",
+      "affiliation": "fast.ai",
+      "videos": [
+        {
+          "id": "fastai_001",
+          "title": "fast.ai深度学习实践课程",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/av41718196/",
+          "content": "自上而下教学、PyTorch/fastai",
+          "features": "中文字幕、实战导向",
+          "local_path": "courses/fastai/practical_dl"
+        }
+      ]
+    },
+
+    {
+      "category": "DeepSeek实战",
+      "expert": "社区教程",
+      "affiliation": "DeepSeek",
+      "videos": [
+        {
+          "id": "deepseek_001",
+          "title": "DeepSeek-R1+RAGFlow本地部署个人知识库教程",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1qQN3evE2s/",
+          "content": "本地部署、RAG知识库",
+          "features": "2025最新",
+          "local_path": "courses/deepseek/deepseek_ragflow"
+        },
+        {
+          "id": "deepseek_002",
+          "title": "DeepSeek本地部署+Coze智能体快速入门",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1SjdpYdENr/",
+          "content": "Ollama部署、Coze智能体",
+          "features": "零成本部署",
+          "local_path": "courses/deepseek/deepseek_coze"
+        }
+      ]
+    },
+
+    {
+      "category": "LangChain与AI Agent",
+      "expert": "社区教程",
+      "affiliation": "LangChain",
+      "videos": [
+        {
+          "id": "langchain_001",
+          "title": "AI Agent入门到精通实战教程(Agent+RAG+LangChain)",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1jmyhBoE6T/",
+          "content": "97集、Agent、RAG、LangChain全知识点",
+          "features": "ReAct框架、Tool、Memory、MCP",
+          "local_path": "courses/langchain/agent_rag_langchain"
+        },
+        {
+          "id": "langchain_002",
+          "title": "大模型全套保姆级教程(LLM+RAG+Agent+Langchain)",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1x3XrYwEo6/",
+          "content": "47集、LangGraph、AutoGen、CrewAI",
+          "features": "从0-1快速上手",
+          "local_path": "courses/langchain/llm_rag_agent"
+        }
+      ]
+    },
+
+    {
+      "category": "RAG检索增强",
+      "expert": "社区教程",
+      "affiliation": "RAGFlow",
+      "videos": [
+        {
+          "id": "rag_001",
+          "title": "RAGFlow构建本地个人知识库",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1usQVYRExV/",
+          "content": "18集、RAG原理、向量数据库、Rerank",
+          "features": "2025最详细",
+          "local_path": "courses/rag/ragflow_knowledge"
+        },
+        {
+          "id": "rag_002",
+          "title": "Ollama教程：本地部署、模型量化、微调、RAG",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV11H9hYqEP2/",
+          "content": "Ollama全方面应用",
+          "features": "从入门到精通",
+          "local_path": "courses/rag/ollama_complete"
+        }
+      ]
+    },
+
+    {
+      "category": "大模型综合课程",
+      "expert": "社区教程",
+      "affiliation": "综合",
+      "videos": [
+        {
+          "id": "llm_001",
+          "title": "【全748集】AI大模型零基础全套教程",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1uNk1YxEJQ/",
+          "content": "Python入门、AI环境搭建、提示词工程、大模型应用",
+          "features": "310万播放、最全教程",
+          "local_path": "courses/llm/llm_complete_748"
+        },
+        {
+          "id": "llm_002",
+          "title": "2026讲的最好的AI大模型视频教程",
+          "platform": "Bilibili",
+          "url": "https://www.bilibili.com/video/BV1urmTBsEaU/",
+          "content": "Transformer、RAG、Agent、LangChain、DeepSeek",
+          "features": "95集核心知识",
+          "local_path": "courses/llm/llm_2026_best"
+        }
+      ]
+    }
+  ],
+
+  "national_platforms": [
+    {
+      "name": "中国大学MOOC",
+      "url": "https://icourse163.org/",
+      "courses": ["机器学习(浙大)", "人工智能之深度学习(电子科大)", "人工智能引论(浙大)"]
+    },
+    {
+      "name": "学堂在线",
+      "url": "https://www.xuetangx.com/",
+      "courses": ["清华大学AI课程", "国家智慧教育公共服务平台AI课堂"]
+    },
+    {
+      "name": "国家智慧教育公共服务平台",
+      "url": "https://www.smartedu.cn/",
+      "courses": ["清华MAIC全AI守护课堂", "迈向通用的人工智能(刘知远)"]
+    }
+  ],
+
+  "official_docs": [
+    {
+      "name": "Anthropic Claude官方文档",
+      "url": "https://docs.anthropic.com/zh-CN/",
+      "content": "提示词工程、Claude API、最佳实践"
+    },
+    {
+      "name": "OpenAI官方中文文档",
+      "url": "https://openai.com/zh-Hans-CN/api/",
+      "content": "GPT API、结构化输出、Function Calling"
+    },
+    {
+      "name": "Hugging Face LLM课程",
+      "url": "https://hugging-face.cn/learn/llm-course/",
+      "content": "Transformers、Datasets、Tokenizers"
+    }
+  ]
+}
