@@ -8,7 +8,7 @@
 
 ### 1.1 现状
 
-`G:\1\client/` 仓库 (`ihui-agi-inf-web`, Vue 3 + Vite 前端) 内混杂了大量后端资产,
+`g:\IHUI-AI\client/` 仓库 (`ihui-agi-inf-web`, Vue 3 + Vite 前端) 内混杂了大量后端资产,
 违反"前端项目应是纯前端"的项目结构约束:
 
 | 项 | 类型 | 大小/状态 | 启动方式 |
@@ -20,7 +20,7 @@
 | `client/start-pdf-service.bat` | 启动后端的 .bat | — | 双击 |
 | `client/start-frontend.bat` | 启动前端 + uvicorn | — | 双击 |
 
-而 `G:\1\server/` (FastAPI 单体, ZHS Platform) 已有完整的 `app/api/v1/<domain>/` 模块化结构
+而 `g:\IHUI-AI\server/` (FastAPI 单体, ZHS Platform) 已有完整的 `app/api/v1/<domain>/` 模块化结构
 (70+ 域), 但 **缺少** PDF / 客服 / 工单 / RBAC / 审计 / 上传 / 版本 这些模块。
 
 ### 1.2 目标
@@ -238,7 +238,7 @@ server 收到后, 重写为 `/api/v1/customer-service/...` 并走新模块。
 
 ```bash
 # client/ 不应再含 Python / 后端痕迹
-cd G:\1\client
+cd g:\IHUI-AI\client
 find . -name "*.py" -not -path "./node_modules/*" -not -path "./miniapp/*"
 # 期望: 无输出 (miniapp 自身没有 .py, 排除 node_modules)
 
@@ -249,8 +249,8 @@ grep -r "uvicorn" package.json start-*.bat 2>/dev/null
 
 ### 6.2 启动验证 (必过)
 
-1. `cd G:\1\server && start-all.bat` → uvicorn 监听 8000
-2. `cd G:\1\client && npm run dev` → vite 监听 8888
+1. `cd g:\IHUI-AI\server && start-all.bat` → uvicorn 监听 8000
+2. `cd g:\IHUI-AI\client && npm run dev` → vite 监听 8888
 3. 浏览器打开 `http://localhost:8888`, 依次验证:
    - 登录 (走 `/api/auth/login` → 命中 `server/app/api/v1/auth/login.py`)
    - 上传 PDF (走 `/api/upload` → `app/api/v1/upload/routes.py`)
@@ -262,9 +262,9 @@ grep -r "uvicorn" package.json start-*.bat 2>/dev/null
 
 ### 6.3 回归测试 (必过)
 
-- `cd G:\1\client && npm run test` (vitest 套件)
-- `cd G:\1\client && npm run e2e -- api-integration.spec.ts backend-contract.spec.ts` (核心 e2e)
-- `cd G:\1\server && run-tests.bat` (server 套件)
+- `cd g:\IHUI-AI\client && npm run test` (vitest 套件)
+- `cd g:\IHUI-AI\client && npm run e2e -- api-integration.spec.ts backend-contract.spec.ts` (核心 e2e)
+- `cd g:\IHUI-AI\server && run-tests.bat` (server 套件)
 
 ## 7. 风险与回退
 
