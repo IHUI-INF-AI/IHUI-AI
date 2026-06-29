@@ -1,5 +1,5 @@
 <template>
-  <view class="container" style="padding: 0 0">
+  <view class="container" style="padding: 0">
     <!-- 导航栏 -->
     <navigation-bars 
       v-show="!showFullScreen" 
@@ -155,6 +155,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import NavigationBars from '@/components/navigation-bars/index.vue'
+import { getContentList } from '@/service/aigc.js'
 
 // 数据
 const viewList = ref<any[]>([])
@@ -170,6 +171,25 @@ const fenlei_active = ref<number[]>([])
 
 // 音频播放状态
 const audioPlayStates = ref<boolean[]>([])
+// 当前正在播放的音频索引
+const currentAudioIndex = ref(-1)
+// 音频播放上下文
+const innerAudioContext = uni.createInnerAudioContext()
+
+innerAudioContext.onEnded(() => {
+  if (currentAudioIndex.value >= 0) {
+    audioPlayStates.value[currentAudioIndex.value] = false
+  }
+  currentAudioIndex.value = -1
+})
+innerAudioContext.onError((err) => {
+  console.error('音频播放错误:', err)
+  uni.showToast({ title: '音频播放失败', icon: 'none' })
+  if (currentAudioIndex.value >= 0) {
+    audioPlayStates.value[currentAudioIndex.value] = false
+  }
+  currentAudioIndex.value = -1
+})
 
 onMounted(() => {
   loadContent()
@@ -179,18 +199,20 @@ onMounted(() => {
 async function loadContent() {
   loading.value = true
   try {
-    // TODO: 调用 API 加载内容
-    // const res = await getContentList({ type: currentFileType.value, pageNum: pageNum.value })
-    // if (res && res.data) {
-    //   if (pageNum.value === 1) {
-    //     viewList.value = res.data.list || []
-    //   } else {
-    //     viewList.value = [...viewList.value, ...(res.data.list || [])]
-    //   }
-    //   total.value = res.data.total || 0
-    // }
+    // gc_type 映射：1=图片 2=视频 3=音频 4=文本，与 currentFileType 一致
+    const res = await getContentList(pageNum.value, 10, currentFileType.value)
+    if (res && (res.code === 0 || res.code === 200 || res.code === undefined)) {
+      const list = Array.isArray(res.data) ? res.data : (res.data && res.data.list) || []
+      if (pageNum.value === 1) {
+        viewList.value = list
+      } else {
+        viewList.value = [...viewList.value, ...list]
+      }
+      total.value = res.total || (res.data && res.data.total) || 0
+    }
   } catch (error) {
     console.error('加载内容失败:', error)
+    uni.showToast({ title: '加载内容失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -223,8 +245,28 @@ function scrolltolower() {
 
 // 切换音频播放
 function toggleAudio(index: number, item: any) {
-  audioPlayStates.value[index] = !audioPlayStates.value[index]
-  // TODO: 播放/暂停音频
+  // 当前正在播放此音频 -> 暂停
+  if (currentAudioIndex.value === index) {
+    innerAudioContext.pause()
+    audioPlayStates.value[index] = false
+    currentAudioIndex.value = -1
+    return
+  }
+  // 停止上一个正在播放的音频
+  if (currentAudioIndex.value >= 0) {
+    innerAudioContext.stop()
+    audioPlayStates.value[currentAudioIndex.value] = false
+  }
+  const src = item.url || item.fileUrl || item.audioUrl || ''
+  if (!src) {
+    uni.showToast({ title: '音频地址无效', icon: 'none' })
+    return
+  }
+  // 设置新的播放源并播放
+  innerAudioContext.src = src
+  currentAudioIndex.value = index
+  audioPlayStates.value[index] = true
+  innerAudioContext.play()
 }
 
 // 预览图片
@@ -493,6 +535,7 @@ function backPage() {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

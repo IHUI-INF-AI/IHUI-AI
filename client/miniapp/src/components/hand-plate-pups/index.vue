@@ -149,35 +149,31 @@ function handlePayment() {
 }
 
 async function createPayOrder() {
-  try {
-    const userInfo = uni.getStorageSync("userInfo");
-    if (!userInfo) {
-      throw new Error("请先登录");
-    }
+  const userInfo = uni.getStorageSync("userInfo");
+  if (!userInfo) {
+    throw new Error("请先登录");
+  }
 
-    if (!userInfo.openid) {
-      throw new Error("用户信息不完整，请重新登录");
-    }
+  if (!userInfo.openid) {
+    throw new Error("用户信息不完整，请重新登录");
+  }
 
-    const res = await uniCloud.callFunction({
-      name: "payment",
-      data: {
-        action: "createOrder",
-        params: {
-          productId: props.productId,
-          payMethod: payMethod.value,
-          openid: userInfo.openid,
-        },
+  const res = await uniCloud.callFunction({
+    name: "payment",
+    data: {
+      action: "createOrder",
+      params: {
+        productId: props.productId,
+        payMethod: payMethod.value,
+        openid: userInfo.openid,
       },
-    });
+    },
+  });
 
-    if (res.result && res.result.code === 0) {
-      return res.result.data;
-    } else {
-      throw new Error(res.result?.message || "创建订单失败");
-    }
-  } catch (error) {
-    throw error;
+  if (res.result && res.result.code === 0) {
+    return res.result.data;
+  } else {
+    throw new Error(res.result?.message || "创建订单失败");
   }
 }
 
@@ -296,10 +292,7 @@ watch(() => props.productId, (newVal) => {
 <style lang="scss">
 .popup {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 999;
   display: flex;
   align-items: center;
@@ -307,13 +300,10 @@ watch(() => props.productId, (newVal) => {
 
   .popup-mask {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: #F0F1FA;
-    backdrop-filter: blur(0px);
-    -webkit-backdrop-filter: blur(0px);
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
     transition: backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease;
   }
 
@@ -325,20 +315,20 @@ watch(() => props.productId, (newVal) => {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 0 40rpx rgba(0, 0, 0, 0.4);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    box-shadow: 0 0 40rpx rgb(0 0 0 / 0.4);
   }
 
   .popup-header {
     padding: 30rpx 0;
     text-align: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgb(255 255 255 / 0.1);
 
     .popup-title {
       font-size: 36rpx;
       font-weight: bold;
-      color: #ffffff;
-      text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.5);
+      color: #fff;
+      text-shadow: 0 0 10rpx rgb(0 242 255 / 0.5);
     }
   }
 
@@ -352,7 +342,7 @@ watch(() => props.productId, (newVal) => {
 
     .product-name {
       font-size: 34rpx;
-      color: #ffffff;
+      color: #fff;
       font-weight: bold;
       margin-bottom: 20rpx;
       text-align: center;
@@ -376,7 +366,7 @@ watch(() => props.productId, (newVal) => {
 
       .price-original {
         font-size: 30rpx;
-        color: rgba(255, 255, 255, 0.5);
+        color: rgb(255 255 255 / 0.5);
         text-decoration: line-through;
         margin-left: 20rpx;
       }
@@ -386,7 +376,7 @@ watch(() => props.productId, (newVal) => {
       display: flex;
       flex-direction: column;
       padding: 20rpx;
-      background: rgba(0, 242, 255, 0.05);
+      background: rgb(0 242 255 / 0.05);
       border-radius: 15rpx;
 
       .benefit-item {
@@ -408,7 +398,7 @@ watch(() => props.productId, (newVal) => {
 
     .option-title {
       font-size: 30rpx;
-      color: #ffffff;
+      color: #fff;
       margin-bottom: 20rpx;
     }
 
@@ -416,13 +406,13 @@ watch(() => props.productId, (newVal) => {
       display: flex;
       align-items: center;
       padding: 20rpx;
-      background: rgba(255, 255, 255, 0.05);
+      background: rgb(255 255 255 / 0.05);
       border-radius: 15rpx;
       margin-bottom: 15rpx;
 
       &.active {
-        background: rgba(0, 242, 255, 0.1);
-        border: 1px solid rgba(0, 242, 255, 0.3);
+        background: rgb(0 242 255 / 0.1);
+        border: 1px solid rgb(0 242 255 / 0.3);
       }
 
       .option-icon {
@@ -438,7 +428,7 @@ watch(() => props.productId, (newVal) => {
           background: #09bb07;
 
           .icon-text {
-            color: #ffffff;
+            color: #fff;
             font-size: 24rpx;
             font-weight: bold;
           }
@@ -448,7 +438,7 @@ watch(() => props.productId, (newVal) => {
       .option-name {
         flex: 1;
         font-size: 30rpx;
-        color: #ffffff;
+        color: #fff;
       }
 
       .option-check {
@@ -473,7 +463,7 @@ watch(() => props.productId, (newVal) => {
       border-radius: 15rpx;
       border: 4rpx solid #000;
       background: #fff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
       animation: bouncea 0.5s ease-in-out infinite;
       margin-bottom: 20rpx;
     }
@@ -481,7 +471,7 @@ watch(() => props.productId, (newVal) => {
     .agreement {
       text-align: center;
       font-size: 24rpx;
-      color: rgba(255, 255, 255, 0.5);
+      color: rgb(255 255 255 / 0.5);
 
       .agreement-link {
         color: #00f2ff;

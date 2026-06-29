@@ -57,7 +57,7 @@
                                 <view class="tab_item" v-for="(value, indextab) in item.typeList" :key="indextab">{{
                                     value.name }}</view>
                             </view>
-                            <view class="subtitle" style="color: rgba(0, 0, 0, 0.6);">{{ item.content || item.title || '' }}</view>
+                            <view class="subtitle" style="color: rgb(0 0 0 / 0.6);">{{ item.content || item.title || '' }}</view>
                         </view>
                     </view>
                     <view
@@ -69,7 +69,7 @@
                             <view class="xin-title-hot" v-if="item.isHot == 0" style="margin-top: 0;">
                                 <image src="https://file.aizhs.top/sys-mini/default/useNum.png"
                                     style="width: 22rpx;height: 19rpx;margin-bottom: 0;" mode="widthFix" />
-                                <text style="color: #000000;">{{ numResult(item.usageCount) }}</text>
+                                <text style="color: #000;">{{ numResult(item.usageCount) }}</text>
                             </view>
                             <view class="xin-title-hot" v-if="item.isHot == 1">
                                 <image src="https://file.aizhs.top/sys-mini/default/hot.png"
@@ -154,7 +154,7 @@ function numResult(num) {
     transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
-        box-shadow: 0 0 8rpx rgba(22, 132, 252, 0.18), 0 0 6rpx rgba(0, 0, 0, 0.16), 0 0 8rpx rgba(0, 0, 0, 0.18);
+        box-shadow: 0 0 8rpx rgb(22 132 252 / 0.18), 0 0 6rpx rgb(0 0 0 / 0.16), 0 0 8rpx rgb(0 0 0 / 0.18);
         transform: translateY(0) scale(1.03);
     }
 
@@ -171,12 +171,13 @@ function numResult(num) {
 
     .xin-card-content {
         width: 100%;
+
         // height: 98%;
         margin: 1rpx;
         display: flex;
         justify-content: space-between;
         border-radius: 25rpx;
-        padding: 10rpx 11rpx 0 11rpx;
+        padding: 10rpx 11rpx 0;
         box-sizing: border-box;
         overflow: hidden;
 
@@ -205,12 +206,12 @@ function numResult(num) {
 
                 .xin-title {
                     font-size: 30rpx;
-                    font-weight: bold;
                     color: #8178EF;
                     display: block;
+
                     // text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
 
-                    font-family: 'AlimamaFangYuanTi' !important;
+                    font-family: AlimamaFangYuanTi !important;
                     font-weight: bold;
                     line-height: 30rpx;
                     letter-spacing: 0rpx;
@@ -245,7 +246,6 @@ function numResult(num) {
         .card-you {
             width: 103.56rpx;
             height: 100%;
-            margin-right: 3rpx;
             display: flex;
             position: relative;
             margin-right: 18rpx;
@@ -261,10 +261,12 @@ function numResult(num) {
             .card-you-box {
                 width: 103.56rpx;
                 height: auto;
+
                 // width: 100%;
                 // height: 90%;
                 margin: 0;
                 display: flex;
+
                 // background: linear-gradient(218deg, rgba(255, 241, 117, 0.41), rgba(113, 127, 255, 0.2) 103%);
                 border-radius: 10rpx;
 
@@ -288,11 +290,11 @@ function numResult(num) {
             font-weight: bold;
             line-height: 30rpx;
             color: #8178EF;
-            font-family: 'AlimamaFangYuanTi' !important;
+            font-family: AlimamaFangYuanTi !important;
         }
 
         .xin-yinying {
-            text-shadow: 0px 4px 10px #D3D3D3;
+            text-shadow: 0 4px 10px #D3D3D3;
         }
     }
 }
@@ -316,7 +318,7 @@ function numResult(num) {
         font-weight: bold;
         line-height: 20rpx;
         margin-right: 8rpx;
-        color: rgba(0, 0, 0, 0.6);
+        color: rgb(0 0 0 / 0.6);
     }
 }
 
@@ -342,9 +344,7 @@ function numResult(num) {
 }
 
 .xin-title-new {
-    font-size: 20rpx;
     font-weight: bold;
-    line-height: 33rpx;
     color: #fff;
     background: url('https://file.aizhs.top/sys-mini/default/new.png') no-repeat;
     background-size: 100% 100%;
@@ -370,20 +370,21 @@ function numResult(num) {
 
 .import_card-bg {
     // background: linear-gradient(240deg, #DEDBFF 0%, rgba(255, 255, 255, 1) 100%);
-    background: rgba(0, 4, 255, 0.015);
+    background: rgb(0 4 255 / 0.015);
     border: none;
 }
 
 .nomarl_card-bg {
-    background: rgba(0, 4, 255, 0.015);
+    background: rgb(0 4 255 / 0.015);
 }
 
 .robot-img {
     width: 100%;
     height: 95%;
     border-radius: 15rpx;
-    //width: 102rpx;
-    //height: 182rpx;
+
+    // width: 102rpx;
+    // height: 182rpx;
 }
 
 .floating-decoration {
@@ -401,6 +402,7 @@ function numResult(num) {
     justify-content: flex-start;
     align-items: center;
     margin-bottom: 4rpx;
+
     // transform: scale(1.2);
 
     .xin-avatar {
@@ -413,7 +415,7 @@ function numResult(num) {
         font-size: 24rpx;
         margin-left: 8rpx;
         font-weight: bold;
-        font-family: 'AlimamaFangYuanTi' !important;
+        font-family: AlimamaFangYuanTi !important;
     }
 }
 </style>

@@ -331,12 +331,12 @@ background: linear-gradient(
 
 ## 10. 检测工具
 
-使用项目中的检测脚本：
+> 说明：`scripts/check-hardcoded-colors.ts` 及对应 `npm run check:colors` 已从仓库移除。以下命令仅作历史参考，无法执行。建议改用 `stylelint` 或手动搜索 `#`、`rgb(`、`rgba(` 等关键字检查硬编码颜色。
 
 ```bash
-# 检查特定文件
-npx tsx scripts/check-hardcoded-colors.ts src/views/YourFile.vue
+# 检查特定文件（脚本已移除，建议用 stylelint 或手动检查替代）
+# npx tsx scripts/check-hardcoded-colors.ts src/views/YourFile.vue
 
-# 检查多个文件
-npx tsx scripts/check-hardcoded-colors.ts src/**/*.vue
+# 检查多个文件（脚本已移除）
+# npx tsx scripts/check-hardcoded-colors.ts src/**/*.vue
 ```

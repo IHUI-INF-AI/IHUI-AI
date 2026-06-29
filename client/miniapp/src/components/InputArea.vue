@@ -510,7 +510,6 @@ function handleInputFocus(e) {
     const isArray = Array.isArray(props.pageAgentVariables)
     if (isArray && props.pageAgentVariables.length > 0) {
       showAgentVariables.value = true
-    } else {
     }
 
     emit('input-focus', e)
@@ -534,7 +533,6 @@ function handleInputBlur() {
         // #ifndef APP-PLUS
         localInputBottom.value = 0
         // #endif
-      } else {
       }
     }, 800)
     emit('input-blur')
@@ -808,13 +806,14 @@ function onInputAlternative(e) {
   align-items: center;
   gap: 20rpx;
   z-index: 5;
+
   // border-top: 1px solid rgba(0, 242, 255, 0.15);
   // box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
 
   .placeholder-style {
-    color: #999999;
+    color: #999;
     font-size: 28rpx;
-    font-family: "AlimamaFangYuanTi";
+    font-family: AlimamaFangYuanTi;
   }
 
   .send-btn {
@@ -851,11 +850,9 @@ function onInputAlternative(e) {
   justify-content: center;
   align-items: center;
   position: fixed;
-  color: rgba(0, 0, 0, 0.4);
-  ;
-  z-index: 0;
+  color: rgb(0 0 0 / 0.4);
   bottom: 237rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   z-index: 1001;
 }
 
@@ -866,15 +863,14 @@ function onInputAlternative(e) {
   justify-content: center;
   align-items: center;
   position: fixed;
-  color: rgba(0, 0, 0, 0.4);
-  z-index: 0;
+  color: rgb(0 0 0 / 0.4);
   bottom: 87px;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   z-index: -1;
 
   .guanwangline {
     font-weight: normal;
-    color: rgba(89, 97, 255, 0.55);
+    color: rgb(89 97 255 / 0.55);
     font-size: 30rpx;
     line-height: 55rpx;
   }
@@ -911,10 +907,10 @@ function onInputAlternative(e) {
   background-repeat: no-repeat;
   border-radius: 30rpx;
   padding: 0 15rpx 0 25rpx;
-  height: auto;
   box-sizing: border-box;
   flex-wrap: wrap;
   position: relative;
+
   // overflow-y: scroll;
   height: auto;
   min-height: 0 !important;
@@ -938,11 +934,10 @@ function onInputAlternative(e) {
 .search-input {
   flex: none;
   border: none;
-  background: transparent;
   font-size: 36rpx;
-  color: rgba(0, 0, 0) !important;
+  color: rgb(0 0 0) !important;
   font-weight: normal;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   outline: none;
   width: 70%;
   background: transparent;
@@ -951,7 +946,7 @@ function onInputAlternative(e) {
 }
 
 .is_ios {
-  margin: 0 0 !important;
+  margin: 0 !important;
   line-height: 1 !important;
 }
 
@@ -963,7 +958,7 @@ function onInputAlternative(e) {
   width: auto;
   height: auto;
   margin-right: 0;
-  border-radius: 0px 26px 26px 0px;
+  border-radius: 0 26px 26px 0;
   box-sizing: border-box;
   display: flex;
   justify-content: space-around;
@@ -977,10 +972,12 @@ function onInputAlternative(e) {
 .search-box1 {
   width: 50rpx;
   height: 44rpx;
+
   // margin-top: 24rpx;
   display: flex;
   align-items: center;
   flex: none;
+
   // position: absolute;
   // bottom: 0;
   // z-index: 999;
@@ -1022,11 +1019,9 @@ function onInputAlternative(e) {
   justify-content: center;
   align-items: center;
   position: fixed;
-  color: rgba(0, 0, 0, 0.4);
-  ;
-  z-index: 0;
+  color: rgb(0 0 0 / 0.4);
   bottom: 230rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   z-index: -1;
 }
 
@@ -1060,7 +1055,7 @@ function onInputAlternative(e) {
 .no-more-text {
   margin: 0 9rpx;
   color: #767676;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-size: 24rpx;
   font-weight: normal;
   line-height: 20rpx;
@@ -1092,7 +1087,6 @@ function onInputAlternative(e) {
 }
 
 @keyframes bounce {
-
   0%,
   100% {
     height: 2rpx;
@@ -1112,26 +1106,23 @@ function onInputAlternative(e) {
 }
 
 .welcome {
-  font-weight: bold;
   color: #000;
   margin-bottom: 10rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-size: 80rpx;
   font-weight: normal;
   line-height: 67rpx;
-  letter-spacing: 0rem;
+  letter-spacing: 0;
 }
 
 .brand {
   margin-bottom: 20rpx;
   align-self: flex-end;
-
-
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-size: 30rpx;
   font-weight: bold;
   text-align: center;
-  letter-spacing: 0px;
+  letter-spacing: 0;
   font-variation-settings: "BEVL" 100, "opsz" auto;
   color: #8D83FF;
 
@@ -1211,19 +1202,18 @@ function onInputAlternative(e) {
 .toggle-button {
   width: calc(25% - 12rpx);
   border: 4rpx solid #fff;
-  border-width: 4rpx 4rpx 0 4rpx;
+  border-width: 4rpx 4rpx 0;
   padding: 0;
   margin: 0 8rpx 0 0;
   border-radius: 15rpx;
   font-size: 28rpx;
   transition: background-color 0.3s;
-  box-shadow: 0 0 4rpx rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(106deg, rgba(205, 208, 255, 0.3) 0%, rgba(253, 255, 225, 0.3) 100%);
-  box-shadow: 0px 0 6px 0px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(106deg, rgb(205 208 255 / 0.3) 0%, rgb(253 255 225 / 0.3) 100%);
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
   padding-left: 10rpx;
   -webkit-tap-highlight-color: transparent;
   tap-highlight-color: transparent;
@@ -1235,18 +1225,18 @@ function onInputAlternative(e) {
 }
 
 .button-group-box-inner {
-  color: #000000;
+  color: #000;
   font-size: 18rpx;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 }
 
 .button-group-box-inner:first-child {
-  color: rgba(0, 0, 0, 0.6);
+  color: rgb(0 0 0 / 0.6);
 }
 
 .custom-carousel-wrapper {
-  border: 1px solid rgba(156, 156, 156, 0.3);
-  box-shadow: 0px 0px 6px 0px rgba(86, 71, 250, 0.3);
+  border: 1px solid rgb(156 156 156 / 0.3);
+  box-shadow: 0 0 6px 0 rgb(86 71 250 / 0.3);
   box-sizing: border-box;
   border-radius: 30rpx;
   overflow: hidden;
@@ -1263,8 +1253,8 @@ function onInputAlternative(e) {
   position: relative;
   border-radius: 30rpx;
   padding: 4rpx;
-  background: linear-gradient(235deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 31%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%);
-  box-shadow: 0 0 16rpx rgba(0, 0, 0, 0.08);
+  background: linear-gradient(235deg, #D19EFF 6%, rgb(255 242 0 / 0.3) 31%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 73%, #CD96FF 93%);
+  box-shadow: 0 0 16rpx rgb(0 0 0 / 0.08);
 }
 
 .carousel-inner {
@@ -1274,7 +1264,7 @@ function onInputAlternative(e) {
 }
 
 .search-input {
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
 }
 
 .icon-button {
@@ -1285,15 +1275,14 @@ function onInputAlternative(e) {
   flex: none;
   width: 150rpx;
   height: 150rpx;
-  background: linear-gradient(135deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 103%);
+  background: linear-gradient(135deg, rgb(205 208 255 / 0.3) 3%, rgb(253 255 225 / 0.3) 103%);
   border-radius: 30rpx;
-  box-shadow: 0 0 4rpx rgba(0, 0, 0, 0.1);
   padding: 20rpx 10rpx 0;
   transition: background-color 0.3s;
-  box-shadow: 0px 0 4rpx rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 4rpx rgb(0 0 0 / 0.3);
   box-sizing: border-box;
   border: 6rpx solid #fff;
-  border-width: 6rpx 6rpx 0 6rpx;
+  border-width: 6rpx 6rpx 0;
 }
 
 .icon-imagea {
@@ -1305,8 +1294,8 @@ function onInputAlternative(e) {
 .icon-text {
   font-size: 20rpx;
   line-height: 40rpx;
-  color: rgba(0, 0, 0, 0.9);
-  font-family: "AlimamaFangYuanTi";
+  color: rgb(0 0 0 / 0.9);
+  font-family: AlimamaFangYuanTi;
 }
 
 .search-box2-img {
@@ -1374,7 +1363,7 @@ function onInputAlternative(e) {
   white-space: pre-wrap;
   word-wrap: break-word;
   word-break: break-all;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 
 }
 
@@ -1383,11 +1372,11 @@ function onInputAlternative(e) {
   height: 50vh !important;
   z-index: 1000;
   top: calc((100vh - 50vh) / 2);
-  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 10rpx 0 rgb(0 0 0 / 0.3);
   border-radius: 20rpx;
   overflow: hidden;
   backdrop-filter: blur(50rpx);
-  background: linear-gradient(101deg, rgba(205, 208, 255, 0.3) 4%, rgba(253, 255, 225, 0.3) 104%);
+  background: linear-gradient(101deg, rgb(205 208 255 / 0.3) 4%, rgb(253 255 225 / 0.3) 104%);
   width: calc(100% - 80rpx);
 }
 
@@ -1411,19 +1400,13 @@ function onInputAlternative(e) {
 .agent_back {
   background: linear-gradient(to right, #D19EFF 20%, #F68B09 50%, #3EFFBE 80%);
   position: absolute;
-  top: -300rpx;
-  left: -300rpx;
-  right: -300rpx;
-  bottom: -300rpx;
+  inset: -300rpx;
   animation: rotate 5s linear infinite;
 }
 
 .agent_content {
   position: absolute;
-  top: 4rpx;
-  left: 4rpx;
-  right: 4rpx;
-  bottom: 4rpx;
+  inset: 4rpx;
   background-color: rgb(226 226 226);
   border-radius: 20rpx;
   overflow-y: auto;
@@ -1461,7 +1444,7 @@ function onInputAlternative(e) {
   overflow: hidden;
   white-space: initial;
   color: transparent;
-  background-image: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.5) 50%);
+  background-image: linear-gradient(to bottom, transparent 50%, rgb(0 0 0 / 0.5) 50%);
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -1500,7 +1483,7 @@ function onInputAlternative(e) {
   right: 0;
   z-index: 1;
   width: 100%;
-  padding:  0 0 20rpx 0;
+  padding:  0 0 20rpx;
   box-sizing: border-box;
   overflow-x: auto;
   flex: none;
@@ -1517,7 +1500,8 @@ function onInputAlternative(e) {
   opacity: 1;
   background: #F6F6F6;
   box-sizing: border-box;
-  border: 1px solid #EEEEEE;
+  border: 1px solid #EEE;
+
   // box-shadow: 0px 0 4px 0px rgba(0, 0, 0, 0.15);
   width: 100%;
   float: left;
@@ -1528,15 +1512,15 @@ function onInputAlternative(e) {
   line-height: 28rpx;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: #333333;
+  color: #333;
 }
 
 .agent-content-item-question {
   background: #9A99F3;
   box-sizing: border-box;
   border: 2rpx solid;
-  border-image: linear-gradient(275deg, rgba(252, 255, 77, 0.5) -32%, rgba(76, 32, 116, 0) 5%, rgba(54, 16, 88, 0) 98%, rgba(54, 16, 88, 0.5) 129%) 2;
-  box-shadow: 0px 0px 6px 0px rgba(0, 0, 0, 0.3);
+  border-image: linear-gradient(275deg, rgb(252 255 77 / 0.5) -32%, rgb(76 32 116 / 0) 5%, rgb(54 16 88 / 0) 98%, rgb(54 16 88 / 0.5) 129%) 2;
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
   border-radius: 15rpx;
   float: right;
   padding: 20rpx;
@@ -1545,9 +1529,8 @@ function onInputAlternative(e) {
   line-height: 28rpx;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-
   font-variation-settings: "BEVL" 100, "opsz" auto;
-  color: #FFFFFF;
+  color: #FFF;
 }
 
 @keyframes slideLeft {
@@ -1590,7 +1573,7 @@ function onInputAlternative(e) {
 
 .lianjie_text {
   color: #979797;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
   font-size: 36rpx;
   text-align: center;
 }
@@ -1610,7 +1593,7 @@ function onInputAlternative(e) {
 .btn_join {
   background: url('/static/images/shequ_back.png') no-repeat center center;
   background-size: 100% 100%;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
   font-size: 30rpx;
   color: #3D3D3D;
   width: 219rpx;
@@ -1627,29 +1610,30 @@ function onInputAlternative(e) {
   background: none;
   border-radius: 30rpx;
   overflow: hidden;
+
   // border: 2px solid #d7aefc;
   // width: 100%;
   // box-shadow: 4rpx 4rpx 11rpx 5rpx rgba(0, 0, 0, 0.3),0rpx 6rpx 20rpx 0rpx rgba(255, 255, 255, 0.8);
-  box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
+  box-shadow: 0 4rpx 16rpx -4rpx rgb(90 87 255 / 0.5);
   transition: box-shadow 0.3s ease;
   animation: inputAreaBackAnimation 2s linear infinite;
-  -moz-animation: inputAreaBackAnimation 2s linear infinite;
-  -webkit-animation: inputAreaBackAnimation 2s linear infinite;
-  -o-animation: inputAreaBackAnimation 2s linear infinite;
+  -moz-animation: inputareabackanimation 2s linear infinite;
+  -webkit-animation: inputareabackanimation 2s linear infinite;
+  -o-animation: inputareabackanimation 2s linear infinite;
 }
 
 // 定义循环动画
 @keyframes inputAreaBackAnimation {
   0% {
-    box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
+    box-shadow: 0 4rpx 16rpx -4rpx rgb(90 87 255 / 0.5);
   }
 
   50% {
-    box-shadow: 0px 2rpx 16rpx -8rpx rgba(90, 87, 255, 0.5);
+    box-shadow: 0 2rpx 16rpx -8rpx rgb(90 87 255 / 0.5);
   }
 
   100% {
-    box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
+    box-shadow: 0 4rpx 16rpx -4rpx rgb(90 87 255 / 0.5);
   }
 }
 
@@ -1678,7 +1662,7 @@ function onInputAlternative(e) {
   animation-delay: 0.25s;
 }
 
-@-moz-keyframes move {
+@keyframes move {
   0% {
     top: 0;
     height: 65rpx;

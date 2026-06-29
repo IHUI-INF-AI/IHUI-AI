@@ -8,12 +8,14 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
+    "allowJs": true,
+    "checkJs": false,
     "lib": ["ESNext", "DOM"],
-    "types": ["@dcloudio/types"],
+    "types": ["@dcloudio/types", "node"],
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.js", "src/**/*.d.ts"],
+  "exclude": ["node_modules", "dist", "src/**/__tests__/**"]
 }

@@ -201,7 +201,7 @@ function calculateSwiperHeight() {
 .dot {
   width: 16rpx;
   height: 16rpx;
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: rgb(255 255 255 / 0.5);
   border-radius: 50%;
   margin: 0 10rpx;
   transition: all 0.3s;
@@ -209,7 +209,7 @@ function calculateSwiperHeight() {
 
 .dot.active {
   width: 32rpx;
-  background-color: #ffffff;
+  background-color: #fff;
   border-radius: 8rpx;
 }
 </style>

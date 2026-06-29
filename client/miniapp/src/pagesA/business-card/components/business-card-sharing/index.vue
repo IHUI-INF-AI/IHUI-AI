@@ -16,7 +16,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { uploadPictures } from "@/utils/uploadImage.js"
+import { uploadSinglePicture } from "@/utils/uploadImage.js"
 import { saveAlbum } from "@/utils/saveAlbum.js"
 
 const props = defineProps({
@@ -51,20 +51,26 @@ const title = ref([
 ])
 const avatarUrl = ref("")
 
-function hander(item) {
+async function hander(item) {
   if (item.name === "发送好友") {
     emit("wx")
   } else if (item.name === "修改图片") {
-    uploadPictures(1)
-      .then((res) => {
-        if (res && res.length > 0) {
-          avatarUrl.value = res[0]
+    try {
+      const res = await uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+      })
+      if (res.tempFilePaths && res.tempFilePaths.length > 0) {
+        const uploadRes = await uploadSinglePicture(res.tempFilePaths[0])
+        if (uploadRes && uploadRes.url) {
+          avatarUrl.value = uploadRes.url
           emit("upload", avatarUrl.value)
         }
-      })
-      .catch((err) => {
-        uni.showToast({ title: err.message || '图片选择失败，请重试', icon: 'none' })
-      })
+      }
+    } catch (err) {
+      uni.showToast({ title: err.message || '图片上传失败，请重试', icon: 'none' })
+    }
   } else if (item.name === "保存相册") {
     if (!props.card) {
       uni.showToast({ title: '名片图片不存在', icon: 'none' })

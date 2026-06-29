@@ -3,7 +3,6 @@
  *
  * 验证后端第三方登录端点真实可达 + 响应格式正确:
  *   - 微信: /auth/wechat/config, /auth/wechat/qr-code, /auth/wechat/status/{id}, /auth/wechat/callback
- *   - 支付宝: /auth/alipay/qrcode/generate, /auth/alipay/qrcode/status, /auth/alipay/callback, /auth/alipay/authorize
  *   - Google: /auth/google/config, /auth/google/callback, /auth/google/one-tap, /auth/google/status
  *   - Apple: /auth/apple/callback
  *   - OAuth2: /auth/oauth/token
@@ -87,72 +86,6 @@ test.describe('第三方登录联调: 微信登录', () => {
     expect(body.data).toHaveProperty('token')
     expect(body.data).toHaveProperty('refreshToken')
     console.log(`[微信 callback] token 长度=${String(body.data.token).length}`)
-  })
-})
-
-test.describe('第三方登录联调: 支付宝登录', () => {
-  test.setTimeout(15000)
-
-  test('POST /auth/alipay/qrcode/generate 返回二维码', async ({ request }: { request: APIRequestContext }) => {
-    const resp = await request.post(`${BACKEND}/auth/alipay/qrcode/generate`, {
-      timeout: 10000,
-      headers: { 'Content-Type': 'application/json' },
-      data: {},
-      failOnStatusCode: false,
-    })
-    if (resp.status() === 404) {
-      test.skip(true, '后端第三方登录端点未挂载')
-      return
-    }
-    expect(resp.status()).toBe(200)
-    const body = await resp.json()
-    expectSuccessFormat(body)
-    expect(body.data).toHaveProperty('sessionId')
-    console.log(`[支付宝 qrcode] sessionId=${body.data.sessionId || '(未配置)'}`)
-  })
-
-  test('GET /auth/alipay/qrcode/status 返回扫码状态', async ({ request }: { request: APIRequestContext }) => {
-    const resp = await request.get(`${BACKEND}/auth/alipay/qrcode/status`, { timeout: 10000, failOnStatusCode: false })
-    if (resp.status() === 404) {
-      test.skip(true, '后端第三方登录端点未挂载')
-      return
-    }
-    expect(resp.status()).toBe(200)
-    const body = await resp.json()
-    expectSuccessFormat(body)
-    expect(body.data).toHaveProperty('status')
-    console.log(`[支付宝 status] status=${body.data.status}`)
-  })
-
-  test('POST /auth/alipay/callback 返回登录凭证', async ({ request }: { request: APIRequestContext }) => {
-    const resp = await request.post(`${BACKEND}/auth/alipay/callback`, {
-      timeout: 10000,
-      headers: { 'Content-Type': 'application/json' },
-      data: { code: 'test_alipay_code' },
-      failOnStatusCode: false,
-    })
-    if (resp.status() === 404) {
-      test.skip(true, '后端第三方登录端点未挂载')
-      return
-    }
-    expect(resp.status()).toBe(200)
-    const body = await resp.json()
-    expectSuccessFormat(body)
-    expect(body.data).toHaveProperty('token')
-    console.log(`[支付宝 callback] token 长度=${String(body.data.token).length}`)
-  })
-
-  test('GET /auth/alipay/authorize 返回授权 URL', async ({ request }: { request: APIRequestContext }) => {
-    const resp = await request.get(`${BACKEND}/auth/alipay/authorize`, { timeout: 10000, failOnStatusCode: false })
-    if (resp.status() === 404) {
-      test.skip(true, '后端第三方登录端点未挂载')
-      return
-    }
-    expect(resp.status()).toBe(200)
-    const body = await resp.json()
-    expectSuccessFormat(body)
-    expect(body.data).toHaveProperty('authUrl')
-    console.log(`[支付宝 authorize] authUrl=${body.data.authUrl || '(未配置)'}`)
   })
 })
 

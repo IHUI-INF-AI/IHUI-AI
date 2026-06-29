@@ -137,7 +137,7 @@ function scrolltolower() {
     .comment_title {
         font-size: 26rpx;
         font-weight: 600;
-        color: #000000;
+        color: #000;
     }
 
     .s_v {
@@ -145,7 +145,7 @@ function scrolltolower() {
 
         .s_i {
             margin-top: 17rpx;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgb(0 0 0 / 0.1);
             padding-bottom: 12rpx;
 
             .header {
@@ -161,13 +161,13 @@ function scrolltolower() {
                 .name {
                     font-size: 26rpx;
                     font-weight: normal;
-                    color: #000000;
+                    color: #000;
                 }
 
                 .date {
                     font-size: 22rpx;
                     font-weight: normal;
-                    color: rgba(0, 0, 0, 0.6);
+                    color: rgb(0 0 0 / 0.6);
                 }
             }
 
@@ -194,7 +194,7 @@ function scrolltolower() {
                 .menber {
                     font-size: 26rpx;
                     font-weight: bold;
-                    color: rgba(0, 0, 0, 0.6);
+                    color: rgb(0 0 0 / 0.6);
                     margin-left: 7rpx;
                 }
 

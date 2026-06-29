@@ -55,7 +55,7 @@ function handleItemClick(item) {
   border-radius: 15rpx;
   padding: 24rpx;
   margin: 20rpx;
-  box-shadow: 0 0 12rpx rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 12rpx rgb(0 0 0 / 0.08);
 }
 
 .card-header {

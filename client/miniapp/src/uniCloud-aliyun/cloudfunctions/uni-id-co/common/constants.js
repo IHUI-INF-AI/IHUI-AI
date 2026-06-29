@@ -24,8 +24,7 @@ const USER_IDENTIFIER = {
   qq_unionid: 'qq-account',
   'qq_openid.app': 'qq-account',
   'qq_openid.mp': 'qq-account',
-  ali_openid: 'alipay-account',
-  apple_openid: 'alipay-account',
+  apple_openid: 'apple-account',
   identities: 'idp'
 }
 
@@ -59,10 +58,8 @@ const LOG_TYPE = {
   BIND_WEIXIN: 'bind-weixin',
   BIND_QQ: 'bind-qq',
   BIND_APPLE: 'bind-apple',
-  BIND_ALIPAY: 'bind-alipay',
   UNBIND_WEIXIN: 'unbind-weixin',
   UNBIND_QQ: 'unbind-qq',
-  UNBIND_ALIPAY: 'unbind-alipay',
   UNBIND_APPLE: 'unbind-apple'
 }
 

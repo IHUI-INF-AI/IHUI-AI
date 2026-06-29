@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 
 // 学习进度
 const userProgress = reactive({
@@ -216,7 +216,7 @@ function navigateTo(path: string) {
   background: #fff;
   border-radius: 16rpx;
   overflow: hidden;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2rpx 10rpx rgb(0 0 0 / 0.1);
 
   .path-image {
     width: 100%;
@@ -277,7 +277,7 @@ function navigateTo(path: string) {
     background: #fff;
     border-radius: 16rpx;
     overflow: hidden;
-    box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2rpx 10rpx rgb(0 0 0 / 0.1);
 
     .course-image {
       width: 200rpx;
@@ -311,7 +311,7 @@ function navigateTo(path: string) {
         .course-level {
           font-size: 22rpx;
           color: #007aff;
-          background-color: rgba(0, 122, 255, 0.1);
+          background-color: rgb(0 122 255 / 0.1);
           padding: 4rpx 12rpx;
           border-radius: 8rpx;
         }

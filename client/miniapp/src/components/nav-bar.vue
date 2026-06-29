@@ -59,13 +59,13 @@ function handleMessage() {
 	z-index: 100;
 	backdrop-filter: blur(40px);
 	background: linear-gradient(180deg, 
-		rgba(10, 10, 15, 0.95), 
-		rgba(15, 15, 20, 0.85)
+		rgb(10 10 15 / 0.95), 
+		rgb(15 15 20 / 0.85)
 	);
-	border-bottom: 1px solid rgba(0, 242, 255, 0.15);
+	border-bottom: 1px solid rgb(0 242 255 / 0.15);
 	box-shadow: 
-		0 0 30rpx rgba(0, 0, 0, 0.4),
-		inset 0 0 60rpx rgba(0, 242, 255, 0.02);
+		0 0 30rpx rgb(0 0 0 / 0.4),
+		inset 0 0 60rpx rgb(0 242 255 / 0.02);
 	
 	&::before {
 		content: '';
@@ -76,8 +76,8 @@ function handleMessage() {
 		height: 1px;
 		background: linear-gradient(90deg, 
 			transparent,
-			rgba(0, 242, 255, 0.6),
-			rgba(139, 92, 246, 0.6),
+			rgb(0 242 255 / 0.6),
+			rgb(139 92 246 / 0.6),
 			transparent
 		);
 		opacity: 0.6;
@@ -87,19 +87,19 @@ function handleMessage() {
 	
 	&.light {
 		background: linear-gradient(180deg, 
-			rgba(255, 255, 255, 0.95), 
-			rgba(250, 250, 250, 0.9)
+			rgb(255 255 255 / 0.95), 
+			rgb(250 250 250 / 0.9)
 		);
-		border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+		border-bottom: 1px solid rgb(0 0 0 / 0.08);
 		box-shadow: 
-			0 2rpx 20rpx rgba(0, 0, 0, 0.06),
-			inset 0 0 60rpx rgba(255, 255, 255, 0.5);
+			0 2rpx 20rpx rgb(0 0 0 / 0.06),
+			inset 0 0 60rpx rgb(255 255 255 / 0.5);
 		
 		&::before {
 			background: linear-gradient(90deg, 
 				transparent,
-				rgba(0, 242, 255, 0.3),
-				rgba(139, 92, 246, 0.3),
+				rgb(0 242 255 / 0.3),
+				rgb(139 92 246 / 0.3),
 				transparent
 			);
 			opacity: 0.4;
@@ -115,18 +115,18 @@ function handleMessage() {
 		}
 		
 		.search-btn, .message-btn {
-			background: rgba(0, 242, 255, 0.08);
-			border: 1px solid rgba(0, 242, 255, 0.2);
+			background: rgb(0 242 255 / 0.08);
+			border: 1px solid rgb(0 242 255 / 0.2);
 			
 			&::before {
-				background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.3), transparent);
+				background: linear-gradient(90deg, transparent, rgb(0 242 255 / 0.3), transparent);
 			}
 			
 			&:active {
-				background: rgba(0, 242, 255, 0.12);
+				background: rgb(0 242 255 / 0.12);
 				box-shadow: 
-					0 0 30rpx rgba(0, 242, 255, 0.15),
-					inset 0 0 20rpx rgba(0, 242, 255, 0.08);
+					0 0 30rpx rgb(0 242 255 / 0.15),
+					inset 0 0 20rpx rgb(0 242 255 / 0.08);
 			}
 		}
 	}
@@ -155,7 +155,7 @@ function handleMessage() {
 		animation: gradientFlow 6s linear infinite;
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
-		text-shadow: 0 0 30rpx rgba(0, 242, 255, 0.5);
+		text-shadow: 0 0 30rpx rgb(0 242 255 / 0.5);
 	}
 	
 	&::after {
@@ -165,7 +165,7 @@ function handleMessage() {
 		left: 0;
 		width: 70%;
 		height: 2px;
-		background: linear-gradient(90deg, rgba(0, 242, 255, 0.8), transparent);
+		background: linear-gradient(90deg, rgb(0 242 255 / 0.8), transparent);
 		filter: blur(1px);
 		opacity: 0.8;
 	}
@@ -180,14 +180,14 @@ function handleMessage() {
 .search-btn, .message-btn {
 	width: 80rpx;
 	height: 80rpx;
-	background: rgba(0, 242, 255, 0.05);
+	background: rgb(0 242 255 / 0.05);
 	border-radius: 20rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	position: relative;
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-	border: 1px solid rgba(0, 242, 255, 0.15);
+	border: 1px solid rgb(0 242 255 / 0.15);
 	overflow: hidden;
 	backdrop-filter: blur(30px);
 	
@@ -198,7 +198,7 @@ function handleMessage() {
 		left: 0;
 		right: 0;
 		height: 1px;
-		background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.4), transparent);
+		background: linear-gradient(90deg, transparent, rgb(0 242 255 / 0.4), transparent);
 		filter: blur(1px);
 	}
 	
@@ -206,17 +206,17 @@ function handleMessage() {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: radial-gradient(circle at center, rgba(0, 242, 255, 0.15) 0%, transparent 70%);
+		background: radial-gradient(circle at center, rgb(0 242 255 / 0.15) 0%, transparent 70%);
 		opacity: 0;
 		transition: opacity 0.3s ease;
 	}
 	
 	&:active {
 		transform: scale(0.95) translateY(2rpx);
-		background: rgba(0, 242, 255, 0.08);
+		background: rgb(0 242 255 / 0.08);
 		box-shadow: 
-			0 0 40rpx rgba(0, 242, 255, 0.2),
-			inset 0 0 30rpx rgba(0, 242, 255, 0.1);
+			0 0 40rpx rgb(0 242 255 / 0.2),
+			inset 0 0 30rpx rgb(0 242 255 / 0.1);
 		
 		&::after {
 			opacity: 1;
@@ -225,7 +225,7 @@ function handleMessage() {
 	
 	.icon {
 		font-size: 40rpx;
-		filter: drop-shadow(0 0 15rpx rgba(0, 242, 255, 0.5));
+		filter: drop-shadow(0 0 15rpx rgb(0 242 255 / 0.5));
 		transform: translateZ(0);
 	}
 }
@@ -243,26 +243,28 @@ function handleMessage() {
 	align-items: center;
 	justify-content: center;
 	font-size: 22rpx;
-	color: #ffffff;
+	color: #fff;
 	font-weight: bold;
 	box-shadow: 
-		0 0 30rpx rgba(0, 242, 255, 0.5),
-		inset 0 0 8rpx rgba(255, 255, 255, 0.5);
+		0 0 30rpx rgb(0 242 255 / 0.5),
+		inset 0 0 8rpx rgb(255 255 255 / 0.5);
 	animation: badgePulse 2s infinite;
-	border: 1px solid rgba(255, 255, 255, 0.3);
+	border: 1px solid rgb(255 255 255 / 0.3);
 	transform: translateZ(0);
-	text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.5);
+	text-shadow: 0 0 10rpx rgb(0 242 255 / 0.5);
 }
 
 @keyframes badgePulse {
 	0% {
-		box-shadow: 0 0 20rpx rgba(0, 242, 255, 0.4);
+		box-shadow: 0 0 20rpx rgb(0 242 255 / 0.4);
 	}
+
 	50% {
-		box-shadow: 0 0 40rpx rgba(0, 242, 255, 0.6);
+		box-shadow: 0 0 40rpx rgb(0 242 255 / 0.6);
 	}
+
 	100% {
-		box-shadow: 0 0 20rpx rgba(0, 242, 255, 0.4);
+		box-shadow: 0 0 20rpx rgb(0 242 255 / 0.4);
 	}
 }
 
@@ -270,9 +272,11 @@ function handleMessage() {
 	0% {
 		background-position: 0% 50%;
 	}
+
 	50% {
 		background-position: 100% 50%;
 	}
+
 	100% {
 		background-position: 0% 50%;
 	}

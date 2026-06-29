@@ -21,7 +21,7 @@
             top: 0;
             left: 0;
             z-index: 555;
-            background-color: rgba(0, 0, 0, 0.3);
+            background-color: rgb(0 0 0 / 0.3);
             color: white;
             padding: 4rpx 20rpx;
             border-radius: 20rpx;
@@ -101,7 +101,7 @@ function handleItemClick(item) {
       position: absolute;
       bottom: 0;
       right: 0;
-      background-color: rgba(255, 0, 0, 0.8);
+      background-color: rgb(255 0 0 / 0.8);
       color: white;
       padding: 4rpx 10rpx;
       font-size: 24rpx;
@@ -146,7 +146,7 @@ function handleItemClick(item) {
 
       text {
         font-size: 20rpx;
-        color: #ff0000;
+        color: #f00;
       }
     }
 

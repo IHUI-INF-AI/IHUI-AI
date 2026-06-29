@@ -103,7 +103,7 @@ function copyUrl(url) {
   justify-content: space-between;
   width: 100%;
   flex-wrap: wrap;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   margin: 20rpx 0;
   padding: 0 20rpx;
   box-sizing: border-box;
@@ -117,10 +117,10 @@ function copyUrl(url) {
   justify-content: flex-start;
   align-items: center;
   padding: 0 10rpx 0 12rpx;
-  background: rgba(0, 4, 255, 0.03);
+  background: rgb(0 4 255 / 0.03);
   backdrop-filter: blur(10rpx);
-  box-shadow: 4rpx 4rpx 4rpx 0px rgba(0, 0, 0, 0.07);
-  margin: 0 0 14rpx 0;
+  box-shadow: 4rpx 4rpx 4rpx 0 rgb(0 0 0 / 0.07);
+  margin: 0 0 14rpx;
   box-sizing: border-box;
 }
 
@@ -181,7 +181,7 @@ function copyUrl(url) {
 .subtitle {
   font-size: 26rpx;
   color: #676767;
-  letter-spacing: 0px;
+  letter-spacing: 0;
 }
 
 .arrow-container {

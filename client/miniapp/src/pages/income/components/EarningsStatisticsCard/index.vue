@@ -132,41 +132,47 @@ const switchTab = (tab) => {
   margin: 0 20rpx;
   padding: 2rpx;
   border-radius: 30rpx;
-  background: rgba(0, 4, 255, 0.03);
+  background: rgb(0 4 255 / 0.03);
+
   /* 渐变边框 */
-  box-shadow: 0 4rpx 24rpx rgba(209,158,255,0.08);
+  box-shadow: 0 4rpx 24rpx rgb(209 158 255 / 0.08);
 }
+
 .earnings-card {
   background: #fff;
   border-radius: 30rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.03);
+  box-shadow: 0 2rpx 8rpx rgb(0 0 0 / 0.03);
   overflow: hidden;
   position: relative;
 }
+
 .earnings-card-inner {
   padding-top: 10rpx;
   padding-bottom: 37rpx;
-  background: rgba(0, 4, 255, 0.03);
+  background: rgb(0 4 255 / 0.03);
 }
 
 /* Tab切换 */
 .tab-switcher-wrapper {
   border-bottom: 2rpx solid #f0f0f0;
-  margin: 0 10rpx 19rpx 10rpx;
+  margin: 0 10rpx 19rpx;
   border-radius: 15rpx;
-  background: rgba(0, 4, 255, 0.03);
+  background: rgb(0 4 255 / 0.03);
   padding: 2rpx;
   overflow: hidden;
 }
+
 .tab-switcher{
   background:#fff;
   border-radius: 15rpx;
 }
+
 .tab-switcher-inner{
   display: flex;
   border-radius: 15rpx;
-  background: rgba(0, 4, 255, 0.03);
+  background: rgb(0 4 255 / 0.03);
 }
+
 .tab-item {
   flex: 1;
   text-align: center;
@@ -176,37 +182,44 @@ const switchTab = (tab) => {
   background: transparent;
   transition: background 0.2s, color 0.2s;
 }
+
 .tab-item.active {
-  background: rgba(0, 4, 255, 0.03);
+  background: rgb(0 4 255 / 0.03);
 }
+
 .tab-divider {
   width: 2rpx;
   height: 48rpx;
   background: #e0e0e0;
-  margin: 0 0;
+  margin: 0;
   align-self: center;
   transition: opacity 0.2s;
 }
+
 .tab-divider-hide {
   opacity: 0;
 }
+
 /* 数据区 */
 .data-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin: 24rpx 24rpx 0 24rpx;
+  margin: 24rpx 24rpx 0;
 }
+
 .data-item {
   flex: 1;
   text-align: center;
 }
+
 .data-value {
   font-size: 50rpx;
   font-weight: bold;
   color: #222;
   margin-bottom: 8rpx;
 }
+
 .data-label {
   font-size: 32rpx;
   color: #646464;
@@ -216,18 +229,21 @@ const switchTab = (tab) => {
 .bottom-stats {
   display: flex;
   justify-content: space-between;
-  margin: 32rpx 24rpx 0 24rpx;
+  margin: 32rpx 24rpx 0;
 }
+
 .stat-item {
   flex: 1;
   text-align: center;
 }
+
 .stat-value {
   font-size: 50rpx;
   font-weight: bold;
   color: #222;
   margin-bottom: 6rpx;
 }
+
 .stat-label {
   font-size: 32rpx;
   color: #646464;

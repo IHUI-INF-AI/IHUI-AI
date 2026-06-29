@@ -60,7 +60,7 @@
 											</view>
 											<view v-if="item.type == 4" class="vip_label" style="background-color: #5E56FF;">
 												<image src="/static/images/yibuy_label.png" mode="heightFix" class="label_icon"></image>
-												<text class="label_title" style="color: #FFFFFF;">已购买</text>
+												<text class="label_title" style="color: #FFF;">已购买</text>
 											</view>
 											<image class="robot-img floating-decoration" style="display: block;" mode="" :src="item.agentAvatar"></image>
 											<image style="position: absolute;right: 10rpx;bottom: 10rpx;width: 48rpx;height: 48rpx;z-index: 2;" :src="'https://file.aizhs.top/sys-center/default/statis/'+item.source+'.png'"></image>
@@ -74,7 +74,7 @@
 										<view class="tab_list">
 											<view class="tab_item" v-for="(value,indextab) in item.agentMainCategory" :key="indextab">{{ value.name }}</view>
 										</view>
-										<view class="subtitle" style="color: rgba(0, 0, 0, 0.6);">{{ item.agentDescription }}</view>
+										<view class="subtitle" style="color: rgb(0 0 0 / 0.6);">{{ item.agentDescription }}</view>
 									</view>
 								</view>
 								<view style="display: flex; justify-content: space-between; align-items: flex-end;padding-bottom: 5rpx;margin-top: -10rpx;padding-right: 5rpx;">
@@ -85,7 +85,7 @@
 										<span class="xin-name" v-else>{{ item.userNickname }}</span>
 										<view class="xin-title-hot" v-if="item.isHot == 0" style="margin-top: 0;">
 											<image src="/static/images/useNum.png" style="width: 22rpx;height: 19rpx;margin-bottom: 0;" mode="widthFix"></image>
-											<text style="color: #000000;">{{ numResult(item.usageCount) }}</text>
+											<text style="color: #000;">{{ numResult(item.usageCount) }}</text>
 										</view>
 										<view class="xin-title-hot" v-if="item.isHot == 1">
 											<image src="/static/images/hot.png" style="width: 44rpx;height: 44rpx;" mode="widthFix"></image>
@@ -103,8 +103,8 @@
 											style="width: 36rpx;height: 36rpx;display: block;" alt="" ></image>
 										</view>
 										<!-- <text style="display: block;color: #373737;font-size: 24rpx;float: right;height:44rpx;line-height:44rpx;padding: 0 10rpx;">{{ numResult(item.collectCount) }}</text> -->
-										<image @click.stop="getAgentCollect(item.botId)" v-if="item.isCollect == 0" src="/static/images/shoucang.png" style="width: 44rpx;height: 44rpx;margin-top: 0;display: block;float: right;margin-top: -2rpx;" mode="widthFix"></image>
-										<image @click.stop="getAgentCollect(item.botId)" v-else src="/static/images/choucang_active.png" style="width: 44rpx;height: 44rpx;margin-top: 0;display: block;float: right;margin-top: -2rpx;" mode="widthFix"></image>
+										<image @click.stop="getAgentCollect(item.botId)" v-if="item.isCollect == 0" src="/static/images/shoucang.png" style="width: 44rpx;height: 44rpx;display: block;float: right;margin-top: -2rpx;" mode="widthFix"></image>
+										<image @click.stop="getAgentCollect(item.botId)" v-else src="/static/images/choucang_active.png" style="width: 44rpx;height: 44rpx;display: block;float: right;margin-top: -2rpx;" mode="widthFix"></image>
 										<image v-if="item.isThumbs == 0" @click.stop="getAgentLike(item.botId)" src="/static/images/like.png" style="width: 44rpx;height: 44rpx;margin-bottom: -14rpx;" mode="widthFix"></image>
 										<image v-else @click.stop="getAgentLike(item.botId)" src="/static/images/like_active.png" style="width: 44rpx;height: 44rpx;margin-bottom: -14rpx;" mode="widthFix"></image>
 										<text style="display: inline-block;color: #373737;font-size: 24rpx;padding: 0 10rpx;">{{ numResult(item.likeCount) }}</text>
@@ -152,7 +152,7 @@
 										</view>
 										<view v-if="item.type == 4" class="vip_label" style="background-color: #5E56FF;">
 											<image src="/static/images/yibuy_label.png" mode="heightFix" class="label_icon"></image>
-											<text class="label_title" style="color: #FFFFFF;">已购买</text>
+											<text class="label_title" style="color: #FFF;">已购买</text>
 										</view>
 										<image class="robot-img floating-decoration" mode="" :src="item.agentAvatar"></image>
 									</view>
@@ -165,7 +165,7 @@
 									<view class="tab_list">
 										<view class="tab_item" v-for="(value,indextab) in item.agentMainCategory" :key="indextab">{{ value.name }}</view>
 									</view>
-									<view class="subtitle" style="color: rgba(0, 0, 0, 0.6);">{{ item.agentDescription }}</view>
+									<view class="subtitle" style="color: rgb(0 0 0 / 0.6);">{{ item.agentDescription }}</view>
 								</view>
 							</view>
 							<view style="display: flex; justify-content: space-between; align-items: flex-end;padding-bottom: 5rpx;margin-top: -10rpx;padding-right: 5rpx;">
@@ -176,7 +176,7 @@
 									<span class="xin-name" v-else>{{ item.userNickname }}</span>
 									<view class="xin-title-hot" v-if="item.isHot == 0" style="margin-top: 0;">
 										<image src="/static/images/useNum.png" style="width: 22rpx;height: 19rpx;margin-bottom: 0;" mode="widthFix"></image>
-										<text style="color: #000000;">{{ numResult(item.usageCount) }}</text>
+										<text style="color: #000;">{{ numResult(item.usageCount) }}</text>
 									</view>
 									<view class="xin-title-hot" v-if="item.isHot == 1">
 										<image src="/static/images/hot.png" style="width: 44rpx;height: 44rpx;" mode="widthFix"></image>
@@ -194,8 +194,8 @@
 										style="width: 36rpx;height: 36rpx;display: block;" alt="" ></image>
 									</view>
 									<text style="display: block;color: #373737;font-size: 24rpx;float: right;height:44rpx;line-height:44rpx;padding: 0 10rpx;">{{ numResult(item.collectCount) }}</text>
-									<image @click.stop="getAgentCollect(item.botId)" v-if="item.isCollect == 0" src="/static/images/shoucang.png" style="width: 44rpx;height: 44rpx;margin-top: 0;display: block;float: right;margin-top: -2rpx;" mode="widthFix"></image>
-									<image @click.stop="getAgentCollect(item.botId)" v-else src="/static/images/choucang_active.png" style="width: 44rpx;height: 44rpx;margin-top: 0;display: block;float: right;margin-top: -2rpx;" mode="widthFix"></image>
+									<image @click.stop="getAgentCollect(item.botId)" v-if="item.isCollect == 0" src="/static/images/shoucang.png" style="width: 44rpx;height: 44rpx;display: block;float: right;margin-top: -2rpx;" mode="widthFix"></image>
+									<image @click.stop="getAgentCollect(item.botId)" v-else src="/static/images/choucang_active.png" style="width: 44rpx;height: 44rpx;display: block;float: right;margin-top: -2rpx;" mode="widthFix"></image>
 									<image v-if="item.isThumbs == 0" @click.stop="getAgentLike(item.botId)" src="/static/images/like.png" style="width: 44rpx;height: 44rpx;margin-bottom: -14rpx;" mode="widthFix"></image>
 									<image v-else @click.stop="getAgentLike(item.botId)" src="/static/images/like_active.png" style="width: 44rpx;height: 44rpx;margin-bottom: -14rpx;" mode="widthFix"></image>
 									<text style="display: inline-block;color: #373737;font-size: 24rpx;padding: 0 10rpx;">{{ numResult(item.likeCount) }}</text>
@@ -668,21 +668,22 @@ function findDeveloper() {
 }
 
 onMounted(() => {
-	const dataInfo = uni.getStorageSync('data');
-	if(dataInfo && dataInfo.userMargin){
-	}
+	uni.getStorageSync('data');
 })
 </script>
 
 <style lang="scss" scoped>
  .ai-list {
  	position: relative;
+
  	.category-section {
 		margin-bottom: 0rpx;
 	}
+
 	.title_text {
 		// margin-bottom: 20rpx;
 	}
+
 	.ai-card-row {
 		display: flex;
 		flex-wrap: wrap;
@@ -693,18 +694,21 @@ onMounted(() => {
 	.ai-card {
 		width: 100%;
 		border-radius: 30rpx;
+
 		// padding: 19rpx 2rpx 18rpx 0rpx;
 		box-sizing: border-box;
 		position: relative;
+
 		// min-height: 180rpx;
 		display: flex;
 		align-items: flex-end;
+
 		// box-shadow: 0px 0 4px 0px rgba(0, 0, 0, 0.3);
 		// box-shadow: 0 8rpx 32rpx rgba(22, 132, 252, 0.10), 0 2rpx 8rpx rgba(0, 0, 0, 0.08), 0 12rpx 24rpx rgba(0,0,0,0.10);
 		transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
 		&:hover {
-			box-shadow: 0 0 8rpx rgba(22, 132, 252, 0.18);
+			box-shadow: 0 0 8rpx rgb(22 132 252 / 0.18);
 			transform: translateY(0) scale(1.03);
 		}
 
@@ -712,6 +716,7 @@ onMounted(() => {
 
 	.nomal_bg {
 		border: 1rpx solid #EBEEF5;
+
 		// box-shadow: 0px 0px 6px 0px rgba(21, 0, 255, 0);
 	}
 
@@ -730,6 +735,7 @@ onMounted(() => {
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
+
 		// margin-left: 12rpx;
 	}
 
@@ -748,7 +754,7 @@ onMounted(() => {
 		color: #6c6c6c;
 		margin-bottom: 12rpx;
 		display: block;
-		text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+		text-shadow: 0 2rpx 8rpx rgb(0 0 0 / 0.08);
 	}
 
 	.ai-card-desc {
@@ -797,9 +803,9 @@ onMounted(() => {
 		height: 100%;
 		border-radius: 50%;
 		background: linear-gradient(90deg,
-				rgba(190, 190, 190, 0.2) 25%,
-				rgba(129, 129, 129, 0.24) 37%,
-				rgba(190, 190, 190, 0.2) 63%);
+				rgb(190 190 190 / 0.2) 25%,
+				rgb(129 129 129 / 0.24) 37%,
+				rgb(190 190 190 / 0.2) 63%);
 		background-size: 400% 100%;
 	}
 
@@ -820,6 +826,7 @@ onMounted(() => {
 		justify-content: center;
 		align-items: center;
 		padding: 16rpx 0;
+
 		// margin-top: 20rpx;
 		font-size: 28rpx;
 		color: #1684fc;
@@ -840,14 +847,17 @@ onMounted(() => {
 		margin-top: 20rpx;
 		padding-left: 18rpx;
 		height: 106rpx;
+
 		// margin: 20rpx 2rpx;
-		background: linear-gradient(149deg, rgba(224, 225, 252, 0.65) -27%, rgba(144, 125, 255, 0.65) -27%, rgba(144, 125, 255, 0.65) -27%, rgba(217, 219, 255, 0.65) 58%, rgba(217, 219, 254, 0.65) 109%, rgba(217, 219, 254, 0.65) 128%, rgba(217, 219, 254, 0.65) 136%, rgba(217, 219, 255, 0.65) 136%);
+		background: linear-gradient(149deg, rgb(224 225 252 / 0.65) -27%, rgb(144 125 255 / 0.65) -27%, rgb(144 125 255 / 0.65) -27%, rgb(217 219 255 / 0.65) 58%, rgb(217 219 254 / 0.65) 109%, rgb(217 219 254 / 0.65) 128%, rgb(217 219 254 / 0.65) 136%, rgb(217 219 255 / 0.65) 136%);
 		border-radius: 30rpx;
+
 		// padding: 13rpx 2rpx 13px 50rpx;
 		display: flex;
 		align-items: center;
+
 		// justify-content: center;
-		box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.05);
+		box-shadow: 0 0 10rpx rgb(0 0 0 / 0.05);
 		border-left: solid 8rpx #E0E1FC;
 		border-right: solid 8rpx #E0E1FC;
 		border-top: solid 8rpx #E0E1FC;
@@ -866,7 +876,7 @@ onMounted(() => {
 		background: linear-gradient(180deg, #B4B7F9 0%, #5E66FF 100%);
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
-		font-family: "AlimamaFangYuanTi";
+		font-family: AlimamaFangYuanTi;
 		font-weight: 700;
 		padding-bottom: 8rpx;
 	}
@@ -874,17 +884,17 @@ onMounted(() => {
 	// 服务弹窗样式
 	.service-mask {
 		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
+		inset: 0;
+
 		// background-color: rgba(0, 0, 0, 0.5);
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		z-index: 999999;
+
 		// opacity: 0.8;
-		background-color: rgba(0, 0, 0, 0.4);
+		background-color: rgb(0 0 0 / 0.4);
+
 		// backdrop-filter: blur(3px);
 		// -webkit-backdrop-filter: blur(3px);
 	}
@@ -894,17 +904,16 @@ onMounted(() => {
 		position: relative;
 		border-radius: 30rpx;
 		opacity: 1;
-		background-image: linear-gradient(to bottom right, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%);
-		box-shadow: 0 0 15px rgba(0, 0, 0, 0.2), inset 0 -1px 2px rgba(255, 255, 255, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.7);
-		background: rgba(255, 255, 255, 0.4);
-		backdrop-filter: blur(10px);
-		box-shadow: 0px 0 6px 0px rgba(169, 165, 255, 0.6);
+		background-image: linear-gradient(to bottom right, rgb(205 208 255 / 0.7) 0%, rgb(253 255 225 / 0.7) 100%);
+		background: rgb(255 255 255 / 0.4);
+		box-shadow: 0 0 6px 0 rgb(169 165 255 / 0.6);
 		backdrop-filter: blur(3px);
 		-webkit-backdrop-filter: blur(3px);
 	}
 
 	.qr-code-image {
 		width: 100%;
+
 		// height: 600rpx;
 		border-radius: 15rpx;
 	}
@@ -917,7 +926,7 @@ onMounted(() => {
 		color: #fff;
 		z-index: 1000;
 		padding: 10rpx;
-		text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.3);
+		text-shadow: 0 2rpx 4rpx rgb(0 0 0 / 0.3);
 	}
 
 	// 底部工具获取提示
@@ -933,8 +942,8 @@ onMounted(() => {
 		.special-item {
 			flex: 1;
 			background: linear-gradient(179deg,
-					rgba(184, 225, 255, 1) 0%,
-					#ffffff 100%);
+					rgb(184 225 255 / 1) 0%,
+					#fff 100%);
 			border-radius: 30rpx;
 			padding: 20rpx 30rpx;
 			display: flex;
@@ -970,7 +979,7 @@ onMounted(() => {
 	.ai-bottom-banner {
 		display: flex;
 		align-items: center;
-		margin: 40rpx 0 0 0;
+		margin: 40rpx 0 0;
 		padding: 0 20rpx;
 	}
 
@@ -1013,8 +1022,8 @@ onMounted(() => {
 		height: 32rpx;
 		transform: rotate(90deg);
 		padding: 30rpx;
-		box-shadow: 0 0 12rpx rgba(0, 0, 0, 0.08);
-		background: rgba(248, 249, 252, 0.65);
+		box-shadow: 0 0 12rpx rgb(0 0 0 / 0.08);
+		background: rgb(248 249 252 / 0.65);
 
 		// &:hover {
 		// 	transform: translateY(-3rpx);
@@ -1051,27 +1060,28 @@ onMounted(() => {
 }
 
 .website-text {
-	font-family: 'AlimamaFangYuanTi';
+	font-family: AlimamaFangYuanTi;
 	font-size: 28rpx;
-	color: rgba(89, 97, 255, 0.55);
+	color: rgb(89 97 255 / 0.55);
 	font-weight: 700;
 }
 
 .copyright-container {
-	padding: 10rpx 0 10rpx;
+	padding: 10rpx 0;
 	text-align: center;
-	color: rgba(0, 0, 0, 0.4);
+	color: rgb(0 0 0 / 0.4);
 	line-height: 18rpx;
 	font-size: 20rpx;
+
 	// font-family: Silkscreen;
 }
 
 .copyright-text {
 	display: block;
 	font-size: 20rpx;
-	color: rgba(0, 0, 0, 0.4);
+	color: rgb(0 0 0 / 0.4);
 	line-height: 1.5;
-	font-family: 'AlimamaFangYuanTi';
+	font-family: AlimamaFangYuanTi;
 }
 
 .floating-decoration {
@@ -1100,10 +1110,12 @@ onMounted(() => {
 
 .card-box {
 	width: 100%;
+
 	// height: 100%;
 	display: flex;
 	justify-content: center;
 	align-items: center;
+
 	// background: linear-gradient(234deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 31%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%) 1;
 
 	// background: linear-gradient(234deg, #D19EFF 6%, #D19EFF 31%, #D19EFF 52%, #D19EFF 73%, #CD96FF 93%);
@@ -1112,12 +1124,13 @@ onMounted(() => {
 
 	.xin-card-content {
 		width: 100%;
+
 		// height: 98%;
 		margin: 1rpx;
 		display: flex;
 		justify-content: space-between;
 		border-radius: 30rpx;
-		padding: 10rpx 11rpx 0 11rpx;
+		padding: 10rpx 11rpx 0;
 		box-sizing: border-box;
 		overflow: hidden;
 
@@ -1137,12 +1150,12 @@ onMounted(() => {
 
 				.xin-title {
 					font-size: 30rpx;
-					font-weight: bold;
 					color: #8178EF;
 					display: block;
+
 					// text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
 
-					font-family: "AlimamaFangYuanTi" !important;
+					font-family: AlimamaFangYuanTi !important;
 					font-weight: bold;
 					line-height: 30rpx;
 					letter-spacing: 0rpx;
@@ -1166,6 +1179,7 @@ onMounted(() => {
 				line-height: 30rpx;
 				margin-top: 6rpx;
 				padding-left: 10rpx;
+
 				/* 设置最多显示三行 */
 				display: -webkit-box;
 				-webkit-box-orient: vertical;
@@ -1183,7 +1197,6 @@ onMounted(() => {
 		.card-you {
 			width: 103.56rpx;
 			height: 100%;
-			margin-right: 3rpx;
 			display: flex;
 			position: relative;
 			margin-right: 18rpx;
@@ -1199,10 +1212,12 @@ onMounted(() => {
 			.card-you-box {
 				width: 103.56rpx;
 				height: auto;
+
 				// width: 100%;
 				// height: 90%;
 				margin: 0;
 				display: flex;
+
 				// background: linear-gradient(218deg, rgba(255, 241, 117, 0.41), rgba(113, 127, 255, 0.2) 103%);
 				border-radius: 8rpx;
 
@@ -1224,8 +1239,9 @@ onMounted(() => {
 						width: 100%;
 						height: 95%;
 						border-radius: 15rpx;
-						//width: 102rpx;
-						//height: 182rpx;
+
+						// width: 102rpx;
+						// height: 182rpx;
 					}
 				}
 			}
@@ -1236,11 +1252,11 @@ onMounted(() => {
 			font-weight: bold;
 			line-height: 30rpx;
 			color: #8178EF;
-			font-family: "AlimamaFangYuanTi" !important;
+			font-family: AlimamaFangYuanTi !important;
 		}
 
 		.xin-yinying {
-			text-shadow: 0px 4px 10px #D3D3D3;
+			text-shadow: 0 4px 10px #D3D3D3;
 		}
 	}
 }
@@ -1248,27 +1264,28 @@ onMounted(() => {
 .import_card-border {
 	// background: linear-gradient(234deg, #D19EFF 6%, #D19EFF 31%, #D19EFF 52%, #D19EFF 73%, #CD96FF 93%);
 	border: 1px solid #e0e8ff !important;
-	background: rgba(248, 249, 252, 0.65);
+	background: rgb(248 249 252 / 0.65);
 }
 
 .import_card-bg {
 	// background: linear-gradient(240deg, #DEDBFF 0%, rgba(255, 255, 255, 1) 100%);
 	// background: linear-gradient(111deg, rgba(217, 219, 255, 1) 3%, rgba(253, 255, 220, 1) 104%);
-	background: rgba(248, 249, 252, 0.65);
+	background: rgb(248 249 252 / 0.65);
 }
 
 .nomarl_card-border {
-	background: rgba(248, 249, 252, 0.65);
+	background: rgb(248 249 252 / 0.65);
 }
 
 .nomarl_card-bg {
-	background: rgba(248, 249, 252, 0.65);
+	background: rgb(248 249 252 / 0.65);
 }
 
 .card_bar {
 	justify-content: space-around;
 	align-items: center;
 	padding: 0;
+
 	// background: linear-gradient(240deg, #DEDBFF 0%, rgba(255, 255, 255, 1) 100%);
 }
 
@@ -1276,7 +1293,6 @@ onMounted(() => {
 	width: 100%;
 	height: 411rpx;
 	display: block;
-	margin-bottom: 20rpx;
 	margin: 0 auto;
 	margin-bottom: 16rpx;
 	border-radius: 30rpx;
@@ -1285,6 +1301,7 @@ onMounted(() => {
 
 .card-image2 {
 	width: 100%;
+
 	// height: 730rpx;
 	display: block;
 	margin: 0 auto;
@@ -1294,11 +1311,8 @@ onMounted(() => {
 
 .mask {
 	position: fixed;
-	left: 0;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	background: rgba(0, 0, 0, 0.4);
+	inset: 0;
+	background: rgb(0 0 0 / 0.4);
 	z-index: 10001;
 }
 
@@ -1310,19 +1324,20 @@ onMounted(() => {
 	background: #fff;
 	border-radius: 15rpx;
 	padding: 40rpx 30rpx;
-	z-index: 1001;
 	min-width: 600rpx;
 	text-align: center;
-	box-shadow: 0 0 32rpx rgba(0, 0, 0, 0.18);
+	box-shadow: 0 0 32rpx rgb(0 0 0 / 0.18);
 	z-index: 10002;
 	color: #000;
 }
+
 .profile {
 	display: flex;
 	color: #6c6c6c;
 	justify-content: flex-start;
 	align-items: center;
 	margin-bottom: 4rpx;
+
 	// transform: scale(1.2);
 
 
@@ -1336,15 +1351,18 @@ onMounted(() => {
 		font-size: 24rpx;
 		margin-left: 8rpx;
 		font-weight: bold;
-		font-family: "AlimamaFangYuanTi" !important;
+		font-family: AlimamaFangYuanTi !important;
 	}
 }
+
 .znt_row{
 	width: 100%;
 }
+
 .znt_row .xin-card-content{
 	display: block;
 }
+
 .xin-title-hot{
 	float: right;
 	font-size: 26rpx;
@@ -1354,14 +1372,14 @@ onMounted(() => {
 	margin-top: -8rpx;
 	margin-left: 5rpx;
 }
+
 .xin-title-hot image{
 	margin-bottom: -12rpx;
 	margin-right: 6rpx;
 }
+
 .xin-title-new{
-	font-size: 20rpx;
 	font-weight: bold;
-	line-height: 33rpx;
 	color: #fff;
 	background: url('/static/images/new.png') no-repeat;
 	background-size: 100% 100%;
@@ -1376,6 +1394,7 @@ onMounted(() => {
 	height: 50rpx;
 	padding: 0 !important;
 }
+
 .btn_buy{
 	float: right;
 	height: 44rpx;
@@ -1390,40 +1409,47 @@ onMounted(() => {
 	background: url('/static/images/btn_back.png') no-repeat center center;
 	background-size: 100%;
 }
+
 .btn_buy image{
 	margin-right: 6rpx;
 	margin-top: -2rpx;
 }
+
 .max_title{
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
+
 .tab_list{
 	display: flex;
 	overflow-x: auto;
 	flex-wrap: nowrap;
 }
+
 .tab_item{
 	flex: none;
 	width: auto;
 	padding: 5rpx 10rpx;
-	border: 1px solid rgba(0, 0, 0, 0.3);
+	border: 1px solid rgb(0 0 0 / 0.3);
 	border-radius: 15rpx;
 	font-size: 20rpx;
 	font-weight: bold;
 	line-height: 20rpx;
 	margin-right: 8rpx;
-	color: rgba(0,0,0,0.6);
+	color: rgb(0 0 0 / 0.6);
 }
+
 .tab_item:last-child{
 	margin-right: 0;
 }
+
 .vip_label{
 position: absolute;
 left: 50%;
 top: 8rpx;
 transform: translateX(-50%);
+
 // margin-left: -50%;
 background-color: #000;
 border-radius: 8rpx;
@@ -1435,6 +1461,7 @@ padding: 0 10rpx;
 box-sizing: border-box;
 display: flex;
 justify-content: center;
+
 // transform: scale(1.2) translateX(-50%);
 
 	.label_icon{
@@ -1460,11 +1487,9 @@ justify-content: center;
 
 .pay_mask {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 99999;
+
     // display: flex;
     align-items: center;
     justify-content: center;
@@ -1472,8 +1497,9 @@ justify-content: center;
     height: 100vh;
     box-sizing: border-box;
 	overflow: hidden;
+
 	// background-color: #fff;
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: rgb(0 0 0 / 0.4);
 }
 
 .pay_window {
@@ -1482,17 +1508,17 @@ justify-content: center;
     height: auto;
     box-sizing: border-box;
     padding: 29rpx 26rpx 40rpx;
-    position: relative;
     background-color: #fff;
     position: fixed;
 	border-radius: 30rpx 30rpx 0 0;
 	bottom: 0;
 	left: 0;
 	transform: translateY(120%);
-	box-shadow: 0 -10rpx 20rpx -10rpx rgb(177, 177, 177);
+	box-shadow: 0 -10rpx 20rpx -10rpx rgb(177 177 177);
 	transition: all .4s ease;
     z-index: 100000;
 }
+
 .pay_window_active{
 	// bottom: 0;
 	transform: translateY(0);
@@ -1507,7 +1533,7 @@ justify-content: center;
     position: absolute;
     top: 29rpx;
     right: 26rpx;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: bold;
     color: #FF5050;
@@ -1535,14 +1561,14 @@ justify-content: center;
             color: #517BFF;
             font-size: 30rpx;
             font-weight: bold;
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
         }
 
         .title-sub {
             font-size: 24rpx;
             color: #414141;
             font-weight: normal;
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
         }
     }
 }
@@ -1550,6 +1576,7 @@ justify-content: center;
 .b_f {
     width: 192rpx;
     box-sizing: border-box;
+
     // background: linear-gradient(98deg, rgba(205, 208, 255, 0.3) 4%, rgba(253, 255, 225, 0.3) 104%);
     // box-shadow: 0rpx 4rpx 10rpx 0rpx rgba(0, 0, 0, 0.3), 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.8);
     height: auto;
@@ -1557,11 +1584,13 @@ justify-content: center;
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
+
     // margin-right: 26rpx;
     color: #000;
 	border-radius: 15rpx;
 	border: 2rpx solid #000;
 	padding: 10rpx 27rpx;
+
 	// background:linear-gradient(268deg, rgba(217, 219, 254, 0.65) -207%, rgba(217, 219, 254, 0.65) -148%, rgba(217, 219, 255, 0.65) -122%, rgba(217, 219, 254, 0.65) -33%, rgba(217, 219, 255, 0.65) -17%, rgba(144, 125, 255, 0.65) 217%, rgba(224, 225, 252, 0.65) 302%);
 	// box-shadow: inset 0px -6rpx 20rpx 0px rgba(255, 255, 255, 0.8);
 	margin: 0 auto;
@@ -1575,6 +1604,7 @@ justify-content: center;
 		font-size: 32rpx;
 		font-weight: bold;
 	}
+
 	.b_f_text{
 		color: #90A7FF;
 		font-weight: bold;
@@ -1583,7 +1613,7 @@ justify-content: center;
 }
 
 .f_n {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 28rpx;
     font-weight: bold;
     color: #3D3D3D;
@@ -1592,6 +1622,7 @@ justify-content: center;
 .m_b {
     margin-bottom: 18rpx;
 }
+
 .card-you-box1{
 	margin-right: 10rpx;
 }
@@ -1603,28 +1634,29 @@ justify-content: center;
 }
 
 .font_nomal {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 30rpx;
     font-weight: 500;
     color: #8D8D8D;
 }
+
 .empty {
 	width: 100%;
 	height: calc(100vh - 500rpx);
 	flex-direction: column;
 
 	.font_big {
-		font-family: "AlimamaFangYuanTi" !important;
+		font-family: AlimamaFangYuanTi !important;
 		font-size: 40rpx;
 		font-weight: bold;
 		color: #847CFF;
 	}
 
 	.font_icon {
-		font-family: "AlimamaFangYuanTi" !important;
+		font-family: AlimamaFangYuanTi !important;
 		font-weight: 700;
 		font-size: 40rpx;
-		color: #FF0000
+		color: #F00
 	}
 
 	.image {
@@ -1633,20 +1665,23 @@ justify-content: center;
 		margin-top: 23rpx;
 	}
 }
+
 .title_container{
 	display: flex;
 	justify-content: space-between;
 	align-items: flex-end;
 	padding: 10rpx 0;
 }
+
 .title_text{
 	font-size: 30rpx;
 	padding-bottom: 0;
 	color: #000;
 	font-weight: bold;
 }
+
 .title_right{
-	color: rgba(0,0,0,0.3);
+	color: rgb(0 0 0 / 0.3);
 }
 
 /* 开发广场导航样式 */
@@ -1664,7 +1699,7 @@ justify-content: center;
 	
 	.developer_nav_right {
 		font-size: 30rpx;
-		color: rgba(0, 0, 0, 0.3);
+		color: rgb(0 0 0 / 0.3);
 		font-weight: bold;
 	}
 }
@@ -1683,14 +1718,13 @@ justify-content: center;
 		align-items: center;
 		justify-content: center;
 		height: 70rpx;
-		border: 1px solid rgba(134, 0, 255, 0.5);
 		border-radius: 15rpx;
 		background: #fff;
 		padding: 10rpx;
-		box-sizing: border-box;
+
 		// box-shadow: 0px 2rpx 8rpx rgba(0, 0, 0, 0.3);
 		box-sizing: border-box;
-		border: 6rpx solid rgba(205, 208, 255, 1);
+		border: 6rpx solid rgb(205 208 255 / 1);
 		border-width: 2rpx;
 		
 		.button_icon {
@@ -1702,7 +1736,7 @@ justify-content: center;
 		.button_text {
 			font-size: 26rpx;
 			font-weight: bold;
-			color: rgba(102, 89, 255, 1);
+			color: rgb(102 89 255 / 1);
 		}
 	}
 }
@@ -1712,9 +1746,10 @@ justify-content: center;
 	text-align: center;
 	font-size: 30rpx;
 	font-weight: bold;
-	color: rgba(0, 0, 0, 0.3);
+	color: rgb(0 0 0 / 0.3);
 	margin-bottom: 20rpx;
 }
+
 .lianjie_con {
   width: 100%;
   display: flex;
@@ -1729,6 +1764,7 @@ justify-content: center;
 .lianjie_cona {
   // position: fixed;
   bottom: 370rpx;
+
   // bottom: 417rpx;
   left: 0;
   right: 0;

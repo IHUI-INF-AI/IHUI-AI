@@ -54,15 +54,54 @@
         <text class="iconfont icon-share"></text>
       </view>
     </view>
+
+    <!-- 评论区弹层 -->
+    <view class="comment-mask" v-if="commentVisible" @click="closeComment">
+      <view class="comment-popup" @click.stop>
+        <view class="comment-header">
+          <text class="comment-title">评论 ({{ commentList.length }})</text>
+          <text class="comment-close" @click="closeComment">×</text>
+        </view>
+        <scroll-view class="comment-scroll" scroll-y>
+          <view v-if="commentLoading" class="comment-loading">加载中...</view>
+          <view v-else-if="commentList.length === 0" class="comment-empty">暂无评论</view>
+          <view v-else class="comment-item" v-for="(item, index) in commentList" :key="item.id || index">
+            <view class="comment-content">{{ item.content }}</view>
+            <view class="comment-time">{{ item.time || '' }}</view>
+          </view>
+        </scroll-view>
+        <view class="comment-input-bar">
+          <input
+            class="comment-input"
+            type="text"
+            v-model="commentText"
+            placeholder="写评论..."
+            placeholder-style="color: #999;"
+            confirm-type="send"
+            @confirm="submitComment"
+          />
+          <view class="comment-send" @click="submitComment">发送</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { plantInformation } from '@/service/index.js'
+import { getArticleComments } from '@/service/news.js'
 
 // 数据
 const isLiked = ref(false)
+const articleId = ref('')
+
+// 评论区相关
+const commentVisible = ref(false)
+const commentLoading = ref(false)
+const commentList = ref<any[]>([])
+const commentText = ref('')
 const article = reactive({
   title: 'AI技术如何改变短视频创作？',
   time: '2024-03-20 10:30',
@@ -104,6 +143,7 @@ const article = reactive({
 
 onLoad((options: any) => {
   if (options.id) {
+    articleId.value = options.id
     loadArticle(options.id)
   }
 })
@@ -111,9 +151,26 @@ onLoad((options: any) => {
 // 加载文章
 async function loadArticle(id: string) {
   try {
-    // TODO: 调用 API 加载文章详情
+    const res = await plantInformation(id)
+    if (res && res.data) {
+      // plantInformation 返回 data 为数组，取第一条；兼容对象结构
+      const d: any = Array.isArray(res.data) ? res.data[0] : res.data
+      if (d) {
+        article.title = d.title || article.title
+        article.time = d.time || d.createTime || d.createdAt || article.time
+        article.author = d.author || d.nickname || d.source || article.author
+        article.views = d.views || d.viewCount || d.readCount || article.views
+        article.likes = d.likes || d.likeCount || d.praiseCount || article.likes
+        article.comments = d.comments || d.commentCount || article.comments
+        article.content = d.content || d.richText || d.text || article.content
+        if (Array.isArray(d.related) && d.related.length > 0) {
+          article.related = d.related
+        }
+      }
+    }
   } catch (error) {
     console.error('加载文章失败:', error)
+    uni.showToast({ title: '加载文章失败', icon: 'none' })
   }
 }
 
@@ -135,9 +192,43 @@ function handleLike() {
 }
 
 // 评论
-function handleComment() {
-  // TODO: 打开评论区
-  uni.showToast({ title: '评论功能开发中', icon: 'none' })
+async function handleComment() {
+  // 展开评论区并加载评论列表
+  commentVisible.value = true
+  commentLoading.value = true
+  commentList.value = []
+  try {
+    const res = await getArticleComments(articleId.value, 1, 20)
+    if (res && (res.code === 0 || res.code === 200 || res.code === undefined)) {
+      commentList.value = Array.isArray(res.data) ? res.data : (res.data && res.data.list) || []
+    }
+  } catch (error) {
+    console.error('加载评论失败:', error)
+    uni.showToast({ title: '加载评论失败', icon: 'none' })
+  } finally {
+    commentLoading.value = false
+  }
+}
+
+// 关闭评论区
+function closeComment() {
+  commentVisible.value = false
+}
+
+// 提交评论（本地追加，发送接口未提供时仅展示）
+function submitComment() {
+  const text = commentText.value.trim()
+  if (!text) {
+    uni.showToast({ title: '请输入评论内容', icon: 'none' })
+    return
+  }
+  commentList.value.unshift({
+    id: Date.now(),
+    content: text,
+    time: '刚刚',
+  })
+  article.comments++
+  commentText.value = ''
 }
 
 // 分享
@@ -259,6 +350,105 @@ function handleShare() {
   .count {
     font-size: 24rpx;
     color: #999;
+  }
+}
+
+/* 评论区弹层 */
+.comment-mask {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+  z-index: 300;
+  display: flex;
+  align-items: flex-end;
+}
+
+.comment-popup {
+  width: 100%;
+  max-height: 80vh;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+
+  .comment-title {
+    font-size: 30rpx;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .comment-close {
+    font-size: 40rpx;
+    color: #999;
+  }
+}
+
+.comment-scroll {
+  flex: 1;
+  max-height: 60vh;
+  padding: 0 30rpx;
+}
+
+.comment-loading,
+.comment-empty {
+  text-align: center;
+  padding: 60rpx 0;
+  color: #999;
+  font-size: 26rpx;
+}
+
+.comment-item {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+
+  .comment-content {
+    font-size: 28rpx;
+    color: #333;
+    line-height: 1.5;
+    margin-bottom: 8rpx;
+  }
+
+  .comment-time {
+    font-size: 22rpx;
+    color: #999;
+  }
+}
+
+.comment-input-bar {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 30rpx;
+  border-top: 1rpx solid #f0f0f0;
+  background: #fff;
+
+  .comment-input {
+    flex: 1;
+    height: 64rpx;
+    background: #f5f5f5;
+    border-radius: 32rpx;
+    padding: 0 24rpx;
+    font-size: 26rpx;
+    color: #333;
+  }
+
+  .comment-send {
+    margin-left: 20rpx;
+    padding: 0 24rpx;
+    height: 64rpx;
+    line-height: 64rpx;
+    background: #007aff;
+    color: #fff;
+    font-size: 26rpx;
+    border-radius: 32rpx;
   }
 }
 </style>

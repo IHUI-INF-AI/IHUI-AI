@@ -67,7 +67,7 @@ function handleTabClick(item, index) {
         flex-direction: column;
 
         .bar-text {
-            color: #000000;
+            color: #000;
         }
 
         .bar-border {
@@ -82,7 +82,7 @@ function handleTabClick(item, index) {
 }
 
 .nomal_color-text {
-    color: #000000 !important;
+    color: #000 !important;
 }
 
 .select_color-border {

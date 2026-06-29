@@ -40,9 +40,8 @@ exports.main = async (t, a) => {
     
     if (t.conversation_id && t.conversation_id.trim()) {
       a.conversation_id = t.conversation_id;
-    } else {
     }
-    
+
     if (t.meta_data) {
       a.meta_data = t.meta_data;
     }

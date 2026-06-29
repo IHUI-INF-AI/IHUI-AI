@@ -87,9 +87,6 @@ export function getDevInfo() {
 }
 
 // 获取智能体审核记录列表
-// 2026-06-25 修复#O: 保留旧路径走外部 Java 后端 (base 3).
-//   Python 后端 /api/v1/agents/examine/list 参数为 page/limit/status,
-//   前端传 agent_name/start_user 等参数语义不同, 对齐会破坏功能. 后续需对齐参数.
 export function getZntList(data) {
     return request({
         url: `/cozeZhsApi/agent-examine/list`,
@@ -104,9 +101,6 @@ export function getChargeInfoById(id) {
 }
 
 // 创建付费记录
-// 2026-06-25 修复#O: 保留旧路径走外部 Java 后端 (base 3).
-//   Python 后端 /api/v1/agents/buy/create 只接受 Query agent_id,
-//   前端传 body 完整数据 (agent_id/agent_name/count/prologue 等) 语义不同, 对齐会破坏功能.
 export function createPayHistory(data) {
     return request({
         url: `/cozeZhsApi/agent-buy/create`,
@@ -120,9 +114,6 @@ export function createPayHistory(data) {
 }
 
 // 创建智能体收费配置
-// 2026-06-25 修复#O: 保留旧路径走外部 Java 后端 (base 3).
-//   Python 后端 /api/v1/agents/categories/create body 为 CategoryCreateBody,
-//   字段名与前端传参不同 (agent_id vs agentId 等), 对齐会破坏功能. 后续需对齐参数.
 export function createZntCharge(data) {
     return request({
         url: `/cozeZhsApi/agent-category/create`,
@@ -136,9 +127,6 @@ export function createZntCharge(data) {
 }
 
 // 修改智能体收费配置
-// 2026-06-25 修复#O: 保留旧路径走外部 Java 后端 (base 3).
-//   Python 后端 PUT /api/v1/agents/categories/{category_id} 期望 path category_id (int),
-//   前端传 data.agent_id (string) 语义不同, 对齐会破坏功能. 后续需对齐参数.
 export function putZntCharge(data) {
     return request({
         url: `/cozeZhsApi/agent-category/${data.agent_id}`,
@@ -152,9 +140,6 @@ export function putZntCharge(data) {
 }
 
 // 删除智能体收费配置
-// 2026-06-25 修复#O: 保留旧路径走外部 Java 后端 (base 3).
-//   Python 后端 DELETE /api/v1/agents/categories/{category_id} 期望 path category_id (int),
-//   前端传 agent_id (string) 语义不同, 对齐会破坏功能. 后续需对齐参数.
 export function deleteZntCharge(id) {
     return request({
         url: `/cozeZhsApi/agent-category/${id}`,
@@ -167,42 +152,32 @@ export function deleteZntCharge(id) {
 }
 
 // 收入详情
-// 2026-06-25 修复#N: 路径对齐到 Python 后端真实端点.
-//   原路径 /cozeZhsApi/agent-settlement/stats/income-overview (base 3) 是外部 Java 后端路由,
-//   已迁移到 Python 后端 /api/v1/agents/settlement/summary (修复#A 新前缀).
-//   后端无 stats/income-overview, 用 /summary 等价 (都是收入汇总). base 改为 1 (走 api-kou 代理).
 export function getBuyInfo(data) {
     return request({
-        url: `/api/v1/agents/settlement/summary`,
+        url: `/cozeZhsApi/agent-settlement/stats/income-overview`,
         method: "GET",
         data,
-        base: 1
+        base: 3
     });
 }
 
 // 收入列表
-// 2026-06-25 修复#M: 路径对齐到 Python 后端真实端点.
-//   原路径 /cozeZhsApi/agent-settlement/list (base 3) 是外部 Java 后端路由,
-//   已迁移到 Python 后端 /api/v1/agents/settlement/list. base 改为 1 (走 api-kou 代理).
 export function getBuyList(data) {
     return request({
-        url: `/api/v1/agents/settlement/list`,
+        url: `/cozeZhsApi/agent-settlement/list`,
         method: "GET",
         data,
-        base: 1
+        base: 3
     });
 }
 
 // 明细列表
-// 2026-06-25 修复#J: 路径对齐到 Python 后端真实端点.
-//   原路径 /cozeZhsApi/agent-withdrawal-detail/list (base 3) 是外部 Java 后端路由,
-//   已迁移到 Python 后端 /api/v1/agents/withdrawal/list. base 改为 1 (走 api-kou 代理).
 export function getMxList(data) {
     return request({
-        url: `/api/v1/agents/withdrawal/list`,
+        url: `/cozeZhsApi/agent-withdrawal-detail/list`,
         method: "GET",
         data,
-        base: 1
+        base: 3
     });
 }
 

@@ -81,7 +81,6 @@ function saveOrderToLocal(orderData) {
 	localOrders.push(orderData)
 	
 	uni.setStorageSync('localOrders', localOrders)
-	console.log('订单已保存到本地')
 }
 
 function savePaymentToCloud(expireDate) {
@@ -106,9 +105,7 @@ function savePaymentToCloud(expireDate) {
 		paymentMethod: 'android',
 		deviceInfo: getDeviceInfo()
 	}
-	
-	console.log('准备保存订单数据:', orderData)
-	
+
 	uniCloud.callFunction({
 		name: 'order',
 		data: {
@@ -116,9 +113,7 @@ function savePaymentToCloud(expireDate) {
 			orderData
 		}
 	}).then(res => {
-		console.log('保存订单结果:', res)
 		if (res.result && res.result.code === 0) {
-			console.log('订单数据已保存到云数据库')
 			uni.showToast({
 				title: '订单已记录',
 				icon: 'success',
@@ -156,8 +151,7 @@ function saveAnonymousOrder() {
 	}
 	
 	saveOrderToLocal(orderData)
-	
-	console.log('匿名订单已保存到本地')
+
 	uni.showToast({
 		title: '支付成功',
 		icon: 'success',
@@ -166,8 +160,6 @@ function saveAnonymousOrder() {
 }
 
 function recordPayment() {
-	console.log('记录支付状态')
-	
 	uni.setStorageSync('paidStatus', true)
 	
 	if (hasLogin.value && userInfo.value) {
@@ -186,8 +178,6 @@ function recordPayment() {
 		uni.setStorageSync('userInfo', JSON.stringify(updatedUserInfo))
 		
 		savePaymentToCloud(expireDate)
-		
-		console.log('用户VIP状态已更新')
 	} else {
 		saveAnonymousOrder()
 	}

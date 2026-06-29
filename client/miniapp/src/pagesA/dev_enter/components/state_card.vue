@@ -163,10 +163,6 @@ const getAccount = computed(() => {
     if (props.datas.category_info) {
         if (props.datas.category_info.type == '1') {
             return 0
-        } else if (props.datas.category_info.type == '2') {
-
-        } else if (props.datas.category_info.type == '3') {
-
         }
     }
 })
@@ -205,6 +201,7 @@ const deleteZntCharge = () => {
 .card_body {
     border: 1rpx solid #DADADA;
     width: calc(100vw - 40rpx);
+
     // border-radius: 30rpx 30rpx 0 30rpx;
     border-radius: 30rpx;
     margin-top: 18rpx;
@@ -245,14 +242,15 @@ const deleteZntCharge = () => {
                 color: #517BFF;
                 font-size: 32rpx;
                 font-weight: normal;
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
             }
 
             .title-sub {
                 font-size: 24rpx;
                 color: #414141;
                 font-weight: normal;
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
+
                 // ...
                 max-height: 182rpx;
                 display: -webkit-box;
@@ -265,7 +263,7 @@ const deleteZntCharge = () => {
     }
 
     .top {
-        padding: 21rpx 21rpx 0 21rpx;
+        padding: 21rpx 21rpx 0;
     }
 }
 
@@ -276,7 +274,7 @@ const deleteZntCharge = () => {
 }
 
 .has_border {
-    border-width: 1rpx 0 0 0;
+    border-width: 1rpx 0 0;
     border-style: solid;
     border-color: #DADADA;
 }
@@ -288,7 +286,7 @@ const deleteZntCharge = () => {
     margin-top: auto;
 
     .text {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: normal;
         color: #3D3D3D;
@@ -319,18 +317,16 @@ const deleteZntCharge = () => {
     align-items: center;
     color: #3D3D3D;
     font-size: 24rpx;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-weight: 500;
 }
 
 
 .mask {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0);
+    inset: 0;
+    background-color: rgb(0 0 0 / 0);
+
     // opacity: 0;
     z-index: 998;
 }
@@ -360,7 +356,7 @@ const deleteZntCharge = () => {
 
     .prompt_dialog-content {
         margin-top: 70rpx;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 24rpx;
         font-weight: 500;
         color: #B0AEFA;
@@ -376,7 +372,7 @@ const deleteZntCharge = () => {
             width: 143rpx;
             height: 54rpx;
             border-radius: 20rpx;
-            background: #FFFFFF;
+            background: #FFF;
         }
 
         .prompt_dialog-comfirm {
@@ -389,14 +385,14 @@ const deleteZntCharge = () => {
 }
 
 .font_nomal {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: normal;
     color: #3D3D3D;
 }
 
 .font_hold {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 30rpx;
     font-weight: normal;
     color: #7B61FF;

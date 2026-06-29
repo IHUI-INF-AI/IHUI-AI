@@ -191,7 +191,7 @@ function backPage() {
     padding: 8rpx;
     box-sizing: border-box;
     background: #EBEEF5;
-    border: 1px solid rgba(255, 255, 255, 0);
+    border: 1px solid rgb(255 255 255 / 0);
     border-radius: 15rpx;
     display: flex;
     align-items: center;
@@ -212,8 +212,8 @@ function backPage() {
     }
 
     .models_bar-text {
-        background-color: #FFFFFF !important;
-        border-color: 1rpx solid rgba(0, 0, 0, 0.1);
+        background-color: #FFF !important;
+        border-color: 1rpx solid rgb(0 0 0 / 0.1);
         color: #3D3D3D !important;
         font-weight: bold !important;
     }
@@ -233,7 +233,7 @@ function backPage() {
     width: 100%;
     margin-left: 60rpx;
     box-sizing: border-box;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 20rpx;
     color: #3D3D3D;
 }
@@ -241,12 +241,12 @@ function backPage() {
 .card-bg {
     width: calc(100vw - 36rpx);
     background-image: linear-gradient(307deg,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(211, 161, 223, 0.6389) 32%,
-            rgba(206, 151, 251, 0.6925) 41%,
-            rgba(255, 242, 0, 0.21) 88%);
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(211 161 223 / 0.6389) 32%,
+            rgb(206 151 251 / 0.6925) 41%,
+            rgb(255 242 0 / 0.21) 88%);
     border-width: 0 !important;
     height: 307rpx;
     border-radius: 20rpx;
@@ -303,7 +303,7 @@ function backPage() {
             box-sizing: border-box;
             margin-top: 22rpx;
             border-radius: 8rpx;
-            background: rgba(235, 238, 245, 0.59);
+            background: rgb(235 238 245 / 0.59);
             width: 100%;
             height: 100rpx;
             padding: 8rpx 21rpx;
@@ -325,14 +325,10 @@ function backPage() {
 
 .popup_mask {
     position: fixed;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
 }
 
 .popup_body {
-    box-sizing: border-box;
     border: 1rpx solid #DADADA;
     position: fixed;
     bottom: 0;
@@ -341,11 +337,11 @@ function backPage() {
     width: 100%;
     border-radius: 30rpx 30rpx 0 0;
     padding: 30rpx;
-    background-color: #FFFFFF;
+    background-color: #FFF;
 
     .head {
         display: flex;
-        border-bottom: 1rpx solid rgba(77, 77, 77, 0.26);
+        border-bottom: 1rpx solid rgb(77 77 77 / 0.26);
 
         .wallet {
             width: 44rpx;
@@ -354,10 +350,10 @@ function backPage() {
         }
 
         .sub_info {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 20rpx;
             font-weight: normal;
-            color: rgba(0, 0, 0, 0.4);
+            color: rgb(0 0 0 / 0.4);
         }
     }
 
@@ -407,21 +403,21 @@ function backPage() {
 }
 
 .font_nomal {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: normal;
     color: #3D3D3D;
 }
 
 .font_title {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 36rpx;
     font-weight: bold;
-    color: #000000;
+    color: #000;
 }
 
 .font_hold {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 30rpx;
     font-weight: 500;
     color: #333400;

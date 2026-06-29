@@ -141,10 +141,11 @@ import NavigationBars from '@/components/navigation-bars/index.vue'
 import Loading from '@/components/loading/index.vue'
 import CardContent from './components/card_content.vue'
 import SetNeed from './set_need.vue'
-import Status from './components/Status.vue'
+import Status from './components/status.vue'
 import SearchInput from '@/components/SearchInput/index.vue'
 import ScrollTitle from '@/components/ScrollTitle.vue'
 import Tab from './components/category-tab.vue'
+import { getPlazaList } from '@/service/plaza.js'
 
 // 数据
 const loading = ref(false)
@@ -185,6 +186,13 @@ const kaifaSrc = ref('')
 // 搜索
 const searchKeyword = ref('')
 
+// 分页与筛选
+const pageNum = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+const currentCategory = ref('')
+const currentStatus = ref('')
+
 onMounted(() => {
   loadData()
 })
@@ -193,9 +201,41 @@ onMounted(() => {
 async function loadData() {
   loading.value = true
   try {
-    // TODO: 调用 API 加载广场数据
+    const res = await getPlazaList(pageNum.value, pageSize.value, currentCategory.value, searchKeyword.value)
+    if (res && (res.code === 0 || res.code === 200 || res.code === undefined)) {
+      const list = Array.isArray(res.data) ? res.data : (res.data && res.data.list) || []
+      total.value = res.total || (res.data && res.data.total) || list.length
+      if (pageNum.value === 1) {
+        dataList.value = list
+      } else {
+        dataList.value = [...dataList.value, ...list]
+      }
+      // 双列瀑布流布局
+      const left: any[] = []
+      const right: any[] = []
+      dataList.value.forEach((item: any, index: number) => {
+        if (index % 2 === 0) {
+          left.push(item)
+        } else {
+          right.push(item)
+        }
+      })
+      leftList.value = left
+      rightList.value = right
+      // 按 category 分组（侧边栏 groupedData）
+      const groupMap: Record<string, any[]> = {}
+      dataList.value.forEach((item: any) => {
+        const cat = item.category || '默认'
+        if (!groupMap[cat]) groupMap[cat] = []
+        groupMap[cat].push(item)
+      })
+      groupedData.value = Object.keys(groupMap).map((key) => ({ title: key, list: groupMap[key] }))
+      // 赛道分类（发布需求 SetNeed 使用）
+      categorySaidaoa.value = Object.keys(groupMap).map((key) => ({ name: key, value: key }))
+    }
   } catch (error) {
     console.error('加载数据失败:', error)
+    uni.showToast({ title: '加载失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -203,23 +243,34 @@ async function loadData() {
 
 // 滚动加载
 function scrolltolower() {
-  // 加载更多数据
+  if (dataList.value.length < total.value) {
+    pageNum.value++
+    loadData()
+  }
 }
 
 // 搜索
 function searchChange(value: string) {
   searchKeyword.value = value
-  // 搜索逻辑
+  pageNum.value = 1
+  dataList.value = []
+  loadData()
 }
 
 // 状态切换
 function statusChange(status: string) {
-  // 状态切换逻辑
+  currentStatus.value = status
+  pageNum.value = 1
+  dataList.value = []
+  loadData()
 }
 
 // 赛道切换
 function changeSaidao(item: any) {
-  // 赛道切换逻辑
+  currentCategory.value = (item && (item.value || item.name)) || ''
+  pageNum.value = 1
+  dataList.value = []
+  loadData()
 }
 
 function subChange(item: any) {
@@ -337,21 +388,15 @@ function goBack() {
 
 .mask {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
   z-index: 99;
 }
 
 .mask-bottom {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  inset: 0;
+  background: rgb(0 0 0 / 0.3);
   z-index: 98;
 }
 
@@ -466,7 +511,7 @@ function goBack() {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4rpx 16rpx rgba(0, 122, 255, 0.4);
+  box-shadow: 0 4rpx 16rpx rgb(0 122 255 / 0.4);
   z-index: 150;
 
   .publish-icon {
@@ -477,11 +522,8 @@ function goBack() {
 
 .identity-modal {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
   display: flex;
   align-items: center;
   justify-content: center;

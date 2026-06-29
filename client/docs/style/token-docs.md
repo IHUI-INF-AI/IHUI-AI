@@ -1,6 +1,6 @@
 # CSS 设计 Token 文档
 
-> 本文档由 `npm run tokens:docs` 自动生成，请勿手动编辑
+> 本文档原由 `npm run tokens:docs` 自动生成（该脚本已移除），现已改为手动维护
 > 生成时间: 2026-06-19
 > 源文件: `src/styles/_global-tokens.scss`
 

@@ -5,7 +5,7 @@
 		
 	
 	
-  <view v-if="viscosity === true" style="position: sticky; top: 0; z-index: 999; padding: 0 20rpx 0 20rpx;background: #fff;" class="tab-bar">
+  <view v-if="viscosity === true" style="position: sticky; top: 0; z-index: 999; padding: 0 20rpx;background: #fff;" class="tab-bar">
 	
 	
 	
@@ -215,11 +215,15 @@ function onPackClick() {
 .tab-bar {
   /* background: linear-gradient(to right, #D0CDFF, #FBFFE7, #FFFFFF); */
   background: #E9F0FD;
+
   /* #E9F7FD */
+
   /* ---#E9F0FD */
   
   /* box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); */
+
       /* box-shadow: 0rpx 2rpx 6rpx rgba(4, 0, 255, 0.5); */
+
   /* box-shadow: 0rpx 4rpx 8rpx rgba(4, 0, 255, 0.25); */
 }
 
@@ -230,6 +234,7 @@ function onPackClick() {
 
 .back {
   display: flex;
+
   /* align-items: center; */
   justify-content: space-evenly;
   border: 1rpx solid #838383;
@@ -260,7 +265,7 @@ function onPackClick() {
 .title {
   font-size: 36rpx;
   color: #000;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
   font-weight: bold;
   white-space: nowrap;
   overflow: hidden;
@@ -272,9 +277,11 @@ function onPackClick() {
 	padding: 10rpx;width: 40rpx;height: 40rpx;display: flex;justify-content: center;align-items: center; 
 	
 }
+
 .backi-img{
 		width: 40rpx; height: 40rpx;
 	}
+
 .back-s{
 	margin: 10rpx;width: 1rpx;height: 40rpx;background-color: #838383;
 }

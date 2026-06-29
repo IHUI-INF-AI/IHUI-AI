@@ -129,10 +129,7 @@ const goBack = () => {
 <style lang="scss" scoped>
 .cover_popup {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 9999;
     display: flex;
     align-items: flex-end;
@@ -141,11 +138,8 @@ const goBack = () => {
 
 .cover_mask {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background-color: rgb(0 0 0 / 0.5);
     z-index: 1;
 }
 
@@ -154,10 +148,10 @@ const goBack = () => {
     z-index: 2;
     width: 100%;
     max-height: 80vh;
-    border-radius: 69rpx 69rpx 0px 0px;
-    background: rgba(255, 255, 250, 0.95);
+    border-radius: 69rpx 69rpx 0 0;
+    background: rgb(255 255 250 / 0.95);
     box-sizing: border-box;
-    padding: 24rpx 24rpx 30rpx 24rpx;
+    padding: 24rpx 24rpx 30rpx;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -205,14 +199,14 @@ const goBack = () => {
     }
 
     .user_name {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: bold;
-        color: #000000;
+        color: #000;
     }
 
     .logo_text {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: bold;
         letter-spacing: 0.29em;
@@ -234,18 +228,18 @@ const goBack = () => {
             height: 144rpx;
             box-sizing: border-box;
             border-radius: 15rpx;
-            border: 2rpx solid #000000;
-            background: #FFFFFF;
+            border: 2rpx solid #000;
+            background: #FFF;
             padding: 12rpx;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
 
             .dev_pay_text {
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
                 font-size: 30rpx;
                 font-weight: 600;
-                color: #000000;
+                color: #000;
             }
 
             .dev_pay_footer {
@@ -259,10 +253,10 @@ const goBack = () => {
                 }
 
                 .dev_pay_count {
-                    font-family: "AlimamaFangYuanTi" !important;
+                    font-family: AlimamaFangYuanTi !important;
                     font-size: 36rpx;
                     font-weight: bold;
-                    color: #000000;
+                    color: #000;
                 }
             }
         }
@@ -279,12 +273,12 @@ const goBack = () => {
             width: 280rpx;
             height: 80rpx;
             border-radius: 15rpx;
-            background: #FFFFFF;
-            font-family: "AlimamaFangYuanTi" !important;
+            background: #FFF;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 46rpx;
             font-weight: 500;
             letter-spacing: 0.28em;
-            color: #000000;
+            color: #000;
             padding: 0 18rpx;
             display: flex;
             align-items: center;
@@ -296,7 +290,7 @@ const goBack = () => {
         font-family: Silkscreen;
         font-size: 20rpx;
         font-weight: normal;
-        color: rgba(0, 0, 0, 0.4);
+        color: rgb(0 0 0 / 0.4);
     }
 }
 
@@ -304,6 +298,7 @@ const goBack = () => {
     from {
         transform: translateY(100%);
     }
+
     to {
         transform: translateY(0);
     }
@@ -311,14 +306,14 @@ const goBack = () => {
 
 .selected {
     border: 2rpx solid #8D83FF !important;
-    background: #FFFFFF !important;
+    background: #FFF !important;
     
     .dev_pay_text {
-        color: #000000 !important;
+        color: #000 !important;
     }
     
     .dev_pay_count {
-        color: #000000 !important;
+        color: #000 !important;
     }
 }
 

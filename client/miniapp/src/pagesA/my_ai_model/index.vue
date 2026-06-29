@@ -37,11 +37,11 @@ onMounted(() => {
 })
 
 function loadModels() {
-  getCozeApiList().then(res => {
+  getCozeApiList().then((res: any) => {
     if (res && res.data) {
       modelList.value = res.data
     }
-  }).catch(err => {
+  }).catch((err: unknown) => {
     console.error('加载模型列表失败:', err)
   })
 }

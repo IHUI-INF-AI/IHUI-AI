@@ -80,11 +80,10 @@ const handleScroll = (e) => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
   position: absolute;
-  color: rgba(0, 0, 0, 0.4);
+  color: rgb(0 0 0 / 0.4);
   z-index: 1002;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   align-items: flex-end;
   background: transparent;
   box-sizing: border-box;
@@ -117,7 +116,7 @@ const handleScroll = (e) => {
   padding: 10rpx 20rpx;
   margin-bottom: -5rpx;
   max-height: 70vh;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4rpx 20rpx rgb(0 0 0 / 0.15);
 }
 
 .chu_row_agent {
@@ -138,7 +137,7 @@ const handleScroll = (e) => {
   align-items: center;
   height: 80rpx;
   border-radius: 15rpx;
-  background: #FFFFFF;
+  background: #FFF;
   box-sizing: border-box;
   border: 4rpx solid #B9B9B9;
   margin: 5rpx 0;
@@ -151,8 +150,8 @@ const handleScroll = (e) => {
 }
 
 .chu-row_act {
-  border-color: #000000;
-  box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.1);
+  border-color: #000;
+  box-shadow: 0 0 10rpx rgb(0 0 0 / 0.1);
 
   .chu-text {
     font-weight: bold;
@@ -221,7 +220,7 @@ const handleScroll = (e) => {
     width: 32rpx;
     height: 32rpx;
     border-radius: 50%;
-    background-color: #000000;
+    background-color: #000;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -238,9 +237,11 @@ const handleScroll = (e) => {
     transform: scale(0.3);
     opacity: 0;
   }
+
   50% {
     transform: scale(1.1);
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -264,6 +265,7 @@ const handleScroll = (e) => {
     opacity: 0;
     transform: translateY(60rpx);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);

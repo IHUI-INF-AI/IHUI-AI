@@ -84,11 +84,12 @@ export async function request<T = any>(options: RequestOptions): Promise<ApiResp
 }
 
 function handleUnauthorized() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { removeStorage } = require('../utils/index')
   removeStorage('token')
   removeStorage('userInfo')
   if (isUniApp()) {
-    uni.reLaunch({ url: '/pages/login/index' })
+    void uni.reLaunch({ url: '/pages/login/index' })
   } else {
     window.location.href = '/login'
   }

@@ -68,22 +68,25 @@ function newclick(item) {
   line-height: 60rpx;
   border-top: 1rpx solid #9f9f9f;
 }
+
 .custom-carousel-wrapper {
-  border: 1px solid rgba(156, 156, 156, 0.3);
-  box-shadow: 0px 0px 6rpx 0px rgba(86, 71, 250, 0.3);
+  border: 1px solid rgb(156 156 156 / 0.3);
+  box-shadow: 0 0 6rpx 0 rgb(86 71 250 / 0.3);
   border-radius: 30rpx;
   overflow: hidden;
 }
 
 @keyframes shadowPulse {
   0% {
-	box-shadow: 0px 0px 6rpx 0px rgba(86, 71, 250, 0.3);
+	box-shadow: 0 0 6rpx 0 rgb(86 71 250 / 0.3);
   }
+
   50% {
-	box-shadow: 0px 0px 10rpx 0px rgba(73, 56, 255, 0.795);
+	box-shadow: 0 0 10rpx 0 rgb(73 56 255 / 0.795);
   }
+
   100% {
-	box-shadow: 0px 0px 6rpx 0px rgba(86, 71, 250, 0.3);
+	box-shadow: 0 0 6rpx 0 rgb(86 71 250 / 0.3);
   }
 }
 

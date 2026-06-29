@@ -180,7 +180,7 @@ onLoad(() => {});
 	
 	.search-input {
 		height: 80rpx;
-		background-color: #ffffff;
+		background-color: #fff;
 		border-radius: 30rpx;
 		display: flex;
 		align-items: center;
@@ -220,7 +220,7 @@ onLoad(() => {});
 	
 	.prompt-text {
 		font-size: 40rpx;
-		color: #000000;
+		color: #000;
 		font-weight: bold; 
 	}
 }
@@ -234,7 +234,7 @@ onLoad(() => {});
 	position: relative;
 	padding-left: 20rpx;
 	
-	&:before {
+	&::before {
 		content: '';
 		position: absolute;
 		left: 0;
@@ -262,11 +262,11 @@ onLoad(() => {});
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 0 5rpx rgba(0, 0, 0, 0.05);
+		box-shadow: 0 0 5rpx rgb(0 0 0 / 0.05);
 		
 		&.selected {
 			border: 2rpx solid #b3e5fc;
-			background-color: rgba(179, 229, 252, 0.1);
+			background-color: rgb(179 229 252 / 0.1);
 		}
 		
 		

@@ -40,7 +40,6 @@ test.describe('组件交互检查', () => {
     p.on('pageerror', e => { if (!isNoise(e.message)) errors.push(e.message) })
 
     await p.goto('/', { waitUntil: 'domcontentloaded' })
-    await p.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await p.waitForTimeout(2000)
     await dismissPromotionModal(p)
 
@@ -49,7 +48,7 @@ test.describe('组件交互检查', () => {
 
     // 桌面端用 .theme-toggle-fallback,移动端菜单用 .theme-toggle
     const themeToggle = p.locator('.theme-toggle-fallback:visible, .theme-toggle:visible').first()
-    await expect(themeToggle).toBeVisible({ timeout: 10000 })
+    await expect(themeToggle).toBeVisible({ timeout: 5000 })
 
     // 切换到暗色
     await themeToggle.click()
@@ -69,7 +68,6 @@ test.describe('组件交互检查', () => {
 
   test('语言切换下拉菜单', async ({ page: p }) => {
     await p.goto('/', { waitUntil: 'domcontentloaded' })
-    await p.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await p.waitForTimeout(2000)
     await dismissPromotionModal(p)
 
@@ -114,17 +112,14 @@ test.describe('组件交互检查', () => {
 
   test('搜索功能', async ({ page: p }) => {
     await p.goto('/', { waitUntil: 'domcontentloaded' })
-    await p.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await p.waitForTimeout(2000)
     await dismissPromotionModal(p)
 
     // 找到搜索按钮
     const searchBtn = p.locator('button:has-text("搜索"), [aria-label*="搜索"], [aria-label*="search"], .search-btn, .header-search, .search-trigger').first()
     const searchBtnExists = await searchBtn.count()
-    // 移动端搜索按钮可能被隐藏,需检查可见性
-    const searchBtnVisible = searchBtnExists > 0 && await searchBtn.isVisible().catch(() => false)
 
-    if (searchBtnVisible) {
+    if (searchBtnExists > 0) {
       await searchBtn.click()
       await p.waitForTimeout(1000)
 
@@ -158,7 +153,6 @@ test.describe('组件交互检查', () => {
 
   test('登录页表单', async ({ page: p }) => {
     await p.goto('/login', { waitUntil: 'domcontentloaded' })
-    await p.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     // 登录页使用异步组件,需要更长等待时间
     await p.waitForTimeout(4000)
 
@@ -274,7 +268,6 @@ test.describe('组件交互检查', () => {
 
   test('导航菜单展开(更多功能)', async ({ page: p }) => {
     await p.goto('/', { waitUntil: 'domcontentloaded' })
-    await p.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await p.waitForTimeout(2000)
     // 关闭推广弹窗
     await dismissPromotionModal(p)
@@ -328,7 +321,6 @@ test.describe('组件交互检查', () => {
 
   test('工具页排序下拉', async ({ page: p }) => {
     await p.goto('/tools', { waitUntil: 'domcontentloaded' })
-    await p.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await p.waitForTimeout(2000)
 
     // 找到排序选择器(Tools.vue 使用 select.toolbar-sort)
@@ -374,8 +366,7 @@ test.describe('组件交互检查', () => {
 
   test('VIP页弹窗(点击开通按钮)', async ({ page: p }) => {
     await p.goto('/vip', { waitUntil: 'domcontentloaded' })
-    await p.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await p.waitForTimeout(3000)
+    await p.waitForTimeout(2000)
 
     // 找到"立即开通"或"立即升级"按钮
     const ctaBtn = p.locator('button:has-text("开通"), button:has-text("升级"), button:has-text("购买"), .select-plan-btn, .cta-btn').first()

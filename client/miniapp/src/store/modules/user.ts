@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { useUser as useSharedUser } from '@/composables/shared-logic'
+import { useUser as useSharedUser, useVip as useSharedVip } from '@/composables/shared-logic'
 
 interface UserInfo {
   isLoggedIn?: boolean
@@ -18,6 +18,7 @@ interface UserState {
   token: string
   userInfo: UserInfo | null
   inviteCode: string
+  vipFeatures: string[]
 }
 
 export const useUserStore = defineStore('user', {
@@ -26,6 +27,7 @@ export const useUserStore = defineStore('user', {
     token: '',
     userInfo: null,
     inviteCode: '123',
+    vipFeatures: [],
   }),
 
   getters: {
@@ -33,6 +35,7 @@ export const useUserStore = defineStore('user', {
     getUserInfo: (state) => state.userInfo,
     getInviteCode: (state) => state.inviteCode,
     isLoggedIn: (state) => state.isLoggedIn,
+    getVipFeatures: (state) => state.vipFeatures,
   },
 
   actions: {
@@ -66,6 +69,26 @@ export const useUserStore = defineStore('user', {
       if (this.userInfo) {
         this.userInfo.vipExpireTime = time
       }
+    },
+
+    setVipFeatures(features: string[]) {
+      this.vipFeatures = features
+    },
+
+    async purchaseVip(planId?: string) {
+      // 调用 shared-logic 的 useVip 完成购买
+      // planId 可选：若调用方未传，尝试从存储中取当前选中套餐
+      const { purchaseVip: sharedPurchaseVip } = useSharedVip()
+      const id = planId || uni.getStorageSync('currentPlanId') || ''
+      if (!id) {
+        throw new Error('purchaseVip: 缺少 planId')
+      }
+      const result = await sharedPurchaseVip(id, 'wechat')
+      // 购买成功后刷新 VIP 状态
+      if (this.userInfo) {
+        this.userInfo.isVip = true
+      }
+      return result
     },
 
     clearUserData() {

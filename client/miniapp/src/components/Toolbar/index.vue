@@ -176,8 +176,6 @@ function handleItemClick(index) {
         icon: 'none'
       });
     });
-  } else if (index === 2) {
-    
   }
 }
 
@@ -205,16 +203,19 @@ function goToCustomMade() {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-20rpx); }
   }
+
 .toolbar {
   display: flex;
   flex-direction: column;
   margin-top: 20rpx;
   width: 100%;
+
 .top-toolbar{
 	width: 100%;
 	display: flex;
 	justify-content: space-between;  /* 左右分散排列 */
 	height: 180rpx;
+
 	.top-toolbar-item{
 	padding: 20rpx 0;
 	display: flex;
@@ -224,13 +225,15 @@ function goToCustomMade() {
     border-radius: 30rpx;
 	width: calc(100% / 3 - 10rpx);
     height: 140rpx;
-	background: linear-gradient(180deg, #FCFDFE 0%, rgba(216, 216, 216, 0) 100%);
+	background: linear-gradient(180deg, #FCFDFE 0%, rgb(216 216 216 / 0) 100%);
 	}
 }
+
 .econd-row{
 	display: flex;
-	lex-wrap: wrap;    
+	flex-wrap: wrap;
 }
+
   .toolbar-title {
 	margin-top: 20rpx;
     display: flex;
@@ -251,11 +254,13 @@ function goToCustomMade() {
       height: 30rpx;
     }
   }
+
   .rows{
 	   display: flex;
 	   flex-wrap: wrap;
 	   justify-content: space-between;
 	   margin-bottom: 40rpx;
+
 	   .item {
 	     background-color: #f5f5f5;
 	   }
@@ -321,7 +326,8 @@ function goToCustomMade() {
     .medium-item {
       width: 358rpx;
       height: 106rpx;
-      background: linear-gradient(180deg, #93D2F3, #FFFFFF);
+      background: linear-gradient(180deg, #93D2F3, #FFF);
+
       &:first-child {
         margin-right: 24rpx;
       }

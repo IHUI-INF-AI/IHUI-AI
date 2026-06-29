@@ -8,7 +8,7 @@
             <image v-if="tabIndex !== 1" src="../../static/tabbar/tabbar_1.png" mode="heightFix"></image>
             <image v-if="tabIndex === 1" src="../../static/tabbar/tabbar_1_act.png" mode="heightFix"></image>
           </view>
-          <view class="itemText">{{ 'AI应用商店' }}</view>
+          <view class="itemText">{{ '智能体' }}</view>
         </view>
         <view class="barItem" :class="tabIndex === 2 ? 'barItemAct' : ''" @click="jump('/pages/table/square/index', 2)">
           <view class="itemIcon">
@@ -83,18 +83,19 @@ defineExpose({
   bottom: 0;
   z-index: 2;
   padding: 10rpx 20rpx 5rpx;
-  background-color: #FFFFFF;
+  background-color: #FFF;
   border-top: 1rpx solid #f5f5f5;
 }
+
 .tabbarContent {
-  background: rgba(255, 255, 255, .5);
+  background: rgb(255 255 255 / .5);
   backdrop-filter: blur(10rpx);
   -webkit-backdrop-filter: blur(8rpx);
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0rpx 0 20rpx 0rpx rgba(255, 255, 255, 0.8);
+  box-shadow: 0rpx 0 20rpx 0rpx rgb(255 255 255 / 0.8);
 }
 
 .tabbarLine {
@@ -109,7 +110,7 @@ defineExpose({
 .tabbar_line {
   width: 35rpx;
   height: 35rpx;
-  background: rgba(255, 255, 255, .5);
+  background: rgb(255 255 255 / .5);
   clip-path: inset(0 0 round 0 25%);
   border-radius: 4rpx 4rpx 0 0;
   backdrop-filter: blur(10rpx);
@@ -127,7 +128,7 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #000000;
+  color: #000;
   font-size: 23rpx;
 }
 

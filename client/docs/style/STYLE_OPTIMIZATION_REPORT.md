@@ -73,7 +73,7 @@
 | 颜色替换建议 | `color-replacement-tool.ts` | 硬编码颜色替换建议 |
 | 变量分析 | `analyze-css-variables.ts` | CSS变量使用分析 |
 | 智能清理建议 | `smart-cleanup-variables.ts` | 分类清理建议 |
-| 硬编码颜色检测 | `check-hardcoded-colors.ts` | 硬编码颜色检测 |
+| 硬编码颜色检测 | `check-hardcoded-colors.ts`（已移除） | 硬编码颜色检测 |
 | 样式性能报告 | `style-stats.ts` | 文件大小统计 |
 
 ---
@@ -81,21 +81,22 @@
 ## npm脚本完整列表
 
 ```bash
+# 注意：以下脚本均已移除或从未实现，仅作历史参考
 # 样式检查
-npm run style:check          # Stylelint检查
-npm run style:fix            # 自动修复
-npm run style:stats          # 文件统计
-npm run style:report         # 性能报告
+# npm run style:check          # 已移除
+# npm run style:fix            # 已移除
+# npm run style:stats          # 已移除
+# npm run style:report         # 已移除
 
 # 健康度检查
-npm run check:health         # 综合健康评分 v2.0
-npm run check:colors         # 硬编码颜色检测
-npm run check:variables      # CSS变量分析
-npm run check:smart-cleanup  # 智能清理建议
-npm run check:auto-cleanup   # 自动执行清理
-npm run check:colors-replace # 颜色替换建议
-npm run check:full-optimize  # 满分优化
-npm run check:auto-color     # 自动颜色替换
+# npm run check:health         # 已移除
+# npm run check:colors         # 已移除，建议用 stylelint 或手动检查
+# npm run check:variables      # 已移除
+# npm run check:smart-cleanup  # 已移除
+# npm run check:auto-cleanup   # 已移除
+# npm run check:colors-replace # 已移除
+# npm run check:full-optimize  # 已移除
+# npm run check:auto-color     # 已移除
 ```
 
 ---

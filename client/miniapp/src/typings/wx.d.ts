@@ -116,7 +116,7 @@ interface IAnimation {
     /**
      * 同transform-function matrix
      */
-    matrix(a, b, c, d, tx, ty): IAnimation;
+    matrix(a: number, b: number, c: number, d: number, tx: number, ty: number): IAnimation;
     /**
      * 同transform-function matrix3d
      */
@@ -341,9 +341,6 @@ interface AppConstructor {
 }
 
 declare var App: AppConstructor;
-declare function getApp(): Application;
-
-declare function getCurrentPages(): Page[];
 
 interface Page {
     setData: (obj: any) => void;

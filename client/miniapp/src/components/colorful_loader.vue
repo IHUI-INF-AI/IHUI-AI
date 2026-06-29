@@ -52,7 +52,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: rgba(0, 0, 0, 0);
+    background-color: rgb(0 0 0 / 0);
     position: fixed;
     left: 0;
     top: 0;
@@ -61,12 +61,13 @@
   }
   
   /* 引入外部样式 */
+
 /* static/loader.css */
 .loader-view {
     position: relative;
     width: 21em;
     height: 21em;
-    background-color: rgba(0, 0, 0, 0);
+    background-color: rgb(0 0 0 / 0);
     filter: blur(0.2em) contrast(2);
     animation: loaderSpin 3s infinite linear;
   }
@@ -83,7 +84,7 @@
     top: 10em;
     width: 1em;
     height: 1em;
-    background-color: hsl(var(--hue, 0), 75%, 75%);
+    background-color: hsl(var(--hue, 0) 75% 75%);
     border-radius: 50%;
     transform: rotateZ(var(--rz, 0)) translateY(5em);
     animation: iMove 4s var(--delay, 0s) infinite ease-in-out;
@@ -93,12 +94,15 @@
     0% {
       transform: rotateZ(var(--rz, 0)) translateY(4em) translate(0, 0) scale(0);
     }
+
     2% {
       transform: rotateZ(var(--rz, 0)) translateY(4em) translate(0, 0) scale(1.25);
     }
+
     20% {
       transform: rotateZ(var(--rz, 0)) translateY(4em) translate(0, 0) scale(1.25);
     }
+
     90%, 100% {
       transform: rotateZ(var(--rz, 0)) translateY(4em) translate(var(--tx, 0), var(--ty, 0)) scale(0);
     }

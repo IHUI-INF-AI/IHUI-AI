@@ -10,7 +10,7 @@
       :image="'https://file.aizhs.top/sys-mini/default/back.svg'" 
     />
 
-    <view style="padding: 20rpx 20rpx 0 20rpx;">
+    <view style="padding: 20rpx 20rpx 0;">
       <!-- 上传组件 -->
       <Upload @upload="onUploadClick" :isShow="isShow" :card="card" ref="uploadComponent"></Upload>
 

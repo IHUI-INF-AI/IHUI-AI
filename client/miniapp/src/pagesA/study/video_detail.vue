@@ -116,7 +116,7 @@
 
       <!-- Tab 内容 -->
       <Catalog v-if="selectIndex == 0" :pay="payData" :videoList="videoList" @change="changeVideo" @pageDown="pageDown" @showPay="showPay" />
-      <Introduction v-if="selectIndex == 1" :videoList="videoList" :content="contentInfo" :agentMap="videoData.agentMap || null"></Introduction>
+      <Introduction v-if="selectIndex == 1" :videoList="videoList" :content="contentInfo" :agentMap="videoData.agentMap || undefined"></Introduction>
       <Comment v-if="selectIndex == 2" :videoId="videoId" :remark="remark"></Comment>
     </view>
   </view>
@@ -127,8 +127,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import Loading from '@/components/loading/index.vue'
 import Catalog from './components/catalog.vue'
-import Introduction from './components/introduction.vue'
+import Introduction from './components/Introduction.vue'
 import Comment from './components/comment.vue'
+import { getVideoDetail } from '@/service/study.js'
 
 // 数据
 const loading = ref(false)
@@ -183,15 +184,15 @@ onShareAppMessage(() => {
 async function loadVideoDetail() {
   loading.value = true
   try {
-    // TODO: 调用 API 加载视频详情
-    // const res = await getVideoDetail(videoId.value)
-    // if (res && res.data) {
-    //   Object.assign(videoData, res.data)
-    //   videoList.value = res.data.videoList || []
-    //   total.value = videoList.value.length
-    // }
+    const res = await getVideoDetail(videoId.value)
+    if (res && res.data) {
+      Object.assign(videoData, res.data)
+      videoList.value = res.data.videoList || []
+      total.value = videoList.value.length
+    }
   } catch (error) {
     console.error('加载视频详情失败:', error)
+    uni.showToast({ title: '加载视频详情失败', icon: 'none' })
   } finally {
     loading.value = false
   }

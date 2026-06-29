@@ -116,7 +116,6 @@ function toUploadVideoPage() {
 }
 
 function changeMain(obj) {
-    console.log('changeMain', obj)
     if (obj.children) {
         subSaidao.value = obj.children
     }
@@ -128,12 +127,10 @@ function changeBar(item) {
 }
 
 function changeSub(obj) {
-    console.log('changeSub', obj)
     categorys.value = obj.id
 }
 
 function changeTypes(val) {
-    console.log('changeTypes', val)
     const arr = val.map(item => {
         return item.id
     })
@@ -141,7 +138,6 @@ function changeTypes(val) {
 }
 
 function changeStage(obj) {
-    console.log('changeStage', obj)
     stage.value = obj.id
 }
 
@@ -166,7 +162,6 @@ onMounted(() => {
         tabList.value = res.data
     })
     categoryDictionary().then(res => {
-        console.log('categoryDictionary', res)
         mainSaidao.value = res.data
     })
 })

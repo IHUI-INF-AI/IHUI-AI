@@ -68,7 +68,7 @@ const navigateTo = (item, idx) => {
 
 <style lang="scss" scoped>
 .recent-agents-container {
-  padding: 0 0 0 0;
+  padding: 0;
   background: #fff;
 }
 
@@ -80,7 +80,7 @@ const navigateTo = (item, idx) => {
   font-size: 32rpx;
   font-weight: bold;
   color: #333;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 
 .recent-scroll {
@@ -127,6 +127,6 @@ const navigateTo = (item, idx) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 </style>

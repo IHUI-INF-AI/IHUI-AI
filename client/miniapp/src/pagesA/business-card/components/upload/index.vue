@@ -18,7 +18,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { uploadPictures } from "@/utils/uploadImage.js"
+import { uploadSinglePicture } from "@/utils/uploadImage.js"
 
 const props = defineProps({
   isShow: {
@@ -35,17 +35,23 @@ const emit = defineEmits(['upload'])
 
 const avatarUrl = ref("")
 
-function uploadClick() {
-  uploadPictures(1)
-    .then((res) => {
-      if (res && res.length > 0) {
-        avatarUrl.value = res[0]
+async function uploadClick() {
+  try {
+    const res = await uni.chooseImage({
+      count: 1,
+      sizeType: ['compressed'],
+      sourceType: ['album', 'camera'],
+    })
+    if (res.tempFilePaths && res.tempFilePaths.length > 0) {
+      const uploadRes = await uploadSinglePicture(res.tempFilePaths[0])
+      if (uploadRes && uploadRes.url) {
+        avatarUrl.value = uploadRes.url
         emit("upload", avatarUrl.value)
       }
-    })
-    .catch((err) => {
-      uni.showToast({ title: err.message || '图片上传失败，请重试', icon: 'none' })
-    })
+    }
+  } catch (err) {
+    uni.showToast({ title: err.message || '图片上传失败，请重试', icon: 'none' })
+  }
 }
 </script>
 
@@ -56,7 +62,7 @@ function uploadClick() {
   align-items: center;
   height: 400rpx;
   border-radius: 30rpx;
-  background: linear-gradient(180deg, #FFFFFF 0%, rgba(51, 255, 255, 0.2) 100%);
+  background: linear-gradient(180deg, #FFF 0%, rgb(51 255 255 / 0.2) 100%);
 }
 
 .picktwo {
@@ -79,7 +85,7 @@ function uploadClick() {
   background-size: 100%;
   opacity: 0.4;
   box-sizing: border-box;
-  box-shadow: 0 0 8rpx rgba(186, 202, 255, 0.08);
+  box-shadow: 0 0 8rpx rgb(186 202 255 / 0.08);
   transition: border-color 0.2s;
 }
 

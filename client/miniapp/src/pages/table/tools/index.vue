@@ -89,6 +89,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '@/store/modules/user'
+import request from '@/utils/service/index.js'
 import NavigationBars from '@/components/navigation-bars/index.vue'
 import Carousel from '@/components/Carousel/index.vue'
 import InputArea from '@/components/InputArea.vue'
@@ -126,10 +127,12 @@ const isBottom = ref(false)
 const showTabbar = ref(true)
 const showAssistanta = ref(true)
 const showToodown = ref(false)
-const statusBarHeight = ref(0)
-const titleBarHeight = ref(0)
+const statusBarHeight = ref('0')
+const titleBarHeight = ref('0')
 const imgsList = ref<any[]>([])
 const modelName = ref('')
+const placeholderStyle = ref('')
+const textarea_int = ref(false)
 
 onMounted(() => {
   loadData()
@@ -139,11 +142,16 @@ onMounted(() => {
 async function loadData() {
   loading.value = true
   try {
-    // TODO: 调用 API 加载智能体列表
-    // const res = await getAgentList()
-    // agentList.value = res.list || []
+    const res: any = await request({
+      url: '/agents/list',
+      method: 'GET',
+      data: { page: 1, limit: 20 },
+      base: 1,
+    })
+    agentList.value = (res && res.data) || []
   } catch (error) {
     console.error('加载数据失败:', error)
+    uni.showToast({ title: '加载智能体列表失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -256,7 +264,7 @@ function backToTop() {
 .toodown {
   width: 80rpx;
   height: 80rpx;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgb(0 0 0 / 0.5);
   border-radius: 50%;
   display: flex;
   align-items: center;

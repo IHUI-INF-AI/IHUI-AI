@@ -30,7 +30,6 @@ const {
   loginBySms,
   loginByUniverify,
   loginByWeixin,
-  loginByAlipay,
   loginByQQ,
   loginByApple,
   loginByWeixinMobile
@@ -42,12 +41,10 @@ const {
   bindMobileBySms,
   bindMobileByUniverify,
   bindMobileByMpWeixin,
-  bindAlipay,
   bindApple,
   bindQQ,
   bindWeixin,
   unbindWeixin,
-  unbindAlipay,
   unbindQQ,
   unbindApple
 } = require('./module/relate/index')
@@ -387,15 +384,6 @@ module.exports = {
    */
   loginByWeixin,
   /**
-   * 支付宝登录
-   * @tutorial https://uniapp.dcloud.net.cn/uniCloud/uni-id-pages.html#login-by-alipay
-   * @param {Object} params
-   * @param {String} params.code        支付宝小程序客户端登录返回的code
-   * @param {String} params.inviteCode  邀请码
-   * @returns
-   */
-  loginByAlipay,
-  /**
    * QQ登录
    * @tutorial https://uniapp.dcloud.net.cn/uniCloud/uni-id-pages.html#login-by-qq
    * @param {Object} params
@@ -469,14 +457,6 @@ module.exports = {
    * @returns
    */
   bindQQ,
-  /**
-   * 绑定支付宝账号
-   * @tutorial https://uniapp.dcloud.net.cn/uniCloud/uni-id-pages.html#bind-alipay
-   * @param {Object} params
-   * @param {String} params.code  支付宝小程序登录返回的code参数
-   * @returns
-   */
-  bindAlipay,
   /**
    * 绑定苹果账号
    * @tutorial https://uniapp.dcloud.net.cn/uniCloud/uni-id-pages.html#bind-apple
@@ -607,12 +587,6 @@ module.exports = {
    * @returns
    */
   unbindWeixin,
-  /**
-   * 解绑支付宝
-   * @tutorial https://uniapp.dcloud.net.cn/uniCloud/uni-id-pages.html#unbind-alipay
-   * @returns
-   */
-  unbindAlipay,
   /**
    * 解绑QQ
    * @tutorial https://uniapp.dcloud.net.cn/uniCloud/uni-id-pages.html#unbind-qq

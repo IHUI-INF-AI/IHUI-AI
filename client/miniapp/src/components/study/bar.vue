@@ -70,14 +70,14 @@ function selectBar(item, index) {
     height: 52rpx;
     border-radius: 15rpx;
     color: #d8d8d8;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 36rpx;
     font-weight: normal;
 }
 
 .select {
     color: #3D3D3D !important;
-    background: #FFFFFF;
+    background: #FFF;
     font-weight: bold !important;
 }
 

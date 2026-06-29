@@ -15,7 +15,7 @@
                         <image src="https://file.aizhs.top/sys-mini/default/zuan.png" mode="widthFix" style="width: 111rpx;height: 111rpx;"></image>
                         <image src="https://file.aizhs.top/sys-mini/default/zuan_title.png" mode="widthFix" style="width: 111rpx;height: 111rpx;"></image>
                     </view>
-                    <view style="position: absolute;left: 0;bottom: 10rpx;display: flex;align-items: center;flex-direction: column;color: #ff0000;">
+                    <view style="position: absolute;left: 0;bottom: 10rpx;display: flex;align-items: center;flex-direction: column;color: #f00;">
                         <view>会员等级升级机制</view>
                         <view>1¥=1点成长值</view>
                     </view>
@@ -56,7 +56,7 @@
 
                 <!-- 底部版权信息 -->
                 <view
-                    style="width: 100%;text-align: center;padding-bottom: 10rpx;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
+                    style="width: 100%;padding-bottom: 10rpx;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
                     <image style="text-align: center;width:348rpx;" src="https://file.aizhs.top/sys-mini/yejiao.png"
                     mode="widthFix" />
                 </view>
@@ -148,8 +148,8 @@ onMounted(() => {
     justify-content: flex-start;
     align-items: flex-start;
     perspective: 1200px;
-    background-image: linear-gradient(to bottom right, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%);
-    box-shadow: 0 0 8rpx 0 rgba(0, 0, 0, 0.1);
+    background-image: linear-gradient(to bottom right, rgb(205 208 255 / 0.7) 0%, rgb(253 255 225 / 0.7) 100%);
+    box-shadow: 0 0 8rpx 0 rgb(0 0 0 / 0.1);
     margin: 40rpx auto 0;
     border-radius: 15rpx;
 }
@@ -195,7 +195,7 @@ onMounted(() => {
     font-weight: bold;
     letter-spacing: 2rpx;
     color: #000;
-    font-family: 'AlimamaFangYuanTi';
+    font-family: AlimamaFangYuanTi;
 }
 
 .ai-text {
@@ -225,7 +225,7 @@ onMounted(() => {
 
 .tips {
     width: 225rpx;
-    color: #FF0000;
+    color: #F00;
     margin-top: 10rpx;
     margin-left: 10rpx;
 }
@@ -298,9 +298,9 @@ onMounted(() => {
     font-size: 48rpx;
     font-weight: bold;
     color: #333;
-    border: 1rpx solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.15), inset 0 0 0 rgba(255, 255, 255, 1);
-    background-image: linear-gradient(to bottom, #ffffff, #f9f9f9);
+    border: 1rpx solid rgb(255 255 255 / 0.8);
+    box-shadow: 0 0 10rpx rgb(0 0 0 / 0.15), inset 0 0 0 rgb(255 255 255 / 1);
+    background-image: linear-gradient(to bottom, #fff, #f9f9f9);
 }
 
 .copyright {

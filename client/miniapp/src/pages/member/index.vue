@@ -165,7 +165,7 @@ function handleOpenVip() {
 .vip-badge {
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 215, 0, 0.3);
+  background: rgb(255 215 0 / 0.3);
   padding: 8rpx 16rpx;
   border-radius: 20rpx;
 }
@@ -183,7 +183,7 @@ function handleOpenVip() {
 
 .non-vip {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgb(255 255 255 / 0.8);
 }
 
 .card {
@@ -266,7 +266,7 @@ function handleOpenVip() {
 }
 
 .vip-card {
-  background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+  background: linear-gradient(135deg, #ffd700 0%, #fa0 100%);
   border-radius: 20rpx;
   padding: 40rpx;
   margin-top: 20rpx;
@@ -308,7 +308,7 @@ function handleOpenVip() {
 .discount {
   font-size: 22rpx;
   color: #ff3b30;
-  background: rgba(255, 59, 48, 0.1);
+  background: rgb(255 59 48 / 0.1);
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
 }

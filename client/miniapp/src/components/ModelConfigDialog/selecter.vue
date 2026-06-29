@@ -228,7 +228,7 @@ function getItemIconView(str) {
         padding: 0 14rpx;
         height: 50rpx;
         border-radius: 10rpx;
-        background-color: rgba(218, 218, 218, 0.37);
+        background-color: rgb(218 218 218 / 0.37);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -283,7 +283,7 @@ function getItemIconView(str) {
         padding: 0 21rpx;
         height: 65rpx;
         border-radius: 10rpx;
-        background: rgba(218, 218, 218, 0.37);
+        background: rgb(218 218 218 / 0.37);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -294,7 +294,7 @@ function getItemIconView(str) {
 
     .s_i_n {
         border-radius: 10rpx;
-        background-color: rgba(218, 218, 218, 0.37);
+        background-color: rgb(218 218 218 / 0.37);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -309,15 +309,15 @@ function getItemIconView(str) {
     }
 
     .text {
-        font-family: Source Han Sans !important;
+        font-family: "Source Han Sans" !important;
         font-size: 29rpx;
         font-weight: normal;
-        color: #000000;
+        color: #000;
         line-height: 50rpx;
     }
 
     .small {
-        font-family: Source Han Sans !important;
+        font-family: "Source Han Sans" !important;
         font-size: 21rpx;
         font-weight: normal;
         color: #C4C4C4 !important;
@@ -331,7 +331,7 @@ function getItemIconView(str) {
         padding: 0 21rpx;
         height: 50rpx;
         border-radius: 10rpx;
-        background-color: rgba(218, 218, 218, 0.37);
+        background-color: rgb(218 218 218 / 0.37);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -340,7 +340,7 @@ function getItemIconView(str) {
         flex-shrink: 0;
         
         .text {
-            font-family: Source Han Sans !important;
+            font-family: "Source Han Sans" !important;
             font-size: 29rpx;
             font-weight: normal;
             color: #666;
@@ -354,7 +354,7 @@ function getItemIconView(str) {
         padding: 0 21rpx;
         height: 50rpx;
         border-radius: 10rpx;
-        background-color: rgba(81, 141, 253, 0.2);
+        background-color: rgb(81 141 253 / 0.2);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -363,7 +363,7 @@ function getItemIconView(str) {
         flex-shrink: 0;
         
         .text {
-            font-family: Source Han Sans !important;
+            font-family: "Source Han Sans" !important;
             font-size: 29rpx;
             font-weight: bold;
             color: #518dfd;
@@ -376,12 +376,12 @@ function getItemIconView(str) {
         padding: 13rpx 21rpx;
         margin-top: 21rpx;
         border-radius: 10rpx;
-        background-color: rgba(81, 141, 253, 0.1);
+        background-color: rgb(81 141 253 / 0.1);
         border: 1rpx solid #518dfd;
         box-sizing: border-box;
         
         .text {
-            font-family: Source Han Sans !important;
+            font-family: "Source Han Sans" !important;
             font-size: 31rpx;
             font-weight: bold;
             color: #518dfd;

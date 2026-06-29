@@ -107,7 +107,6 @@ onMounted(() => {
           showCancel: false,
         })
       }
-    } else if (res.code == "300") {
     }
   })
 })

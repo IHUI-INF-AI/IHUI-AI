@@ -10,7 +10,7 @@
     <!-- <image
       :src="userInfo.avatarUrl ? userInfo.avatarUrl :'/static/images/daixaodiming.png'"
       class="avatar-img" @click="editProfile" /> -->
-    <view class="" style="background-color: rgba(0, 0, 0, 0);">
+    <view class="" style="background-color: rgb(0 0 0 / 0);">
 
       <image :src="avatarPic ? avatarPic : '/static/images/daixaodiming.png'"
         class="avatar-img" @click="editProfile" style="border-radius: 15rpx;" mode="aspectFill" />
@@ -35,7 +35,7 @@
     </view>
   </view>
     <view v-if="userInfo && userInfo.uuid" class=""
-      style="border-radius: 15rpx;padding: 1px 1px;">
+      style="border-radius: 15rpx;padding: 1px;">
       <view class="user-info-card">
         <view class="" style="width: 100%;display: flex;justify-content: space-between;align-items: center; ">
           <view style="width: 154rpx;
@@ -49,7 +49,7 @@
             }">
 
             <view class="vipTip" v-if="userInfo.isVip !== 0" style="color: #716FFF;font-size: 20rpx;text-indent: 34rpx;
-            text-shadow: 0 4rpx 12rpx rgba(116, 83, 255, 0.08);">
+            text-shadow: 0 4rpx 12rpx rgb(116 83 255 / 0.08);">
               {{ vipText }}</view>
             <view class="vipTip" v-if="userInfo.isVip === 0" style="text-indent: 34rpx;">智域访客</view>
 
@@ -87,11 +87,8 @@
             align-items: center;
             justify-content: center;
             display: flex;
-            margin-bottom: 0;
-            margin-left: 0;
-            margin-right:10rpx;
+            margin: -0 10rpx 0 0;
             padding-top: 0;
-            margin-top: -0;
             position: relative;
             height: 40rpx;" :class="{
               'card_type_nor': userInfo.isVip == 0,
@@ -114,8 +111,8 @@
               </text>
               <text class="bar-max">所需成长值:{{ userAllI && userAllI.vipLevelVO ? userAllI.vipLevelVO.progress : 0 }}</text>
             </view>
-            <view v-else-if="userInfo.isVip == 2" class="growth-bar-bg" style="width: calc(100%);height: 24rpx;position: relative;box-shadow: 0 0 15px -3px rgba(0, 0, 0, 0.5), 
-              0 4px 6px -2px rgba(0, 0, 0, 0.5);">
+            <view v-else-if="userInfo.isVip == 2" class="growth-bar-bg" style="width: calc(100%);height: 24rpx;position: relative;box-shadow: 0 0 15px -3px rgb(0 0 0 / 0.5), 
+              0 4px 6px -2px rgb(0 0 0 / 0.5);">
               <view class="bar-value" style="position: absolute;left: 0;top: 0; width: calc(100%);height: 24rpx;">
                 
               </view>
@@ -308,7 +305,7 @@
                 <view class="buy-btn" v-if="showRechargeBtn && !isshow" @click="handleWallet">充值</view>
               </view>
             </view> -->
-        <view style="border: 1px solid #f0f0f0;box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);margin-top: 6rpx;border-radius: 15rpx;">
+        <view style="border: 1px solid #f0f0f0;box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);margin-top: 6rpx;border-radius: 15rpx;">
           <view class="db-card" style="margin-top: 0;">
             <view class="vip-card" :style="{borderBottomLeftRadius: showRechargeBtn && userInfo && (userInfo.isVip == 0 || userInfo.isVip == 1 || userInfo.isVip == 2) && !isshow && userInfo.uuid ? 0 : '15rpx',borderBottomRightRadius: showRechargeBtn && userInfo && (userInfo.isVip == 0 || userInfo.isVip == 1 || userInfo.isVip == 2) && !isshow && userInfo.uuid ? 0 : '15rpx'}">
               <view class="vip-card-main">
@@ -959,11 +956,13 @@ onBeforeUnmount(() => {
   background: white;
   border-radius: 15rpx;
   padding: 10rpx 0 18rpx;
+
   // box-shadow: 0px 0 6px 0px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
   background-size: 100% 100%;
   background-repeat: no-repeat;
+
   // background-image: url("https://file.aizhs.top/sys-mini/user-bg.png");
   // background: linear-gradient(241deg, rgba(195, 190, 255, 0.4) 0%, rgba(255, 255, 255, 0.4) 98%), #FFFFFF;
   // border: 1px solid;
@@ -981,12 +980,13 @@ onBeforeUnmount(() => {
   width: 100%;
   text-align: center;
   line-height: 34rpx;
+
   // margin-top: 11rpx;
   // margin-left: 18rpx;
   // margin-bottom: 8rpx;
   color: #fff;
   font-weight: bold;
-  background: rgba(133, 133, 133, 0.3);
+  background: rgb(133 133 133 / 0.3);
   border-radius: 10rpx;
 }
 
@@ -1007,6 +1007,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: flex-start;
   border-radius: 8px;
+
   // box-shadow: 0px 0 6px 0px rgba(0, 0, 0, 0.3);
   // background: linear-gradient(108deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 104%);
 
@@ -1029,10 +1030,12 @@ onBeforeUnmount(() => {
   height: 163rpx;
   border-radius: 15rpx;
   background-color: white;
+
   // border: 4rpx solid #ccc;
   margin-left: 2rpx;
   margin-top: 2px;
   margin-right: 2rpx;
+
   // border: 1px solid #E8E1FF;
 }
 
@@ -1040,6 +1043,7 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+
   // justify-content: flex-start;
 }
 
@@ -1064,6 +1068,7 @@ onBeforeUnmount(() => {
   height: 24rpx;
   background: #f1f1f1;
   border-radius: 6px;
+
   // box-shadow: 0 0 12rpx rgba(116, 83, 255, 0.08);
   // box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 
   //             0 4px 6px -2px rgba(0, 0, 0, 0.5);
@@ -1139,6 +1144,7 @@ onBeforeUnmount(() => {
   .username-icon {
     width: 40rpx;
     height: 40rpx;
+
     // border-radius: 50%;
     background: #f5f6fa;
     object-fit: cover;
@@ -1148,6 +1154,7 @@ onBeforeUnmount(() => {
     width: 40rpx;
     height: 40rpx;
     margin-right: 12rpx;
+
     // height: 65rpx;
   }
 
@@ -1172,7 +1179,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   font-size: 28rpx;
-  color: #666666;
+  color: #666;
 
   text {
     margin-right: 20rpx;
@@ -1266,7 +1273,7 @@ onBeforeUnmount(() => {
 
     .next-level-info {
       font-size: 24rpx;
-      color: #666666;
+      color: #666;
     }
   }
 
@@ -1277,11 +1284,8 @@ onBeforeUnmount(() => {
     font-size: 24rpx;
     font-weight: bold;
     padding: 8rpx 28rpx;
-    box-shadow: 0 0 8rpx rgba(0, 238, 251, 0.1);
-    margin-left: 12rpx;
-    margin-right: 12rpx;
-    margin-top: 0;
-    margin-bottom: 0;
+    box-shadow: 0 0 8rpx rgb(0 238 251 / 0.1);
+    margin: 0 12rpx;
     text-align: center;
     transition: box-shadow 0.2s, background 0.2s;
     border: none;
@@ -1293,7 +1297,7 @@ onBeforeUnmount(() => {
 
   .level-button:active {
     background: #3A9BE6;
-    box-shadow: 0 0 4rpx rgba(0, 238, 251, 0.08);
+    box-shadow: 0 0 4rpx rgb(0 238 251 / 0.08);
   }
 }
 
@@ -1301,53 +1305,50 @@ onBeforeUnmount(() => {
   background: #FF7D7D;
   border-radius: 60rpx;
   z-index: 2;
-
   height: 72rpx;
   margin-top: 50rpx;
   line-height: 72rpx;
   text-align: center;
   font-size: 32rpx;
   font-weight: bold;
-  color: #ffffff;
+  color: #fff;
 }
 
 .buy-btn {
   width: auto;
-  //height: 70rpx;
+
+  // height: 70rpx;
   min-width: 3em;
   text-align: center;
-  margin: 7rpx;
+
   // background-image: url('https://file.aizhs.top/sys-mini/xtk/userinfo_btn_bg.png');
   // background-size: 100% 100%;
-  background: #8389FF;
-  box-shadow: 0px 0 2px 0px rgba(0, 0, 0, 0.3);
+
   // background: linear-gradient(90deg, rgba(227, 195, 119, 0.73),
   //     rgba(255, 179, 0, 0.94));
-  backdrop-filter: blur(10px);
+
   // box-shadow: 0px 2px 2px 0px rgba(0, 0, 0, 0.3);
-  color: #fff;
   border-radius: 8rpx;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 10rpx;
   border: 1px solid #E5E5E5;
   background: #D9DBFF;
-  border-width: 0px 0px 4rpx 0px;
+  border-width: 0 0 4rpx;
   border-style: solid;
-  border-color: rgba(0, 0, 0, 0.1);
+  border-color: rgb(0 0 0 / 0.1);
   -webkit-backdrop-filter: blur(10rpx);
   backdrop-filter: blur(10rpx);
-  box-shadow: 0px 0 4rpx 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 4rpx 0 rgb(0 0 0 / 0.3);
   margin: 10rpx;
   padding: 5rpx;
-  font-family: 'AlimamaFangYuanTi' !important;
+  font-family: AlimamaFangYuanTi !important;
   font-size: 25rpx;
   color: #310ef8;
   font-weight: bold;
 
   :active {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0)
+    box-shadow: 0 0 0 0 rgb(255 255 255 / 0)
   }
 }
 
@@ -1378,11 +1379,10 @@ onBeforeUnmount(() => {
   position: relative;
   padding-left: 48rpx;
   font-size: 26rpx;
-  color: #222;
   font-weight: normal;
   font-variation-settings: "BEVL" 100, "opsz" auto;
   font-feature-settings: "kern" on;
-  color: #000000;
+  color: #000;
 
   &::before {
     content: "";
@@ -1405,7 +1405,6 @@ onBeforeUnmount(() => {
   font-weight: bold;
   line-height: 30rpx;
   text-align: center;
-
   font-variation-settings: "BEVL" 100, "opsz" auto;
   font-feature-settings: "kern" on;
 }
@@ -1425,6 +1424,7 @@ onBeforeUnmount(() => {
 .course-info {
   display: flex;
   flex-direction: row;
+
   // gap: 25rpx;
   // margin-bottom: 8rpx;
   color: #444;
@@ -1440,12 +1440,11 @@ onBeforeUnmount(() => {
     min-width: 30rpx;
 
     .course-info-item-s {
-      font-family: 'AlimamaFangYuanTi' !important;
+      font-family: AlimamaFangYuanTi !important;
       font-size: 20rpx;
       font-weight: bold;
       line-height: normal;
       letter-spacing: 0rpx;
-
       font-variation-settings: "BEVL" 100, "opsz" auto;
       color: #282C38;
     }
@@ -1473,6 +1472,7 @@ onBeforeUnmount(() => {
 .db-card {
   // background: rgba(0, 4, 255, 0.03);
   border-radius: 30rpx;
+
   // box-shadow: 0 0 16rpx #e0e0ff;
   // padding: 24rpx 0rpx 0rpx 0rpx;
   // margin: 20rpx 0;
@@ -1506,7 +1506,7 @@ onBeforeUnmount(() => {
     font-size: 20rpx;
     font-weight: bold;
     line-height: 21.12rpx;
-    letter-spacing: 0em;
+    letter-spacing: 0;
     color: #716FFF;
     font-variation-settings: "BEVL" 100, "opsz" auto;
 
@@ -1520,6 +1520,7 @@ onBeforeUnmount(() => {
 .db-header-right {
   display: flex;
   align-items: center;
+
   // gap: 10rpx;
 
   .db-new {
@@ -1528,6 +1529,7 @@ onBeforeUnmount(() => {
     border-radius: 8rpx;
     font-size: 15rpx;
     padding: 2rpx 12rpx;
+
     // margin-right: 8rpx;
     font-weight: bold;
     text-align: center;
@@ -1539,16 +1541,16 @@ onBeforeUnmount(() => {
     font-size: 20rpx;
     font-weight: bold;
     line-height: 21.12rpx;
-    letter-spacing: 0em;
-
+    letter-spacing: 0;
     font-variation-settings: "BEVL" 100, "opsz" auto;
-    color: #FF0000;
+    color: #F00;
   }
 }
 
 .db-progress-row {
   display: flex;
   align-items: center;
+
   // margin: 18rpx 0 8rpx 0;
 
   .db-progress-label {
@@ -1557,7 +1559,7 @@ onBeforeUnmount(() => {
     margin-right: 12rpx;
 
     .db-progress-label-te {
-      color: rgba(0, 0, 0, 0.7);
+      color: rgb(0 0 0 / 0.7);
     }
   }
 
@@ -1575,7 +1577,7 @@ onBeforeUnmount(() => {
   }
 
   .db-dot-gray {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgb(0 0 0 / 0.2);
   }
 }
 
@@ -1615,13 +1617,15 @@ onBeforeUnmount(() => {
 }
 
 .vip-card {
-  background: rgba(0, 4, 255, 0.03);
+  background: rgb(0 4 255 / 0.03);
+
   // padding: 10rpx 10rpx 10rpx 0rpx;
   // margin: 20rpx 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  //border-radius: 0rpx 0rpx 15rpx 15rpx;
+
+  // border-radius: 0rpx 0rpx 15rpx 15rpx;
   border-radius: 15rpx;
   padding: 10rpx 20rpx;
 }
@@ -1660,17 +1664,17 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 0 30rpx;
   border: 2rpx solid #000;
-  margin: 0 0 0 0;
+  margin: 0;
   font-size: 30rpx;
   color: #000; /* 白色文字 */
   font-weight: 600;
   position: relative;
   overflow: hidden;
-  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.1);
+  text-shadow: 0 1rpx 2rpx rgb(0 0 0 / 0.1);
   transition: all 0.3s ease;
-
   animation: bounce 0.5s ease-in-out infinite;
 }
+
 @keyframes bounce {
   0% {
     box-shadow: none;
@@ -1678,7 +1682,7 @@ onBeforeUnmount(() => {
   }
 
   50% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     transform: translate(0, 0);
   }
 
@@ -1693,6 +1697,7 @@ onBeforeUnmount(() => {
   0% {
     left: -100%;
   }
+
   100% {
     left: 100%;
   }
@@ -1701,11 +1706,12 @@ onBeforeUnmount(() => {
 /* 按钮脉动效果 */
 @keyframes pulse-btn {
   0% {
-    box-shadow: 0px 4rpx 12rpx rgba(255, 165, 0, 0.4);
+    box-shadow: 0 4rpx 12rpx rgb(255 165 0 / 0.4);
     transform: scale(1);
   }
+
   100% {
-    box-shadow: 0px 6rpx 16rpx rgba(255, 165, 0, 0.6);
+    box-shadow: 0 6rpx 16rpx rgb(255 165 0 / 0.6);
     transform: scale(1.02);
   }
 }
@@ -1735,9 +1741,8 @@ onBeforeUnmount(() => {
   top: 0;
   height: 24rpx;
   border-radius: 20rpx;
-
   background: #E1FF00;
-  box-shadow: 0 0 6px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
   z-index: 1;
   transition: width 0.5s;
   align-items: center;
@@ -1758,23 +1763,22 @@ onBeforeUnmount(() => {
   font-weight: bold;
   line-height: 18rpx;
   text-align: center;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   letter-spacing: 0rpx;
   font-variation-settings: "BEVL" 100, "opsz" auto;
   font-feature-settings: "kern" on;
   color: #9694ff;
-  text-shadow: 0px 0px 1px #494949;
+  text-shadow: 0 0 1px #494949;
   background: #f4ffa3;
-  box-shadow: 7rpx 1rpx 6px 0px rgba(0, 0, 0, 0.13);
+  box-shadow: 7rpx 1rpx 6px 0 rgb(0 0 0 / 0.13);
   box-sizing: border-box;
   border-radius: 6px;
   white-space: nowrap;
   overflow: visible;
 }
+
 .bar_text{
   font-size: 21rpx;
   font-weight: bold;
@@ -1782,11 +1786,12 @@ onBeforeUnmount(() => {
   font-variation-settings: "BEVL" 100, "opsz" auto;
   font-feature-settings: "kern" on;
   color: #9694ff;
-  text-shadow: 0px 0px 1px #494949;
+  text-shadow: 0 0 1px #494949;
 }
 
 .bar-max {
   color: #9694ff;
+
   // text-shadow: 0rpx 0rpx 1rpx #494949;
   position: absolute;
   font-size: 21rpx;
@@ -1839,14 +1844,16 @@ onBeforeUnmount(() => {
     align-items: center;
     flex-direction: column;
     justify-content: center;
+
     image {
       width: 123rpx;
       height: 34rpx;
     }
   }
+
   .company_text {
     background: #7B61FF;
-    box-shadow: 0px 0 10px 0px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 10px 0 rgb(0 0 0 / 0.3);
     width: 123rpx;
     height: 34rpx;
     border-radius: 8rpx;
@@ -1866,6 +1873,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
+
   // padding: 10rpx 30rpx;
   border: 1px solid #9A9A98;
   border-radius: 8rpx;
@@ -1882,8 +1890,7 @@ onBeforeUnmount(() => {
   justify-content: center;
 
   .btn_join {
-    margin: 20rpx 35rpx 20rpx;
-    line-height: 1;
+    margin: 20rpx 35rpx;
     height: 86rpx;
     line-height: 78rpx;
     box-sizing: border-box;
@@ -1916,7 +1923,7 @@ onBeforeUnmount(() => {
   border-radius: 15rpx;
   border: 4rpx solid #000;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
   margin: 20rpx 35rpx 0;
   animation: bouncea 0.5s ease-in-out infinite;
   line-height: 62rpx !important;
@@ -1930,7 +1937,7 @@ onBeforeUnmount(() => {
   }
 
   50% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     transform: translate(0, 0);
   }
 
@@ -1939,6 +1946,7 @@ onBeforeUnmount(() => {
     transform: translate(3rpx, 3rpx);
   }
 }
+
 .border_bottom:first-child {
   border-bottom: 1px solid #e6e6e6;
 }

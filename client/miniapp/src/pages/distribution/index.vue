@@ -100,6 +100,7 @@ import NavigationBars from '@/components/navigation-bars/index.vue'
 import PersonalInformationCard from './PersonalInformationCard/index.vue'
 import EarningsStatisticsCard from './EarningsStatisticsCard/index.vue'
 import FunctionBlockColumn from './FunctionBlockColumn/index.vue'
+import request from '@/utils/service/index.js'
 
 // 状态
 const loading = ref(false)
@@ -129,9 +130,19 @@ onMounted(() => {
 async function loadData() {
   loading.value = true
   try {
-    // TODO: 调用 API 加载数据
+    const res = await request({
+      url: '/finance/distribution/team/center',
+      method: 'GET',
+    })
+    const payload = res?.data || {}
+    data.value = payload
+    dayStatistics.value = payload.dayStatistics || payload.day || {}
+    monthStatistics.value = payload.monthStatistics || payload.month || {}
+    sumStatistics.value = payload.sumStatistics || payload.sum || {}
+    erweima.value = payload.erweima || payload.qrcode || payload.qrCode || ''
   } catch (error) {
     console.error('加载数据失败:', error)
+    uni.showToast({ title: '加载数据失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -171,14 +182,23 @@ function editProfile() {
 }
 
 // 保存用户信息
-function saveUserInfo() {
+async function saveUserInfo() {
   if (!IDNum.value || !IDName.value) {
     uni.showToast({ title: '请填写完整信息', icon: 'none' })
     return
   }
-  // TODO: 调用 API 保存用户信息
-  showVerify.value = false
-  uni.showToast({ title: '验证成功', icon: 'success' })
+  try {
+    await request({
+      url: '/auth_identity/submit',
+      method: 'POST',
+      header: { 'content-type': 'application/json' },
+      data: { IDNum: IDNum.value, IDName: IDName.value },
+    })
+    showVerify.value = false
+    uni.showToast({ title: '验证成功', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: '验证失败', icon: 'none' })
+  }
 }
 
 // 关闭验证弹窗
@@ -236,10 +256,7 @@ function close() {
 /* 验证弹窗 */
 .introduce-popup {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -247,7 +264,7 @@ function close() {
 }
 
 .blur-background {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgb(0 0 0 / 0.5);
   backdrop-filter: blur(10px);
 }
 

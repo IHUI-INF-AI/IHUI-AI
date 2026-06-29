@@ -318,7 +318,7 @@ function onEditPhone() {
                 text-align: center;
                 font-size: 22rpx;
                 color: #fff;
-                background-color: rgba(0, 0, 0, 0.5);
+                background-color: rgb(0 0 0 / 0.5);
             }
 
             .item-hint {

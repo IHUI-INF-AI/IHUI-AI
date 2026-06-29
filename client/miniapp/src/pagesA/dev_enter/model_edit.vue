@@ -352,10 +352,10 @@ function backPage() {
         }
 
         .title_icon-text {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 24rpx;
             font-weight: 500;
-            color: #000000;
+            color: #000;
         }
     }
 }
@@ -381,14 +381,15 @@ function backPage() {
             color: #517BFF;
             font-size: 30rpx;
             font-weight: normal;
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
         }
 
         .title-sub {
             font-size: 24rpx;
             color: #414141;
             font-weight: normal;
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
+
             // ...
             max-height: 182rpx;
             display: -webkit-box;
@@ -410,11 +411,11 @@ function backPage() {
         width: 155rpx;
         height: 60rpx;
         border-radius: 20rpx;
-        background: #FFFFFF;
+        background: #FFF;
         box-sizing: border-box;
         border: 1rpx solid #DADADA;
-        box-shadow: 0rpx 0rpx 6rpx 0rpx rgba(21, 0, 255, 0);
-        font-family: "AlimamaFangYuanTi" !important;
+        box-shadow: 0rpx 0rpx 6rpx 0rpx rgb(21 0 255 / 0);
+        font-family: AlimamaFangYuanTi !important;
         font-size: 24rpx;
         font-weight: 500;
         color: #3D3D3D;
@@ -428,11 +429,11 @@ function backPage() {
     overflow: hidden;
     border: 1rpx solid #DADADA;
     border-radius: 20rpx;
-    box-shadow: 0px 0px 6px 0px rgba(21, 0, 255, 0);
+    box-shadow: 0 0 6px 0 rgb(21 0 255 / 0);
     margin-top: 18rpx;
 
     .haad {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 24rpx;
         font-weight: normal;
         color: #979797;
@@ -460,13 +461,14 @@ function backPage() {
 
 .card_bg {
     background-image: linear-gradient(307deg,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(211, 161, 223, 0.6389) 32%,
-            rgba(206, 151, 251, 0.6925) 41%,
-            rgba(255, 242, 0, 0.21) 88%);
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(211 161 223 / 0.6389) 32%,
+            rgb(206 151 251 / 0.6925) 41%,
+            rgb(255 242 0 / 0.21) 88%);
     width: calc(100vw - 36rpx);
+
     // height: 415rpx;
     border-radius: 20rpx;
     padding: 2rpx;
@@ -476,16 +478,18 @@ function backPage() {
 
     .card_body {
         width: 100%;
+
         // width: calc(100vw - 36rpx);
         height: 100%;
         border-radius: 20rpx;
+
         // padding: 18rpx;
-        background-color: #FFFFFF;
+        background-color: #FFF;
         box-sizing: border-box;
         padding: 10rpx;
 
         .yuan {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 48rpx;
             font-weight: bold;
             color: #8385FF;
@@ -493,19 +497,19 @@ function backPage() {
         }
 
         .input {
-            border-width: 0 0 1rpx 0;
+            border-width: 0 0 1rpx;
         }
     }
 }
 
 .pay_select_bg {
     background-image: linear-gradient(307deg,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(211, 161, 223, 0.6389) 32%,
-            rgba(206, 151, 251, 0.6925) 41%,
-            rgba(255, 242, 0, 0.21) 88%);
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(211 161 223 / 0.6389) 32%,
+            rgb(206 151 251 / 0.6925) 41%,
+            rgb(255 242 0 / 0.21) 88%);
     width: 100%;
     height: 70rpx;
     box-sizing: border-box;
@@ -523,7 +527,7 @@ function backPage() {
     overflow: hidden;
 
     .line_body {
-        background-color: #FFFFFF;
+        background-color: #FFF;
         display: flex;
         align-items: center;
         height: 100%;
@@ -537,7 +541,7 @@ function backPage() {
     }
 
     .text {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: normal;
         color: #3D3D3D;
@@ -563,7 +567,6 @@ function backPage() {
 
             &.bg {
                 background: none;
-                background-image: none !important;
                 background-color: #fff !important;
             }
         }
@@ -576,12 +579,12 @@ function backPage() {
 
 .bg {
     background-image: linear-gradient(307deg,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(211, 161, 223, 0.6389) 32%,
-            rgba(206, 151, 251, 0.6925) 41%,
-            rgba(255, 242, 0, 0.21) 88%) !important;
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(211 161 223 / 0.6389) 32%,
+            rgb(206 151 251 / 0.6925) 41%,
+            rgb(255 242 0 / 0.21) 88%) !important;
 }
 
 .fn {
@@ -594,7 +597,7 @@ function backPage() {
     box-sizing: border-box;
     background: #EBEEF5;
     padding: 14rpx 16rpx;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: 500;
     color: #3D3D3D;
@@ -605,10 +608,10 @@ function backPage() {
     width: 155rpx;
     height: 60rpx;
     border-radius: 20rpx;
-    background: #FFFFFF;
+    background: #FFF;
     box-sizing: border-box;
     border: 1rpx solid #DADADA;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: 500;
     color: #3D3D3D;
@@ -616,7 +619,7 @@ function backPage() {
 }
 
 .submit_body {
-    margin: 36rpx 0 36rpx 0;
+    margin: 36rpx 0;
     width: 100%;
     box-sizing: border-box;
 
@@ -625,10 +628,10 @@ function backPage() {
         height: 82rpx;
         border-radius: 30rpx;
         background: #000;
-        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgb(255 255 255 / 0.1);
         box-sizing: border-box;
         border: none;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: bold;
         color: #fff;
@@ -642,17 +645,17 @@ function backPage() {
 }
 
 .font_nomal {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: normal;
-    color: #000000;
+    color: #000;
 }
 
 .font_hold {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: bold !important;
-    color: #000000;
+    color: #000;
 }
 
 .margin_bottom {
@@ -661,7 +664,7 @@ function backPage() {
 }
 
 .font_sub_title {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: 500;
     color: #3D3D3D;

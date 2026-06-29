@@ -35,7 +35,7 @@
 	})
 	const detail = ref({})
 	const scrollTop = ref(0)
-	const aiText = ref(null)
+	const aiTextRef = ref(null)
 
 	onPageScroll((e) => {
 		scrollTop.value = e.scrollTop

@@ -185,6 +185,7 @@ function togglePermanentMemoryb() {
   display: flex;
   justify-content: space-between;
   margin: 10rpx auto -5rpx;
+
   // width: calc(100% - 100rpx);
   width: calc(100% - 44rpx);
   gap: 16rpx;
@@ -228,11 +229,14 @@ function togglePermanentMemoryb() {
   outline: none;
   overflow:hidden;
   border: 1px solid #c4c4c4;
+
 //   background: linear-gradient(263deg, #D19EFF 8%, rgba(255, 242, 0, 0.3) 33%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 72%, #CD96FF 91%);
 }
+
 .toggle_btn {
     position: relative;
     overflow: hidden;
+
     // box-shadow: 1rpx 1rpx 0rpx 0rpx rgba(0, 0, 0, 0.3),0rpx 6rpx 20rpx 0rpx rgba(255, 255, 255, 0.8);
     border-color: #518dfd;
     background-color: #d9e6fd;
@@ -242,14 +246,13 @@ function togglePermanentMemoryb() {
       color: #0105ff !important;
     }
 }
+
 .toggle_btn .toggle_back{
     position: absolute;
-    left:0;
-    right:0;
-    top:-75rpx;
-    bottom:0;
+    inset:-75rpx 0 0;
     height: 200rpx;
-    background: linear-gradient(263deg, #9ec8ff 8%, rgba(81, 255, 0, 0.3) 33%, rgba(146, 146, 146, 0.3) 52%, rgba(0, 255, 149, 0.3) 72%, #96aeff 91%);
+    background: linear-gradient(263deg, #9ec8ff 8%, rgb(81 255 0 / 0.3) 33%, rgb(146 146 146 / 0.3) 52%, rgb(0 255 149 / 0.3) 72%, #96aeff 91%);
+
     // background: linear-gradient(263deg, #D19EFF 8%, rgba(255, 242, 0, 0.3) 33%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 72%, #CD96FF 91%);
     animation: rotate 3s linear infinite;
     display: none;
@@ -259,10 +262,12 @@ function togglePermanentMemoryb() {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
 }
+
 .toggle-button_back_bot {
   width:100%;
   height: 100%;
@@ -294,10 +299,12 @@ function togglePermanentMemoryb() {
     align-items: center;
     justify-content: space-between;
     box-shadow: none;
+
     // padding-left: 10rpx;
     -webkit-tap-highlight-color: transparent;
     tap-highlight-color: transparent;
     outline: none;
+
     // background: linear-gradient(106deg, rgba(20, 20, 20, 0) 4%, rgba(42, 43, 41, 0) 104%);
     // background: linear-gradient(106deg, rgba(205, 208, 255, 0.3) 4%, rgba(253, 255, 225, 0.3) 104%);
     width:100%;
@@ -317,29 +324,29 @@ function togglePermanentMemoryb() {
   color: #000;
   text-align: center;
   width: calc(100% - 30rpx);
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 }
 
 .toggle-button-text-top {
   font-size: 20rpx;
   line-height: 22rpx;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 }
 
 .toggle-button-text-bottom {
   // font-size: 10rpx !important;
   line-height: 22rpx;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 }
 
 .button-group-box-inner {
-  color: #000000;
+  color: #000;
   font-size: 18rpx;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 }
 
 .button-group-box-inner:first-child {
-  color: rgba(0, 0, 0, 0.6);
+  color: rgb(0 0 0 / 0.6);
 }
 
 // .custom-carousel-wrapper {
@@ -381,7 +388,8 @@ function togglePermanentMemoryb() {
 }
 
 .search-input {
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
+
   /* 其他样式 */
 }
 
@@ -394,8 +402,8 @@ function togglePermanentMemoryb() {
 .icon-text {
   font-size: 20rpx;
   line-height: 40rpx;
-  color: rgba(0, 0, 0, 0.9);
-  font-family: "AlimamaFangYuanTi";
+  color: rgb(0 0 0 / 0.9);
+  font-family: AlimamaFangYuanTi;
 }
 
 .search-box2-img {
@@ -420,6 +428,7 @@ function togglePermanentMemoryb() {
 //   width: 130rpx;
   margin-right: 8rpx;
   flex: none;
+
   /* 其他样式 */
 }
 </style>

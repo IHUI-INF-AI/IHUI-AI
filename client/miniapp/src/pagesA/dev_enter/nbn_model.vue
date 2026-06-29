@@ -429,14 +429,6 @@ function parseN8nJson(jsonData) {
             if (workflow.settings && workflow.settings.description && !agentDescription.value) {
                 agentDescription.value = workflow.settings.description;
             }
-            if (workflow.nodes && Array.isArray(workflow.nodes)) {
-                const webhookNode = workflow.nodes.find(node =>
-                    node.type === 'n8n-nodes-base.webhook' ||
-                    node.typeVersion === 1 && node.type === 'webhook'
-                );
-                if (webhookNode && webhookNode.parameters && webhookNode.parameters.path) {
-                }
-            }
         }
         if (jsonData.name && !agentName.value) {
             agentName.value = jsonData.name;
@@ -729,7 +721,7 @@ async function submitAgent() {
 .title_icon {
     display: flex;
     align-items: center;
-    margin: 30rpx 0 20rpx 0;
+    margin: 30rpx 0 20rpx;
     
     .title_icon-image {
         width: 40rpx;
@@ -740,7 +732,7 @@ async function submitAgent() {
     .title_icon-text {
         font-size: 32rpx;
         font-weight: bold;
-        color: #333333;
+        color: #333;
     }
 }
 
@@ -946,7 +938,7 @@ async function submitAgent() {
                             background-color: #007aff;
                             font-weight: bold;
                             transform: scale(1.05);
-                            box-shadow: 0 4rpx 12rpx rgba(0, 122, 255, 0.3);
+                            box-shadow: 0 4rpx 12rpx rgb(0 122 255 / 0.3);
                         }
                     }
                 }
@@ -993,7 +985,7 @@ async function submitAgent() {
         padding: 35rpx;
         font-size: 32rpx;
         font-weight: bold;
-        box-shadow: 0 8rpx 30rpx rgba(0, 0, 0, 0.2);
+        box-shadow: 0 8rpx 30rpx rgb(0 0 0 / 0.2);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1009,11 +1001,8 @@ async function submitAgent() {
 // 图片选择弹窗
 .image_picker_modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background-color: rgb(0 0 0 / 0.5);
     display: flex;
     align-items: flex-end;
     z-index: 1000;

@@ -415,7 +415,7 @@ onLoad(() => {
 			
 			&.active {
 				border-color: #0056D6;
-				background: rgba(0, 86, 214, 0.05);
+				background: rgb(0 86 214 / 0.05);
 			}
 			
 			.package-header {
@@ -465,7 +465,7 @@ onLoad(() => {
 					font-size: 26rpx;
 					color: #666;
 					
-					&:before {
+					&::before {
 						content: '• ';
 						color: #0056D6;
 					}
@@ -474,7 +474,7 @@ onLoad(() => {
 						color: #FF6B00;
 						font-weight: bold;
 						
-						&:before {
+						&::before {
 							color: #FF6B00;
 						}
 					}
@@ -518,7 +518,7 @@ onLoad(() => {
 			
 			&.active {
 				border-color: #0056D6;
-				background: rgba(0, 86, 214, 0.05);
+				background: rgb(0 86 214 / 0.05);
 			}
 			
 			.method-icon {
@@ -572,8 +572,8 @@ onLoad(() => {
 		border-radius: 30rpx;
 		
 		&[disabled] {
-			background: #cccccc;
-			color: #ffffff;
+			background: #ccc;
+			color: #fff;
 		}
 	}
 	

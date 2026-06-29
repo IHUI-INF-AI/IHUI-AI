@@ -47,7 +47,7 @@
 
                 <!-- 底部版权信息 -->
                 <view
-                    style="width: 100%;text-align: center;padding-bottom: 10rpx;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
+                    style="width: 100%;padding-bottom: 10rpx;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
                     <image style="text-align: center;width:348rpx;" src="https://file.aizhs.top/sys-mini/yejiao.png"
                     mode="widthFix" />
                 </view>
@@ -160,8 +160,8 @@ onMounted(() => {
     transform: translateY(100vh) rotateX(5deg);
     transition: all 0.3s ease-in-out;
     opacity: 0.8;
-    background-image: linear-gradient(to bottom right, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%);
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2), inset 0 -1px 2px rgba(255, 255, 255, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.7);
+    background-image: linear-gradient(to bottom right, rgb(205 208 255 / 0.7) 0%, rgb(253 255 225 / 0.7) 100%);
+    box-shadow: 0 0 15px rgb(0 0 0 / 0.2), inset 0 -1px 2px rgb(255 255 255 / 0.7), inset 0 1px 1px rgb(255 255 255 / 0.7);
 }
 
 .popup-content.popup-show {
@@ -194,7 +194,7 @@ onMounted(() => {
     font-weight: bold;
     letter-spacing: 2rpx;
     color: #000;
-    font-family: 'AlimamaFangYuanTi';
+    font-family: AlimamaFangYuanTi;
 }
 
 .ai-text {
@@ -285,17 +285,17 @@ onMounted(() => {
     font-size: 30rpx;
     font-weight: 500;
     color: #333;
-    border: 1rpx solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.15), inset 0 0 0 rgba(255, 255, 255, 1);
-    background-image: linear-gradient(to bottom, #ffffff, #f9f9f9);
+    border: 1rpx solid rgb(255 255 255 / 0.8);
+    box-shadow: 0 0 10rpx rgb(0 0 0 / 0.15), inset 0 0 0 rgb(255 255 255 / 1);
+    background-image: linear-gradient(to bottom, #fff, #f9f9f9);
 }
 
 .dark-button {
-    background-color: #333333;
+    background-color: #333;
     background-image: none;
-    color: #ffffff;
-    border: 1rpx solid #222222;
-    box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.25);
+    color: #fff;
+    border: 1rpx solid #222;
+    box-shadow: 0 0 10rpx rgb(0 0 0 / 0.25);
 }
 
 .copyright {
@@ -323,6 +323,6 @@ onMounted(() => {
     border-radius: 50%;
     overflow: hidden;
     border: 1px solid #BFBEFF;
-    box-shadow: 0px 0px 6px 0px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
 }
 </style>

@@ -81,18 +81,15 @@ function handleScroll(e) {
 .pops {
   position: fixed;
   z-index: 1001;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background-color: rgb(0 0 0 / 0.5);
   width: 100%;
   height: 100%;
   overflow-y: auto;
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  backdrop-filter: blur(0px);
+  backdrop-filter: blur(0);
   transition: backdrop-filter 0.3s ease;
 }
 
@@ -103,27 +100,27 @@ function handleScroll(e) {
   justify-content: space-between;
   z-index: 999;
   width: 100%;
-  border-radius: 80rpx 80rpx 0 0;
   overflow-y: auto;
   transform: translateY(100%);
-  transition: transform 0.3s ease-in-out;
   border-color: #D0D0D0;
   background-color: #fff;
-  border-radius: 30px 30px 0px 0px;
-  border: 1px solid rgba(251, 255, 203, 0.08);
-  box-shadow: 0px 0 20px 0px rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(var(--blur-amount, 0px));
-  -webkit-backdrop-filter: blur(var(--blur-amount, 0px));
+  border-radius: 30px 30px 0 0;
+  border: 1px solid rgb(251 255 203 / 0.08);
+  box-shadow: 0 0 20px 0 rgb(255 255 255 / 0.8);
+  backdrop-filter: blur(var(--blur-amount, 0));
+  -webkit-backdrop-filter: blur(var(--blur-amount, 0));
   transition: backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease;
 }
 
 .pops-item.show {
   transform: translateY(0);
+
   /* 弹出动画 */
 }
 
 .pops-item.hide {
   transform: translateY(100%);
+
   /* 隐藏动画 */
 }
 
@@ -137,7 +134,7 @@ function handleScroll(e) {
 
 .login-popup-title {
   font-size: 70rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   letter-spacing: 4rpx;
   color: #222;
   font-weight: bold;

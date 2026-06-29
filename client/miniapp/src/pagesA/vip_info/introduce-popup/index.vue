@@ -284,7 +284,7 @@ onMounted(() => {
 }
 
 .title-section {
-  padding: 20rpx 0 20rpx;
+  padding: 20rpx 0;
   text-align: left;
   display: flex;
   align-items: center;
@@ -306,7 +306,7 @@ onMounted(() => {
 .purple-text {
   font-size: 48rpx;
   color: #000;
-  font-family: 'AlimamaFangYuanTi' !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 
 .benefits-list {
@@ -360,7 +360,7 @@ onMounted(() => {
 }
 
 .tab-item.active {
-    background-color: #000000;
+    background-color: #000;
   }
 
 .tab-text {
@@ -477,13 +477,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(269deg, rgba(217, 219, 254, 0.8) -211%, rgba(217, 219, 254, 0.8) -152%, rgba(217, 219, 255, 0.8) -125%, rgba(217, 219, 254, 0.8) -35%, rgba(217, 219, 255, 0.8) -19%, rgba(144, 125, 255, 0.8) 219%, rgba(224, 225, 252, 0.8) 305%);
+  background: linear-gradient(269deg, rgb(217 219 254 / 0.8) -211%, rgb(217 219 254 / 0.8) -152%, rgb(217 219 255 / 0.8) -125%, rgb(217 219 254 / 0.8) -35%, rgb(217 219 255 / 0.8) -19%, rgb(144 125 255 / 0.8) 219%, rgb(224 225 252 / 0.8) 305%);
   border-radius: 15rpx;
   padding: 26rpx 30rpx;
   margin: 25rpx 0 20rpx;
   position: relative;
-  box-shadow: inset 0px -6px 20px 0px rgba(255, 255, 255, 0.8);
-  font-family: 'AlimamaFangYuanTi' !important;
+  box-shadow: inset 0 -6px 20px 0 rgb(255 255 255 / 0.8);
+  font-family: AlimamaFangYuanTi !important;
 }
 
 .star-icon {
@@ -498,7 +498,7 @@ onMounted(() => {
   font-size: 36rpx;
   font-weight: bold;
   color: #fff;
-  font-family: 'AlimamaFangYuanTi' !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 
 .subscribe-price {
@@ -506,7 +506,7 @@ onMounted(() => {
   font-size: 36rpx;
   font-weight: bold;
   color: #fff;
-  font-family: 'AlimamaFangYuanTi' !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 
 .agreement-text {
@@ -514,6 +514,7 @@ onMounted(() => {
   font-size: 24rpx;
   color: #86AEFF;
 }
+
 .ljkt_icon{
   width: 64rpx;
   height: 64rpx;

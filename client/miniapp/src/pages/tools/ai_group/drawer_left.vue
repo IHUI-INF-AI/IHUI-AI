@@ -1,6 +1,6 @@
 <template>
     <view class="drawer_back" v-if="drawerVisible">
-        <view class="drawer_back" style="background-color: rgba(0, 0, 0, 0.4);" @click="close_drawer"></view>
+        <view class="drawer_back" style="background-color: rgb(0 0 0 / 0.4);" @click="close_drawer"></view>
         <view class="drawer_border" :class="{ 'drawer-open': drawerVisible }">
             <view class="drawer" :style="{paddingTop:statusBarHeight}">
                 <view class="drawer-header">
@@ -92,12 +92,12 @@ function handleDrawerClick(item) {
     z-index: 999;
     transition: transform 0.3s ease;
     background-image: linear-gradient(307deg,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(211, 161, 223, 0.6389) 32%,
-            rgba(206, 151, 251, 0.6925) 41%,
-            rgba(255, 242, 0, 0.21) 88%);
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(211 161 223 / 0.6389) 32%,
+            rgb(206 151 251 / 0.6925) 41%,
+            rgb(255 242 0 / 0.21) 88%);
     padding: 0 2rpx 0 0;
     border-width: 0;
     margin: 0;
@@ -176,12 +176,12 @@ function handleDrawerClick(item) {
     border-width: 0 6rpx 0 0;
     border-style: solid;
     border-image: linear-gradient(307deg,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(209, 158, 255, 0.7) -2%,
-            rgba(211, 161, 223, 0.6389) 32%,
-            rgba(206, 151, 251, 0.6925) 41%,
-            rgba(255, 242, 0, 0.21) 88%) 4 4 4 4;
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(209 158 255 / 0.7) -2%,
+            rgb(211 161 223 / 0.6389) 32%,
+            rgb(206 151 251 / 0.6925) 41%,
+            rgb(255 242 0 / 0.21) 88%) 4 4 4 4;
 
     .menu-item1 {
         display: flex;
@@ -189,7 +189,7 @@ function handleDrawerClick(item) {
         padding: 2rpx 0 2rpx 2rpx;
         box-sizing: border-box;
         border-style: solid;
-        border-radius: 15px 0px 0px 15px;
+        border-radius: 15px 0 0 15px;
         overflow: hidden;
         margin: 0 !important;
 
@@ -203,12 +203,12 @@ function handleDrawerClick(item) {
 
         &.item_selected1 {
             background-image: linear-gradient(307deg,
-                    rgba(209, 158, 255, 0.7) -2%,
-                    rgba(209, 158, 255, 0.7) -2%,
-                    rgba(209, 158, 255, 0.7) -2%,
-                    rgba(211, 161, 223, 0.6389) 32%,
-                    rgba(206, 151, 251, 0.6925) 41%,
-                    rgba(255, 242, 0, 0.21) 88%);
+                    rgb(209 158 255 / 0.7) -2%,
+                    rgb(209 158 255 / 0.7) -2%,
+                    rgb(209 158 255 / 0.7) -2%,
+                    rgb(211 161 223 / 0.6389) 32%,
+                    rgb(206 151 251 / 0.6925) 41%,
+                    rgb(255 242 0 / 0.21) 88%);
         }
     }
 
@@ -225,8 +225,7 @@ function handleDrawerClick(item) {
         display: flex;
         align-items: center;
         padding: 2rpx 0 2rpx 2rpx;
-        box-sizing: border-box;
-        border-radius: 15px 0px 0px 15px;
+        border-radius: 15px 0 0 15px;
         position: relative;
         border-width: 0;
         width: 100%;
@@ -247,12 +246,12 @@ function handleDrawerClick(item) {
 
         &.item_selected2 {
             background-image: linear-gradient(307deg,
-                    rgba(209, 158, 255, 0.7) -2%,
-                    rgba(209, 158, 255, 0.7) -2%,
-                    rgba(209, 158, 255, 0.7) -2%,
-                    rgba(211, 161, 223, 0.6389) 32%,
-                    rgba(206, 151, 251, 0.6925) 41%,
-                    rgba(255, 242, 0, 0.21) 88%);
+                    rgb(209 158 255 / 0.7) -2%,
+                    rgb(209 158 255 / 0.7) -2%,
+                    rgb(209 158 255 / 0.7) -2%,
+                    rgb(211 161 223 / 0.6389) 32%,
+                    rgb(206 151 251 / 0.6925) 41%,
+                    rgb(255 242 0 / 0.21) 88%);
             width: calc(100% + 4rpx) !important;
 
             .item_content2{
@@ -274,7 +273,7 @@ function handleDrawerClick(item) {
     font-size: 24rpx;
     color: #333;
     font-weight: 500;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
 }
 
 .menu_clicked_text {
@@ -327,6 +326,7 @@ function handleDrawerClick(item) {
   justify-content: flex-start;
   padding-top: 30%;
 }
+
 .drawer-header{
   .logobox {
     padding: 9rpx 0;
@@ -375,12 +375,10 @@ function handleDrawerClick(item) {
   }
 
 }
+
 .drawer_back{
 	position: fixed;
-	left: 0;
-	top: 0;
-	right: 0;
-	bottom: 0;
+	inset: 0;
 	z-index: 1005;
 }
 
@@ -400,12 +398,13 @@ function handleDrawerClick(item) {
 		transform: translateX(506rpx);
 	}
 }
+
 .drawer {
 	background-color: #fff;
 	border-radius: 30rpx;
 	height: calc(100%);
 	width: calc(100%);
-	padding: 0 0;
+	padding: 0;
 	box-sizing: border-box;
 	position: relative;
     border: 4rpx solid #7d83fd;

@@ -5,13 +5,10 @@ import request, { baseUrl,baseUrl2 } from "@/utils/service/index.js";
 // 获取 platform-type 的辅助函数
 function getPlatformType() {
   const loginType = uni.getStorageSync('loginType') || 'android';
-  console.log('loginType', loginType);
   if (loginType === 'android') {
     return 'android';
   } else if (loginType === 'third_wechat') {
     return 'third_wechat';
-  } else if (loginType === 'third_ali') {
-    return 'third_ali';
   } else if (loginType === 'third_google') {
     return 'third_google';
   }
@@ -126,7 +123,6 @@ export function bindUserNew( nickname, phone, avatar, fileName) {
                   // 保存新的 refreshToken（如果存在）
                   if (newRefreshToken) {
                     storage.thirdPartyAccounts.refreshToken = newRefreshToken;
-                    console.log('bindUserNew - 刷新token接口 - 新的 refreshToken 已保存');
                   }
                   
                   uni.setStorageSync("data", storage);
@@ -157,7 +153,6 @@ export function bindUserNew( nickname, phone, avatar, fileName) {
     });
   });
 }
-
 
 /**
  * 判断是否是会员
@@ -255,7 +250,6 @@ export function sendTextMsg(phone, tempId, tempCode) {
                   // 保存新的 refreshToken（如果存在）
                   if (newRefreshToken) {
                     storage.thirdPartyAccounts.refreshToken = newRefreshToken;
-                    console.log('sendTextMsg - 刷新token接口 - 新的 refreshToken 已保存');
                   }
                   
                   uni.setStorageSync("data", storage);
@@ -368,7 +362,6 @@ export function sendTextMsg_new(phone, code) {
                   // 保存新的 refreshToken（如果存在）
                   if (newRefreshToken) {
                     storage.thirdPartyAccounts.refreshToken = newRefreshToken;
-                    console.log('sendTextMsg_new - 刷新token接口 - 新的 refreshToken 已保存');
                   }
                   
                   uni.setStorageSync("data", storage);
@@ -432,7 +425,6 @@ export function sendTextMsg_edit(phone, code) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('登录接口 - refreshToken 已保存');
           }
         }
         resolve(res);
@@ -456,7 +448,6 @@ export function sendTextMsg_edit(phone, code) {
  * @returns
  */
 export function registerLogin(phone, password, parentId,editAuth) {
-  console.log(phone, password, parentId,editAuth);
   return new Promise((resolve, reject) => {
     let zhsToken = ''
     zhsToken = uni.getStorageSync('regCode')
@@ -482,7 +473,6 @@ export function registerLogin(phone, password, parentId,editAuth) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('登录接口 - refreshToken 已保存');
           }
         }
         resolve(res);
@@ -532,7 +522,6 @@ export function userLogin(phone, password, code) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('登录接口 - refreshToken 已保存');
           }
         }
         resolve(res);
@@ -555,8 +544,6 @@ export function userLogin(phone, password, code) {
  * @returns {Promise}
  */
 export function pwdLogin(account, password) {
-  console.log("账号密码",account, password);
-  console.log("平台类型", getPlatformType());
   return new Promise((resolve, reject) => {
     let zhsToken = '';
     if (uni.getStorageSync('data')) {
@@ -580,7 +567,6 @@ export function pwdLogin(account, password) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('pwdLogin - refreshToken 已保存');
           }
         }
         resolve(res);
@@ -632,88 +618,12 @@ export function userLogin_wx(openid, unionid, access_token,parentId) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('登录接口 - refreshToken 已保存');
-          }
-        }
-        resolve(res);
-      },
-      fail: (err) => {
-        uni.showToast({
-          title: "请求失败",
-          icon: "none",
-        });
-        reject(err);
-      },
-    });
-  });
-}
 
-/**
- * 支付宝登录
- * 根据支付宝官方文档：https://opendocs.alipay.com/open/0b50rj
- * 支持两种方式：
- * 1. 使用 auth_code（推荐）：后端使用支付宝SDK (alipay-sdk) 调用 alipay.user.info.auth 换取用户信息
- * 2. 使用 userid + access_token：直接使用已获取的用户信息
- * 
- * @param {String} authCodeOrUserId 授权码(auth_code) 或 支付宝用户ID(userid)
- * @param {String} accessToken 访问令牌（当第一个参数是userid时必需，当第一个参数是auth_code时可为null）
- * @param {String} parentId 父级ID（邀请人ID，可选）
- * @returns {Promise}
- */
-export function userLogin_alipay(authCodeOrUserId, accessToken, parentId) {
-  return new Promise((resolve, reject) => {
-    let zhsToken = ''
-    if (uni.getStorageSync('data')) {
-      zhsToken = uni.getStorageSync('data').thirdPartyAccounts
-    }
-    
-    // 判断是使用 auth_code 还是 userid + access_token
-    const isAuthCode = !accessToken; // 如果没有 accessToken，说明第一个参数是 auth_code
-    
-    // 根据支付宝文档，后端接口需要接收：
-    // 方式1（推荐）：使用 auth_code，后端使用支付宝SDK处理
-    //   - auth_code: 授权码
-    //   - parentId: 邀请人ID（可选）
-    // 方式2：使用 userid + access_token
-    //   - userid: 支付宝用户的唯一标识
-    //   - access_token: 访问令牌
-    //   - parentId: 邀请人ID（可选）
-    const requestData = {
-      code: authCodeOrUserId,
-    };
-    
-    console.log('支付宝登录 - 请求参数:', {
-      方式: isAuthCode ? '使用auth_code（后端SDK处理）' : '使用userid+access_token',
-      auth_code: isAuthCode ? authCodeOrUserId : '未使用',
-      userid: isAuthCode ? '未使用' : authCodeOrUserId,
-      access_token: isAuthCode ? '未使用' : (accessToken ? '已提供' : '缺失'),
-      parentId: parentId || '无'
-    });
-    
-    uni.request({
-      url: baseUrl2 + "/login/ali/pc/wxCode",
-      method: "GET",
-      data: { code: authCodeOrUserId },
-      success: (res) => {
-        console.log('支付宝登录接口响应:', res);
-        // 检查并保存 refreshToken
-        if (res.statusCode === 200 && res.data && res.data.data) {
-          const loginData = res.data.data;
-          if (loginData.thirdPartyAccounts && loginData.thirdPartyAccounts.refreshToken) {
-            // 保存 refreshToken 作为独立缓存项
-            const storage = uni.getStorageSync("data") || {};
-            if (!storage.thirdPartyAccounts) {
-              storage.thirdPartyAccounts = {};
-            }
-            storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
-            uni.setStorageSync("data", storage);
-            console.log('支付宝登录接口 - refreshToken 已保存');
           }
         }
         resolve(res);
       },
       fail: (err) => {
-        console.error('支付宝登录接口请求失败:', err);
         uni.showToast({
           title: "请求失败",
           icon: "none",
@@ -739,13 +649,7 @@ export function userLogin_google(idToken, accessToken, parentId) {
     if (uni.getStorageSync('data')) {
       zhsToken = uni.getStorageSync('data').thirdPartyAccounts
     }
-    
-    console.log('Google登录 - 请求参数:', {
-      idToken: idToken ? '已提供' : '缺失',
-      accessToken: accessToken ? '已提供' : '未使用',
-      parentId: parentId || '无'
-    });
-    
+
     uni.request({
       url: baseUrl2 + "/login/google",
       method: "POST",
@@ -759,7 +663,6 @@ export function userLogin_google(idToken, accessToken, parentId) {
         parentId: parentId || null
       },
       success: (res) => {
-        console.log('Google登录接口响应:', res);
         // 检查并保存 refreshToken
         if (res.statusCode === 200 && res.data && res.data.data) {
           const loginData = res.data.data;
@@ -771,7 +674,6 @@ export function userLogin_google(idToken, accessToken, parentId) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('Google登录接口 - refreshToken 已保存');
           }
         }
         resolve(res);
@@ -787,7 +689,6 @@ export function userLogin_google(idToken, accessToken, parentId) {
     });
   });
 }
-
 
 /**
  * 修改密码
@@ -821,7 +722,7 @@ export function editPwd(phone, password) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('登录接口 - refreshToken 已保存');
+
           }
         }
         resolve(res);
@@ -866,7 +767,7 @@ export function fetchAudioText(file) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('登录接口 - refreshToken 已保存');
+
           }
         }
         resolve(res);
@@ -942,7 +843,7 @@ export function bindPhone(openId,unionId,phone,editAuth,platform) {
             }
             storage.thirdPartyAccounts.refreshToken = loginData.thirdPartyAccounts.refreshToken;
             uni.setStorageSync("data", storage);
-            console.log('登录接口 - refreshToken 已保存');
+
           }
         }
         resolve(res);
@@ -957,7 +858,6 @@ export function bindPhone(openId,unionId,phone,editAuth,platform) {
     });
   });
 }
-
 
 /**
  * 查询账号是否已经注册
@@ -1011,3 +911,4 @@ export function accountCancel() {
     });
   });
 }
+

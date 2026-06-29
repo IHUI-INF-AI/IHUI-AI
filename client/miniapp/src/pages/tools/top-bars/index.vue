@@ -65,10 +65,10 @@ function change(item, index) {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-family: 'AlimamaFangYuanTi';
+            font-family: AlimamaFangYuanTi;
             font-size: 16px;
             font-weight: hold;
-            letter-spacing: 0px;
+            letter-spacing: 0;
             font-variation-settings: "BEVL" 100, "opsz" auto;
             font-feature-settings: "kern" on;
             color: #3D3D3D;

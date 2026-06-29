@@ -280,13 +280,13 @@ onShow(() => {
   right: 20rpx;
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgb(255 255 255 / 0.2);
   backdrop-filter: blur(10px);
   border-radius: 30rpx;
   padding: 10rpx 20rpx;
   z-index: 100;
-  box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10rpx rgb(0 0 0 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.3);
 }
 
 .user-avatar {
@@ -310,11 +310,11 @@ onShow(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1rpx 3rpx rgb(0 0 0 / 0.3);
 }
 
 .user-vip-tag {
-  background: linear-gradient(135deg, #ffcc00, #ff9500);
+  background: linear-gradient(135deg, #fc0, #ff9500);
   color: #fff;
   font-size: 20rpx;
   padding: 2rpx 10rpx;
@@ -324,14 +324,11 @@ onShow(() => {
 
 .mask {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgb(0 0 0 / 0.5);
   z-index: 998;
 }
 
@@ -354,12 +351,12 @@ onShow(() => {
 }
 
 .glass-panel {
-  background: rgba(15, 15, 20, 0.7);
+  background: rgb(15 15 20 / 0.7);
   backdrop-filter: blur(10px);
   border-radius: 30rpx;
   padding: 40rpx;
-  box-shadow: 0 0 32rpx rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(0, 242, 255, 0.2);
+  box-shadow: 0 0 32rpx rgb(0 0 0 / 0.3);
+  border: 1px solid rgb(0 242 255 / 0.2);
   z-index: 10;
   position: relative;
   overflow: hidden;
@@ -373,8 +370,8 @@ onShow(() => {
     height: 1px;
     background: linear-gradient(90deg,
         transparent,
-        rgba(0, 242, 255, 0.5),
-        rgba(139, 92, 246, 0.5),
+        rgb(0 242 255 / 0.5),
+        rgb(139 92 246 / 0.5),
         transparent);
     filter: blur(1px);
   }
@@ -387,7 +384,7 @@ onShow(() => {
     width: 100%;
     height: 100%;
     background: linear-gradient(180deg,
-        rgba(0, 242, 255, 0.1),
+        rgb(0 242 255 / 0.1),
         transparent 20%);
     opacity: 0.5;
   }
@@ -409,25 +406,25 @@ onShow(() => {
   -webkit-background-clip: text;
   color: transparent;
   margin-bottom: 16rpx;
-  text-shadow: 0 0 30rpx rgba(0, 242, 255, 0.6);
+  text-shadow: 0 0 30rpx rgb(0 242 255 / 0.6);
 }
 
 .welcome-subtitle {
   font-size: 32rpx;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 0 20rpx rgba(0, 242, 255, 0.4);
+  color: rgb(255 255 255 / 0.9);
+  text-shadow: 0 0 20rpx rgb(0 242 255 / 0.4);
 }
 
 /* 板块容器 */
 .section-container {
   padding: 30rpx;
   margin-bottom: 20rpx;
-  background: rgba(15, 15, 20, 0.7);
+  background: rgb(15 15 20 / 0.7);
   backdrop-filter: blur(10px);
   border-radius: 30rpx;
   margin: 0 30rpx 30rpx;
-  border: 1px solid rgba(0, 242, 255, 0.1);
-  box-shadow: 0 0 32rpx rgba(0, 0, 0, 0.3);
+  border: 1px solid rgb(0 242 255 / 0.1);
+  box-shadow: 0 0 32rpx rgb(0 0 0 / 0.3);
   position: relative;
   overflow: hidden;
 
@@ -440,7 +437,7 @@ onShow(() => {
     height: 1px;
     background: linear-gradient(90deg,
         transparent,
-        rgba(0, 242, 255, 0.3),
+        rgb(0 242 255 / 0.3),
         transparent);
   }
 }
@@ -459,7 +456,7 @@ onShow(() => {
   font-weight: 600;
   color: #00f2ff;
   margin-bottom: 24rpx;
-  text-shadow: 0 0 15rpx rgba(0, 242, 255, 0.4);
+  text-shadow: 0 0 15rpx rgb(0 242 255 / 0.4);
   position: relative;
 
   .title-icon {
@@ -477,14 +474,14 @@ onShow(() => {
     height: 36rpx;
     background: linear-gradient(180deg, #00f2ff, #8b5cf6);
     border-radius: 8rpx;
-    box-shadow: 0 0 20rpx rgba(0, 242, 255, 0.6);
+    box-shadow: 0 0 20rpx rgb(0 242 255 / 0.6);
   }
 }
 
 .view-all {
   display: flex;
   align-items: center;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgb(255 255 255 / 0.7);
   font-size: 26rpx;
 
   .arrow-icon {
@@ -501,14 +498,14 @@ onShow(() => {
 }
 
 .feature-item {
-  background-color: rgba(20, 20, 30, 0.7);
+  background-color: rgb(20 20 30 / 0.7);
   border-radius: 20rpx;
   padding: 28rpx;
-  box-shadow: 0 0 30rpx rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 30rpx rgb(0 0 0 / 0.2);
   transition: transform 0.2s, box-shadow 0.2s;
   overflow: hidden;
   position: relative;
-  border: 1px solid rgba(0, 242, 255, 0.1);
+  border: 1px solid rgb(0 242 255 / 0.1);
 
   &::after {
     content: "";
@@ -517,8 +514,8 @@ onShow(() => {
     height: 120rpx;
     border-radius: 50%;
     background: linear-gradient(135deg,
-        rgba(0, 242, 255, 0.05),
-        rgba(139, 92, 246, 0.05));
+        rgb(0 242 255 / 0.05),
+        rgb(139 92 246 / 0.05));
     right: -40rpx;
     bottom: -40rpx;
     z-index: 0;
@@ -526,8 +523,8 @@ onShow(() => {
 
   &:active {
     transform: scale(0.98);
-    box-shadow: 0 0 15rpx rgba(0, 0, 0, 0.03);
-    background: rgba(0, 242, 255, 0.08);
+    box-shadow: 0 0 15rpx rgb(0 0 0 / 0.03);
+    background: rgb(0 242 255 / 0.08);
   }
 
   &::before {
@@ -537,7 +534,7 @@ onShow(() => {
     left: 0;
     width: 70%;
     height: 1px;
-    background: linear-gradient(to right, rgba(0, 242, 255, 0.5), transparent);
+    background: linear-gradient(to right, rgb(0 242 255 / 0.5), transparent);
   }
 }
 
@@ -555,49 +552,46 @@ onShow(() => {
   &::after {
     content: "";
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+    inset: 0;
+    background: linear-gradient(135deg, rgb(255 255 255 / 0.2), transparent);
     border-radius: inherit;
     opacity: 0.6;
   }
 
   &.copywriting-icon {
     background: linear-gradient(135deg,
-        rgba(255, 235, 59, 0.2),
-        rgba(255, 193, 7, 0.2));
+        rgb(255 235 59 / 0.2),
+        rgb(255 193 7 / 0.2));
     color: #ffc107;
-    box-shadow: 0 0 12rpx rgba(255, 193, 7, 0.2);
-    border: 1px solid rgba(255, 193, 7, 0.3);
+    box-shadow: 0 0 12rpx rgb(255 193 7 / 0.2);
+    border: 1px solid rgb(255 193 7 / 0.3);
   }
 
   &.image-icon {
     background: linear-gradient(135deg,
-        rgba(255, 152, 0, 0.2),
-        rgba(255, 87, 34, 0.2));
+        rgb(255 152 0 / 0.2),
+        rgb(255 87 34 / 0.2));
     color: #ff9800;
-    box-shadow: 0 0 12rpx rgba(255, 87, 34, 0.2);
-    border: 1px solid rgba(255, 87, 34, 0.3);
+    box-shadow: 0 0 12rpx rgb(255 87 34 / 0.2);
+    border: 1px solid rgb(255 87 34 / 0.3);
   }
 
   &.video-icon {
     background: linear-gradient(135deg,
-        rgba(244, 67, 54, 0.2),
-        rgba(233, 30, 99, 0.2));
+        rgb(244 67 54 / 0.2),
+        rgb(233 30 99 / 0.2));
     color: #e91e63;
-    box-shadow: 0 0 12rpx rgba(233, 30, 99, 0.2);
-    border: 1px solid rgba(233, 30, 99, 0.3);
+    box-shadow: 0 0 12rpx rgb(233 30 99 / 0.2);
+    border: 1px solid rgb(233 30 99 / 0.3);
   }
 
   &.marketing-icon {
     background: linear-gradient(135deg,
-        rgba(3, 169, 244, 0.2),
-        rgba(3, 155, 229, 0.2));
+        rgb(3 169 244 / 0.2),
+        rgb(3 155 229 / 0.2));
     color: #03a9f4;
-    box-shadow: 0 0 12rpx rgba(3, 169, 244, 0.2);
-    border: 1px solid rgba(3, 169, 244, 0.3);
+    box-shadow: 0 0 12rpx rgb(3 169 244 / 0.2);
+    border: 1px solid rgb(3 169 244 / 0.3);
   }
 }
 
@@ -611,12 +605,12 @@ onShow(() => {
   font-weight: 600;
   color: #fff;
   margin-bottom: 8rpx;
-  text-shadow: 0 0 15rpx rgba(0, 242, 255, 0.3);
+  text-shadow: 0 0 15rpx rgb(0 242 255 / 0.3);
 }
 
 .feature-item-desc {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgb(255 255 255 / 0.7);
 }
 
 /* 课程区域样式 */
@@ -632,16 +626,16 @@ onShow(() => {
 }
 
 .course-card {
-  background: rgba(20, 20, 30, 0.7);
+  background: rgb(20 20 30 / 0.7);
   border-radius: 20rpx;
   overflow: hidden;
-  box-shadow: 0 0 30rpx rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 30rpx rgb(0 0 0 / 0.2);
   margin-right: 20rpx;
   width: 400rpx;
   flex-shrink: 0;
   transition: transform 0.2s;
   position: relative;
-  border: 1px solid rgba(0, 242, 255, 0.1);
+  border: 1px solid rgb(0 242 255 / 0.1);
 
   &::before {
     content: "";
@@ -651,8 +645,8 @@ onShow(() => {
     width: 100%;
     height: 3px;
     background: linear-gradient(90deg,
-        rgba(0, 242, 255, 0.7),
-        rgba(139, 92, 246, 0.7));
+        rgb(0 242 255 / 0.7),
+        rgb(139 92 246 / 0.7));
   }
 
   &:active {
@@ -676,7 +670,7 @@ onShow(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   height: 84rpx;
-  text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.3);
+  text-shadow: 0 0 10rpx rgb(0 242 255 / 0.3);
 }
 
 .course-card-info {
@@ -686,11 +680,11 @@ onShow(() => {
 
   .course-lessons {
     color: #00f2ff;
-    text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.3);
+    text-shadow: 0 0 10rpx rgb(0 242 255 / 0.3);
   }
 
   .course-students {
-    color: rgba(255, 255, 255, 0.7);
+    color: rgb(255 255 255 / 0.7);
   }
 }
 
@@ -702,19 +696,19 @@ onShow(() => {
 }
 
 .news-item {
-  background: rgba(20, 20, 30, 0.7);
+  background: rgb(20 20 30 / 0.7);
   border-radius: 20rpx;
   padding: 24rpx;
   display: flex;
   align-items: center;
   gap: 20rpx;
   transition: transform 0.2s;
-  box-shadow: 0 0 30rpx rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(0, 242, 255, 0.1);
+  box-shadow: 0 0 30rpx rgb(0 0 0 / 0.2);
+  border: 1px solid rgb(0 242 255 / 0.1);
 
   &:active {
     transform: scale(0.98);
-    background: rgba(0, 242, 255, 0.08);
+    background: rgb(0 242 255 / 0.08);
   }
 
   &::before {
@@ -724,22 +718,22 @@ onShow(() => {
     left: 0;
     width: 70%;
     height: 1px;
-    background: linear-gradient(to right, rgba(0, 242, 255, 0.5), transparent);
+    background: linear-gradient(to right, rgb(0 242 255 / 0.5), transparent);
   }
 }
 
 .news-item-badge {
   width: 80rpx;
   height: 80rpx;
-  background: rgba(20, 20, 30, 0.8);
+  background: rgb(20 20 30 / 0.8);
   border-radius: 15rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 36rpx;
   flex-shrink: 0;
-  border: 1px solid rgba(0, 242, 255, 0.1);
-  box-shadow: 0 0 15rpx rgba(0, 242, 255, 0.2);
+  border: 1px solid rgb(0 242 255 / 0.1);
+  box-shadow: 0 0 15rpx rgb(0 242 255 / 0.2);
 }
 
 .news-item-content {
@@ -757,14 +751,14 @@ onShow(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.3);
+  text-shadow: 0 0 10rpx rgb(0 242 255 / 0.3);
 }
 
 .news-item-meta {
   display: flex;
   justify-content: space-between;
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgb(255 255 255 / 0.7);
 }
 
 @keyframes gradientFlow {

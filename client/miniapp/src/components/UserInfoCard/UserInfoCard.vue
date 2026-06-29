@@ -6,7 +6,7 @@
 <template>
   <view>
     <view v-if="userInfo.uuid" class=""
-      style="margin-top: 20rpx;border-radius: 15rpx;padding: 1px 1px; background: linear-gradient(236deg, #CD96FF 6%, rgba(255, 242, 0, 0.3) 32%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #D19EFF 93%);">
+      style="margin-top: 20rpx;border-radius: 15rpx;padding: 1px; background: linear-gradient(236deg, #CD96FF 6%, rgb(255 242 0 / 0.3) 32%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 73%, #D19EFF 93%);">
       <view class="user-info-card">
         <view class="user-info-card">
           <view class="" style="width: 100%;display: flex;justify-content: space-between;align-items: center; ">
@@ -66,7 +66,7 @@
               :src="userInfo.avatarUrl ? userInfo.avatarUrl :'https://file.aizhs.top/sys-mini/daixaodiming.png'"
               class="avatar-img" @click="editProfile" /> -->
 
-              <view class="" style="background-color: rgba(0, 0, 0, 0);">
+              <view class="" style="background-color: rgb(0 0 0 / 0);">
 
                 <image
                   :src="avatarPic ? avatarPic : '/static/images/daixaodiming.png'"
@@ -803,16 +803,15 @@ onBeforeUnmount(() => {
 .user-info-card {
   // margin-top: 20rpx;
   position: relative;
-  background: white;
   border-radius: 15rpx;
   padding: 10rpx 20rpx;
-  box-shadow: 0px 2px 6px 0px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 6px 0 rgb(0 0 0 / 0.05);
   display: flex;
   flex-direction: column;
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-image: url("/static/images/user-bg.png");
-  background: linear-gradient(241deg, rgba(195, 190, 255, 0.4) 0%, rgba(255, 255, 255, 0.4) 98%), #FFFFFF;
+  background: linear-gradient(241deg, rgb(195 190 255 / 0.4) 0%, rgb(255 255 255 / 0.4) 98%), #FFF;
   border: 1px solid;
 }
 
@@ -822,6 +821,7 @@ onBeforeUnmount(() => {
   position: relative;
   min-height: 160rpx;
 }
+
 .vipTip {
   z-index: 111;
   font-size: 22rpx;
@@ -832,6 +832,7 @@ onBeforeUnmount(() => {
   color: #fff;
   font-weight:700
 }
+
 .card_type_nor {
   height: 45rpx;
 }
@@ -848,8 +849,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: flex-start;
   border-radius: 8px;
-  box-shadow: 0px 2px 6px 0px rgba(0, 0, 0, 0.3);
-  background: linear-gradient(108deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 104%);
+  box-shadow: 0 2px 6px 0 rgb(0 0 0 / 0.3);
+  background: linear-gradient(108deg, rgb(205 208 255 / 0.3) 3%, rgb(253 255 225 / 0.3) 104%);
 
   .vip-badge {
     position: absolute;
@@ -870,6 +871,7 @@ onBeforeUnmount(() => {
   height: 123rpx;
   border-radius: 15rpx;
   background-color: white;
+
   // border: 4rpx solid #ccc;
   margin-left: 26rpx;
   margin-top: 10px;
@@ -907,7 +909,7 @@ onBeforeUnmount(() => {
   height: 30rpx;
   background: #e5e6ee;
   border-radius: 30rpx;
-  box-shadow: 0 4rpx 12rpx rgba(116, 83, 255, 0.08);
+  box-shadow: 0 4rpx 12rpx rgb(116 83 255 / 0.08);
   display: flex;
   align-items: center;
   position: relative;
@@ -917,7 +919,7 @@ onBeforeUnmount(() => {
 .growth-bar {
   height: 100%;
   border-radius: 30rpx;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, #FEFFD1 28%, #FFE18B 51%, #FFFC3D 75%, #D9D9D9 100%);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.6) 0%, #FEFFD1 28%, #FFE18B 51%, #FFFC3D 75%, #D9D9D9 100%);
   box-shadow: 0 2rpx 8rpx #ffe16b;
   display: flex;
   align-items: center;
@@ -936,7 +938,7 @@ onBeforeUnmount(() => {
   text-shadow: 0 2rpx 8rpx #ffe16b;
   padding: 0 24rpx;
   border-radius: 30rpx;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, #FEFFD1 28%, #FFE18B 51%, #FFFC3D 75%, #D9D9D9 100%);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.6) 0%, #FEFFD1 28%, #FFE18B 51%, #FFFC3D 75%, #D9D9D9 100%);
   box-shadow: 0 2rpx 8rpx #ffe16b;
   position: absolute;
   left: 50%;
@@ -961,7 +963,7 @@ onBeforeUnmount(() => {
   // display: flex;
   // align-items: center;
   // width: 100%;
-  //border: 1px solid #555555;
+  // border: 1px solid #555555;
   border: 1px solid #9A9A98;
   border-radius: 8rpx;
 
@@ -981,6 +983,7 @@ onBeforeUnmount(() => {
   .username-icon {
     width: 40rpx;
     height: 40rpx;
+
     // border-radius: 50%;
     background: #f5f6fa;
     object-fit: cover;
@@ -990,6 +993,7 @@ onBeforeUnmount(() => {
     width: 40rpx;
     height: 40rpx;
     margin-right: 12rpx;
+
     // height: 65rpx;
   }
 
@@ -1014,7 +1018,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   font-size: 28rpx;
-  color: #666666;
+  color: #666;
 
   text {
     margin-right: 20rpx;
@@ -1063,8 +1067,8 @@ onBeforeUnmount(() => {
 
 .membership-upgrade-info {
   background: linear-gradient(180deg,
-      rgba(51, 255, 255, 0.2) 0%,
-      rgba(84, 193, 255, 0.1) 100%);
+      rgb(51 255 255 / 0.2) 0%,
+      rgb(84 193 255 / 0.1) 100%);
   border-radius: 30rpx;
   padding: 12rpx;
   margin-top: 40rpx;
@@ -1110,7 +1114,7 @@ onBeforeUnmount(() => {
 
     .next-level-info {
       font-size: 24rpx;
-      color: #666666;
+      color: #666;
     }
   }
 
@@ -1121,11 +1125,8 @@ onBeforeUnmount(() => {
     font-size: 24rpx;
     font-weight: bold;
     padding: 8rpx 28rpx;
-    box-shadow: 0 2rpx 8rpx rgba(0, 238, 251, 0.1);
-    margin-left: 12rpx;
-    margin-right: 12rpx;
-    margin-top: 0;
-    margin-bottom: 0;
+    box-shadow: 0 2rpx 8rpx rgb(0 238 251 / 0.1);
+    margin: 0 12rpx;
     text-align: center;
     transition: box-shadow 0.2s, background 0.2s;
     cursor: pointer;
@@ -1138,7 +1139,7 @@ onBeforeUnmount(() => {
 
   .level-button:active {
     background: linear-gradient(90deg, #00c6d7 0%, #3a9be6 100%);
-    box-shadow: 0 1rpx 4rpx rgba(0, 238, 251, 0.08);
+    box-shadow: 0 1rpx 4rpx rgb(0 238 251 / 0.08);
   }
 }
 
@@ -1146,14 +1147,13 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, #ff3636 -42%, #ff7d7d 100%, #ffc1c1 174%);
   border-radius: 60rpx;
   z-index: 2;
-
   height: 72rpx;
   margin-top: 50rpx;
   line-height: 72rpx;
   text-align: center;
   font-size: 32rpx;
   font-weight: bold;
-  color: #ffffff;
+  color: #fff;
 }
 
 .buy-btn {
@@ -1188,11 +1188,10 @@ onBeforeUnmount(() => {
   position: relative;
   padding-left: 48rpx;
   font-size: 26rpx;
-  color: #222;
   font-weight: normal;
   font-variation-settings: "BEVL" 100, "opsz" auto;
   font-feature-settings: "kern" on;
-  color: #000000;
+  color: #000;
 
   &::before {
     content: "";
@@ -1215,18 +1214,19 @@ onBeforeUnmount(() => {
   font-weight: bold;
   line-height: 30rpx;
   text-align: center;
-
   font-variation-settings: "BEVL" 100, "opsz" auto;
   font-feature-settings: "kern" on;
 }
 
 .right {
   font-size: 25rpx;
+
   // background: #fff;
   // border-radius: 30rpx;
   // box-shadow: 0 2rpx 8rpx #e0e0ff;
   padding: 20rpx 30rpx;
   padding: 10rpx 30rpx;
+
   // justify-content: space-evenly;
   // height: 60%;
   // background: linear-gradient(to right, #f6f5ff 60%, #e0ddff 100%);
@@ -1248,8 +1248,10 @@ onBeforeUnmount(() => {
 .course-info {
   display: flex;
   flex-direction: row;
+
   // gap: 25rpx;
   font-family: monospace;
+
   // margin-bottom: 8rpx;
   color: #444;
   align-items: center;
@@ -1269,7 +1271,6 @@ onBeforeUnmount(() => {
       font-weight: bold;
       line-height: normal;
       letter-spacing: 0rpx;
-
       font-variation-settings: "BEVL" 100, "opsz" auto;
       color: #282C38;
     }
@@ -1296,9 +1297,10 @@ onBeforeUnmount(() => {
 }
 
 .db-card {
-  background: rgba(0, 4, 255, 0.03);
+  background: rgb(0 4 255 / 0.03);
   border-radius: 30rpx;
   box-shadow: 0 4rpx 16rpx #e0e0ff;
+
   // padding: 24rpx 0rpx 0rpx 0rpx;
   // margin: 20rpx 0;
   margin-top: 20rpx;
@@ -1324,11 +1326,11 @@ onBeforeUnmount(() => {
   }
 
   .db-title {
-    font-family: Alimama ShuHeiTi;
+    font-family: "Alimama ShuHeiTi";
     font-size: 20rpx;
     font-weight: bold;
     line-height: 21.12rpx;
-    letter-spacing: 0em;
+    letter-spacing: 0;
     color: #716FFF;
     font-variation-settings: "BEVL" 100, "opsz" auto;
 
@@ -1342,6 +1344,7 @@ onBeforeUnmount(() => {
 .db-header-right {
   display: flex;
   align-items: center;
+
   // gap: 10rpx;
 
   .db-new {
@@ -1350,23 +1353,23 @@ onBeforeUnmount(() => {
     border-radius: 8rpx;
     font-size: 15rpx;
     padding: 2rpx 12rpx;
+
     // margin-right: 8rpx;
     font-weight: bold;
     text-align: center;
-    font-family: Alimama ShuHeiTi;
+    font-family: "Alimama ShuHeiTi";
     font-variation-settings: "BEVL" 100, "opsz" auto;
     margin-right: 5rpx;
   }
 
   .db-gift {
-    font-family: Alimama ShuHeiTi;
+    font-family: "Alimama ShuHeiTi";
     font-size: 20rpx;
     font-weight: bold;
     line-height: 21.12rpx;
-    letter-spacing: 0em;
-
+    letter-spacing: 0;
     font-variation-settings: "BEVL" 100, "opsz" auto;
-    color: #FF0000;
+    color: #F00;
 
     .db-size {
       // color: #a80000;
@@ -1378,16 +1381,17 @@ onBeforeUnmount(() => {
 .db-progress-row {
   display: flex;
   align-items: center;
+
   // margin: 18rpx 0 8rpx 0;
 
   .db-progress-label {
     font-size: 20rpx;
     color: #888;
     margin-right: 12rpx;
-    font-family: Alimama ShuHeiTi;
+    font-family: "Alimama ShuHeiTi";
 
     .db-progress-label-te {
-      color: rgba(0, 0, 0, 0.7);
+      color: rgb(0 0 0 / 0.7);
     }
   }
 
@@ -1405,7 +1409,7 @@ onBeforeUnmount(() => {
   }
 
   .db-dot-gray {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgb(0 0 0 / 0.2);
   }
 }
 
@@ -1452,7 +1456,6 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   border-radius: 0rpx 0rpx 15rpx 15rpx;
-
   padding: 10rpx 20rpx;
 }
 
@@ -1484,12 +1487,12 @@ onBeforeUnmount(() => {
 }
 
 .vip-btn-wrap {
-  background: linear-gradient(90deg, rgba(227, 195, 119, 0.73),
-      rgba(255, 179, 0, 0.94));
+  background: linear-gradient(90deg, rgb(227 195 119 / 0.73),
+      rgb(255 179 0 / 0.94));
   color: #fff;
   border-radius: 8rpx;
   padding: 5.39rpx 10.43rpx;
-  font-family: Alimama ShuHeiTi;
+  font-family: "Alimama ShuHeiTi";
   font-size: 25rpx;
   font-weight: bold;
   line-height: normal;
@@ -1521,9 +1524,8 @@ onBeforeUnmount(() => {
   top: 0;
   height: 24rpx;
   border-radius: 20rpx;
-
-  background: linear-gradient(180deg, #FFFFFF 0%, #E5E37C 56%, #E1FF00 100%);
-  box-shadow: 6px 2px 6px 0px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(180deg, #FFF 0%, #E5E37C 56%, #E1FF00 100%);
+  box-shadow: 6px 2px 6px 0 rgb(0 0 0 / 0.3);
   z-index: 1;
   transition: width 0.5s;
   align-items: center;
@@ -1538,7 +1540,7 @@ onBeforeUnmount(() => {
   top: 5rpx;
   padding: 0 16rpx;
   z-index: 2;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
   font-size: 15rpx;
   font-weight: bold;
   line-height: 20rpx;
@@ -1546,20 +1548,17 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   letter-spacing: 0rpx;
-
   font-variation-settings: "BEVL" 100, "opsz" auto;
   font-feature-settings: "kern" on;
-  color: #FFFFFF;
-
-  text-shadow: 0px 0px 1px #494949;
+  color: #FFF;
+  text-shadow: 0 0 1px #494949;
 }
 
 .bar-max {
-  color: #FFFFFF;
-
+  color: #FFF;
   text-shadow: 0rpx 0rpx 1rpx #494949;
   position: absolute;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
   font-size: 15rpx;
   font-weight: bold;
   right: 24rpx;
@@ -1603,8 +1602,7 @@ onBeforeUnmount(() => {
   justify-content: center;
 
   .btn_join {
-    margin: 20rpx 35rpx 20rpx;
-    line-height: 1;
+    margin: 20rpx 35rpx;
     height: 86rpx;
     line-height: 78rpx;
     box-sizing: border-box;
@@ -1637,7 +1635,7 @@ onBeforeUnmount(() => {
   border-radius: 15rpx;
   border: 4rpx solid #000;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
   margin: 20rpx 35rpx 0;
   animation: bouncea 0.5s ease-in-out infinite;
   line-height: 62rpx !important;
@@ -1651,7 +1649,7 @@ onBeforeUnmount(() => {
   }
 
   50% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     transform: translate(0, 0);
   }
 

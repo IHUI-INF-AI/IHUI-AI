@@ -158,7 +158,7 @@ function choosePlan(plan) {
 			left: 0;
 			right: 0;
 			height: 40%;
-			background: linear-gradient(to bottom, rgba(8, 78, 170, 0.12), transparent);
+			background: linear-gradient(to bottom, rgb(8 78 170 / 0.12), transparent);
 			z-index: 0;
 		}
 	}
@@ -190,7 +190,7 @@ function choosePlan(plan) {
 		font-size: 40rpx;
 		font-weight: bold;
 		color: #fff;
-		text-shadow: 0 0 15rpx rgba(5, 122, 255, 0.6);
+		text-shadow: 0 0 15rpx rgb(5 122 255 / 0.6);
 		position: relative;
 		
 		&::after {
@@ -202,7 +202,7 @@ function choosePlan(plan) {
 			height: 4rpx;
 			background: #057aff;
 			transform: translateX(-50%);
-			box-shadow: 0 0 10rpx rgba(5, 122, 255, 0.8);
+			box-shadow: 0 0 10rpx rgb(5 122 255 / 0.8);
 			border-radius: 8rpx;
 		}
 	}
@@ -236,13 +236,13 @@ function choosePlan(plan) {
 	
 	/* 会员卡片共通样式 */
 	.vip-card {
-		margin: 30rpx 30rpx;
+		margin: 30rpx;
 		padding: 30rpx;
-		background: rgba(8, 20, 40, 0.5);
+		background: rgb(8 20 40 / 0.5);
 		border-radius: 20rpx;
 		backdrop-filter: blur(10px);
-		border: 1px solid rgba(5, 122, 255, 0.2);
-		box-shadow: 0 0 35rpx rgba(0, 0, 0, 0.3), 0 0 20rpx rgba(5, 122, 255, 0.1);
+		border: 1px solid rgb(5 122 255 / 0.2);
+		box-shadow: 0 0 35rpx rgb(0 0 0 / 0.3), 0 0 20rpx rgb(5 122 255 / 0.1);
 		position: relative;
 		z-index: 1;
 		overflow: hidden;
@@ -254,7 +254,7 @@ function choosePlan(plan) {
 			left: 0;
 			right: 0;
 			height: 1px;
-			background: linear-gradient(90deg, transparent, rgba(5, 122, 255, 0.4), transparent);
+			background: linear-gradient(90deg, transparent, rgb(5 122 255 / 0.4), transparent);
 		}
 	}
 	
@@ -263,11 +263,8 @@ function choosePlan(plan) {
 		&::after {
 			content: '';
 			position: absolute;
-			left: 0;
-			top: 0;
-			right: 0;
-			bottom: 0;
-			background: linear-gradient(135deg, rgba(5, 122, 255, 0.1), transparent 70%);
+			inset: 0;
+			background: linear-gradient(135deg, rgb(5 122 255 / 0.1), transparent 70%);
 			z-index: -1;
 		}
 	}
@@ -277,24 +274,21 @@ function choosePlan(plan) {
 		&::after {
 			content: '';
 			position: absolute;
-			left: 0;
-			top: 0;
-			right: 0;
-			bottom: 0;
-			background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), transparent 70%);
+			inset: 0;
+			background: linear-gradient(135deg, rgb(255 215 0 / 0.1), transparent 70%);
 			z-index: -1;
 		}
 		
 		.vip-price {
 			.price-symbol, .price-value {
 				color: #ffd700;
-				text-shadow: 0 0 15rpx rgba(255, 215, 0, 0.5);
+				text-shadow: 0 0 15rpx rgb(255 215 0 / 0.5);
 			}
 		}
 		
 		.vip-button {
 			background: linear-gradient(135deg, #DAA520, #FFD700);
-			box-shadow: 0 0 15rpx rgba(255, 215, 0, 0.3), 0 0 30rpx rgba(255, 215, 0, 0.1);
+			box-shadow: 0 0 15rpx rgb(255 215 0 / 0.3), 0 0 30rpx rgb(255 215 0 / 0.1);
 		}
 	}
 	
@@ -315,12 +309,12 @@ function choosePlan(plan) {
 		font-weight: bold;
 		color: #fff;
 		margin-bottom: 8rpx;
-		text-shadow: 0 0 10rpx rgba(5, 122, 255, 0.4);
+		text-shadow: 0 0 10rpx rgb(5 122 255 / 0.4);
 	}
 	
 	.days {
 		font-size: 28rpx;
-		color: rgba(255, 255, 255, 0.7);
+		color: rgb(255 255 255 / 0.7);
 	}
 	
 	.vip-price {
@@ -334,7 +328,7 @@ function choosePlan(plan) {
 		font-weight: bold;
 		line-height: 1;
 		margin-top: 8rpx;
-		text-shadow: 0 0 15rpx rgba(5, 122, 255, 0.5);
+		text-shadow: 0 0 15rpx rgb(5 122 255 / 0.5);
 	}
 	
 	.price-value {
@@ -342,7 +336,7 @@ function choosePlan(plan) {
 		color: #057aff;
 		font-weight: bold;
 		line-height: 1;
-		text-shadow: 0 0 15rpx rgba(5, 122, 255, 0.5);
+		text-shadow: 0 0 15rpx rgb(5 122 255 / 0.5);
 	}
 	
 	.benefits-list {
@@ -363,12 +357,12 @@ function choosePlan(plan) {
 		font-size: 32rpx;
 		color: #FFD700;
 		margin-right: 16rpx;
-		text-shadow: 0 0 10rpx rgba(255, 215, 0, 0.5);
+		text-shadow: 0 0 10rpx rgb(255 215 0 / 0.5);
 	}
 	
 	.benefit-text {
 		font-size: 28rpx;
-		color: rgba(255, 255, 255, 0.9);
+		color: rgb(255 255 255 / 0.9);
 	}
 	
 	.vip-button {
@@ -381,7 +375,7 @@ function choosePlan(plan) {
 		font-size: 32rpx;
 		color: #fff;
 		font-weight: bold;
-		box-shadow: 0 0 15rpx rgba(5, 122, 255, 0.3), 0 0 30rpx rgba(5, 122, 255, 0.1);
+		box-shadow: 0 0 15rpx rgb(5 122 255 / 0.3), 0 0 30rpx rgb(5 122 255 / 0.1);
 		margin-top: 10rpx;
 		position: relative;
 		overflow: hidden;
@@ -393,7 +387,7 @@ function choosePlan(plan) {
 			left: -50%;
 			width: 200%;
 			height: 200%;
-			background: linear-gradient(transparent, rgba(255, 255, 255, 0.1), transparent);
+			background: linear-gradient(transparent, rgb(255 255 255 / 0.1), transparent);
 			transform: rotate(45deg);
 			animation: buttonShine 4s infinite;
 		}

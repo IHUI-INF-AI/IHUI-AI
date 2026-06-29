@@ -126,14 +126,14 @@ onMounted(() => {
             flex: 1;
 
             .title {
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
                 font-size: 30rpx;
                 font-weight: normal;
-                color: #000000;
+                color: #000;
             }
 
             .time {
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
                 font-size: 20rpx;
                 font-weight: normal;
                 color: #979797;
@@ -141,17 +141,17 @@ onMounted(() => {
         }
 
         .status {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 24rpx;
             font-weight: 500;
         }
 
         .money {
             display: flex;
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 30rpx;
             font-weight: 500;
-            color: #000000;
+            color: #000;
         }
     }
 

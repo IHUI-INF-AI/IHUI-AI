@@ -104,11 +104,12 @@ const hideDeveloperNotice = () => {
     right: 0;
     z-index: 1003;
     height: 565rpx;
-    border-radius: 69rpx 69rpx 0px 0px;
-    background: rgba(255, 255, 250, 1);
+    border-radius: 69rpx 69rpx 0 0;
+    background: rgb(255 255 250 / 1);
+
     // background: rgba($color: #F0F1FA, $alpha: 1.0);
     box-sizing: border-box;
-    padding: 10rpx 24rpx 0 24rpx;
+    padding: 10rpx 24rpx 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -141,14 +142,14 @@ const hideDeveloperNotice = () => {
 
 
     .user_name {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: bold;
-        color: #000000;
+        color: #000;
     }
 
     .logo_text {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: bold;
         letter-spacing: 0.29em;
@@ -174,8 +175,8 @@ const hideDeveloperNotice = () => {
         }
 
         .card_left {
-            background: linear-gradient(116deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
-            box-shadow: 0rpx 0rpx 6rpx 0rpx rgba(0, 0, 0, 0.3);
+            background: linear-gradient(116deg, rgb(217 219 255 / 0.8) 3%, rgb(253 255 220 / 0.8) 104%);
+            box-shadow: 0rpx 0rpx 6rpx 0rpx rgb(0 0 0 / 0.3);
 
             .left_icon {
                 width: 66rpx;
@@ -183,11 +184,11 @@ const hideDeveloperNotice = () => {
             }
 
             .left_text {
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
                 font-size: 40rpx;
                 font-weight: 600;
                 letter-spacing: 0.28em;
-                color: #000000;
+                color: #000;
             }
         }
 
@@ -197,8 +198,8 @@ const hideDeveloperNotice = () => {
         }
 
         .card_right {
-            background: linear-gradient(116deg, rgba(0, 0, 0, 0.8) 3%, rgba(0, 109, 11, 0.8) 104%);
-            box-shadow: 0rpx 0rpx 6rpx 0rpx rgba(0, 0, 0, 0.3);
+            background: linear-gradient(116deg, rgb(0 0 0 / 0.8) 3%, rgb(0 109 11 / 0.8) 104%);
+            box-shadow: 0rpx 0rpx 6rpx 0rpx rgb(0 0 0 / 0.3);
 
             .right_icon {
                 width: 73rpx;
@@ -206,11 +207,11 @@ const hideDeveloperNotice = () => {
             }
 
             .right_text {
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
                 font-size: 40rpx;
                 font-weight: 500;
                 letter-spacing: 0.28em;
-                color: #FFFFFF;
+                color: #FFF;
             }
         }
 
@@ -223,18 +224,15 @@ const hideDeveloperNotice = () => {
         font-family: Silkscreen;
         font-size: 20rpx;
         font-weight: normal;
-        color: rgba(0, 0, 0, 0.4);
+        color: rgb(0 0 0 / 0.4);
         cursor: pointer;
     }
     
     // 开发者须知弹窗样式
     .notice-modal {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
+        inset: 0;
+        background-color: rgb(0 0 0 / 0.5);
         z-index: 1004;
         display: flex;
         align-items: center;

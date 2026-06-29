@@ -33,8 +33,6 @@ function getPlatformType() {
     return 'android';
   } else if (loginType === 'third_wechat') {
     return 'third_wechat';
-  } else if (loginType === 'third_ali') {
-    return 'third_ali';
   }
   return 'android';
 }
@@ -122,7 +120,7 @@ export function zfb_newPay(uuid, desc, id, productType, amount) {
     let zhsToken = uni.getStorageSync('data').thirdPartyAccounts;
 
     uni.request({
-      url: '/prod-api/ai' + "/fund/ali/pay/create",
+      url: 'https://bsm.aizhs.top/prod-api/ai' + "/fund/ali/pay/create",
       header: {
         'Authorization': zhsToken ? `Bearer ${zhsToken.accessToken}` : '',
         'platform-type': getPlatformType()
@@ -136,7 +134,7 @@ export function zfb_newPay(uuid, desc, id, productType, amount) {
           
           if (refreshToken) {
             uni.request({
-              url: '/prod-api/ai/login/pwd/refreshToken',
+              url: 'https://bsm.aizhs.top/prod-api/ai/login/pwd/refreshToken',
               method: "POST",
               header: {
                 "platform-type": getPlatformType(),

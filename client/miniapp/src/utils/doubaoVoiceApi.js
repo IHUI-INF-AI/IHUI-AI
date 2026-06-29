@@ -7,24 +7,20 @@ export default {
     
     // 获取访问令牌
     async getAccessToken() {
-      try {
-        const response = await uni.request({
-          url: 'https://aip.baidubce.com/oauth/2.0/token',
-          method: 'GET',
-          data: {
-            grant_type: 'client_credentials',
-            client_id: this.API_KEY,
-            client_secret: this.API_SECRET
-          }
-        })
-        
-        if (response[1].statusCode === 200) {
-          return response[1].data.access_token
-        } else {
-          throw new Error('获取访问令牌失败: ' + JSON.stringify(response[1].data))
+      const response = await uni.request({
+        url: 'https://aip.baidubce.com/oauth/2.0/token',
+        method: 'GET',
+        data: {
+          grant_type: 'client_credentials',
+          client_id: this.API_KEY,
+          client_secret: this.API_SECRET
         }
-      } catch (error) {
-        throw error
+      })
+
+      if (response[1].statusCode === 200) {
+        return response[1].data.access_token
+      } else {
+        throw new Error('获取访问令牌失败: ' + JSON.stringify(response[1].data))
       }
     },
     
@@ -46,36 +42,32 @@ export default {
     
     // 发送语音请求到豆包API
     async sendVoiceRequest(audioBase64) {
-      try {
-        const accessToken = await this.getAccessToken()
-        
-        const response = await uni.request({
-          url: `${this.API_URL}?access_token=${accessToken}`,
-          method: 'POST',
-          header: {
-            'Content-Type': 'application/json'
+      const accessToken = await this.getAccessToken()
+
+      const response = await uni.request({
+        url: `${this.API_URL}?access_token=${accessToken}`,
+        method: 'POST',
+        header: {
+          'Content-Type': 'application/json'
+        },
+        data: {
+          model: 'ernie-bot-voice', // 豆包语音模型
+          input: {
+            audio: audioBase64,
+            format: 'mp3',
+            rate: 16000
           },
-          data: {
-            model: 'ernie-bot-voice', // 豆包语音模型
-            input: {
-              audio: audioBase64,
-              format: 'mp3',
-              rate: 16000
-            },
-            parameters: {
-              response_mode: 'streaming', // 实时流式响应
-              temperature: 0.7
-            }
+          parameters: {
+            response_mode: 'streaming', // 实时流式响应
+            temperature: 0.7
           }
-        })
-        
-        if (response[1].statusCode === 200) {
-          return response[1].data
-        } else {
-          throw new Error('API请求失败: ' + JSON.stringify(response[1].data))
         }
-      } catch (error) {
-        throw error
+      })
+
+      if (response[1].statusCode === 200) {
+        return response[1].data
+      } else {
+        throw new Error('API请求失败: ' + JSON.stringify(response[1].data))
       }
     },
     
@@ -104,4 +96,4 @@ export default {
       }
     }
   }
-  
+  

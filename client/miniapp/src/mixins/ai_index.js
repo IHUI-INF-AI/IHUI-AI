@@ -47,6 +47,10 @@ export default {
         // if(this.audioTimer){
         //     clearInterval(this.audioTimer)
         // }
+
+        if (this.requestTime) {
+            clearTimeout(this.requestTime)
+        }
     },
     methods: {
         // 设置图片列表的辅助方法
@@ -648,9 +652,6 @@ export default {
             }else{
                 // 获取当前选中模型的信息，使用与ai_index2.vue相同的安全访问方式
                 const currentModel = this.modelInfo && this.modelInfo.name ? this.modelInfo : (this.modelList && this.modelList[this.pitch] ? this.modelList[this.pitch] : null);
-                
-                if (currentModel) {
-                }
                 
                 // 根据模型的quest_type字段判断是否使用HTTP请求
                 const isHttpModel = currentModel && currentModel.quest_type === 'http';
@@ -1415,11 +1416,6 @@ export default {
                 };
             }
             return null;
-        }
-    },
-    beforeDestroy() {
-        if (this.requestTime) {
-            clearTimeout(this.requestTime)
         }
     }
   }

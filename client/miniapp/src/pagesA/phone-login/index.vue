@@ -168,7 +168,7 @@ function goToPrivacyPolicy() {
     width: 180rpx;
     height: 180rpx;
     border-radius: 30rpx;
-    box-shadow: 0 0 20rpx rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 20rpx rgb(0 0 0 / 0.1);
   }
 }
 
@@ -229,7 +229,7 @@ function goToPrivacyPolicy() {
   line-height: 100rpx;
   border-radius: 30rpx;
   margin-bottom: 30rpx;
-  box-shadow: 0 0 12rpx rgba(58, 214, 178, 0.3);
+  box-shadow: 0 0 12rpx rgb(58 214 178 / 0.3);
 }
 
 .input-phone-btn {

@@ -181,8 +181,10 @@ function scrolling(e) {
     width: 180rpx;
     height: 48rpx;
     border-radius: 15rpx;
+
     // background-color: rgba(0, 0, 0, 0.3);
-    box-shadow: 0px 0px 6px 0px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
+
     // position: absolute;
     position: relative;
     color: #000;
@@ -205,11 +207,13 @@ function scrolling(e) {
 }
 
 ::v-deep .active_item {
-    color: rgba(0, 0, 0, 1);
+    color: rgb(0 0 0 / 1);
     font-weight: 600;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgb(255 255 255 / 0.9);
+
     /* background-color: rgba(0, 0, 0, 0.3); */
-    box-shadow: 0rpx 0rpx 6rpx 0rpx rgba(0, 0, 0, 0.3);
+    box-shadow: 0rpx 0rpx 6rpx 0rpx rgb(0 0 0 / 0.3);
+
     /* 选中项放大并置于顶层 */
     transform: scale(1);
     opacity: 1;

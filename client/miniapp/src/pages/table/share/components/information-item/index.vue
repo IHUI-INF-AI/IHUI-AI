@@ -37,7 +37,7 @@
     <!-- 没有更多了 -->
     <view v-if="noMore">
       <view
-        style="width: 100%;text-align: center;padding-bottom: 10rpx;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
+        style="width: 100%;padding-bottom: 10rpx;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
         <image style="text-align: center;width:348rpx;" src="/static/images/yejiao.png"
           mode="widthFix" />
       </view>
@@ -108,10 +108,7 @@ function share() {
 
 function measureHeight(index) {
   const query = uni.createSelectorQuery()
-  query.select(`#content-${index}`).boundingClientRect(res => {
-    if (res) {
-    }
-  }).exec()
+  query.select(`#content-${index}`).boundingClientRect().exec()
 }
 
 function formatWithTimezone(timestamp, timezoneOffset = 8) {
@@ -132,6 +129,7 @@ function formatWithTimezone(timestamp, timezoneOffset = 8) {
   display: flex;
   justify-content: center;
 }
+
 .timeline-container {
   height: 100%;
 }
@@ -217,10 +215,11 @@ function formatWithTimezone(timestamp, timezoneOffset = 8) {
 
 .timeline-content {
   padding-left: 0;
-  background: rgba(248, 249, 252, 0.65);
+  background: rgb(248 249 252 / 0.65);
   border-radius: 20rpx;
   padding: 10rpx;
 }
+
 .timeline-contenta{
   flex: 1;
   border-radius: 20rpx;
@@ -258,16 +257,18 @@ function formatWithTimezone(timestamp, timezoneOffset = 8) {
   font-size: 24rpx;
   margin-left: 8rpx;
 }
+
 .no-more-text {
   margin: 0 20rpx;
   color: #767676;
   font-size: 24rpx;
 }
+
 .no-more-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 40rpx 0 0rpx 0;
+  margin: 40rpx 0 0rpx;
 }
 
 .line {
@@ -288,14 +289,14 @@ function formatWithTimezone(timestamp, timezoneOffset = 8) {
 
 .website-text {
   font-size: 28rpx;
-  color: rgba(89, 97, 255, 0.55);
+  color: rgb(89 97 255 / 0.55);
   font-weight: 700;
 }
 
 .copyright-container {
-  padding: 10rpx 0 10rpx;
+  padding: 10rpx 0;
   text-align: center;
-  color: rgba(0, 0, 0, 0.4);
+  color: rgb(0 0 0 / 0.4);
   line-height: 18rpx;
   font-size: 20rpx;
 }
@@ -303,8 +304,8 @@ function formatWithTimezone(timestamp, timezoneOffset = 8) {
 .copyright-text {
   display: block;
   font-size: 20rpx;
-  color: rgba(0, 0, 0, 0.4);
+  color: rgb(0 0 0 / 0.4);
   line-height: 1.5;
-  font-family: Lilita One;
+  font-family: "Lilita One";
 }
 </style>

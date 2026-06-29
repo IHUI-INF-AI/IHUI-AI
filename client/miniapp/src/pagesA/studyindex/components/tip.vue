@@ -46,10 +46,10 @@ function toMyModel() {
 }
 
 .tip-text {
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 28rpx;
     font-weight: bold;
-    color: #666666;
+    color: #666;
     white-space: nowrap;
     padding-right: 20rpx;
 }
@@ -58,6 +58,7 @@ function toMyModel() {
     0% {
         transform: translateX(0);
     }
+
     100% {
         transform: translateX(-50%);
     }
@@ -69,7 +70,7 @@ function toMyModel() {
     color: #000;
     border-radius: 12rpx;
     border: 1px solid #518dfd !important;
-    box-shadow: 0 0 5rpx 0 rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 5rpx 0 rgb(0 0 0 / 0.3);
     background: #d9e6fd !important;
     backdrop-filter: blur(10px);
     font-weight: bold;

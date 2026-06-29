@@ -3,7 +3,6 @@ module.exports = {
   loginBySms: require('./login-by-sms'),
   loginByUniverify: require('./login-by-univerify'),
   loginByWeixin: require('./login-by-weixin'),
-  loginByAlipay: require('./login-by-alipay'),
   loginByQQ: require('./login-by-qq'),
   loginByApple: require('./login-by-apple'),
   loginByBaidu: require('./login-by-baidu'),

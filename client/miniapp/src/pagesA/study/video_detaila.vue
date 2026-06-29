@@ -61,6 +61,7 @@ onUnload(() => {
   justify-content: center;
   align-items: center;
 }
+
 .video-player {
   width: 100%;
   height: 400rpx;

@@ -9,16 +9,9 @@
 
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, resolve } from 'path'
-
-// 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:/1/client
-// client/e2e/payment.spec.ts -> ../../ (项目 client 根)
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const ROOT = resolve(__dirname, '..')
 
 const BASE = process.env.PW_BASE_URL || 'http://127.0.0.1:8888'
+const ROOT = 'g:/1/client'
 
 function readText(path: string): string {
   return readFileSync(path, 'utf-8')

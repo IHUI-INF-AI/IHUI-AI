@@ -550,7 +550,7 @@ function submitForm() {
   border-radius: 20rpx;
   padding: 30rpx;
   margin-bottom: 30rpx;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2rpx 10rpx rgb(0 0 0 / 0.05);
 }
 
 .question-item.personality-test {
@@ -565,7 +565,7 @@ function submitForm() {
   margin-bottom: 30rpx;
   
   .required {
-    color: #ff0000;
+    color: #f00;
     margin-right: 8rpx;
   }
 }
@@ -655,7 +655,7 @@ function submitForm() {
   border-radius: 15rpx;
   border: none;
   background: #000;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
   animation: bouncea 0.5s ease-in-out infinite;
   display: flex;
   align-items: center;
@@ -678,10 +678,12 @@ function submitForm() {
     box-shadow: none;
     transform: translate(3rpx, 3rpx);
   }
+
   50% {
     box-shadow: 6rpx 6rpx 5rpx 0 #d9d9d9;
     transform: translate(0, 0);
   }
+
   100% {
     box-shadow: none;
     transform: translate(3rpx, 3rpx);

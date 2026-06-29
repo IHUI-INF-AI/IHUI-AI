@@ -247,15 +247,15 @@ checkLoginStatus()
 }
 
 .title {
-	color: #ffffff;
+	color: #fff;
 	font-size: 56rpx;
 	font-weight: bold;
 	margin-bottom: 20rpx;
-	text-shadow: 0 2px 10px rgba(0,242,255,0.5);
+	text-shadow: 0 2px 10px rgb(0 242 255 / 0.5);
 }
 
 .subtitle {
-	color: rgba(255,255,255,0.7);
+	color: rgb(255 255 255 / 0.7);
 	font-size: 32rpx;
 	margin-bottom: 80rpx;
 }
@@ -268,7 +268,7 @@ checkLoginStatus()
 .input-group {
 	display: flex;
 	align-items: center;
-	background-color: rgba(255,255,255,0.08);
+	background-color: rgb(255 255 255 / 0.08);
 	border-radius: 15rpx;
 	height: 100rpx;
 	padding: 0 30rpx;
@@ -283,7 +283,7 @@ checkLoginStatus()
 .input {
 	flex: 1;
 	height: 100%;
-	color: #ffffff;
+	color: #fff;
 	font-size: 30rpx;
 }
 
@@ -297,13 +297,13 @@ checkLoginStatus()
 
 .login-btn {
 	background: linear-gradient(45deg, #0056d6, #00a0ff);
-	color: #ffffff;
-	box-shadow: 0 0 15px rgba(0,86,214,0.3);
+	color: #fff;
+	box-shadow: 0 0 15px rgb(0 86 214 / 0.3);
 }
 
 .tips {
 	margin-top: 60rpx;
-	color: rgba(255,255,255,0.5);
+	color: rgb(255 255 255 / 0.5);
 	font-size: 24rpx;
 }
 </style>

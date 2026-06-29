@@ -330,7 +330,7 @@ function uploadImage() {
     box-sizing: border-box;
     font-size: 32rpx;
     font-weight: bold;
-    color: rgba(0, 0, 0, 0.6);
+    color: rgb(0 0 0 / 0.6);
 }
 
 .video_image {
@@ -338,7 +338,7 @@ function uploadImage() {
     box-sizing: border-box;
     font-size: 32rpx;
     font-weight: bold;
-    color: rgba(0, 0, 0, 0.6);
+    color: rgb(0 0 0 / 0.6);
     padding: 0 auto;
 }
 
@@ -390,11 +390,10 @@ function uploadImage() {
     padding: 0 18rpx;
 
     .v_title_f {
-        font-family: Alimama FangYuanTi VF !important;
+        font-family: "Alimama FangYuanTi VF" !important;
         font-size: 32rpx;
         font-weight: bold;
-        color: #999999;
-
+        color: #999;
         width: 100%;
         box-sizing: border-box;
         border: 1rpx solid #D8D8D8;
@@ -404,7 +403,7 @@ function uploadImage() {
     }
 
     .placeholder_color {
-        color: #999999;
+        color: #999;
         font-weight: normal !important;
     }
 
@@ -420,7 +419,7 @@ function uploadImage() {
     .sub_title {
         font-size: 32rpx;
         font-weight: bold;
-        color: #000000;
+        color: #000;
         margin: 18rpx 0;
         box-sizing: border-box;
         display: block;
@@ -431,8 +430,8 @@ function uploadImage() {
     width: calc(100vw - 36rpx);
     margin: 5rpx auto;
     height: 82rpx;
-    background: linear-gradient(106deg, rgba(228, 229, 255, 0.25) 4%, rgba(254, 255, 236, 0.25) 104%);
-    border: 1rpx solid #EEEEEE;
+    background: linear-gradient(106deg, rgb(228 229 255 / 0.25) 4%, rgb(254 255 236 / 0.25) 104%);
+    border: 1rpx solid #EEE;
     backdrop-filter: blur(10px);
     border-radius: 15rpx;
 
@@ -451,27 +450,28 @@ function uploadImage() {
 
     .btn {
         background: linear-gradient(268deg,
-                rgba(217, 219, 254, 0.65) -207%,
-                rgba(217, 219, 254, 0.65) -148%,
-                rgba(217, 219, 255, 0.65) -122%,
-                rgba(217, 219, 254, 0.65) -33%,
-                rgba(217, 219, 255, 0.65) -17%,
-                rgba(144, 125, 255, 0.65) 217%,
-                rgba(224, 225, 252, 0.65) 302%);
+                rgb(217 219 254 / 0.65) -207%,
+                rgb(217 219 254 / 0.65) -148%,
+                rgb(217 219 255 / 0.65) -122%,
+                rgb(217 219 254 / 0.65) -33%,
+                rgb(217 219 255 / 0.65) -17%,
+                rgb(144 125 255 / 0.65) 217%,
+                rgb(224 225 252 / 0.65) 302%);
         box-sizing: border-box;
         backdrop-filter: blur(10rpx);
-        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.8);
+        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgb(255 255 255 / 0.8);
         width: 192rpx;
         height: 82rpx;
         font-size: 50rpx;
         font-weight: bold;
         letter-spacing: 0.1em;
-        color: #FFFFFF;
+        color: #FFF;
     }
+
     .btn.btn-publish {
         background: #000;
         color: #fff;
-        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgb(255 255 255 / 0.1);
     }
 }
 
@@ -503,7 +503,7 @@ function uploadImage() {
 }
 
 .title {
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 24rpx;
     font-weight: 600;
     color: #1A1A1A;
@@ -511,9 +511,9 @@ function uploadImage() {
 }
 
 .font_nomal {
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 24rpx;
     font-weight: normal;
-    color: #000000;
+    color: #000;
 }
 </style>

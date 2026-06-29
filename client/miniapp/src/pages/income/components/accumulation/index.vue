@@ -163,7 +163,7 @@ const onDetail = () => {
 <style>
 .commission-container {
   height: 100%;
-  padding: 20rpx 20rpx 40rpx 20rpx;
+  padding: 20rpx 20rpx 40rpx;
 }
 
 .status-bar {
@@ -201,11 +201,11 @@ const onDetail = () => {
   margin: 24rpx auto;
   background: linear-gradient(180deg, #cfd6fa 0%, #fff 100%);
   border-radius: 30rpx;
-  box-shadow: 0 0 16rpx rgba(186, 202, 255, 0.12);
+  box-shadow: 0 0 16rpx rgb(186 202 255 / 0.12);
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  padding: 32rpx 32rpx 24rpx 32rpx;
+  padding: 32rpx 32rpx 24rpx;
   position: relative;
   border-bottom: 6rpx solid #ffd86b;
 }
@@ -281,8 +281,8 @@ const onDetail = () => {
   line-height: 56rpx;
   margin-bottom: 8rpx;
   margin: 0;
-  box-shadow: 0 0 8rpx rgba(186, 202, 255, 0.12);
-  background: linear-gradient(0deg, #8278F0 38%, rgba(88, 78, 203, 0) 100%);
+  box-shadow: 0 0 8rpx rgb(186 202 255 / 0.12);
+  background: linear-gradient(0deg, #8278F0 38%, rgb(88 78 203 / 0) 100%);
   box-sizing: border-box;
   border: 1px solid #8D88C5;
 }
@@ -334,8 +334,7 @@ const onDetail = () => {
 }
 
 .commission-list {
-  border-radius: 15rpx;
-  padding: 10rpx 0 0 0;
+  padding: 10rpx 0 0;
   border-radius: 15rpx;
   margin-bottom: 20rpx;
 }
@@ -369,7 +368,7 @@ const onDetail = () => {
 }
 
 .status.pending {
-  color: #ff9900;
+  color: #f90;
 }
 
 .status.completed {
@@ -410,10 +409,10 @@ const onDetail = () => {
 
 .order-tab-bar {
   width: 92vw;
-  margin: 24rpx auto 0 auto;
+  margin: 24rpx auto 0;
   background: linear-gradient(90deg, #f6f7fa 0%, #eceafd 100%);
   border-radius: 30rpx;
-  padding: 0 0;
+  padding: 0;
   height: 80rpx;
   display: flex;
   align-items: center;
@@ -429,7 +428,7 @@ const onDetail = () => {
   justify-content: space-between;
   border-radius: 30rpx;
   overflow: hidden;
-  background: rgba(206, 203, 241, 0.5);
+  background: rgb(206 203 241 / 0.5);
 
 }
 

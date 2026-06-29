@@ -185,6 +185,7 @@ watch(selectedTab, () => {
   justify-content: space-between;
   width: 736rpx;
   height: 80rpx;
+
   // position: absolute;
   // top: -45rpx;
   // left: 0;
@@ -193,7 +194,6 @@ watch(selectedTab, () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8rpx;
     width: 513rpx;
     height: 64rpx;
     border-top-left-radius: 32rpx;
@@ -238,7 +238,7 @@ watch(selectedTab, () => {
   width: 95%;
   border: 2rpx solid #f5f5f5;
   border-radius: 30rpx;
-  padding: 0 15rpx 30rpx 15rpx; /* 增加底部padding */
+  padding: 0 15rpx 30rpx; /* 增加底部padding */
   max-height: 660rpx; /* 限制最大高度为3个课程 */
   overflow: hidden; /* 超出部分隐藏 */
 }

@@ -677,12 +677,16 @@ function onInput(idx, e) {
 
 .password-input {
 	-webkit-text-security: disc;
+
 	/* Safari, Chrome */
 	text-security: disc;
+
 	/* Future proofing */
 	font-size: 1em;
+
 	/* 防止字体大小影响圆点大小 */
 	letter-spacing: 0.3em;
+
 	/* 增加圆点间的距离 */
 }
 
@@ -727,37 +731,38 @@ function onInput(idx, e) {
 
 .header {
 	padding-top: 10rpx;
+
 	/* padding-top: 165rpx; */
 	display: flex;
 	align-items: flex-end;
 	justify-content: space-between;
+
 	/* padding: 0 20rpx; */
 }
 
 .welcome {
-	font-weight: bold;
 	color: #000;
 	margin-bottom: 10rpx;
-	font-family: 'AlimamaFangYuanTi';
+	font-family: AlimamaFangYuanTi;
 	font-size: 80rpx;
 	font-weight: normal;
 	line-height: 67rpx;
-	letter-spacing: 0rem;
+	letter-spacing: 0;
 }
 
 .brand {
 	/* font-size: 32rpx; */
+
 	/* color: #8D83FF; */
 	margin-bottom: 20rpx;
 	align-self: flex-end;
-
-
-	font-family: 'AlimamaFangYuanTi';
+	font-family: AlimamaFangYuanTi;
 	font-size: 30rpx;
 	font-weight: bold;
+
 	/* line-height: 40rpx; */
 	text-align: center;
-	letter-spacing: 0px;
+	letter-spacing: 0;
 	font-variation-settings: "BEVL" 100, "opsz" auto;
 	color: #8D83FF;
 
@@ -793,6 +798,7 @@ function onInput(idx, e) {
 	padding: 2rpx;
 	width: 85.4rpx;
 	height: 79rpx;
+
 	/* margin-top: 20rpx; */
 	border-radius: 20rpx;
 	background: #E8E8E8;
@@ -817,16 +823,13 @@ function onInput(idx, e) {
 }
 
 .input-nbox-focused {
-	background: #FFFFFF;
+	background: #FFF;
 }
 
 .input-nbox-focused::after {
 	content: '';
 	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
+	inset: 0;
 	border-radius: 25rpx;
 	border: 1.5px solid #000;
 	pointer-events: none;
@@ -837,14 +840,13 @@ function onInput(idx, e) {
 	height: 100%;
 	background: #FAFAFA;
 	border-radius: 25rpx;
-
 	display: flex;
 	align-items: center;
-	box-shadow: 0 0 6rpx 0 rgba(0, 0, 0, 0.3);
+	box-shadow: 0 0 6rpx 0 rgb(0 0 0 / 0.3);
 }
 
 .input-nbox-focused .input-box {
-	background: #FFFFFF;
+	background: #FFF;
 }
 
 .input-icon {
@@ -858,6 +860,7 @@ function onInput(idx, e) {
 
 
 	/* background: #eee; */
+
 	/* border-radius: 50%; */
 }
 
@@ -865,13 +868,14 @@ function onInput(idx, e) {
 	letter-spacing: 0rpx;
 	color: #979797;
 	margin-right: 0rpx;
-	font-family: 'AlimamaFangYuanTi';
+	font-family: AlimamaFangYuanTi;
 	font-size: 36rpx;
 	font-weight: normal;
 }
 
 .input {
 	flex: 1;
+
 	/* font-size: 36rpx; */
 	border: none;
 	background: transparent;
@@ -883,7 +887,7 @@ function onInput(idx, e) {
 }
 
 .input-text {
-	font-family: 'AlimamaFangYuanTi';
+	font-family: AlimamaFangYuanTi;
 	font-size: 36rpx;
 	font-weight: 300;
 	letter-spacing: 0rpx;
@@ -892,28 +896,33 @@ function onInput(idx, e) {
 }
 
 .verify-box {
-
 	/* flex-direction: column; */
+
 	/* height: auto; */
+
 	/* padding: 20rpx 0rpx 20rpx 0rpx; */
 }
 
 .verify-cells {
 	display: flex;
 	justify-content: space-between;
+
 	/* margin-bottom: 10rpx; */
 }
 
 .verify-cell {
 	/* width: 50rpx; */
 	height: 75rpx;
+
 	/* border: 1rpx solid #000; */
 	border-radius: 6rpx;
 	font-size: 40rpx;
 	color: #000;
+
 	/* display: flex;
   align-items: center;
   justify-content: center; */
+
 	/* background: #fff; */
 }
 
@@ -926,7 +935,7 @@ function onInput(idx, e) {
 	font-size: 32rpx;
 	font-weight: bold;
 	line-height: 25rpx;
-	letter-spacing: 0px;
+	letter-spacing: 0;
 	color: #847CFF;
 	margin-left: -15px;
 }
@@ -939,7 +948,6 @@ function onInput(idx, e) {
 }
 
 .link {
-	font-size: 28rpx;
 	color: #6B6980;
 	font-size: 24rpx;
 	margin-left: 5rpx;
@@ -949,37 +957,41 @@ function onInput(idx, e) {
 	/* width: 250rpx; */
 	width: 532rpx;
 	height: 100rpx;
-	margin: 10rpx auto 0 auto;
-	background: rgba(0, 0, 0, 0);
+	margin: 10rpx auto 0;
+	background: rgb(0 0 0 / 0);
 
 }
 
 .btn {
 	width: 100%;
 	height: 100%;
+
 	/* background: linear-gradient(252deg, rgba(195, 190, 255, 0.4), rgba(255, 255, 255, 0.4)); */
 	background-image: url('https://test.aizhs.top/minio/sys-mini/zcbutton.png');
 	background-size: 100% 100%;
+
 	/* 宽高都铺满 */
 	background-repeat: no-repeat;
+
 	/* 不重复 */
 	background-position: center;
 	background-color: #000;
+
 	/* 居中显示 */
 	border-radius: 30rpx;
-	font-size: 60rpx;
 	color: #fff;
-	font-weight: bold;
 	display: flex;
 	justify-content: center;
 	align-items: center;
 	border: none;
+
 	/* 去掉默认边框 */
 	backdrop-filter: blur(50rpx);
+
 	/* box-shadow: inset 0px 4rpx 30rpx 0px rgba(211, 213, 255, 0.5); */
 	font-size: 60rpx;
 	font-weight: 500;
-	text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+	text-shadow: 0 0 5px rgb(0 0 0 / 0.3);
 }
 
 .switch-login {
@@ -1021,9 +1033,11 @@ function onInput(idx, e) {
 
 .xiaicc {
 	/* width: 60rpx; */
+
 	/* height: 60rpx; */
 	padding-right: 20rpx;
 	padding-left: 20rpx;
+
 	/* width: 70rpx; */
 	height: 39.5rpx;
 	display: flex;
@@ -1067,7 +1081,7 @@ function onInput(idx, e) {
 }
 
 .bandPhone {
-	color: #000000;
+	color: #000;
 	font-size: 50rpx;
 	text-align: center;
 	font-weight: bold;
@@ -1138,10 +1152,10 @@ function onInput(idx, e) {
 	width: 60rpx;
 	height: 25rpx;
 	border-radius: 33rpx;
-	background: #ffffff;
+	background: #fff;
 	position: relative;
 	transition: background 0.3s;
-	border: 1px solid #888899;
+	border: 1px solid #889;
 }
 
 .switch-bg.checked {
@@ -1153,12 +1167,12 @@ function onInput(idx, e) {
 	width: 21rpx;
 	height: 21rpx;
 	border-radius: 50%;
-	background: #888899;
+	background: #889;
 	position: absolute;
 	top: 2rpx;
 	left: 2rpx;
 	transition: left 0.3s, background 0.3s;
-	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+	box-shadow: 0 2rpx 8rpx rgb(0 0 0 / 0.08);
 }
 
 .switch-dot.checked {
@@ -1170,7 +1184,7 @@ function onInput(idx, e) {
 	position: absolute;
 	width: 95%;
 	bottom: 72rpx;
-	right: 0px;
+	right: 0;
 	border-radius: 20rpx;
 	padding: 1rpx;
 	background: #E8E8E8;
@@ -1179,10 +1193,10 @@ function onInput(idx, e) {
 .nation-boo {
 	width: 100%;
 	height: 100%;
-	background: #FFFFFF;
+	background: #FFF;
 	border-radius: 20rpx;
 	border: 1rpx solid #979797;
-	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+	box-shadow: 0 4rpx 12rpx rgb(0 0 0 / 0.08);
 }
 
 .nationInfo {
@@ -1279,6 +1293,6 @@ function onInput(idx, e) {
 .nation-box-95-72 {
 	width: 95%;
 	bottom: 72rpx;
-	right: 0px;
+	right: 0;
 }
 </style>

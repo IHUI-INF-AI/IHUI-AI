@@ -154,13 +154,6 @@
           "navigationBarTitleText": "发布作品",
           "navigationStyle": "custom"
         }
-      },
-      {
-        "path": "model-plaza/index",
-        "style": {
-          "navigationBarTitleText": "模型广场",
-          "navigationStyle": "custom"
-        }
       }
     ]
   },
@@ -604,15 +597,6 @@
           "navigationBarTitleText": "数据统计",
           "navigationStyle": "custom"
         }
-      },
-      {
-        "path": "coursePlanet/Official-information/index",
-        "style": {
-          "navigationBarTitleText": "官方资讯",
-          "navigationBarBackgroundColor": "#fff",
-          "navigationBarTextStyle": "black",
-          "navigationStyle": "custom"
-        }
       }
     ]
   },
@@ -666,7 +650,7 @@
     "list": [
       {
         "pagePath": "pages/table/tools/index",
-        "text": "AI应用商店",
+        "text": "智能体",
         "iconPath": "static/tabbar/tabbar_1.png",
         "selectedIconPath": "static/tabbar/tabbar_1_act.png"
       },

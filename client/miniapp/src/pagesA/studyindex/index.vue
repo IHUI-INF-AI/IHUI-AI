@@ -430,8 +430,9 @@ function onShareAppMessage() {
 
     .content {
         width: 100vw;
+
         /* 底部留白：不再为自定义 tabbar 预留，仅保留适当间距 */
-        padding: 0 20rpx 24rpx 20rpx;
+        padding: 0 20rpx 24rpx;
         padding-top: calc(var(--app-top-bar-height) + 20rpx);
         box-sizing: border-box;
         transition: padding-top 0.3s ease;
@@ -453,12 +454,9 @@ function onShareAppMessage() {
 
 .mask {
     position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
+    inset: 0;
     z-index: 991;
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: rgb(0 0 0 / 0.3);
 }
 
 .f_n {
@@ -520,7 +518,7 @@ function onShareAppMessage() {
   font-size: 32rpx;
   line-height: 33rpx;
   float: left;
-  color: rgba(0, 0, 0, 0.7);
+  color: rgb(0 0 0 / 0.7);
   background: #D3E9FF;
 }
 
@@ -536,7 +534,7 @@ function onShareAppMessage() {
   display: flex;
   padding: 12rpx 13rpx;
   box-sizing: border-box;
-  border-top: 1px solid rgb(239 239 239 / 18%);
+  border-top: 1px solid rgb(239 239 239 / 0.18);
   font-size: 32rpx;
   line-height: 48rpx;
   color: #000;
@@ -549,6 +547,7 @@ function onShareAppMessage() {
   justify-content: space-between;
 
 }
+
   .set_btn {
     width: 48rpx;
     height: 44rpx;
@@ -606,8 +605,8 @@ function onShareAppMessage() {
   transition: all 0.3s ease;
   backdrop-filter: blur(8px) saturate(180%);
   -webkit-backdrop-filter: blur(8px) saturate(180%);
-  background: rgba(255, 255, 255, 0.55);
-  border: 1rpx solid rgba(0, 0, 0, 0.06);
+  background: rgb(255 255 255 / 0.55);
+  border: 1rpx solid rgb(0 0 0 / 0.06);
 
   &:active {
     transform: translateX(-50%) scale(0.95);
@@ -629,7 +628,7 @@ function onShareAppMessage() {
   padding: 20rpx;
   box-sizing: border-box;
   background-color: #fff;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2rpx 8rpx rgb(0 0 0 / 0.1);
 }
 
 /* 搜索框渐入动画 */
@@ -646,6 +645,7 @@ function onShareAppMessage() {
     max-height: 0;
     transform: translateY(-20rpx);
   }
+
   100% {
     opacity: 1;
     max-height: 300rpx;

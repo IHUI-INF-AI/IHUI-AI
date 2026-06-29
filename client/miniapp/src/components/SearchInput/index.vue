@@ -400,7 +400,7 @@ function isClearaUpdate(newVal) {
 </script>
 <style lang="scss" scoped>
 .input_body {
-    margin: 0 0;
+    margin: 0;
     box-sizing: border-box;
     width: 100%;
 }

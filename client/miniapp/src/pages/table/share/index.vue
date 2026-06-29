@@ -47,7 +47,7 @@
         catchtouchmove
         v-if="tagWrapShow"
         class="mask-overlay"
-        style="background-color: rgba(0, 0, 0, 0.4);position: fixed;left: 0;right: 0;top: 0;bottom: 0;z-index: 899;"
+        style="background-color: rgb(0 0 0 / 0.4);position: fixed;inset: 0;z-index: 899;"
       ></view>
     </view>
     
@@ -575,10 +575,7 @@ function closeModal() {
 <style lang="scss" scoped>
 .scroll-lock-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 900;
   background-color: transparent;
   touch-action: none;
@@ -604,6 +601,7 @@ function closeModal() {
   flex-direction: column;
   justify-content: space-between;
 }
+
 .back-to-top-icon {
   position: fixed;
   left: 50%;
@@ -612,15 +610,16 @@ function closeModal() {
   width: 80rpx;
   padding: 20rpx;
 }
+
 .back-to-top-btn {
   position: fixed;
   right: 40rpx;
   bottom: 180rpx;
   width: 80rpx;
   height: 80rpx;
-  background: rgba(147, 210, 243, 0.9);
+  background: rgb(147 210 243 / 0.9);
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -639,22 +638,21 @@ function closeModal() {
   text-align: center;
   margin-top: 20rpx;
   border: 1px solid;
-  border-image: linear-gradient(228deg, #D19EFF 5%, rgba(255, 242, 0, 0.3) 31%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 74%, #CD96FF 94%) 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-image: linear-gradient(228deg, #D19EFF 5%, rgb(255 242 0 / 0.3) 31%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 74%, #CD96FF 94%) 1;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
 }
 
 .item {
   color: #636363;
   font-size: 24rpx;
   line-height: 65rpx;
-  background: transparent;
   opacity: 1;
-  background: linear-gradient(107deg, rgba(217, 219, 255, 0.6) 40%, rgba(253, 255, 220, 0.6) 104%);
+  background: linear-gradient(107deg, rgb(217 219 255 / 0.6) 40%, rgb(253 255 220 / 0.6) 104%);
 }
 
 /* 选中项颜色 */
 .item.active {
-  color: #000000;
+  color: #000;
   font-size: 24rpx;
   font-weight: bold;
 }
@@ -687,17 +685,16 @@ function closeModal() {
   height: 70rpx;
   margin-right: 18rpx;
   border-radius: 15rpx;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24rpx;
   color: #222;
-  background: linear-gradient(107deg, rgba(217, 219, 255, 0.6) 40%, rgba(253, 255, 220, 0.6) 104%);
+  background: linear-gradient(107deg, rgb(217 219 255 / 0.6) 40%, rgb(253 255 220 / 0.6) 104%);
   box-sizing: border-box;
-  border-image: radial-gradient(25% 50% at 50% 100%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%) 1.5;
+  border-image: radial-gradient(25% 50% at 50% 100%, #FFF 0%, rgb(255 255 255 / 0) 100%) 1.5;
   backdrop-filter: blur(10px);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
 }
 
 .view-box {
@@ -706,9 +703,11 @@ function closeModal() {
   justify-content: center;
   padding: 0 20rpx;
 }
+
 ::v-deep .tab-bar{
   z-index: 1001 !important;
 }
+
 ::v-deep .tag-wrap{
   z-index: 1001 !important;
 }
@@ -717,7 +716,7 @@ function closeModal() {
   z-index: 2;
   transition: all 0.2s ease-in-out;
   padding-top: 60rpx;
-  background: linear-gradient(to top, #fff 0%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(to top, #fff 0%, rgb(255 255 255 / 0) 100%);
   left: 0 !important;
   right: 0 !important;
 }
@@ -793,7 +792,7 @@ function closeModal() {
   font-size: 32rpx;
   line-height: 33rpx;
   float: left;
-  color: rgba(0, 0, 0, 0.7);
+  color: rgb(0 0 0 / 0.7);
   background: #D3E9FF;
 }
 
@@ -809,7 +808,7 @@ function closeModal() {
   display: flex;
   padding: 12rpx 13rpx;
   box-sizing: border-box;
-  border-top: 1px solid rgb(239 239 239 / 18%);
+  border-top: 1px solid rgb(239 239 239 / 0.18);
   font-size: 32rpx;
   line-height: 48rpx;
   color: #000;
@@ -821,6 +820,7 @@ function closeModal() {
   right: 14rpx;
   justify-content: space-between;
 }
+
   .set_btn {
     width: 48rpx;
     height: 44rpx;

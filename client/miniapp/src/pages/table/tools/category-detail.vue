@@ -216,6 +216,7 @@ const onPageScroll = (e) => {
 page {
   background-color: #fff;
 }
+
 .category-detail-container {
   min-height: 100vh;
   background-color: #fff;
@@ -236,7 +237,7 @@ page {
   z-index: 2;
   transition: all 0.2s ease-in-out;
   padding-top: 60rpx;
-  background: linear-gradient(to top, #fff 0%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(to top, #fff 0%, rgb(255 255 255 / 0) 100%);
   left: 0 !important;
   right: 0 !important;
 }

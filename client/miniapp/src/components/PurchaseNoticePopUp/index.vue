@@ -114,7 +114,7 @@ function navigateToCommission() {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgb(0 0 0 / 0.5);
 }
 
 .popup-content {
@@ -123,7 +123,7 @@ function navigateToCommission() {
   left: 0;
   width: 100%;
   height: 600rpx;
-  background-color: #ffffff;
+  background-color: #fff;
   border-radius: 24rpx 24rpx 0 0;
   transform: translateY(100%);
   transition: transform 0.3s ease-out;
@@ -163,8 +163,8 @@ function navigateToCommission() {
   width: 80%;
   height: 88rpx;
   line-height: 88rpx;
-  background-color: #ff6600;
-  color: #ffffff;
+  background-color: #f60;
+  color: #fff;
   font-size: 32rpx;
   font-weight: bold;
   border-radius: 30rpx;

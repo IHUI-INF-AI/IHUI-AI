@@ -9,14 +9,9 @@
 
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, resolve } from 'path'
 
-// 2026-06-25 修复: 改用脚本自身位置计算 client 根, 避免硬编码 g:/1/client
-// client/e2e/docs-enhanced.spec.ts -> ../../ (项目 client 根)
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const ROOT = resolve(__dirname, '..')
+const BASE = 'http://127.0.0.1:8888'
+const ROOT = 'g:/1/client'
 const DOCS_PATH = `${ROOT}/src/views/BusinessDocs.vue`
 const ZH_CN_PATH = `${ROOT}/src/locales/zh-CN.json`
 const EN_PATH = `${ROOT}/src/locales/en.json`

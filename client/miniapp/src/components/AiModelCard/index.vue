@@ -161,7 +161,7 @@ const showDetail = () => {
             .hot_number {
                 display: flex;
                 align-items: center;
-                color: #000000;
+                color: #000;
                 font-size: 20rpx;
 
                 .hot_number-image {
@@ -251,7 +251,7 @@ const showDetail = () => {
         .icons {
             margin-right: 24rpx;
             width: 35rpx;
-            height: 35rxp;
+            height: 35rpx;
         }
 
         .pay_detail-body {
@@ -273,7 +273,7 @@ const showDetail = () => {
 
 .top_footer-model {
     display: flex;
-    border-width: 1rpx 0 0 0;
+    border-width: 1rpx 0 0;
     border-style: solid;
     border-color: #DADADA;
     position: relative;
@@ -299,7 +299,6 @@ const showDetail = () => {
         flex: 1;
         display: flex;
         align-items: center;
-
         color: #3D3D3D;
         font-size: 24rpx;
         font-family: AlimamaFangYuanTi;

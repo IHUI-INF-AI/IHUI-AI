@@ -94,6 +94,7 @@ function navigateTo(url, title) {
   /* margin-top: 20rpx; */
   display: flex;
   flex-wrap: wrap;
+
   // gap: 20rpx;
   justify-content: space-between;
   padding: 10px;
@@ -104,13 +105,12 @@ function navigateTo(url, title) {
   width: 347rpx;
   padding: 23rpx;
   border-radius: 30rpx;
-  background: linear-gradient(111deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
-  box-sizing: border-box;
-  border-width: 0px 0px 4px 0px;
+  background: linear-gradient(111deg, rgb(217 219 255 / 0.8) 3%, rgb(253 255 220 / 0.8) 104%);
+  border-width: 0 0 4px;
   border-style: solid;
-  border-color: rgba(0, 0, 0, 0.1);
+  border-color: rgb(0 0 0 / 0.1);
   backdrop-filter: blur(10px);
-  box-shadow: 0px 2px 4px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.3);
   box-sizing: border-box;
 }
 

@@ -59,24 +59,24 @@ const discount_month_desc = computed(() => {
 .card_body {
     margin: 0 30rpx;
     padding: 25rpx;
-    background-color: #FFFFFF;
+    background-color: #FFF;
     border-radius: 15rpx;
     position: relative;
     margin-bottom: 20rpx;
-    box-shadow: 0 4rpx 10rpx 0 rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4rpx 10rpx 0 rgb(0 0 0 / 0.1);
 
     .font_title {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 26rpx;
         font-weight: normal;
-        color: #000000;
+        color: #000;
     }
 
     .font_nomal {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 24rpx;
         font-weight: normal;
-        color: #000000;
+        color: #000;
     }
 
     .margin_bottom {
@@ -96,14 +96,14 @@ const discount_month_desc = computed(() => {
     }
 
     .title {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 28rpx;
         font-weight: normal;
-        color: #000000;
+        color: #000;
     }
 
     .sub {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 20rpx;
         font-weight: normal;
         color: #979797;
@@ -152,17 +152,17 @@ const discount_month_desc = computed(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 20rpx;
         font-weight: normal;
-        color: #FFFFFF;
+        color: #FFF;
     }
 
     .right_bottom {
         position: absolute;
         bottom: 25rpx;
         right: 25rpx;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: normal;
         color: #FF6B00;

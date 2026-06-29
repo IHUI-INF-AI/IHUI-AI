@@ -139,21 +139,21 @@ const showDetail = () => {
                     color: #517BFF;
                     font-size: 30rpx;
                     font-weight: normal;
-                    font-family: "AlimamaFangYuanTi";
+                    font-family: AlimamaFangYuanTi;
                 }
 
                 .title-sub {
                     font-size: 24rpx;
                     color: #414141;
                     font-weight: normal;
-                    font-family: "AlimamaFangYuanTi";
+                    font-family: AlimamaFangYuanTi;
                 }
             }
 
             .hot_number {
                 display: flex;
                 align-items: center;
-                color: #000000;
+                color: #000;
                 font-size: 20rpx;
 
                 .hot_number-image {
@@ -171,7 +171,7 @@ const showDetail = () => {
         padding: 14rpx 30rpx;
         color: #3D3D3D;
         font-size: 20rpx;
-        font-family: "AlimamaFangYuanTi";
+        font-family: AlimamaFangYuanTi;
 
         .bb {
             display: flex;
@@ -227,7 +227,7 @@ const showDetail = () => {
         align-items: center;
         color: #7B7B7B;
         font-size: 20rpx;
-        font-family: "AlimamaFangYuanTi";
+        font-family: AlimamaFangYuanTi;
 
         .footer-left-image {
             margin-right: 12rpx;
@@ -243,7 +243,7 @@ const showDetail = () => {
         .icons {
             margin-right: 24rpx;
             width: 35rpx;
-            height: 35rxp;
+            height: 35rpx;
         }
 
         .pay_detail-body {
@@ -256,7 +256,7 @@ const showDetail = () => {
         }
 
         .pay_detail {
-            font-family: "AlimamaFangYuanTi";
+            font-family: AlimamaFangYuanTi;
             color: #7B61FF;
             border-bottom: 1rpx solid #7B61FF;
         }
@@ -265,7 +265,7 @@ const showDetail = () => {
 
 .top_footer-model {
     display: flex;
-    border-width: 1rpx 0 0 0;
+    border-width: 1rpx 0 0;
     border-style: solid;
     border-color: #DADADA;
     position: relative;
@@ -291,10 +291,9 @@ const showDetail = () => {
         flex: 1;
         display: flex;
         align-items: center;
-
         color: #3D3D3D;
         font-size: 24rpx;
-        font-family: "AlimamaFangYuanTi";
+        font-family: AlimamaFangYuanTi;
         font-weight: 500;
     }
 }

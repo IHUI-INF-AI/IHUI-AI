@@ -40,11 +40,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useUserStore } from '@/store/modules/user'
 import { getvipPrice } from "@/service/vip.js";
 import ConfirmPurchasePopUp from '@/pagesA/ConfirmPurchasePopUp/index.vue'
 
-const store = useStore()
+const store = useUserStore()
 
 const showPopup = ref(false)
 const features = ref([
@@ -116,10 +116,10 @@ const features = ref([
 ])
 const dataInfo = ref({})
 
-const vipFeatures = computed(() => store.state.user.vipFeatures)
+const vipFeatures = computed(() => store.vipFeatures)
 
 function purchaseVip() {
-	return store.dispatch('user/purchaseVip')
+	return store.purchaseVip()
 }
 
 onShow(() => {
@@ -168,7 +168,7 @@ function handlePayment() {
 			font-size: 48rpx;
 			font-weight: bold;
 			margin-bottom: 16rpx;
-			text-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.3);
+			text-shadow: 0 2rpx 10rpx rgb(0 0 0 / 0.3);
 		}
 
 		.subtitle {
@@ -186,7 +186,7 @@ function handlePayment() {
 				font-size: 64rpx;
 				font-weight: bold;
 				color: #FFD700;
-				text-shadow: 0 2rpx 10rpx rgba(255, 215, 0, 0.3);
+				text-shadow: 0 2rpx 10rpx rgb(255 215 0 / 0.3);
 			}
 		}
 	}
@@ -213,15 +213,15 @@ function handlePayment() {
 		align-items: center;
 		gap: 24rpx;
 		padding: 24rpx;
-		background: rgba(255, 255, 255, 0.05);
+		background: rgb(255 255 255 / 0.05);
 		border-radius: 15rpx;
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		border: 1px solid rgb(255 255 255 / 0.1);
 
 		.feature-icon {
 			font-size: 40rpx;
 			width: 80rpx;
 			height: 80rpx;
-			background: rgba(255, 255, 255, 0.1);
+			background: rgb(255 255 255 / 0.1);
 			border-radius: 30rpx;
 			display: flex;
 			align-items: center;
@@ -240,7 +240,7 @@ function handlePayment() {
 
 			.feature-desc {
 				font-size: 24rpx;
-				color: rgba(255, 255, 255, 0.6);
+				color: rgb(255 255 255 / 0.6);
 				display: block;
 			}
 		}
@@ -263,9 +263,9 @@ function handlePayment() {
 	right: 0;
 	padding: 24rpx 40rpx;
 	padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
-	background: rgba(15, 23, 42, 0.95);
+	background: rgb(15 23 42 / 0.95);
 	backdrop-filter: blur(20px);
-	border-top: 1px solid rgba(255, 255, 255, 0.1);
+	border-top: 1px solid rgb(255 255 255 / 0.1);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;

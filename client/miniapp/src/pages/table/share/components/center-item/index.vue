@@ -73,7 +73,7 @@ function newclick(item) {
 }
 
 .center-items-button {
-  padding: 10rpx 0 0 0;
+  padding: 10rpx 0 0;
   display: flex;
   align-items: center;
   height: 50rpx;

@@ -81,13 +81,13 @@ const navigateTo = (item, idx) => {
 
 <style lang="scss" scoped>
 .my-agents-container {
-  padding: 0 0;
+  padding: 0;
   background: #fff;
   margin-bottom: 0;
 }
 
 .my-header {
-  padding: 0 20rpx 0;
+  padding: 0 20rpx;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -97,7 +97,7 @@ const navigateTo = (item, idx) => {
   font-size: 32rpx;
   font-weight: bold;
   color: #333;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 
 .team-button {
@@ -107,7 +107,7 @@ const navigateTo = (item, idx) => {
   color: #666;
   padding: 8rpx 0;
   background: transparent;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
   
   &:active {
     opacity: 0.7;
@@ -165,7 +165,7 @@ const navigateTo = (item, idx) => {
 .empty-text {
   font-size: 24rpx;
   color: #999;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 
 .agent-avatar {
@@ -184,6 +184,6 @@ const navigateTo = (item, idx) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 </style>

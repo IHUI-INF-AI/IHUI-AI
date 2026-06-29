@@ -79,11 +79,8 @@ function confirmSelection() {
 <style lang="scss" scoped>
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background-color: rgb(0 0 0 / 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -92,10 +89,10 @@ function confirmSelection() {
 
 .modal-content {
   width: 720rpx;
-  background-color: rgba(179, 199, 231, 0.65);
+  background-color: rgb(179 199 231 / 0.65);
   border-radius: 20rpx;
   overflow: hidden;
-  box-shadow: 0 0 30rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 30rpx rgb(0 0 0 / 0.1);
   position: relative;
 }
 
@@ -152,19 +149,21 @@ function confirmSelection() {
 .interest-item {
   flex: 1;
   padding: 15rpx 0;
-  background: rgba(179, 199, 231, 0.65);
+  background: rgb(179 199 231 / 0.65);
   border-radius: 20rpx;
   text-align: center;
   margin: 0 10rpx;
   font-size: 28rpx;
   color: #333;
-  box-shadow: 0 0 5rpx rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 5rpx rgb(0 0 0 / 0.05);
+
   // border: 1px solid #e8e8e8;
 }
 
 .interest-item.active {
-  background: radial-gradient(circle,rgba(63, 110, 204, 1) 0%, rgba(165, 200, 240, 1) 100%);
+  background: radial-gradient(circle,rgb(63 110 204 / 1) 0%, rgb(165 200 240 / 1) 100%);
   color:white;
+
   // border: 1px solid #e3eff7;
 }
 
@@ -178,7 +177,8 @@ function confirmSelection() {
 .modal-button {
   width: 170rpx;
   height: 70rpx;
-  background-color: rgba(179, 199, 231, 0.65);
+  background-color: rgb(179 199 231 / 0.65);
+
   // border: 1px solid #e8e8e8;
   color: black;
   display: flex;

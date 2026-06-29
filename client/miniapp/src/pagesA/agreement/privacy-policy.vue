@@ -187,7 +187,7 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background-color: #ffffff;
+    background-color: #fff;
     padding-top: var(--status-bar-height);
     box-sizing: border-box;
   }

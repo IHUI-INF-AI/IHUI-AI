@@ -27,7 +27,7 @@
         <view v-if="status.payType == 2 && !status.payCrowd" class="vip_label" style="background-color: #5E56FF;">
             <image src="https://file.aizhs.top/sys-mini/default/yibuy_label.png" mode="widthFix" class="label_icon">
             </image>
-            <text class="label_title" style="color: #FFFFFF;">已购买</text>
+            <text class="label_title" style="color: #FFF;">已购买</text>
         </view>
     </view>
 </template>
@@ -69,7 +69,7 @@ function handleClick() {
     z-index: 2;
     font-size: 24rpx;
     width: calc(4em + 46rpx);
-    padding: 0 0;
+    padding: 0;
     box-sizing: border-box;
     display: flex;
     justify-content: center;

@@ -74,7 +74,7 @@ onMounted(() => {
 // 获取数据
 async function getData() {
   try {
-    const res = await getZHZ({
+    const res: any = await getZHZ({
       uuid: uuid.value,
       type: type.value,
       pageNum: pageNum.value,

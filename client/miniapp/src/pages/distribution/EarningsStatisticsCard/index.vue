@@ -125,43 +125,51 @@ const switchTab = (tab) => {
   padding: 0 12rpx 0 8rpx;
   box-sizing: border-box;
 }
+
 .earnings-card-outer {
   margin: 0 20rpx;
   padding: 2rpx;
   border-radius: 30rpx;
   background: linear-gradient(90deg, #d19eff 0%, #fff200 100%);
+
   /* 渐变边框 */
-  box-shadow: 0 0 24rpx rgba(209,158,255,0.08);
+  box-shadow: 0 0 24rpx rgb(209 158 255 / 0.08);
 }
+
 .earnings-card {
   background: #fff;
   border-radius: 30rpx;
-  box-shadow: 0 0 8rpx rgba(0,0,0,0.03);
+  box-shadow: 0 0 8rpx rgb(0 0 0 / 0.03);
   overflow: hidden;
   position: relative;
 }
+
 .earnings-card-inner {
   padding-top: 10rpx;
   padding-bottom: 37rpx;
-  background: linear-gradient(111deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  background: linear-gradient(111deg, rgb(217 219 255 / 0.8) 3%, rgb(253 255 220 / 0.8) 104%);
 }
+
 /* 数据区 */
 .data-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin: 24rpx 24rpx 0 24rpx;
+  margin: 24rpx 24rpx 0;
 }
+
 .data-item {
   flex: 1;
   text-align: center;
 }
+
 .data-value {
   font-size: 50rpx;
   font-weight: bold;
   color: #222;
   margin-bottom: 8rpx;
 }
+
 .data-label {
   font-size: 32rpx;
   color: #646464;
@@ -171,18 +179,21 @@ const switchTab = (tab) => {
 .bottom-stats {
   display: flex;
   justify-content: space-between;
-  margin: 32rpx 24rpx 0 24rpx;
+  margin: 32rpx 24rpx 0;
 }
+
 .stat-item {
   flex: 1;
   text-align: center;
 }
+
 .stat-value {
   font-size: 50rpx;
   font-weight: bold;
   color: #222;
   margin-bottom: 6rpx;
 }
+
 .stat-label {
   font-size: 32rpx;
   color: #646464;

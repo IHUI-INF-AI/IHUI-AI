@@ -29,6 +29,40 @@
 - ❌ 禁止在 `var()` 里写 fallback（如 `var(--x, #fff)`）
 - ✅ 必须使用项目定义的 CSS 变量
 
+### 4. 带 var() 的简写属性必须用长写（CSS 规范陷阱）
+
+> **核心发现（2026-06-28 实测验证）**：CSS 规范规定，**带 `var()` 的简写属性不会在解析时展开为长写子属性**。这会导致简写无法在 cascade 中与长写子属性竞争，覆盖失效。
+
+#### 问题原理
+- `border: 1px solid var(--border-unified-color)` —— 带有 `var()`，**不展开**为 `border-width` / `border-style` / `border-color`
+- `background: var(--el-bg-color)` —— 带有 `var()`，**不展开**为 `background-color`
+- `padding: 9px 14px` —— 不带 `var()`，**正常展开**为 `padding-top` 等
+
+#### 失效场景
+当低优先级层用长写设置了子属性（如 base 层 `* { border: 0 }` 展开为 `border-width: 0`），高优先级层用带 `var()` 的简写（如 `border: 1px solid var(...)` 不展开），**高优先级层不会设置 `border-width` 子属性**，低优先级层的 `border-width: 0` 反而胜出。
+
+#### 正确写法
+```scss
+// ❌ 错误:带 var() 的简写不展开,覆盖失效
+:where(.el-card) {
+  border: 1px solid var(--border-unified-color);
+  background: var(--el-bg-color);
+}
+
+// ✅ 正确:用长写,确保子属性参与 cascade 竞争
+:where(.el-card) {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border-unified-color);
+  background-color: var(--el-bg-color);
+}
+```
+
+#### 检查清单（写样式后必须自检）
+- [ ] 所有 `border: Xpx solid var(...)` 改为 `border-width` + `border-style` + `border-color`
+- [ ] 所有 `background: var(...)` 改为 `background-color: var(...)`
+- [ ] 不带 `var()` 的简写（如 `border: none`、`padding: 9px 14px`）可保留简写（会正常展开）
+
 ---
 
 ## 二、视觉数值字典（全站唯一来源）
@@ -151,61 +185,6 @@
 | `--color-gradient-white-blue` | 白到蓝（横幅） |
 | `--color-gradient-card-left/right` | 卡片左右渐变 |
 | `--color-gradient-group` | 组背景渐变 |
-
-### 7. 对比色 token（明暗模式文字色自适应）⚠️ 强制
-
-| 变量名 | 亮色值 | 暗色值 | 用途 |
-|---|---|---|---|
-| `--color-on-primary` | `#ffffff` | `#000000` | primary 背景上的文字/图标 |
-
-**核心规则：**
-
-- `--el-color-primary` 在明暗模式下会切换（亮色=`#000` / 暗色=`#fff`）。
-- 若在 primary 背景上用 `var(--el-color-white)` / `var(--el-text-color-primary)` / `#fff` / `#000` 作为文字色，暗色模式必然"白底白字"。
-- **必须**使用 `var(--color-on-primary)`，明暗模式自动切换对比色。
-
-| 模式 | `--el-color-primary` | `--color-on-primary` | 效果 |
-|---|---|---|---|
-| 亮色 | `#000` | `#fff` | 黑底白字 |
-| 暗色 | `#fff` | `#000` | 白底黑字 |
-
-**铁律：**
-- ❌ 禁止在 primary 背景（primary 按钮 / `.is-active` / 强调块）上用 `var(--el-color-white)` / `var(--el-text-color-primary)` / `#fff` / `#000` 作为文字或图标颜色
-- ❌ 禁止为每个按钮单独写 `html.dark` 覆盖规则来修文字色
-- ✅ 必须用 `var(--color-on-primary)`，明暗模式自动适配
-- ✅ primary 按钮的 hover/active 文字也用 `var(--color-on-primary)` 或 `var(--el-button-text-color)`
-
-**错误 vs 正确：**
-```scss
-/* ❌ 暗色模式白底白字 */
-.x-button.is-active {
-  background: var(--el-color-primary);
-  color: var(--el-color-white);
-}
-
-/* ✅ 自动适配明暗模式 */
-.x-button.is-active {
-  background: var(--el-color-primary);
-  color: var(--color-on-primary);
-}
-```
-
-**适用范围：**
-- primary 按钮（含 hover/active/disabled 文字色）
-- `.is-active` / `.active` 等激活态元素
-- primary 背景上的图标 SVG：`svg { color: var(--color-on-primary) }`
-- 强调背景卡片/标签上的文字
-- 自引用 token（如 `--xxx: var(--xxx)`）必须改为 `var(--color-on-primary)`
-
-**配套 token（[element-plus-vars.scss](file:///g:/1/client/src/styles/element-plus-vars.scss)）：**
-- `--el-button-text-color` → `#000000`
-- `--el-button-hover-text-color` → `#000000`
-- `--el-button-active-text-color` → `#000000`
-
-**自检清单：**
-- [ ] 凡是 `background: var(--el-color-primary)` 的元素，文字/图标都用 `var(--color-on-primary)`？
-- [ ] 没有在 primary 背景上用 `var(--el-color-white)` / `var(--el-text-color-primary)` / `#fff` / `#000`？
-- [ ] 没有写 `html.dark` 单点覆盖来修文字色？（用 token 一次性解决）
 
 ---
 
@@ -355,17 +334,17 @@ padding-right: clamp(12px, 3vw, 24px);
 
 ## 十、自动化检查工具
 
-项目配了 npm 脚本自动检查规范执行：
+项目原配有 npm 脚本自动检查规范执行，但以下脚本因引用的脚本文件已不存在而被移除，相关检查改为手动进行：
 
-| 命令 | 作用 |
-|---|---|
-| `npm run tokens:check` | CI 检查死代码 token 数量 |
-| `npm run tokens:docs` | 自动生成字典文档 |
-| `npm run tokens:deprecated` | 检查弃用变量 |
-| `npm run tokens:naming` | 检查命名规范 |
-| `npm run tokens:usage` | 统计 token 使用情况 |
-| `npm run tokens:dark-mode` | 检查暗色模式覆盖 |
-| `npm run tokens:autocompletion` | CSS 变量自动补全 |
+| 命令（已移除） | 原作用 | 替代方式 |
+|---|---|---|
+| `npm run tokens:check` | CI 检查死代码 token 数量 | 手动检查 `docs/style/token-docs.md` 中"未使用"标记 |
+| `npm run tokens:docs` | 自动生成字典文档 | 手动维护 `docs/style/token-docs.md` |
+| `npm run tokens:deprecated` | 检查弃用变量 | 手动检查 token 状态 |
+| `npm run tokens:naming` | 检查命名规范 | 手动按命名规范审查 |
+| `npm run tokens:usage` | 统计 token 使用情况 | 手动查看 `token-docs.md` 中"使用次数"列 |
+| `npm run tokens:dark-mode` | 检查暗色模式覆盖 | 手动检查 `_dark-mode-global.scss` |
+| `npm run tokens:autocompletion` | CSS 变量自动补全 | 通过 IDE 的 CSS 变量提示完成 |
 
 ---
 
@@ -396,7 +375,7 @@ padding-right: clamp(12px, 3vw, 24px);
    - 语义化：`--app-用途`
 4. 如需暗色模式覆盖，在 [_dark-mode-global.scss](file:///g:/1/client/src/styles/_dark-mode-global.scss) 添加
 5. 在文件顶部的"Token 变更日志"中登记
-6. 运行 `npm run tokens:docs` 更新文档
+6. 手动更新 `docs/style/token-docs.md` 文档（`npm run tokens:docs` 脚本已移除）
 
 ---
 

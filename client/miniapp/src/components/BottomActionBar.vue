@@ -283,10 +283,7 @@ function handleModelClick() {
 .container {
   min-height: 100vh;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -321,13 +318,13 @@ function handleModelClick() {
 				background-color: #E6F3FA;
 				border-radius: 30rpx;
 				font-size: 30rpx;
-				color: #333333;
+				color: #333;
 			}
 
 			.placeholder-style {
-				color: #999999;
+				color: #999;
 				font-size: 28rpx;
-				font-family: "AlimamaFangYuanTi";
+				font-family: AlimamaFangYuanTi;
 			}
 
 			.send-btn {
@@ -366,10 +363,9 @@ function handleModelClick() {
   justify-content: center;
   align-items: center;
   position: fixed;
-  color: rgba(0, 0, 0, 0.4);;
-  z-index: 0;
+  color: rgb(0 0 0 / 0.4);
   bottom: 237rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   z-index: 1001;
 }
 
@@ -380,15 +376,14 @@ function handleModelClick() {
   justify-content: center;
   align-items: center;
   position: fixed;
-  color: rgba(0, 0, 0, 0.4);
-  z-index: 0;
+  color: rgb(0 0 0 / 0.4);
   bottom: 87px;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   z-index: -1;
 
   .guanwangline {
     font-weight: normal;
-    color: rgba(89, 97, 255, 0.55);
+    color: rgb(89 97 255 / 0.55);
     font-size: 30rpx;
     line-height: 55rpx;
   }
@@ -396,7 +391,6 @@ function handleModelClick() {
   .guanwangline1 {
     font-size: 20rpx;
     line-height: 20rpx;
-    t: normal;
   }
 
 }
@@ -430,19 +424,21 @@ function handleModelClick() {
 	flex-wrap: wrap;
 	position: relative;
   }
+
   .search-icon {
     width: 40rpx;
     height: 40rpx;
     margin-right: 16rpx;
   }
+
   .search-input {
     flex: 1;
     border: none;
     background: transparent;
     font-size: 30rpx;
-    color: rgba(0, 0, 0, 0.6) !important;
+    color: rgb(0 0 0 / 0.6) !important;
     font-weight: 900;
-    font-family: 'AlimamaFangYuanTi';
+    font-family: AlimamaFangYuanTi;
     outline: none;
   }
 
@@ -451,7 +447,7 @@ function handleModelClick() {
   	width: 119rpx;
   	  height: 68rpx;
   	  margin-right:0;
-  	  border-radius: 0px 30px 30px 0px;
+  	  border-radius: 0 30px 30px 0;
   	box-sizing: border-box;
   	display: flex;
   	justify-content: space-around;
@@ -495,10 +491,9 @@ function handleModelClick() {
 	  justify-content: center;
 	  align-items: center;
 	  position: fixed;
-	  color: rgba(0, 0, 0, 0.4);;
-	  z-index: 0;
+	  color: rgb(0 0 0 / 0.4);
 	  bottom: 230rpx;
-	  font-family: 'AlimamaFangYuanTi';
+	  font-family: AlimamaFangYuanTi;
 	  z-index: -1;
   }
 
@@ -508,11 +503,13 @@ function handleModelClick() {
   	display: flex;
   	justify-content: center;
   	margin-top: 15rpx;
+
   	.toodownimg{
   		width: 40rpx;
   		height: 28.81rpx;
   	}
   }
+
   .no-more-container {
   	display: flex;
   	align-items: center;
@@ -530,7 +527,7 @@ function handleModelClick() {
   .no-more-text {
   	margin: 0 9rpx;
   	color: #767676;
-  	font-family: 'AlimamaFangYuanTi';
+  	font-family: AlimamaFangYuanTi;
   	font-size: 24rpx;
   	font-weight: normal;
   	line-height: 20rpx;
@@ -564,6 +561,7 @@ function handleModelClick() {
   0%, 100% {
     height: 2rpx;
   }
+
   50% {
     height: calc(20px + 20px * var(--i) / 15);
   }
@@ -578,26 +576,23 @@ function handleModelClick() {
 }
 
 .welcome {
-  font-weight: bold;
   color: #000;
   margin-bottom: 10rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-size: 80rpx;
   font-weight: normal;
   line-height: 67rpx;
-  letter-spacing: 0rem;
+  letter-spacing: 0;
 }
 
 .brand {
   margin-bottom: 20rpx;
   align-self: flex-end;
-
-
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-size: 30rpx;
   font-weight: bold;
   text-align: center;
-  letter-spacing: 0px;
+  letter-spacing: 0;
   font-variation-settings: "BEVL" 100, "opsz" auto;
   color: #8D83FF;
 
@@ -677,19 +672,18 @@ function handleModelClick() {
 .toggle-button {
   width: calc(25% - 12rpx);
   border: 4rpx solid #fff;
-  border-width: 4rpx 4rpx 0 4rpx;
+  border-width: 4rpx 4rpx 0;
   padding: 0;
   margin: 0 8rpx 0 0;
   border-radius: 15rpx;
   font-size: 28rpx;
   transition: background-color 0.3s;
-  box-shadow: 0 0 4rpx rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(106deg, rgba(205, 208, 255, 0.3) 0%, rgba(253, 255, 225, 0.3) 100%);
-  box-shadow: 0px 0 6px 0px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(106deg, rgb(205 208 255 / 0.3) 0%, rgb(253 255 225 / 0.3) 100%);
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
   padding-left: 10rpx;
   -webkit-tap-highlight-color: transparent;
   tap-highlight-color: transparent;
@@ -701,14 +695,14 @@ function handleModelClick() {
 }
 
 .button-group-box-inner {
-  color: #000000;
+  color: #000;
   font-size: 26rpx;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 }
 
 .custom-carousel-wrapper {
-  border: 1px solid rgba(156, 156, 156, 0.3);
-  box-shadow: 0px 0px 6rpx 0px rgba(86, 71, 250, 0.3);
+  border: 1px solid rgb(156 156 156 / 0.3);
+  box-shadow: 0 0 6rpx 0 rgb(86 71 250 / 0.3);
   box-sizing: border-box;
   border-radius: 30rpx;
   overflow: hidden;
@@ -725,8 +719,8 @@ function handleModelClick() {
   position: relative;
   border-radius: 30rpx;
   padding: 4rpx;
-  background: linear-gradient(235deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 31%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%);
-  box-shadow: 0 0 16rpx rgba(0, 0, 0, 0.08);
+  background: linear-gradient(235deg, #D19EFF 6%, rgb(255 242 0 / 0.3) 31%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 73%, #CD96FF 93%);
+  box-shadow: 0 0 16rpx rgb(0 0 0 / 0.08);
 }
 
 .carousel-inner {
@@ -736,7 +730,7 @@ function handleModelClick() {
 }
 
 .search-input {
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
 }
 
 .icon-button-group {
@@ -761,15 +755,14 @@ function handleModelClick() {
   flex: none;
   width: 150rpx;
   height: 150rpx;
-  background: linear-gradient(135deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 103%);
+  background: linear-gradient(135deg, rgb(205 208 255 / 0.3) 3%, rgb(253 255 225 / 0.3) 103%);
   border-radius: 30rpx;
-  box-shadow: 0 0 4rpx rgba(0, 0, 0, 0.1);
   padding: 20rpx 10rpx 0;
   transition: background-color 0.3s;
-  box-shadow: 0px 0 4rpx 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 4rpx 0 rgb(0 0 0 / 0.3);
   box-sizing: border-box;
   border: 6rpx solid #fff;
-  border-width: 6rpx 6rpx 0 6rpx;
+  border-width: 6rpx 6rpx 0;
 }
 
 .icon-imagea {
@@ -781,8 +774,8 @@ function handleModelClick() {
 .icon-text {
   font-size: 20rpx;
   line-height: 40rpx;
-  color: rgba(0, 0, 0, 0.9);
-  font-family: "AlimamaFangYuanTi";
+  color: rgb(0 0 0 / 0.9);
+  font-family: AlimamaFangYuanTi;
 }
 
 .search-box2-img {
@@ -821,7 +814,7 @@ function handleModelClick() {
   white-space: pre-wrap;
   word-wrap: break-word;
   word-break: break-all;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 
 }
 
@@ -830,11 +823,11 @@ function handleModelClick() {
   height: 50vh !important;
   z-index: 1000;
   top: calc((100vh - 50vh) / 2);
-  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 10rpx 0 rgb(0 0 0 / 0.3);
   border-radius: 20rpx;
   overflow: hidden;
   backdrop-filter: blur(50rpx);
-  background: linear-gradient(101deg, rgba(205, 208, 255, 0.3) 4%, rgba(253, 255, 225, 0.3) 104%);
+  background: linear-gradient(101deg, rgb(205 208 255 / 0.3) 4%, rgb(253 255 225 / 0.3) 104%);
   width: calc(100% - 80rpx);
 }
 
@@ -849,6 +842,7 @@ function handleModelClick() {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -857,19 +851,13 @@ function handleModelClick() {
 .agent_back {
   background: linear-gradient(to right, #D19EFF 20%, #F68B09 50%, #3EFFBE 80%);
   position: absolute;
-  top: -300rpx;
-  left: -300rpx;
-  right: -300rpx;
-  bottom: -300rpx;
+  inset: -300rpx;
   animation: rotate 5s linear infinite;
 }
 
 .agent_content {
   position: absolute;
-  top: 4rpx;
-  left: 4rpx;
-  right: 4rpx;
-  bottom: 4rpx;
+  inset: 4rpx;
   background-color: rgb(226 226 226);
   border-radius: 20rpx;
   overflow-y: auto;
@@ -907,7 +895,7 @@ function handleModelClick() {
   overflow: hidden;
   white-space: initial;
   color: transparent;
-  background-image: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.5) 50%);
+  background-image: linear-gradient(to bottom, transparent 50%, rgb(0 0 0 / 0.5) 50%);
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -916,6 +904,7 @@ function handleModelClick() {
 	position: relative;
 	width: auto;
 	flex: none;
+
 	.imgs_list_close{
 		position: absolute;
 		top: 0;
@@ -926,12 +915,14 @@ function handleModelClick() {
 		background-color: #fff;
 		border-radius: 100px;
 	}
+
 	.imgs_list_item_img{
 		width: 100%;
 		height: 90rpx;
 		display: block;
 	}
 }
+
 .imgs_list{
 	display: flex;
 	flex-direction: row;
@@ -959,7 +950,7 @@ function handleModelClick() {
   opacity: 1;
   background: #F6F6F6;
   box-sizing: border-box;
-  border: 1px solid #EEEEEE;
+  border: 1px solid #EEE;
   width: 100%;
   float: left;
   margin-top: 20rpx;
@@ -969,15 +960,15 @@ function handleModelClick() {
   line-height: 28rpx;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: #333333;
+  color: #333;
 }
 
 .agent-content-item-question {
   background: #9A99F3;
   box-sizing: border-box;
   border: 2rpx solid;
-  border-image: linear-gradient(275deg, rgba(252, 255, 77, 0.5) -32%, rgba(76, 32, 116, 0) 5%, rgba(54, 16, 88, 0) 98%, rgba(54, 16, 88, 0.5) 129%) 2;
-  box-shadow: 0px 0px 6px 0px rgba(0, 0, 0, 0.3);
+  border-image: linear-gradient(275deg, rgb(252 255 77 / 0.5) -32%, rgb(76 32 116 / 0) 5%, rgb(54 16 88 / 0) 98%, rgb(54 16 88 / 0.5) 129%) 2;
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
   border-radius: 15rpx;
   float: right;
   padding: 20rpx;
@@ -986,9 +977,8 @@ function handleModelClick() {
   line-height: 28rpx;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-
   font-variation-settings: "BEVL" 100, "opsz" auto;
-  color: #FFFFFF;
+  color: #FFF;
 }
 
 .compan {
@@ -1012,6 +1002,7 @@ function handleModelClick() {
   0% {
     transform: translateX(0);
   }
+
   100% {
     transform: translateX(-3330%);
   }
@@ -1053,7 +1044,7 @@ function handleModelClick() {
 
 .lianjie_text {
   color: #979797;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
   font-size: 36rpx;
   text-align: center;
 }
@@ -1069,10 +1060,11 @@ function handleModelClick() {
 .z_index_1000 {
   z-index: 1000;
 }
+
 .btn_join{
   background: url('/static/images/shequ_back.png') no-repeat center center;
   background-size: 100% 100%;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
   font-size: 30rpx;
   color: #3D3D3D;
   width: 219rpx;
@@ -1086,7 +1078,7 @@ function handleModelClick() {
 
 
 .input-area-back{
-	background: linear-gradient(239deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 32%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%);
+	background: linear-gradient(239deg, #D19EFF 6%, rgb(255 242 0 / 0.3) 32%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 73%, #CD96FF 93%);
 	padding: 2rpx;
 	border-radius: 30rpx;
 	overflow: hidden;
@@ -1103,6 +1095,7 @@ function handleModelClick() {
   justify-content: center;
   gap: 3px;
 }
+
 .line {
   height: 6rpx;
   width: 6rpx;
@@ -1110,141 +1103,169 @@ function handleModelClick() {
   border-radius: 5px;
   transition: all 1s;
 }
+
 .line1 {
   left: 8px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 0.25s;
 }
-@-moz-keyframes move {
-  0% {
-    top: 0;
-    height: 65rpx;
-  }
-  100% {
-    top: 15rpx;
-    height: 25rpx;
-  }
-}
-@-webkit-keyframes move {
-  0% {
-    top: 0;
-    height: 65rpx;
-  }
-  100% {
-    top: 15rpx;
-    height: 25rpx;
-  }
-}
-@-o-keyframes move {
-  0% {
-    top: 0;
-    height: 65rpx;
-  }
-  100% {
-    top: 15rpx;
-    height: 25rpx;
-  }
-}
+
 @keyframes move {
   0% {
     top: 0;
     height: 65rpx;
   }
+
   100% {
     top: 15rpx;
     height: 25rpx;
   }
 }
+
+@keyframes move {
+  0% {
+    top: 0;
+    height: 65rpx;
+  }
+
+  100% {
+    top: 15rpx;
+    height: 25rpx;
+  }
+}
+
+@keyframes move {
+  0% {
+    top: 0;
+    height: 65rpx;
+  }
+
+  100% {
+    top: 15rpx;
+    height: 25rpx;
+  }
+}
+
+@keyframes move {
+  0% {
+    top: 0;
+    height: 65rpx;
+  }
+
+  100% {
+    top: 15rpx;
+    height: 25rpx;
+  }
+}
+
 .line2 {
   left: 16px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 0.5s;
 }
+
 .line3 {
   left: 24px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 0.75s;
 }
+
 .line4 {
   left: 32px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 1s;
 }
+
 .line5 {
   left: 40px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 1.25s;
 }
+
 .line6 {
   left: 48px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 1.5s;
 }
+
 .line7 {
   left: 56px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 1.75s;
 }
+
 .line8 {
   left: 64px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 2s;
 }
+
 .line9 {
   left: 72px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 2.25s;
 }
+
 .line10 {
   left: 80px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 2.5s;
 }
+
 .line11 {
   left: 88px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 2.75s;
 }
+
 .line12 {
   left: 96px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 3s;
 }
+
 .line13 {
   left: 104px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 3.25s;
 }
+
 .line14 {
   left: 112px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 3.5s;
 }
+
 .line15 {
   left: 120px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 3.75s;
 }
+
 .line16 {
   left: 128px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 4s;
 }
+
 .line17 {
   left: 136px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 4.25s;
 }
+
 .line18 {
   left: 144px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 4.5s;
 }
+
 .line19 {
   left: 152px;
   animation: move 0.75s linear infinite alternate;
   animation-delay: 4.75s;
 }
+
 .line20 {
   left: 160px;
   animation: move 0.75s linear infinite alternate;

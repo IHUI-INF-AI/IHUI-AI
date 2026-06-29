@@ -160,9 +160,7 @@ function buyTokens() {
 
 onLoad((options) => {
 	const selectedIndustry = uni.getStorageSync('selectedIndustry');
-	if (selectedIndustry) {
-	}
-	
+
 	tokenBalance.value = uni.getStorageSync('tokenBalance') || 0;
 	
 	nextTick(() => {
@@ -194,7 +192,6 @@ onLoad((options) => {
 	flex: 1;
 	padding: 20rpx;
 	overflow-y: scroll;
-
 	height: calc(100vh - 160rpx);
 	-webkit-overflow-scrolling: touch;
 }
@@ -213,7 +210,7 @@ onLoad((options) => {
 			background-size: 200rpx;
 			background-position: right -50px bottom -40px;
 			background-repeat: no-repeat;
-			background-color: rgba(252, 255, 242, 0.9);
+			background-color: rgb(252 255 242 / 0.9);
 			min-width: 500rpx;
 		}
 	}
@@ -249,13 +246,13 @@ onLoad((options) => {
 		background-position: center;
 		padding: 20rpx;
 		border-radius: 20rpx;
-		box-shadow: 0 0 5rpx rgba(0, 0, 0, 0.1);
+		box-shadow: 0 0 5rpx rgb(0 0 0 / 0.1);
 		
 
 		.message-text1, .message-text2, .message-text {
 			position: relative;
 			z-index: 2;
-			text-shadow: 0 0 3px rgba(255, 255, 255, 0.7);
+			text-shadow: 0 0 3px rgb(255 255 255 / 0.7);
 		}
 
 		.message-text1 {
@@ -263,6 +260,7 @@ onLoad((options) => {
 			line-height: 1.5;
 			color: #333;
 		}
+
 		.message-text2 {
 			font-size: 32rpx;
 			line-height: 1.5;

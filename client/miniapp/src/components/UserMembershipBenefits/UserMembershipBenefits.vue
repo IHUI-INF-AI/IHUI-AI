@@ -1,6 +1,6 @@
 <template>
 <view>
-	<image src="/static/images/default/vip_message.jpg" mode="widthFix" style="width: 100%;height: 321rpx;display: block;margin-bottom: 10rpx;border-radius: 15rpx;box-shadow: 4rpx 4rpx 4rpx 0px rgba(0, 0, 0, 0.07);"></image>
+	<image src="/static/images/default/vip_message.jpg" mode="widthFix" style="width: 100%;height: 321rpx;display: block;margin-bottom: 10rpx;border-radius: 15rpx;box-shadow: 4rpx 4rpx 4rpx 0 rgb(0 0 0 / 0.07);"></image>
 	<view class="border_back" style=" margin-top: 4rpx;padding: 2rpx;border-radius: 15rpx;position: relative;min-height: 344rpx;overflow: visible;" >
 		<view style="width: 345rpx;height: 344rpx;position: absolute;right: 0;bottom: 0;z-index: 2;">
 			<image src="/static/images/default/back_hudie.png" mode="widthFix" style="width: 100%;height: 100%;display: block;"></image>
@@ -13,7 +13,7 @@
 			<view class="card-title" style="padding-top: 10rpx;padding-left: 20rpx;padding-bottom: 10rpx;" >享受权益</view>
 			<view>
 				<view class="card-vip"  style="margin-left: 50rpx;padding-right: 15rpx;color: #7abaf5;" >限时588元/<text style="text-decoration: line-through;" >1288</text>元开通VIP/年</view>
-				<view class="card-vip"  style="margin-left: 50rpx;padding-right: 15rpx;color: #ff0000;" >限时3888元/<text style="text-decoration: line-through;" >18888</text>元开通操盘手/年</view>
+				<view class="card-vip"  style="margin-left: 50rpx;padding-right: 15rpx;color: #f00;" >限时3888元/<text style="text-decoration: line-through;" >18888</text>元开通操盘手/年</view>
 			</view>
 		</view>
 		

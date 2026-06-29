@@ -133,14 +133,14 @@ export function useChat() {
     try {
       const { request: req } = await import('../api/index')
       const res = await req({ url: `/api/chat/history?page=${page}&pageSize=${pageSize}`, method: 'GET' })
-      const history: ChatMessage[] = (res.data || []).map((item: any) => ({
-        id: item.id,
-        type: item.type || 'text',
-        content: item.content,
-        senderId: item.senderId,
-        senderName: item.senderName,
-        senderAvatar: item.senderAvatar,
-        timestamp: item.timestamp,
+      const history: ChatMessage[] = ((res.data as Record<string, unknown>[]) || []).map((item) => ({
+        id: String(item.id ?? ''),
+        type: (item.type as MessageType) || 'text',
+        content: String(item.content ?? ''),
+        senderId: String(item.senderId ?? ''),
+        senderName: String(item.senderName ?? ''),
+        senderAvatar: String(item.senderAvatar ?? ''),
+        timestamp: Number(item.timestamp ?? 0),
         isSelf: false,
       }))
       const merged = [...history, ...messages.value]

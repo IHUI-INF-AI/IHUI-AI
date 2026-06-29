@@ -10,7 +10,7 @@
                         <view class="agent_content_title_top">
                             <image src="https://file.aizhs.top/sys-mini/default/sikao.png"
                                 class="agent_content_title_top_img" mode="widthFix"></image>
-                            <text style="color: #000000;">视频上传中</text>
+                            <text style="color: #000;">视频上传中</text>
                             <div class="loader-container">
                                 <div class="loader-dot"></div>
                                 <div class="loader-dot"></div>
@@ -54,11 +54,8 @@ const thinkingProgress = computed(() => {
 .modal_overlay {
     position: fixed;
     z-index: 1001;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.3);
+    inset: 0;
+    background: rgb(0 0 0 / 0.3);
 }
 
 .agent-content {
@@ -68,7 +65,7 @@ const thinkingProgress = computed(() => {
     white-space: pre-wrap;
     word-wrap: break-word;
     word-break: break-all;
-    font-family: "AlimamaFangYuanTi";
+    font-family: AlimamaFangYuanTi;
 }
 
 .agent-content>view::after {
@@ -84,10 +81,10 @@ const thinkingProgress = computed(() => {
     z-index: 1001;
     top: calc((100vh - 50vh) / 2);
     left: 60rpx;
-    box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 10rpx 0 rgb(0 0 0 / 0.3);
     border-radius: 20rpx;
     overflow: hidden;
-    background: linear-gradient(101deg, rgba(255, 255, 255, 1) 4%, rgba(255, 255, 225, 1) 104%);
+    background: linear-gradient(101deg, rgb(255 255 255 / 1) 4%, rgb(255 255 225 / 1) 104%);
     width: calc(100% - 80rpx);
 }
 
@@ -111,19 +108,13 @@ const thinkingProgress = computed(() => {
 .agent_back {
     background: linear-gradient(to right, #f691ff 30%, #090df6 50%, #3EFFBE 70%);
     position: absolute;
-    top: -300rpx;
-    left: -300rpx;
-    right: -300rpx;
-    bottom: -300rpx;
+    inset: -300rpx;
     animation: rotate 5s linear infinite;
 }
 
 .agent_content {
     position: relative;
-    top: 4rpx;
-    left: 4rpx;
-    right: 4rpx;
-    bottom: 4rpx;
+    inset: 4rpx;
     background-color: rgb(226 226 226);
     border-radius: 20rpx;
     overflow-y: auto;
@@ -161,7 +152,7 @@ const thinkingProgress = computed(() => {
 
 .thinking-progress-bar {
     height: 100%;
-    background: linear-gradient(214deg, #8B0BFF 3%, #FFF200 30%, #ff0000 55%, #FFF200 75%, #9014FF 96%);
+    background: linear-gradient(214deg, #8B0BFF 3%, #FFF200 30%, #f00 55%, #FFF200 75%, #9014FF 96%);
     background-size: 200% 100%;
     border-radius: 12rpx;
     transition: width 0.3s ease;
@@ -234,19 +225,19 @@ const thinkingProgress = computed(() => {
     0% {
         transform: scale(0.8);
         background-color: #d7b3fc;
-        box-shadow: 0 0 0 0 rgb(196 178 252 / 70%);
+        box-shadow: 0 0 0 0 rgb(196 178 252 / 0.7);
     }
 
     50% {
         transform: scale(1.2);
         background-color: #ae44d1;
-        box-shadow: 0 0 0 0.625em rgba(178, 212, 252, 0);
+        box-shadow: 0 0 0 0.625em rgb(178 212 252 / 0);
     }
 
     100% {
         transform: scale(0.8);
         background-color: #d7b3fc;
-        box-shadow: 0 0 0 0 rgb(196 178 252 / 70%);
+        box-shadow: 0 0 0 0 rgb(196 178 252 / 0.7);
     }
 }
 
@@ -271,7 +262,7 @@ const thinkingProgress = computed(() => {
     overflow: hidden;
     white-space: initial;
     color: transparent;
-    background-image: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.5) 50%);
+    background-image: linear-gradient(to bottom, transparent 50%, rgb(0 0 0 / 0.5) 50%);
     -webkit-background-clip: text;
     background-clip: text;
 }
@@ -285,7 +276,7 @@ const thinkingProgress = computed(() => {
     opacity: 1;
     background: #F6F6F6;
     box-sizing: border-box;
-    border: 1px solid #EEEEEE;
+    border: 1px solid #EEE;
     width: 100%;
     float: left;
     margin-top: 20rpx;
@@ -294,14 +285,14 @@ const thinkingProgress = computed(() => {
     font-weight: normal;
     line-height: 28rpx;
     letter-spacing: 0.02em;
-    color: #333333;
+    color: #333;
 }
 
 .agent-content-item-question {
     background: #9A99F3;
     box-sizing: border-box;
     border: 2rpx solid;
-    border-image: linear-gradient(275deg, rgba(252, 255, 77, 0.5) -32%, rgba(76, 32, 116, 0) 5%, rgba(54, 16, 88, 0) 98%, rgba(54, 16, 88, 0.5) 129%) 2;
+    border-image: linear-gradient(275deg, rgb(252 255 77 / 0.5) -32%, rgb(76 32 116 / 0) 5%, rgb(54 16 88 / 0) 98%, rgb(54 16 88 / 0.5) 129%) 2;
     border-radius: 15rpx;
     float: right;
     margin-top: 20rpx;
@@ -311,6 +302,6 @@ const thinkingProgress = computed(() => {
     line-height: 28rpx;
     letter-spacing: 0.02em;
     font-variation-settings: "BEVL" 100, "opsz" auto;
-    color: #FFFFFF;
+    color: #FFF;
 }
 </style>

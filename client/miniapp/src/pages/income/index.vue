@@ -22,9 +22,9 @@ import Accumulation from '@/pages/income/components/accumulation/index.vue'
 import { getUserCommissionDetail } from '@/service/trader.js'
 
 // 数据
-const today_commission = ref('')
-const total_earnings = ref('')
-const balance = ref('')
+const today_commission = ref(0)
+const total_earnings = ref(0)
+const balance = ref(0)
 const list = ref<any[]>([])
 const image = ref('https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/user/左.png')
 
@@ -37,7 +37,7 @@ async function loadCommissionDetail() {
   try {
     const data = uni.getStorageSync('data')
     const { id } = data
-    const res = await getUserCommissionDetail(id)
+    const res: any = await getUserCommissionDetail(id)
     total_earnings.value = res.data.total_earnings
     today_commission.value = res.data.today_commission
     balance.value = res.data.balance

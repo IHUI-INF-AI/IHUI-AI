@@ -1,6 +1,6 @@
 <template>
     <view class="drawer_back" :class="{ 'drawer-open': tagWrapShow }">
-      <view class="drawer_back" :class="{ 'drawer-open': tagWrapShow }" v-show="tagWrapShow" style="background-color: rgba(0, 0, 0, 0.4);" @click="close_drawer"></view>
+      <view class="drawer_back" :class="{ 'drawer-open': tagWrapShow }" v-show="tagWrapShow" style="background-color: rgb(0 0 0 / 0.4);" @click="close_drawer"></view>
       <view class="drawer_border" :class="{ 'drawer-open': tagWrapShow }">
           <view class="drawer" :style="{paddingTop: getPaddingTop(statusBarHeight)}">
           <!-- Drawer header with image -->
@@ -382,10 +382,12 @@ function handleSettingsClick() {
 	left: -500rpx;
 	width: 500rpx;
 	z-index: 1006;
+
 	// background: linear-gradient(214deg, #8B0BFF 3%, #FFF200 30%, #C0C6FF 55%, #FFF200 75%, #9014FF 96%);
 	padding: 0;
 	box-sizing: border-box;
 	border-radius: 0 30rpx 30rpx 0;
+
 	// box-shadow: 0px 0px 6rpx 0px rgba(0, 0, 0, 0.3);
 	transition: all 0.3s ease;
 
@@ -421,12 +423,14 @@ function handleSettingsClick() {
 		margin: 54rpx auto 0;
 		display: block;
 	}
+
 	.drawer-image1 {
 		width: 100rpx;
 		height: 100rpx;
 		margin: 10rpx auto 0;
 		display: block;
 	}
+
 	.drawer-image2 {
 		width: 100rpx;
 		height: 100rpx;
@@ -537,9 +541,11 @@ function handleSettingsClick() {
 	color: #0d11fc;
 	font-weight: bold;
 }
+
 .drawer-header{
   .logobox {
     padding: 9rpx 0;
+
     // border-bottom: 1px solid #D8D8D8;
     display: flex;
     justify-content: center;
@@ -586,13 +592,15 @@ function handleSettingsClick() {
   }
 
 }
+
 .drawer_menu{
 	padding: 15rpx 28rpx 25rpx;
 	box-sizing: border-box;
 	display: flex;
 	justify-content: space-between;
-	border-bottom: 1px solid rgb(239 239 239 / 35%);
+	border-bottom: 1px solid rgb(239 239 239 / 0.35);
 }
+
 .drawer_menu_item{
 	display: flex;
 	flex-direction: column;
@@ -600,11 +608,13 @@ function handleSettingsClick() {
 	justify-content: center;
 	cursor: pointer;
 }
+
 .drawer_menu_label{
 	height: 60rpx;
 	width: 60rpx;
 	display: block;
 }
+
 .drawer_menu_text{
 	font-size: 24rpx;
 	color: #000;
@@ -617,12 +627,14 @@ function handleSettingsClick() {
   flex: none;
   line-height: 56rpx;
   color: #000;
-  padding: 4rpx 28rpx 4rpx;
+  padding: 4rpx 28rpx;
   position: relative;
 }
+
 .label_title:first-child{
   padding-top: 9rpx;
 }
+
 .label_title::after{
   content: "";
   left: 23rpx;
@@ -633,37 +645,44 @@ function handleSettingsClick() {
   position: absolute;
   display: none;
 }
+
 .label_content{
   position: relative;
 }
+
 .label_content::after{
   content: "";
   left: 0;
   right: 0;
   height: 1px;
   bottom: 0;
-  background-color: rgb(239 239 239 / 35%);
+  background-color: rgb(239 239 239 / 0.35);
   position: absolute;
 }
+
 .label_title image{
   display: block;
   float: left;
   margin-right: 22rpx;
 }
+
 .agent-content_line {
 	position: fixed;
 	bottom: 315rpx;
 	left:20rpx;
 	width: 80px;
 	height: 608rpx;
+
 	// background: #000;
 	z-index: 1001;
 	border-left: 4rpx solid #CD96FF;
 	border-top: 4rpx solid #CD96FF;
 	border-top-left-radius: 20px;
+
 	// border-image: linear-gradient(186deg, #D19EFF 0%, rgba(255, 242, 0, 0.3) 29%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 76%, #CD96FF 99%) ;
 	// animation: drawLine 2s forwards;
 }
+
 .agent_content_topLine{
 	position: absolute;
 	width: 16rpx;
@@ -680,25 +699,31 @@ function handleSettingsClick() {
 	0% {
 		transform: translate(0, 0);
 	}
+
 	70% {
 		transform: translate(0, -584rpx);
 	}
+
 	75% {
 		transform: translate(20rpx, -602rpx);
 	}
+
 	100% {
 		transform: translate(80px, -602rpx);
 	}
 }
+
 .back_index_btn_bor{
 	display: flex;
 	flex-shrink: 0;
 }
+
 .back_index_btn_bor::after{
 	content: "";
 	clear: both;
 	display: block;
 }
+
 .back_index_btn{
 	margin: 0 auto;
 	width: auto;
@@ -709,9 +734,10 @@ function handleSettingsClick() {
 	font-size: 32rpx;
 	line-height: 33rpx;
 	float: left;
-	color: rgba(0,0,0,0.7);
+	color: rgb(0 0 0 / 0.7);
 	background: #ECF6FF;
 }
+
 .back_index_icon{
 	display: block;
 	float: left;
@@ -719,6 +745,7 @@ function handleSettingsClick() {
 	height: 33rpx;
 	margin-right: 10rpx;
 }
+
 .drawer-menu-header {
   flex-shrink: 0;
   padding: 0 14rpx;
@@ -741,17 +768,15 @@ function handleSettingsClick() {
 .bottom_userInfo{
   left: 0;
   right: 0;
-  padding-left: 28rpx;
-  padding-right: 28rpx;
-  padding-top: 20rpx;
-  padding-bottom: 20rpx;
+  padding: 20rpx 28rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background-color: #fff;
   flex-shrink: 0;
-  border-top: 1px solid rgb(239 239 239 / 35%);
+  border-top: 1px solid rgb(239 239 239 / 0.35);
 }
+
 .user_avatar{
   width: 48rpx;
   height: 48rpx;
@@ -759,11 +784,13 @@ function handleSettingsClick() {
   border-radius: 8rpx;
   flex-shrink: 0;
 }
+
 .set_btn{
   width: 48rpx;
   height: 44rpx;
   flex-shrink: 0;
 }
+
 .user_nickname{
   font-size: 28rpx;
   color: #000;

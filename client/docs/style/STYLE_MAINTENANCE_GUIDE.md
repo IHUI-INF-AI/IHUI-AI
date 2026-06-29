@@ -13,8 +13,8 @@
 # 检查样式健康度
 npm run check:health
 
-# 检查硬编码颜色
-npm run check:colors
+# 检查硬编码颜色（`npm run check:colors` 已移除，建议用 stylelint 或手动检查 var(--...) 替代）
+# npm run check:colors  # 已移除
 
 # 检查CSS变量使用
 npm run check:variables
@@ -79,7 +79,7 @@ npm run style:check
 | 工具 | 命令 | 用途 |
 |------|------|------|
 | 综合健康度 | `npm run check:health` | 总体健康评分 |
-| 硬编码颜色 | `npm run check:colors` | 颜色检测 |
+| 硬编码颜色 | `npm run check:colors`（已移除） | 建议用 stylelint 或手动检查 |
 | CSS变量分析 | `npm run check:variables` | 变量使用分析 |
 | 智能清理 | `npm run check:smart-cleanup` | 变量清理建议 |
 
@@ -89,10 +89,10 @@ npm run style:check
 
 ### 问题1：硬编码颜色过多
 
-**症状**: `npm run check:colors` 报告大量匹配
+**症状**: 硬编码颜色扫描报告大量匹配（`npm run check:colors` 已移除，建议用 stylelint 或手动检查）
 
 **解决方案**:
-1. 运行 `npm run check:colors` 查看详情
+1. 用 stylelint 或手动搜索 `#`、`rgb(`、`rgba(` 查看详情（`npm run check:colors` 已移除）
 2. 优先替换高频出现的颜色
 3. 使用CSS变量替代
 
@@ -132,7 +132,7 @@ npm run style:check
 
 ### 场景执行步骤（按周期做）
 
-**每周**：运行 `npm run lint` 与 `npm run build`，确认无新增样式错误；若有 `npm run check:health` 则运行并对比上次得分。运行 `npm run check:colors` 查看硬编码颜色报告，或抽查新增文件是否引入硬编码，若有则改为 CSS 变量（见 dark-mode-guide §7）。
+**每周**：运行 `npm run lint` 与 `npm run build`，确认无新增样式错误；若有 `npm run check:health` 则运行并对比上次得分。抽查新增文件是否引入硬编码颜色（`npm run check:colors` 已移除，建议用 stylelint 或手动搜索 `#`、`rgb(` 等关键字），若有则改为 CSS 变量（见 dark-mode-guide §7）。
 
 **每月**：若有 `npm run check:smart-cleanup` 则运行；否则在 `_design-tokens.scss`、`variables.scss` 及各 `*-unified.scss` 中人工查找未引用变量并评估是否可删。更新本指南或 STYLE_FLATTEN 等文档中的示例与链接。
 

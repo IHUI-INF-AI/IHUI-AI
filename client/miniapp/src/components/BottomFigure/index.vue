@@ -65,7 +65,7 @@ function handleItemClick(index) {
 
 <style scoped>
 .image-container {
-  margin: 32rpx auto 0 auto;
+  margin: 32rpx auto 0;
   position: relative;
   width: 100%;
   height: 298rpx;
@@ -100,7 +100,7 @@ function handleItemClick(index) {
 .dot {
   width: 16rpx;
   height: 16rpx;
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: rgb(255 255 255 / 0.5);
   border-radius: 50%;
   margin: 0 10rpx; 
   transition: all 0.3s;
@@ -108,7 +108,7 @@ function handleItemClick(index) {
 
 .dot.active {
   width: 32rpx; 
-  background-color: #ffffff;
+  background-color: #fff;
   border-radius: 8rpx; 
 }
 </style>

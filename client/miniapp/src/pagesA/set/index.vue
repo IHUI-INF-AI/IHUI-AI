@@ -37,11 +37,13 @@ onLoad(() => {});
   padding: 20rpx 30rpx;
   background-color: #f5f5f5;
 }
+
 .center-item {
   width: 100%;
 }
+
 .center-item-text {
-  padding: 20rpx 20rpx;
+  padding: 20rpx;
   background-color: white;
   border-radius: 20rpx;
 }

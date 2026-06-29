@@ -2,13 +2,16 @@
   "name": "@aizhs/shared-ui",
   "version": "1.0.0",
   "description": "共享 UI 组件 - 无 Element Plus 依赖的展示组件",
-  "main": "dist/index.js",
-  "module": "dist/index.esm.js",
+  "main": "index.js",
+  "module": "index.js",
   "files": [
-    "dist"
+    "index.js",
+    "Button.vue",
+    "Card.vue",
+    "Empty.vue"
   ],
   "scripts": {
-    "build": "echo 'Build shared-ui'"
+    "build": "echo 'shared-ui: 源码直接引用，无需预编译（Vue SFC 由消费方 Vite 编译）'"
   },
   "peerDependencies": {
     "vue": "^3.0.0"

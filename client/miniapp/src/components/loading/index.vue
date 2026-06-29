@@ -22,17 +22,18 @@
     justify-content: center;
     align-items: center;
     z-index: 991;
+
     /* 确保足够高的z-index覆盖所有元素 */
 }
 
 .loading-container {
-    background-color: #ffffff;
+    background-color: #fff;
     padding: 40rpx;
     border-radius: 20rpx;
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 0 20rpx rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 20rpx rgb(0 0 0 / 0.1);
 }
 
 .loading-spinner {

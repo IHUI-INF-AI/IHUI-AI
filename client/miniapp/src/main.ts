@@ -53,8 +53,10 @@ export function createApp() {
 
   // 初始化微信云开发环境
   // #ifdef MP-WEIXIN
-  if (typeof wx !== 'undefined' && wx.cloud) {
-    wx.cloud.init({
+  type WxCloud = { init(opts: { env: string; traceUser: boolean }): void }
+  const wxWithCloud = wx as unknown as { cloud?: WxCloud }
+  if (typeof wx !== 'undefined' && wxWithCloud.cloud) {
+    wxWithCloud.cloud.init({
       env: 'cloud1-5gszljn762dc4719',
       traceUser: true,
     })

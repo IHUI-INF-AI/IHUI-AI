@@ -317,7 +317,7 @@ function selectnati(val) {
 .container-box {
 	height: 100vh;
 	max-height: 100vh;
-	padding: 0 30rpx 0 30rpx;
+	padding: 0 30rpx;
 	display: flex;
 	flex-direction: column;
 	box-sizing: border-box;
@@ -402,17 +402,14 @@ function selectnati(val) {
 }
 
 .input-nbox-focused {
-	background: #FFFFFF;
+	background: #FFF;
 	border-color: transparent;
 }
 
 .input-nbox-focused::after {
 	content: '';
 	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
+	inset: 0;
 	border-radius: 25rpx;
 	border: 1.5px solid #000;
 	pointer-events: none;
@@ -428,7 +425,7 @@ function selectnati(val) {
 }
 
 .input-nbox-focused .input-box {
-	background: #FFFFFF;
+	background: #FFF;
 }
 
 .input-icon {
@@ -445,7 +442,7 @@ function selectnati(val) {
 	letter-spacing: 0rpx;
 	color: #979797;
 	margin-right: 0rpx;
-	font-family: Source Han Serif CN;
+	font-family: "Source Han Serif CN";
 	font-size: 36rpx;
 	font-weight: normal;
 }
@@ -459,7 +456,7 @@ function selectnati(val) {
 }
 
 .input-text {
-	font-family: 'AlimamaFangYuanTi';
+	font-family: AlimamaFangYuanTi;
 	font-size: 36rpx;
 	font-weight: 300;
 	letter-spacing: 0rpx;
@@ -542,7 +539,7 @@ function selectnati(val) {
 	font-size: 32rpx;
 	font-weight: bold;
 	line-height: 25rpx;
-	letter-spacing: 0px;
+	letter-spacing: 0;
 	color: #847CFF;
 	margin-left: -15px;
 }
@@ -569,7 +566,7 @@ function selectnati(val) {
 	transition: bottom 0.25s ease;
 	display: flex;
 	flex-direction: column;
-	padding: 0 0 30rpx 0;
+	padding: 0 0 30rpx;
 	box-sizing: border-box;
 }
 
@@ -584,8 +581,8 @@ function selectnati(val) {
 .login-btn {
 	width: 532rpx;
 	height: 100rpx;
-	margin: 10rpx auto 0 auto;
-	background: rgba(0, 0, 0, 0);
+	margin: 10rpx auto 0;
+	background: rgb(0 0 0 / 0);
 }
 
 .btn {

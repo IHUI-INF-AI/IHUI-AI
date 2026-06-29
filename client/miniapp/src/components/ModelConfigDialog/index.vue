@@ -60,7 +60,7 @@
             <view v-if="modelName === '通义语音合成'">
                 <text class="font_t title">选择系统音色</text>
                 <picker :value="selectedVoiceIndex" :range="systemVoices" :range-key="'remark'" @change="voiceChange">
-                    <view class="uni-input" style="color: #000000;">
+                    <view class="uni-input" style="color: #000;">
                         {{ selectedVoiceName }}
                     </view>
                 </picker>
@@ -826,15 +826,15 @@ onMounted(() => {
     width: 290rpx !important;
     height: 38rpx !important;
     border-radius: 10rpx !important;
-    background: rgba(218, 218, 218, 0.37) !important;
-    color: #000000 !important;
+    background: rgb(218 218 218 / 0.37) !important;
+    color: #000 !important;
 }
 
 .tip_input {
     box-sizing: border-box !important;
     height: 38rpx !important;
-    background: rgba(218, 218, 218, 0.37) !important;
-    color: #000000 !important;
+    background: rgb(218 218 218 / 0.37) !important;
+    color: #000 !important;
 }
 
 .switch_wrapper {
@@ -872,9 +872,9 @@ onMounted(() => {
     box-sizing: border-box;
     border: 1rpx solid #E8E8E8;
     border-radius: 16rpx;
-    background-color: #FFFFFF;
+    background-color: #FFF;
     font-size: 28rpx;
-    color: #333333;
+    color: #333;
 }
 
 .f_b {
@@ -886,7 +886,7 @@ onMounted(() => {
 .font_t.title {
     font-size: 28rpx;
     font-weight: 500;
-    color: #333333;
+    color: #333;
 }
 
 .icon-button-group {
@@ -919,12 +919,12 @@ onMounted(() => {
     right: -16rpx;
     width: 32rpx;
     height: 32rpx;
-    background-color: #ffffff;
+    background-color: #fff;
     border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2rpx 8rpx rgb(0 0 0 / 0.15);
     z-index: 10;
 }
 
@@ -951,7 +951,7 @@ onMounted(() => {
 }
 
 .color_bg {
-    background: linear-gradient(239deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 32%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%);
+    background: linear-gradient(239deg, #D19EFF 6%, rgb(255 242 0 / 0.3) 32%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 73%, #CD96FF 93%);
     padding: 2rpx;
     border-radius: 30rpx;
     overflow: hidden;

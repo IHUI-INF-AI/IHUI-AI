@@ -45,7 +45,7 @@
         <text>注意:"投诉与反馈"页面是我们系统内建的用户反馈渠道。</text>
       </view>
       <view class="fk_form">
-        <view class="title"><text style="color: #ff0000;">*</text>姓名</view>
+        <view class="title"><text style="color: #f00;">*</text>姓名</view>
         <input 
           class="v_title_f m_b" 
           v-model="formInfo.username" 
@@ -55,7 +55,7 @@
           :disabled="type != 'add'"
         >
 
-        <view class="title"><text style="color: #ff0000;">*</text>联系方式</view>
+        <view class="title"><text style="color: #f00;">*</text>联系方式</view>
         <input 
           class="v_title_f m_b" 
           v-model="formInfo.phone" 
@@ -65,7 +65,7 @@
           :disabled="type != 'add'"
         >
 
-        <view class="title"><text style="color: #ff0000;">*</text>描述你遇到的问题</view>
+        <view class="title"><text style="color: #f00;">*</text>描述你遇到的问题</view>
         <textarea 
           class="font_nomal text_area" 
           auto-height 
@@ -109,7 +109,7 @@ import { ref, reactive, onMounted } from 'vue'
 import NavigationBars from '@/components/navigation-bars/index.vue'
 import { userFeedback, userFeedbackList } from '@/service/study.js'
 import Loading from '@/components/loading/index.vue'
-import { uploadPictures } from '@/utils/uploadImage.js'
+import { uploadSinglePicture } from '@/utils/uploadImage.js'
 
 // 状态
 const loading = ref(false)
@@ -138,7 +138,7 @@ onMounted(() => {
 async function loadFeedbackList() {
   loading.value = true
   try {
-    const res = await userFeedbackList({ pageNum: pageNum.value })
+    const res: any = await userFeedbackList({ pageNum: pageNum.value })
     if (res && res.data) {
       list.value = res.data.list || []
     }
@@ -194,14 +194,16 @@ async function uploadImage() {
 
     if (res.tempFilePaths) {
       for (const filePath of res.tempFilePaths) {
-        const uploadRes = await uploadPictures(filePath)
+        const uploadRes = await uploadSinglePicture(filePath)
         if (uploadRes && uploadRes.url) {
           formInfo.filePaths.push(uploadRes.url)
         }
       }
+      uni.showToast({ title: '上传成功', icon: 'success' })
     }
   } catch (error) {
     console.error('上传图片失败:', error)
+    uni.showToast({ title: '上传图片失败', icon: 'none' })
   }
 }
 

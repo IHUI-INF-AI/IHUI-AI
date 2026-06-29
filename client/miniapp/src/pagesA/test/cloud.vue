@@ -194,7 +194,7 @@ onLoad(() => {
 		border-radius: 20rpx;
 		padding: 30rpx;
 		margin-bottom: 30rpx;
-		box-shadow: 0 0 16rpx rgba(0,0,0,0.05);
+		box-shadow: 0 0 16rpx rgb(0 0 0 / 0.05);
 		
 		.title {
 			font-size: 36rpx;

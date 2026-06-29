@@ -2,7 +2,7 @@
 <template>
   <view style="position: relative;" @click="closeTag">
     <!-- 赛道选择 -->
-    <view v-if="tagWrapShow" class="tag-wrap" style="padding:0 0">
+    <view v-if="tagWrapShow" class="tag-wrap" style="padding:0">
       <view class="fenlei_btn_list">
         <view class="fenlei_btn" :class="idx == item_active ? 'active':''" v-for="(item, idx) in informationList" :key="idx" @click="handleItemClicks(idx, item)">
           {{ item.name.replace('赛道', '') }}
@@ -463,10 +463,7 @@ function confirmClick() {
 
 .service-mask {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -486,11 +483,11 @@ function confirmClick() {
   width: 100%;
   height: 102rpx;
   opacity: 1;
-  background: rgba(177, 207, 255, 0.81);
-  border-color: rgb(187, 187, 187);
+  background: rgb(177 207 255 / 0.81);
+  border-color: rgb(187 187 187);
   border-style: solid;
-  border-width: 0px;
-  border-radius: 10px 10px 0px 0px;
+  border-width: 0;
+  border-radius: 10px 10px 0 0;
   display: flex;
   align-items: center;
 }
@@ -499,7 +496,7 @@ function confirmClick() {
   margin-left: 20rpx;
   color: rgb(75 153 254);
   font-size: 28rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-weight: 700;
 }
 
@@ -510,10 +507,10 @@ function confirmClick() {
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
   opacity: 1;
-  background: rgb(207 223 247 / 81%);
-  border-color: rgb(187, 187, 187);
+  background: rgb(207 223 247 / 0.81);
+  border-color: rgb(187 187 187);
   border-style: solid;
-  border-width: 0px;
+  border-width: 0;
   display: flex;
   flex-wrap: wrap;
   row-gap: 30rpx;
@@ -525,43 +522,39 @@ function confirmClick() {
 .list-item {
   width: 30%;
   height: 70rpx;
-  background: rgb(70 143 253);
   border-radius: 8rpx;
   text-align: center;
   line-height: 70rpx;
-  color: rgba(255, 255, 255, 1);
+  color: rgb(255 255 255 / 1);
   font-size: 28rpx;
   font-weight: 400;
   position: relative;
   background: linear-gradient(145deg,
-      rgba(40, 100, 200, 1),
-      rgba(100, 150, 255, 0.8));
-  box-shadow: 0 0 12rpx rgba(0, 50, 100, 0.2);
-  border: 2rpx solid rgba(255, 255, 255, 0.3);
+      rgb(40 100 200 / 1),
+      rgb(100 150 255 / 0.8));
+  box-shadow: 0 0 12rpx rgb(0 50 100 / 0.2);
+  border: 2rpx solid rgb(255 255 255 / 0.3);
 }
 
 .list-item::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   border-radius: 8rpx;
   background: linear-gradient(to bottom right,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(0, 0, 0, 0.1) 100%);
+      rgb(255 255 255 / 0.1) 0%,
+      rgb(0 0 0 / 0.1) 100%);
 }
 
 /* 选中状态样式 */
 .list-item-active {
   background: linear-gradient(145deg,
-      rgba(30, 90, 180, 1),
-      rgba(80, 140, 255, 0.9));
-  border: 3rpx solid rgba(255, 255, 255, 0.8);
+      rgb(30 90 180 / 1),
+      rgb(80 140 255 / 0.9));
+  border: 3rpx solid rgb(255 255 255 / 0.8);
   box-shadow:
-    0 0 16rpx rgba(0, 50, 100, 0.3),
-    inset 0 0 20rpx rgba(255, 255, 255, 0.2);
+    0 0 16rpx rgb(0 50 100 / 0.3),
+    inset 0 0 20rpx rgb(255 255 255 / 0.2);
 }
 
 .service-popup-lists {
@@ -571,10 +564,10 @@ function confirmClick() {
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
   opacity: 1;
-  background: rgb(207 223 247 / 81%);
-  border-color: rgb(187, 187, 187);
+  background: rgb(207 223 247 / 0.81);
+  border-color: rgb(187 187 187);
   border-style: solid;
-  border-width: 0px;
+  border-width: 0;
   display: flex;
   row-gap: 30rpx;
   justify-content: center;
@@ -588,8 +581,8 @@ function confirmClick() {
   text-align: center;
   margin-top: 20rpx;
   border: 1px solid;
-  border-image: linear-gradient(228deg, #D19EFF 5%, rgba(255, 242, 0, 0.3) 31%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 74%, #CD96FF 94%) 1;
-  box-shadow: 0px 0 20px 1px rgba(0, 0, 0, 0.25);
+  border-image: linear-gradient(228deg, #D19EFF 5%, rgb(255 242 0 / 0.3) 31%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 74%, #CD96FF 94%) 1;
+  box-shadow: 0 0 20px 1px rgb(0 0 0 / 0.25);
 }
 
 .item {
@@ -602,7 +595,7 @@ function confirmClick() {
 
 /* 选中项颜色 */
 .item.active {
-  color: #000000;
+  color: #000;
   font-size: 24rpx;
   font-weight: bold;
 }
@@ -635,21 +628,20 @@ function confirmClick() {
   height: 70rpx;
   margin-right: 18rpx;
   border-radius: 15rpx;
-  box-shadow: 0 0 8rpx rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24rpx;
   color: #222;
-  background: linear-gradient(107deg, rgba(217, 219, 255, 0.6) 40%, rgba(253, 255, 220, 0.6) 104%);
+  background: linear-gradient(107deg, rgb(217 219 255 / 0.6) 40%, rgb(253 255 220 / 0.6) 104%);
   box-sizing: border-box;
-  border-image: radial-gradient(25% 50% at 50% 100%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%) 1.5;
+  border-image: radial-gradient(25% 50% at 50% 100%, #FFF 0%, rgb(255 255 255 / 0) 100%) 1.5;
   backdrop-filter: blur(10px);
-  box-shadow: 0px 0 6px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
 }
 
 picker-view-column {
-  background: linear-gradient(107deg, rgba(217, 219, 255, 0.6) 40%, rgba(253, 255, 220, 0.6) 104%);
+  background: linear-gradient(107deg, rgb(217 219 255 / 0.6) 40%, rgb(253 255 220 / 0.6) 104%);
 }
 
 /* 赛道选择 start */
@@ -667,7 +659,7 @@ picker-view-column {
 .tag-head {
   color: #865EFF;
   font-size: 36rpx;
-  margin: 0 20rpx 0 20rpx;
+  margin: 0 20rpx;
   text-align: center;
   font-weight: bold;
 }
@@ -685,7 +677,7 @@ picker-view-column {
 
 .fenlei_btn_list .fenlei_btn{
 	flex: none;
-	color: rgba(0,0,0,0.6);
+	color: rgb(0 0 0 / 0.6);
 	margin-right: 6rpx;
 	height: 44rpx;
 	padding: 0 8rpx;
@@ -697,13 +689,11 @@ picker-view-column {
 .fenlei_btn_list .fenlei_btn.active{
 	color: #000;
 	border-bottom: none;
-	box-shadow: 0 0 5rpx 0 rgba(0,0,0,0.3);
 	font-weight: bold;
 	backdrop-filter: blur(10rpx);
-	border: 1px solid #518dfd !important;
-	background: rgba(248, 249, 252, 0.65) !important;
+	background: rgb(248 249 252 / 0.65) !important;
 	border: 1px solid #e0e8ff !important;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+	box-shadow: 0 1px 3px rgb(0 0 0 / 0.06) !important;
 }
 
 .fenlei_btn_list .fenlei_btn:last-child{

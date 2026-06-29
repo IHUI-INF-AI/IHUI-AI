@@ -223,7 +223,7 @@ function formatContentWithHighlight(text) {
   );
 
   formattedText = formattedText.replace(
-    /\n\n(?=【文案|\【话题|\<div class="topic-header")/g,
+    /\n\n(?=【文案|【话题|<div class="topic-header")/g,
     "</div>\n\n"
   );
 
@@ -621,8 +621,8 @@ function formatTime(timestamp) {
   display: flex;
   align-items: center;
   gap: 20rpx;
-  border-top: 1px solid rgba(0, 242, 255, 0.15);
-  box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgb(0 242 255 / 0.15);
+  box-shadow: 0 0 10rpx rgb(0 0 0 / 0.05);
 
   input {
     flex: 1;
@@ -631,11 +631,11 @@ function formatTime(timestamp) {
     background-color: #e6f3fa;
     border-radius: 30rpx;
     font-size: 28rpx;
-    color: #333333;
+    color: #333;
   }
 
   .placeholder-style {
-    color: #999999;
+    color: #999;
     font-size: 28rpx;
   }
 
@@ -663,6 +663,7 @@ function formatTime(timestamp) {
     }
   }
 }
+
 .container {
   background-color: #fff;
   min-height: 100vh;
@@ -673,10 +674,7 @@ function formatTime(timestamp) {
   &::before {
     content: "";
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -717,7 +715,7 @@ function formatTime(timestamp) {
           width: 500rpx;
           height: 500rpx;
           opacity: 0.95;
-          filter: drop-shadow(0 0 20rpx rgba(255, 255, 255, 0.3));
+          filter: drop-shadow(0 0 20rpx rgb(255 255 255 / 0.3));
         }
       }
 
@@ -748,7 +746,7 @@ function formatTime(timestamp) {
           background-color: #fff;
           border-radius: 20rpx;
           padding: 20rpx;
-          box-shadow: 0 0 16rpx rgba(0, 0, 0, 0.1);
+          box-shadow: 0 0 16rpx rgb(0 0 0 / 0.1);
           max-width: 70%;
 
           .message-text {
@@ -798,7 +796,7 @@ function formatTime(timestamp) {
         background-color: #dcf8c6;
         border-radius: 20rpx;
         padding: 20rpx;
-        box-shadow: 0 0 16rpx rgba(0, 0, 0, 0.1);
+        box-shadow: 0 0 16rpx rgb(0 0 0 / 0.1);
         max-width: 70%;
 
         .message-text {
@@ -830,7 +828,7 @@ function formatTime(timestamp) {
         background-color: #fff;
         border-radius: 20rpx;
         padding: 20rpx;
-        box-shadow: 0 0 16rpx rgba(0, 0, 0, 0.1);
+        box-shadow: 0 0 16rpx rgb(0 0 0 / 0.1);
         max-width: 80%;
 
         .message-text {
@@ -887,7 +885,7 @@ function formatTime(timestamp) {
     color: #007aff;
     margin: 20rpx 0 10rpx;
     padding: 6rpx 0;
-    border-bottom: 1px solid rgba(0, 122, 255, 0.2);
+    border-bottom: 1px solid rgb(0 122 255 / 0.2);
   }
 
   .section-title {
@@ -921,7 +919,7 @@ function formatTime(timestamp) {
   }
 
   .title-item {
-    background-color: rgba(248, 249, 252, 0.65);
+    background-color: rgb(248 249 252 / 0.65);
     padding: 12rpx 16rpx;
     margin-bottom: 10rpx;
     border-radius: 8rpx;
@@ -944,7 +942,7 @@ function formatTime(timestamp) {
     padding: 15rpx;
     margin-bottom: 15rpx;
     border-radius: 8rpx;
-    box-shadow: 0 0 6rpx rgba(0, 0, 0, 0.05);
+    box-shadow: 0 0 6rpx rgb(0 0 0 / 0.05);
   }
 
   /* 话题标签区域 */

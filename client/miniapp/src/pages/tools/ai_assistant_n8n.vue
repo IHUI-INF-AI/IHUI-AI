@@ -1,5 +1,5 @@
 <template>
-  <view class="container" style="padding: 0 0" @click="handleClick">
+  <view class="container" style="padding: 0" @click="handleClick">
     <!-- 导航栏 -->
     <view style="opacity: 0;">
       <navigation-bars :viscosity="false" color="#171717" @back="backPage" font-size-30 :title="page_title" :image="'/static/images/back.svg'" />
@@ -9,7 +9,7 @@
     </view>
 
     <!-- 思考过程弹窗 -->
-    <view v-show="agent_con1" style="position: fixed; z-index: 1000; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3);"></view>
+    <view v-show="agent_con1" style="position: fixed; z-index: 1000; inset: 0; background: rgb(0 0 0 / 0.3);"></view>
     <view v-show="agent_con1" class="agent-content agent-content1" style="padding-bottom: 4rpx;">
       <view class="agent_content_box">
         <view class="agent_back"></view>
@@ -17,7 +17,7 @@
           <view class="agent_content_title">
             <view class="agent_content_title_top" style="padding-top: 20rpx;">
               <image src="/static/images/sikao.png" class="agent_content_title_top_img" mode="widthFix"></image>
-              <text class="agent_content_title_top_text" style="color: #000000;">正在极速生成中</text>
+              <text class="agent_content_title_top_text" style="color: #000;">正在极速生成中</text>
               <div class="loader-container">
                 <div class="loader-dot"></div>
                 <div class="loader-dot"></div>
@@ -64,14 +64,15 @@
 
       <!-- 对话列表 -->
       <view class="agent-content question_box">
-        <view v-for="(item, index) in question_list" :key="index" v-if="agent_content_list[index] != undefined">
+        <template v-for="(item, index) in question_list" :key="index">
+        <view v-if="agent_content_list[index] != undefined">
           <view v-if="item.imgsLista.length > 0" class="agent-content-item-question" style="margin-top: 20rpx;">
-            <image 
-              class="agent-question-item-img" 
-              v-for="(imgUrl, imgIndex) in item.imgsLista" 
-              :key="imgIndex" 
-              :src="imgUrl.imgUrl" 
-              mode="widthFix" 
+            <image
+              class="agent-question-item-img"
+              v-for="(imgUrl, imgIndex) in item.imgsLista"
+              :key="imgIndex"
+              :src="imgUrl.imgUrl"
+              mode="widthFix"
               style="width: 100rpx; height: 100rpx; display: block; margin-bottom: 10rpx;"
             ></image>
           </view>
@@ -85,6 +86,7 @@
             </view>
           </view>
         </view>
+        </template>
       </view>
     </scroll-view>
 
@@ -114,11 +116,13 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import request from '@/utils/service/index.js'
 import NavigationBars from '@/components/navigation-bars/index.vue'
 import InputArea from '@/components/InputArea.vue'
 
 // 数据
 const page_title = ref('N8N助手')
+const agentId = ref('')
 const prompt = ref('')
 const loading = ref(false)
 const inputFocused = ref(false)
@@ -153,6 +157,7 @@ onLoad((options: any) => {
     modelName.value = options.modelName
     page_title.value = options.modelName
   }
+  agentId.value = options.agentId || ''
 })
 
 // 更新提示词
@@ -183,20 +188,42 @@ async function handleSendMessage() {
   agent_con1.value = true
   showThinkingProgress.value = true
 
-  // TODO: 调用 N8N AI 接口
-  // 模拟响应
-  setTimeout(() => {
+  // 调用 N8N AI 接口
+  const userMessage = question_list.value[question_list.value.length - 1]?.question || ''
+  loading.value = true
+  try {
+    const res: any = await request({
+      url: '/ai/n8n/workflow/run',
+      method: 'POST',
+      header: { 'content-type': 'application/json' },
+      data: { prompt: userMessage, agent_id: agentId.value },
+      base: 1,
+    })
+    const replyData = res && res.data
+    const replyContent = (replyData && (replyData.content || replyData.message || replyData.reply || replyData.output)) || (typeof replyData === 'string' ? replyData : '') || ''
     agent_content_list.value.push({
-      content: '这是N8N助手的回复内容...',
+      content: replyContent,
+      content1: '',
+      imgUrlList: [],
+      total_tokens: (replyData && replyData.total_tokens) || 0,
+      isHaveSikao: false,
+    })
+  } catch (error) {
+    console.error('调用N8N AI接口失败:', error)
+    uni.showToast({ title: '调用N8N AI接口失败', icon: 'none' })
+    agent_content_list.value.push({
+      content: '回复失败，请稍后重试',
       content1: '',
       imgUrlList: [],
       total_tokens: 0,
       isHaveSikao: false,
     })
+  } finally {
+    loading.value = false
     agent_con1.value = false
     showThinkingProgress.value = false
     scrollToBottom()
-  }, 2000)
+  }
 }
 
 // 滚动到底部
@@ -303,7 +330,7 @@ function backPage() {
   background: #007aff;
   color: #fff;
   padding: 16rpx 24rpx;
-  border-radius: 16rpx 16rpx 0 16rpx;
+  border-radius: 16rpx 16rpx 0;
   max-width: 80%;
   margin-left: auto;
   font-size: 28rpx;

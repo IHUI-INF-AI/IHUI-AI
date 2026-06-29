@@ -37,10 +37,10 @@ const menu = () => { }
 
     .title {
         flex: 1;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 40rpx;
         font-weight: normal;
-        color: #000000;
+        color: #000;
         display: flex;
         align-items: center;
         justify-content: center;

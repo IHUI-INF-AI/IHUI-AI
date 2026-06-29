@@ -173,7 +173,7 @@ const hideServicePopup = () => {
     transition: all 0.3s ease-in-out;
     opacity: 0.8;
     background-size: 100% 100%;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2), inset 0 -1px 2px rgba(255, 255, 255, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.7);
+    box-shadow: 0 5px 15px rgb(0 0 0 / 0.2), inset 0 -1px 2px rgb(255 255 255 / 0.7), inset 0 1px 1px rgb(255 255 255 / 0.7);
 }
 
 .popup-content.popup-show {
@@ -252,7 +252,7 @@ const hideServicePopup = () => {
     border-radius: 50%;
     overflow: hidden;
     border: 1px solid #BFBEFF;
-    box-shadow: 0px 0px 6px 0px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
 }
 
 .avatar-image {
@@ -317,17 +317,17 @@ const hideServicePopup = () => {
     font-size: 30rpx;
     font-weight: 500;
     color: #333;
-    border: 1rpx solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 1);
-    background-image: linear-gradient(to bottom, #ffffff, #f9f9f9);
+    border: 1rpx solid rgb(255 255 255 / 0.8);
+    box-shadow: 0 4rpx 10rpx rgb(0 0 0 / 0.15), inset 0 1px 0 rgb(255 255 255 / 1);
+    background-image: linear-gradient(to bottom, #fff, #f9f9f9);
 }
 
 .dark-button {
-    background-color: #333333;
+    background-color: #333;
     background-image: none;
-    color: #ffffff;
-    border: 1rpx solid #222222;
-    box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.25);
+    color: #fff;
+    border: 1rpx solid #222;
+    box-shadow: 0 4rpx 10rpx rgb(0 0 0 / 0.25);
 }
 
 .copyright {
@@ -339,15 +339,12 @@ const hideServicePopup = () => {
 
 .service-mask {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 999999;
-    background-color: rgba(255, 255, 255, 0.3);
+    background-color: rgb(255 255 255 / 0.3);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
 }
@@ -357,18 +354,16 @@ const hideServicePopup = () => {
     position: relative;
     border-radius: 30rpx;
     opacity: 1;
-    background-image: linear-gradient(to bottom right, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2), inset 0 -1px 2px rgba(255, 255, 255, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.7);
-    background: rgba(255, 255, 255, 0.4);
+    background-image: linear-gradient(to bottom right, rgb(205 208 255 / 0.7) 0%, rgb(253 255 225 / 0.7) 100%);
+    background: rgb(255 255 255 / 0.4);
     backdrop-filter: blur(10px);
-    box-shadow: 0px 6px 6px 0px rgba(169, 165, 255, 0.6);
+    box-shadow: 0 6px 6px 0 rgb(169 165 255 / 0.6);
 }
 
 .card-image {
     width: 100%;
     height: 411rpx;
     display: block;
-    margin-bottom: 20rpx;
     margin: 0 auto;
     margin-bottom: 16rpx;
     border-radius: 30rpx;

@@ -4,7 +4,7 @@
         <div class="state state--default">
             <div class="icon">
                 <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <g style="filter: url(#shadow)">
+                    <g style="filter: url('#shadow')">
                         <path
                             d="M14.2199 21.63C13.0399 21.63 11.3699 20.8 10.0499 16.83L9.32988 14.67L7.16988 13.95C3.20988 12.63 2.37988 10.96 2.37988 9.78001C2.37988 8.61001 3.20988 6.93001 7.16988 5.60001L15.6599 2.77001C17.7799 2.06001 19.5499 2.27001 20.6399 3.35001C21.7299 4.43001 21.9399 6.21001 21.2299 8.33001L18.3999 16.82C17.0699 20.8 15.3999 21.63 14.2199 21.63ZM7.63988 7.03001C4.85988 7.96001 3.86988 9.06001 3.86988 9.78001C3.86988 10.5 4.85988 11.6 7.63988 12.52L10.1599 13.36C10.3799 13.43 10.5599 13.61 10.6299 13.83L11.4699 16.35C12.3899 19.13 13.4999 20.12 14.2199 20.12C14.9399 20.12 16.0399 19.13 16.9699 16.35L19.7999 7.86001C20.3099 6.32001 20.2199 5.06001 19.5699 4.41001C18.9199 3.76001 17.6599 3.68001 16.1299 4.19001L7.63988 7.03001Z"
                             fill="currentColor"></path>
@@ -21,24 +21,46 @@
                 </svg>
             </div>
             <p>
-                <span style="--i:0">S</span>
-                <span style="--i:1">e</span>
-                <span style="--i:2">n</span>
-                <span style="--i:3">d</span>
-                <span style="--i:4">M</span>
-                <span style="--i:5">e</span>
-                <span style="--i:6">s</span>
-                <span style="--i:7">s</span>
-                <span style="--i:8">a</span>
-                <span style="--i:9">g</span>
-                <span style="--i:10">e</span>
+                <span style="
+
+--i:0">S</span>
+                <span style="
+
+--i:1">e</span>
+                <span style="
+
+--i:2">n</span>
+                <span style="
+
+--i:3">d</span>
+                <span style="
+
+--i:4">M</span>
+                <span style="
+
+--i:5">e</span>
+                <span style="
+
+--i:6">s</span>
+                <span style="
+
+--i:7">s</span>
+                <span style="
+
+--i:8">a</span>
+                <span style="
+
+--i:9">g</span>
+                <span style="
+
+--i:10">e</span>
             </p>
         </div>
         <div class="state state--sent">
             <div class="icon">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="1em" width="1em"
                     stroke-width="0.5px" stroke="black">
-                    <g style="filter: url(#shadow)">
+                    <g style="filter: url('#shadow')">
                         <path fill="currentColor"
                             d="M12 22.75C6.07 22.75 1.25 17.93 1.25 12C1.25 6.07 6.07 1.25 12 1.25C17.93 1.25 22.75 6.07 22.75 12C22.75 17.93 17.93 22.75 12 22.75ZM12 2.75C6.9 2.75 2.75 6.9 2.75 12C2.75 17.1 6.9 21.25 12 21.25C17.1 21.25 21.25 17.1 21.25 12C21.25 6.9 17.1 2.75 12 2.75Z">
                         </path>
@@ -49,10 +71,18 @@
                 </svg>
             </div>
             <p>
-                <span style="--i:5">S</span>
-                <span style="--i:6">e</span>
-                <span style="--i:7">n</span>
-                <span style="--i:8">t</span>
+                <span style="
+
+--i:5">S</span>
+                <span style="
+
+--i:6">e</span>
+                <span style="
+
+--i:7">n</span>
+                <span style="
+
+--i:8">t</span>
             </p>
         </div>
     </button>
@@ -68,10 +98,10 @@
 
     cursor: pointer;
     border-radius: var(--radius);
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 1px 1px rgb(0 0 0 / 0.3);
     border: none;
-    box-shadow: 0 0.5px 0.5px 1px rgba(255, 255, 255, 0.2),
-        0 10px 20px rgba(0, 0, 0, 0.2), 0 4px 5px 0px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 0.5px 0.5px 1px rgb(255 255 255 / 0.2),
+        0 10px 20px rgb(0 0 0 / 0.2), 0 4px 5px 0 rgb(0 0 0 / 0.05);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -88,36 +118,36 @@
 
 .button:hover {
     transform: scale(1.02);
-    box-shadow: 0 0 1px 2px rgba(255, 255, 255, 0.3),
-        0 15px 30px rgba(0, 0, 0, 0.3), 0 10px 3px -3px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 0 1px 2px rgb(255 255 255 / 0.3),
+        0 15px 30px rgb(0 0 0 / 0.3), 0 10px 3px -3px rgb(0 0 0 / 0.04);
 }
 
 .button:active {
     transform: scale(1);
-    box-shadow: 0 0 1px 2px rgba(255, 255, 255, 0.3),
-        0 10px 3px -3px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 1px 2px rgb(255 255 255 / 0.3),
+        0 10px 3px -3px rgb(0 0 0 / 0.2);
 }
 
-.button:after {
+.button::after {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: var(--radius);
     border: 2.5px solid transparent;
     background: linear-gradient(var(--neutral-1), var(--neutral-2)) padding-box,
-        linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.45)) border-box;
+        linear-gradient(to bottom, rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.45)) border-box;
     z-index: 0;
     transition: all 0.4s ease;
 }
 
 .button:hover::after {
     transform: scale(1.05, 1.1);
-    box-shadow: inset 0 -1px 3px 0 rgba(255, 255, 255, 1);
+    box-shadow: inset 0 -1px 3px 0 rgb(255 255 255 / 1);
 }
 
 .button::before {
     content: "";
-    inset: 7px 6px 6px 6px;
+    inset: 7px 6px 6px;
     position: absolute;
     background: linear-gradient(to top, var(--neutral-1), var(--neutral-2));
     border-radius: 30px;
@@ -310,17 +340,17 @@
 }
 
 /* Contrail */
-.state--default .icon:before {
+.state--default .icon::before {
     content: "";
     position: absolute;
     top: 50%;
     height: 2px;
     width: 0;
     left: -5px;
-    background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.5));
+    background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.5));
 }
 
-.button:focus .state--default .icon:before {
+.button:focus .state--default .icon::before {
     animation: contrail 0.8s linear forwards;
 }
 

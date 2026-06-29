@@ -12,8 +12,6 @@ function getPlatformType() {
     return 'android';
   } else if (loginType === 'third_wechat') {
     return 'third_wechat';
-  } else if (loginType === 'third_ali') {
-    return 'third_ali';
   }
   return 'android';
 }

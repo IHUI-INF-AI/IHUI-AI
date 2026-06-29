@@ -70,13 +70,13 @@ function navigateToEarnCommission() {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 10px rgb(0 0 0 / 0.2);
   display: flex;
   justify-content: center;
   align-items: center;
   pointer-events: auto;
   overflow: hidden;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgb(0 0 0 / 0.6);
 }
 
 .icon-floating-image {

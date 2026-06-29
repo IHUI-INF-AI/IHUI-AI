@@ -84,6 +84,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import request from '@/utils/service/index.js'
 
 // 搜索相关
 const searchText = ref('')
@@ -120,11 +121,17 @@ onMounted(() => {
 // 加载订单列表
 async function loadOrders() {
   try {
-    // TODO: 调用 API 加载订单列表
-    // const res = await getOrderList()
-    // orderList.value = res.list || []
+    const status = currentTab.value === 0 ? '' : currentTab.value
+    const res = await request({
+      url: '/order/order-items/list',
+      method: 'GET',
+      data: { page: 1, limit: 20, status },
+    })
+    const payload = res?.data
+    orderList.value = payload?.list || payload?.records || (Array.isArray(payload) ? payload : [])
   } catch (error) {
     console.error('加载订单列表失败:', error)
+    uni.showToast({ title: '加载订单列表失败', icon: 'none' })
   }
 }
 

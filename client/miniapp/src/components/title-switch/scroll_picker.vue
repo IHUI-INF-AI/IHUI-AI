@@ -114,6 +114,7 @@ function bindchange(e) {
 
     .scroll_content {
         width: 300rpx;
+
         // height: 960rpx;
         height: 200rpx;
     }
@@ -128,35 +129,34 @@ function bindchange(e) {
 }
 
 ::v-deep .item {
-    text-align: center;
     width: 200rpx;
     height: 80rpx;
     text-align: center;
-    font-size: 32rpx;
     color: #666;
     border-radius: 15rpx;
+
     /* 基础样式 */
-    background: rgba(255, 255, 255, 0.3);
+    background: rgb(255 255 255 / 0.3);
     box-sizing: border-box;
+
     // border: 1rpx solid;
     // border-image: radial-gradient(25% 50% at 50% 100%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%) 1;
     // backdrop-filter: blur(20rpx);
-    box-shadow: 1rpx 0rpx 9rpx 1rpx rgba(0, 0, 0, 0.5);
+    box-shadow: 1rpx 0rpx 9rpx 1rpx rgb(0 0 0 / 0.5);
+
     /* 过渡动画 */
     transition: all 0.5s ease;
+
     /* 缩放效果 - 非选中项缩小 */
     transform: scale(0.6);
-
     font-family: AlimamaFangYuanTi !important;
     font-size: 30rpx;
     font-weight: bold;
     letter-spacing: 0.08em;
-
     opacity: 0.3;
     display: flex;
     align-items: center;
     justify-content: center;
-
     margin-left: 4rpx;
 }
 
@@ -189,14 +189,17 @@ function bindchange(e) {
 }
 
 ::v-deep .active_item {
-    color: rgba(0, 0, 0, 1);
+    color: rgb(0 0 0 / 1);
     font-weight: 600;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgb(255 255 255 / 0.9);
+
     // box-shadow: 0rpx 0rpx 0rpx 10rpx rgba(0, 0, 0, 0.3) !important;
+
     /* 选中项放大并置于顶层 */
     transform: scale(1);
     opacity: 1;
     z-index: 10;
+
     // border: 1rpx solid;
     // border-image: radial-gradient(25% 50% at 50% 100%, #666 0%, rgba(255, 255, 255, 0) 100%) 1;
 }
@@ -210,10 +213,10 @@ function bindchange(e) {
 }
 
 ::v-deep .indicator::after {
-    border-bottom: 2rpx solid #FFFFFF;
+    border-bottom: 2rpx solid #FFF;
 }
 
 ::v-deep .indicator::before {
-    border-top: 2rpx solid #FFFFFF;
+    border-top: 2rpx solid #FFF;
 }
 </style>

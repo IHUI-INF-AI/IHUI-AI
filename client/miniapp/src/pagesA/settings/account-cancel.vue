@@ -259,6 +259,7 @@ async function onFinalConfirm() {
         }
         uni.hideLoading()
         try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             const { clearLoginDataCompletely } = require('@/utils/auth.js')
             clearLoginDataCompletely({ showToast: false, redirectToLogin: false })
         } catch (e) {

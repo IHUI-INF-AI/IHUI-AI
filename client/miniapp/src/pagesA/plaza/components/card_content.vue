@@ -245,7 +245,7 @@ function close() {
     }
 
     .no_image {
-        padding: 15rpx 15rpx 15rpx;
+        padding: 15rpx;
     }
 
     .img1 {
@@ -295,10 +295,10 @@ function close() {
     }
 
     .user_name {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 32rpx;
         font-weight: bold;
-        color: #000000;
+        color: #000;
         margin-left: 12rpx;
     }
 
@@ -306,21 +306,21 @@ function close() {
         flex: none;
         width: auto;
         padding: 5rpx 10rpx;
-        border: 1px solid rgba(0, 0, 0, 0.3);
+        border: 1px solid rgb(0 0 0 / 0.3);
         border-radius: 15rpx;
         font-size: 20rpx;
         font-weight: bold;
         line-height: 20rpx;
         margin-right: 8rpx;
-        color: rgba(0,0,0,0.6);
+        color: rgb(0 0 0 / 0.6);
     }
 
 
     .title {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 32rpx;
         font-weight: bold;
-        color: #000000;
+        color: #000;
     }
 
     .context {
@@ -331,7 +331,7 @@ function close() {
     }
 
     .cycle {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 24rpx;
         font-weight: normal;
         color: #8D8D8D;
@@ -346,7 +346,7 @@ function close() {
     }
 
     .money {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 36rpx;
         font-weight: bold;
         max-width: 200rpx;
@@ -377,21 +377,21 @@ function close() {
             text-transform: uppercase;
             border: 2rpx solid #e0e4ec !important;
             background: #fff !important;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
         .ywc {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 20rpx;
             font-weight: 500;
             color: #8D8D8D;
         }
 
         .kfz {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 20rpx;
             font-weight: 500;
             color: #B0A0FF;
@@ -425,14 +425,14 @@ function close() {
 }
 
 .font_nomal {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: normal;
     color: #3D3D3D;
 }
 
 .font_bold {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: bold;
 }
@@ -444,7 +444,7 @@ function close() {
     }
 
     50% {
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
         transform: translate(0, 0);
     }
 
@@ -453,6 +453,7 @@ function close() {
         transform: translate(3rpx, 3rpx);
     }
 }
+
 .has_image{
     padding-bottom: 14rpx;
 }

@@ -157,13 +157,14 @@ onBeforeUnmount(() => {
   width: 100% !important;
   box-sizing: border-box !important;
   z-index: 999999 !important;
-  padding: 0 20rpx 20rpx 20rpx !important;
+  padding: 0 20rpx 20rpx !important;
   pointer-events: none !important;
   transition: all 0.3s cubic-bezier(0.4, 1.4, 0.6, 1);
   background: transparent !important;
   
   &.push-show {
     pointer-events: auto !important;
+
     .push-content {
       transform: translateY(0) !important;
       opacity: 1 !important;
@@ -172,6 +173,7 @@ onBeforeUnmount(() => {
   
   &.push-hide {
     pointer-events: none !important;
+
     .push-content {
       transform: translateY(-120%) !important;
       opacity: 0 !important;
@@ -180,13 +182,13 @@ onBeforeUnmount(() => {
 }
 
 .push-content {
-  background: #ffffff !important;
+  background: #fff !important;
   border-radius: 20rpx !important;
   padding: 24rpx !important;
   box-sizing: border-box !important;
   width: 100% !important;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.1),
-              0 0 0 1rpx rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 4rpx 20rpx rgb(0 0 0 / 0.1),
+              0 0 0 1rpx rgb(0 0 0 / 0.05) !important;
   transform: translateY(0) !important;
   opacity: 1 !important;
   transition: all 0.3s cubic-bezier(0.4, 1.4, 0.6, 1);
@@ -233,7 +235,7 @@ onBeforeUnmount(() => {
 
 .push-time {
   font-size: 24rpx;
-  color: rgba(0, 0, 0, 0.6);
+  color: rgb(0 0 0 / 0.6);
 }
 
 .push-close {
@@ -277,6 +279,7 @@ onBeforeUnmount(() => {
     transform: translateY(-120%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -288,6 +291,7 @@ onBeforeUnmount(() => {
     transform: translateY(0);
     opacity: 1;
   }
+
   to {
     transform: translateY(-120%);
     opacity: 0;

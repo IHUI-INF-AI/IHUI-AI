@@ -88,7 +88,7 @@
                     <image class="pay-header-icon" src="https://test.aizhs.top/minio/sys-mini/wallet-zf.png"
                         mode="widthFix" />
                     <text class="pay-header-title">请选择充值方式</text>
-                    <text style="color: rgba(0, 0, 0, 0.4);" class="pay-header-tip">更多充值方式可使用官方<text
+                    <text style="color: rgb(0 0 0 / 0.4);" class="pay-header-tip">更多充值方式可使用官方<text
                             class="bold">APP</text></text>
                 </view>
                 <view class="pay-list">
@@ -529,13 +529,13 @@ function launchAlipay(payInfo) {
 }
 
 .loading-container {
-    background-color: #ffffff;
+    background-color: #fff;
     padding: 40rpx;
     border-radius: 20rpx;
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 0 20rpx rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 20rpx rgb(0 0 0 / 0.1);
 }
 
 .loading-spinner {
@@ -577,7 +577,7 @@ function launchAlipay(payInfo) {
 .user-center {
     border-radius: 30rpx;
     padding: 30rpx 20rpx;
-    background: linear-gradient(180deg, #9cc6f4 0%, rgba(216, 216, 216, 0) 100%);
+    background: linear-gradient(180deg, #9cc6f4 0%, rgb(216 216 216 / 0) 100%);
 }
 
 .user-center-top {
@@ -596,7 +596,7 @@ function launchAlipay(payInfo) {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20rpx 20rpx;
+    padding: 20rpx;
     border-radius: 30rpx;
     background: linear-gradient(180deg, #efe0cc 0%, #f5b052 100%);
 }
@@ -637,14 +637,14 @@ function launchAlipay(payInfo) {
     padding: 10rpx 0;
     border-radius: 30rpx;
     margin-bottom: 20rpx;
-    background: linear-gradient(0deg, rgba(88, 78, 203, 0) -39%, #8278F0 100%);
+    background: linear-gradient(0deg, rgb(88 78 203 / 0) -39%, #8278F0 100%);
 }
 
 .active {
-background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 89, 0.4) 54%, rgba(137, 175, 0, 0.4) 100%);
+background: linear-gradient(180deg, rgb(255 254 200 / 0.4) 0%, rgb(219 255 89 / 0.4) 54%, rgb(137 175 0 / 0.4) 100%);
 }
 
-//input
+// input
 .input {
     color: white;
     padding: 0 20rpx;
@@ -696,7 +696,7 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     padding: 20rpx;
     display: flex;
     justify-content: space-between;
-    background: linear-gradient(270deg, #dee4fd 0%, rgba(216, 216, 216, 0) 100%);
+    background: linear-gradient(270deg, #dee4fd 0%, rgb(216 216 216 / 0) 100%);
 }
 
 .btns {
@@ -709,9 +709,9 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     font-family: 'Lilita One', 'PingFang SC', Arial, sans-serif;
     font-weight: bold;
     color: #222;
-    padding: 10rpx 10rpx 10rpx 10rpx;
-    box-shadow: 0px 2px 6px 0px rgba(0, 0, 0, 0.3);
-    background: linear-gradient(108deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 104%);
+    padding: 10rpx;
+    box-shadow: 0 2px 6px 0 rgb(0 0 0 / 0.3);
+    background: linear-gradient(108deg, rgb(205 208 255 / 0.3) 3%, rgb(253 255 225 / 0.3) 104%);
     box-sizing: border-box;
     justify-content: center;
 }
@@ -752,7 +752,7 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     border-radius: 40rpx;
     font-size: 28rpx;
     margin-left: 20rpx;
-    background: linear-gradient(0deg, #8278F0 38%, rgba(88, 78, 203, 0) 100%);
+    background: linear-gradient(0deg, #8278F0 38%, rgb(88 78 203 / 0) 100%);
     box-sizing: border-box;
     border: 1px solid #8D88C5;
 }
@@ -779,7 +779,7 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
 }
 
 .custom-input {
-    color: #666666;
+    color: #666;
     border-radius: 50rpx;
     height: 80rpx;
     padding: 0;
@@ -797,22 +797,22 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
 }
 
 /* 兼容微信小程序/uni-app placeholder 伪类写法 */
-.custom-input::-webkit-input-placeholder {
+.custom-input::input-placeholder {
     color: #fff;
     text-align: center;
 }
 
-.custom-input:-moz-placeholder {
+.custom-input:placeholder {
     color: #fff;
     text-align: center;
 }
 
-.custom-input::-moz-placeholder {
+.custom-input::placeholder {
     color: #fff;
     text-align: center;
 }
 
-.custom-input:-ms-input-placeholder {
+.custom-input:input-placeholder {
     color: #fff;
     text-align: center;
 }
@@ -832,14 +832,14 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
 /* 用户信息卡片 start */
 .user-info-card {
     background: linear-gradient(to right,
-            rgba(211, 215, 253, 0.3) 40%,
-            rgba(173, 181, 255, 0.6) 100%);
+            rgb(211 215 253 / 0.3) 40%,
+            rgb(173 181 255 / 0.6) 100%);
     border-radius: 32rpx;
     padding: 20rpx;
-    font-family: PingFang SC, Microsoft YaHei, sans-serif;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
     color: #333;
     position: relative;
-    box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8rpx 24rpx rgb(0 0 0 / 0.08);
     margin: 20rpx;
 }
 
@@ -860,7 +860,7 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
 }
 
 .login-status {
-    border: 1px solid #555555;
+    border: 1px solid #555;
     border-radius: 16rpx;
 
     .username-wrapper {
@@ -910,7 +910,7 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     background: linear-gradient(to right, #f6f5ff 60%, #e0ddff 100%);
     border-radius: 30rpx;
     box-shadow: 0 2rpx 8rpx #e0e0ff;
-    padding: 10rpx 10rpx;
+    padding: 10rpx;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -976,11 +976,11 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
 }
 
 .amount-card {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgb(255 255 255 / 0.4);
     border-radius: 20rpx;
     padding: 20rpx;
     margin: 20rpx;
-    box-shadow: 0px 6px 6px 0px rgba(169, 165, 255, 0.6);
+    box-shadow: 0 6px 6px 0 rgb(169 165 255 / 0.6);
 }
 
 .amount-header {
@@ -1033,8 +1033,8 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     font-weight: bold;
     color: #222;
     padding: 10rpx 10rpx 10rpx 40rpx;
-    box-shadow: 0px 2px 6px 0px rgba(0, 0, 0, 0.3);
-    background: linear-gradient(108deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 104%);
+    box-shadow: 0 2px 6px 0 rgb(0 0 0 / 0.3);
+    background: linear-gradient(108deg, rgb(205 208 255 / 0.3) 3%, rgb(253 255 225 / 0.3) 104%);
     box-sizing: border-box;
 }
 
@@ -1048,9 +1048,9 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
 }
 
 .amount-item.active {
-    background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 89, 0.4) 54%, rgba(137, 175, 0, 0.4) 100%);
-    border-image: linear-gradient(0deg, rgba(249, 255, 213, 0.4) 0%, rgba(237, 249, 172, 0) 100%) 2;
-    box-shadow: 0px 2px 6px 0px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(180deg, rgb(255 254 200 / 0.4) 0%, rgb(219 255 89 / 0.4) 54%, rgb(137 175 0 / 0.4) 100%);
+    border-image: linear-gradient(0deg, rgb(249 255 213 / 0.4) 0%, rgb(237 249 172 / 0) 100%) 2;
+    box-shadow: 0 2px 6px 0 rgb(0 0 0 / 0.3);
     color: #B7FF00;
 }
 
@@ -1065,18 +1065,16 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
 
 .amount-item.active .amount-item-text {
     color: #B7FF00;
-    text-shadow: 2rpx 2rpx 6rpx rgba(0, 0, 0, 0.4), 0 0 8rpx rgba(0, 0, 0, 0.2);
+    text-shadow: 2rpx 2rpx 6rpx rgb(0 0 0 / 0.4), 0 0 8rpx rgb(0 0 0 / 0.2);
 }
 
 .amount-remark {
     display: flex;
     align-items: center;
     margin-top: 20rpx;
-    background: linear-gradient(180deg, rgba(173, 173, 173, 0.2) 0%, rgba(220, 220, 220, 0.2) 49%, rgba(255, 255, 255, 0.2) 100%);
-
+    background: linear-gradient(180deg, rgb(173 173 173 / 0.2) 0%, rgb(220 220 220 / 0.2) 49%, rgb(255 255 255 / 0.2) 100%);
     box-sizing: border-box;
-
-    box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 4px 0 rgb(0 0 0 / 0.1);
     border-radius: 40rpx;
 }
 
@@ -1101,7 +1099,7 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     background: #fff;
     border-radius: 30rpx;
     padding: 20rpx;
-    box-shadow: 0px 6px 6px 0px rgba(169, 165, 255, 0.6);
+    box-shadow: 0 6px 6px 0 rgb(169 165 255 / 0.6);
 }
 
 .pay-header {
@@ -1148,14 +1146,14 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     padding: 15rpx 20rpx;
     font-size: 30rpx;
     color: #222;
-    box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+    box-shadow: 0 4rpx 16rpx rgb(0 0 0 / 0.04);
     position: relative;
     height: 40rpx;
 }
 
 .pay-item.active {
     background: linear-gradient(90deg, #e6eaff 0%, #fffde4 100%);
-    box-shadow: 0 8rpx 32rpx rgba(88, 78, 203, 0.08);
+    box-shadow: 0 8rpx 32rpx rgb(88 78 203 / 0.08);
 }
 
 .pay-icon {
@@ -1214,7 +1212,7 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     font-size: 36rpx;
     font-weight: bold;
     border-radius: 20rpx;
-    box-shadow: 0 8rpx 32rpx rgba(88, 78, 203, 0.08);
+    box-shadow: 0 8rpx 32rpx rgb(88 78 203 / 0.08);
     font-family: 'Lilita One', 'PingFang SC', Arial, sans-serif;
 }
 
@@ -1224,7 +1222,7 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     border-radius: 40rpx;
     overflow: visible;
     min-height: 540rpx;
-    box-shadow: 0 8rpx 32rpx rgba(255, 126, 95, 0.15);
+    box-shadow: 0 8rpx 32rpx rgb(255 126 95 / 0.15);
 }
 
 .activity-bg-img {
@@ -1274,8 +1272,8 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     top: 200rpx;
     margin: 0 36rpx;
     border-radius: 30rpx;
-    box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
-    padding: 0rpx 36rpx 0rpx 36rpx;
+    box-shadow: 0 4rpx 24rpx rgb(0 0 0 / 0.06);
+    padding: 0rpx 36rpx;
     z-index: 4;
 }
 
@@ -1326,13 +1324,13 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
 .activity-input-card {
     flex: 1;
     border-radius: 15rpx;
-    box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4rpx 16rpx rgb(0 0 0 / 0.06);
     display: flex;
     flex-direction: column;
     min-width: 0;
-    background: linear-gradient(107deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+    background: linear-gradient(107deg, rgb(217 219 255 / 0.8) 3%, rgb(253 255 220 / 0.8) 104%);
     box-sizing: border-box;
-    border-width: 0px 0px 4rpx 0px;
+    border-width: 0 0 4rpx;
     border-style: solid;
     border-color: #9A96CD;
     width: 215rpx;
@@ -1380,7 +1378,6 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     min-width: 146rpx;
     height: 65rpx;
     max-width: 240rpx;
-    box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.10);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1388,13 +1385,13 @@ background: linear-gradient(180deg, rgba(255, 254, 200, 0.4) 0%, rgba(219, 255, 
     margin-left: 16rpx;
     position: relative;
     border-radius: 15rpx;
-    background: linear-gradient(114deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+    background: linear-gradient(114deg, rgb(217 219 255 / 0.8) 3%, rgb(253 255 220 / 0.8) 104%);
     box-sizing: border-box;
-    border-width: 0px 0px 4rpx 0rpx;
+    border-width: 0 0 4rpx 0rpx;
     border-style: solid;
     border-color: #9A96CD;
     backdrop-filter: blur(10px);
-    box-shadow: 0px 2rpx 4rpx 0px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2rpx 4rpx 0 rgb(0 0 0 / 0.3);
     padding: 0 9rpx;
 }
 

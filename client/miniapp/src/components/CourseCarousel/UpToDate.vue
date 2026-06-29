@@ -14,7 +14,7 @@
             top: 0;
             left: 0;
             z-index: 555;
-            background-color: rgba(0, 0, 0, 0.3);
+            background-color: rgb(0 0 0 / 0.3);
             color: white;
             padding: 4rpx 20rpx;
             border-radius: 20rpx;
@@ -30,7 +30,7 @@
             bottom: 0;
             right: 0;
             z-index: 555;
-            background-color: rgba(0, 0, 0, 0.3);
+            background-color: rgb(0 0 0 / 0.3);
             color: white;
             padding: 4rpx 20rpx;
             border-radius: 20rpx;
@@ -60,7 +60,6 @@
       <view
         style="
           font-size: 24rpx;
-          color: black;
           margin-top: 10rpx;
           color: #8e8e8e;
         "
@@ -148,10 +147,12 @@ function upToDate(item) {
   flex-wrap: wrap;
   justify-content: space-between;
 }
+
 .mian-center-item {
   width: calc((100% - 30rpx) / 2);
   margin-bottom: 20rpx;
 }
+
 .vip {
   display: flex;
   align-items: center;
@@ -159,6 +160,7 @@ function upToDate(item) {
   background-color: white;
   border-radius: 20rpx;
 }
+
 .vip-images {
   width: 30rpx;
   height: 30rpx;

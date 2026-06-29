@@ -45,16 +45,6 @@
       }
     }
   },
-  "mp-alipay": {
-		"tokenExpiresIn": 259200,
-		"tokenExpiresThreshold": 86400,
-    "oauth": {
-      "alipay": {
-        "appid": "支付宝小程序登录用到的appid、privateKey请参考支付宝小程序的文档进行设置或者获取，https://opendocs.alipay.com/open/291/105971#LDsXr",
-        "privateKey": "支付宝小程序登录用到的appid、privateKey请参考支付宝小程序的文档进行设置或者获取，https://opendocs.alipay.com/open/291/105971#LDsXr"
-      }
-    }
-  },
   "service": {
     "sms": {
       "name": "应用名称，对应短信模版的name",

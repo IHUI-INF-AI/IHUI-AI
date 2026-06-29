@@ -51,19 +51,20 @@ function onClick() {
 .floating-window {
   width: 80px;
   height: 80px;
-  background: rgba(0, 153, 255, 0.85);
+  background: rgb(0 153 255 / 0.85);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 8px rgba(0,0,0,0.15);
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.15);
 }
+
 .float-btn {
   width: 60px;
   height: 60px;
   border-radius: 50%;
   background: #fff;
-  color: #0099ff;
+  color: #09f;
   font-weight: bold;
   border: none;
   outline: none;

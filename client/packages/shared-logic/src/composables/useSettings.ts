@@ -12,7 +12,7 @@ export interface Settings {
   privacyShowOnline: boolean
   privacyShowReading: boolean
   autoPlayVideo: boolean
-  [key: string]: any
+  [key: string]: unknown
 }
 
 const SETTINGS_KEY = 'app_settings'

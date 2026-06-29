@@ -75,20 +75,19 @@ function changeIndex(item, index) {
     .s_item {
         height: 44rpx;
         border-radius: 8rpx;
-        background: rgba(0, 0, 0, 0.05);
+        background: rgb(0 0 0 / 0.05);
         font-size: 26rpx;
         font-weight: normal;
-        color: rgba(0, 0, 0, 0.3);
+        color: rgb(0 0 0 / 0.3);
         margin-right: 18rpx;
-        padding: 0 8rpx;
         white-space: nowrap;
         padding: 4rpx 12rpx;
     }
 }
 
 .selected {
-    background: linear-gradient(112deg, rgba(205, 208, 255, 0.6) 3%, rgba(253, 255, 225, 0.6) 104%) !important;
-    box-shadow: 0rpx 0rpx 2rpx 0rpx rgba(0, 0, 0, 0.3);
+    background: linear-gradient(112deg, rgb(205 208 255 / 0.6) 3%, rgb(253 255 225 / 0.6) 104%) !important;
+    box-shadow: 0rpx 0rpx 2rpx 0rpx rgb(0 0 0 / 0.3);
     font-weight: bold !important;
     color: #564DFF !important;
 }

@@ -72,7 +72,7 @@ const change = (val) => {
     }
 
     .f_n {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 26rpx;
         display: flex;
         flex-direction: column;
@@ -80,13 +80,13 @@ const change = (val) => {
     }
 
     .font_nomal {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 26rpx;
-        color: #bbbbbb;
+        color: #bbb;
     }
 
     .font_color {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 26rpx;
         font-weight: bold;
         color: #787AFF;
@@ -100,25 +100,25 @@ const change = (val) => {
     width: 116rpx;
     height: 116rpx;
     z-index: 100;
-    background-color: rgba(255, 255, 255, 0.5);
+    background-color: rgb(255 255 255 / 0.5);
     border-radius: 8rpx;
     backdrop-filter: blur(10px);
     display: block;
 }
+
 .change_info_btn {
-    width: 166rpx;
     height: 48rpx;
     width: 116rpx;
     border-radius: 15rpx;
     background: #f4f4f4;
-    box-shadow: 0rpx 0rpx 4rpx 0rpx rgba(0, 0, 0, 0.6);
-    font-family: "AlimamaFangYuanTi";
+    box-shadow: 0rpx 0rpx 4rpx 0rpx rgb(0 0 0 / 0.6);
+    font-family: AlimamaFangYuanTi;
     font-size: 26rpx;
     font-weight: bold;
-    color: rgba(0, 0, 0, 0.9804);
+    color: rgb(0 0 0 / 0.9804);
     border-width: 2px;
     border-style: solid;
-    border-color: rgba(195, 158, 255, 0.938);
+    border-color: rgb(195 158 255 / 0.938);
     box-sizing: border-box;
     right: 36rpx;
     bottom: 120rpx;

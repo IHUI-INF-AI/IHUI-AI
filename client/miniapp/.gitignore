@@ -22,3 +22,8 @@ yarn-error.log*
 *.sln
 *.sw*
 package-lock.json
+
+# miniprogram-ci 私钥（敏感文件，禁止提交）
+private.key.*.key
+# miniprogram-ci 预览二维码
+preview-qr.png

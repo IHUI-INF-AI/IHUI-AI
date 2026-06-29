@@ -42,7 +42,7 @@
             </view>
             <!-- 官网链接 -->
             <view v-if="pageType == 'model' && agentList.length > 0"
-                style="width: 100%;padding-bottom: 10rpx; text-align: center;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
+                style="width: 100%;padding-bottom: 10rpx;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
                 <image style="text-align: center;width:348rpx;" src="https://file.aizhs.top/sys-mini/yejiao.png"
                     mode="widthFix" />
             </view>
@@ -183,11 +183,8 @@ onMounted(() => {
 
 .mask {
     position: fixed;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
+    inset: 0;
+    background: rgb(0 0 0 / 0.4);
     z-index: 10001;
 }
 
@@ -199,10 +196,9 @@ onMounted(() => {
     background: #fff;
     border-radius: 16rpx;
     padding: 40rpx 30rpx;
-    z-index: 1001;
     min-width: 600rpx;
     text-align: center;
-    box-shadow: 0 0 32rpx rgba(0, 0, 0, 0.18);
+    box-shadow: 0 0 32rpx rgb(0 0 0 / 0.18);
     z-index: 10002;
     color: #000;
 }
@@ -218,7 +214,7 @@ onMounted(() => {
     }
 
     .blink_text {
-        font-family: Alimama FangYuanTi VF !important;
+        font-family: "Alimama FangYuanTi VF" !important;
         font-size: 36rpx;
         font-weight: bold;
         color: #FF5656;
@@ -231,7 +227,7 @@ onMounted(() => {
     }
 
     .right_text {
-        font-family: Alimama FangYuanTi VF !important;
+        font-family: "Alimama FangYuanTi VF" !important;
         font-size: 28rpx;
         font-weight: normal;
         color: #3D3D3D;

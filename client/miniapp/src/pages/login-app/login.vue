@@ -107,6 +107,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useUserStore } from '@/store/modules/user'
+import { sendTextMsg, userLogin, pwdLogin } from '@/service/login.js'
 
 const userStore = useUserStore()
 
@@ -144,14 +145,19 @@ async function sendCode() {
   }
 
   try {
-    // TODO: 调用发送验证码 API
+    const res = await sendTextMsg(phoneNumber.value, 1, '')
+    const code = res?.data?.code
+    const ok = code === 200 || code === '200' || code === 0
+    if (!ok) {
+      throw new Error(res?.data?.message || '发送失败')
+    }
     uni.showToast({ title: '验证码已发送', icon: 'success' })
-    
+
     // 倒计时
     codeBtnDisabled.value = true
     let seconds = 60
     codeBtnText.value = `${seconds}s`
-    
+
     codeTimer = setInterval(() => {
       seconds--
       if (seconds <= 0) {
@@ -163,7 +169,7 @@ async function sendCode() {
       }
     }, 1000)
   } catch (error) {
-    uni.showToast({ title: '发送失败', icon: 'none' })
+    uni.showToast({ title: error?.message || '发送失败', icon: 'none' })
   }
 }
 
@@ -194,15 +200,31 @@ async function handleLogin() {
   isLogging.value = true
   
   try {
-    // TODO: 调用登录 API
+    let res
+    if (loginType.value === 'phone') {
+      res = await userLogin(phoneNumber.value, '', verificationCode.value)
+    } else {
+      res = await pwdLogin(accountValue.value, password.value)
+    }
+    const code = res?.data?.code
+    const ok = code === 200 || code === '200' || code === 0
+    if (!ok) {
+      throw new Error(res?.data?.message || '登录失败')
+    }
+    // 保存登录信息
+    const loginData = res?.data?.data || {}
+    uni.setStorageSync('data', loginData)
+    if (loginData.thirdPartyAccounts?.accessToken) {
+      uni.setStorageSync('token', loginData.thirdPartyAccounts.accessToken)
+    }
     uni.showToast({ title: '登录成功', icon: 'success' })
-    
+
     // 跳转到主页
     setTimeout(() => {
       uni.reLaunch({ url: '/pages/table/aiIndex/ai_index' })
     }, 1500)
   } catch (error) {
-    uni.showToast({ title: '登录失败', icon: 'none' })
+    uni.showToast({ title: error?.message || '登录失败', icon: 'none' })
   } finally {
     isLogging.value = false
   }

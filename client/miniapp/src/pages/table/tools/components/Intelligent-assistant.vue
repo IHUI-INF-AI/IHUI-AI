@@ -124,12 +124,11 @@ function topupClick() {
       right: 19rpx;
       width: 214rpx;
       height: 220.4rpx;
-  z-index: 10;
   animation: float 1s ease-in-out infinite;
   z-index: 1;
 }
 
-//图片logo
+// 图片logo
 .floating-log{
 	    position: absolute;
 	    top: 78rpx;
@@ -138,6 +137,7 @@ function topupClick() {
 	    height: 79rpx;
 	    z-index: 10;
 }
+
 .countLoader {
   height: 40rpx;
   aspect-ratio: 1;
@@ -148,16 +148,19 @@ function topupClick() {
   mask: conic-gradient(#000 0 0) content-box exclude,conic-gradient(#000 0 0);
   filter: blur(10rpx);
 }
-.countLoader:before {
+
+.countLoader::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: conic-gradient(#FFFFFF 30%,#163FC7,#FFFFFF 65%);
+  background: conic-gradient(#FFF 30%,#163FC7,#FFF 65%);
   animation: l1 1.5s linear infinite;
 }
+
 @keyframes l1 {
   to {rotate: 1turn}
 }
+
 @keyframes float {
   0% {
     transform: translateY(0);
@@ -199,22 +202,24 @@ function topupClick() {
 
     .welcome-intro {
       font-size: 38rpx;
+
       // margin-bottom: 8rpx;
       color: #517bff;
 	  font-weight: bold;
-	  font-family: "AlimamaFangYuanTi" !important;
+	  font-family: AlimamaFangYuanTi !important;
+
 	  // text-shadow: 0px 1px 4px rgba(0, 0, 0, 0.25);
     }
 
     .welcome-action {
       font-size: 24rpx;
       color: #333;
-	  font-family: "AlimamaFangYuanTi" !important;
+	  font-family: AlimamaFangYuanTi !important;
 	  font-weight: bold;
     }
 	
 	.welcome-action1 {
-		font-family: "AlimamaFangYuanTi" !important;
+		font-family: AlimamaFangYuanTi !important;
 		font-size: 24rpx;
 		color: #8389FF;
 		font-weight: bold;
@@ -224,6 +229,7 @@ function topupClick() {
   .limit-info {
     display: flex;
     flex-direction: row;
+
     // border-top: 1px solid #f0f0f0;
     // padding-top: 20rpx;
     align-items: center;
@@ -244,6 +250,7 @@ function topupClick() {
     // flex: 1;
     display: flex;
     justify-content: center;
+
     // margin-left: 40rpx;
     border-top: 1px solid #f0f0f0;
     padding-top: 10rpx;
@@ -256,16 +263,15 @@ function topupClick() {
     flex-direction: column;
     font-size: 30rpx;
     font-weight: bold;
-    color: #69c0ff;
     align-items: center;
     justify-content: center;
-    
-	color: #000000;
+	color: #000;
 
     .count {
       display: inline-block;
 
     }
+
     text {
       margin-bottom: 5rpx;
     }
@@ -282,7 +288,7 @@ function topupClick() {
     display: flex;
     align-items: center;
     font-size: 28rpx;
-    color: #000000;
+    color: #000;
 	margin-left: 10rpx;
 
     .token-button {

@@ -37,8 +37,8 @@ onLoad(() => {});
 		.ai-circle-title {
 			font-size: 36rpx;
 			font-weight: bold;
-			color: #ffffff;
-			text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.5);
+			color: #fff;
+			text-shadow: 0 0 10rpx rgb(0 242 255 / 0.5);
 		}
 	}
 	
@@ -62,12 +62,12 @@ onLoad(() => {});
 			background: linear-gradient(135deg, #00F2FF, #8B5CF6);
 			-webkit-background-clip: text;
 			color: transparent;
-			text-shadow: 0 0 30rpx rgba(0, 242, 255, 0.5);
+			text-shadow: 0 0 30rpx rgb(0 242 255 / 0.5);
 		}
 		
 		.empty-text {
 			font-size: 28rpx;
-			color: rgba(255, 255, 255, 0.6);
+			color: rgb(255 255 255 / 0.6);
 			text-align: center;
 		}
 	}

@@ -5,28 +5,23 @@ import { test, expect } from '@playwright/test'
 
 async function openFloatingChatAndToolbox(page: import('@playwright/test').Page) {
   await page.goto('/about')
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-  await page.waitForTimeout(1000)
-
-  // 确保关闭所有可能残留的浮窗/面板（serial 模式下前一个测试的状态可能残留）
-  for (let i = 0; i < 6; i++) {
+  await page.waitForLoadState('networkidle')
+  for (let i = 0; i < 4; i++) {
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(200)
   }
-  await page.waitForTimeout(600)
+  await page.waitForTimeout(400)
 
   // 触发打开 AI 浮窗事件（App.vue 中 showAIChat 默认 false，需主动触发）
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('open-ai-chat')))
-
-  // 等待 AIChat 异步组件加载并渲染（showAIChat 由 openGlobalChat 回调触发）
-  // 组件是 405KB 异步 chunk，首次加载可能需要数秒，用 expect 等待替代固定超时
-  await expect(page.locator('.floating-chat-dialog')).toBeVisible({ timeout: 20000 })
+  await page.waitForTimeout(800)
 
   const triggerBtn = page.locator('.floating-chat-trigger')
   if (await triggerBtn.isVisible().catch(() => false)) {
     await triggerBtn.click()
-    await expect(page.locator('.floating-chat-dialog')).toBeVisible({ timeout: 5000 })
+    await page.waitForTimeout(600)
   }
+  await expect(page.locator('.floating-chat-dialog')).toBeVisible({ timeout: 12000 })
 
   const wrapper = page.locator('.floating-chat-dialog-wrapper')
   if (await wrapper.evaluate((el) => el.classList.contains('is-minimized')).catch(() => false)) {
@@ -35,16 +30,14 @@ async function openFloatingChatAndToolbox(page: import('@playwright/test').Page)
     await page.waitForTimeout(600)
   }
   // 确保输入区已展开，再点工具箱
-  await expect(page.locator('.floating-chat-dialog .input-area')).toBeVisible({ timeout: 8000 })
-  await page.waitForTimeout(400)
+  await expect(page.locator('.floating-chat-dialog .input-area')).toBeVisible({ timeout: 5000 })
+  await page.waitForTimeout(300)
 
   const openclawBtn = page.locator('.action-btn.openclaw-btn').first()
   await openclawBtn.waitFor({ state: 'attached', timeout: 8000 })
   await openclawBtn.evaluate((el) => (el as HTMLElement).click())
-  await page.waitForTimeout(600)
-  // 等待工具箱弹窗稳定显示
-  await expect(page.locator('.el-popper.openclaw-popover .openclaw-quick-menu')).toBeVisible({ timeout: 8000 })
-  await page.waitForTimeout(300)
+  await page.waitForTimeout(500)
+  await expect(page.locator('.el-popper.openclaw-popover .openclaw-quick-menu')).toBeVisible({ timeout: 5000 })
 }
 
 /** 点击快捷菜单项并等待面板出现 */
@@ -56,11 +49,12 @@ async function clickOpenClawMenuItemAndWaitPanel(
   const menuItem = page.locator('.el-popper.openclaw-popover .openclaw-quick-menu .menu-item').filter({
     hasText: menuText,
   }).first()
+  await expect(menuItem).toBeVisible({ timeout: 3000 })
   await menuItem.scrollIntoViewIfNeeded()
-  await page.waitForTimeout(300)
+  await page.waitForTimeout(200)
   await menuItem.click({ force: true })
   await page.waitForTimeout(600)
-  await expect(page.locator(panelSelector)).toBeVisible({ timeout: 10000 })
+  await expect(page.locator(panelSelector)).toBeVisible({ timeout: 8000 })
 }
 
 /**
@@ -105,12 +99,9 @@ test.describe('OpenClaw 面板自测', () => {
 
   test('打开记忆面板并检查溢出', async ({ page }) => {
     await openFloatingChatAndToolbox(page)
-    const menuItem = page.locator('.el-popper.openclaw-popover .openclaw-quick-menu .menu-item').filter({ hasText: '记忆' }).first()
-    await menuItem.scrollIntoViewIfNeeded()
-    await page.waitForTimeout(300)
-    await menuItem.click({ force: true })
-    await page.waitForTimeout(600)
-    await expect(page.locator('.floating-chat-dialog .openclaw-panel-content')).toBeVisible({ timeout: 10000 })
+    await page.locator('.el-popper.openclaw-popover .menu-item').filter({ hasText: '记忆' }).first().click()
+    await page.waitForTimeout(800)
+    await expect(page.locator('.floating-chat-dialog .openclaw-panel-content')).toBeVisible({ timeout: 8000 })
     const { overflow, details } = await checkPanelHorizontalOverflow(page)
     if (overflow) {
       console.log('Memory overflow:', details)
@@ -161,11 +152,10 @@ test.describe('OpenClaw 面板自测', () => {
   test('打开浏览器面板并截图留证', async ({ page }) => {
     await openFloatingChatAndToolbox(page)
     const menuItem = page.locator('.el-popper.openclaw-popover .openclaw-quick-menu .menu-item').filter({ hasText: '浏览器' }).first()
-    await menuItem.scrollIntoViewIfNeeded()
-    await page.waitForTimeout(300)
+    await expect(menuItem).toBeVisible({ timeout: 3000 })
     await menuItem.click({ force: true })
-    await page.waitForTimeout(600)
-    await expect(page.locator('.floating-chat-dialog .openclaw-panel-wrapper')).toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(1000)
+    await expect(page.locator('.floating-chat-dialog .openclaw-panel-wrapper')).toBeVisible({ timeout: 8000 })
     await expect(page.locator('.floating-chat-dialog .openclaw-panel-wrapper').getByText('浏览器').first()).toBeVisible({ timeout: 5000 })
     await page.screenshot({ path: 'test-results/browser-panel-screenshot.png', fullPage: false })
   })
@@ -175,11 +165,12 @@ test.describe('OpenClaw 面板自测', () => {
     const menuItem = page.locator('.el-popper.openclaw-popover .openclaw-quick-menu .menu-item').filter({
       hasText: '浏览器',
     }).first()
+    await expect(menuItem).toBeVisible({ timeout: 3000 })
     await menuItem.scrollIntoViewIfNeeded()
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(200)
     await menuItem.click({ force: true })
-    await page.waitForTimeout(600)
-    await expect(page.locator('.floating-chat-dialog .openclaw-panel-wrapper')).toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(800)
+    await expect(page.locator('.floating-chat-dialog .openclaw-panel-wrapper')).toBeVisible({ timeout: 8000 })
     const panel = page.locator('.floating-chat-dialog .openclaw-panel-wrapper')
     await expect(panel.getByText('浏览器').first()).toBeVisible({ timeout: 6000 })
     const useInChatBtn = panel.getByRole('button', { name: /在对话中让 AI 操作|Use in chat/ })

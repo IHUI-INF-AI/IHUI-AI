@@ -28,20 +28,12 @@ function isAppleSupported () {
   return true
 }
 
-function isAlipaySupported () {
-  this.configUtils.getOauthConfig({
-    provider: 'alipay'
-  })
-  return true
-}
-
 const loginTypeTester = {
   'mobile-code': isMobileCodeSupported,
   univerify: isUniverifySupport,
   weixin: isWeixinSupported,
   qq: isQQSupported,
-  apple: isAppleSupported,
-  alipay: isAlipaySupported
+  apple: isAppleSupported
 }
 
 /**

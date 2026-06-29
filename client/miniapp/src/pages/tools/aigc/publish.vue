@@ -124,6 +124,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { onLoad } from "@dcloudio/uni-app"
 import NavigationBars from "@/components/navigation-bars/index.vue"
 import { uploadBusinessCarda, uploadBybase64 } from "@/service/businessCard.js"
 import { agentCreationShare } from "@/service/pay.js"
@@ -183,103 +184,98 @@ onMounted(() => {
   userInfo.value = uni.getStorageSync("data") || {}
 })
 
-// onLoad(options) {
-//   // 接收传入的作品信息
-//   if (options.contextId || options.title || options.prompt) {
-//     hasWorkInfo.value = true
-//
-//     if (options.contextId) {
-//       contextId.value = options.contextId
-//     }
-//
-//     if (options.title) {
-//       prompt.value = decodeURIComponent(options.title)
-//     }
-//
-//     if (options.prompt) {
-//       prompt.value = decodeURIComponent(options.prompt)
-//     }
-//
-//     if (options.lists) {
-//       try {
-//         const lists = JSON.parse(decodeURIComponent(options.lists))
-//         if (Array.isArray(lists) && lists.length > 0) {
-//           lists.forEach(listItem => {
-//             if (listItem.type === 'image' && listItem.image) {
-//               fileList.value.push({
-//                 fileUrl: listItem.image,
-//                 fileType: 'image',
-//                 coverUrl: listItem.image
-//               })
-//             } else if (listItem.type === 'text' && listItem.text) {
-//               if (!hasText.value) {
-//                 hasText.value = true
-//                 textContent.value = listItem.text
-//               } else {
-//                 textContent.value += '\n\n' + listItem.text
-//               }
-//             }
-//           })
-//         }
-//       } catch (e) {
-//         console.error('解析列表信息失败:', e)
-//       }
-//     } else {
-//       if (options.content) {
-//         const content = decodeURIComponent(options.content)
-//         if (content && !content.startsWith('http') && !content.includes('.mp4') && !content.includes('.mp3') && !content.includes('.wav') && !content.includes('.m4a') && !content.includes('.aac')) {
-//           hasText.value = true
-//           textContent.value = content
-//         }
-//       }
-//
-//       if (options.imgUrlList) {
-//         try {
-//           const imgUrlList = JSON.parse(decodeURIComponent(options.imgUrlList))
-//           if (Array.isArray(imgUrlList) && imgUrlList.length > 0) {
-//             imgUrlList.forEach(imgUrl => {
-//               fileList.value.push({
-//                 fileUrl: imgUrl,
-//                 fileType: 'image',
-//                 coverUrl: imgUrl
-//               })
-//             })
-//           }
-//         } catch (e) {
-//           console.error('解析图片列表失败:', e)
-//         }
-//       }
-//
-//       if (options.videoUrl) {
-//         const videoUrl = decodeURIComponent(options.videoUrl)
-//         if (videoUrl) {
-//           const videoItem = {
-//             fileUrl: videoUrl,
-//             fileType: 'video',
-//             coverUrl: ''
-//           }
-//
-//           if (options.videoRatio) {
-//             const videoRatio = decodeURIComponent(options.videoRatio)
-//           }
-//
-//           fileList.value.push(videoItem)
-//         }
-//       }
-//
-//       if (options.audioUrl) {
-//         const audioUrl = decodeURIComponent(options.audioUrl)
-//         if (audioUrl) {
-//           fileList.value.push({
-//             fileUrl: audioUrl,
-//             fileType: 'audio',
-//             coverUrl: ''
-//           })
-//         }
-//       }
-//     }
-//   }
-// }
+// 接收页面跳转传入的作品信息（从 AIGC 结果页等带参跳转时启用）
+onLoad((options) => {
+  if (!options) return
+  if (options.contextId || options.title || options.prompt) {
+    hasWorkInfo.value = true
+
+    if (options.contextId) {
+      contextId.value = options.contextId
+    }
+
+    if (options.title) {
+      title.value = decodeURIComponent(options.title)
+    }
+
+    if (options.prompt) {
+      prompt.value = decodeURIComponent(options.prompt)
+    }
+
+    if (options.lists) {
+      try {
+        const lists = JSON.parse(decodeURIComponent(options.lists))
+        if (Array.isArray(lists) && lists.length > 0) {
+          lists.forEach(listItem => {
+            if (listItem.type === 'image' && listItem.image) {
+              fileList.value.push({
+                fileUrl: listItem.image,
+                fileType: 'image',
+                coverUrl: listItem.image
+              })
+            } else if (listItem.type === 'text' && listItem.text) {
+              if (!hasText.value) {
+                hasText.value = true
+                textContent.value = listItem.text
+              } else {
+                textContent.value += '\n\n' + listItem.text
+              }
+            }
+          })
+        }
+      } catch (e) {
+        console.error('解析列表信息失败:', e)
+      }
+    } else {
+      if (options.content) {
+        const content = decodeURIComponent(options.content)
+        if (content && !content.startsWith('http') && !content.includes('.mp4') && !content.includes('.mp3') && !content.includes('.wav') && !content.includes('.m4a') && !content.includes('.aac')) {
+          hasText.value = true
+          textContent.value = content
+        }
+      }
+
+      if (options.imgUrlList) {
+        try {
+          const imgUrlList = JSON.parse(decodeURIComponent(options.imgUrlList))
+          if (Array.isArray(imgUrlList) && imgUrlList.length > 0) {
+            imgUrlList.forEach(imgUrl => {
+              fileList.value.push({
+                fileUrl: imgUrl,
+                fileType: 'image',
+                coverUrl: imgUrl
+              })
+            })
+          }
+        } catch (e) {
+          console.error('解析图片列表失败:', e)
+        }
+      }
+
+      if (options.videoUrl) {
+        const videoUrl = decodeURIComponent(options.videoUrl)
+        if (videoUrl) {
+          fileList.value.push({
+            fileUrl: videoUrl,
+            fileType: 'video',
+            coverUrl: ''
+          })
+        }
+      }
+
+      if (options.audioUrl) {
+        const audioUrl = decodeURIComponent(options.audioUrl)
+        if (audioUrl) {
+          fileList.value.push({
+            fileUrl: audioUrl,
+            fileType: 'audio',
+            coverUrl: ''
+          })
+        }
+      }
+    }
+  }
+})
 
 // 获取兼容的文件系统管理器
 function getFileSystemManagerCompat() {
@@ -1365,7 +1361,7 @@ function submit() {
   box-sizing: border-box;
   width: 100%;
   flex: 1;
-  padding: 0 18rpx 0 18rpx;
+  padding: 0 18rpx;
 }
 
 .title_icon {
@@ -1380,10 +1376,9 @@ function submit() {
   }
 
   .title_icon-text {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 28rpx;
-    font-weight: 500;
-    color: #000000;
+    color: #000;
     font-weight: bold;
   }
 }
@@ -1421,7 +1416,7 @@ function submit() {
     right: 18rpx;
     width: 40rpx;
     height: 40rpx;
-    background: #ff4444;
+    background: #f44;
     color: #fff;
     border-radius: 50%;
     display: flex;
@@ -1513,7 +1508,7 @@ function submit() {
         transform: translate(-50%, -50%);
         color: #fff;
         font-size: 32rpx;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgb(0 0 0 / 0.5);
         border-radius: 50%;
         width: 40rpx;
         height: 40rpx;
@@ -1547,7 +1542,7 @@ function submit() {
         right: 4rpx;
         width: 32rpx;
         height: 32rpx;
-        background: rgba(0, 0, 0, 0.6);
+        background: rgb(0 0 0 / 0.6);
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -1568,7 +1563,7 @@ function submit() {
       right: -8rpx;
       width: 32rpx;
       height: 32rpx;
-      background: #ff4444;
+      background: #f44;
       color: #fff;
       border-radius: 50%;
       display: flex;
@@ -1585,16 +1580,16 @@ function submit() {
   width: 600rpx;
   height: 88rpx;
   border-radius: 15rpx;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
   font-size: 48rpx;
   font-weight: bold;
   color: #fff;
   text-transform: uppercase;
   border: none;
   background: #000;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
   animation: bouncea 0.5s ease-in-out infinite;
-  margin: 41rpx auto 0 auto;
+  margin: 41rpx auto 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1608,13 +1603,13 @@ function submit() {
   height: 400rpx;
   display: flex;
   flex-direction: column;
-  border-radius: 20rpx 20rpx 0px 0px;
+  border-radius: 20rpx 20rpx 0 0;
   background: #E4E7ED;
   z-index: 980;
 
   .item1 {
-    background: #FFFFFF;
-    font-family: "AlimamaFangYuanTi" !important;
+    background: #FFF;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 36rpx;
     font-weight: normal;
     letter-spacing: 0.1em;
@@ -1634,7 +1629,7 @@ function submit() {
     width: 100%;
     height: 120rpx;
     background: #F4F4F4;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 36rpx;
     font-weight: normal;
     letter-spacing: 0.1em;
@@ -1664,17 +1659,17 @@ function submit() {
 }
 
 .font_nomal {
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
   font-size: 28rpx;
   font-weight: normal;
-  color: #000000;
+  color: #000;
 }
 
 .font_hold {
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
   font-size: 28rpx;
   font-weight: bold !important;
-  color: #000000;
+  color: #000;
 }
 
 @keyframes bouncea {
@@ -1684,7 +1679,7 @@ function submit() {
   }
 
   50% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     transform: translate(0, 0);
   }
 

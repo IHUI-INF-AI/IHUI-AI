@@ -51,13 +51,16 @@ function MoreClick() {
   align-items: center;
   justify-content: space-between;
 }
+
 .carousel-image {
   width: 100px;
   height: 100px;
 }
+
 .carousel-title {
   margin-left: 10px;
 }
+
 .arrow {
   margin-left: auto;
 }

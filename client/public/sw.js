@@ -1,9 +1,13 @@
 // Service Worker - PWA 离线缓存 + Background Sync + Push + Share Target
-const CACHE_VERSION = 'v1.1.0'
+// 2026-06-27: 升级版本号触发新 SW 安装, 修复开发环境白屏 (旧 SW 缓存旧 JS)
+const CACHE_VERSION = 'v1.1.1'
 const CACHE_NAME = `zhs-cache-${CACHE_VERSION}`
 const OFFLINE_PAGE = '/offline.html'
 const SYNC_QUEUE_STORE = 'sync-queue-db'
 const SYNC_STORE = 'requests'
+
+// 开发环境标志 (Vite dev server 端口 8888)
+const IS_DEV = self.location.port === '8888'
 
 // 预缓存关键资源
 const PRECACHE_URLS = [
@@ -16,7 +20,12 @@ const PRECACHE_URLS = [
 
 // 安装: 预缓存
 self.addEventListener('install', (event) => {
-  console.log('[SW] install', CACHE_VERSION)
+  console.log('[SW] install', CACHE_VERSION, 'dev=', IS_DEV)
+  // 开发环境: 不预缓存, 直接 skipWaiting 让新 SW 尽快接管
+  if (IS_DEV) {
+    self.skipWaiting()
+    return
+  }
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_URLS).catch((err) => {
@@ -29,12 +38,12 @@ self.addEventListener('install', (event) => {
 
 // 激活: 清理旧缓存
 self.addEventListener('activate', (event) => {
-  console.log('[SW] activate')
+  console.log('[SW] activate', 'dev=', IS_DEV)
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-      )
+      // 开发环境: 清理所有缓存 (包括当前版本); 生产环境: 仅清理旧版本
+      const toDelete = IS_DEV ? keys : keys.filter((k) => k !== CACHE_NAME)
+      return Promise.all(toDelete.map((k) => caches.delete(k)))
     })
   )
   self.clients.claim()
@@ -50,6 +59,10 @@ self.addEventListener('fetch', (event) => {
 
   // 跳过非 HTTP(S) 协议
   if (!url.protocol.startsWith('http')) return
+
+  // 2026-06-27: 开发环境不拦截任何请求, 让 Vite HMR 直接生效
+  // 避免 SW 缓存旧 HTML/JS 导致白屏
+  if (IS_DEV) return
 
   // Web Share Target 处理
   if (request.method === 'POST' && url.pathname === '/share-target') {

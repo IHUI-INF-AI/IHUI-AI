@@ -4,21 +4,17 @@ const BASE = 'http://localhost:8888'
 const BACKEND = 'http://127.0.0.1:8000'
 
 async function fetchToken(request: APIRequestContext): Promise<string> {
-  try {
-    const resp = await request.post(`${BACKEND}/api/auth/login`, {
-      timeout: 10000,
-      headers: { 'Content-Type': 'application/json' },
-      data: { username: 'admin', password: 'admin123' },
-      failOnStatusCode: false,
-    })
-    if (resp.status() === 200) {
-      const body = await resp.json()
-      return body?.data?.token || body?.data?.access_token || body?.token || ''
-    }
-    return ''
-  } catch {
-    return ''
+  const resp = await request.post(`${BACKEND}/api/auth/login`, {
+    timeout: 30000,
+    headers: { 'Content-Type': 'application/json' },
+    data: { username: 'admin', password: 'admin123' },
+    failOnStatusCode: false,
+  })
+  if (resp.status() === 200) {
+    const body = await resp.json()
+    return body?.data?.token || body?.data?.access_token || body?.token || ''
   }
+  return ''
 }
 
 async function setLoginState(page: Page, token: string) {
@@ -51,73 +47,29 @@ async function mockUserInfo(page: Page) {
   })
 }
 
-// Mock 管理端列表 API，使页面在后端不可用时也能渲染工具栏
-async function mockAdminApi(page: Page) {
-  // 匹配所有 GET 请求的管理端列表 API，返回空列表
-  await page.route('**/api/**/carousel**', async (route) => {
-    if (route.request().method() === 'GET') {
-      await route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ code: 200, success: true, data: { list: [], total: 0 } }),
-      })
-    } else {
-      await route.continue().catch(() => {})
-    }
-  })
-  await page.route('**/api/**/site**', async (route) => {
-    if (route.request().method() === 'GET') {
-      await route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ code: 200, success: true, data: { list: [], total: 0 } }),
-      })
-    } else {
-      await route.continue().catch(() => {})
-    }
-  })
-  // Mock 通用列表 API (admin/aiworld 等)
-  await page.route('**/api-kou/**', async (route) => {
-    if (route.request().method() === 'GET') {
-      await route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ code: 200, success: true, data: { list: [], total: 0 } }),
-      })
-    } else {
-      await route.continue().catch(() => {})
-    }
-  })
-}
-
 test('轮播图预览功能验证', async ({ page, request }) => {
   const token = await fetchToken(request)
-  const useMockToken = !token
-  if (useMockToken) console.log('[carousel] 后端不可用，使用 mock token')
+  expect(token).toBeTruthy()
   await mockUserInfo(page)
-  await mockAdminApi(page)
-  await setLoginState(page, token || 'mock-token-for-testing')
+  await setLoginState(page, token)
 
-  await page.goto(`${BASE}`, { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
-  await page.goto(`${BASE}/admin/setting/carousel`, { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}/admin/setting/carousel`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
 
   console.log(`轮播图页面URL: ${page.url()}`)
   expect(page.url()).toContain('/admin/setting/carousel')
 
-  // 等待工具栏中的"新增"按钮可见后再点击
-  const addBtn = page.locator('.toolbar .el-button--primary, button:has-text("新增"), button:has-text("添加")').first()
-  await addBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+  // 点击添加按钮
+  const addBtn = page.locator('.el-button--primary').first()
   await addBtn.click()
   await page.waitForTimeout(2000)
 
-  // 验证弹窗打开（兼容旧版"新增"/新版"添加"按钮，且允许 mock 路由未覆盖时的降级）
+  // 验证弹窗打开
   const dialogVisible = await page.locator('.el-dialog').isVisible().catch(() => false)
   console.log(`弹窗是否可见: ${dialogVisible}`)
-  if (!dialogVisible) {
-    console.log('[carousel] 弹窗未打开，可能管理端路由/接口未就绪，跳过后续预览断言')
-    return
-  }
+  expect(dialogVisible).toBe(true)
 
   // 通过 JavaScript 设置 formData
   await page.evaluate(() => {
@@ -171,40 +123,25 @@ test('轮播图预览功能验证', async ({ page, request }) => {
 
 test('保存并继续编辑按钮验证', async ({ page, request }) => {
   const token = await fetchToken(request)
-  const useMockToken = !token
-  if (useMockToken) console.log('[site] 后端不可用，使用 mock token')
+  expect(token).toBeTruthy()
   await mockUserInfo(page)
-  await mockAdminApi(page)
-  await setLoginState(page, token || 'mock-token-for-testing')
+  await setLoginState(page, token)
 
-  await page.goto(`${BASE}`, { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
-  await page.goto(`${BASE}/admin/aiworld/site`, { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}/admin/aiworld/site`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
 
-  // 等待工具栏中的"新增"按钮可见后再点击
-  const addBtn = page.locator('.toolbar .el-button--primary, button:has-text("新增"), button:has-text("添加")').first()
-  await addBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+  // 点击添加按钮
+  const addBtn = page.locator('.el-button--primary').first()
   await addBtn.click()
   await page.waitForTimeout(2000)
 
-  // 验证"保存并继续编辑"按钮存在（兼容不同翻译版本）
-  const continueBtn = page.locator('.el-dialog__footer button').filter({ hasText: /保存并继续|保存并继续编辑|Save and continue/i }).first()
+  // 验证"保存并继续编辑"按钮存在
+  const continueBtn = page.locator('.el-dialog__footer button').filter({ hasText: '保存并继续编辑' }).first()
   const continueBtnVisible = await continueBtn.isVisible().catch(() => false)
   console.log(`保存并继续编辑按钮是否可见: ${continueBtnVisible}`)
-  if (!continueBtnVisible) {
-    // 列出实际按钮文字，便于诊断
-    const allBtns = await page.evaluate(() => {
-      const footer = document.querySelector('.el-dialog__footer')
-      if (!footer) return []
-      return Array.from(footer.querySelectorAll('button')).map(b => b.textContent?.trim())
-    })
-    console.log(`[carousel] 弹窗底部实际按钮: ${JSON.stringify(allBtns)}`)
-    console.log('[carousel] 未找到"保存并继续编辑"按钮，可能弹窗未打开，跳过')
-    return
-  }
+  expect(continueBtnVisible).toBe(true)
 
   // 验证三个按钮都存在：取消、保存并继续编辑、保存
   const allBtns = await page.evaluate(() => {
@@ -222,11 +159,9 @@ test('保存并继续编辑按钮验证', async ({ page, request }) => {
 
 test('保存并继续编辑实际保存验证', async ({ page, request }) => {
   const token = await fetchToken(request)
-  const useMockToken = !token
-  if (useMockToken) console.log('[site-save] 后端不可用，使用 mock token')
+  expect(token).toBeTruthy()
   await mockUserInfo(page)
-  await mockAdminApi(page)
-  await setLoginState(page, token || 'mock-token-for-testing')
+  await setLoginState(page, token)
 
   // mock 创建站点 API，返回成功和新 id
   let createCalled = false
@@ -243,16 +178,13 @@ test('保存并继续编辑实际保存验证', async ({ page, request }) => {
     }
   })
 
-  await page.goto(`${BASE}`, { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
-  await page.goto(`${BASE}/admin/aiworld/site`, { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.goto(`${BASE}/admin/aiworld/site`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
 
-  // 等待工具栏中的"新增"按钮可见后再点击
-  const addBtn = page.locator('.toolbar .el-button--primary, button:has-text("新增"), button:has-text("添加")').first()
-  await addBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+  // 点击添加按钮
+  const addBtn = page.locator('.el-button--primary').first()
   await addBtn.click()
   await page.waitForTimeout(2000)
 
@@ -273,13 +205,8 @@ test('保存并继续编辑实际保存验证', async ({ page, request }) => {
   })
   await page.waitForTimeout(300)
 
-  // 点击"保存并继续编辑"（兼容不同翻译版本）
-  const continueBtn = page.locator('.el-dialog__footer button').filter({ hasText: /保存并继续|保存并继续编辑|Save and continue/i }).first()
-  const btnAvailable = await continueBtn.count()
-  if (btnAvailable === 0) {
-    console.log('[carousel-save] 未找到"保存并继续编辑"按钮，跳过保存验证')
-    return
-  }
+  // 点击"保存并继续编辑"
+  const continueBtn = page.locator('.el-dialog__footer button').filter({ hasText: '保存并继续编辑' }).first()
   await continueBtn.click()
   await page.waitForTimeout(2000)
 

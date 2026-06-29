@@ -85,7 +85,7 @@
             </view>
             <!-- 官网链接 -->
             <view v-if="pageType == 'study' && studyList.length > 0"
-                style="width: 100%;padding-bottom: 10rpx; text-align: center;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
+                style="width: 100%;padding-bottom: 10rpx;text-align: center;display: flex;justify-content: center;align-items: flex-end;">
                 <image style="text-align: center;width:348rpx;" src="https://file.aizhs.top/sys-mini/yejiao.png"
                     mode="widthFix" />
             </view>
@@ -209,10 +209,10 @@ onMounted(() => {
     }
 
     .blink_text {
-        font-family: Alimama FangYuanTi VF !important;
+        font-family: "Alimama FangYuanTi VF" !important;
         font-size: 36rpx;
         font-weight: bold;
-        color: rgba(0, 0, 0, 0.8);
+        color: rgb(0 0 0 / 0.8);
     }
 
     .icon_right {
@@ -222,7 +222,7 @@ onMounted(() => {
     }
 
     .right_text {
-        font-family: Alimama FangYuanTi VF !important;
+        font-family: "Alimama FangYuanTi VF" !important;
         font-size: 28rpx;
         font-weight: normal;
         color: #3D3D3D;
@@ -232,6 +232,7 @@ onMounted(() => {
 .scroll_body {
     width: 100%;
     box-sizing: border-box;
+
     // padding: 0 8rpx;
 }
 
@@ -267,7 +268,7 @@ onMounted(() => {
             height: 26rpx;
             font-size: 18rpx;
             font-weight: bold;
-            color: #FFFFFF;
+            color: #FFF;
             flex: 1;
             margin: 0;
         }
@@ -275,13 +276,13 @@ onMounted(() => {
         .date {
             font-size: 18rpx;
             font-weight: bold;
-            color: #FFFFFF;
+            color: #FFF;
             width: 100rpx;
         }
     }
 
     .title {
-        font-family: Alimama FangYuanTi VF !important;
+        font-family: "Alimama FangYuanTi VF" !important;
         font-size: 24rpx;
         font-weight: normal;
         color: #3D3D3D;
@@ -296,16 +297,15 @@ onMounted(() => {
     }
 
     .name {
-        font-family: Alimama FangYuanTi VF !important;
+        font-family: "Alimama FangYuanTi VF" !important;
         font-size: 18rpx;
         font-weight: bold;
-        color: rgba(0, 0, 0, 0.6);
+        color: rgb(0 0 0 / 0.6);
     }
 
     .shoucang {
         width: 39rpx;
         height: 39rpx;
-        margin-top: 0;
         display: block;
         float: right;
         margin-top: -2rpx;
@@ -314,7 +314,6 @@ onMounted(() => {
     .choucang_active {
         width: 39rpx;
         height: 39rpx;
-        margin-top: 0;
         display: block;
         float: right;
         margin-top: -2rpx;
@@ -337,7 +336,6 @@ onMounted(() => {
 
     .text_collect {
         display: block;
-        color: #373737;
         font-weight: bold;
         font-size: 18rpx;
         float: right;

@@ -167,7 +167,7 @@ onMounted(() => {
 
 .welcome-message {
   display: flex;
-  background-color: #ffffff;
+  background-color: #fff;
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 15px;
@@ -199,7 +199,7 @@ onMounted(() => {
 .usage-info {
   display: flex;
   align-items: center;
-  background-color: #ffffff;
+  background-color: #fff;
   border-radius: 12px;
   padding: 12px 16px;
   margin-bottom: 15px;
@@ -257,7 +257,7 @@ onMounted(() => {
   
   .message-bubble {
     margin-left: 10px;
-    background-color: #ffffff;
+    background-color: #fff;
     color: #333;
   }
 }
@@ -269,7 +269,7 @@ onMounted(() => {
   .message-bubble {
     margin-right: 10px;
     background-color: #4080ff;
-    color: #ffffff;
+    color: #fff;
   }
   
   .user-avatar {
@@ -281,7 +281,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 10px 16px;
-  background-color: #ffffff;
+  background-color: #fff;
   border-top: 1px solid #eaeaea;
   
   .input-tools {
@@ -313,7 +313,7 @@ onMounted(() => {
     height: 40px;
     border-radius: 50%;
     background-color: #4080ff;
-    color: #ffffff;
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;

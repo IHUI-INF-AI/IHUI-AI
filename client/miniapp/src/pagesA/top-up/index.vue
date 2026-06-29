@@ -85,6 +85,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import NavigationBars from '@/components/navigation-bars/index.vue'
 import UserInfoCard from '@/components/UserInfoCard/UserInfoCard.vue'
+import { miniPay } from '@/service/pay.js'
 
 // 数据
 const loading = ref(false)
@@ -139,18 +140,41 @@ async function handleRecharge() {
 
   loading.value = true
   try {
-    // TODO: 调用充值 API
-    // const res = await createRechargeOrder({ amount })
-    // if (res && res.data) {
-    //   // 调用微信支付
-    //   await wxPay(res.data.paymentInfo)
-    // }
+    const storageData = uni.getStorageSync('data') || {}
+    const uuid = storageData.uuid
+    const openId = storageData.thirdPartyAccounts?.openId || ''
+    if (!uuid) {
+      throw new Error('用户信息异常，请重新登录')
+    }
+    // 调用微信支付下单接口（miniPay 返回拉起支付所需参数）
+    const payData = await miniPay(uuid, openId, '智汇值充值', amount, amount, 1, 1)
+    if (!payData) {
+      throw new Error('获取支付信息失败')
+    }
+    // 拉起微信支付
+    await new Promise<void>((resolve, reject) => {
+      const params: any = {
+        success: () => resolve(),
+        fail: (err: any) => reject(err),
+      }
+      if (payData.orderInfo) {
+        params.provider = 'wxpay'
+        params.orderInfo = typeof payData.orderInfo === 'string' ? payData.orderInfo : JSON.stringify(payData.orderInfo)
+      } else {
+        params.timeStamp = String(payData.timeStamp ?? '')
+        params.nonceStr = String(payData.nonceStr ?? '')
+        params.package = String(payData.package ?? '')
+        params.signType = payData.signType || 'RSA'
+        params.paySign = String(payData.paySign ?? '')
+      }
+      uni.requestPayment(params)
+    })
     uni.showToast({ title: '充值成功', icon: 'success' })
     setTimeout(() => {
       uni.navigateBack()
     }, 1500)
   } catch (error) {
-    uni.showToast({ title: '充值失败', icon: 'none' })
+    uni.showToast({ title: error?.errMsg || error?.message || '充值失败', icon: 'none' })
   } finally {
     loading.value = false
   }
@@ -171,11 +195,8 @@ function onPackClick() {
 
 .loading-mask {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -238,7 +259,7 @@ function onPackClick() {
 
   &.amount-item-active {
     border-color: #007aff;
-    background: rgba(0, 122, 255, 0.05);
+    background: rgb(0 122 255 / 0.05);
   }
 
   .amount-value {

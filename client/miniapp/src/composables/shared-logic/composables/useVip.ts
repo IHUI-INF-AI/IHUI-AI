@@ -65,11 +65,11 @@ export function useVip() {
       // #ifdef MP-WEIXIN
       const payParams = order.payParams
       await new Promise<void>((resolve, reject) => {
-        uni.requestPayment({
+        void uni.requestPayment({
           provider: 'wxpay',
           ...payParams,
           success: () => resolve(),
-          fail: (err) => reject(err),
+          fail: (err: unknown) => reject(err),
         })
       })
       // #endif

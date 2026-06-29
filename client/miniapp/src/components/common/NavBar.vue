@@ -50,10 +50,10 @@ function goBack() {
     left: 0;
     right: 0;
     z-index: 999;
-    background-color: rgba(18, 18, 23, 0.9);
+    background-color: rgb(18 18 23 / 0.9);
     backdrop-filter: blur(25px);
-    border-bottom: 1px solid rgba(0, 242, 255, 0.15);
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgb(0 242 255 / 0.15);
+    box-shadow: 0 0 15px rgb(0 0 0 / 0.3);
     transition: all 0.3s ease;
     
     &.tech-glass {
@@ -66,11 +66,11 @@ function goBack() {
             height: 1px;
             background: linear-gradient(to right, 
                 transparent, 
-                rgba(0, 242, 255, 0.7),
-                rgba(139, 92, 246, 0.7),
+                rgb(0 242 255 / 0.7),
+                rgb(139 92 246 / 0.7),
                 transparent
             );
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.6);
+            box-shadow: 0 0 15px rgb(0 242 255 / 0.6);
         }
     }
     
@@ -88,21 +88,21 @@ function goBack() {
             justify-content: center;
             position: relative;
             border-radius: 50%;
-            border: 1px solid rgba(0, 242, 255, 0.3);
-            background-color: rgba(31, 31, 40, 0.8);
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgb(0 242 255 / 0.3);
+            background-color: rgb(31 31 40 / 0.8);
+            box-shadow: 0 0 10px rgb(0 0 0 / 0.2);
             margin-right: 10rpx;
             transition: transform 0.25s ease, background-color 0.25s ease;
             
             &:active {
                 transform: scale(0.9);
-                background-color: rgba(0, 242, 255, 0.2);
+                background-color: rgb(0 242 255 / 0.2);
             }
             
             .iconfont {
                 font-size: 36rpx;
-                color: #FFFFFF;
-                text-shadow: 0 0 8px rgba(0, 242, 255, 0.5);
+                color: #FFF;
+                text-shadow: 0 0 8px rgb(0 242 255 / 0.5);
             }
         }
         
@@ -117,10 +117,10 @@ function goBack() {
             
             .title-text {
                 font-size: 36rpx;
-                color: #FFFFFF;
+                color: #FFF;
                 font-weight: 600;
                 letter-spacing: 1px;
-                text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+                text-shadow: 0 0 10px rgb(255 255 255 / 0.2);
             }
             
             .title-line {
@@ -130,7 +130,7 @@ function goBack() {
                 background: linear-gradient(to right, #00F2FF, #8B5CF6);
                 border-radius: 8rpx;
                 opacity: 0.9;
-                box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+                box-shadow: 0 0 10px rgb(0 242 255 / 0.5);
             }
         }
         
@@ -157,7 +157,7 @@ function goBack() {
         top: 0;
         left: 0;
         pointer-events: none;
-        background-image: radial-gradient(circle, rgba(0, 242, 255, 0.4) 10%, transparent 10.01%);
+        background-image: radial-gradient(circle, rgb(0 242 255 / 0.4) 10%, transparent 10.01%);
         background-repeat: no-repeat;
         background-position: 50%;
         transform: scale(10, 10);

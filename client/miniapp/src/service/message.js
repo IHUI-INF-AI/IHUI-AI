@@ -1,4 +1,5 @@
 import { request } from "@/service/shared-request.ts";
+import jsRequest from "@/utils/service/index.js";
 
 /**
  * 获取用户聊天房间列表
@@ -50,5 +51,21 @@ export function markRoomAsRead(userUuid, roomId) {
       "content-type": "application/json",
     },
     base: 3 // 使用 baseUrl3
+  });
+}
+
+/**
+ * 获取私聊会话列表
+ * 响应：{code:0, data:[{id, name, avatar, lastMessage, time, unreadCount, ...}]}
+ * @returns {Promise}
+ */
+export function getConversationList() {
+  return jsRequest({
+    url: `/message/private/conversation/list`,
+    method: "GET",
+    header: {
+      "content-type": "application/json",
+    },
+    base: 1
   });
 }

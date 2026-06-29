@@ -164,6 +164,6 @@ function handleItemClick(item) {
 
 .tabbar_back{
   height: 150rpx;
-  background-color: rgba(255,255,255,0);
+  background-color: rgb(255 255 255 / 0);
 }
 </style>

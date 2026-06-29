@@ -9,7 +9,7 @@
       @show-full-list="handleShowFullList" @touch-start="handleTouchStart" @touch-move="handleTouchMove"
       @touch-end="handleTouchEnd" @remove-chat="removeChat" />
     <float-box ref="floatBoxRef" :floatboxVisible="floatboxVisible" />
-    <view class="container" style="padding: 0 0" @click="handleClick">
+    <view class="container" style="padding: 0" @click="handleClick">
       <!-- 引入外部 顶部导航栏 -->
       <navigation-bars :showJoin="true" :showMenu="true" :userIcon="userIcon" :showUser="true" :tagWrapShow="tagWrapShow" @nav-click="handleNavClick" @menu-click="handleNavClick" @join-click="showQrCode" :viscosity="true"
       color="#171717" font-size-30 title="智汇AI社区" />
@@ -1031,7 +1031,7 @@ function getPhoneNumber(e) {
               }).catch(err => {})
             }
           }).catch(err => {})
-        } else {}
+        }
       },
       fail: function (err) {},
     })
@@ -1434,8 +1434,7 @@ function completemessage(e) {
           title: '加入成功',
           icon: 'success'
         })
-      } else if (e.detail.errMsg && e.detail.errMsg.includes('cancel')) {
-      } else {
+      } else if (!(e.detail.errMsg && e.detail.errMsg.includes('cancel'))) {
         uni.showToast({
           title: '加入失败，请重试',
           icon: 'none'
@@ -2464,7 +2463,6 @@ function readFileToBase64(filePath) {
 function handleIconClick(icon) {
   showImagePopup.value = false
   isShow.value = false
-  let that = this
   switch (icon) {
     case 'camera':
       uni.chooseImage({
@@ -2831,7 +2829,7 @@ async function stopVoiceRecognition() {
     try {
       if (recordManager.value) {
         recordManager.value.stop()
-      } else {}
+      }
     } catch (error) {} finally {
       isRecording.value = false
     }
@@ -2896,7 +2894,7 @@ function refreshImgsListDisplay() {
 }
 
 function processContent(content) {
-  const regex = /\!\[([^\]]+)\]\(([^\)]+)\)/g
+  const regex = /!\[([^\]]+)\]\(([^)]+)\)/g
   let match
   const processedContent = []
   let lastIndex = 0
@@ -2981,10 +2979,10 @@ async function checkLoginAndShowSharePoints() {
       typeof userData === 'object' && 
       Object.keys(userData).length > 0 &&
       userData.uuid &&
-      accessToken && 
+      accessToken &&
       accessToken.trim() !== '') {
     await checkPointsReceived()
-  } else {}
+  }
 }
 
 async function checkPointsReceived() {
@@ -3653,10 +3651,7 @@ watch(agent_content1, (newVal) => {
 .container {
   min-height: 100vh;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -3689,13 +3684,13 @@ watch(agent_content1, (newVal) => {
       background-color: #E6F3FA;
       border-radius: 30rpx;
       font-size: 30rpx;
-      color: #333333;
+      color: #333;
     }
 
     .placeholder-style {
-      color: #999999;
+      color: #999;
       font-size: 28rpx;
-      font-family: "AlimamaFangYuanTi";
+      font-family: AlimamaFangYuanTi;
     }
 
     .send-btn {
@@ -3734,11 +3729,9 @@ watch(agent_content1, (newVal) => {
   justify-content: center;
   align-items: center;
   position: fixed;
-  color: rgba(0, 0, 0, 0.4);
-  ;
-  z-index: 0;
+  color: rgb(0 0 0 / 0.4);
   bottom: 237rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   z-index: 1001;
 }
 
@@ -3749,15 +3742,14 @@ watch(agent_content1, (newVal) => {
   justify-content: center;
   align-items: center;
   position: fixed;
-  color: rgba(0, 0, 0, 0.4);
-  z-index: 0;
+  color: rgb(0 0 0 / 0.4);
   bottom: 87px;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   z-index: -1;
 
   .guanwangline {
     font-weight: normal;
-    color: rgba(89, 97, 255, 0.55);
+    color: rgb(89 97 255 / 0.55);
     font-size: 30rpx;
     line-height: 55rpx;
   }
@@ -3765,7 +3757,6 @@ watch(agent_content1, (newVal) => {
   .guanwangline1 {
     font-size: 20rpx;
     line-height: 20rpx;
-    t: normal;
   }
 
 }
@@ -3811,9 +3802,9 @@ watch(agent_content1, (newVal) => {
   border: none;
   background: transparent;
   font-size: 30rpx;
-  color: rgba(0, 0, 0, 0.6) !important;
+  color: rgb(0 0 0 / 0.6) !important;
   font-weight: 900;
-  font-family: 'AlimamaFangYuanTi', sans-serif;
+  font-family: AlimamaFangYuanTi, sans-serif;
   outline: none;
 }
 
@@ -3829,7 +3820,7 @@ watch(agent_content1, (newVal) => {
   width: 119rpx;
   height: 68rpx;
   margin-right: 0;
-  border-radius: 0px 26px 26px 0px;
+  border-radius: 0 26px 26px 0;
   box-sizing: border-box;
   display: flex;
   justify-content: space-around;
@@ -3842,7 +3833,7 @@ watch(agent_content1, (newVal) => {
 .no-more-text {
   margin: 0 9rpx;
   color: #767676;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-size: 24rpx;
   font-weight: normal;
   line-height: 20rpx;
@@ -3873,7 +3864,6 @@ watch(agent_content1, (newVal) => {
 }
 
 @keyframes bounce {
-
   0%,
   100% {
     height: 2rpx;
@@ -3893,26 +3883,23 @@ watch(agent_content1, (newVal) => {
 }
 
 .welcome {
-  font-weight: bold;
   color: #000;
   margin-bottom: 10rpx;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-size: 80rpx;
   font-weight: normal;
   line-height: 67rpx;
-  letter-spacing: 0rem;
+  letter-spacing: 0;
 }
 
 .brand {
   margin-bottom: 20rpx;
   align-self: flex-end;
-
-
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-size: 30rpx;
   font-weight: bold;
   text-align: center;
-  letter-spacing: 0px;
+  letter-spacing: 0;
   font-variation-settings: "BEVL" 100, "opsz" auto;
   color: #8D83FF;
 
@@ -4007,19 +3994,18 @@ watch(agent_content1, (newVal) => {
 .toggle-button {
   width: calc(25% - 12rpx);
   border: 4rpx solid #fff;
-  border-width: 4rpx 4rpx 0 4rpx;
+  border-width: 4rpx 4rpx 0;
   padding: 0;
   margin: 0 8rpx 0 0;
   border-radius: 15rpx;
   font-size: 28rpx;
   transition: background-color 0.3s;
-  box-shadow: 0 0 4rpx rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(106deg, rgba(205, 208, 255, 0.3) 0%, rgba(253, 255, 225, 0.3) 100%);
-  box-shadow: 0px 0 6px 0px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(106deg, rgb(205 208 255 / 0.3) 0%, rgb(253 255 225 / 0.3) 100%);
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
   padding-left: 10rpx;
   -webkit-tap-highlight-color: transparent;
   tap-highlight-color: transparent;
@@ -4031,17 +4017,17 @@ watch(agent_content1, (newVal) => {
 }
 
 .button-group-box-inner {
-  color: #000000;
+  color: #000;
   font-size: 18rpx;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 }
 
 .button-group-box-inner:first-child {
-  color: rgba(0, 0, 0, 0.6);
+  color: rgb(0 0 0 / 0.6);
 }
 
 .custom-carousel-wrapper {
-  border: 1px solid rgba(156, 156, 156, 0.3);
+  border: 1px solid rgb(156 156 156 / 0.3);
   box-sizing: border-box;
   border-radius: 30rpx;
   overflow: hidden;
@@ -4058,8 +4044,8 @@ watch(agent_content1, (newVal) => {
   position: relative;
   border-radius: 30rpx;
   padding: 4rpx;
-  background: linear-gradient(235deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 31%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%);
-  box-shadow: 0 0 16rpx rgba(0, 0, 0, 0.08);
+  background: linear-gradient(235deg, #D19EFF 6%, rgb(255 242 0 / 0.3) 31%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 73%, #CD96FF 93%);
+  box-shadow: 0 0 16rpx rgb(0 0 0 / 0.08);
 }
 
 .carousel-inner {
@@ -4069,7 +4055,7 @@ watch(agent_content1, (newVal) => {
 }
 
 .search-input {
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
 }
 
 .icon-button-group {
@@ -4092,21 +4078,20 @@ watch(agent_content1, (newVal) => {
   flex: none;
   width: 160rpx;
   height: 150rpx;
-  background: linear-gradient(135deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 103%);
+  background: linear-gradient(135deg, rgb(205 208 255 / 0.3) 3%, rgb(253 255 225 / 0.3) 103%);
   border-radius: 30rpx;
-  box-shadow: 0 0 4rpx rgba(0, 0, 0, 0.1);
   padding: 20rpx 10rpx 0;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  box-shadow: 0px 0 4rpx rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 4rpx rgb(0 0 0 / 0.3);
   box-sizing: border-box;
   border: 6rpx solid #fff;
-  border-width: 6rpx 6rpx 0 6rpx;
+  border-width: 6rpx 6rpx 0;
   transform: scale(1);
 }
 
 .icon-button:active {
   transform: scale(0.95);
-  box-shadow: 0px 0 2rpx rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 2rpx rgb(0 0 0 / 0.2);
 }
 
 .icon-imagea {
@@ -4118,8 +4103,8 @@ watch(agent_content1, (newVal) => {
 .icon-text {
   font-size: 20rpx;
   line-height: 40rpx;
-  color: rgba(0, 0, 0, 0.9);
-  font-family: "AlimamaFangYuanTi";
+  color: rgb(0 0 0 / 0.9);
+  font-family: AlimamaFangYuanTi;
 }
 
 .search-box2-img {
@@ -4138,7 +4123,7 @@ watch(agent_content1, (newVal) => {
 }
 
 .btn_clicked {
-  box-shadow: 0px 0px 6px 0px #5BAFF3;
+  box-shadow: 0 0 6px 0 #5BAFF3;
 }
 
 .chu-text {
@@ -4183,7 +4168,7 @@ watch(agent_content1, (newVal) => {
   white-space: pre-wrap;
   word-wrap: break-word;
   word-break: break-all;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
 
 }
 
@@ -4192,11 +4177,11 @@ watch(agent_content1, (newVal) => {
   height: 50vh !important;
   z-index: 1000;
   top: calc((100vh - 50vh) / 2);
-  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 10rpx 0 rgb(0 0 0 / 0.3);
   border-radius: 20rpx;
   overflow: hidden;
   backdrop-filter: blur(50rpx);
-  background: linear-gradient(101deg, rgba(205, 208, 255, 0.3) 4%, rgba(253, 255, 225, 0.3) 104%);
+  background: linear-gradient(101deg, rgb(205 208 255 / 0.3) 4%, rgb(253 255 225 / 0.3) 104%);
   width: calc(100% - 80rpx);
 }
 
@@ -4220,19 +4205,13 @@ watch(agent_content1, (newVal) => {
 .agent_back {
   background: linear-gradient(to right, #D19EFF 20%, #F68B09 50%, #3EFFBE 80%);
   position: absolute;
-  top: -300rpx;
-  left: -300rpx;
-  right: -300rpx;
-  bottom: -300rpx;
+  inset: -300rpx;
   animation: rotate 5s linear infinite;
 }
 
 .agent_content {
   position: absolute;
-  top: 4rpx;
-  left: 4rpx;
-  right: 4rpx;
-  bottom: 4rpx;
+  inset: 4rpx;
   background-color: rgb(226 226 226);
   border-radius: 20rpx;
   overflow-y: auto;
@@ -4270,7 +4249,7 @@ watch(agent_content1, (newVal) => {
   overflow: hidden;
   white-space: initial;
   color: transparent;
-  background-image: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.5) 50%);
+  background-image: linear-gradient(to bottom, transparent 50%, rgb(0 0 0 / 0.5) 50%);
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -4324,7 +4303,7 @@ watch(agent_content1, (newVal) => {
   opacity: 1;
   background: #F6F6F6;
   box-sizing: border-box;
-  border: 1px solid #EEEEEE;
+  border: 1px solid #EEE;
   width: 100%;
   float: left;
   margin-top: 20rpx;
@@ -4334,15 +4313,15 @@ watch(agent_content1, (newVal) => {
   line-height: 28rpx;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: #333333;
+  color: #333;
 }
 
 .agent-content-item-question {
   background: #9A99F3;
   box-sizing: border-box;
   border: 2rpx solid;
-  border-image: linear-gradient(275deg, rgba(252, 255, 77, 0.5) -32%, rgba(76, 32, 116, 0) 5%, rgba(54, 16, 88, 0) 98%, rgba(54, 16, 88, 0.5) 129%) 2;
-  box-shadow: 0px 0px 6px 0px rgba(0, 0, 0, 0.3);
+  border-image: linear-gradient(275deg, rgb(252 255 77 / 0.5) -32%, rgb(76 32 116 / 0) 5%, rgb(54 16 88 / 0) 98%, rgb(54 16 88 / 0.5) 129%) 2;
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
   border-radius: 15rpx;
   float: right;
   padding: 20rpx;
@@ -4351,9 +4330,8 @@ watch(agent_content1, (newVal) => {
   line-height: 28rpx;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-
   font-variation-settings: "BEVL" 100, "opsz" auto;
-  color: #FFFFFF;
+  color: #FFF;
 }
 
 .compan {
@@ -4451,10 +4429,10 @@ watch(agent_content1, (newVal) => {
     align-items: center;
     justify-content: center;
     flex: 1;
-    background: rgba(0, 0, 0, 0);
+    background: rgb(0 0 0 / 0);
     border-radius: 0;
     padding: 0;
-    box-shadow: 0px 0 0 rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 0 rgb(0 0 0 / 0.3);
     box-sizing: border-box;
     border: none;
     animation: none;
@@ -4527,7 +4505,7 @@ watch(agent_content1, (newVal) => {
   border-radius: 15rpx;
   border: 4rpx solid #000;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
   margin: 20rpx 35rpx 0;
   animation: bouncea 0.5s ease-in-out infinite;
   line-height: 62rpx !important;
@@ -4539,11 +4517,10 @@ watch(agent_content1, (newVal) => {
   font-weight: bold;
   color: #000;
   text-transform: uppercase;
-  padding: 0;
   border-radius: 10rpx;
   border: 2rpx solid #000;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
   margin: 0;
   line-height: 44rpx !important;
   height: 44rpx !important;
@@ -4557,7 +4534,7 @@ watch(agent_content1, (newVal) => {
   }
 
   50% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     transform: translate(0, 0);
   }
 
@@ -4574,7 +4551,7 @@ watch(agent_content1, (newVal) => {
   }
 
   50% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     transform: translate(0, 0);
   }
 
@@ -4593,7 +4570,7 @@ watch(agent_content1, (newVal) => {
   width: calc(100% - 40rpx);
   box-sizing: border-box;
   margin: 10rpx auto;
-  box-shadow: 0px 0 16rpx -4rpx rgba(90, 87, 255, 0.5);
+  box-shadow: 0 0 16rpx -4rpx rgb(90 87 255 / 0.5);
   transition: box-shadow 0.3s ease;
   position: relative;
 }
@@ -4617,17 +4594,17 @@ watch(agent_content1, (newVal) => {
   transition: all 1s;
 }
 
-@-moz-keyframes move {
+@keyframes move {
   0% { top: 0; height: 65rpx; }
   100% { top: 15rpx; height: 25rpx; }
 }
 
-@-webkit-keyframes move {
+@keyframes move {
   0% { top: 0; height: 65rpx; }
   100% { top: 15rpx; height: 25rpx; }
 }
 
-@-o-keyframes move {
+@keyframes move {
   0% { top: 0; height: 65rpx; }
   100% { top: 15rpx; height: 25rpx; }
 }
@@ -4693,10 +4670,12 @@ watch(agent_content1, (newVal) => {
   border-bottom: 1rpx solid #f0f0f0;
   background: #fafafa;
 }
+
 .material-cards-scroll {
   width: 100%;
   white-space: nowrap;
 }
+
 .material-cards-list {
   display: inline-flex;
   flex-direction: row;
@@ -4704,6 +4683,7 @@ watch(agent_content1, (newVal) => {
   gap: 16rpx;
   padding: 4rpx 0;
 }
+
 .material-card-item {
   position: relative;
   flex-shrink: 0;
@@ -4713,8 +4693,9 @@ watch(agent_content1, (newVal) => {
   overflow: hidden;
   background: #fff;
   border: 1rpx solid #eee;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+  box-shadow: 0 2rpx 8rpx rgb(0 0 0 / 0.06);
 }
+
 .material-card-close {
   position: absolute;
   top: 6rpx;
@@ -4725,6 +4706,7 @@ watch(agent_content1, (newVal) => {
   background: #fff;
   border-radius: 50%;
 }
+
 .material-card-body {
   padding: 24rpx 12rpx 12rpx;
   height: 100%;
@@ -4733,6 +4715,7 @@ watch(agent_content1, (newVal) => {
   align-items: flex-start;
   box-sizing: border-box;
 }
+
 .material-card-text .material-card-title,
 .material-card-img .material-card-title,
 .material-card-video .material-card-title,
@@ -4746,6 +4729,7 @@ watch(agent_content1, (newVal) => {
   width: 100%;
   margin-bottom: 6rpx;
 }
+
 .material-card-preview {
   font-size: 22rpx;
   color: #999;
@@ -4754,6 +4738,7 @@ watch(agent_content1, (newVal) => {
   white-space: nowrap;
   width: 100%;
 }
+
 .material-card-thumb {
   width: 100%;
   height: 80rpx;
@@ -4761,6 +4746,7 @@ watch(agent_content1, (newVal) => {
   margin-bottom: 8rpx;
   background: #f0f0f0;
 }
+
 .material-card-body.material-card-img,
 .material-card-body.material-card-video {
   padding-top: 12rpx;
@@ -4791,17 +4777,17 @@ watch(agent_content1, (newVal) => {
   min-width: 5em;
   line-height: 40rpx;
   margin-right: 10rpx;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
   font-size: 20rpx;
 }
 
 .page_can_con input.page_can_input {
-  background-color: rgba(218, 218, 218, 0.37);
+  background-color: rgb(218 218 218 / 0.37);
   height: 40rpx;
   border-radius: 8rpx;
   font-size: 22rpx;
   width: 50vw;
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
 }
 
 textarea.search-input {
@@ -4872,8 +4858,7 @@ textarea.search-input {
   margin-top: 0;
   padding: 0;
   height: calc(100% - 422rpx);
-  overflow-y: scroll;
-  overflow-x: hidden;
+  overflow: hidden scroll;
   margin-right: -16rpx;
 }
 
@@ -4988,7 +4973,7 @@ textarea.search-input {
   flex: none;
   line-height: 56rpx;
   color: #000;
-  padding: 4rpx 23rpx 4rpx;
+  padding: 4rpx 23rpx;
   position: relative;
 }
 
@@ -5017,7 +5002,7 @@ textarea.search-input {
   right: 0;
   height: 1px;
   bottom: 0;
-  background-color: rgba(0,0,0,0.05);
+  background-color: rgb(0 0 0 / 0.05);
   position: absolute;
 }
 
@@ -5073,9 +5058,11 @@ textarea.search-input {
   0% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.1);
   }
+
   100% {
     transform: scale(1);
   }
@@ -5115,7 +5102,7 @@ textarea.search-input {
   font-size: 32rpx;
   line-height: 33rpx;
   float: left;
-  color: rgba(0, 0, 0, 0.7);
+  color: rgb(0 0 0 / 0.7);
   background: #D3E9FF;
 }
 
@@ -5131,7 +5118,7 @@ textarea.search-input {
   display: flex;
   padding: 12rpx 13rpx;
   box-sizing: border-box;
-  border-top: 1px solid rgb(239 239 239 / 18%);
+  border-top: 1px solid rgb(239 239 239 / 0.18);
   font-size: 32rpx;
   line-height: 48rpx;
   color: #000;
@@ -5143,6 +5130,7 @@ textarea.search-input {
   right: 14rpx;
   justify-content: space-between;
 }
+
   .set_btn {
     width: 48rpx;
     height: 44rpx;
@@ -5195,10 +5183,7 @@ textarea.search-input {
 
 .login_back {
   position: fixed;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 99999999;
   opacity: 0;
 }
@@ -5209,8 +5194,7 @@ textarea.search-input {
   margin: 0;
 
   .btn_join {
-    margin: 20rpx 35rpx 20rpx;
-    line-height: 1;
+    margin: 20rpx 35rpx;
     height: 86rpx;
     line-height: 78rpx;
     box-sizing: border-box;
@@ -5240,8 +5224,9 @@ textarea.search-input {
 .btn_join {
   white-space: nowrap;
 }
+
 .tishi_content{
-  color: #ff0000;
+  color: #f00;
   text-align: center;
   margin-bottom: -20rpx;
   font-size: 38rpx;
@@ -5332,7 +5317,7 @@ textarea.search-input {
   max-height: 500rpx;
   background-color: #fff;
   border-radius: 16rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4rpx 20rpx rgb(0 0 0 / 0.15);
   z-index: 1000;
   overflow: hidden;
   margin-bottom: 10rpx;
@@ -5344,6 +5329,7 @@ textarea.search-input {
     opacity: 0;
     transform: translateY(10rpx);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -5383,6 +5369,7 @@ textarea.search-input {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -5456,7 +5443,7 @@ textarea.search-input {
   box-sizing: border-box;
   margin: 0 20rpx 30rpx;
   border: 1px solid #f0f0f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
 }
 
 .announcement-icon {
@@ -5483,16 +5470,16 @@ textarea.search-input {
 }
 
 .announcement-text {
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
   font-size: 28rpx;
   font-weight: bold;
-  color: #0066cc;
+  color: #06c;
   white-space: nowrap;
   padding-right: 10rpx;
 }
 
 .announcement-text-content {
-  font-family: "AlimamaFangYuanTi" !important;
+  font-family: AlimamaFangYuanTi !important;
   font-size: 28rpx;
   font-weight: bold;
   color: #5489ff;
@@ -5504,6 +5491,7 @@ textarea.search-input {
   0% {
     transform: translateX(0);
   }
+
   100% {
     transform: translateX(-50%);
   }
@@ -5512,10 +5500,7 @@ textarea.search-input {
 
 .share-points-popup {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -5524,11 +5509,8 @@ textarea.search-input {
 
 .popup-mask {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background-color: rgb(0 0 0 / 0.5);
 }
 
 .popup-content {
@@ -5544,12 +5526,15 @@ textarea.search-input {
     transform: perspective(400px) rotateY(0deg);
     opacity: 1;
   }
+
   49% {
     transform: perspective(400px) rotateY(-100deg);
   }
+
   51% {
     transform: perspective(400px) rotateY(-260deg);
   }
+
   100% {
     transform: perspective(400px) rotateY(-360deg);
     opacity: 1;
@@ -5665,7 +5650,7 @@ textarea.search-input {
   color: transparent;
   animation: gradientFlow 3s ease-in-out infinite;
   letter-spacing: 2rpx;
-  text-shadow: 0 0 20rpx rgba(255, 107, 107, 0.3);
+  text-shadow: 0 0 20rpx rgb(255 107 107 / 0.3);
 }
 
 .gemini-free-banner::after {
@@ -5685,6 +5670,7 @@ textarea.search-input {
   0%, 100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
@@ -5692,10 +5678,7 @@ textarea.search-input {
 
 .privacy-modal {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -5704,11 +5687,8 @@ textarea.search-input {
 
 .privacy-mask {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background-color: rgb(0 0 0 / 0.5);
 }
 
 .privacy-content {
@@ -5777,16 +5757,14 @@ textarea.search-input {
 
 .qr-code-modal {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  inset: 0;
+  background: rgb(0 0 0 / 0.7);
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .qr-code-content {
   background: #fff;
   border-radius: 20rpx;

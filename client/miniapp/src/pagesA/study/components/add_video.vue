@@ -26,7 +26,7 @@
                 @click="uploadVideo()" />
         </view>
         <view class="add_video_list f_a" v-if="status == 'add'">
-            <view class="f_c" style="margin-right: 12rpx;color: rgba(0, 0, 0, 0.6);font-weight: bold;">
+            <view class="f_c" style="margin-right: 12rpx;color: rgb(0 0 0 / 0.6);font-weight: bold;">
                 <text>视频</text>
             </view>
             <image class="study_icon_add_grad_empty" src="https://file.aizhs.top/sys-mini/xtk/study_icon_add_grad.png"
@@ -321,72 +321,6 @@ function uploadChunk(data, length) {
             });
         }
     })
-    if (false) {
-        const fs = wx.getFileSystemManager();
-        const fname = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 10)}`;
-        const tempFilePath = `${wx.env.USER_DATA_PATH}/${fname}`;
-        let p = new Promise((resolve, reject) => {
-            try {
-                fs.writeFileSync(tempFilePath, data, 'binary');
-                resolve(tempFilePath)
-            } catch (err) {
-                reject(err)
-            }
-        })
-        p.then(tempFilePath => {
-            console.log('tempFilePath', tempFilePath)
-
-            const formData = {
-                fileName: fileName.value,
-                fileMD5: md5id.value,
-                chunkNumber: vIndex.value,
-                totalChunks: chunkCount.value,
-                fileType: 'video/mp4',
-            }
-            console.log('formData', formData)
-
-            uni.uploadFile({
-                url: 'http://192.168.1.72:8080/file/uploadChunkedFile/pc',
-                filePath: tempFilePath,
-                name: 'file',
-                formData: formData,
-                header: {
-                    'Content-Type': `multipart/form-data;`
-                },
-                success(res) {
-                    const result = JSON.parse(res.data);
-                    console.log('uploadFile', result)
-
-                    vIndex.value++
-                    console.log('vIndex', vIndex.value, chunkCount.value)
-                    if (vIndex.value < chunkCount.value) {
-                        uploadNextChunk()
-                    } else {
-                        chunkRes.value = result
-                        console.log('chunkRes', chunkRes.value)
-                        formInfo.videoPath = result.presetPath
-                        vIndex.value = 0
-                        chunkUploading.value = false
-                        getVideoUrl()
-                        uni.showToast({
-                            title: '视频上传成功！',
-                            icon: 'success',
-                            duration: 2000
-                        });
-                    }
-                },
-                fail(err) {
-                    console.error('分片上传失败', err);
-                },
-            });
-        })
-            .catch(err => {
-                console.log('writeFileSync fail', err)
-            })
-            .finally(() => {
-                fs.unlinkSync(tempFilePath);
-            })
-    }
 }
 
 function getVideoUrl() {
@@ -404,76 +338,40 @@ function uploadVideo() {
         return
     }
 
-    if (false) {
-        uni.chooseMessageFile({
-            count: 1,
-            type: 'file',
-            extension: ['mp4'],
-            success: (res) => {
-                console.log('PC端选择文件成功', res)
-                chunkUploading.value = true
+    uni.chooseVideo({
+        sourceType: ['album', 'camera'],
+        extension: ['mp4'],
+        success: (res) => {
+            console.log('移动端选择视频成功', res)
+            chunkUploading.value = true
 
-                const tempFilePath = res.tempFiles[0].path;
-                const fileSize = res.tempFiles[0].size;
+            videoInfo.value = res
+            localUrl.value = res.tempFilePath
 
-                videoInfo.value = {
-                    tempFilePath: tempFilePath,
-                    size: fileSize
-                }
-                localUrl.value = tempFilePath
-
-                handleFileName(tempFilePath)
-
-                size.value = fileSize
-                chunkCount.value = Math.ceil(size.value / chunkSize.value);
-                console.log('分片数量', chunkCount.value)
-                getFileInfo(localUrl.value)
-            },
-            fail: (fail) => {
-                console.error('PC端选择文件失败', fail)
-                uni.showToast({
-                    title: '选择视频文件失败',
-                    icon: 'error',
-                    duration: 2000
-                });
+            if (res.thumbTempFilePath) {
+                uploadImage(res.thumbTempFilePath)
+            } else {
+                console.log('没有获取到视频封面图');
             }
-        })
-    } else {
-        uni.chooseVideo({
-            sourceType: ['album', 'camera'],
-            extension: ['mp4'],
-            success: (res) => {
-                console.log('移动端选择视频成功', res)
-                chunkUploading.value = true
 
-                videoInfo.value = res
-                localUrl.value = res.tempFilePath
+            const nameIndex = localUrl.value.indexOf('tmp/')
+            const length = localUrl.value.length
+            fileName.value = localUrl.value.slice(nameIndex + 4, length)
 
-                if (res.thumbTempFilePath) {
-                    uploadImage(res.thumbTempFilePath)
-                } else {
-                    console.log('没有获取到视频封面图');
-                }
-
-                const nameIndex = localUrl.value.indexOf('tmp/')
-                const length = localUrl.value.length
-                fileName.value = localUrl.value.slice(nameIndex + 4, length)
-
-                size.value = res.size
-                chunkCount.value = Math.ceil(size.value / chunkSize.value);
-                console.log('分片数量', chunkCount.value)
-                getFileInfo(localUrl.value)
-            },
-            fail: (fail) => {
-                console.error('移动端选择视频失败', fail)
-                uni.showToast({
-                    title: '选择视频失败',
-                    icon: 'error',
-                    duration: 2000
-                });
-            }
-        })
-    }
+            size.value = res.size
+            chunkCount.value = Math.ceil(size.value / chunkSize.value);
+            console.log('分片数量', chunkCount.value)
+            getFileInfo(localUrl.value)
+        },
+        fail: (fail) => {
+            console.error('移动端选择视频失败', fail)
+            uni.showToast({
+                title: '选择视频失败',
+                icon: 'error',
+                duration: 2000
+            });
+        }
+    })
 }
 
 function handleFileName(filePath) {
@@ -845,7 +743,7 @@ function goback() {
     box-sizing: border-box;
     font-size: 32rpx;
     font-weight: bold;
-    color: rgba(0, 0, 0, 0.6);
+    color: rgb(0 0 0 / 0.6);
 }
 
 .video_image {
@@ -853,7 +751,7 @@ function goback() {
     box-sizing: border-box;
     font-size: 32rpx;
     font-weight: bold;
-    color: rgba(0, 0, 0, 0.6);
+    color: rgb(0 0 0 / 0.6);
     padding: 0 auto;
 }
 
@@ -904,11 +802,10 @@ function goback() {
 }
 
 .v_title_f {
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 32rpx;
     font-weight: bold;
-    color: #999999;
-
+    color: #999;
     width: 100%;
     box-sizing: border-box;
     border: 1rpx solid #D8D8D8;
@@ -953,7 +850,7 @@ function goback() {
 }
 
 .placeholder_color {
-    color: #999999;
+    color: #999;
     font-weight: normal !important;
 }
 
@@ -969,7 +866,7 @@ function goback() {
 .sub_title {
     font-size: 32rpx;
     font-weight: bold;
-    color: #000000;
+    color: #000;
     margin: 18rpx 0;
     box-sizing: border-box;
     display: block;
@@ -984,27 +881,28 @@ function goback() {
 
     .btn {
         background: linear-gradient(268deg,
-                rgba(217, 219, 254, 0.65) -207%,
-                rgba(217, 219, 254, 0.65) -148%,
-                rgba(217, 219, 255, 0.65) -122%,
-                rgba(217, 219, 254, 0.65) -33%,
-                rgba(217, 219, 255, 0.65) -17%,
-                rgba(144, 125, 255, 0.65) 217%,
-                rgba(224, 225, 252, 0.65) 302%);
+                rgb(217 219 254 / 0.65) -207%,
+                rgb(217 219 254 / 0.65) -148%,
+                rgb(217 219 255 / 0.65) -122%,
+                rgb(217 219 254 / 0.65) -33%,
+                rgb(217 219 255 / 0.65) -17%,
+                rgb(144 125 255 / 0.65) 217%,
+                rgb(224 225 252 / 0.65) 302%);
         box-sizing: border-box;
         backdrop-filter: blur(10rpx);
-        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.8);
+        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgb(255 255 255 / 0.8);
         width: 192rpx;
         height: 82rpx;
         font-size: 50rpx;
         font-weight: bold;
         letter-spacing: 0.1em;
-        color: #FFFFFF;
+        color: #FFF;
     }
+
     .btn.btn-publish {
         background: #000;
         color: #fff;
-        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0rpx -6rpx 20rpx 0rpx rgb(255 255 255 / 0.1);
     }
 }
 
@@ -1012,8 +910,8 @@ function goback() {
     width: 295rpx;
     height: 82rpx;
     border-radius: 15rpx;
-    background: linear-gradient(106deg, rgba(228, 229, 255, 0.25) 4%, rgba(254, 255, 236, 0.25) 104%);
-    border: 1rpx solid #EEEEEE;
+    background: linear-gradient(106deg, rgb(228 229 255 / 0.25) 4%, rgb(254 255 236 / 0.25) 104%);
+    border: 1rpx solid #EEE;
     backdrop-filter: blur(10rpx);
 
     .btn_text {
@@ -1027,15 +925,12 @@ function goback() {
 .modal_overlay {
     position: fixed;
     z-index: 999;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.3);
+    inset: 0;
+    background: rgb(0 0 0 / 0.3);
 }
 
 .color_bg {
-    background: linear-gradient(239deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 32%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%);
+    background: linear-gradient(239deg, #D19EFF 6%, rgb(255 242 0 / 0.3) 32%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 73%, #CD96FF 93%);
     padding: 2rpx;
     border-radius: 15rpx;
     overflow: hidden;
@@ -1065,23 +960,23 @@ function goback() {
     height: 40rpx;
     border-radius: 8px;
     background: linear-gradient(268deg,
-            rgba(217, 219, 254, 0.65) -207%,
-            rgba(217, 219, 254, 0.65) -148%,
-            rgba(217, 219, 255, 0.65) -122%,
-            rgba(217, 219, 254, 0.65) -33%,
-            rgba(217, 219, 255, 0.65) -18%,
-            rgba(144, 125, 255, 0.65) 217%,
-            rgba(224, 225, 252, 0.65) 303%);
+            rgb(217 219 254 / 0.65) -207%,
+            rgb(217 219 254 / 0.65) -148%,
+            rgb(217 219 255 / 0.65) -122%,
+            rgb(217 219 254 / 0.65) -33%,
+            rgb(217 219 255 / 0.65) -18%,
+            rgb(144 125 255 / 0.65) 217%,
+            rgb(224 225 252 / 0.65) 303%);
     box-sizing: border-box;
-    box-shadow: inset 0px -6px 20px 0px rgba(255, 255, 255, 0.8);
+    box-shadow: inset 0 -6px 20px 0 rgb(255 255 255 / 0.8);
     z-index: 50;
 }
 
 .remark_tip {
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 18rpx;
     font-weight: normal;
-    color: rgba(0, 0, 0, 0.3);
+    color: rgb(0 0 0 / 0.3);
 }
 
 .search-box2 {
@@ -1126,7 +1021,7 @@ function goback() {
 }
 
 .title {
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 24rpx;
     font-weight: 600;
     color: #1A1A1A;
@@ -1134,7 +1029,7 @@ function goback() {
 }
 
 .net_ai {
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 32rpx;
     font-weight: bold;
     color: #768DFF;
@@ -1142,9 +1037,9 @@ function goback() {
 }
 
 .font_nomal {
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 24rpx;
     font-weight: normal;
-    color: #000000;
+    color: #000;
 }
 </style>

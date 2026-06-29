@@ -38,19 +38,19 @@ export function useVip() {
   const vipLevel = computed(() => userInfo.value?.vipLevel || 0)
 
   async function fetchVipPlans() {
-    const res = await request({ url: '/api/vip/plans', method: 'GET' })
+    const res = await request<VipPlan[]>({ url: '/api/vip/plans', method: 'GET' })
     vipPlans.value = res.data
     return res.data
   }
 
   async function fetchVipPrivileges() {
-    const res = await request({ url: '/api/vip/privileges', method: 'GET' })
+    const res = await request<VipPrivilege[]>({ url: '/api/vip/privileges', method: 'GET' })
     vipPrivileges.value = res.data
     return res.data
   }
 
   async function createOrder(planId: string) {
-    const res = await request({ url: '/api/vip/order/create', method: 'POST', data: { planId } })
+    const res = await request<{ orderId: string; payUrl: string; payParams: Record<string, unknown> }>({ url: '/api/vip/order/create', method: 'POST', data: { planId } })
     return res.data
   }
 

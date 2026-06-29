@@ -39,9 +39,6 @@ module.exports = {
   bindMobileByMpWeixin: {
     auth: true
   },
-  bindAlipay: {
-    auth: true
-  },
   bindApple: {
     auth: true
   },
@@ -64,9 +61,6 @@ module.exports = {
     auth: true
   },
   unbindWeixin: {
-    auth: true
-  },
-  unbindAlipay: {
     auth: true
   },
   unbindQQ: {

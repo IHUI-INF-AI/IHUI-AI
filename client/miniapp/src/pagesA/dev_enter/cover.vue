@@ -119,28 +119,24 @@ const goBack = () => {
     background-image: url('https://file.aizhs.top/sys-mini/xtk/enter_page.png');
     background-size: 100% 100%;
     overflow: hidden;
-    position: relative;
     display: flex;
     flex-direction: column-reverse;
-    background-color: #FFFFFF;
+    background-color: #FFF;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 9999;
 
     .advert_body-text {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 30rpx;
         font-weight: bold;
         letter-spacing: 0.14em;
-        text-align: center;
         color: #7B61FF;
         position: absolute;
         left: 46rpx;
         bottom: 279rpx;
         text-align: start;
+
         // padding-left: 46rpx;
         // margin-bottom: -28rpx;
     }
@@ -157,22 +153,23 @@ const goBack = () => {
             height: calc(25vw - 39rpx);
             box-sizing: border-box;
             border-radius: 15rpx;
+
             // background: rgba(255, 255, 255, 0);
             // border: 2px solid;
             // border-image: linear-gradient(45deg, #B878F1 0%, rgba(44, 118, 208, 0.6507) 53%, #F012DA 99%) 2;
             background-image: url('https://file.aizhs.top/sys-mini/xtk/dev_pay_border_image.png');
             background-size: 100% 100%;
-            box-shadow: 0px 0px 0px 0px #FFFFFF;
+            box-shadow: 0 0 0 0 #FFF;
             padding: 12rpx;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
 
             .dev_pay_text {
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
                 font-size: 30rpx;
                 font-weight: 600;
-                color: #FFFFFF;
+                color: #FFF;
             }
 
             .dev_pay_footer {
@@ -186,10 +183,10 @@ const goBack = () => {
                 }
 
                 .dev_pay_count {
-                    font-family: "AlimamaFangYuanTi" !important;
+                    font-family: AlimamaFangYuanTi !important;
                     font-size: 36rpx;
                     font-weight: bold;
-                    color: #FFFFFF;
+                    color: #FFF;
                 }
             }
         }
@@ -222,12 +219,12 @@ const goBack = () => {
             width: 280rpx;
             height: 80rpx;
             border-radius: 15rpx;
-            background: #FFFFFF;
-            font-family: "AlimamaFangYuanTi" !important;
+            background: #FFF;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 46rpx;
             font-weight: 500;
             letter-spacing: 0.28em;
-            color: #000000;
+            color: #000;
             padding: 0 18rpx;
         }
     }
@@ -242,9 +239,10 @@ const goBack = () => {
 }
 
 .selected {
-    background-image: linear-gradient(180deg, #B772F4 0%, rgba(111, 83, 253, 0) 100%) !important;
+    background-image: linear-gradient(180deg, #B772F4 0%, rgb(111 83 253 / 0) 100%) !important;
     border: 2rpx solid;
     border-radius: 15rpx;
+
     // border-image: linear-gradient(65deg, #B878F1 0%, rgba(44, 118, 208, 0.6507) 57%, #F012DA 99%) 2 !important;
     box-shadow: 0rpx 0rpx 20rpx 0rpx #8D83FF !important;
 }

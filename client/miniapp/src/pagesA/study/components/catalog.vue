@@ -95,7 +95,7 @@ function scrolltolower() {
             height: 136rpx;
             border-radius: 15rpx;
             margin-right: 8rpx;
-            background-color: #000000;
+            background-color: #000;
         }
 
         .video_info {
@@ -107,14 +107,15 @@ function scrolltolower() {
             .date {
                 font-size: 18rpx;
                 font-weight: bold;
-                color: #FFFFFF;
+                color: #FFF;
             }
         }
+
         .des_title {
             font-family: AlimamaFangYuanTi;
             font-size: 30rpx;
             font-weight: bold;
-            color: #000000;
+            color: #000;
             overflow: hidden;
             max-width: 100%;
             height: 30rpx;
@@ -131,7 +132,7 @@ function scrolltolower() {
             text-overflow: ellipsis;
             font-size: 26rpx;
             font-weight: normal;
-            color: rgba(0, 0, 0, 0.6);
+            color: rgb(0 0 0 / 0.6);
         }
 
         .types_item {
@@ -139,14 +140,14 @@ function scrolltolower() {
             height: 30rpx;
             border-radius: 15rpx;
             box-sizing: border-box;
-            border: 1rpx solid rgba(0, 0, 0, 0.3);
+            border: 1rpx solid rgb(0 0 0 / 0.3);
 
             .text {
-                font-family: Alimama FangYuanTi VF !important;
+                font-family: "Alimama FangYuanTi VF" !important;
                 font-size: 20rpx;
                 font-weight: bold;
                 letter-spacing: 0.02em;
-                color: rgba(0, 0, 0, 0.6);
+                color: rgb(0 0 0 / 0.6);
                 margin-bottom: 1rpx;
             }
         }
@@ -174,8 +175,7 @@ function scrolltolower() {
     box-sizing: border-box;
     height: 74rpx;
     margin-bottom: 14rpx;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: auto hidden;
     display: inline-flex;
 }
 
@@ -191,10 +191,10 @@ function scrolltolower() {
     background: #F4F4F4;
     padding: 8rpx 9rpx;
     margin-right: 16rpx;
-    font-family: Alimama FangYuanTi VF !important;
+    font-family: "Alimama FangYuanTi VF" !important;
     font-size: 16rpx;
     font-weight: normal;
-    color: #000000;
+    color: #000;
     white-space: normal;
 }
 
@@ -258,7 +258,6 @@ function scrolltolower() {
 }
 
 @keyframes wave1 {
-
     0%,
     100% {
         height: 15rpx;
@@ -270,7 +269,6 @@ function scrolltolower() {
 }
 
 @keyframes wave2 {
-
     0%,
     100% {
         height: 35rpx;
@@ -282,7 +280,6 @@ function scrolltolower() {
 }
 
 @keyframes wave3 {
-
     0%,
     100% {
         height: 15rpx;
@@ -294,7 +291,6 @@ function scrolltolower() {
 }
 
 @keyframes wave4 {
-
     0%,
     100% {
         height: 35rpx;
@@ -306,7 +302,6 @@ function scrolltolower() {
 }
 
 @keyframes wave5 {
-
     0%,
     100% {
         height: 15rpx;
@@ -338,7 +333,7 @@ function scrolltolower() {
     position: absolute;
     top: 0;
     right: 0;
-    background: linear-gradient(90deg, rgba(244, 244, 244, 0.5) 0%, rgba(244, 244, 244, 0.97) 41%, #F4F4F4 100%);
+    background: linear-gradient(90deg, rgb(244 244 244 / 0.5) 0%, rgb(244 244 244 / 0.97) 41%, #F4F4F4 100%);
     display: flex;
     align-items: center;
     flex-direction: column-reverse;

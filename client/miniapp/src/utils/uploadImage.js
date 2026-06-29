@@ -157,3 +157,38 @@ export function uploadPictures(maxCount = 9) {
     })
   })
 }
+
+/**
+ * 上传单张本地图片到服务器（读取 filePath 为 base64 后调用 uploadBybase64）
+ * 用于已通过 uni.chooseImage 获取 tempFilePath 后的单张上传场景
+ * @param {string} filePath 本地图片路径（来自 uni.chooseImage 的 tempFilePath）
+ * @returns {Promise<{url: string}>} 上传成功后的图片 URL 对象
+ */
+export async function uploadSinglePicture(filePath) {
+  if (!filePath) {
+    throw new Error('uploadSinglePicture: filePath 不能为空')
+  }
+
+  // 1. 读取文件为 base64
+  const base64Str = await readFileToBase64(filePath)
+
+  // 2. 生成文件名
+  const baseName = filePath.substring(filePath.lastIndexOf('/') + 1).split('?')[0]
+  const dotIdx = baseName.lastIndexOf('.')
+  const fileExt = dotIdx > -1 ? baseName.substring(dotIdx + 1).toLowerCase() : 'jpg'
+  const fileName = `wx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`
+
+  // 3. 动态导入 uploadBybase64 避免循环依赖
+  const { uploadBybase64 } = await import('@/service/businessCard.js')
+
+  // 4. 上传到服务器
+  const result = await uploadBybase64(base64Str, fileName)
+
+  // 5. 解析返回 URL
+  const url = (result && result.url) || ''
+  if (!url) {
+    throw new Error('uploadSinglePicture: 上传成功但未返回 url')
+  }
+  return { url }
+}
+

@@ -378,7 +378,6 @@ watch(
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8rpx;
     width: 513rpx;
     height: 64rpx;
     border-top-left-radius: 32rpx;
@@ -421,7 +420,7 @@ watch(
   left: 0;
   width: 95%;
   border-radius: 30rpx;
-  padding: 0 15rpx 15rpx 15rpx;
+  padding: 0 15rpx 15rpx;
 
   .popular-courses-list-item {
     display: flex;
@@ -431,7 +430,7 @@ watch(
     background-color: rgba($color: #e5e5e5, $alpha: 0.34);
     border-radius: 30rpx;
     overflow: hidden;
-    padding: 20rpx 0 20rpx 0;
+    padding: 20rpx 0;
     box-sizing: border-box;
 
     .flex-box {
@@ -486,9 +485,11 @@ watch(
           overflow: hidden;
           background-color: #fff;
         }
+
         .popular-courses-list-item-text-king-img-text {
           width: 115rpx;
         }
+
         text {
           font-size: 24rpx;
           color: #000;
@@ -514,8 +515,8 @@ watch(
     width: 100%;
     height: 48rpx;
     border-top: 4rpx solid rgba($color: #9b9b9b, $alpha: 0.4);
-    margin: 10rpx 0rpx 0 0rpx;
-    padding: 0 15rpx 0 15rpx;
+    margin: 10rpx 0rpx 0;
+    padding: 0 15rpx;
     display: flex;
     justify-content: space-between;
 

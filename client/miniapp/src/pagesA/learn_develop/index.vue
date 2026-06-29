@@ -170,7 +170,7 @@ const contactUs = () => {
   font-size: 16px;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .category-grid {
     grid-template-columns: repeat(2, 1fr);
   }

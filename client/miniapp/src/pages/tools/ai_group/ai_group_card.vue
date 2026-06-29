@@ -25,20 +25,20 @@
                 </view>
                 <view class="footer-right">
                     <!-- 提示 -->
-                    <view class="footer_image" style="width: 35rpx;height: 35rxp;margin-right: 24rpx;flex: none;">
+                    <view class="footer_image" style="width: 35rpx;height: 35rpx;margin-right: 24rpx;flex: none;">
                         <image @click.stop="intelliShow"
-                            style="width: 35rpx;height: 35rxp;margin-right: 24rpx;flex: none;"
+                            style="width: 35rpx;height: 35rpx;margin-right: 24rpx;flex: none;"
                             src="/static/images/warning.png" mode="widthFix" />
                     </view>
 
                     <!-- 点赞 -->
                     <view style="margin-right: 24rpx;display: flex;align-items: center;">
-                        <view v-if="isThumbs == 0" class="footer_image" style="width: 43rpx;height: 35rxp;flex: none;">
-                            <image @click.stop="getAgentLike" style="width: 43rpx;height: 35rxp;flex: none;"
+                        <view v-if="isThumbs == 0" class="footer_image" style="width: 43rpx;height: 35rpx;flex: none;">
+                            <image @click.stop="getAgentLike" style="width: 43rpx;height: 35rpx;flex: none;"
                                 src="/static/images/like.png" mode="widthFix" />
                         </view>
-                        <view v-else class="footer_image" style="width: 43rpx;height: 35rxp;flex: none;">
-                            <image @click.stop="getAgentLike" style="width: 43rpx;height: 35rxp;flex: none;"
+                        <view v-else class="footer_image" style="width: 43rpx;height: 35rpx;flex: none;">
+                            <image @click.stop="getAgentLike" style="width: 43rpx;height: 35rpx;flex: none;"
                                 src="/static/images/like_active.png" mode="widthFix" />
                         </view>
                         <text class="good_text">{{ datas.likeCount }}</text>
@@ -46,12 +46,12 @@
                     <!-- 收藏 -->
                     <view style="margin-right: 24rpx;">
                         <view v-if="item.isCollect == 0" class="footer_image"
-                            style="width: 43rpx;height: 35rxp;flex: none;">
-                            <image @click.stop="getAgentCollect" style="width: 43rpx;height: 35rxp;flex: none;"
+                            style="width: 43rpx;height: 35rpx;flex: none;">
+                            <image @click.stop="getAgentCollect" style="width: 43rpx;height: 35rpx;flex: none;"
                                 src="/static/images/shoucang.png" mode="widthFix" />
                         </view>
-                        <view v-else class="footer_image" style="width: 43rpx;height: 35rxp;flex: none;">
-                            <image @click.stop="getAgentCollect" style="width: 43rpx;height: 35rxp;flex: none;"
+                        <view v-else class="footer_image" style="width: 43rpx;height: 35rpx;flex: none;">
+                            <image @click.stop="getAgentCollect" style="width: 43rpx;height: 35rpx;flex: none;"
                                 src="/static/images/choucang_active.png" mode="widthFix" />
                         </view>
                     </view>
@@ -208,21 +208,21 @@ function numResult(num) {
                     color: #517BFF;
                     font-size: 30rpx;
                     font-weight: normal;
-                    font-family: "AlimamaFangYuanTi" !important;
+                    font-family: AlimamaFangYuanTi !important;
                 }
 
                 .title-sub {
                     font-size: 20rpx;
                     color: #414141;
                     font-weight: normal;
-                    font-family: "AlimamaFangYuanTi" !important;
+                    font-family: AlimamaFangYuanTi !important;
                 }
             }
 
             .hot_number {
                 display: flex;
                 align-items: center;
-                color: #000000;
+                color: #000;
                 font-size: 20rpx;
 
                 .hot_number-image {
@@ -243,7 +243,7 @@ function numResult(num) {
                 align-items: center;
                 color: #7B7B7B;
                 font-size: 20rpx;
-                font-family: "AlimamaFangYuanTi" !important;
+                font-family: AlimamaFangYuanTi !important;
 
                 .footer-left-image {
                     margin-right: 12rpx;
@@ -261,7 +261,7 @@ function numResult(num) {
                 }
 
                 .good_text {
-                    font-family: "AlimamaFangYuanTi" !important;
+                    font-family: AlimamaFangYuanTi !important;
                     font-size: 20rpx;
                     font-weight: 600;
                     color: #373737;
@@ -277,7 +277,7 @@ function numResult(num) {
                 }
 
                 .pay_detail {
-                    font-family: "AlimamaFangYuanTi" !important;
+                    font-family: AlimamaFangYuanTi !important;
                     color: #7B61FF;
                     border-bottom: 1rpx solid #7B61FF;
                 }
@@ -290,7 +290,7 @@ function numResult(num) {
         padding: 14rpx 30rpx;
         color: #3D3D3D;
         font-size: 20rpx;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
 
         .bb {
             display: flex;

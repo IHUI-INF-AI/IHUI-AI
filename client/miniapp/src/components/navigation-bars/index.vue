@@ -11,7 +11,7 @@
 	
 	
     <view :style="{ height: statusBarHeight }"></view>
-    <view style="display: flex; align-items: center; position: relative; padding: 0 20rpx 0 20rpx; box-sizing: border-box;" :style="{ height: titleBarHeight}">
+    <view style="display: flex; align-items: center; position: relative; padding: 0 20rpx; box-sizing: border-box;" :style="{ height: titleBarHeight}">
 
       <!-- 左侧图标区域 - 向右移动 -->
       <view v-if="dual"  class="back back-right-moved" :style="{ width: paddingRightWidth }">
@@ -132,7 +132,7 @@
   </view>
   <view v-else :style="{ height: topBarHeight, background: backgroundColor || '#fff' }">
     <view :style="{ height: statusBarHeight }"></view>
-    <view style="display: flex; justify-content: space-between; align-items: center; padding: 0 20rpx 0 20rpx; box-sizing: border-box;"
+    <view style="display: flex; justify-content: space-between; align-items: center; padding: 0 20rpx; box-sizing: border-box;"
       :style="{ height: titleBarHeight, paddingRight: paddingRightWidth }">
       <view :style="{ width: paddingRightWidth }">
         <view v-if="image" style="width: 48rpx; height: 48rpx; display: flex; align-items: center; justify-content: center; margin-right: 20rpx;">
@@ -421,11 +421,15 @@ function handleRightIconClick(icon, index) {
 .tab-bar {
   /* background: linear-gradient(to right, #D0CDFF, #FBFFE7, #FFFFFF); */
   background: #E9F0FD;
+
   /* #E9F7FD */
+
   /* ---#E9F0FD */
   
   /* box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); */
+
       /* box-shadow: 0rpx 2rpx 6rpx rgba(4, 0, 255, 0.5); */
+
   /* box-shadow: 0rpx 4rpx 8rpx rgba(4, 0, 255, 0.25); */
 }
 
@@ -436,6 +440,7 @@ function handleRightIconClick(icon, index) {
 
 .back {
   display: flex;
+
   /* align-items: center; */
   justify-content: space-evenly;
   border: 1rpx solid #838383;
@@ -470,7 +475,7 @@ function handleRightIconClick(icon, index) {
 .search_part {
     display: flex;
     align-items: center;
-    color: #666666;
+    color: #666;
 }
 
 .bar_search {
@@ -492,7 +497,7 @@ function handleRightIconClick(icon, index) {
 .title {
   font-size: 36rpx;
   color: #000;
-  font-family: "AlimamaFangYuanTi";
+  font-family: AlimamaFangYuanTi;
   font-weight: bold;
 }
 
@@ -500,9 +505,11 @@ function handleRightIconClick(icon, index) {
 	padding: 10rpx;width: 40rpx;height: 40rpx;display: flex;justify-content: center;align-items: center; 
 	
 }
+
 .backi-img{
 		width: 40rpx; height: 40rpx;
 	}
+
 .back-s{
 	margin: 10rpx;width: 1rpx;height: 40rpx;background-color: #838383;
 }
@@ -549,11 +556,13 @@ function handleRightIconClick(icon, index) {
   border-radius: 8rpx;
   border: 3rpx solid #000;
   background: #fff;
+
   /* box-shadow: 3rpx 3rpx 5rpx 0 #6d6d6d; */
   margin: 0;
   height: 42rpx;
   box-sizing: border-box;
 }
+
 .nav-join-btn {
   display: flex;
   align-items: center;
@@ -563,6 +572,7 @@ function handleRightIconClick(icon, index) {
   line-height: 1;
   white-space: nowrap;
 }
+
 .btn_join_switch{
   font-size: 24rpx;
   font-weight: bold;
@@ -572,6 +582,7 @@ function handleRightIconClick(icon, index) {
   border-radius: 0;
   border: 0 solid #000;
   background: #fff;
+
   /* box-shadow: 3rpx 3rpx 5rpx 0 #6d6d6d; */
   margin: 0;
   height: 46rpx;
@@ -609,6 +620,7 @@ function handleRightIconClick(icon, index) {
   justify-content: center;
   cursor: pointer;
   margin-left: 10rpx;
+
   /* 适配安全区域 */
   margin-left: calc(10rpx + constant(safe-area-inset-left));
   margin-left: calc(10rpx + env(safe-area-inset-left));

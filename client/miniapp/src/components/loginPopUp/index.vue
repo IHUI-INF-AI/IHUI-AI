@@ -71,7 +71,7 @@
       </view>
 
       <view class="login-popup-card33"
-        style="  border-bottom: 4rpx solid rgba(0, 0, 0, 0.2); box-shadow:0rpx;display: flex;justify-content: center;">
+        style="  border-bottom: 4rpx solid rgb(0 0 0 / 0.2); box-shadow:0rpx;display: flex;justify-content: center;">
         <view class="">
           <image src="/static/images/infolink.png" style="width: 254rpx;height: 22rpx;margin-top: 16rpx;" mode="">
           </image>
@@ -194,6 +194,7 @@ function loginOut() {
     success: (res) => {
       if (res.confirm) {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { clearLoginDataCompletely } = require('@/utils/auth.js')
           clearLoginDataCompletely()
         } catch (e) {
@@ -290,8 +291,7 @@ function handleLogin() {
     fileName: fileName.value,
   })
 
-  if (!isImage.value) {
-  } else {
+  if (isImage.value) {
     uni.setStorageSync('avatarPic', avatarUrlNew.value)
     uni.$emit('setAvatarPic', avatarUrlNew.value)
   }
@@ -330,15 +330,12 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .login-popup-mask {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: rgb(255 255 255 / 0.3);
+
   // backdrop-filter: blur(3px);
   // -webkit-backdrop-filter: blur(3px);
-  z-index: 1000;
   position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 1000;
 }
 
@@ -349,21 +346,21 @@ onBeforeUnmount(() => {
   bottom: -100%;
   border-radius: 34.5rpx 34.5rpx 0 0;
   z-index: 1001;
-  padding: 20rpx 32rpx 0rpx 32rpx;
-  transition: bottom 0.35s cubic-bezier(0.4, 1.4, 0.6, 1);
+  padding: 20rpx 32rpx 0rpx;
   min-height: 60vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   background-color: #F0F1FA;
-  backdrop-filter: blur(var(--blur-amount, 0px));
-  -webkit-backdrop-filter: blur(var(--blur-amount, 0px));
+  backdrop-filter: blur(var(--blur-amount, 0));
+  -webkit-backdrop-filter: blur(var(--blur-amount, 0));
   transition: bottom 0.35s cubic-bezier(0.4, 1.4, 0.6, 1), backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease;
-  box-shadow: 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.8);
-  border-width: 6rpx 6rpx 0rpx 6rpx;
+  box-shadow: 0rpx -6rpx 20rpx 0rpx rgb(255 255 255 / 0.8);
+  border-width: 6rpx 6rpx 0rpx;
   border-style: solid;
-  border-color: rgba(251, 255, 203, 0.08);
+  border-color: rgb(251 255 203 / 0.08);
   overflow-y: auto;
+
   &.show {
     bottom: 0;
   }
@@ -392,29 +389,33 @@ onBeforeUnmount(() => {
     width: 140rpx;
     height: 140rpx;
     border-radius: 50%;
-    margin: 18rpx auto 0 auto;
+    margin: 18rpx auto 0;
     display: block;
     border: 6rpx solid #cfceff;
     box-shadow: 0 2rpx 12rpx #d6d6ff;
   }
 }
+
 .login-popup-card33 {
 	width: 80%;
 }
+
 .login-popup-card {
   width: 80%;
   border-radius: 15rpx;
   margin-bottom: 24rpx;
   box-shadow: 0 2rpx 8rpx #e0e0ff;
+
   // border: 1px solid #fff;
 
   .login-popup-row {
     display: flex;
     align-items: center;
+
     // margin-bottom: 18rpx;
     font-size: 32rpx;
     color: #444;
-    border: 1px solid #ffffff;
+    border: 1px solid #fff;
 
     .icon {
       width: 48rpx;
@@ -445,22 +446,24 @@ onBeforeUnmount(() => {
     }
 
     .login-popup-upgrade {
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.73) 5%, #FFFB00 99%);
+		background: linear-gradient(180deg, rgb(255 255 255 / 0.73) 5%, #FFFB00 99%);
+
       // background: linear-gradient(180deg,
       //     rgba(255, 255, 255, 0.73) 5%,
       //     #fffb00 99%);
       color: #FF2525;
+
       // font-size: 26rpx;
       // font-weight: bold;
       border-radius: 8rpx;
+
       // box-shadow: 0 2rpx 8rpx #ffe06680;
 	  // height: 59px;
       border: none;
       outline: none;
       margin: 0;
       height: 40rpx;
-      line-height: 40rpx;
-	  font-family: Lilita One;
+	  font-family: "Lilita One";
 	  font-size: 26rpx;
 	  font-weight: normal;
 	  line-height: normal;
@@ -505,7 +508,7 @@ onBeforeUnmount(() => {
     border-radius: 15rpx;
     border: 4rpx solid #000;
     background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     animation: bouncea 0.5s ease-in-out infinite;
     margin-bottom: 8rpx;
     height: 70rpx;
@@ -520,24 +523,27 @@ onBeforeUnmount(() => {
     border-radius: 15rpx;
     border: 4rpx solid #000;
     background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     animation: bouncea 0.5s ease-in-out infinite;
     height: 70rpx;
     line-height: 70rpx;
   }
 }
+
 .upgradeImg {
   width: 155rpx;
   height: 50rpx;
+
   .up_img {
     width: 100%;
     height: 100%;
   }
 }
+
 .login-popup-row {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgb(255 255 255 / 0.25);
   border: 1.5rpx solid #d6d6e7;
   border-radius: 15rpx;
   box-shadow: 0 2rpx 8rpx #e0e0ff;
@@ -570,6 +576,7 @@ onBeforeUnmount(() => {
 .login-popup-nickname-prefix {
   margin-right: 8rpx;
   color: #333;
+
   /* 你可以根据实际情况调整样式 */
 }
 
@@ -580,7 +587,7 @@ onBeforeUnmount(() => {
   }
 
   50% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
     transform: translate(0, 0);
   }
 

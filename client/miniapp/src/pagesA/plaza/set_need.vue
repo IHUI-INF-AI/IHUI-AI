@@ -516,7 +516,7 @@ function submit() {
     box-sizing: border-box;
     width: 100%;
     height: calc(100vh - 240rpx);
-    padding: 0 18rpx 0 18rpx;
+    padding: 0 18rpx;
 
     .user_info {
         box-sizing: border-box;
@@ -534,10 +534,10 @@ function submit() {
         }
 
         .user_name {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 30rpx;
             font-weight: bold;
-            color: #000000;
+            color: #000;
             margin-left: 12rpx;
         }
     }
@@ -554,16 +554,15 @@ function submit() {
         }
 
         .title_icon-text {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 28rpx;
-            font-weight: 500;
-            color: #000000;
+            color: #000;
             font-weight: bold;
         }
     }
 
     .select_all {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 28rpx;
         font-weight: 500;
         color: #3D3D3D;
@@ -575,11 +574,11 @@ function submit() {
         overflow: hidden;
         border: 1rpx solid #DADADA;
         border-radius: 20rpx;
-        box-shadow: 0px 0px 6px 0px rgba(21, 0, 255, 0);
+        box-shadow: 0 0 6px 0 rgb(21 0 255 / 0);
         margin-top: 18rpx;
 
         .haad {
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
             font-size: 28rpx;
             font-weight: normal;
             color: #979797;
@@ -672,11 +671,10 @@ function submit() {
             height: 185rpx;
             box-sizing: border-box;
             border-radius: 0rpx 0rpx 8rpx 8rpx;
-            border-width: 0rpx 1rpx 1rpx 1rpx;
+            border-width: 0rpx 1rpx 1rpx;
             border-style: solid;
             border-color: #DADADA;
-            overflow-y: scroll;
-            overflow-x: hidden;
+            overflow: hidden scroll;
             position: absolute;
             top: 56rpx;
             left: 140rpx;
@@ -685,7 +683,7 @@ function submit() {
             .s_o_i {
                 width: 100%;
                 height: 46rpx;
-                background-color: #FFFFFF;
+                background-color: #FFF;
             }
         }
 
@@ -718,16 +716,16 @@ function submit() {
         width: 600rpx;
         height: 88rpx;
         border-radius: 15rpx;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 48rpx;
         font-weight: bold;
         color: #fff;
         text-transform: uppercase;
         border: none;
         background: #000;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
         animation: bouncea 0.5s ease-in-out infinite;
-        margin: 41rpx auto 0 auto;
+        margin: 41rpx auto 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -742,13 +740,13 @@ function submit() {
     height: 400rpx;
     display: flex;
     flex-direction: column;
-    border-radius: 20rpx 20rpx 0px 0px;
+    border-radius: 20rpx 20rpx 0 0;
     background: #E4E7ED;
     z-index: 980;
 
     .item1 {
-        background: #FFFFFF;
-        font-family: "AlimamaFangYuanTi" !important;
+        background: #FFF;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 36rpx;
         font-weight: normal;
         letter-spacing: 0.1em;
@@ -768,7 +766,7 @@ function submit() {
         width: 100%;
         height: 120rpx;
         background: #F4F4F4;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 36rpx;
         font-weight: normal;
         letter-spacing: 0.1em;
@@ -806,17 +804,17 @@ function submit() {
 }
 
 .font_nomal {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 28rpx;
     font-weight: normal;
-    color: #000000;
+    color: #000;
 }
 
 .font_hold {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 28rpx;
     font-weight: bold !important;
-    color: #000000;
+    color: #000;
 }
 
 @keyframes bouncea {
@@ -826,7 +824,7 @@ function submit() {
     }
 
     50% {
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
         transform: translate(0, 0);
     }
 

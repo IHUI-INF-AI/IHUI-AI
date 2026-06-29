@@ -47,7 +47,3 @@ export const styleVariables = {
   "--app-price-color-primary": "#F6260A",
   "--app-price-color-secondary": "#00000080",
 };
-
-// 开发环境调试输出
-if (process.env.NODE_ENV === "development") {
-}

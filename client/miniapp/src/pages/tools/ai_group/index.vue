@@ -80,13 +80,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import request from '@/utils/service/index.js'
 import NavigationBars from '@/components/navigation-bars/index.vue'
 import DrawerLeft from './drawer_left.vue'
 import Loading from '@/components/loading/index.vue'
 import { getAgentbyCollect, category, getAgentType, aiRemoveAgent } from '@/service/aiModels.js'
 import InputArea from '@/components/InputArea.vue'
 import AiList from '@/pages/tools/components/Ai-list.vue'
-import { getAgentCollect, getAgentLike } from '@/service/pay.js'
 import { nowDate } from '@/utils/time.js'
 
 // 搜索相关
@@ -95,9 +95,9 @@ const searchKeyword = ref('')
 const showSearchBox = ref(true)
 const inputFocused = ref(false)
 const isCleara = ref(false)
-const statusBarHeight = ref(0)
-const titleBarHeight = ref(0)
-const textarea_int = ref('')
+const statusBarHeight = ref('0')
+const titleBarHeight = ref('0')
+const textarea_int = ref(false)
 
 // 抽屉相关
 const drawerVisible = ref(false)
@@ -123,7 +123,7 @@ onMounted(() => {
 async function loadAgentList() {
   loading.value = true
   try {
-    const res = await getAgentbyCollect({ type: drawerSelected.value.code })
+    const res: any = await getAgentbyCollect({ type: drawerSelected.value.code })
     if (res && res.data) {
       agentList.value = res.data || []
     }
@@ -135,9 +135,27 @@ async function loadAgentList() {
 }
 
 // 搜索
-function onSearch() {
+async function onSearch() {
   searchKeyword.value = searchText.value
-  // TODO: 搜索智能体
+  if (!searchKeyword.value) {
+    loadAgentList()
+    return
+  }
+  loading.value = true
+  try {
+    const res: any = await request({
+      url: '/agents/list',
+      method: 'GET',
+      data: { keyword: searchKeyword.value },
+      base: 1,
+    })
+    agentList.value = (res && res.data) || []
+  } catch (error) {
+    console.error('搜索智能体失败:', error)
+    uni.showToast({ title: '搜索智能体失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
 }
 
 // 配置点击
@@ -208,11 +226,8 @@ function backPage() {
 
 .prologue_mask {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
   z-index: 999;
 }
 

@@ -125,6 +125,7 @@ function dateChange(val) {
     padding: 12rpx;
     display: flex;
     align-items: center;
+
     // justify-content: center;
 
     .show_config {
@@ -155,7 +156,7 @@ function dateChange(val) {
     .search_part {
         display: flex;
         align-items: center;
-        color: #666666;
+        color: #666;
     }
 
     .bar_search {
@@ -172,16 +173,17 @@ function dateChange(val) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
 
     .input_outer {
         flex: 1;
         display: flex;
         align-items: center;
         border-radius: 30rpx;
-        box-shadow: 0px 0 6px 0px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.3);
+
         // border: 2px solid rgba(0, 195, 255, 0);
-        background-color: rgba(0, 195, 255, 0);
+        background-color: rgb(0 195 255 / 0);
         overflow: hidden;
         padding: 2rpx;
         height: 74rpx;
@@ -189,13 +191,14 @@ function dateChange(val) {
         .search_input {
             // outline: none;
             font-size: 32rpx;
+
             // font-family: "VT323", monospace;
             color: #5a5a5a;
             letter-spacing: 2rpx;
             font-weight: bold;
             padding: 12rpx 28rpx;
             background-color: #fff;
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
         }
     }
 
@@ -217,7 +220,7 @@ function dateChange(val) {
 
 .outer {
     box-sizing: border-box;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-variation-settings: "BEVL" 100, "opsz" auto;
     font-feature-settings: "kern" on;
     display: flex;

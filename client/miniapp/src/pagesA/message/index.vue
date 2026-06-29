@@ -105,6 +105,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import NavigationBars from '@/components/navigation-bars/index.vue'
+import { getConversationList } from '@/service/message.js'
 
 // 数据
 const showNotificationBanner = ref(true)
@@ -125,27 +126,21 @@ onMounted(() => {
 // 加载聊天列表
 async function loadChatList() {
   try {
-    // TODO: 调用 API 加载聊天列表
-    chatList.value = [
-      {
-        id: 1,
-        name: 'AI助手',
-        avatar: '/static/images/ai-avatar.png',
-        lastMessage: '您好，有什么可以帮您的吗？',
-        time: '刚刚',
-        unreadCount: 2,
-      },
-      {
-        id: 2,
-        name: '客服小智',
-        avatar: '/static/images/service-avatar.png',
-        lastMessage: '您的问题已收到，正在处理中...',
-        time: '5分钟前',
-        unreadCount: 0,
-      },
-    ]
+    const res = await getConversationList()
+    if (res && (res.code === 0 || res.code === 200 || res.code === undefined)) {
+      const list = Array.isArray(res.data) ? res.data : (res.data && res.data.list) || []
+      chatList.value = list.map((item: any) => ({
+        id: item.id,
+        name: item.name || item.nickname || '',
+        avatar: item.avatar || '',
+        lastMessage: item.lastMessage || item.last_message || item.content || '',
+        time: item.time || '',
+        unreadCount: item.unreadCount || item.unread_count || 0,
+      }))
+    }
   } catch (error) {
     console.error('加载聊天列表失败:', error)
+    uni.showToast({ title: '加载聊天列表失败', icon: 'none' })
   }
 }
 

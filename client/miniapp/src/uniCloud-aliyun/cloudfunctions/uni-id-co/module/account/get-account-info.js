@@ -32,9 +32,6 @@ function isQQBound (userRecord) {
     Object.keys(userRecord.qq_openid || {}).length
   )
 }
-function isAlipayBound (userRecord) {
-  return !!userRecord.ali_openid
-}
 function isAppleBound (userRecord) {
   return !!userRecord.apple_openid
 }
@@ -63,7 +60,6 @@ module.exports = async function () {
     isEmailBound: isEmailBound(userRecord),
     isWeixinBound: isWeixinBound(userRecord),
     isQQBound: isQQBound(userRecord),
-    isAlipayBound: isAlipayBound(userRecord),
     isAppleBound: isAppleBound(userRecord)
   }
 }

@@ -1,5 +1,7 @@
 # 官网项目 · 一个月工作量待办清单（深度分析）
 
+> **归档文档说明**：本文档为历史待办清单，文中提及的 `npm run check:perf`、`npm run check:colors`、`npm run tokens:*`、`npm run style:audit` 等脚本及其对应文件已从仓库移除（脚本文件缺失）。性能预算检查、硬编码颜色检测等能力已改用 stylelint 或手动检查替代。
+
 > 基于代码库扫描、PROJECT_STATUS、CHANGELOG、E2E/单元测试现状、i18n/无障碍/样式规范整理。
 > 预估：**约 22–26 个工作日**（按 1 人日 ≈ 6–8 小时，可并行或拆分）。
 

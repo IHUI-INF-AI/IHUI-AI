@@ -133,7 +133,7 @@
             <view v-if="false">
                 <text class="font_t title">选择系统音色</text>
                 <picker v-model="selectedVoiceIndex" :range="systemVoices" :range-key="'remark'" @change="voiceChange">
-                    <view class="uni-input" style="color: #000000;">
+                    <view class="uni-input" style="color: #000;">
                         {{ selectedVoiceName }}
                     </view>
                 </picker>
@@ -1160,15 +1160,15 @@ watch(
     width: 290rpx !important;
     height: 38rpx !important;
     border-radius: 10rpx !important;
-    background: rgba(218, 218, 218, 0.37) !important;
-    color: #000000 !important;
+    background: rgb(218 218 218 / 0.37) !important;
+    color: #000 !important;
 }
 
 .tip_input {
     box-sizing: border-box !important;
     height: 38rpx !important;
-    background: rgba(218, 218, 218, 0.37) !important;
-    color: #000000 !important;
+    background: rgb(218 218 218 / 0.37) !important;
+    color: #000 !important;
 }
 
 .switch_wrapper {
@@ -1206,9 +1206,9 @@ watch(
     box-sizing: border-box;
     border: 1rpx solid #E8E8E8;
     border-radius: 16rpx;
-    background-color: #FFFFFF;
+    background-color: #FFF;
     font-size: 28rpx;
-    color: #333333;
+    color: #333;
 }
 
 .f_b {
@@ -1220,7 +1220,7 @@ watch(
 .font_t.title {
     font-size: 28rpx;
     font-weight: 500;
-    color: #333333;
+    color: #333;
 }
 
 .icon-button-group {
@@ -1253,12 +1253,12 @@ watch(
     right: -16rpx;
     width: 32rpx;
     height: 32rpx;
-    background-color: #ffffff;
+    background-color: #fff;
     border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2rpx 8rpx rgb(0 0 0 / 0.15);
     z-index: 10;
 }
 
@@ -1285,7 +1285,7 @@ watch(
 }
 
 .color_bg {
-    background: linear-gradient(239deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 32%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%);
+    background: linear-gradient(239deg, #D19EFF 6%, rgb(255 242 0 / 0.3) 32%, rgb(146 146 146 / 0.3) 52%, rgb(255 242 0 / 0.3) 73%, #CD96FF 93%);
     padding: 2rpx;
     border-radius: 30rpx;
     overflow: hidden;
@@ -1373,10 +1373,10 @@ watch(
 
 .audio-menu-content {
     width: 500rpx;
-    background-color: #ffffff;
+    background-color: #fff;
     border-radius: 24rpx;
     overflow: hidden;
-    box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8rpx 24rpx rgb(0 0 0 / 0.15);
 }
 
 .audio-menu-header {
@@ -1390,7 +1390,7 @@ watch(
 .audio-menu-title {
     font-size: 32rpx;
     font-weight: 600;
-    color: #333333;
+    color: #333;
 }
 
 .audio-menu-close {
@@ -1438,13 +1438,13 @@ watch(
 .audio-menu-item-title {
     font-size: 28rpx;
     font-weight: 500;
-    color: #333333;
+    color: #333;
     margin-bottom: 8rpx;
 }
 
 .audio-menu-item-desc {
     font-size: 24rpx;
-    color: #999999;
+    color: #999;
 }
 
 .audio-menu-item-arrow {
@@ -1457,11 +1457,8 @@ watch(
 
 .record-dialog-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background-color: rgb(0 0 0 / 0.5);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1470,7 +1467,7 @@ watch(
 
 .record-dialog-content {
     width: 600rpx;
-    background-color: #ffffff;
+    background-color: #fff;
     border-radius: 32rpx;
     overflow: hidden;
 }
@@ -1486,7 +1483,7 @@ watch(
 .record-dialog-title {
     font-size: 36rpx;
     font-weight: bold;
-    color: #333333;
+    color: #333;
 }
 
 .record-dialog-close {
@@ -1507,7 +1504,7 @@ watch(
 
 .record-text-label {
     font-size: 28rpx;
-    color: #666666;
+    color: #666;
     display: block;
     margin-bottom: 16rpx;
 }
@@ -1521,7 +1518,7 @@ watch(
 
 .record-text {
     font-size: 28rpx;
-    color: #333333;
+    color: #333;
     line-height: 1.6;
 }
 
@@ -1533,7 +1530,7 @@ watch(
 
 .record-status-text {
     font-size: 28rpx;
-    color: #666666;
+    color: #666;
 }
 
 .record-button-container {
@@ -1551,7 +1548,7 @@ watch(
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.4);
+    box-shadow: 0 8rpx 24rpx rgb(102 126 234 / 0.4);
     transition: all 0.3s ease;
 }
 
@@ -1563,17 +1560,18 @@ watch(
 @keyframes pulse {
     0%, 100% {
         transform: scale(1);
-        box-shadow: 0 8rpx 24rpx rgba(245, 87, 108, 0.4);
+        box-shadow: 0 8rpx 24rpx rgb(245 87 108 / 0.4);
     }
+
     50% {
         transform: scale(1.05);
-        box-shadow: 0 12rpx 32rpx rgba(245, 87, 108, 0.6);
+        box-shadow: 0 12rpx 32rpx rgb(245 87 108 / 0.6);
     }
 }
 
 .record-button-text {
     font-size: 28rpx;
-    color: #666666;
+    color: #666;
     margin-top: 16rpx;
 }
 
@@ -1583,6 +1581,6 @@ watch(
 
 .record-tips-text {
     font-size: 24rpx;
-    color: #999999;
+    color: #999;
 }
 </style>

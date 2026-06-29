@@ -186,10 +186,7 @@ function toPay() {
 
 .pay_mask {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 99999;
     display: flex;
     align-items: center;
@@ -197,6 +194,7 @@ function toPay() {
     width: 100vw;
     height: 100vh;
     box-sizing: border-box;
+
     // background-color: rgba(0, 0, 0, 0.3);
 
 }
@@ -207,7 +205,6 @@ function toPay() {
     height: 400rpx;
     box-sizing: border-box;
     padding-left: 26rpx;
-    position: relative;
     background-color: #fff;
     position: fixed;
 
@@ -222,7 +219,7 @@ function toPay() {
     position: absolute;
     top: 20rpx;
     right: 6rpx;
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: bold;
     color: #8B91FF;
@@ -249,14 +246,14 @@ function toPay() {
             color: #517BFF;
             font-size: 30rpx;
             font-weight: normal;
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
         }
 
         .title-sub {
             font-size: 24rpx;
             color: #414141;
             font-weight: normal;
-            font-family: "AlimamaFangYuanTi" !important;
+            font-family: AlimamaFangYuanTi !important;
         }
     }
 }
@@ -264,18 +261,19 @@ function toPay() {
 .b_f {
     width: calc(100% - 52rpx);
     box-sizing: border-box;
-    background: linear-gradient(98deg, rgba(205, 208, 255, 0.3) 4%, rgba(253, 255, 225, 0.3) 104%);
-    box-shadow: 0rpx 4rpx 10rpx 0rpx rgba(0, 0, 0, 0.3), 0rpx -6rpx 20rpx 0rpx rgba(255, 255, 255, 0.8);
+    background: linear-gradient(98deg, rgb(205 208 255 / 0.3) 4%, rgb(253 255 225 / 0.3) 104%);
+    box-shadow: 0rpx 4rpx 10rpx 0rpx rgb(0 0 0 / 0.3), 0rpx -6rpx 20rpx 0rpx rgb(255 255 255 / 0.8);
     height: 100rpx;
     display: flex;
     align-items: center;
     justify-content: center;
+
     // margin-right: 26rpx;
     color: #000;
 }
 
 .f_n {
-    font-family: "AlimamaFangYuanTi" !important;
+    font-family: AlimamaFangYuanTi !important;
     font-size: 24rpx;
     font-weight: normal;
     color: #3D3D3D;

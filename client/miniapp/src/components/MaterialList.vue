@@ -183,7 +183,7 @@ function onItemClick(item, type) {
   align-items: stretch;
   position: absolute;
   z-index: 1002;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   background: transparent;
   box-sizing: border-box;
   margin: 0;
@@ -203,7 +203,7 @@ function onItemClick(item, type) {
   border-radius: 15rpx;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4rpx 20rpx rgb(0 0 0 / 0.15);
 }
 
 .material-header {
@@ -332,6 +332,7 @@ function onItemClick(item, type) {
     opacity: 0;
     transform: translateY(60rpx);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);

@@ -46,7 +46,7 @@
 				</view>
 			</view>
 		</view>
-		<view class="container" style="padding: 0 0">
+		<view class="container" style="padding: 0">
 			<!-- 引入外部 顶部导航栏 -->
 			<navigation-bars ref="navbar" :showMenu="true" :showFenLei="true" :viscosity="true" :showBack="false" color="#171717" font-size-30 :title="labeltitle" @pack="backPage" @nav-click="handleNavClick" @menu-click="handleMenuClick"
 				:tagWrapShow="drawerVisible" :image="showFullList ? '/static/images/back.svg' : ''" @active_nav="activeNav" />
@@ -1160,10 +1160,7 @@ onBeforeUnmount(() => {
 .container {
 	height: 100vh;
 	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
+	inset: 0;
 	display: flex;
 	flex-direction: column;
 	box-sizing: border-box;
@@ -1190,9 +1187,9 @@ onBeforeUnmount(() => {
 		display: flex;
 		align-items: center;
 		gap: 20rpx;
-		border-top: 1px solid rgba(0, 242, 255, 0.15);
-		box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.05);
-		background-color: rgba(255, 255, 255, 0.9);
+		border-top: 1px solid rgb(0 242 255 / 0.15);
+		box-shadow: 0 0 10rpx rgb(0 0 0 / 0.05);
+		background-color: rgb(255 255 255 / 0.9);
 		z-index: 2;
 		height: 120rpx;
 
@@ -1203,17 +1200,17 @@ onBeforeUnmount(() => {
 			background-color: #E6F3FA;
 			border-radius: 30rpx;
 			font-size: 28rpx;
-			color: #333333;
+			color: #333;
 			transition: all 0.3s ease;
 
 			&:focus {
-				background-color: #ffffff;
-				box-shadow: 0 0 10rpx rgba(0, 242, 255, 0.2);
+				background-color: #fff;
+				box-shadow: 0 0 10rpx rgb(0 242 255 / 0.2);
 			}
 		}
 
 		.placeholder-style {
-			color: #999999;
+			color: #999;
 			font-size: 28rpx;
 		}
 
@@ -1254,6 +1251,7 @@ onBeforeUnmount(() => {
 		}
 	}
 }
+
 .conceal {
 		width: 100%;
 		height: 0rpx;
@@ -1271,11 +1269,8 @@ onBeforeUnmount(() => {
 
 .drawer-overlay {
 	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background-color: rgba(0, 0, 0, 0.4);
+	inset: 0;
+	background-color: rgb(0 0 0 / 0.4);
 	z-index: 998;
 }
 
@@ -1307,12 +1302,14 @@ onBeforeUnmount(() => {
 		margin: 54rpx auto 0;
 		display: block;
 	}
+
 	.drawer-image1 {
 		width: 100rpx;
 		height: 100rpx;
 		margin: 10rpx auto 0;
 		display: block;
 	}
+
 	.drawer-image2 {
 		width: 100rpx;
 		height: 100rpx;
@@ -1369,9 +1366,10 @@ onBeforeUnmount(() => {
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
 }
+
 .tabbar_back{
 	height: 150rpx;
-  background-color: rgba(255,255,255,0);
+  background-color: rgb(255 255 255 / 0);
 }
 
 .logobox {

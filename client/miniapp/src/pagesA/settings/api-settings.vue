@@ -131,27 +131,27 @@ onLoad(() => {
 /* 导航栏 */
 .navbar {
 	padding: 20rpx;
-	background-color: rgba(18, 18, 23, 0.95);
-	border-bottom: 1px solid rgba(0, 242, 255, 0.15);
-	box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.3);
+	background-color: rgb(18 18 23 / 0.95);
+	border-bottom: 1px solid rgb(0 242 255 / 0.15);
+	box-shadow: 0 0 10rpx rgb(0 0 0 / 0.3);
 	
 	&__title {
 		font-size: 36rpx;
 		font-weight: bold;
 		text-align: center;
-		color: rgba(0, 242, 255, 0.8);
-		text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.5);
+		color: rgb(0 242 255 / 0.8);
+		text-shadow: 0 0 10rpx rgb(0 242 255 / 0.5);
 	}
 	
 	&__icon {
 		width: 70rpx;
 		height: 70rpx;
 		border-radius: 50%;
-		background-color: rgba(31, 31, 40, 0.8);
+		background-color: rgb(31 31 40 / 0.8);
 		font-size: 32rpx;
 		position: relative;
-		box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
-		border: 1px solid rgba(0, 242, 255, 0.3);
+		box-shadow: 0 0 15px rgb(0 0 0 / 0.3);
+		border: 1px solid rgb(0 242 255 / 0.3);
 	}
 }
 
@@ -165,15 +165,15 @@ onLoad(() => {
 }
 
 .settings-section {
-	background-color: rgba(31, 31, 40, 0.6);
+	background-color: rgb(31 31 40 / 0.6);
 	border-radius: 20rpx;
 	padding: 30rpx;
-	border: 1px solid rgba(0, 242, 255, 0.2);
+	border: 1px solid rgb(0 242 255 / 0.2);
 	
 	.section-title {
 		font-size: 32rpx;
 		font-weight: bold;
-		color: rgba(0, 242, 255, 0.8);
+		color: rgb(0 242 255 / 0.8);
 		margin-bottom: 30rpx;
 	}
 	
@@ -183,18 +183,18 @@ onLoad(() => {
 		
 		.input-label {
 			font-size: 28rpx;
-			color: rgba(255, 255, 255, 0.8);
+			color: rgb(255 255 255 / 0.8);
 			margin-bottom: 10rpx;
 		}
 		
 		input {
 			width: 100%;
 			height: 80rpx;
-			background-color: rgba(15, 15, 20, 0.6);
+			background-color: rgb(15 15 20 / 0.6);
 			border-radius: 8rpx;
 			padding: 0 80rpx 0 20rpx;
-			color: #ffffff;
-			border: 1px solid rgba(0, 242, 255, 0.3);
+			color: #fff;
+			border: 1px solid rgb(0 242 255 / 0.3);
 		}
 		
 		.input-action {
@@ -202,30 +202,30 @@ onLoad(() => {
 			right: 20rpx;
 			bottom: 20rpx;
 			font-size: 40rpx;
-			color: rgba(255, 255, 255, 0.6);
+			color: rgb(255 255 255 / 0.6);
 		}
 	}
 	
 	.settings-hint {
 		font-size: 24rpx;
-		color: rgba(255, 255, 255, 0.5);
+		color: rgb(255 255 255 / 0.5);
 		margin-bottom: 30rpx;
 		line-height: 1.5;
 	}
 	
 	.save-btn {
-		background-color: rgba(0, 242, 255, 0.3);
-		color: #ffffff;
+		background-color: rgb(0 242 255 / 0.3);
+		color: #fff;
 		font-size: 32rpx;
 		padding: 20rpx;
 		border-radius: 30rpx;
-		border: 1px solid rgba(0, 242, 255, 0.5);
+		border: 1px solid rgb(0 242 255 / 0.5);
 		margin-top: 20rpx;
 	}
 	
 	.description {
 		font-size: 28rpx;
-		color: rgba(255, 255, 255, 0.7);
+		color: rgb(255 255 255 / 0.7);
 		line-height: 1.6;
 		margin-bottom: 30rpx;
 	}
@@ -233,21 +233,21 @@ onLoad(() => {
 	.api-docs {
 		.docs-title {
 			font-size: 28rpx;
-			color: rgba(255, 255, 255, 0.8);
+			color: rgb(255 255 255 / 0.8);
 			margin-bottom: 10rpx;
 		}
 		
 		.code-block {
-			background-color: rgba(15, 15, 20, 0.8);
+			background-color: rgb(15 15 20 / 0.8);
 			border-radius: 8rpx;
 			padding: 20rpx;
 			font-family: monospace;
 			font-size: 24rpx;
-			color: rgba(255, 255, 255, 0.7);
+			color: rgb(255 255 255 / 0.7);
 			line-height: 1.5;
 			white-space: pre-wrap;
 			overflow-x: auto;
-			border: 1px solid rgba(0, 242, 255, 0.2);
+			border: 1px solid rgb(0 242 255 / 0.2);
 		}
 	}
 }

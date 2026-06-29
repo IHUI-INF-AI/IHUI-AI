@@ -81,7 +81,7 @@ const privateAdvisoryVisibles = ref(false)
 const paymentPopupVisible = ref(false)
 
 // 数据
-const btnFlag = ref(0)
+const btnFlag = ref(false)
 const dataInfo = ref<any>({})
 
 onMounted(() => {

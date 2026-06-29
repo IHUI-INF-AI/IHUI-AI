@@ -11,38 +11,38 @@
   "scope": "/",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/images/logo.png",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-192.svg",
+      "src": "/images/logo.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.svg",
+      "src": "/images/logo.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-maskable-512.svg",
+      "src": "/images/logo.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],
   "shortcuts": [
     {
-      "name": "AI应用商店",
+      "name": "智能体",
       "short_name": "应用",
       "description": "浏览全部 AI 智能体",
       "url": "/agents",
       "icons": [
-        { "src": "/icons/icon-192.svg", "sizes": "192x192" }
+        { "src": "/images/logo.png", "sizes": "192x192" }
       ]
     },
     {
@@ -51,7 +51,7 @@
       "description": "查看会员套餐",
       "url": "/vip",
       "icons": [
-        { "src": "/icons/icon-192.svg", "sizes": "192x192" }
+        { "src": "/images/logo.png", "sizes": "192x192" }
       ]
     },
     {
@@ -60,7 +60,7 @@
       "description": "开始 AI 智能对话",
       "url": "/conversation",
       "icons": [
-        { "src": "/icons/icon-192.svg", "sizes": "192x192" }
+        { "src": "/images/logo.png", "sizes": "192x192" }
       ]
     }
   ],
@@ -88,7 +88,7 @@
       "sizes": "750x1334",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "AI应用商店 - 移动端"
+      "label": "智能体 - 移动端"
     }
   ]
 }

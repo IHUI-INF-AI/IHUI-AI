@@ -2,7 +2,7 @@
 
 本文档说明项目中硬编码颜色的扫描范围、已处理项与例外项。
 
-## 扫描范围（`npm run check:colors`）
+## 扫描范围（`npm run check:colors` 已移除，以下为历史扫描范围说明）
 
 | 类型 | 扩展名 | 说明 |
 |------|--------|------|
@@ -42,14 +42,17 @@
 ## 如何再次全面检查
 
 ```bash
-# 导出全部需关注项（含 .vue/.scss/.css/.ts/.js/.svg）
-OUTPUT_ALL_ISSUES=1 npm run check:colors
+# 以下命令已失效：`npm run check:colors` 及 `scripts/check-hardcoded-colors.ts` 已移除
+# 如需检查硬编码颜色，建议用 stylelint 或手动搜索 `#`、`rgb(`、`rgba(` 等关键字
 
-# 批量替换（依赖上一步生成的 color-issues.json）
-node scripts/replace-hardcoded-colors.cjs
+# 历史命令（无法执行）
+# OUTPUT_ALL_ISSUES=1 npm run check:colors
 
-# 再次验证
-npm run check:colors
+# 批量替换（依赖上一步生成的 color-issues.json，脚本已失效）
+# node scripts/replace-hardcoded-colors.cjs
+
+# 再次验证（已移除）
+# npm run check:colors
 ```
 
 ---
@@ -57,5 +60,5 @@ npm run check:colors
 ## 规则摘要
 
 - **不允许**：任何形式的硬编码颜色（含脚本默认值、var fallback、SCSS/组件变量定义、渐变、SVG 内 fill/stop-color 等）。
-- **检查脚本**：`scripts/check-hardcoded-colors.ts`（含 3/6/8 位 hex、rgb/rgba、扫描 .vue/.scss/.css/.ts/.js/.svg）。
+- **检查脚本**：`scripts/check-hardcoded-colors.ts`（已移除；历史能力含 3/6/8 位 hex、rgb/rgba、扫描 .vue/.scss/.css/.ts/.js/.svg）。
 - **替换脚本**：`scripts/replace-hardcoded-colors.cjs`（按 `color-issues.json` + 内置 fallback 映射替换）。

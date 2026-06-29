@@ -43,14 +43,18 @@ export function useChat() {
 
   function connect(wsUrl: string) {
     if (isUniApp()) {
-      ws = uni.connectSocket({
+      const task = uni.connectSocket({
         url: `${wsUrl}?token=${token.value}`,
         success: () => {},
         fail: () => handleDisconnect(),
       })
-      ws.onMessage((res: { data: unknown }) => handleRawMessage(res.data as string | ArrayBuffer))
-      ws.onClose(() => handleDisconnect())
-      ws.onError(() => handleDisconnect())
+      ws = task as unknown as typeof ws
+      if (ws) {
+        const taskWs = ws as { onMessage: (cb: (res: { data: unknown }) => void) => void; onClose: (cb: () => void) => void; onError: (cb: () => void) => void }
+        taskWs.onMessage((res: { data: unknown }) => handleRawMessage(res.data as string | ArrayBuffer))
+        taskWs.onClose(() => handleDisconnect())
+        taskWs.onError(() => handleDisconnect())
+      }
       isConnected.value = true
     } else {
       ws = new WebSocket(`${wsUrl}?token=${token.value}`)

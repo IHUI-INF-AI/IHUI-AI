@@ -344,9 +344,8 @@ defineExpose({
   justify-content: center;
   align-items: center;
   position: absolute;
-  color: rgba(0, 0, 0, 0.4);
-  z-index: 0;
-  font-family: 'AlimamaFangYuanTi';
+  color: rgb(0 0 0 / 0.4);
+  font-family: AlimamaFangYuanTi;
   z-index: 1001;
 }
 
@@ -375,7 +374,6 @@ defineExpose({
         width: 100%;
         height: 40rpx;
         box-sizing: border-box;
-        display: flex;
         align-items: center;
         justify-content: center;
         font-size: 24rpx;
@@ -392,7 +390,7 @@ defineExpose({
         align-items: center;
         height: 80rpx;
         border-radius: 15rpx;
-        background: #FFFFFF;
+        background: #FFF;
         box-sizing: border-box;
         border: 4rpx solid #B9B9B9;
         margin: 5rpx 0;
@@ -434,7 +432,7 @@ defineExpose({
             width: 32rpx;
             height: 32rpx;
             border-radius: 50%;
-            background-color: #000000;
+            background-color: #000;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -443,17 +441,17 @@ defineExpose({
             .selected-checkmark {
               width: 16rpx;
               height: 16rpx;
-              background-color: #FFFFFF;
+              background-color: #FFF;
               border-radius: 2rpx;
               position: relative;
 
-              &:after {
+              &::after {
                 content: '';
                 position: absolute;
                 width: 10rpx;
                 height: 6rpx;
-                border-left: 2rpx solid #000000;
-                border-bottom: 2rpx solid #000000;
+                border-left: 2rpx solid #000;
+                border-bottom: 2rpx solid #000;
                 transform: rotate(-45deg);
                 left: 2rpx;
                 top: 2rpx;
@@ -464,8 +462,8 @@ defineExpose({
       }
 
       .chu-row_act {
-        border-color: #000000;
-        box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.1);
+        border-color: #000;
+        box-shadow: 0 0 10rpx rgb(0 0 0 / 0.1);
 
         .chu-text {
           font-weight: bold;
@@ -497,6 +495,7 @@ defineExpose({
     opacity: 0;
     transform: translateY(60rpx);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

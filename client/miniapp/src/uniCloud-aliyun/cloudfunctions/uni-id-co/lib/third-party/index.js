@@ -1,6 +1,5 @@
 const WxAccount = require('./weixin/account/index')
 const QQAccount = require('./qq/account/index')
-const AliAccount = require('./alipay/account/index')
 const AppleAccount = require('./apple/account/index')
 
 const createApi = require('./share/create-api')
@@ -18,13 +17,6 @@ module.exports = {
     return createApi(QQAccount, {
       appId: oauthConfig.appid,
       secret: oauthConfig.appsecret
-    })
-  },
-  initAlipay: function () {
-    const oauthConfig = this.configUtils.getOauthConfig({ provider: 'alipay' })
-    return createApi(AliAccount, {
-      appId: oauthConfig.appid,
-      privateKey: oauthConfig.privateKey
     })
   },
   initApple: function () {

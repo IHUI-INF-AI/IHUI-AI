@@ -135,7 +135,7 @@ function buyNow() {
         right: 0;
         bottom: 0;
         padding: $spacing-large;
-        background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+        background: linear-gradient(to top, rgb(0 0 0 / 0.7), transparent);
         
         .title {
             font-size: $font-size-xl;

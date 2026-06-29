@@ -9,7 +9,7 @@ export interface UserInfo {
   phone: string
   vipLevel: number
   vipExpireTime: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 const TOKEN_KEY = 'token'
@@ -19,7 +19,7 @@ const userInfo = ref<UserInfo | null>(null)
 const token = ref<string>('')
 
 function initFromStorage() {
-  token.value = getStorage(TOKEN_KEY) || ''
+  token.value = (getStorage(TOKEN_KEY) as string) || ''
   const raw = getStorage(USER_KEY)
   if (raw) {
     try {
@@ -46,7 +46,7 @@ export function useUser() {
   }
 
   async function login(params: { phone?: string; code?: string; wxCode?: string }) {
-    const res = await request({ url: '/api/user/login', method: 'POST', data: params })
+    const res = await request<{ token: string; userInfo: UserInfo }>({ url: '/api/user/login', method: 'POST', data: params })
     setToken(res.data.token)
     userInfo.value = res.data.userInfo
     setStorage(USER_KEY, JSON.stringify(res.data.userInfo))
@@ -63,7 +63,7 @@ export function useUser() {
 
   async function fetchUserInfo() {
     if (!token.value) return null
-    const res = await request({ url: '/api/user/info', method: 'GET' })
+    const res = await request<UserInfo>({ url: '/api/user/info', method: 'GET' })
     userInfo.value = res.data
     setStorage(USER_KEY, JSON.stringify(res.data))
     return res.data

@@ -152,7 +152,7 @@ onLoad(() => {
   border-radius: 15rpx;
   padding: 30rpx;
   margin-bottom: 30rpx;
-  box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 10rpx rgb(0 0 0 / 0.05);
 }
 
 .info-item {
@@ -190,7 +190,7 @@ onLoad(() => {
 .goods-price {
   font-size: 34rpx;
   font-weight: bold;
-  color: #ff5500;
+  color: #f50;
 }
 
 .action-area {

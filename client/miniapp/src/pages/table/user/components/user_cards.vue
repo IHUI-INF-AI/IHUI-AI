@@ -71,8 +71,8 @@ function handleClick(key) {
     justify-content: space-between;
     width: 100%;
     flex-wrap: wrap;
-    font-family: 'AlimamaFangYuanTi';
-    margin: 0 0 0 0;
+    font-family: AlimamaFangYuanTi;
+    margin: 0;
 
     .my-wallet {
         width: 100%;
@@ -97,10 +97,10 @@ function handleClick(key) {
         justify-content: flex-start;
         align-items: center;
         padding: 0 10rpx 0 12rpx;
-        background: rgba(0, 4, 255, 0.03);
+        background: rgb(0 4 255 / 0.03);
         backdrop-filter: blur(10rpx);
-        box-shadow: 4rpx 4rpx 4rpx 0px rgba(0, 0, 0, 0.07);
-        margin: 0 0 14rpx 0;
+        box-shadow: 4rpx 4rpx 4rpx 0 rgb(0 0 0 / 0.07);
+        margin: 0 0 14rpx;
 
 
         .item-left {
@@ -110,7 +110,7 @@ function handleClick(key) {
             .the-text {
                 font-size: 26rpx;
                 color: #676767;
-                letter-spacing: 0px;
+                letter-spacing: 0;
             }
         }
 

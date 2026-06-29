@@ -70,22 +70,19 @@ function goBack() {
 </script>
 <style scoped lang="scss">
 .container {
-  background-color: #000000;
+  background-color: #000;
   height: 100vh;
   width: 100vw;
   padding: 20rpx;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 1000;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   flex: 1;
-  font-family: 'AlimamaFangYuanTi' !important;
+  font-family: AlimamaFangYuanTi !important;
   font-variation-settings: "BEVL" 100, "opsz" auto;
   font-feature-settings: "kern" on;
 
@@ -122,26 +119,27 @@ function goBack() {
 
     // 图片类型背景色
     &.footer-image {
-      background: rgba(240, 240, 240, 0.4);
+      background: rgb(240 240 240 / 0.4);
     }
 
     // 视频类型背景色
     &.footer-video {
-      background: rgba(0, 0, 0, 1);
+      background: rgb(0 0 0 / 1);
     }
 
     .title {
       font-size: 28rpx;
-      color: #000000;
+      color: #000;
       font-weight: bold;
     }
+
     .content {
       margin-top: 10rpx;
-
       font-size: 22rpx;
       color: #2E2E2E;
     }
   }
+
   .close {
     position: fixed;
     top: 100rpx;
@@ -150,10 +148,11 @@ function goBack() {
     height: 80rpx;
     border-radius: 15rpx;
     overflow: hidden;
+
     /* 浅灰色背景 + 玻璃质感描边效果 */
-    background: rgba(245, 245, 245, 0.9);
-    border: 1rpx solid rgba(255, 255, 255, 0.45);
-    box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.25);
+    background: rgb(245 245 245 / 0.9);
+    border: 1rpx solid rgb(255 255 255 / 0.45);
+    box-shadow: 0 8rpx 24rpx rgb(0 0 0 / 0.25);
     backdrop-filter: blur(10px) saturate(180%);
     -webkit-backdrop-filter: blur(10px) saturate(180%);
     object-fit: contain;

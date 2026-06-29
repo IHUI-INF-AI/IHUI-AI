@@ -115,8 +115,7 @@ function add() {
 function select(item) {
     if (props.isSingleSelect) {
         const index = tabValue.value.findIndex(tabItem => tabItem.id === item.id)
-        if (index >= 0) {
-        } else {
+        if (index < 0) {
             tabValue.value = [item]
         }
     } else {
@@ -152,10 +151,11 @@ function selectAllTab() {
         height: 44rpx;
         padding: 12rpx 6rpx;
         border-radius: 8rpx;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
+
         // font-size: 26rpx;
         font-weight: bold;
-        color: rgba(0, 0, 0, 0.3);
+        color: rgb(0 0 0 / 0.3);
         box-sizing: border-box;
         margin-right: 16rpx;
         white-space: nowrap;
@@ -170,26 +170,20 @@ function selectAllTab() {
 
 .mask {
     position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     z-index: 990;
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: rgb(0 0 0 / 0.3);
 }
 
 .add_type {
     position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     margin: auto;
     z-index: 996;
     width: 427rpx;
     height: 303rpx;
     border-radius: 20rpx;
-    background: #FFFFFF;
+    background: #FFF;
     box-sizing: border-box;
     border: 1rpx solid #DADADA;
     display: flex;
@@ -198,7 +192,7 @@ function selectAllTab() {
     justify-content: center;
 
     .title {
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 24rpx;
         font-weight: bold;
         color: #3D3D3D;
@@ -211,7 +205,7 @@ function selectAllTab() {
         border: 1rpx solid #979797;
         border-radius: 8rpx;
         margin-bottom: 50rpx;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 20rpx;
         font-weight: normal;
         color: #979797;
@@ -224,10 +218,10 @@ function selectAllTab() {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: "AlimamaFangYuanTi" !important;
+        font-family: AlimamaFangYuanTi !important;
         font-size: 24rpx;
         font-weight: bold;
-        color: rgba(0, 0, 0, 0.9);
+        color: rgb(0 0 0 / 0.9);
     }
 }
 
@@ -239,9 +233,9 @@ function selectAllTab() {
 
 .selected {
     border-radius: 8rpx;
-    background: linear-gradient(112deg, rgba(205, 208, 255, 0.6) 3%, rgba(253, 255, 225, 0.6) 104%);
-    box-shadow: 0rpx 0rpx 2rpx 0rpx rgba(0, 0, 0, 0.3);
-    color: rgba(0, 0, 0, 1) !important;
+    background: linear-gradient(112deg, rgb(205 208 255 / 0.6) 3%, rgb(253 255 225 / 0.6) 104%);
+    box-shadow: 0rpx 0rpx 2rpx 0rpx rgb(0 0 0 / 0.3);
+    color: rgb(0 0 0 / 1) !important;
 }
 
 .fenlei_btn_list {
@@ -256,24 +250,21 @@ function selectAllTab() {
 
     .fenlei_btn {
         flex: none;
-        color: rgba(0, 0, 0, 0.6);
+        color: rgb(0 0 0 / 0.6);
         margin-right: 6rpx;
         height: 44rpx;
-        padding: 0 8rpx 0 8rpx;
+        padding: 0 8rpx;
         line-height: 44rpx;
         border-radius: 8rpx;
         border: 1px solid #fff;
 
         &.active {
             color: #000;
-            border: 1px solid #518dfd !important;
-            box-shadow: 0 0 5rpx 0 rgba(0, 0, 0, 0.3);
-            background: #d9e6fd !important;
             backdrop-filter: blur(10px);
             font-weight: bold;
-            background: rgba(248, 249, 252, 0.65) !important;
+            background: rgb(248 249 252 / 0.65) !important;
             border: 1px solid #e0e8ff !important;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+            box-shadow: 0 1px 3px rgb(0 0 0 / 0.06) !important;
         }
 
         &:last-child {

@@ -65,10 +65,12 @@ function error() {
 .video_outer {
   width: 100%;
   position: relative;
+
   /* 使用padding-bottom实现9:16的宽高比 */
   padding-bottom: 177.78%; /* 16/9 * 100% = 177.78% */
   height: 0;
 }
+
 .video {
   position: absolute;
   top: 0;
@@ -76,6 +78,7 @@ function error() {
   width: 100%;
   height: 100%;
 }
+
 .volume-icon {
   position: absolute;
   top: 50%;
@@ -83,12 +86,13 @@ function error() {
   transform: translate(-50%, -50%);
   width: 80rpx;
   height: 80rpx;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgb(0 0 0 / 0.5);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
+
   image {
     width: 50rpx;
     height: 50rpx;

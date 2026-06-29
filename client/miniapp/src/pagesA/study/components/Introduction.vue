@@ -53,11 +53,10 @@ function toAiList(obj) {
         height: 30rpx;
         border-radius: 15rpx;
         box-sizing: border-box;
-        border: 1rpx solid rgba(0, 0, 0, 0.3);
+        border: 1rpx solid rgb(0 0 0 / 0.3);
         padding: 4rpx 12rpx;
         margin-right: auto;
         margin-bottom: 8rpx;
-
         display: flex;
         align-items: center;
         justify-content: center;
@@ -75,10 +74,10 @@ function toAiList(obj) {
     box-sizing: border-box;
     margin-top: 18rpx;
     padding-top: 30rpx;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    border-top: 1px solid rgb(0 0 0 / 0.1);
 
     .text {
-        font-family: Alimama FangYuanTi VF !important;
+        font-family: "Alimama FangYuanTi VF" !important;
         font-size: 30rpx;
         font-weight: normal;
         color: #757575;

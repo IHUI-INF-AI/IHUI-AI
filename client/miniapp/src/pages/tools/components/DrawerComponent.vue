@@ -1,6 +1,6 @@
 <template>
     <view class="drawer_back" :class="{ 'drawer-open': tagWrapShow }">
-      <view class="drawer_back" :class="{ 'drawer-open': tagWrapShow }" v-show="tagWrapShow" style="background-color: rgba(0, 0, 0, 0.4);" @click="close_drawer"></view>
+      <view class="drawer_back" :class="{ 'drawer-open': tagWrapShow }" v-show="tagWrapShow" style="background-color: rgb(0 0 0 / 0.4);" @click="close_drawer"></view>
       <view class="drawer_border" :class="{ 'drawer-open': tagWrapShow }">
           <view class="drawer" :style="{paddingTop:statusBarHeight}">
           <view class="drawer-header">
@@ -200,7 +200,7 @@ function gobackIndex() {
 	border-radius: 0 30rpx 30rpx 0;
 	height: calc(100%);
 	width: calc(100%);
-	padding: 0 0;
+	padding: 0;
 	box-sizing: border-box;
 	position: relative;
   display: flex;
@@ -228,8 +228,7 @@ function gobackIndex() {
 .drawer-menu {
 	margin-top: 0;
 	padding: 0;
-	overflow-y: scroll;
-	overflow-x: hidden;
+	overflow: hidden scroll;
 	margin-right: 0;
   padding-left: 14rpx;
   flex: 1;
@@ -283,6 +282,7 @@ function gobackIndex() {
 	color: #0d11fc;
 	font-weight: bold;
 }
+
 .drawer-header{
   .logobox {
     padding: 9rpx 0;
@@ -297,13 +297,15 @@ function gobackIndex() {
     margin-right: 12rpx;
   }
 }
+
 .drawer_menu{
 	padding: 15rpx 28rpx 25rpx;
 	box-sizing: border-box;
 	display: flex;
 	justify-content: space-between;
-	border-bottom: 1px solid rgb(239 239 239 / 18%);
+	border-bottom: 1px solid rgb(239 239 239 / 0.18);
 }
+
 .drawer_menu_label{
 	height: 60rpx;
 	width: 60rpx;
@@ -315,12 +317,14 @@ function gobackIndex() {
   flex: none;
   line-height: 56rpx;
   color: #000;
-  padding: 4rpx 28rpx 4rpx;
+  padding: 4rpx 28rpx;
   position: relative;
 }
+
 .label_title:first-child{
   padding-top: 9rpx;
 }
+
 .label_title::after{
   content: "";
   left: 23rpx;
@@ -331,23 +335,27 @@ function gobackIndex() {
   position: absolute;
   display: none;
 }
+
 .label_content{
   position: relative;
 }
+
 .label_content::after{
   content: "";
   left: 0;
   right: 0;
   height: 1px;
   bottom: 0;
-  background-color: rgb(239 239 239 / 18%);
+  background-color: rgb(239 239 239 / 0.18);
   position: absolute;
 }
+
 .label_title image{
   display: block;
   float: left;
   margin-right: 22rpx;
 }
+
 .agent-content_line {
 	position: fixed;
 	bottom: 315rpx;
@@ -359,6 +367,7 @@ function gobackIndex() {
 	border-top: 4rpx solid #CD96FF;
 	border-top-left-radius: 20px;
 }
+
 .agent_content_topLine{
 	position: absolute;
 	width: 16rpx;
@@ -375,24 +384,30 @@ function gobackIndex() {
 	0% {
 		transform: translate(0, 0);
 	}
+
 	70% {
 		transform: translate(0, -584rpx);
 	}
+
 	75% {
 		transform: translate(20rpx, -602rpx);
 	}
+
 	100% {
 		transform: translate(80px, -602rpx);
 	}
 }
+
 .back_index_btn_bor{
 	display: flex;
 }
+
 .back_index_btn_bor::after{
 	content: "";
 	clear: both;
 	display: block;
 }
+
 .back_index_btn{
 	margin: 0 auto;
 	width: auto;
@@ -403,9 +418,10 @@ function gobackIndex() {
 	font-size: 32rpx;
 	line-height: 33rpx;
 	float: left;
-	color: rgba(0,0,0,0.7);
+	color: rgb(0 0 0 / 0.7);
 	background: #D3E9FF;
 }
+
 .back_index_icon{
 	display: block;
 	float: left;
@@ -413,16 +429,19 @@ function gobackIndex() {
 	height: 33rpx;
 	margin-right: 10rpx;
 }
+
 .drawer_remove_chat{
   right: 20rpx;
   font-size: 28rpx;
 }
+
 .bottom_userInfo{
   left: 0;
   right: 0;
   padding-left: 28rpx;
   padding-right: 28rpx;
 }
+
 .user_avatar{
   margin-right: 10rpx;
   border-radius: 8rpx;

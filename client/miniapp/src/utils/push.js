@@ -220,65 +220,62 @@ export function createPushMessage(options = {}) {
  * @param {Function} options.onClientId 获取到 ClientId 的回调
  * @returns {Promise<string>} 返回 pushClientId
  */
-export function initPush(options = {}) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // 获取推送客户端ID
-      const pushClientId = await getPushClientId();
-      
-      // 如果 pushClientId 为 null，说明 uni-push 未启用
-      if (pushClientId === null) {
-        console.warn('uni-push 未启用，推送功能将不可用');
-        // 仍然触发回调，但传入 null
-        if (options.onClientId && typeof options.onClientId === 'function') {
-          options.onClientId(null);
-        }
-        resolve(null);
-        return;
-      }
-      
-      // 保存到本地存储
-      uni.setStorageSync('pushClientId', pushClientId);
-      
-      // 触发获取到 ClientId 的回调
-      if (options.onClientId && typeof options.onClientId === 'function') {
-        options.onClientId(pushClientId);
-      }
-      
-      // 启动推送消息监听
-      if (options.onMessage && typeof options.onMessage === 'function') {
-        onPushMessage(options.onMessage);
-      } else {
-        // 默认消息处理
-        onPushMessage((res) => {
-          console.log('收到推送消息:', res);
-          
-          // 处理点击消息事件
-          if (res.type === 'click') {
-            console.log('用户点击了推送消息:', res.data);
-            // 可以在这里处理消息点击后的跳转逻辑
-            handlePushClick(res.data);
-          }
-          
-          // 处理接收消息事件
-          if (res.type === 'receive') {
-            console.log('接收到推送消息:', res.data);
-            // 可以在这里显示通知或更新UI
-          }
-        });
-      }
-      
-      resolve(pushClientId);
-    } catch (error) {
-      console.error('初始化推送功能失败:', error);
-      // 即使初始化失败，也不阻止应用运行
-      // 返回 null 表示推送功能不可用
+export async function initPush(options = {}) {
+  try {
+    // 获取推送客户端ID
+    const pushClientId = await getPushClientId();
+
+    // 如果 pushClientId 为 null，说明 uni-push 未启用
+    if (pushClientId === null) {
+      console.warn('uni-push 未启用，推送功能将不可用');
+      // 仍然触发回调，但传入 null
       if (options.onClientId && typeof options.onClientId === 'function') {
         options.onClientId(null);
       }
-      resolve(null);
+      return null;
     }
-  });
+
+    // 保存到本地存储
+    uni.setStorageSync('pushClientId', pushClientId);
+
+    // 触发获取到 ClientId 的回调
+    if (options.onClientId && typeof options.onClientId === 'function') {
+      options.onClientId(pushClientId);
+    }
+
+    // 启动推送消息监听
+    if (options.onMessage && typeof options.onMessage === 'function') {
+      onPushMessage(options.onMessage);
+    } else {
+      // 默认消息处理
+      onPushMessage((res) => {
+        console.log('收到推送消息:', res);
+
+        // 处理点击消息事件
+        if (res.type === 'click') {
+          console.log('用户点击了推送消息:', res.data);
+          // 可以在这里处理消息点击后的跳转逻辑
+          handlePushClick(res.data);
+        }
+
+        // 处理接收消息事件
+        if (res.type === 'receive') {
+          console.log('接收到推送消息:', res.data);
+          // 可以在这里显示通知或更新UI
+        }
+      });
+    }
+
+    return pushClientId;
+  } catch (error) {
+    console.error('初始化推送功能失败:', error);
+    // 即使初始化失败，也不阻止应用运行
+    // 返回 null 表示推送功能不可用
+    if (options.onClientId && typeof options.onClientId === 'function') {
+      options.onClientId(null);
+    }
+    return null;
+  }
 }
 
 /**

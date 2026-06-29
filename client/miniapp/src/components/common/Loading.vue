@@ -32,10 +32,7 @@ defineProps({
     
     &.loading-full {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         background-color: rgba($background-color, 0.8);
         z-index: 999;
     }
@@ -74,6 +71,7 @@ defineProps({
     0%, 80%, 100% {
         transform: scale(0);
     }
+
     40% {
         transform: scale(1);
     }

@@ -9,7 +9,7 @@
         <view>
           <button class="float-item" open-type="share" @click="onShare">
             <image src="/static/images/tuiguang.png" mode="heightFix" class="icon" />
-            <text class="item-text" style="color: #ff0000;">赚 米</text>
+            <text class="item-text" style="color: #f00;">赚 米</text>
           </button>
         </view>
         <view>
@@ -99,10 +99,7 @@ defineExpose({
 <style lang="scss" scoped>
 .float-mask {
   position: fixed;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 1004;
   background: transparent;
 }
@@ -115,7 +112,7 @@ defineExpose({
   min-height: 340rpx;
   background-color: #fff;
   border-radius: 30rpx;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
   transition: right 0.35s cubic-bezier(0.4, 1.3, 0.6, 1);
   z-index: 1005;
   display: flex;
@@ -194,15 +191,12 @@ button {
 
 .service-mask {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: rgb(0 0 0 / 0.4);
 }
 
 .service-popup-content {
@@ -210,11 +204,9 @@ button {
   position: relative;
   border-radius: 30rpx;
   opacity: 1;
-  background-image: linear-gradient(to bottom right, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%);
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2), inset 0 -1px 2px rgba(255, 255, 255, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(10px);
-  box-shadow: 0px 0 6px 0px rgba(169, 165, 255, 0.6);
+  background-image: linear-gradient(to bottom right, rgb(205 208 255 / 0.7) 0%, rgb(253 255 225 / 0.7) 100%);
+  background: rgb(255 255 255 / 0.4);
+  box-shadow: 0 0 6px 0 rgb(169 165 255 / 0.6);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
 }
@@ -232,7 +224,7 @@ button {
   color: #fff;
   z-index: 1000;
   padding: 10rpx;
-  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2rpx 4rpx rgb(0 0 0 / 0.3);
 }
 
 .service-text {
@@ -240,14 +232,14 @@ button {
   background: linear-gradient(180deg, #B4B7F9 0%, #5E66FF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-family: 'AlimamaFangYuanTi';
+  font-family: AlimamaFangYuanTi;
   font-weight: 700;
 }
+
 .card-image {
   width: 100%;
   height: 411rpx;
   display: block;
-  margin-bottom: 20rpx;
   margin: 0 auto;
   margin-bottom: 16rpx;
   border-radius: 30rpx;
@@ -261,6 +253,7 @@ button {
   border-radius: 8rpx;
   overflow: hidden;
 }
+
 .float-arrow--open{
   left: -37rpx !important;
 }

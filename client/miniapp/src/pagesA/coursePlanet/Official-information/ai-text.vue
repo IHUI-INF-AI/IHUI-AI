@@ -50,15 +50,16 @@ defineProps({
 /* 主按钮 */
 .main-btn {
   position: relative;
-  margin: 480rpx 1rpx 0 1rpx;
-  background: linear-gradient(0deg,rgba(255, 255, 255, 1) 1%, rgba(77, 180, 232, 1) 77%);
+  margin: 480rpx 1rpx 0;
+  background: linear-gradient(0deg,rgb(255 255 255 / 1) 1%, rgb(77 180 232 / 1) 77%);
   border-radius: 80rpx;
   padding: 20rpx 30rpx 20rpx 32rpx;
-  box-shadow: 0 0 16rpx rgba(0,0,0,0.06);
+  box-shadow: 0 0 16rpx rgb(0 0 0 / 0.06);
   display: flex;
   align-items: flex-end;
   min-height: 80rpx;
 }
+
 .main-title {
   color: #fff;
   font-size: 28rpx;
@@ -66,6 +67,7 @@ defineProps({
   flex: 1;
   line-height: 1.5;
 }
+
 .tag-btn {
   position: absolute;
   right: 32rpx;
@@ -76,7 +78,7 @@ defineProps({
   font-size: 18rpx;
   padding: 4rpx 18rpx;
   font-weight: bold;
-  box-shadow: 0 0 8rpx rgba(0,0,0,0.04);
+  box-shadow: 0 0 8rpx rgb(0 0 0 / 0.04);
 }
 
 /* 信息行 */
@@ -84,13 +86,15 @@ defineProps({
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  margin: 18rpx 32rpx 0 32rpx;
+  margin: 18rpx 32rpx 0;
   font-size: 22rpx;
   color: black;
 }
+
 .meta-views {
   margin-right: 32rpx;
 }
+
 .meta-date{
 	margin-right: 32rpx;
 }
@@ -99,18 +103,20 @@ defineProps({
 .content-box {
   background: #f0f3fb;
   border-radius: 20rpx;
-  margin: 24rpx 24rpx 0 24rpx;
+  margin: 24rpx 24rpx 0;
   padding: 24rpx;
-  box-shadow: 0 0 16rpx rgba(0,0,0,0.04);
+  box-shadow: 0 0 16rpx rgb(0 0 0 / 0.04);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
 }
+
 .content-img {
   width: 100%;
   border-radius: 15rpx;
   margin-bottom: 18rpx;
 }
+
 .content-text {
   color: #333;
   font-size: 26rpx;

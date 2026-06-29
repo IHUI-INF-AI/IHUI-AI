@@ -147,10 +147,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .verify-code-modal {
 	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
+	inset: 0;
 	z-index: 1000;
 	display: flex;
 	align-items: center;
@@ -159,21 +156,18 @@ onBeforeUnmount(() => {
 
 .verify-code-modal-mask {
 	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: rgba(0, 0, 0, 0.5);
+	inset: 0;
+	background: rgb(0 0 0 / 0.5);
 }
 
 .verify-code-modal-content {
 	position: relative;
 	width: 580rpx;
-	background: #ffffff;
+	background: #fff;
 	border-radius: 24rpx;
 	overflow: visible;
 	padding-bottom: 20rpx;
-	box-shadow: 0 12rpx 48rpx rgba(0, 0, 0, 0.15);
+	box-shadow: 0 12rpx 48rpx rgb(0 0 0 / 0.15);
 }
 
 .verify-code-modal-header {
@@ -184,7 +178,7 @@ onBeforeUnmount(() => {
 .verify-code-modal-title {
 	font-size: 36rpx;
 	font-weight: bold;
-	color: #000000;
+	color: #000;
 }
 
 .verify-code-modal-body {
