@@ -1,33 +1,6 @@
 # Git LFS - 只追踪特定大文件 (>5MB)
 # 避免使用 *.png / *.ttf 等通配符,以免影响大量小文件
 
-# 换行符配置：文本文件自动处理，避免 CRLF/LF 反复抖动
-* text=auto
-
-# Windows 专用脚本使用 CRLF
-*.bat text eol=crlf
-*.cmd text eol=crlf
-*.ps1 text eol=crlf
-
-# 二进制文件（显式标记，避免被当文本处理）
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.ico binary
-*.svg binary
-*.ttf binary
-*.woff binary
-*.woff2 binary
-*.eot binary
-*.pdf binary
-*.pptx binary
-*.xlsx binary
-*.docx binary
-*.zip binary
-*.gz binary
-*.tar binary
-
 # 大型演示文档 (87.48 MB)
 client/public/docs/enterprise-service/whitepaper.pptx filter=lfs diff=lfs merge=lfs -text
 

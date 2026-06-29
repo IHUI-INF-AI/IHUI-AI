@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IHUI-AI 死代码深度分析报告</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card-bg: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --danger: #f85149;
+    --warning: #d29922;
+    --success: #3fb950;
+    --purple: #bc8cff;
+    --code-bg: #1c2128;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans CJK SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 2em; color: var(--text); margin-bottom: 8px; }
+  h2 { font-size: 1.5em; color: var(--accent); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.2em; color: var(--text); margin: 24px 0 12px; }
+  h4 { font-size: 1em; color: var(--purple); margin: 16px 0 8px; }
+  p { margin-bottom: 12px; color: var(--text-muted); }
+  .subtitle { color: var(--text-muted); font-size: 0.9em; margin-bottom: 32px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 24px 0; }
+  .stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-card .num { font-size: 2.2em; font-weight: 700; }
+  .stat-card .label { font-size: 0.85em; color: var(--text-muted); margin-top: 4px; }
+  .stat-card.danger .num { color: var(--danger); }
+  .stat-card.success .num { color: var(--success); }
+  .stat-card.warning .num { color: var(--warning); }
+  .stat-card.purple .num { color: var(--purple); }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.88em; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  tr:hover { background: rgba(88,166,255,0.05); }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.85em; color: var(--purple); }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+  .badge-dead { background: rgba(248,81,73,0.15); color: var(--danger); border: 1px solid rgba(248,81,73,0.3); }
+  .badge-alive { background: rgba(63,185,80,0.15); color: var(--success); border: 1px solid rgba(63,185,80,0.3); }
+  .badge-maybe { background: rgba(210,153,34,0.15); color: var(--warning); border: 1px solid rgba(210,153,34,0.3); }
+  .badge-future { background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid rgba(188,140,255,0.3); }
+  .alert {
+    background: var(--card-bg);
+    border-left: 4px solid var(--warning);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .alert.success { border-left-color: var(--success); }
+  .alert.danger { border-left-color: var(--danger); }
+  .alert code { color: var(--accent); }
+  .section-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .tag-false-positive { background: rgba(63,185,80,0.15); color: var(--success); }
+  .tag-confirmed { background: rgba(248,81,73,0.15); color: var(--danger); }
+  .tag-future { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .toc { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; margin: 24px 0; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .file-path { color: var(--text-muted); font-family: monospace; font-size: 0.82em; word-break: break-all; }
+  .priority-list { list-style: none; padding-left: 0; }
+  .priority-list li { padding: 8px 0 8px 28px; position: relative; }
+  .priority-list li::before { position: absolute; left: 0; font-weight: 700; }
+  .priority-list.p1 li::before { content: 'P0'; color: var(--danger); }
+  .priority-list.p2 li::before { content: 'P1'; color: var(--warning); }
+  .priority-list.p3 li::before { content: 'P2'; color: var(--accent); }
+  .priority-list.p4 li::before { content: 'P3'; color: var(--text-muted); }
+  .collapsible { cursor: pointer; user-select: none; }
+  .collapsible::after { content: ' [点击展开]'; font-size: 0.8em; color: var(--text-muted); }
+  .collapsible-content { display: none; }
+  .collapsible.open::after { content: ' [点击收起]'; }
+  .collapsible.open + .collapsible-content { display: block; }
+  details summary { cursor: pointer; color: var(--accent); padding: 8px 0; }
+  details summary::-webkit-details-marker { color: var(--accent); }
+  .footer { text-align: center; color: var(--text-muted); font-size: 0.85em; margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>IHUI-AI 死代码深度分析报告</h1>
+<p class="subtitle">生成时间: 2026-06-29 | 扫描范围: client/src, server/app, 根目录, scripts/ | 分析方法: 静态引用交叉验证 + SCSS @use 语法校准 + CI 工作流追踪</p>
+
+<div class="stats-grid">
+  <div class="stat-card danger"><div class="num">100+</div><div class="label">确信死代码项</div></div>
+  <div class="stat-card success"><div class="num">6</div><div class="label">误报(实际有用)</div></div>
+  <div class="stat-card purple"><div class="num">1</div><div class="label">已建未接线子系统</div></div>
+  <div class="stat-card warning"><div class="num">~15</div><div class="label">需进一步确认</div></div>
+</div>
+
+<div class="alert success">
+  <strong>核心发现:</strong> 初步扫描标记为"死代码"的候选中,有 <strong>6 类共 10+ 个文件经验证实际正在使用</strong>,属于误报。最典型的误报原因是 SCSS <code>@use</code> 语法未被 JS 导入搜索覆盖、相对路径导入 <code>./Menu.vue</code> 未被全文匹配、以及 CI 工作流写入的文件被误判为遗留产物。
+</div>
+
+<div class="toc">
+  <strong>目录</strong>
+  <ol>
+    <li><a href="#false-positives">误报分析:看似死代码实际有用的代码(关键发现)</a></li>
+    <li><a href="#designed-not-wired">已建未接线:shadow/canary 子系统</a></li>
+    <li><a href="#frontend-dead">前端确信死代码</a></li>
+    <li><a href="#backend-dead">后端确信死代码</a></li>
+    <li><a href="#root-dead">根目录与脚本确信死代码</a></li>
+    <li><a href="#needs-review">需进一步确认的候选</a></li>
+    <li><a href="#cleanup-plan">清理优先级建议</a></li>
+  </ol>
+</div>
+
+<!-- ==================== 1. 误报分析 ==================== -->
+<h2 id="false-positives">1. 误报分析:看似死代码实际有用的代码</h2>
+<p>以下文件在初步扫描中被标记为"死代码",但经深度验证确认<strong>实际正在被使用</strong>。这些是最容易被误删的文件,删除前必须二次确认。</p>
+
+<h3>1.1 admin/Menu.vue — 被 Layout.vue 相对路径导入</h3>
+<div class="alert success">
+<p><strong>初步判定:</strong> <span class="badge badge-maybe">需确认</span> — grep 组件名"Menu"匹配过多,无法确定是否被引用</p>
+<p><strong>实际验证:</strong> <span class="badge badge-alive">实际有用</span> — <code>Layout.vue</code> 第 37 行 <code>import AdminMenu from './Menu.vue'</code> 显式导入,第 7 行 <code>&lt;AdminMenu /&gt;</code> 使用。Layout.vue 被大量 admin 视图使用。</p>
+<p><strong>误报原因:</strong> "Menu" 是 Element Plus 图标名,grep 噪声大;相对路径 <code>./Menu.vue</code> 未被全文组件名搜索覆盖。</p>
+</div>
+
+<h3>1.2 四个 .styles.scss 文件 — 被 SCSS @use 语法引用</h3>
+<div class="alert success">
+<p><strong>初步判定:</strong> <span class="badge badge-dead">真死代码</span> — 搜索 <code>import.*\.styles\.scss</code> 零匹配</p>
+<p><strong>实际验证:</strong> <span class="badge badge-alive">实际有用</span> — 以下 4 个文件通过 SCSS <code>@use</code> 语法被父 Vue 文件引入:</p>
+<table>
+  <tr><th>文件</th><th>引用位置</th><th>语法</th></tr>
+  <tr><td><code>Home.vue.styles.scss</code></td><td>Home.vue:1383</td><td><code>@use './Home.vue.styles';</code></td></tr>
+  <tr><td><code>User.vue.styles.scss</code></td><td>User.vue:549</td><td><code>@use './User.vue.styles';</code></td></tr>
+  <tr><td><code>AgentDetail.vue.styles.scss</code></td><td>AgentDetail.vue:974</td><td><code>@use './AgentDetail.vue.styles';</code></td></tr>
+  <tr><td><code>Xuqiu.vue.styles.scss</code></td><td>Xuqiu.vue:312</td><td><code>@use './Xuqiu.vue.styles';</code></td></tr>
+</table>
+<p><strong>误报原因:</strong> 初步扫描使用 JS <code>import</code> 语法搜索,未覆盖 SCSS 原生的 <code>@use</code>/<code>@import</code> 指令。SCSS 样式文件的引用关系必须用 SCSS 语法搜索。</p>
+<p><strong>注意:</strong> 另外 4 个 .styles.scss 文件(<code>Vip.vue.styles.scss</code>、<code>Settings.vue.styles.scss</code>、<code>Orders.vue.styles.scss</code>、<code>Distribution.vue.styles.scss</code>)经验证<strong>确实未被引用</strong>,父 Vue 文件仅 <code>@use '@/styles/breakpoints'</code>,不引用自身 .styles.scss。这 4 个是<strong>真死代码</strong>。</p>
+</div>
+
+<h3>1.3 del-nul.mjs — check-nul.mjs 的配套清理工具</h3>
+<div class="alert success">
+<p><strong>初步判定:</strong> <span class="badge badge-maybe">需确认</span> — 不在 package.json scripts 中,无 CI 引用</p>
+<p><strong>实际验证:</strong> <span class="badge badge-alive">实际有用</span> — <code>check-nul.mjs</code>(已接入 pre-commit hook)在检测到 nul 残留时,输出提示: <code>"如需删除,请调用同目录的 del_nul.mjs"</code>。del-nul.mjs 是用户手动执行的清理工具,非自动化调用。</p>
+<p><strong>误报原因:</strong> 工具间的"人肉调用"关系(控制台提示引导用户运行)不会被自动化 grep 覆盖。</p>
+</div>
+
+<h3>1.4 STATE.md / loop-run-log.md / loop-budget.md / LOOP.md — CI 工作流活跃文件</h3>
+<div class="alert success">
+<p><strong>初步判定:</strong> <span class="badge badge-dead">真死代码</span> — 看起来是 loop 模式遗留的临时文件</p>
+<p><strong>实际验证:</strong> <span class="badge badge-alive">实际有用</span> — 被 <code>.github/workflows/loop-daily-triage.yml</code> CI 工作流读写。该 workflow 注释明确: "只扫描+写 3 个 markdown: loop-run-log.md / STATE.md / loop-budget.md"。</p>
+<p><strong>误报原因:</strong> 文件名像临时产物,但实际是 CI 工作流的状态持久化文件。LOOP.md 虽当前目标已完成(COMPLETED),但仍被 CI 注释引用为"设计参考"。</p>
+</div>
+
+<h3>1.5 根目录 nginx.conf — Dockerfile.client 生产构建引用</h3>
+<div class="alert success">
+<p><strong>初步判定:</strong> <span class="badge badge-dead">真死代码</span> — 与 client/nginx.conf 和 server/nginx.conf 重复</p>
+<p><strong>实际验证:</strong> <span class="badge badge-alive">实际有用</span> — <code>Dockerfile.client</code> 第 29 行 <code>COPY nginx.conf /etc/nginx/conf.d/default.conf</code> 引用,用于生产 Docker 构建。三份 nginx.conf 用途不同:根=生产前端、client=本地开发、server=后端反代。</p>
+<p><strong>误报原因:</strong> 同名文件在多目录出现,容易被误判为重复。实际是不同环境的不同配置。</p>
+</div>
+
+<h3>1.6 未在 __init__.py re-export 的 Python model 文件</h3>
+<div class="alert success">
+<p><strong>初步判定:</strong> <span class="badge badge-maybe">需确认</span> — 不在 models/__init__.py 中导出</p>
+<p><strong>实际验证:</strong> <span class="badge badge-alive">实际有用</span> — <code>admin_models.py</code>、<code>certificate_models.py</code>、<code>order_models.py</code>、<code>vip_models.py</code> 等 15+ 个 model 文件,均被对应域路由模块直接 import(如 <code>app/api/v1/certificate/routes.py</code> import <code>certificate_models</code>)。仅未在 __init__.py 中 re-export,不是死代码。</p>
+<p><strong>误报原因:</strong> <code>__init__.py</code> 的 re-export 是便利导出,不是模块存活的依据。Python 支持直接 import 任意模块路径。</p>
+</div>
+
+<!-- ==================== 2. 已建未接线 ==================== -->
+<h2 id="designed-not-wired">2. 已建未接线:shadow/canary 影子流量子系统</h2>
+<p>这是一组<strong>功能完整但从未接入生产请求路径</strong>的代码,是本次分析中最值得关注的"灰色地带"。</p>
+
+<div class="alert">
+<p><strong>子系统构成:</strong> 以下 5 个模块互相引用,形成完整的影子流量对比+金丝雀调比系统:</p>
+<table>
+  <tr><th>文件</th><th>功能</th><th>测试覆盖</th><th>生产接线</th></tr>
+  <tr><td><code>shadow_traffic.py</code></td><td>ShadowRouter: 影子流量路由器,按比例复制请求</td><td><span class="badge badge-alive">有</span></td><td><span class="badge badge-dead">无</span></td></tr>
+  <tr><td><code>shadow_compare.py</code></td><td>ShadowCompareAggregator: 对比 v1/v2 响应差异</td><td><span class="badge badge-alive">有</span></td><td><span class="badge badge-dead">无</span></td></tr>
+  <tr><td><code>shadow_whitelist.py</code></td><td>影子流量白名单过滤</td><td><span class="badge badge-alive">有</span></td><td><span class="badge badge-dead">无</span></td></tr>
+  <tr><td><code>shadow_ratio_controller.py</code></td><td>ShadowRatioController: 基于错误率自动调比</td><td><span class="badge badge-alive">有</span></td><td><span class="badge badge-dead">无</span></td></tr>
+  <tr><td><code>canary_shadow_link.py</code></td><td>金丝雀阶段与影子流量联动</td><td><span class="badge badge-alive">有</span></td><td><span class="badge badge-dead">无</span></td></tr>
+</table>
+</div>
+
+<div class="alert danger">
+<p><strong>验证结论:</strong></p>
+<ul style="padding-left:20px; margin:8px 0;">
+  <li><code>main.py</code> 中<strong>零处</strong>引用 shadow 模块</li>
+  <li><code>canary_routes.py</code>(已注册路由)仅 import <code>canary_stages</code> 和 <code>security</code>,<strong>不引用</strong>任何 shadow 模块</li>
+  <li><code>canary_metrics.py</code> 中的 <code>sync_canary_shadow_all()</code> 和 <code>get_shadow_ratio_snapshot()</code> 函数<strong>定义了但从未被调用</strong></li>
+  <li>shadow 模块仅在 <code>tests/test_shadow_*.py</code> 和 <code>tests/test_canary_shadow_link.py</code> 中被引用</li>
+  <li>模块间使用 TYPE_CHECKING 块和函数内 lazy import 互相引用,形成自包含集群</li>
+</ul>
+</div>
+
+<div class="alert">
+<p><strong>判定:</strong> <span class="badge badge-future">已建未接线</span> — 这是一个<strong>设计完整、实现完整、测试完整</strong>的影子流量系统,包含 Prometheus 指标(<code>zhs_shadow_compare_total</code>、<code>zhs_shadow_ratio</code> 等)、自动调比逻辑、白名单过滤。但从未被接入生产请求管道。</p>
+<p><strong>可能原因:</strong> 为 v1→v2 后端迁移准备的影子对比基础设施,迁移完成后未启用即搁置;或为未来金丝雀发布预留的能力。</p>
+<p><strong>建议:</strong> <strong>不要直接删除</strong>。如果短期无启用计划,可标记为 <code># DEPRECATED: shadow traffic system, not wired into production</code> 并移至 <code>app/_archived/</code> 目录。如果确认永远不会启用,再删除。</p>
+</div>
+
+<!-- ==================== 3. 前端死代码 ==================== -->
+<h2 id="frontend-dead">3. 前端确信死代码 (client/)</h2>
+
+<h3>3.1 临时分析输出文件(32 个)</h3>
+<p>eslint/typecheck/测试过程的一次性产物,无任何引用,多数未被 .gitignore 覆盖。</p>
+<details>
+<summary>点击展开完整清单(32 个文件)</summary>
+<table>
+  <tr><th>文件</th><th>类型</th></tr>
+  <tr><td><span class="file-path">client/eslint-after.json</span></td><td>eslint 报告快照</td></tr>
+  <tr><td><span class="file-path">client/eslint-baseline.json</span></td><td>eslint 基线</td></tr>
+  <tr><td><span class="file-path">client/eslint-final.json</span></td><td>eslint 报告</td></tr>
+  <tr><td><span class="file-path">client/eslint-final2.json</span></td><td>eslint 报告</td></tr>
+  <tr><td><span class="file-path">client/eslint-ts.json</span></td><td>eslint 报告</td></tr>
+  <tr><td><span class="file-path">client/eslint-verify.json</span></td><td>eslint 报告</td></tr>
+  <tr><td><span class="file-path">client/eslint-views.json</span></td><td>eslint 报告</td></tr>
+  <tr><td><span class="file-path">client/services-eslint.json</span></td><td>eslint 报告</td></tr>
+  <tr><td><span class="file-path">client/services-current.csv / .json / .txt</span></td><td>服务分析输出</td></tr>
+  <tr><td><span class="file-path">client/services-warnings.txt</span></td><td>警告输出</td></tr>
+  <tr><td><span class="file-path">client/test-order.json / test-orig.json / test-revert.json</span></td><td>测试中间产物</td></tr>
+  <tr><td><span class="file-path">client/typecheck-final.txt / typecheck-views-fix.txt</span></td><td>tsc 输出</td></tr>
+  <tr><td><span class="file-path">client/views_errors.txt / views_root_errors.txt</span></td><td>错误日志</td></tr>
+  <tr><td><span class="file-path">client/vue_errors_all.txt / vue_errors_listfiles.txt</span></td><td>错误日志</td></tr>
+  <tr><td><span class="file-path">client/vue_tsc_full.txt / vue_tsc_v2.txt / vue_tsc_v3.txt</span></td><td>tsc 输出</td></tr>
+  <tr><td><span class="file-path">client/vue-files-to-revert.txt / vue-rel-files.txt</span></td><td>回退清单</td></tr>
+  <tr><td><span class="file-path">client/warnings-detail.csv / warnings-list.txt</span></td><td>警告输出</td></tr>
+  <tr><td><span class="file-path">client/ai-panel-test-desktop.png</span></td><td>测试截图</td></tr>
+  <tr><td><span class="file-path">client/ai-panel-test-report.json</span></td><td>测试报告</td></tr>
+  <tr><td><span class="file-path">client/parse-eslint-report.cjs</span></td><td>一次性解析脚本</td></tr>
+  <tr><td><span class="file-path">client/STYLE-FIX-MANIFEST.md</span></td><td>样式修复任务清单(已完成)</td></tr>
+  <tr><td><span class="file-path">client/fix-flat-output.txt</span></td><td>修复输出</td></tr>
+</table>
+</details>
+
+<h3>3.2 backups/ 目录(整个目录)</h3>
+<p>纯备份/历史快照,含多个一次性 Python 修复脚本和历史代码副本。</p>
+<details>
+<summary>点击展开清单</summary>
+<table>
+  <tr><th>路径</th><th>内容</th></tr>
+  <tr><td><span class="file-path">backups/extracted.css / .css.map / .scss</span></td><td>SCSS 提取产物</td></tr>
+  <tr><td><span class="file-path">backups/check-scss-balance.py / extract-scss.py</span></td><td>一次性 Python 脚本</td></tr>
+  <tr><td><span class="file-path">backups/fix-universal-login-scss.py</span> (v1~v8, 9 个)</td><td>通用登录 SCSS 修复脚本多版本</td></tr>
+  <tr><td><span class="file-path">backups/api-cleanup-20260617-122632/</span></td><td>API 清理前快照</td></tr>
+  <tr><td><span class="file-path">backups/large-files-2026-06-21/</span></td><td>大文件历史版本</td></tr>
+  <tr><td><span class="file-path">backups/locales-2026-06-17T03-48-37-754Z/</span></td><td>国际化文件快照</td></tr>
+  <tr><td><span class="file-path">backups/stores-cleanup-20260617-133543/</span></td><td>store 清理前快照</td></tr>
+  <tr><td><span class="file-path">backups/storybook10-upgrade-2026-06-21/</span></td><td>package.json.bak</td></tr>
+  <tr><td><span class="file-path">backups/vite-storybook-upgrade-2026-06-21/</span></td><td>package.json.bak</td></tr>
+</table>
+</details>
+
+<h3>3.3 未被引用的 Vue 组件(18 个)</h3>
+<p>顶层 <code>components/</code> 不在 vite 自动扫描范围,必须显式 import。以下均无任何 import/标签引用。</p>
+<details>
+<summary>点击展开完整清单(18 个组件)</summary>
+<table>
+  <tr><th>文件</th><th>死代码依据</th></tr>
+  <tr><td><span class="file-path">components/Header.vue</span></td><td>App.vue 第 269 行 import 已注释("已迁移到 Sidebar + WorkspaceHeader")</td></tr>
+  <tr><td><span class="file-path">components/Toolbar.vue</span></td><td>全项目无引用</td></tr>
+  <tr><td><span class="file-path">components/VirtualList.vue</span></td><td>重复文件;实际使用 common/VirtualList.vue</td></tr>
+  <tr><td><span class="file-path">components/AiTextBanner.vue</span></td><td>无引用</td></tr>
+  <tr><td><span class="file-path">components/SimpleFallback.vue</span></td><td>无引用</td></tr>
+  <tr><td><span class="file-path">components/PerformanceChart.vue</span></td><td>无引用</td></tr>
+  <tr><td><span class="file-path">components/FeedbackBtn.vue</span></td><td>无引用</td></tr>
+  <tr><td><span class="file-path">components/VipPrivateAdvisory.vue</span></td><td>无引用</td></tr>
+  <tr><td><span class="file-path">components/VipIntroducePopup.vue</span></td><td>无引用,仅剩孤立 i18n key</td></tr>
+  <tr><td><span class="file-path">components/VipIntroducePopupAlt.vue</span></td><td>无引用,仅剩孤立 i18n key</td></tr>
+  <tr><td><span class="file-path">components/VipLevelPopup.vue</span></td><td>无引用,仅剩孤立 i18n key</td></tr>
+  <tr><td><span class="file-path">components/ConfirmPurchasePopUp.vue</span></td><td>无引用,Vip.vue 仅注释提及</td></tr>
+  <tr><td><span class="file-path">components/PdfCompare.vue</span></td><td>无引用</td></tr>
+  <tr><td><span class="file-path">components/PdfViewer.vue</span></td><td>仅被死代码 PdfCompare 引用(传递性死代码)</td></tr>
+  <tr><td><span class="file-path">components/EyeToggle.vue</span></td><td>无外部引用</td></tr>
+  <tr><td><span class="file-path">components/TourFeedback.vue</span></td><td>无外部引用</td></tr>
+  <tr><td><span class="file-path">components/AnimatedBlobText.vue</span></td><td>仅有类型 shim,无实际使用</td></tr>
+  <tr><td><span class="file-path">components/ai/AIPlatformProvider.vue</span> + <span class="file-path">ShortcutsHelpPanel.vue</span> + <span class="file-path">QueueMonitorPanel.vue</span></td><td>AIPlatformProvider 引用后两者,但 AIPlatformProvider 本身无任何外部引用;ai/index.ts barrel 零外部消费</td></tr>
+</table>
+</details>
+
+<h3>3.4 未被引用的组件目录(2 个)</h3>
+<table>
+  <tr><th>路径</th><th>内容</th><th>死代码依据</th></tr>
+  <tr><td><span class="file-path">components/study/</span> (8 个 .vue)</td><td>AddVideo/Group/Comment/VipBtns/SelectRow/Introduction/Catalog/VideoProgress</td><td>grep <code>components/study</code> 零匹配</td></tr>
+  <tr><td><span class="file-path">components/studyindex/</span> (4 个 .vue)</td><td>ModelItem/StudyList/ModelList/StudyTip</td><td>grep <code>components/studyindex</code> 零匹配</td></tr>
+</table>
+
+<h3>3.5 未使用的 .styles.scss 文件(4 个)</h3>
+<p>经 SCSS <code>@use</code> 语法验证,以下 4 个文件确实未被引用(父 Vue 文件仅引用 <code>@/styles/breakpoints</code>)。</p>
+<table>
+  <tr><th>文件</th><th>验证依据</th></tr>
+  <tr><td><span class="file-path">views/Vip.vue.styles.scss</span></td><td>Vip.vue 无 <code>@use './Vip.vue.styles'</code></td></tr>
+  <tr><td><span class="file-path">views/Settings.vue.styles.scss</span></td><td>Settings.vue 无 <code>@use './Settings.vue.styles'</code></td></tr>
+  <tr><td><span class="file-path">views/Orders.vue.styles.scss</span></td><td>Orders.vue 无 <code>@use './Orders.vue.styles'</code></td></tr>
+  <tr><td><span class="file-path">views/Distribution.vue.styles.scss</span></td><td>Distribution.vue 无 <code>@use './Distribution.vue.styles'</code></td></tr>
+</table>
+
+<h3>3.6 未使用的资产文件</h3>
+<table>
+  <tr><th>路径</th><th>死代码依据</th></tr>
+  <tr><td><span class="file-path">src/assets-optimized/</span> (11 个 .webp)</td><td>全项目无 import;Footer.vue 实际引用 assets/promotion-qr-*.{png,jpg} 原图</td></tr>
+</table>
+
+<h3>3.7 client/scripts/ 一次性诊断脚本(13 个)</h3>
+<details>
+<summary>点击展开清单</summary>
+<table>
+  <tr><th>文件</th><th>类型</th></tr>
+  <tr><td><span class="file-path">scripts/diag-dark-border.mjs</span> + .png + diag-full.txt</td><td>暗色边框诊断</td></tr>
+  <tr><td><span class="file-path">scripts/diag-overlay.mjs</span></td><td>overlay 诊断</td></tr>
+  <tr><td><span class="file-path">scripts/identify-page-overlays.mjs</span></td><td>overlay 识别</td></tr>
+  <tr><td><span class="file-path">scripts/trace-overlays.mjs</span></td><td>overlay 追踪</td></tr>
+  <tr><td><span class="file-path">scripts/verify-overlay-fix.mjs</span></td><td>overlay 修复验证</td></tr>
+  <tr><td><span class="file-path">scripts/check-login-popup.mjs</span></td><td>登录弹窗检查</td></tr>
+  <tr><td><span class="file-path">scripts/test-login-dialog.mjs</span></td><td>登录对话框测试</td></tr>
+  <tr><td><span class="file-path">scripts/final-verify.mjs</span></td><td>最终验证</td></tr>
+  <tr><td><span class="file-path">scripts/screen-after-click.png</span> + screen-initial.png</td><td>截图产物</td></tr>
+  <tr><td><span class="file-path">scripts/i18n-analysis.json</span></td><td>i18n 分析输出</td></tr>
+  <tr><td><span class="file-path">scripts/i18n-scan-output.txt</span></td><td>i18n 扫描输出</td></tr>
+  <tr><td><span class="file-path">scripts/eslint.json</span></td><td>eslint 输出</td></tr>
+  <tr><td><span class="file-path">scripts/fix-flat-output.txt</span></td><td>修复输出</td></tr>
+</table>
+</details>
+
+<!-- ==================== 4. 后端死代码 ==================== -->
+<h2 id="backend-dead">4. 后端确信死代码 (server/app/)</h2>
+
+<h3>4.1 未注册的路由(3 个)</h3>
+<table>
+  <tr><th>文件</th><th>死代码依据</th></tr>
+  <tr><td><span class="file-path">app/api/v1/orders_pdf.py</span></td><td>定义 <code>router = APIRouter(prefix="/api/v1/orders")</code>,但 router.py/main.py 均未 include。内部用 <code>_orders_db</code> 内存演示数据</td></tr>
+  <tr><td><span class="file-path">app/api/v1/refund.py</span></td><td>定义 <code>router = APIRouter(prefix="/api/v1/refunds")</code>,从未被 include。内存存储 <code>_refund_store</code></td></tr>
+  <tr><td><span class="file-path">app/api/v1/alerting/webhook.py</span></td><td>定义 <code>router = APIRouter(prefix="/api/v1/alerting")</code>,仅被测试直接 import,未注册。目录缺 <code>__init__.py</code></td></tr>
+</table>
+
+<h3>4.2 零引用的模块(7 个)</h3>
+<table>
+  <tr><th>文件</th><th>功能</th><th>死代码依据</th></tr>
+  <tr><td><span class="file-path">app/database_supabase.py</span></td><td>Supabase REST 引擎</td><td>全仓 0 处 import。项目实际用 database.py (SQLAlchemy)</td></tr>
+  <tr><td><span class="file-path">app/services/v1_business_store.py</span></td><td>v2_admin 内存存储</td><td>注释自称"后续可替换为 DB",全仓 0 引用</td></tr>
+  <tr><td><span class="file-path">app/services/mcp_resource_service.py</span></td><td>MCP 资源服务</td><td>迁移自 Java,全仓 0 引用</td></tr>
+  <tr><td><span class="file-path">app/metrics_rate_limit.py</span></td><td>Prometheus 限流指标</td><td>定义 4 个指标,全仓 0 引用,从未接入 /metrics</td></tr>
+  <tr><td><span class="file-path">app/services/category_service.py</span></td><td>agent 分类 CRUD</td><td>唯一出现处是 tasks/__init__.py 的<strong>注释行</strong></td></tr>
+  <tr><td><span class="file-path">app/services/agents_cache_service.py</span></td><td>agent 缓存服务</td><td>工厂函数定义后全仓无外部调用</td></tr>
+  <tr><td><span class="file-path">app/services/avatar_sync_service.py</span></td><td>头像同步服务</td><td>仅被测试和 integration_smoke.py 引用,无生产路由调用</td></tr>
+</table>
+
+<h3>4.3 残留垃圾文件</h3>
+<table>
+  <tr><th>文件</th><th>说明</th></tr>
+  <tr><td><span class="file-path">app/api/v1/auth/nul</span></td><td>Windows 保留设备名文件(PowerShell <code>&gt;nul</code> 误写为文件名)。.gitignore 已忽略但文件仍存在</td></tr>
+  <tr><td><span class="file-path">app/services/__pycache__/feishu_auth_service.cpython-311.pyc</span></td><td>源码 feishu_auth_service.py 已删除,但 .pyc 残留</td></tr>
+</table>
+
+<h3>4.4 冗余代码块</h3>
+<table>
+  <tr><th>位置</th><th>说明</th></tr>
+  <tr><td><span class="file-path">app/api/v1/router.py</span> 第 547-561 行</td><td><code>schedule_router</code> 和 <code>ranking_router</code> 已在第 376-392 行导入,此处重复导入同一组变量并重复设置 HAS_SCHEDULE/HAS_RANKING,纯属冗余</td></tr>
+</table>
+
+<h3>4.5 server/ 测试输出产物(7 个)</h3>
+<table>
+  <tr><th>文件</th><th>说明</th></tr>
+  <tr><td><span class="file-path">server/pytest-alembic-fixed.xml</span></td><td>陈旧 pytest 报告</td></tr>
+  <tr><td><span class="file-path">server/pytest-alembic-k.xml</span></td><td>陈旧 pytest 报告</td></tr>
+  <tr><td><span class="file-path">server/pytest-ci-debug.xml</span></td><td>陈旧 pytest 报告</td></tr>
+  <tr><td><span class="file-path">server/pytest-failures.txt</span></td><td>陈旧 pytest 报告</td></tr>
+  <tr><td><span class="file-path">server/pytest-other-fails.xml</span></td><td>陈旧 pytest 报告</td></tr>
+  <tr><td><span class="file-path">server/pytest-results-fix.xml</span></td><td>陈旧 pytest 报告</td></tr>
+  <tr><td><span class="file-path">server/pytest-results.xml</span></td><td>陈旧 pytest 报告</td></tr>
+</table>
+
+<!-- ==================== 5. 根目录死代码 ==================== -->
+<h2 id="root-dead">5. 根目录与脚本确信死代码</h2>
+
+<h3>5.1 损坏文件名(1 个,最高优先级)</h3>
+<div class="alert danger">
+<p><span class="file-path">cripts_tmp_verify_i18n.mjs' -Force; Get-ChildItem 'gIHUI-AIclientscripts' -Filter '_tmp' -Force  Select-Object Name</span></p>
+<p>PowerShell 命令被错误创建为文件名,无法被任何工具正常引用。<strong>必须用特殊方法删除</strong>。</p>
+</div>
+
+<h3>5.2 Trae CN IDE 环境维护脚本(3 个,与项目无关)</h3>
+<table>
+  <tr><th>文件</th><th>说明</th></tr>
+  <tr><td><span class="file-path">clean_trae_wal.bat</span></td><td>删除 Trae CN IDE 的 137GB WAL 文件,操作 AppData,与项目代码无关</td></tr>
+  <tr><td><span class="file-path">move_aiagent_to_f.bat</span></td><td>把 Trae CN ai-agent 数据移动到 F 盘,与项目代码无关</td></tr>
+  <tr><td><span class="file-path">monitor-appdata.ps1</span></td><td>监控 G:\.appdata\jdk.md,一次性环境诊断</td></tr>
+</table>
+
+<h3>5.3 一次性验证输出(3 个)</h3>
+<table>
+  <tr><th>文件</th><th>说明</th></tr>
+  <tr><td><span class="file-path">verify_output.txt</span></td><td>内容仅一行"验证通过",与 verify_output2.txt 完全相同</td></tr>
+  <tr><td><span class="file-path">verify_output2.txt</span></td><td>重复的验证输出</td></tr>
+  <tr><td><span class="file-path">old_files.json</span> + <span class="file-path">old_files_to_delete.txt</span></td><td>列出 59 个 legacy 文件,是删除操作的临时记录</td></tr>
+</table>
+
+<h3>5.4 根 scripts/ 无引用脚本(4 个)</h3>
+<table>
+  <tr><th>文件</th><th>说明</th></tr>
+  <tr><td><span class="file-path">scripts/verify-events-rotation.ps1</span></td><td>全项目无引用</td></tr>
+  <tr><td><span class="file-path">scripts/verify-simple-git-hooks.mjs</span></td><td>全项目无引用</td></tr>
+  <tr><td><span class="file-path">scripts/fix-b904.py</span></td><td>批量修复 B904,已完成使命,仅 docs/archive 提及</td></tr>
+  <tr><td><span class="file-path">scripts/gen-seed-data-v2.py</span></td><td>已被 v3 取代</td></tr>
+</table>
+
+<h3>5.5 重复配置文件(4 个)</h3>
+<table>
+  <tr><th>文件</th><th>说明</th></tr>
+  <tr><td><span class="file-path">.stylelintrc.json</span> (根)</td><td>缺少 plugins 和 aizhs/no-css-typos 规则;client/.stylelintrc.json 是实际使用版本</td></tr>
+  <tr><td><span class="file-path">eslint.config.js</span> (根)</td><td>注释为 GBK 乱码;client/eslint.config.js 是实际使用版本</td></tr>
+  <tr><td><span class="file-path">.eslintrc-auto-import.json</span> (根)</td><td>vite.config.ts 实际使用 client/.eslintrc-auto-import.json</td></tr>
+  <tr><td><span class="file-path">client/config/eslintrc-auto-import.json</span></td><td>不被 vite 使用的历史副本</td></tr>
+</table>
+
+<h3>5.6 无关 Docker 编排</h3>
+<table>
+  <tr><th>文件</th><th>说明</th></tr>
+  <tr><td><span class="file-path">client/docker-compose.yml</span></td><td>PDF 服务编排(pdf-service/pdf-frontend/pdf-postgres),引用不存在的 ./backend 目录,疑从其他项目复制</td></tr>
+</table>
+
+<h3>5.7 pw-output/ 截图产物</h3>
+<p><span class="file-path">pw-output/</span> (10 个 png) — playwright 登录弹窗调试截图,已被 .gitignore 忽略但仍占用磁盘。</p>
+
+<!-- ==================== 6. 需进一步确认 ==================== -->
+<h2 id="needs-review">6. 需进一步确认的候选</h2>
+
+<h3>6.1 client/scripts/ 未被 npm script 引用的脚本</h3>
+<table>
+  <tr><th>文件</th><th>判定</th><th>说明</th></tr>
+  <tr><td><span class="file-path">scripts/check-performance-budget.js</span></td><td><span class="badge badge-maybe">可能死代码</span></td><td>全项目无引用</td></tr>
+  <tr><td><span class="file-path">scripts/analyze-high-specificity.mjs</span></td><td><span class="badge badge-maybe">可能死代码</span></td><td>全项目无引用</td></tr>
+  <tr><td><span class="file-path">scripts/check-mobile-fontsize.ts</span></td><td><span class="badge badge-alive">有保留价值</span></td><td>STYLE-FIX-MANIFEST 建议加入 CI,有复用价值</td></tr>
+  <tr><td><span class="file-path">scripts/generate-fontsize-baseline.ts</span></td><td><span class="badge badge-maybe">可能死代码</span></td><td>仅被 check-mobile-fontsize.ts 引用</td></tr>
+</table>
+
+<h3>6.2 后端测试驱动的子系统</h3>
+<table>
+  <tr><th>模块</th><th>判定</th><th>说明</th></tr>
+  <tr><td><span class="file-path">app/alert_inhibition.py</span> + <span class="file-path">alertmanager_emulator.py</span></td><td><span class="badge badge-maybe">需确认</span></td><td>被 CI check_inhibition_rules.py 和测试引用,未见生产中间件接线</td></tr>
+  <tr><td><span class="file-path">app/backfill_broadcaster.py</span> + <span class="file-path">backfill_event.py</span> + <span class="file-path">backfill_persister.py</span></td><td><span class="badge badge-maybe">需确认</span></td><td>被 monitor/backfill.py 路由+测试引用,核心类是否在请求路径执行需确认</td></tr>
+  <tr><td><span class="file-path">app/api/v1/test/test.py</span></td><td><span class="badge badge-maybe">dev-only</span></td><td>内置 HTML 测试页,条件注册,生产无价值</td></tr>
+</table>
+
+<h3>6.3 重复依赖配置</h3>
+<table>
+  <tr><th>文件</th><th>判定</th><th>说明</th></tr>
+  <tr><td><span class="file-path">requirements.txt</span> (根)</td><td><span class="badge badge-maybe">可能冗余</span></td><td>server/requirements.txt 是锁定版本,根的是过时镜像</td></tr>
+  <tr><td><span class="file-path">server/requirements.min.txt</span></td><td><span class="badge badge-maybe">可能冗余</span></td><td>Docker 用 pyproject.toml,不读此文件</td></tr>
+  <tr><td><span class="file-path">server/requirements.lock.txt</span></td><td><span class="badge badge-maybe">可能冗余</span></td><td>同上</td></tr>
+</table>
+
+<h3>6.4 CI 失效引用</h3>
+<div class="alert">
+<p><code>.github/workflows/ci.yml</code> 第 461 行引用 <code>scripts/e2e-v8-coverage.mjs</code>,但该文件不存在(Glob 确认)。CI 该步骤会失败。<strong>这不是死代码,而是缺失文件</strong>,表明 workflow 有问题。</p>
+</div>
+
+<!-- ==================== 7. 清理建议 ==================== -->
+<h2 id="cleanup-plan">7. 清理优先级建议</h2>
+
+<h3>P0 — 立即清理(零风险)</h3>
+<ul class="priority-list p1">
+  <li>损坏文件名 <code>cripts_tmp_verify_i18n.mjs' -Force;...</code> — 用 <code>del "\\?\g:\IHUI-AI\cripts_tmp..."</code> 删除</li>
+  <li><code>verify_output.txt</code> / <code>verify_output2.txt</code> — 重复验证输出</li>
+  <li><code>old_files.json</code> / <code>old_files_to_delete.txt</code> — 待删除清单残留</li>
+  <li>3 个 Trae 环境脚本(<code>clean_trae_wal.bat</code> / <code>move_aiagent_to_f.bat</code> / <code>monitor-appdata.ps1</code>)</li>
+  <li><code>pw-output/</code> 10 个截图(已 gitignore)</li>
+  <li><code>server/app/api/v1/auth/nul</code> — Windows 保留名垃圾文件</li>
+  <li><code>server/app/services/__pycache__/feishu_auth_service.cpython-311.pyc</code> — 残留缓存</li>
+</ul>
+
+<h3>P1 — 高优先级(低风险)</h3>
+<ul class="priority-list p2">
+  <li>client/ 下 32 个临时输出文件(eslint-*.json, *.txt, *.csv 等)</li>
+  <li>client/scripts/ 下 13 个一次性诊断脚本+输出</li>
+  <li>server/ 下 7 个 pytest-*.xml/.txt 报告</li>
+  <li>根 scripts/ 下 4 个无引用脚本</li>
+  <li><code>client/backups/</code> 整个目录(历史快照)</li>
+</ul>
+
+<h3>P2 — 中优先级(需确认引用后删)</h3>
+<ul class="priority-list p3">
+  <li>18 个未引用 Vue 组件(删前再次全局 grep 确认)</li>
+  <li><code>components/study/</code> + <code>components/studyindex/</code> 两个目录</li>
+  <li>4 个未引用 .styles.scss 文件(Vip/Settings/Orders/Distribution)</li>
+  <li><code>assets-optimized/</code> 11 个 webp</li>
+  <li>4 个重复配置文件(根 .stylelintrc.json / eslint.config.js / .eslintrc-auto-import.json / client/config/eslintrc-auto-import.json)</li>
+  <li><code>client/docker-compose.yml</code>(无关 PDF 服务编排)</li>
+  <li>3 个未注册后端路由(orders_pdf.py / refund.py / alerting/webhook.py)</li>
+  <li>7 个零引用后端模块</li>
+  <li>router.py 第 547-561 行重复 import 块</li>
+</ul>
+
+<h3>P3 — 低优先级(归档整理)</h3>
+<ul class="priority-list p4">
+  <li>shadow/canary 子系统 — 标记 DEPRECATED 后移至 <code>app/_archived/</code></li>
+  <li>docs/archive/ 历史报告 — 可移至独立 archive 仓库</li>
+  <li>loop-run-log.md 历史部分 — 归档旧记录</li>
+  <li>重复 requirements.txt — 统一用 pyproject.toml</li>
+  <li>修复 ci.yml 第 461 行失效引用</li>
+</ul>
+
+<div class="alert danger">
+<p><strong>切勿删除的文件(误报清单):</strong></p>
+<ul style="padding-left:20px; margin:8px 0;">
+  <li><code>admin/Menu.vue</code> — 被 Layout.vue 相对路径导入</li>
+  <li><code>Home.vue.styles.scss</code> / <code>User.vue.styles.scss</code> / <code>AgentDetail.vue.styles.scss</code> / <code>Xuqiu.vue.styles.scss</code> — 被 SCSS @use 引用</li>
+  <li><code>del-nul.mjs</code> — check-nul.mjs 的配套清理工具</li>
+  <li><code>STATE.md</code> / <code>loop-run-log.md</code> / <code>loop-budget.md</code> — CI 工作流活跃文件</li>
+  <li>根 <code>nginx.conf</code> — Dockerfile.client 生产构建引用</li>
+  <li>未在 __init__.py re-export 的 model 文件 — 被域路由直接 import</li>
+</ul>
+</div>
+
+<div class="footer">
+  <p>本报告基于静态引用交叉验证生成,建议删除前运行 <code>ruff check app/ --select F401</code> (后端)和 <code>knip</code> (前端)做自动化二次确认。</p>
+  <p>IHUI-AI 死代码深度分析报告 | 2026-06-29</p>
+</div>
+
+</div>
+<script>
+document.querySelectorAll('.collapsible').forEach(el => {
+  el.addEventListener('click', () => {
+    el.classList.toggle('open');
+    const content = el.nextElementSibling;
+    if (content && content.classList.contains('collapsible-content')) {
+      content.style.display = content.style.display === 'block' ? 'none' : 'block';
+    }
+  });
+});
+</script>
+</body>
+</html>

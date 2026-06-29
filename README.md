@@ -365,7 +365,7 @@ mvn spring-boot:run
 
 ## API文档
 
-详细的API接口文档请参考项目中的 `API接口文档.md` 文件。
+详细的API接口文档请参考项目中的 `server/deploy/legacy-archive/docs/API接口文档.md` 文件。
 
 ## 注意事项
 
